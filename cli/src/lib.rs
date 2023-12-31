@@ -13,8 +13,6 @@ mod hash;
 mod shebang;
 
 pub fn run(args: &[String]) -> Result<()> {
-    env_logger::init();
-
     // if let Some("__USAGE__") = args.get(2).map(|s| s.as_str()) {
     //     return split_script(&args[1]);
     // } else if let Some(script) = args.get(1) {

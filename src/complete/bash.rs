@@ -1,6 +1,7 @@
-use crate::Spec;
+use crate::{env, Spec};
 
 pub fn complete_bash(spec: &Spec) -> String {
+    let usage = &*env::USAGE_CMD;
     let bin = &spec.bin;
     let raw = shell_escape::unix::escape(spec.to_string().into());
     format!(
@@ -9,7 +10,7 @@ _{bin}() {{
     local raw
     spec={raw}
 
-    COMPREPLY=($(usage complete-word -s "$spec" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}"))
+    COMPREPLY=($({usage} complete-word -s "$spec" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}"))
     #COMPREPLY=($(compgen -W "${{COMPREPLY[*]}}" -- "${{COMP_WORDS[$COMP_CWORD]}}"))
     return 0
 }}
@@ -26,8 +27,9 @@ complete -F _{bin} {bin}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::parse::spec::Spec;
+
+    use super::*;
 
     #[test]
     fn test_complete_bash() {

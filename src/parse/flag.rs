@@ -232,9 +232,9 @@ impl From<&Flag> for clap::Arg {
         // if flag.multiple {
         //     a = a.multiple(true);
         // }
-        if flag.hide {
-            a = a.hide_possible_values(true);
-        }
+        // if flag.hide {
+        //     a = a.hide_possible_values(true);
+        // }
         a
     }
 }

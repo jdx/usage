@@ -1,9 +1,9 @@
-use itertools::Itertools;
 use std::path::PathBuf;
 
 use clap::Args;
+use itertools::Itertools;
 
-use usage::Spec;
+use crate::cli::generate;
 
 #[derive(Debug, Args)]
 #[clap(visible_alias = "cw")]
@@ -18,7 +18,7 @@ pub struct CompleteWord {
     #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
     spec: Option<String>,
 
-    #[clap(long)]
+    #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
 
     #[clap(long)]
@@ -27,12 +27,7 @@ pub struct CompleteWord {
 
 impl CompleteWord {
     pub fn run(&self) -> miette::Result<()> {
-        let spec = if let Some(file) = &self.file {
-            let (spec, _) = Spec::parse_file(file)?;
-            spec
-        } else {
-            self.spec.as_ref().unwrap().parse()?
-        };
+        let spec = generate::file_or_spec(&self.file, &self.spec)?;
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self
             .ctoken
@@ -78,7 +73,6 @@ impl CompleteWord {
                     choices.push(cmd.name.clone());
                     choices.extend(cmd.aliases.iter().cloned());
                 }
-                dbg!(cmd);
             }
             Err(err) => {
                 warn!("clap error: {}", err);

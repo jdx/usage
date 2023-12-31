@@ -6,6 +6,7 @@ extern crate insta;
 pub mod complete;
 pub mod error;
 pub mod parse;
+pub(crate) mod env;
 
 pub use parse::arg::Arg;
 pub use parse::cmd::SchemaCmd;

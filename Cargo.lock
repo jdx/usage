@@ -675,6 +675,7 @@ dependencies = [
  "kdl",
  "log",
  "miette",
+ "once_cell",
  "shell-escape",
  "thiserror",
 ]
