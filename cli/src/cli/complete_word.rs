@@ -37,8 +37,10 @@ impl CompleteWord {
             .unwrap_or_default();
         let mut choices = vec![];
         let mut cli = clap::Command::from(&spec).ignore_errors(true);
+        dbg!(&cli);
         match cli.try_get_matches_from_mut(&self.words) {
             Ok(m) => {
+                dbg!(&m);
                 let mut cmd = &spec.cmd;
                 let mut m = &m;
                 loop {

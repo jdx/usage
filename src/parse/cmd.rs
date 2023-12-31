@@ -139,6 +139,7 @@ impl From<&clap::Command> for SchemaCmd {
     fn from(cmd: &clap::Command) -> Self {
         let mut spec = Self {
             name: cmd.get_name().to_string(),
+            hide: cmd.is_hide_set(),
             help: cmd.get_about().map(|s| s.to_string()),
             long_help: cmd.get_long_about().map(|s| s.to_string()),
             before_help: cmd.get_before_help().map(|s| s.to_string()),
@@ -197,6 +198,9 @@ impl From<&SchemaCmd> for clap::Command {
         }
         if cmd.subcommand_required {
             app = app.subcommand_required(true);
+        }
+        if cmd.hide {
+            app = app.hide(true);
         }
         for alias in &cmd.aliases {
             app = app.visible_alias(alias);
