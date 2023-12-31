@@ -1,0 +1,35 @@
+[env]
+CARGO_TERM_COLOR = 'always'
+
+[tasks.build]
+sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
+outputs = ['target/debug/rtx']
+run = 'cargo build --all'
+
+[tasks.cli]
+depends = ['build']
+run = './target/debug/usage'
+raw = true
+
+[tasks.complete-word]
+alias = ['cw']
+depends = ['build']
+run = './target/debug/usage cw'
+raw = true
+
+[tasks.run]
+alias = ['x']
+depends = ['build']
+run = './examples/example.sh'
+raw = true
+
+[tasks.complete_fish]
+depends = ['build']
+run = './target/debug/usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
+raw = true
+
+[tasks.test]
+run = 'cargo test --all --all-features'
+
+[tasks.insta]
+run = 'cargo test --all --all-features'
