@@ -9,6 +9,10 @@ description = "Helper for CLIs which follow the Usage spec"
 name = "usage"
 path = "src/main.rs"
 
+[lib]
+name = "usage_cli"
+path = "src/lib.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive", "string"] }
 env_logger = "0.10"
