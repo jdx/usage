@@ -316,8 +316,6 @@ arg "<shell>" {
   choices "bash" "zsh" "fish" # <shell> must be one of the choices
 }
 
-arg "-" # special arg that represents stdin, will set "$usage_stdin=1"
-
 arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 ```
 
