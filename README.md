@@ -427,3 +427,5 @@ cmd "list" {
 # use a custom completion command for args named "PLUGIN"
 complete "<plugin>" run="mycli plugins list" 
 ```
+
+- [ ] "See code" - like in oclif docs
