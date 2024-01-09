@@ -247,34 +247,25 @@ TODO
 
 ```kdl
 config {
-    load_order {
-        defaults
+    // system
+    file "/etc/mycli.toml"
+    file "/etc/mycli.json"
 
-        // system
-        file "/etc/mycli.toml"
-        file "/etc/mycli.json"
+    // global
+    file "~/.config/mycli.toml"
+    file "~/.config/mycli.json"
 
-        // global
-        file "~/.config/mycli.toml"
-        file "~/.config/mycli.json"
+    // local
+    file ".config/mycli.toml" findup=true
+    file ".config/mycli.json" findup=true
+    file ".mycli.dist.toml" findup=true
+    file ".mycli.dist.json" findup=true
+    file ".mycli.toml" findup=true
+    file ".mycli.json" findup=true
+    file ".myclirc" findup=true format="ini"
 
-        // local
-        file ".config/mycli.toml" findup=true
-        file ".config/mycli.json" findup=true
-        file ".mycli.dist.toml" findup=true
-        file ".mycli.dist.json" findup=true
-        file ".mycli.toml" findup=true
-        file ".mycli.json" findup=true
-        file ".myclirc" findup=true format="ini"
-
-        // e.g.: .mycli.dev.toml, .mycli.prod.toml
-        file ".mycli.$MYCLI_ENV.toml" findup=true
-
-        env // read from env vars
-
-        // TODO: how could I support remote providers?
-        // e.g.: etcd, consul, s3, etc.
-    }
+    // e.g.: .mycli.dev.toml, .mycli.prod.toml
+    file ".mycli.$MYCLI_ENV.toml" findup=true
 
     default "user" "admin"
     default "work_dir" "/tmp"
