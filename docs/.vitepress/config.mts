@@ -14,12 +14,22 @@ export default defineConfig({
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Spec', link: '/spec/' },
-      { text: 'CLI', link: '/cli/' },
+      {text: 'Home', link: '/'},
+      {text: 'Spec', link: '/spec/'},
+      {text: 'CLI', link: '/cli/'},
     ],
 
     sidebar: [
+      {
+        text: 'CLI',
+        link: '/cli/',
+        items: [
+          {text: 'Completions', link: '/cli/completions'},
+          {text: 'Manpages', link: '/cli/manpages'},
+          {text: 'Markdown', link: '/cli/markdown'},
+          {text: 'Scripts', link: '/cli/scripts'},
+        ]
+      },
       {
         text: 'Spec',
         link: '/spec/',
@@ -28,10 +38,10 @@ export default defineConfig({
             text: 'Reference',
             link: '/spec/reference/',
             items: [
-              { text: 'cmd', link: '/spec/reference/cmd' },
-              { text: 'arg', link: '/spec/reference/arg' },
-              { text: 'flag', link: '/spec/reference/flag' },
-              { text: 'complete', link: '/spec/reference/complete' },
+              {text: 'arg', link: '/spec/reference/arg'},
+              {text: 'cmd', link: '/spec/reference/cmd'},
+              {text: 'complete', link: '/spec/reference/complete'},
+              {text: 'flag', link: '/spec/reference/flag'},
               // { text: 'env', link: '/spec/reference/env' },
               // { text: 'config', link: '/spec/reference/config' },
             ]
@@ -41,7 +51,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/jdx/usage' }
+      {icon: 'github', link: 'https://github.com/jdx/usage'}
     ],
     editLink: {
       pattern: 'https://github.com/jdx/usage/edit/main/:path',
