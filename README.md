@@ -9,7 +9,7 @@ for CLIs. Here are some potential reasons for defining your CLI with a Usage spe
 * Generate man pages
 * Use an advanced arg parser in any language
 * Scaffold one spec into different CLI frameworks—even different languages
-* [coming soon] Host your CLI documentation on [usage.sh](https://usage.sh)
+* [coming soon] Host your CLI documentation on usage.sh
 
 > [!WARNING]
 >
