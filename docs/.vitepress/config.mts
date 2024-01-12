@@ -5,6 +5,11 @@ export default defineConfig({
   title: "Usage",
   description: "Schema for CLIs",
   lastUpdated: true,
+  markdown: {
+    // languages: [
+    //   "kdl"
+    // ]
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -23,7 +28,21 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
-    ]
+      { icon: 'github', link: 'https://github.com/jdx/usage' }
+    ],
+    editLink: {
+      pattern: 'https://github.com/jdx/usage/edit/main/:path',
+    },
+    // carbonAds: {
+    //   code: 'CWYIPKQN',
+    //   placement: 'misejdxdev',
+    // },
+    search: {
+      provider: 'local'
+    },
+    footer: {
+      message: 'Licensed under the MIT License. Maintained by <a href="https://github.com/jdx">@jdx</a> and <a href="https://github.com/jdx/usage/graphs/contributors">friends</a>.',
+      copyright: 'Copyright © 2024 <a href="https://github.com/jdx">@jdx</a>',
+    },
   }
 })
