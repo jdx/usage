@@ -15,15 +15,27 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Examples', link: '/markdown-examples' }
+      { text: 'Spec', link: '/spec/' },
+      { text: 'CLI', link: '/cli/' },
     ],
 
     sidebar: [
       {
-        text: 'Examples',
+        text: 'Spec',
+        link: '/spec/',
         items: [
-          { text: 'Markdown Examples', link: '/markdown-examples' },
-          { text: 'Runtime API Examples', link: '/api-examples' }
+          {
+            text: 'Reference',
+            link: '/spec/reference/',
+            items: [
+              { text: 'cmd', link: '/spec/reference/cmd' },
+              { text: 'arg', link: '/spec/reference/arg' },
+              { text: 'flag', link: '/spec/reference/flag' },
+              { text: 'complete', link: '/spec/reference/complete' },
+              // { text: 'env', link: '/spec/reference/env' },
+              // { text: 'config', link: '/spec/reference/config' },
+            ]
+          },
         ]
       }
     ],
