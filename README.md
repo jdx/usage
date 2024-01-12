@@ -315,6 +315,7 @@ after_help "after about"
 before_long_help "before about"
 long_about "longer help"
 after_long_help "after about"
+example "mycli --help"
 ```
 
 ### `flag`
