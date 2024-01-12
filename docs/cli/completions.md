@@ -23,7 +23,7 @@ $ usage g completion fish -f ./mycli.usage.kdl > ~/.config/fish/completions/mycl
 $ mycli --<TAB>
 ```
 
-::: important
+::: info
 Usage CLI is a runtime dependency for the generated completion scripts. Your users
 will need to have `usage` installed in order for the completion scripts to work.
 :::
