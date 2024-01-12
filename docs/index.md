@@ -7,19 +7,18 @@ hero:
   #text: "Specification for CLIs"
   tagline: A specification for CLIs
   actions:
-    - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
     - theme: alt
-      text: API Examples
-      link: /api-examples
+      text: Usage Specification
+      link: /spec/
+    - theme: alt
+      text: Usage CLI
+      link: /cli/
 
 features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - title: Shell completions
+    details: Generate shell completions for any shell
+  - title: Documentation
+    details: Generate --help docs, markdown, and manpage documentation
+  - title: Scripts
+    details: Write scripts in bash or any other language with modern arg parsing, help, and completions
 ---
-
