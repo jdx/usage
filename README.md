@@ -22,7 +22,7 @@ for CLIs. Here are some potential reasons for defining your CLI with a Usage spe
 ## Example Usage Spec
 
 Usage specs are written in [kdl](https://kdl.dev/) which is a newer document language that sort of combines
-the best of XML and JSON. Here is a basic example CLI spec:
+the best of XML and JSON. Here is a basic example CLI definition:
 
 ```sh
 # optional metadata
@@ -85,7 +85,7 @@ so in this example it will be "CLI flag > env var > config file > default".
 ## Usage Scripts
 
 Scripts can be used with the Usage CLI to display help, powerful arg parsing, and autocompletion in any language.
-The Usage CLI can be used with "double-shebang" scripts which contain both the Usage spec and script in a
+The Usage CLI can be used with "double-shebang" scripts which contain both the Usage definition and script in a
 single file. Here is an example in bash:
 
 ```bash
@@ -121,7 +121,7 @@ Hello, alice
 You could think of Usage like an LSP (Language Server Protocol) for CLIs.
 
 Those building CLI frameworks can really benefit from Usage. Rather than building features like autocompletion
-for every shell, just output a Usage spec and use the Usage CLI to generate autocompletion scripts for all
+for every shell, just output a Usage definition and use the Usage CLI to generate autocompletion scripts for all
 of the shells it supports.
 
 ## Generating Completion Scripts
@@ -166,7 +166,7 @@ $ usage complete-word --file ./mycli.usage.kdl -- mycli cmd1 cmd2 --f
 
 ## Generating Manpages
 
-Usage CLI can generate manpages from a Usage spec. Here is an example:
+Usage CLI can generate manpages from a Usage definition. Here is an example:
 
 ```sh-session
 $ usage g manpage -f ./mycli.usage.kdl > /usr/share/man/man1/mycli.1
@@ -190,7 +190,7 @@ OPTIONS
 
 ## Generating Markdown Documentation
 
-Usage CLI can generate markdown documentation from a Usage spec either into a single file, or a directory.
+Usage CLI can generate markdown documentation from a Usage definition either into a single file, or a directory.
 
 Single file (will be injected in the comment):
 
