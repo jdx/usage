@@ -1,4 +1,5 @@
 #!/usr/bin/env usage
+# shellcheck disable=all
 bin "ex"
 flag "--foo" help="Flag value"
 flag "--bar <bar>" help="Option value"

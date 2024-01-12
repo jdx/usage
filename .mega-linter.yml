@@ -26,6 +26,3 @@ DISABLE_LINTERS:
 #   - command: apk add --no-cache zlib-dev zlib-static openssl-dev libffi-dev
 
 SHOW_ELAPSED_TIME: true
-
-BASH_SHELLCHECK_FILTER_REGEX_EXCLUDE: |
-  examples/example.sh
