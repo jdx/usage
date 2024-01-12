@@ -5,6 +5,7 @@ export default defineConfig({
   title: "Usage",
   description: "Schema for CLIs",
   lastUpdated: true,
+  cleanUrls: true,
   markdown: {
     // languages: [
     //   "kdl"
