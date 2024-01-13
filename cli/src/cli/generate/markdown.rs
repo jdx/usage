@@ -48,6 +48,7 @@ impl Markdown {
         let raw = fs::read_to_string(inject).into_diagnostic()?;
         println!("{}", raw);
         let root = inject.parent().unwrap().to_path_buf();
+        let cwd = env::current_dir().into_diagnostic()?;
         env::set_current_dir(&root).into_diagnostic()?;
         let out = raw
             .lines()
@@ -55,11 +56,11 @@ impl Markdown {
             .collect::<Result<Vec<UsageMdDirective>>>()?
             .into_iter()
             .try_fold(UsageMdContext::new(root), |ctx, d| d.run(ctx))?
-            .output
+            .out
             .join("\n");
-
+        env::set_current_dir(cwd).into_diagnostic()?;
         println!("{}", out);
-        //fs::write(inject, out).into_diagnostic()?;
+        fs::write(inject, out).into_diagnostic()?;
         Ok(())
     }
 
@@ -147,21 +148,24 @@ impl Markdown {
 enum UsageMdDirective {
     Load { file: PathBuf },
     CommandIndex,
+    EndToken,
     Plain(String),
 }
 
 struct UsageMdContext {
-    root: PathBuf,
+    _root: PathBuf,
+    plain: bool,
     spec: Option<Spec>,
-    output: Vec<String>,
+    out: Vec<String>,
 }
 
 impl UsageMdContext {
-    fn new(root: PathBuf) -> Self {
+    fn new(_root: PathBuf) -> Self {
         Self {
-            root,
+            _root,
+            plain: true,
             spec: None,
-            output: vec![],
+            out: vec![],
         }
     }
 }
@@ -175,12 +179,16 @@ impl UsageMdDirective {
                 //     false => file.clone(),
                 // };
                 ctx.spec = Some(fs::read_to_string(file).into_diagnostic()?.parse()?);
+                ctx.out
+                    .push(format!("<!-- [USAGE] load file=\"{}\" -->", file.display()));
 
                 Ok(ctx)
             }
             UsageMdDirective::CommandIndex => {
+                ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 let mut out = vec![];
+                out.push(format!("<!-- [USAGE] command_index -->"));
                 out.push(format!("# {name}", name = spec.name));
                 out.push(format!("## Usage"));
                 out.push(format!("```"));
@@ -244,11 +252,18 @@ impl UsageMdDirective {
                     }
                 }
 
-                ctx.output.push(out.join("\n"));
+                out.push(format!("<!-- [USAGE] -->"));
+                ctx.out.push(out.join("\n"));
+                Ok(ctx)
+            }
+            UsageMdDirective::EndToken => {
+                ctx.plain = true;
                 Ok(ctx)
             }
             UsageMdDirective::Plain(line) => {
-                ctx.output.push(line.clone());
+                if ctx.plain {
+                    ctx.out.push(line.clone());
+                }
                 Ok(ctx)
             }
         }
@@ -271,14 +286,17 @@ struct MarkdownError {
 impl FromStr for UsageMdDirective {
     type Err = miette::Error;
     fn from_str(line: &str) -> Result<Self, Self::Err> {
-        let directive = if let Some(x) = regex!(r#"<!-- \[USAGE\] (.+) -->"#).captures(line) {
+        if line == "<!-- [USAGE] -->" {
+            return Ok(UsageMdDirective::EndToken);
+        }
+        let directive = if let Some(x) = regex!(r#"<!-- \[USAGE\] (.*) -->"#).captures(line) {
             let doc: KdlDocument = x.get(1).unwrap().as_str().parse()?;
             if !doc.nodes().len() == 1 {
                 bail!("only one node allowed in usage directive");
             }
             let node = doc.nodes().first().unwrap();
             let err = |msg: String, span| MarkdownError {
-                msg: msg,
+                msg,
                 src: doc.to_string(),
                 err_span: span,
             };

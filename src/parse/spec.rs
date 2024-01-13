@@ -25,6 +25,24 @@ impl Spec {
         }
         Ok((schema, body))
     }
+
+    fn merge(&mut self, other: Spec) {
+        if !other.name.is_empty() {
+            self.name = other.name;
+        }
+        if !other.bin.is_empty() {
+            self.bin = other.bin;
+        }
+        for flag in other.cmd.flags {
+            self.cmd.flags.push(flag);
+        }
+        for arg in other.cmd.args {
+            self.cmd.args.push(arg);
+        }
+        for (name, cmd) in other.cmd.subcommands {
+            self.cmd.subcommands.insert(name, cmd);
+        }
+    }
 }
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
@@ -58,23 +76,9 @@ impl FromStr for Spec {
                 "include" => {
                     let file = node.get("file").unwrap().value().as_string().unwrap();
                     info!("include: {}", file);
-                    let (spec, body) = split_script(Path::new(file))?;
+                    let (spec, _) = split_script(Path::new(file))?;
                     let include = Self::from_str(&spec)?;
-                    if !include.name.is_empty() {
-                        schema.name = include.name;
-                    }
-                    if !include.bin.is_empty() {
-                        schema.bin = include.bin;
-                    }
-                    for flag in include.cmd.flags {
-                        schema.cmd.flags.push(flag);
-                    }
-                    for arg in include.cmd.args {
-                        schema.cmd.args.push(arg);
-                    }
-                    for (name, cmd) in include.cmd.subcommands {
-                        schema.cmd.subcommands.insert(name, cmd);
-                    }
+                    schema.merge(include);
                 }
                 _ => Err(UsageErr::InvalidInput(
                     node.to_string(),
