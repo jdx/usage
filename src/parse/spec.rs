@@ -1,11 +1,13 @@
-use crate::context::get_load_root;
+use std::fmt::{Display, Formatter};
+use std::path::Path;
+use std::str::FromStr;
+
+use kdl::{KdlDocument, KdlEntry, KdlNode};
+
+use xx::{context, file};
+
 use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
-use kdl::{KdlDocument, KdlEntry, KdlNode};
-use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use xx::file;
 
 #[derive(Debug, Default)]
 pub struct Spec {
@@ -63,7 +65,7 @@ fn get_string_prop(node: &KdlNode, name: &str) -> Option<String> {
 
 impl FromStr for Spec {
     type Err = miette::Error;
-    fn from_str(input: &str) -> miette::Result<Spec> {
+    fn from_str(input: &str) -> Result<Spec, Self::Err> {
         let kdl: KdlDocument = input
             .parse()
             .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
@@ -81,15 +83,16 @@ impl FromStr for Spec {
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
                 "include" => {
-                    let file = match get_string_prop(node, "file").map(PathBuf::from) {
-                        Some(file) if file.is_relative() => get_load_root().join(file),
-                        Some(file) => file.to_path_buf(),
-                        None => Err(UsageErr::InvalidInput(
-                            node.to_string(),
-                            *node.span(),
-                            input.to_string(),
-                        ))?,
-                    };
+                    let file = get_string_prop(node, "file")
+                        .map(context::prepend_load_root)
+                        .ok_or_else(|| {
+                            UsageErr::InvalidInput(
+                                node.to_string(),
+                                *node.span(),
+                                input.to_string(),
+                            )
+                        })?;
+                    ensure!(file.exists(), "File not found: {}", file.display());
                     info!("include: {}", file.display());
                     let (spec, _) = split_script(&file)?;
                     schema.merge(spec.parse()?);

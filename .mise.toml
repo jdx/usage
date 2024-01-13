@@ -31,5 +31,11 @@ raw = true
 [tasks.test]
 run = 'cargo test --all --all-features'
 
-[tasks.insta]
-run = 'cargo test --all --all-features'
+[tasks.lint]
+run = 'cargo clippy --all --all-features -- -D warnings'
+
+[tasks.format-check]
+run = 'cargo fmt --all -- --check'
+
+[tasks.ci]
+depends = ['test', 'lint', 'format-check']

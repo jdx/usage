@@ -1,5 +1,4 @@
 <!-- [USAGE] load file="./mise.usage.kdl" -->
-<!-- [USAGE] load file="./mise.usage.kdl" -->
 <!-- [USAGE] title -->
 # mise
 <!-- [USAGE] -->

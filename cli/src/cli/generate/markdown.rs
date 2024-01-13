@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -162,6 +163,24 @@ enum UsageMdDirective {
     Plain(String),
 }
 
+impl Display for UsageMdDirective {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UsageMdDirective::Load { file } => {
+                write!(f, "<!-- [USAGE] load file=\"{}\" -->", file.display())
+            }
+            UsageMdDirective::Title => write!(f, "<!-- [USAGE] title -->"),
+            UsageMdDirective::UsageOverview => write!(f, "<!-- [USAGE] usage_overview -->"),
+            UsageMdDirective::GlobalArgs => write!(f, "<!-- [USAGE] global_args -->"),
+            UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
+            UsageMdDirective::CommandIndex => write!(f, "<!-- [USAGE] command_index -->"),
+            UsageMdDirective::Commands => write!(f, "<!-- [USAGE] commands -->"),
+            UsageMdDirective::EndToken => write!(f, "<!-- [USAGE] -->"),
+            UsageMdDirective::Plain(line) => write!(f, "{}", line),
+        }
+    }
+}
+
 struct UsageMdContext {
     plain: bool,
     spec: Option<Spec>,
@@ -191,13 +210,13 @@ impl UsageMdDirective {
             UsageMdDirective::Load { file } => {
                 let file = context::prepend_load_root(file);
                 ctx.spec = Some(fs::read_to_string(&file).into_diagnostic()?.parse()?);
-                ctx.push(format!("<!-- [USAGE] load file=\"{}\" -->", file.display()));
+                ctx.push(self.to_string());
             }
             UsageMdDirective::Title => {
                 ensure!(ctx.spec.is_some(), "spec must be loaded before title");
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(format!("<!-- [USAGE] title -->"));
+                ctx.push(self.to_string());
                 ctx.push(format!("# {name}", name = spec.name));
                 ctx.push(format!("<!-- [USAGE] -->"));
             }
@@ -205,7 +224,7 @@ impl UsageMdDirective {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
 
-                ctx.push("<!-- [USAGE] usage_overview -->".to_string());
+                ctx.push(self.to_string());
                 ctx.push("```".to_string());
                 ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
                 ctx.push("```".to_string());
@@ -215,7 +234,7 @@ impl UsageMdDirective {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
 
-                ctx.push("<!-- [USAGE] global_args -->".to_string());
+                ctx.push(self.to_string());
                 let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
                 if !args.is_empty() {
                     for arg in args {
@@ -236,7 +255,7 @@ impl UsageMdDirective {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
 
-                ctx.push("<!-- [USAGE] global_flags -->".to_string());
+                ctx.push(self.to_string());
                 let flags = spec
                     .cmd
                     .flags
@@ -261,14 +280,14 @@ impl UsageMdDirective {
             UsageMdDirective::CommandIndex => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(format!("<!-- [USAGE] command_index -->"));
+                ctx.push(self.to_string());
                 print_commands_index(&ctx, &[&spec.cmd])?;
                 ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::Commands => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(format!("<!-- [USAGE] commands -->"));
+                ctx.push(self.to_string());
                 print_commands(&ctx, &[&spec.cmd])?;
                 ctx.push(format!("<!-- [USAGE] -->"));
             }
