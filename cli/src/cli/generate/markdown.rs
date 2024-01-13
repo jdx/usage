@@ -3,6 +3,7 @@ use std::io::Write;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Mutex;
 use std::{env, fs};
 
 use clap::Args;
@@ -57,6 +58,8 @@ impl Markdown {
             .into_iter()
             .try_fold(UsageMdContext::new(root), |ctx, d| d.run(ctx))?
             .out
+            .lock()
+            .unwrap()
             .join("\n");
         env::set_current_dir(cwd).into_diagnostic()?;
         println!("{}", out);
@@ -147,7 +150,11 @@ impl Markdown {
 
 enum UsageMdDirective {
     Load { file: PathBuf },
+    UsageOverview,
+    GlobalArgs,
+    GlobalFlags,
     CommandIndex,
+    Commands,
     EndToken,
     Plain(String),
 }
@@ -156,7 +163,7 @@ struct UsageMdContext {
     _root: PathBuf,
     plain: bool,
     spec: Option<Spec>,
-    out: Vec<String>,
+    out: Mutex<Vec<String>>,
 }
 
 impl UsageMdContext {
@@ -165,8 +172,12 @@ impl UsageMdContext {
             _root,
             plain: true,
             spec: None,
-            out: vec![],
+            out: Mutex::new(vec![]),
         }
+    }
+
+    fn push(&self, line: String) {
+        self.out.lock().unwrap().push(line);
     }
 }
 
@@ -179,37 +190,47 @@ impl UsageMdDirective {
                 //     false => file.clone(),
                 // };
                 ctx.spec = Some(fs::read_to_string(file).into_diagnostic()?.parse()?);
-                ctx.out
-                    .push(format!("<!-- [USAGE] load file=\"{}\" -->", file.display()));
-
-                Ok(ctx)
+                ctx.push(format!("<!-- [USAGE] load file=\"{}\" -->", file.display()));
             }
-            UsageMdDirective::CommandIndex => {
+            UsageMdDirective::UsageOverview => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
-                let mut out = vec![];
-                out.push(format!("<!-- [USAGE] command_index -->"));
-                out.push(format!("# {name}", name = spec.name));
-                out.push(format!("## Usage"));
-                out.push(format!("```"));
-                out.push(format!("{bin} [flags] [args]", bin = spec.bin));
-                out.push(format!("```"));
 
+                ctx.push("<!-- [USAGE] usage_overview -->".to_string());
+                ctx.push(format!("# {name}", name = spec.name));
+                ctx.push("## Usage".to_string());
+                ctx.push("```".to_string());
+                ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
+                ctx.push("```".to_string());
+                ctx.push("\n<!-- [USAGE] -->".to_string());
+            }
+            UsageMdDirective::GlobalArgs => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+
+                ctx.push("<!-- [USAGE] global_args -->".to_string());
                 let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
                 if !args.is_empty() {
-                    out.push(format!("## Args"));
+                    ctx.push(format!("## Args"));
                     for arg in args {
                         let name = &arg.usage();
                         if let Some(about) = &arg.long_help {
-                            out.push(format!("### {name}", name = name));
-                            out.push(format!("{about}", about = about));
+                            ctx.push(format!("### {name}", name = name));
+                            ctx.push(format!("{about}", about = about));
                         } else if let Some(about) = &arg.help {
-                            out.push(format!("- `{name}`: {about}", name = name, about = about));
+                            ctx.push(format!("- `{name}`: {about}", name = name, about = about));
                         } else {
-                            out.push(format!("- `{name}`", name = name));
+                            ctx.push(format!("- `{name}`", name = name));
                         }
                     }
                 }
+                ctx.push(format!("\n<!-- [USAGE] -->"));
+            }
+            UsageMdDirective::GlobalFlags => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+
+                ctx.push("<!-- [USAGE] global_flags -->".to_string());
                 let flags = spec
                     .cmd
                     .flags
@@ -217,19 +238,26 @@ impl UsageMdDirective {
                     .filter(|f| !f.hide)
                     .collect::<Vec<_>>();
                 if !flags.is_empty() {
-                    out.push(format!("## Flags"));
+                    ctx.push(format!("## Flags"));
                     for flag in flags {
                         let name = flag.usage();
                         if let Some(about) = &flag.long_help {
-                            out.push(format!("### {name}", name = name));
-                            out.push(format!("{about}", about = about));
+                            ctx.push(format!("### {name}", name = name));
+                            ctx.push(format!("{about}", about = about));
                         } else if let Some(about) = &flag.help {
-                            out.push(format!("- `{name}`: {about}", name = name, about = about));
+                            ctx.push(format!("- `{name}`: {about}", name = name, about = about));
                         } else {
-                            out.push(format!("- `{name}`", name = name));
+                            ctx.push(format!("- `{name}`", name = name));
                         }
                     }
                 }
+                ctx.push(format!("\n<!-- [USAGE] -->"));
+            }
+            UsageMdDirective::CommandIndex => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+                ctx.push(format!("<!-- [USAGE] command_index -->"));
+
                 let subcommands = spec
                     .cmd
                     .subcommands
@@ -237,36 +265,44 @@ impl UsageMdDirective {
                     .filter(|c| !c.hide)
                     .collect::<Vec<_>>();
                 if !subcommands.is_empty() {
-                    out.push(format!("## Commands"));
+                    ctx.push(format!("## Commands"));
                     for cmd in subcommands {
                         let name = cmd.name.as_str();
                         if let Some(about) = &cmd.help {
-                            out.push(format!(
+                            ctx.push(format!(
                                 "- [`{name}`](./{name}): {about}",
                                 name = name,
                                 about = about
                             ));
                         } else {
-                            out.push(format!("- [`{name}`](./{name})", name = name));
+                            ctx.push(format!("- [`{name}`](./{name})", name = name));
                         }
                     }
                 }
 
-                out.push(format!("<!-- [USAGE] -->"));
-                ctx.out.push(out.join("\n"));
-                Ok(ctx)
+                ctx.push(format!("\n<!-- [USAGE] -->"));
+            }
+            UsageMdDirective::Commands => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+                ctx.push(format!("<!-- [USAGE] commands -->"));
+                ctx.push(format!("# {name}", name = spec.name));
+                ctx.push(format!("## Usage"));
+                ctx.push(format!("```"));
+                ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
+                ctx.push(format!("```"));
+                ctx.push(format!("\n<!-- [USAGE] -->"));
             }
             UsageMdDirective::EndToken => {
                 ctx.plain = true;
-                Ok(ctx)
             }
             UsageMdDirective::Plain(line) => {
                 if ctx.plain {
-                    ctx.out.push(line.clone());
+                    ctx.push(line.clone());
                 }
-                Ok(ctx)
             }
-        }
+        };
+        Ok(ctx)
     }
 }
 
@@ -312,7 +348,11 @@ impl FromStr for UsageMdDirective {
                 "load" => UsageMdDirective::Load {
                     file: PathBuf::from(get_string(node, "file")?),
                 },
+                "usage_overview" => UsageMdDirective::UsageOverview,
+                "global_args" => UsageMdDirective::GlobalArgs,
+                "global_flags" => UsageMdDirective::GlobalFlags,
                 "command_index" => UsageMdDirective::CommandIndex,
+                "commands" => UsageMdDirective::Commands,
                 _ => Err(err("unknown directive type".into(), *node.name().span()))?,
             }
         } else {

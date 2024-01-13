@@ -1,17 +1,27 @@
 # mise-en-place
 
 <!-- [USAGE] load file="./mise.usage.kdl" -->
-<!-- [USAGE] command_index -->
+<!-- [USAGE] usage_overview -->
 # mise
 ## Usage
 ```
  [flags] [args]
 ```
+
+<!-- [USAGE] -->
+
+<!-- [USAGE] global_args -->
+
+<!-- [USAGE] -->
+<!-- [USAGE] global_flags -->
 ## Flags
 - `-C,--cd <DIR>`: Change directory before running command
 - `-q,--quiet`: Suppress non-error messages
 - `-v,--verbose`: Show extra output (use -vv for even more)
 - `-y,--yes`: Answer yes to all confirmation prompts
+
+<!-- [USAGE] -->
+<!-- [USAGE] command_index -->
 ## Commands
 - [`activate`](./activate)
 - [`alias`](./alias)
@@ -52,4 +62,13 @@
 - [`watch`](./watch)
 - [`where`](./where)
 - [`which`](./which)
+
+<!-- [USAGE] -->
+<!-- [USAGE] commands -->
+# mise
+## Usage
+```
+ [flags] [args]
+```
+
 <!-- [USAGE] -->
