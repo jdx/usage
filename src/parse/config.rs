@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
-use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
 use crate::bail_parse;
 use crate::error::UsageErr;
+use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug)]
 pub struct SpecConfig {
-    pub(crate) props: BTreeMap<String, SpecConfigProp>,
+    pub props: BTreeMap<String, SpecConfigProp>,
 }
 
 impl SpecConfig {
@@ -45,79 +45,13 @@ impl SpecConfigProp {
     }
 }
 
-#[derive(Debug)]
-struct ParseHalp<'a> {
-    node: &'a KdlNode,
-}
-
-#[derive(Debug)]
-struct ParseEntry<'a> {
-    entry: &'a KdlEntry,
-    value: &'a KdlValue,
-}
-
-impl<'a> ParseHalp<'a> {
-    fn new(node: &'a KdlNode) -> Self {
-        Self { node }
-    }
-
-    fn name(&self) -> &str {
-        self.node.name().value()
-    }
-
-    fn arg(&self, i: usize) -> Result<ParseEntry, UsageErr> {
-        if let Some(entry) = self.node.entries().get(i) {
-            if entry.name().is_some() {
-                bail_parse!(entry, "expected argument, got param: {}", entry.to_string())
-            }
-            return Ok(entry.into());
-        }
-        bail_parse!(self.node, "missing argument")
-    }
-
-    fn props(&self) -> IndexMap<&str, ParseEntry> {
-        self.node
-            .entries()
-            .into_iter()
-            .filter_map(|e| match e.name() {
-                Some(key) => Some((key.value(), e.into())),
-                None => None,
-            })
-            .collect()
-    }
-}
-
-impl<'a> From<&'a KdlNode> for ParseHalp<'a> {
-    fn from(node: &'a KdlNode) -> Self {
-        Self { node }
-    }
-}
-
-impl<'a> From<&'a KdlEntry> for ParseEntry<'a> {
-    fn from(entry: &'a KdlEntry) -> Self {
-        Self {
-            entry,
-            value: entry.value(),
-        }
-    }
-}
-
-impl<'a> ParseEntry<'a> {
-    fn ensure_string(&self) -> Result<&str, UsageErr> {
-        match self.value.as_string() {
-            Some(s) => Ok(s),
-            None => bail_parse!(self.entry, "expected string"),
-        }
-    }
-}
-
 impl TryFrom<&KdlNode> for SpecConfig {
     type Error = UsageErr;
     fn try_from(doc: &KdlNode) -> Result<Self, Self::Error> {
         let mut config = Self::default();
         if let Some(children) = doc.children().map(|doc| doc.nodes()) {
             for node in children {
-                let ph = ParseHalp::new(node);
+                let ph = NodeHelper::new(node);
                 match ph.name() {
                     "prop" => {
                         let key = ph.arg(0)?;
