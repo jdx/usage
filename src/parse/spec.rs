@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use kdl::{KdlDocument, KdlEntry, KdlNode};
@@ -9,6 +9,8 @@ use xx::{context, file};
 use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
 use crate::parse::config::SpecConfig;
+use miette::NamedSource;
+use std::cell::RefCell;
 
 #[derive(Debug, Default)]
 pub struct Spec {
@@ -19,8 +21,13 @@ pub struct Spec {
 }
 
 impl Spec {
+    thread_local! {
+        static PARSING_FILE: RefCell<Option<(PathBuf, String)>> = RefCell::new(None);
+    }
+
     pub fn parse_file(file: &Path) -> miette::Result<(Spec, String)> {
         let (spec, body) = split_script(file)?;
+        Self::set_parsing_file(Some((file.to_path_buf(), spec.clone())));
         let mut schema = Self::from_str(&spec)?;
         if schema.bin.is_empty() {
             schema.bin = file.file_name().unwrap().to_str().unwrap().to_string();
@@ -28,7 +35,20 @@ impl Spec {
         if schema.name.is_empty() {
             schema.name = schema.bin.clone();
         }
+        Self::set_parsing_file(None);
         Ok((schema, body))
+    }
+
+    pub fn get_parsing_file() -> NamedSource {
+        Self::PARSING_FILE.with(|f| {
+            f.borrow()
+                .as_ref()
+                .map(|(p, s)| NamedSource::new(p.to_string_lossy().to_string(), s.clone()))
+                .unwrap_or_else(|| NamedSource::new("".to_string(), "".to_string()))
+        })
+    }
+    fn set_parsing_file(file: Option<(PathBuf, String)>) {
+        Self::PARSING_FILE.with(|f| *f.borrow_mut() = file);
     }
 
     fn merge(&mut self, other: Spec) {
@@ -88,23 +108,13 @@ impl FromStr for Spec {
                 "include" => {
                     let file = get_string_prop(node, "file")
                         .map(context::prepend_load_root)
-                        .ok_or_else(|| {
-                            UsageErr::InvalidInput(
-                                node.to_string(),
-                                *node.span(),
-                                input.to_string(),
-                            )
-                        })?;
+                        .ok_or_else(|| UsageErr::new(node.to_string(), node.span()))?;
                     ensure!(file.exists(), "File not found: {}", file.display());
                     info!("include: {}", file.display());
                     let (spec, _) = split_script(&file)?;
                     schema.merge(spec.parse()?);
                 }
-                _ => Err(UsageErr::InvalidInput(
-                    node.to_string(),
-                    *node.span(),
-                    input.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(node.to_string(), node.span()))?,
             }
         }
         Ok(schema)

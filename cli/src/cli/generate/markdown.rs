@@ -209,7 +209,7 @@ impl UsageMdDirective {
         match self {
             UsageMdDirective::Load { file } => {
                 let file = context::prepend_load_root(file);
-                ctx.spec = Some(fs::read_to_string(&file).into_diagnostic()?.parse()?);
+                ctx.spec = Some(Spec::parse_file(&file)?.0);
                 ctx.push(self.to_string());
             }
             UsageMdDirective::Title => {

@@ -82,11 +82,7 @@ impl TryFrom<&KdlNode> for Arg {
                 "var_min" => arg.var_min = entry.value().as_i64(),
                 "var_max" => arg.var_max = entry.value().as_i64(),
                 "default" => arg.default = entry.value().as_string().map(|s| s.to_string()),
-                _ => Err(UsageErr::InvalidInput(
-                    entry.to_string(),
-                    *entry.span(),
-                    node.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(entry.to_string(), entry.span()))?,
             }
         }
         Ok(arg)

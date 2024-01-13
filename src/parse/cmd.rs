@@ -93,11 +93,7 @@ impl TryFrom<&KdlNode> for SchemaCmd {
                 }
                 "subcommand_required" => cmd.subcommand_required = entry.value().as_bool().unwrap(),
                 "hide" => cmd.hide = entry.value().as_bool().unwrap(),
-                _ => Err(UsageErr::InvalidInput(
-                    entry.to_string(),
-                    *entry.span(),
-                    node.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(entry.to_string(), entry.span()))?,
             }
         }
         for child in node.children().map(|c| c.nodes()).unwrap_or_default() {
@@ -123,11 +119,7 @@ impl TryFrom<&KdlNode> for SchemaCmd {
                         cmd.aliases.extend(alias);
                     }
                 }
-                _ => Err(UsageErr::InvalidInput(
-                    child.to_string(),
-                    *child.span(),
-                    node.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(child.to_string(), child.span()))?,
             }
         }
         Ok(cmd)

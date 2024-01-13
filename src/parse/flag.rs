@@ -97,22 +97,14 @@ impl TryFrom<&KdlNode> for Flag {
                 "hide" => flag.hide = entry.value().as_bool().unwrap(),
                 "global" => flag.global = entry.value().as_bool().unwrap(),
                 "count" => flag.count = entry.value().as_bool().unwrap(),
-                _ => Err(UsageErr::InvalidInput(
-                    entry.to_string(),
-                    *entry.span(),
-                    node.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(entry.to_string(), entry.span()))?,
             }
         }
         let children = node.children().map(|c| c.nodes()).unwrap_or_default();
         for child in children {
             match child.name().to_string().as_str() {
                 "arg" => flag.arg = Some(child.try_into()?),
-                _ => Err(UsageErr::InvalidInput(
-                    child.to_string(),
-                    *child.span(),
-                    node.to_string(),
-                ))?,
+                _ => Err(UsageErr::new(child.to_string(), child.span()))?,
             }
         }
         Ok(flag)
