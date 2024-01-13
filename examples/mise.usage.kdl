@@ -1,17 +1,20 @@
-name "rtx"
+name "mise"
+flag "-C,--cd" help="Change directory before running command" global=true {
+    arg "<DIR>"
+}
 flag "--debug" help="Sets log level to debug" hide=true global=true
 flag "--log-level" help="Set the log output verbosity" hide=true global=true {
     arg "<LEVEL>"
 }
-flag "--trace" help="Sets log level to trace" hide=true global=true
 flag "-q,--quiet" help="Suppress non-error messages" global=true
+flag "--trace" help="Sets log level to trace" hide=true global=true
 flag "-v,--verbose" help="Show extra output (use -vv for even more)" var=true global=true count=true
-flag "-y,--yes" help="Answer yes to all prompts" global=true
+flag "-y,--yes" help="Answer yes to all confirmation prompts" global=true
 cmd "activate" {
     flag "-s,--shell" help="Shell type to generate the script for" hide=true {
         arg "<SHELL>"
     }
-    flag "--status" help="Show \"rtx: <PLUGIN>@<VERSION>\" message when changing directories"
+    flag "--status" help="Show \"mise: <PLUGIN>@<VERSION>\" message when changing directories"
     flag "-q,--quiet" help="Suppress non-error messages"
     arg "[SHELL_TYPE]" help="Shell type to generate the script for"
 }
@@ -43,7 +46,7 @@ cmd "alias" {
         arg "<ALIAS>" help="The alias to remove"
     }
 }
-cmd "asdf" {
+cmd "asdf" hide=true {
     arg "[ARGS]..." help="all arguments" var=true
 }
 cmd "bin-paths"
@@ -75,12 +78,12 @@ cmd "config" {
     }
 }
 cmd "current" {
-    arg "[PLUGIN]" help="Plugin to show versions of e.g.: ruby, node"
+    arg "[PLUGIN]" help="Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc"
 }
 cmd "deactivate"
 cmd "direnv" {
-    cmd "envrc"
-    cmd "exec"
+    cmd "envrc" hide=true
+    cmd "exec" hide=true
     cmd "activate"
 }
 cmd "doctor"
@@ -92,22 +95,10 @@ cmd "env" {
     flag "-J,--json" help="Output in JSON format"
     arg "[TOOL@VERSION]..." help="Tool(s) to use" var=true
 }
-cmd "env-vars" {
-    flag "--file" help="The TOML file to update" long_help="The TOML file to update\n\nDefaults to RTX_DEFAULT_CONFIG_FILENAME environment variable, or \".rtx.toml\"." {
-        arg "<FILE>"
-    }
-    flag "--remove" help="Remove the environment variable from config file" long_help="Remove the environment variable from config file\n\nCan be used multiple times." var=true {
-        arg "<ENV_VAR>"
-    }
-    arg "[ENV_VARS]..." help="Environment variable(s) to set\ne.g.: NODE_ENV=production" var=true
-}
 cmd "exec" {
     alias "x"
     flag "-c,--command" help="Command string to execute" {
         arg "<C>"
-    }
-    flag "-C,--cd" help="Change to this directory before executing the command" {
-        arg "<CD>"
     }
     flag "-j,--jobs" help="Number of jobs to run in parallel\n[default: 4]" {
         arg "<JOBS>"
@@ -116,24 +107,24 @@ cmd "exec" {
     arg "[TOOL@VERSION]..." help="Tool(s) to start e.g.: node@20 python@3.10" var=true
     arg "[COMMAND]..." help="Command string to execute (same as --command)" var=true
 }
-cmd "global" {
+cmd "global" hide=true {
     alias "g" hide=true
-    flag "--pin" help="Save exact version to `~/.tool-versions`\ne.g.: `rtx global --pin node@20` will save `node 20.0.0` to ~/.tool-versions"
-    flag "--fuzzy" help="Save fuzzy version to `~/.tool-versions`\ne.g.: `rtx global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless RTX_ASDF_COMPAT=1"
+    flag "--pin" help="Save exact version to `~/.tool-versions`\ne.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions"
+    flag "--fuzzy" help="Save fuzzy version to `~/.tool-versions`\ne.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless MISE_ASDF_COMPAT=1"
     flag "--remove" help="Remove the plugin(s) from ~/.tool-versions" var=true {
         arg "<PLUGIN>"
     }
     flag "--path" help="Get the path of the global config file"
     arg "[TOOL@VERSION]..." help="Tool(s) to add to .tool-versions\ne.g.: node@20\nIf this is a single tool with no version, the current value of the global\n.tool-versions will be displayed" var=true
 }
-cmd "hook-env" {
+cmd "hook-env" hide=true {
     flag "-s,--shell" help="Shell type to generate script for" {
         arg "<SHELL>"
     }
-    flag "--status" help="Show \"rtx: <PLUGIN>@<VERSION>\" message when changing directories"
+    flag "--status" help="Show \"mise: <PLUGIN>@<VERSION>\" message when changing directories"
     flag "-q,--quiet" help="Hide warnings such as when a tool is not installed"
 }
-cmd "hook-not-found" {
+cmd "hook-not-found" hide=true {
     flag "-s,--shell" help="Shell type to generate script for" {
         arg "<SHELL>"
     }
@@ -164,25 +155,25 @@ cmd "link" {
     arg "<TOOL@VERSION>" help="Tool name and version to create a symlink for"
     arg "<PATH>" help="The local path to the tool version\ne.g.: ~/.nvm/versions/node/v20.0.0"
 }
-cmd "local" {
+cmd "local" hide=true {
     alias "l" hide=true
     flag "-p,--parent" help="Recurse up to find a .tool-versions file rather than using the current directory only\nby default this command will only set the tool in the current directory (\"$PWD/.tool-versions\")"
-    flag "--pin" help="Save exact version to `.tool-versions`\ne.g.: `rtx local --pin node@20` will save `node 20.0.0` to .tool-versions"
-    flag "--fuzzy" help="Save fuzzy version to `.tool-versions` e.g.: `rtx local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless RTX_ASDF_COMPAT=1"
+    flag "--pin" help="Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions"
+    flag "--fuzzy" help="Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1"
     flag "--remove" help="Remove the plugin(s) from .tool-versions" var=true {
         arg "<PLUGIN>"
     }
     flag "--path" help="Get the path of the config file"
-    arg "[TOOL@VERSION]..." help="Tool(s) to add to .tool-versions/.rtx.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/.rtx.toml will be displayed" var=true
+    arg "[TOOL@VERSION]..." help="Tool(s) to add to .tool-versions/.mise.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/.mise.toml will be displayed" var=true
 }
 cmd "ls" {
     alias "list"
     flag "-p,--plugin" hide=true {
         arg "<PLUGIN_FLAG>"
     }
-    flag "-c,--current" help="Only show tool versions currently specified in a .tool-versions/.rtx.toml"
-    flag "-g,--global" help="Only show tool versions currently specified in a the global .tool-versions/.rtx.toml"
-    flag "-i,--installed" help="Only show tool versions that are installed Hides missing ones defined in .tool-versions/.rtx.toml but not yet installed"
+    flag "-c,--current" help="Only show tool versions currently specified in a .tool-versions/.mise.toml"
+    flag "-g,--global" help="Only show tool versions currently specified in a the global .tool-versions/.mise.toml"
+    flag "-i,--installed" help="Only show tool versions that are installed Hides missing ones defined in .tool-versions/.mise.toml but not yet installed"
     flag "--parseable" help="Output in an easily parseable format" hide=true
     flag "-J,--json" help="Output in json format"
     flag "-m,--missing" help="Display missing tool versions"
@@ -204,7 +195,7 @@ cmd "outdated" {
 cmd "plugins" {
     alias "p"
     alias "plugin" "plugin-list" hide=true
-    flag "-a,--all" help="list all available remote plugins" long_help="list all available remote plugins\n\nsame as `rtx plugins ls-remote`" hide=true
+    flag "-a,--all" help="list all available remote plugins" long_help="list all available remote plugins\n\nsame as `mise plugins ls-remote`" hide=true
     flag "-c,--core" help="The built-in plugins only\nNormally these are not shown"
     flag "--user" help="List installed plugins" long_help="List installed plugins\n\nThis is the default behavior but can be used with --core\nto show core and user plugins"
     flag "-u,--urls" help="Show the git url for each plugin\ne.g.: https://github.com/asdf-vm/asdf-node.git"
@@ -214,7 +205,7 @@ cmd "plugins" {
         flag "-f,--force" help="Reinstall even if plugin exists"
         flag "-a,--all" help="Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url"
         flag "-v,--verbose" help="Show installation output" var=true count=true
-        arg "[NEW_PLUGIN]" help="The name of the plugin to install\ne.g.: node, ruby\nCan specify multiple plugins: `rtx plugins install node ruby python`"
+        arg "[NEW_PLUGIN]" help="The name of the plugin to install\ne.g.: node, ruby\nCan specify multiple plugins: `mise plugins install node ruby python`"
         arg "[GIT_URL]" help="The git url of the plugin"
         arg "[REST]..." var=true hide=true
     }
@@ -222,11 +213,11 @@ cmd "plugins" {
         alias "ln"
         flag "-f,--force" help="Overwrite existing plugin"
         arg "<NAME>" help="The name of the plugin\ne.g.: node, ruby"
-        arg "[PATH]" help="The local path to the plugin\ne.g.: ./rtx-node"
+        arg "[PATH]" help="The local path to the plugin\ne.g.: ./mise-node"
     }
     cmd "ls" {
         alias "list"
-        flag "-a,--all" help="List all available remote plugins\nSame as `rtx plugins ls-remote`" hide=true
+        flag "-a,--all" help="List all available remote plugins\nSame as `mise plugins ls-remote`" hide=true
         flag "-c,--core" help="The built-in plugins only\nNormally these are not shown"
         flag "--user" help="List installed plugins" long_help="List installed plugins\n\nThis is the default behavior but can be used with --core\nto show core and user plugins"
         flag "-u,--urls" help="Show the git url for each plugin\ne.g.: https://github.com/asdf-vm/asdf-node.git"
@@ -234,7 +225,7 @@ cmd "plugins" {
     }
     cmd "ls-remote" {
         alias "list-remote" "list-all"
-        flag "-u,--urls" help="Show the git url for each plugin e.g.: https://github.com/rtx-plugins/rtx-nodejs.git"
+        flag "-u,--urls" help="Show the git url for each plugin e.g.: https://github.com/mise-plugins/rtx-nodejs.git"
         flag "--only-names" help="Only show the name of each plugin by default it will show a \"*\" next to installed plugins"
     }
     cmd "uninstall" {
@@ -253,7 +244,7 @@ cmd "plugins" {
 }
 cmd "prune" {
     flag "-n,--dry-run" help="Do not actually delete anything"
-    arg "[PLUGIN]..." help="Prune only versions from these plugins" var=true
+    arg "[PLUGIN]..." help="Prune only versions from this plugin(s)" var=true
 }
 cmd "reshim" {
     arg "[PLUGIN]" hide=true
@@ -266,16 +257,16 @@ cmd "run" {
     }
     flag "-n,--dry-run" help="Don't actually run the task(s), just print them in order of execution"
     flag "-f,--force" help="Force the task to run even if outputs are up to date"
-    flag "-p,--prefix" help="Print stdout/stderr by line, prefixed with the task's label\nDefaults to true if --jobs > 1\nConfigure with `task_output` config or `RTX_TASK_OUTPUT` env var"
-    flag "-i,--interleave" help="Print directly to stdout/stderr instead of by line\nDefaults to true if --jobs == 1\nConfigure with `task_output` config or `RTX_TASK_OUTPUT` env var"
+    flag "-p,--prefix" help="Print stdout/stderr by line, prefixed with the task's label\nDefaults to true if --jobs > 1\nConfigure with `task_output` config or `MISE_TASK_OUTPUT` env var"
+    flag "-i,--interleave" help="Print directly to stdout/stderr instead of by line\nDefaults to true if --jobs == 1\nConfigure with `task_output` config or `MISE_TASK_OUTPUT` env var"
     flag "-t,--tool" help="Tool(s) to also add e.g.: node@20 python@3.10" var=true {
         arg "<TOOL@VERSION>"
     }
-    flag "-j,--jobs" help="Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `RTX_JOBS` env var" {
+    flag "-j,--jobs" help="Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var" {
         arg "<JOBS>"
     }
-    flag "-r,--raw" help="Read/write directly to stdin/stdout/stderr instead of by line\nConfigure with `raw` config or `RTX_RAW` env var"
-    arg "[TASK]" help="Task to run\nCan specify multiple tasks by separating with `:::`\ne.g.: rtx run task1 arg1 arg2 ::: task2 arg1 arg2" default="default"
+    flag "-r,--raw" help="Read/write directly to stdin/stdout/stderr instead of by line\nConfigure with `raw` config or `MISE_RAW` env var"
+    arg "[TASK]" help="Task to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2" default="default"
     arg "[ARGS]..." help="Arguments to pass to the task. Use \":::\" to separate tasks" var=true
 }
 cmd "self-update" {
@@ -283,6 +274,17 @@ cmd "self-update" {
     flag "--no-plugins" help="Disable auto-updating plugins"
     flag "-y,--yes" help="Skip confirmation prompt"
     arg "[VERSION]" help="Update to a specific version"
+}
+cmd "set" {
+    alias "ev" "env-vars" hide=true
+    flag "--file" help="The TOML file to update" long_help="The TOML file to update\n\nDefaults to MISE_DEFAULT_CONFIG_FILENAME environment variable, or \".mise.toml\"." {
+        arg "<FILE>"
+    }
+    flag "-g,--global" help="Set the environment variable in the global config file"
+    flag "--remove" help="Remove the environment variable from config file" long_help="Remove the environment variable from config file\n\nCan be used multiple times." var=true hide=true {
+        arg "<ENV_VAR>"
+    }
+    arg "[ENV_VARS]..." help="Environment variable(s) to set\ne.g.: NODE_ENV=production" var=true
 }
 cmd "settings" {
     cmd "get" {
@@ -340,16 +342,16 @@ cmd "task" {
         }
         flag "-n,--dry-run" help="Don't actually run the task(s), just print them in order of execution"
         flag "-f,--force" help="Force the task to run even if outputs are up to date"
-        flag "-p,--prefix" help="Print stdout/stderr by line, prefixed with the task's label\nDefaults to true if --jobs > 1\nConfigure with `task_output` config or `RTX_TASK_OUTPUT` env var"
-        flag "-i,--interleave" help="Print directly to stdout/stderr instead of by line\nDefaults to true if --jobs == 1\nConfigure with `task_output` config or `RTX_TASK_OUTPUT` env var"
+        flag "-p,--prefix" help="Print stdout/stderr by line, prefixed with the task's label\nDefaults to true if --jobs > 1\nConfigure with `task_output` config or `MISE_TASK_OUTPUT` env var"
+        flag "-i,--interleave" help="Print directly to stdout/stderr instead of by line\nDefaults to true if --jobs == 1\nConfigure with `task_output` config or `MISE_TASK_OUTPUT` env var"
         flag "-t,--tool" help="Tool(s) to also add e.g.: node@20 python@3.10" var=true {
             arg "<TOOL@VERSION>"
         }
-        flag "-j,--jobs" help="Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `RTX_JOBS` env var" {
+        flag "-j,--jobs" help="Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var" {
             arg "<JOBS>"
         }
-        flag "-r,--raw" help="Read/write directly to stdin/stdout/stderr instead of by line\nConfigure with `raw` config or `RTX_RAW` env var"
-        arg "[TASK]" help="Task to run\nCan specify multiple tasks by separating with `:::`\ne.g.: rtx run task1 arg1 arg2 ::: task2 arg1 arg2" default="default"
+        flag "-r,--raw" help="Read/write directly to stdin/stdout/stderr instead of by line\nConfigure with `raw` config or `MISE_RAW` env var"
+        arg "[TASK]" help="Task to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2" default="default"
         arg "[ARGS]..." help="Arguments to pass to the task. Use \":::\" to separate tasks" var=true
     }
 }
@@ -363,6 +365,13 @@ cmd "uninstall" {
     flag "-a,--all" help="Delete all installed versions"
     flag "-n,--dry-run" help="Do not actually delete anything"
     arg "[TOOL@VERSION]..." help="Tool(s) to remove" var=true
+}
+cmd "unset" {
+    flag "-f,--file" help="Specify a file to use instead of \".mise.toml\"" {
+        arg "<FILE>"
+    }
+    flag "-g,--global" help="Use the global config file"
+    arg "[KEYS]..." help="Environment variable(s) to remove\ne.g.: NODE_ENV" var=true
 }
 cmd "upgrade" {
     alias "up"
@@ -378,23 +387,23 @@ cmd "usage"
 cmd "use" {
     alias "u"
     flag "-f,--force" help="Force reinstall even if already installed"
-    flag "--fuzzy" help="Save fuzzy version to config file\ne.g.: `rtx use --fuzzy node@20` will save 20 as the version\nthis is the default behavior unless RTX_ASDF_COMPAT=1"
-    flag "-g,--global" help="Use the global config file (~/.config/rtx/config.toml) instead of the local one"
-    flag "-e,--env" help="Modify an environment-specific config file like .rtx.<env>.toml" {
+    flag "--fuzzy" help="Save fuzzy version to config file\ne.g.: `mise use --fuzzy node@20` will save 20 as the version\nthis is the default behavior unless MISE_ASDF_COMPAT=1"
+    flag "-g,--global" help="Use the global config file (~/.config/mise/config.toml) instead of the local one"
+    flag "-e,--env" help="Modify an environment-specific config file like .mise.<env>.toml" {
         arg "<ENV>"
     }
     flag "-j,--jobs" help="Number of jobs to run in parallel\n[default: 4]" {
         arg "<JOBS>"
     }
     flag "--raw" help="Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1"
-    flag "--remove" help="Remove the tool(s) from config file" var=true {
-        arg "<TOOL>"
+    flag "--remove" help="Remove the plugin(s) from config file" var=true {
+        arg "<PLUGIN>"
     }
-    flag "-p,--path" help="Specify a path to a config file or directory If a directory is specified, it will look for .rtx.toml (default) or .tool-versions" {
+    flag "-p,--path" help="Specify a path to a config file or directory If a directory is specified, it will look for .mise.toml (default) or .tool-versions" {
         arg "<PATH>"
     }
-    flag "--pin" help="Save exact version to config file\ne.g.: `rtx use --pin node@20` will save 20.0.0 as the version"
-    arg "[TOOL@VERSION]..." help="Tool(s) to add to config file\ne.g.: node@20\nIf no version is specified, it will default to @latest" var=true
+    flag "--pin" help="Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet MISE_ASDF_COMPAT=1 to make this the default behavior"
+    arg "[TOOL@VERSION]..." help="Tool(s) to add to config file\ne.g.: node@20, cargo:ripgrep@latest npm:prettier@3\nIf no version is specified, it will default to @latest" var=true
 }
 cmd "version" {
     alias "v" hide=true
@@ -416,17 +425,17 @@ cmd "where" {
 cmd "which" {
     flag "--plugin" help="Show the plugin name instead of the path"
     flag "--version" help="Show the version instead of the path"
-    flag "-t,--tool" help="Use a specific tool@version\ne.g.: `rtx which npm --tool=node@20`" {
+    flag "-t,--tool" help="Use a specific tool@version\ne.g.: `mise which npm --tool=node@20`" {
         arg "<TOOL@VERSION>"
     }
     arg "<BIN_NAME>" help="The bin name to look up"
 }
-cmd "render-completion" {
+cmd "render-completion" hide=true {
     flag "-s,--shell" help="Shell type to generate completions for" hide=true {
         arg "<SHELL_TYPE>"
     }
     arg "[SHELL]" help="Shell type to generate completions for"
 }
-cmd "render-help"
-cmd "render-mangen"
+cmd "render-help" hide=true
+cmd "render-mangen" hide=true
 
