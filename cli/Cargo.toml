@@ -27,4 +27,4 @@ regex = "1"
 strum = { version = "0.25.0", features = ["derive"] }
 thiserror = "1"
 usage-lib = { path = "..", features=["clap"] }
-xx = {path= "../xx"}
+xx = "0.2"

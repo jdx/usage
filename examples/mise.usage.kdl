@@ -1,1 +1,8 @@
 include file="mise.gen.usage.kdl"
+config {
+    prop "activate_accessive" default=false env="MISE_ACTIVATE_ACCESSIVE" \
+        help="Pushes tools' bin-paths to the front of PATH instead of allowing modifications of PATH after activation to take precedence." \
+        long_help="foooooooo"
+
+    prop "color" default=true env="MISE_COLOR"
+}

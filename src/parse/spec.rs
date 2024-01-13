@@ -8,12 +8,14 @@ use xx::{context, file};
 
 use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
+use crate::parse::config::SpecConfig;
 
 #[derive(Debug, Default)]
 pub struct Spec {
     pub name: String,
     pub bin: String,
     pub cmd: SchemaCmd,
+    pub config: SpecConfig,
 }
 
 impl Spec {
@@ -82,6 +84,7 @@ impl FromStr for Spec {
                     let node: SchemaCmd = node.try_into()?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
+                "config" => schema.config = node.try_into()?,
                 "include" => {
                     let file = get_string_prop(node, "file")
                         .map(context::prepend_load_root)
@@ -142,6 +145,7 @@ impl From<&clap::Command> for Spec {
             bin: cmd.get_bin_name().unwrap_or_default().to_string(),
             name: cmd.get_name().to_string(),
             cmd: cmd.into(),
+            config: Default::default(),
         }
     }
 }
@@ -184,7 +188,7 @@ arg "arg1"
 flag "-f,--force" global=true
 cmd "config" {
   cmd "set" {
-    arg "key" "Key to set"
+    arg "key" help="Key to set"
     arg "value"
   }
 }
@@ -195,11 +199,11 @@ cmd "config" {
         name "Usage CLI"
         bin "usage"
         flag "-f,--force" global=true
-        arg "arg1" required=false
+        arg "<arg1>"
         cmd "config" {
             cmd "set" {
-                arg "key" required=false
-                arg "value" required=false
+                arg "<key>" help="Key to set"
+                arg "<value>"
             }
         }
         "###);

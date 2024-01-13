@@ -43,7 +43,7 @@ export default defineConfig({
               {text: 'complete', link: '/spec/reference/complete'},
               {text: 'flag', link: '/spec/reference/flag'},
               // { text: 'env', link: '/spec/reference/env' },
-              // { text: 'config', link: '/spec/reference/config' },
+              { text: 'config', link: '/spec/reference/config' },
             ]
           },
         ]
