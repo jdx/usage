@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use indexmap::IndexMap;
-use kdl::{KdlEntry, KdlNode, KdlValue};
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
 use crate::bail_parse;
 use crate::error::UsageErr;
@@ -11,12 +11,38 @@ pub struct SpecConfig {
     pub(crate) props: BTreeMap<String, SpecConfigProp>,
 }
 
+impl SpecConfig {
+    pub fn is_empty(&self) -> bool {
+        self.props.is_empty()
+    }
+}
+
 #[derive(Debug)]
 pub struct SpecConfigProp {
     default: KdlValue,
     env: Option<String>,
     help: Option<String>,
     long_help: Option<String>,
+}
+
+impl SpecConfigProp {
+    fn to_kdl_node(&self, key: String) -> KdlNode {
+        let mut node = KdlNode::new("prop");
+        node.push(KdlEntry::new(key));
+        if self.default != KdlValue::Null {
+            node.push(KdlEntry::new_prop("default", self.default.clone()));
+        }
+        if let Some(env) = &self.env {
+            node.push(KdlEntry::new_prop("env", env.clone()));
+        }
+        if let Some(help) = &self.help {
+            node.push(KdlEntry::new_prop("help", help.clone()));
+        }
+        if let Some(long_help) = &self.long_help {
+            node.push(KdlEntry::new_prop("long_help", long_help.clone()));
+        }
+        node
+    }
 }
 
 #[derive(Debug)]
@@ -114,7 +140,6 @@ impl TryFrom<&KdlNode> for SpecConfig {
                 }
             }
         }
-        dbg!(&config);
         Ok(config)
     }
 }
@@ -138,23 +163,40 @@ impl Default for SpecConfigProp {
     }
 }
 
+impl From<&SpecConfig> for KdlNode {
+    fn from(config: &SpecConfig) -> Self {
+        let mut node = KdlNode::new("config");
+        for (key, prop) in &config.props {
+            let doc = node.children_mut().get_or_insert_with(KdlDocument::new);
+            doc.nodes_mut().push(prop.to_kdl_node(key.to_string()));
+        }
+        node
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::Spec;
 
     #[test]
     fn test_config_defaults() {
         let spec: Spec = r#"
 config {
-    prop "color" default=true
-    prop "user" default="admin"
-    prop "jobs" default=4
-    prop "timeout" default=1.5
+    prop "color" default=true env="COLOR" help="Enable color output"
+    prop "user" default="admin" env="USER" help="User to run as"
+    prop "jobs" default=4 env="JOBS" help="Number of jobs to run"
+    prop "timeout" default=1.5 env="TIMEOUT" help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
 }
         "#
         .parse()
         .unwrap();
         assert_display_snapshot!(spec, @r###"
+        config {
+            prop "color" default=true env="COLOR" help="Enable color output"
+            prop "jobs" default=4 env="JOBS" help="Number of jobs to run"
+            prop "timeout" default=1.5 env="TIMEOUT" help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
+            prop "user" default="admin" env="USER" help="User to run as"
+        }
         "###);
     }
 }

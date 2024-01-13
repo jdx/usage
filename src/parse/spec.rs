@@ -144,6 +144,9 @@ impl Display for Spec {
         for cmd in self.cmd.subcommands.values() {
             nodes.push(cmd.into())
         }
+        if !self.config.is_empty() {
+            nodes.push((&self.config).into());
+        }
         write!(f, "{}", doc)
     }
 }
