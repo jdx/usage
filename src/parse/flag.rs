@@ -5,6 +5,7 @@ use kdl::{KdlDocument, KdlEntry, KdlNode};
 
 use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
+use crate::parse::helpers::NodeHelper;
 use crate::{bail_parse, Arg};
 
 #[derive(Debug, Default)]
@@ -81,30 +82,26 @@ impl From<&Flag> for KdlNode {
 impl TryFrom<&KdlNode> for Flag {
     type Error = UsageErr;
     fn try_from(node: &KdlNode) -> Result<Self, UsageErr> {
-        let mut flag: Self = node
-            .entries()
-            .first()
-            .and_then(|e| e.value().as_string())
-            .map(|s| s.parse())
-            .transpose()?
-            .unwrap_or_default();
-        for entry in node.entries().iter().skip(1) {
-            match entry.name().unwrap().to_string().as_str() {
-                "help" => flag.help = entry.value().as_string().map(|s| s.to_string()),
-                "long_help" => flag.long_help = entry.value().as_string().map(|s| s.to_string()),
-                "required" => flag.required = entry.value().as_bool().unwrap(),
-                "var" => flag.var = entry.value().as_bool().unwrap(),
-                "hide" => flag.hide = entry.value().as_bool().unwrap(),
-                "global" => flag.global = entry.value().as_bool().unwrap(),
-                "count" => flag.count = entry.value().as_bool().unwrap(),
-                k => bail_parse!(entry, "unsupported key {k}"),
+        let hnode: NodeHelper = node.into();
+        let mut flag: Self = hnode.arg(0)?.ensure_string()?.parse()?;
+        for (k, v) in hnode.props() {
+            match k {
+                "help" => flag.help = Some(v.ensure_string()?),
+                "long_help" => flag.long_help = Some(v.ensure_string()?),
+                "required" => flag.required = v.ensure_bool()?,
+                "var" => flag.var = v.ensure_bool()?,
+                "hide" => flag.hide = v.ensure_bool()?,
+                "global" => flag.global = v.ensure_bool()?,
+                "count" => flag.count = v.ensure_bool()?,
+                k => bail_parse!(v.entry, "unsupported key {k}"),
             }
         }
         let children = node.children().map(|c| c.nodes()).unwrap_or_default();
         for child in children {
-            match child.name().to_string().as_str() {
-                "arg" => flag.arg = Some(child.try_into()?),
-                k => bail_parse!(child, "unsupported key {k}"),
+            let child: NodeHelper = child.into();
+            match child.name() {
+                "arg" => flag.arg = Some(child.node.try_into()?),
+                k => bail_parse!(child.node, "unsupported key {k}"),
             }
         }
         Ok(flag)

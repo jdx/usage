@@ -52,6 +52,7 @@ impl TryFrom<&KdlNode> for SpecConfig {
         if let Some(children) = doc.children().map(|doc| doc.nodes()) {
             for node in children {
                 let ph = NodeHelper::new(node);
+                ph.ensure_args_count(1, 1)?;
                 match ph.name() {
                     "prop" => {
                         let key = ph.arg(0)?;

@@ -31,7 +31,11 @@ impl UsageErr {
 
 #[macro_export]
 macro_rules! bail_parse {
-    ($span:expr, $fmt:literal$(,$arg:expr)*) => {{
+    ($span:expr, $fmt:literal) => {{
+        let msg = format!($fmt);
+        return std::result::Result::Err(UsageErr::new(msg, $span.span()));
+    }};
+    ($span:expr, $fmt:literal, $($arg:tt)*) => {{
         let msg = format!($fmt, $($arg)*);
         return std::result::Result::Err(UsageErr::new(msg, $span.span()));
     }};

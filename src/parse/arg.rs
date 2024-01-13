@@ -5,6 +5,7 @@ use itertools::Itertools;
 use kdl::{KdlEntry, KdlNode};
 
 use crate::error::UsageErr;
+use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug, Default)]
 pub struct Arg {
@@ -65,24 +66,19 @@ impl From<&Arg> for KdlNode {
 impl TryFrom<&KdlNode> for Arg {
     type Error = UsageErr;
     fn try_from(node: &KdlNode) -> Result<Self, UsageErr> {
-        let mut arg: Arg = node
-            .entries()
-            .first()
-            .and_then(|e| e.value().as_string())
-            .map(|s| s.parse())
-            .transpose()?
-            .unwrap_or_default();
-        for entry in node.entries().iter().skip(1) {
-            match entry.name().unwrap().to_string().as_str() {
-                "help" => arg.help = entry.value().as_string().map(|s| s.to_string()),
-                "long_help" => arg.long_help = entry.value().as_string().map(|s| s.to_string()),
-                "required" => arg.required = entry.value().as_bool().unwrap(),
-                "var" => arg.var = entry.value().as_bool().unwrap(),
-                "hide" => arg.hide = entry.value().as_bool().unwrap(),
-                "var_min" => arg.var_min = entry.value().as_i64(),
-                "var_max" => arg.var_max = entry.value().as_i64(),
-                "default" => arg.default = entry.value().as_string().map(|s| s.to_string()),
-                _ => Err(UsageErr::new(entry.to_string(), entry.span()))?,
+        let hnode: NodeHelper = node.into();
+        let mut arg: Arg = hnode.arg(0)?.ensure_string()?.parse()?;
+        for (k, v) in hnode.props() {
+            match k {
+                "help" => arg.help = Some(v.ensure_string()?),
+                "long_help" => arg.long_help = Some(v.ensure_string()?),
+                "required" => arg.required = v.ensure_bool()?,
+                "var" => arg.var = v.ensure_bool()?,
+                "hide" => arg.hide = v.ensure_bool()?,
+                "var_min" => arg.var_min = v.ensure_i64().map(Some)?,
+                "var_max" => arg.var_max = v.ensure_i64().map(Some)?,
+                "default" => arg.default = v.ensure_string().map(Some)?,
+                k => bail_parse!(v.entry, "unsupported key {k}"),
             }
         }
         Ok(arg)
