@@ -5,7 +5,7 @@ use kdl::{KdlDocument, KdlEntry, KdlNode};
 
 use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
-use crate::Arg;
+use crate::{bail_parse, Arg};
 
 #[derive(Debug, Default)]
 pub struct Flag {
@@ -97,14 +97,14 @@ impl TryFrom<&KdlNode> for Flag {
                 "hide" => flag.hide = entry.value().as_bool().unwrap(),
                 "global" => flag.global = entry.value().as_bool().unwrap(),
                 "count" => flag.count = entry.value().as_bool().unwrap(),
-                _ => Err(UsageErr::new(entry.to_string(), entry.span()))?,
+                k => bail_parse!(entry, "unsupported key {k}"),
             }
         }
         let children = node.children().map(|c| c.nodes()).unwrap_or_default();
         for child in children {
             match child.name().to_string().as_str() {
                 "arg" => flag.arg = Some(child.try_into()?),
-                _ => Err(UsageErr::new(child.to_string(), child.span()))?,
+                k => bail_parse!(child, "unsupported key {k}"),
             }
         }
         Ok(flag)

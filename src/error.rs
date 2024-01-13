@@ -7,8 +7,12 @@ pub enum UsageErr {
     #[error("Invalid flag: {0}")]
     InvalidFlag(String, #[label] SourceSpan, #[source_code] String),
 
-    #[error("Invalid input: {0}")]
-    InvalidInput(String, #[label] SourceSpan, #[source_code] NamedSource),
+    #[error("Invalid usage config")]
+    InvalidInput(
+        String,
+        #[label = "{0}"] SourceSpan,
+        #[source_code] NamedSource,
+    ),
 
     #[error(transparent)]
     IO(#[from] std::io::Error),
@@ -26,8 +30,8 @@ impl UsageErr {
 }
 
 #[macro_export]
-macro_rules! parse_bail {
-    ($span:expr, $fmt:literal$(,$arg:tt)*) => {{
+macro_rules! bail_parse {
+    ($span:expr, $fmt:literal$(,$arg:expr)*) => {{
         let msg = format!($fmt, $($arg)*);
         return std::result::Result::Err(UsageErr::new(msg, $span.span()));
     }};

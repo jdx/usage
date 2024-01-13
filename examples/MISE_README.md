@@ -5,7 +5,7 @@
 ## Usage
 <!-- [USAGE] usage_overview -->
 ```
- [flags] [args]
+mise.usage.kdl [flags] [args]
 ```
 <!-- [USAGE] -->
 ## Global Args

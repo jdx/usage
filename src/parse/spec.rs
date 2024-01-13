@@ -155,7 +155,7 @@ impl From<&clap::Command> for Spec {
             bin: cmd.get_bin_name().unwrap_or_default().to_string(),
             name: cmd.get_name().to_string(),
             cmd: cmd.into(),
-            config: Default::default(),
+            ..Default::default()
         }
     }
 }
