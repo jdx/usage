@@ -2,7 +2,7 @@
 name = "usage-cli"
 version = "0.1.0"
 edition = "2021"
-author = "Jeff Dickey @jdx"
+authors = ["Jeff Dickey @jdx"]
 description = "Helper for CLIs which follow the Usage spec"
 
 [[bin]]
