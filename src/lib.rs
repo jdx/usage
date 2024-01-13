@@ -1,12 +1,12 @@
-// #[macro_use]
-// extern crate log;
+#[macro_use]
+extern crate log;
 #[cfg(test)]
 #[macro_use]
 extern crate insta;
 pub mod complete;
+pub(crate) mod env;
 pub mod error;
 pub mod parse;
-pub(crate) mod env;
 
 pub use parse::arg::Arg;
 pub use parse::cmd::SchemaCmd;

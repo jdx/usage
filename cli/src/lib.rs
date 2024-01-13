@@ -1,5 +1,9 @@
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate miette;
+#[macro_use]
+mod regex;
 
 use std::path::PathBuf;
 
@@ -13,6 +17,7 @@ mod hash;
 mod shebang;
 
 pub fn run(args: &[String]) -> Result<()> {
+    trace!("args: {:?}", args);
     // if let Some("__USAGE__") = args.get(2).map(|s| s.as_str()) {
     //     return split_script(&args[1]);
     // } else if let Some(script) = args.get(1) {

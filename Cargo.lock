@@ -658,9 +658,12 @@ dependencies = [
  "env_logger",
  "exec",
  "itertools",
+ "kdl",
  "log",
  "miette",
  "once_cell",
+ "regex",
+ "thiserror",
  "usage-lib",
 ]
 

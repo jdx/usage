@@ -55,6 +55,27 @@ impl FromStr for Spec {
                     let node: SchemaCmd = node.try_into()?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
+                "include" => {
+                    let file = node.get("file").unwrap().value().as_string().unwrap();
+                    info!("include: {}", file);
+                    let (spec, body) = split_script(Path::new(file))?;
+                    let include = Self::from_str(&spec)?;
+                    if !include.name.is_empty() {
+                        schema.name = include.name;
+                    }
+                    if !include.bin.is_empty() {
+                        schema.bin = include.bin;
+                    }
+                    for flag in include.cmd.flags {
+                        schema.cmd.flags.push(flag);
+                    }
+                    for arg in include.cmd.args {
+                        schema.cmd.args.push(arg);
+                    }
+                    for (name, cmd) in include.cmd.subcommands {
+                        schema.cmd.subcommands.insert(name, cmd);
+                    }
+                }
                 _ => Err(UsageErr::InvalidInput(
                     node.to_string(),
                     *node.span(),
