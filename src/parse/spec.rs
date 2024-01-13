@@ -1,10 +1,11 @@
+use crate::context::get_load_root;
 use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use std::fmt::{Display, Formatter};
-use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use xx::file;
 
 #[derive(Debug, Default)]
 pub struct Spec {
@@ -14,7 +15,7 @@ pub struct Spec {
 }
 
 impl Spec {
-    pub fn parse_file(file: &Path) -> Result<(Spec, String), UsageErr> {
+    pub fn parse_file(file: &Path) -> miette::Result<(Spec, String)> {
         let (spec, body) = split_script(file)?;
         let mut schema = Self::from_str(&spec)?;
         if schema.bin.is_empty() {
@@ -45,8 +46,8 @@ impl Spec {
     }
 }
 
-fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
-    let full = fs::read_to_string(file)?;
+fn split_script(file: &Path) -> miette::Result<(String, String)> {
+    let full = file::read_to_string(file)?;
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
     let (schema, body) = schema.split_once("\n#!").unwrap_or((&schema, ""));
     let schema = schema.trim().to_string();
@@ -54,9 +55,15 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     Ok((schema, body))
 }
 
+fn get_string_prop(node: &KdlNode, name: &str) -> Option<String> {
+    node.get(name)
+        .and_then(|entry| entry.value().as_string())
+        .map(|s| s.to_string())
+}
+
 impl FromStr for Spec {
-    type Err = UsageErr;
-    fn from_str(input: &str) -> Result<Spec, UsageErr> {
+    type Err = miette::Error;
+    fn from_str(input: &str) -> miette::Result<Spec> {
         let kdl: KdlDocument = input
             .parse()
             .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
@@ -74,11 +81,18 @@ impl FromStr for Spec {
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
                 "include" => {
-                    let file = node.get("file").unwrap().value().as_string().unwrap();
-                    info!("include: {}", file);
-                    let (spec, _) = split_script(Path::new(file))?;
-                    let include = Self::from_str(&spec)?;
-                    schema.merge(include);
+                    let file = match get_string_prop(node, "file").map(PathBuf::from) {
+                        Some(file) if file.is_relative() => get_load_root().join(file),
+                        Some(file) => file.to_path_buf(),
+                        None => Err(UsageErr::InvalidInput(
+                            node.to_string(),
+                            *node.span(),
+                            input.to_string(),
+                        ))?,
+                    };
+                    info!("include: {}", file.display());
+                    let (spec, _) = split_script(&file)?;
+                    schema.merge(spec.parse()?);
                 }
                 _ => Err(UsageErr::InvalidInput(
                     node.to_string(),

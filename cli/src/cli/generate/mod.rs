@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use miette::IntoDiagnostic;
-
 use usage::Spec;
 
 mod completion;
@@ -31,9 +29,9 @@ impl Generate {
 
 pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> miette::Result<Spec> {
     if let Some(file) = file {
-        let (spec, _) = Spec::parse_file(file).into_diagnostic()?;
+        let (spec, _) = Spec::parse_file(file)?;
         Ok(spec)
     } else {
-        spec.as_ref().unwrap().parse().into_diagnostic()
+        spec.as_ref().unwrap().parse()
     }
 }

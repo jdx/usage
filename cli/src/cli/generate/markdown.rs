@@ -1,17 +1,20 @@
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Mutex;
-use std::{env, fs};
 
 use clap::Args;
+use contracts::requires;
 use kdl::{KdlDocument, KdlNode};
-use miette::{IntoDiagnostic, Result, SourceSpan};
+use miette::{IntoDiagnostic, SourceSpan};
+use strum::EnumIs;
 use thiserror::Error;
 
 use usage::{SchemaCmd, Spec};
+use xx::{context, file};
 
 #[derive(Args)]
 #[clap(visible_alias = "md")]
@@ -45,29 +48,27 @@ impl Markdown {
         Ok(())
     }
 
-    fn inject_file(&self, inject: &Path) -> Result<()> {
-        let raw = fs::read_to_string(inject).into_diagnostic()?;
-        println!("{}", raw);
-        let root = inject.parent().unwrap().to_path_buf();
-        let cwd = env::current_dir().into_diagnostic()?;
-        env::set_current_dir(&root).into_diagnostic()?;
+    fn inject_file(&self, inject: &Path) -> miette::Result<()> {
+        let raw = file::read_to_string(inject).into_diagnostic()?;
+        context::set_load_root(inject.parent().unwrap().to_path_buf());
         let out = raw
             .lines()
             .map(|line| line.parse())
-            .collect::<Result<Vec<UsageMdDirective>>>()?
+            .collect::<miette::Result<Vec<UsageMdDirective>>>()?
             .into_iter()
-            .try_fold(UsageMdContext::new(root), |ctx, d| d.run(ctx))?
+            .try_fold(UsageMdContext::new(), |ctx, d| d.run(ctx))?
             .out
             .lock()
             .unwrap()
-            .join("\n");
-        env::set_current_dir(cwd).into_diagnostic()?;
-        println!("{}", out);
+            .join("\n")
+            + "\n";
+        print!("{}", out);
         fs::write(inject, out).into_diagnostic()?;
         Ok(())
     }
 
-    fn _print(&self, spec: &Spec, dir: &Path, cmds: &[&SchemaCmd]) -> Result<()> {
+    //noinspection RsFormatMacroWithoutFormatArguments
+    fn _print(&self, spec: &Spec, dir: &Path, cmds: &[&SchemaCmd]) -> miette::Result<()> {
         let cmd = cmds.last().unwrap();
         let mut out = vec![];
         let cmd_path = cmds
@@ -148,8 +149,10 @@ impl Markdown {
     }
 }
 
+#[derive(Debug, EnumIs)]
 enum UsageMdDirective {
     Load { file: PathBuf },
+    Title,
     UsageOverview,
     GlobalArgs,
     GlobalFlags,
@@ -160,16 +163,14 @@ enum UsageMdDirective {
 }
 
 struct UsageMdContext {
-    _root: PathBuf,
     plain: bool,
     spec: Option<Spec>,
     out: Mutex<Vec<String>>,
 }
 
 impl UsageMdContext {
-    fn new(_root: PathBuf) -> Self {
+    fn new() -> Self {
         Self {
-            _root,
             plain: true,
             spec: None,
             out: Mutex::new(vec![]),
@@ -182,27 +183,33 @@ impl UsageMdContext {
 }
 
 impl UsageMdDirective {
+    //noinspection RsFormatMacroWithoutFormatArguments
+    #[requires(self.requires_spec() -> ctx.spec.is_some())]
+    #[requires(self.is_load() -> ctx.spec.is_none())]
     fn run(&self, mut ctx: UsageMdContext) -> miette::Result<UsageMdContext> {
         match self {
             UsageMdDirective::Load { file } => {
-                // let file = match file.is_relative() {
-                //     true => ctx.root.join(file),
-                //     false => file.clone(),
-                // };
-                ctx.spec = Some(fs::read_to_string(file).into_diagnostic()?.parse()?);
+                let file = context::prepend_load_root(file);
+                ctx.spec = Some(fs::read_to_string(&file).into_diagnostic()?.parse()?);
                 ctx.push(format!("<!-- [USAGE] load file=\"{}\" -->", file.display()));
+            }
+            UsageMdDirective::Title => {
+                ensure!(ctx.spec.is_some(), "spec must be loaded before title");
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+                ctx.push(format!("<!-- [USAGE] title -->"));
+                ctx.push(format!("# {name}", name = spec.name));
+                ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::UsageOverview => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
 
                 ctx.push("<!-- [USAGE] usage_overview -->".to_string());
-                ctx.push(format!("# {name}", name = spec.name));
-                ctx.push("## Usage".to_string());
                 ctx.push("```".to_string());
                 ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
                 ctx.push("```".to_string());
-                ctx.push("\n<!-- [USAGE] -->".to_string());
+                ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::GlobalArgs => {
                 ctx.plain = false;
@@ -211,7 +218,6 @@ impl UsageMdDirective {
                 ctx.push("<!-- [USAGE] global_args -->".to_string());
                 let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
                 if !args.is_empty() {
-                    ctx.push(format!("## Args"));
                     for arg in args {
                         let name = &arg.usage();
                         if let Some(about) = &arg.long_help {
@@ -224,7 +230,7 @@ impl UsageMdDirective {
                         }
                     }
                 }
-                ctx.push(format!("\n<!-- [USAGE] -->"));
+                ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::GlobalFlags => {
                 ctx.plain = false;
@@ -238,7 +244,6 @@ impl UsageMdDirective {
                     .filter(|f| !f.hide)
                     .collect::<Vec<_>>();
                 if !flags.is_empty() {
-                    ctx.push(format!("## Flags"));
                     for flag in flags {
                         let name = flag.usage();
                         if let Some(about) = &flag.long_help {
@@ -251,47 +256,21 @@ impl UsageMdDirective {
                         }
                     }
                 }
-                ctx.push(format!("\n<!-- [USAGE] -->"));
+                ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::CommandIndex => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(format!("<!-- [USAGE] command_index -->"));
-
-                let subcommands = spec
-                    .cmd
-                    .subcommands
-                    .values()
-                    .filter(|c| !c.hide)
-                    .collect::<Vec<_>>();
-                if !subcommands.is_empty() {
-                    ctx.push(format!("## Commands"));
-                    for cmd in subcommands {
-                        let name = cmd.name.as_str();
-                        if let Some(about) = &cmd.help {
-                            ctx.push(format!(
-                                "- [`{name}`](./{name}): {about}",
-                                name = name,
-                                about = about
-                            ));
-                        } else {
-                            ctx.push(format!("- [`{name}`](./{name})", name = name));
-                        }
-                    }
-                }
-
-                ctx.push(format!("\n<!-- [USAGE] -->"));
+                print_commands_index(&ctx, &[&spec.cmd])?;
+                ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::Commands => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(format!("<!-- [USAGE] commands -->"));
-                ctx.push(format!("# {name}", name = spec.name));
-                ctx.push(format!("## Usage"));
-                ctx.push(format!("```"));
-                ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
-                ctx.push(format!("```"));
-                ctx.push(format!("\n<!-- [USAGE] -->"));
+                print_commands(&ctx, &[&spec.cmd])?;
+                ctx.push(format!("<!-- [USAGE] -->"));
             }
             UsageMdDirective::EndToken => {
                 ctx.plain = true;
@@ -304,6 +283,56 @@ impl UsageMdDirective {
         };
         Ok(ctx)
     }
+
+    fn requires_spec(&self) -> bool {
+        !matches!(
+            self,
+            UsageMdDirective::Load { .. } | UsageMdDirective::Plain(_)
+        )
+    }
+}
+
+fn print_commands_index(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<()> {
+    let subcommands = cmds[cmds.len() - 1]
+        .subcommands
+        .values()
+        .filter(|c| !c.hide)
+        .collect::<Vec<_>>();
+    for cmd in subcommands {
+        let cmds = cmds.iter().cloned().chain(once(cmd)).collect::<Vec<_>>();
+        let full_name = cmds
+            .iter()
+            .skip(1)
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let slug = full_name.replace(" ", "-");
+        ctx.push(format!("- [`{full_name}`](#{slug})",));
+        print_commands_index(ctx, &cmds)?;
+    }
+
+    Ok(())
+}
+
+fn print_commands(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<()> {
+    let subcommands = cmds[cmds.len() - 1]
+        .subcommands
+        .values()
+        .filter(|c| !c.hide)
+        .collect::<Vec<_>>();
+    for cmd in subcommands {
+        let cmds = cmds.iter().cloned().chain(once(cmd)).collect::<Vec<_>>();
+        let full_name = cmds
+            .iter()
+            .skip(1)
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        ctx.push(format!("### `{full_name}`"));
+        print_commands(ctx, &cmds)?;
+    }
+
+    Ok(())
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -348,6 +377,7 @@ impl FromStr for UsageMdDirective {
                 "load" => UsageMdDirective::Load {
                     file: PathBuf::from(get_string(node, "file")?),
                 },
+                "title" => UsageMdDirective::Title,
                 "usage_overview" => UsageMdDirective::UsageOverview,
                 "global_args" => UsageMdDirective::GlobalArgs,
                 "global_flags" => UsageMdDirective::GlobalFlags,
