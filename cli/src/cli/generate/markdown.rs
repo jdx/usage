@@ -6,7 +6,7 @@ use std::{env, fs};
 use clap::Args;
 use contracts::requires;
 use kdl::{KdlDocument, KdlNode};
-use miette::{IntoDiagnostic, NamedSource, SourceOffset, SourceSpan};
+use miette::{Context, IntoDiagnostic, NamedSource, SourceOffset, SourceSpan};
 use strum::EnumIs;
 use tera::Tera;
 use thiserror::Error;
@@ -228,7 +228,7 @@ enum UsageMdDirective {
     GlobalArgs,
     GlobalFlags,
     CommandIndex,
-    Commands,
+    Commands { inline_depth: usize },
     Config,
     EndToken,
     Plain(String),
@@ -245,7 +245,7 @@ impl Display for UsageMdDirective {
             UsageMdDirective::GlobalArgs => write!(f, "<!-- [USAGE] global_args -->"),
             UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
             UsageMdDirective::CommandIndex => write!(f, "<!-- [USAGE] command_index -->"),
-            UsageMdDirective::Commands => write!(f, "<!-- [USAGE] commands -->"),
+            UsageMdDirective::Commands { .. } => write!(f, "<!-- [USAGE] commands -->"),
             UsageMdDirective::Config => write!(f, "<!-- [USAGE] config -->"),
             UsageMdDirective::EndToken => write!(f, "<!-- [USAGE] -->"),
             UsageMdDirective::Plain(line) => write!(f, "{}", line),
@@ -365,7 +365,7 @@ impl UsageMdDirective {
                 ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
-            UsageMdDirective::Commands => {
+            UsageMdDirective::Commands { .. } => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
@@ -489,17 +489,33 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 src: doc.to_string(),
                 err_span: span,
             };
-            let get_string = |node: &KdlNode, key: &'static str| {
-                node.get(key)
-                    .ok_or_else(|| err(format!("{key} is required"), *node.span()))?
-                    .value()
+            let get_prop = |node: &KdlNode, key: &'static str| {
+                Ok(node.get(key).map(|v| v.value().clone()).clone())
+            };
+            let get_string = |node: &KdlNode, key: &'static str| match get_prop(node, key)? {
+                Some(v) => v
                     .as_string()
                     .map(|s| s.to_string())
                     .ok_or_else(|| err(format!("{key} must be a string"), *node.span()))
+                    .map(Some),
+                None => Ok(None),
+            };
+            let get_i64 = |node: &KdlNode, key: &'static str| match get_prop(node, key)? {
+                Some(v) => v
+                    .as_i64()
+                    .ok_or_else(|| err(format!("{key} must be an integer"), *node.span()))
+                    .map(Some),
+                None => Ok(None),
             };
             match node.name().value() {
                 "load" => UsageMdDirective::Load {
-                    file: PathBuf::from(get_string(node, "file")?),
+                    file: PathBuf::from(
+                        get_string(node, "file")
+                            .with_context(|| miette!("load directive must have a file"))?
+                            .ok_or_else(|| {
+                                err("load directive must have a file".into(), *node.span())
+                            })?,
+                    ),
                 },
                 "title" => UsageMdDirective::Title,
                 "usage_overview" => UsageMdDirective::UsageOverview,
@@ -507,7 +523,9 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 "global_flags" => UsageMdDirective::GlobalFlags,
                 "config" => UsageMdDirective::Config,
                 "command_index" => UsageMdDirective::CommandIndex,
-                "commands" => UsageMdDirective::Commands,
+                "commands" => UsageMdDirective::Commands {
+                    inline_depth: get_i64(node, "inline_depth")?.unwrap_or(2) as usize,
+                },
                 k => Err(UsageCLIError::MarkdownParseError {
                     message: format!("unknown directive type: {k}"),
                     src: get_named_source(path, full),
