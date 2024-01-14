@@ -15,4 +15,15 @@ config {
 cmd "zzz" \
         help="Sleeps for a while." \
         long_help="Sleeps for a while.  The amount of time is determined by the --timeout option." {
+
+   example r#"
+     mise zzz
+     mise zzz --timeout 2
+   "#
+
+   example r#"
+        $ mise zzz
+        Sleeping for 1.5 seconds...
+        Done.
+   "#
 }

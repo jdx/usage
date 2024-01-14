@@ -18,7 +18,7 @@ impl SpecConfig {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut config = Self::default();
         for node in node.children() {
-            node.ensure_args_count(1, 1)?;
+            node.ensure_arg_len(1..=1)?;
             match node.name() {
                 "prop" => {
                     let key = node.arg(0)?;

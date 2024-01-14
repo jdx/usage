@@ -1,6 +1,8 @@
 use indexmap::IndexMap;
 use kdl::{KdlEntry, KdlNode, KdlValue};
 use miette::SourceSpan;
+use std::fmt::Debug;
+use std::ops::{Range, RangeBounds, RangeFrom};
 
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
@@ -22,19 +24,20 @@ impl<'a> NodeHelper<'a> {
     pub(crate) fn span(&self) -> SourceSpan {
         *self.node.span()
     }
-    pub(crate) fn ensure_args_count(&self, min: usize, max: usize) -> Result<(), UsageErr> {
-        let count = self
-            .node
-            .entries()
-            .iter()
-            .filter(|e| e.name().is_none())
-            .count();
-        if count < min || count > max {
+    pub(crate) fn ensure_arg_len<R>(&self, range: R) -> Result<&Self, UsageErr>
+    where
+        R: RangeBounds<usize> + Debug,
+    {
+        let count = self.args().count();
+        if !range.contains(&count) {
             let ctx = self.ctx;
             let span = self.span();
-            bail_parse!(ctx, span, "expected {min} to {max} arguments, got {count}")
+            bail_parse!(ctx, span, "expected {range:?} arguments, got {count}",)
         }
-        Ok(())
+        Ok(self)
+    }
+    pub(crate) fn get(&self, key: &str) -> Option<ParseEntry> {
+        self.node.get(key).map(|e| ParseEntry::new(self.ctx, e))
     }
     pub(crate) fn arg(&self, i: usize) -> Result<ParseEntry, UsageErr> {
         if let Some(entry) = self.node.entries().get(i) {
@@ -47,6 +50,13 @@ impl<'a> NodeHelper<'a> {
             return Ok(ParseEntry::new(self.ctx, entry));
         }
         bail_parse!(self.ctx, self.span(), "missing argument")
+    }
+    pub(crate) fn args(&self) -> impl Iterator<Item = ParseEntry> + '_ {
+        self.node
+            .entries()
+            .iter()
+            .filter(|e| e.name().is_none())
+            .map(|e| ParseEntry::new(self.ctx, e))
     }
     pub(crate) fn props(&self) -> IndexMap<&str, ParseEntry> {
         self.node

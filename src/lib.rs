@@ -13,6 +13,6 @@ pub(crate) mod env;
 pub mod parse;
 
 pub use crate::parse::arg::Arg;
-pub use crate::parse::cmd::SchemaCmd;
+pub use crate::parse::cmd::SpecCommand;
 pub use crate::parse::flag::Flag;
 pub use crate::parse::spec::Spec;

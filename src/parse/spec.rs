@@ -7,7 +7,7 @@ use serde::Serialize;
 use xx::file;
 
 use crate::error::UsageErr;
-use crate::parse::cmd::SchemaCmd;
+use crate::parse::cmd::SpecCommand;
 use crate::parse::config::SpecConfig;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
@@ -17,7 +17,7 @@ use crate::{Arg, Flag};
 pub struct Spec {
     pub name: String,
     pub bin: String,
-    pub cmd: SchemaCmd,
+    pub cmd: SpecCommand,
     pub config: SpecConfig,
     pub version: Option<String>,
     pub usage: String,
@@ -69,7 +69,7 @@ impl Spec {
                 "arg" => schema.cmd.args.push(Arg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(Flag::parse(ctx, &node)?),
                 "cmd" => {
-                    let node: SchemaCmd = SchemaCmd::parse(ctx, &node)?;
+                    let node: SpecCommand = SpecCommand::parse(ctx, &node)?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
                 "config" => schema.config = SpecConfig::parse(ctx, &node)?,
@@ -128,7 +128,7 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     Ok((schema, body))
 }
 
-fn set_subcommand_ancestors(cmd: &mut SchemaCmd, ancestors: &[String]) {
+fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
     let ancestors = ancestors.to_vec();
     for subcmd in cmd.subcommands.values_mut() {
         subcmd.full_cmd = ancestors

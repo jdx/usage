@@ -11,7 +11,7 @@ use thiserror::Error;
 use xx::file;
 
 use usage::parse::config::SpecConfig;
-use usage::{SchemaCmd, Spec};
+use usage::{Spec, SpecCommand};
 
 use crate::errors::UsageCLIError;
 
@@ -450,7 +450,7 @@ impl MarkdownBuilder {
     }
 }
 
-fn gather_subcommands(cmds: &[&SchemaCmd]) -> Vec<SchemaCmd> {
+fn gather_subcommands(cmds: &[&SpecCommand]) -> Vec<SpecCommand> {
     let mut subcommands = vec![];
     for cmd in cmds {
         if cmd.hide {

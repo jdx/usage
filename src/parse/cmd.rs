@@ -7,9 +7,9 @@ use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 #[derive(Debug, Default, Serialize, Clone)]
-pub struct SchemaCmd {
+pub struct SpecCommand {
     pub full_cmd: Vec<String>,
-    pub subcommands: IndexMap<String, SchemaCmd>,
+    pub subcommands: IndexMap<String, SpecCommand>,
     pub args: Vec<Arg>,
     pub flags: Vec<Flag>,
     pub hide: bool,
@@ -23,11 +23,12 @@ pub struct SchemaCmd {
     pub before_long_help: Option<String>,
     pub after_help: Option<String>,
     pub after_long_help: Option<String>,
+    pub examples: Vec<String>,
 }
 
-impl SchemaCmd {
+impl SpecCommand {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
-        node.ensure_args_count(1, 1)?;
+        node.ensure_arg_len(1..=1)?;
         let mut cmd = Self {
             name: node.arg(0)?.ensure_string()?.to_string(),
             ..Default::default()
@@ -44,36 +45,40 @@ impl SchemaCmd {
                 }
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
-                k => bail_parse!(ctx, node.span(), "unsupported cmd key {k}"),
+                k => bail_parse!(ctx, node.span(), "unsupported cmd prop {k}"),
             }
         }
         for child in node.children() {
-            let child: NodeHelper = child.into();
             match child.name() {
                 "flag" => cmd.flags.push(Flag::parse(ctx, &child)?),
                 "arg" => cmd.args.push(Arg::parse(ctx, &child)?),
                 "cmd" => {
-                    let node = SchemaCmd::parse(ctx, &child)?;
+                    let node = SpecCommand::parse(ctx, &child)?;
                     cmd.subcommands.insert(node.name.to_string(), node);
                 }
                 "alias" => {
                     let alias = child
-                        .node
-                        .entries()
-                        .iter()
-                        .filter_map(|e| e.value().as_string().map(|v| v.to_string()))
-                        .collect::<Vec<_>>();
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|e| e.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
                     let hide = child
-                        .props()
                         .get("hide")
                         .map(|n| n.ensure_bool())
-                        .transpose()?
-                        .unwrap_or(false);
+                        .unwrap_or(Ok(false))?;
                     if hide {
                         cmd.hidden_aliases.extend(alias);
                     } else {
                         cmd.aliases.extend(alias);
                     }
+                }
+                "example" => {
+                    let example = child
+                        .ensure_arg_len(1..=1)?
+                        .args()
+                        .map(|e| e.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
+                    cmd.examples.extend(example);
                 }
                 k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
             }
@@ -125,8 +130,8 @@ impl SchemaCmd {
     }
 }
 
-impl From<&SchemaCmd> for KdlNode {
-    fn from(cmd: &SchemaCmd) -> Self {
+impl From<&SpecCommand> for KdlNode {
+    fn from(cmd: &SpecCommand) -> Self {
         let mut node = Self::new("cmd");
         node.entries_mut().push(cmd.name.clone().into());
         if cmd.hide {
@@ -194,7 +199,7 @@ impl From<&SchemaCmd> for KdlNode {
 }
 
 #[cfg(feature = "clap")]
-impl From<&clap::Command> for SchemaCmd {
+impl From<&clap::Command> for SpecCommand {
     fn from(cmd: &clap::Command) -> Self {
         let mut spec = Self {
             name: cmd.get_name().to_string(),
@@ -225,7 +230,7 @@ impl From<&clap::Command> for SchemaCmd {
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
         for subcmd in cmd.get_subcommands() {
-            let mut scmd: SchemaCmd = subcmd.into();
+            let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
             spec.subcommands.insert(scmd.name.clone(), scmd);
         }
@@ -234,8 +239,8 @@ impl From<&clap::Command> for SchemaCmd {
 }
 
 #[cfg(feature = "clap")]
-impl From<&SchemaCmd> for clap::Command {
-    fn from(cmd: &SchemaCmd) -> Self {
+impl From<&SpecCommand> for clap::Command {
+    fn from(cmd: &SpecCommand) -> Self {
         let mut app = Self::new(cmd.name.to_string());
         if let Some(help) = &cmd.help {
             app = app.about(help);
