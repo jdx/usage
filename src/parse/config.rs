@@ -131,10 +131,10 @@ config {
         .unwrap();
         assert_display_snapshot!(spec, @r###"
         config {
-            prop "color" default=true env="COLOR" help="Enable color output"
-            prop "jobs" default=4 env="JOBS" help="Number of jobs to run"
-            prop "timeout" default=1.5 env="TIMEOUT" help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
-            prop "user" default="admin" env="USER" help="User to run as"
+            prop "color" default="true" env="COLOR" help="Enable color output"
+            prop "jobs" default="4" env="JOBS" help="Number of jobs to run"
+            prop "timeout" default="1.5" env="TIMEOUT" help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
+            prop "user" default="\"admin\"" env="USER" help="User to run as"
         }
         "###);
     }
