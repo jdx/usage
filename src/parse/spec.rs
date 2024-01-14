@@ -129,6 +129,9 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
 }
 
 fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
+    if cmd.usage.is_empty() {
+        cmd.usage = cmd.usage();
+    }
     let ancestors = ancestors.to_vec();
     for subcmd in cmd.subcommands.values_mut() {
         subcmd.full_cmd = ancestors

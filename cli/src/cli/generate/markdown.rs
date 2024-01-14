@@ -95,55 +95,65 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 
 const COMMAND_TEMPLATE: &str = r##"
 {% set deprecated = "" %}{% if cmd.deprecated %}{% set deprecated = "~~" %}{% endif %}
-{% if multi_dir %}
-{{ header }} {{deprecated}}`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif %}
-{% else %}
-{{ header }} {{deprecated}}`{{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif %}
-{% endif -%}
+{{ header }} {{deprecated}}`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif -%}
 
 {% if cmd.before_long_help %}
+
 {{ cmd.before_long_help | trim }}
+
 {% elif cmd.before_help %}
 {{ cmd.before_help | trim }}
 {% endif -%}
 
 {% if cmd.aliases %}
-* Aliases: `{{ cmd.aliases | join(sep="`, `") }}`
-{% endif -%}
-{% if cmd.args %}
-**Args**
 
-{% for arg in cmd.args -%}
-* `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
-{% endfor -%}
-{% endif -%}
-{% if cmd.flags %}
-**Flags**
-{% for flag in cmd.flags %}
-
-{% if flag.deprecated -%}
-###### `~~{{ flag.usage }}~~ (deprecated)`
-{% else -%}
-###### `{{ flag.usage }}`
-{% endif -%}
-
-
-{{ flag.long_help | default(value=flag.help) }}
-{% endfor -%}
+###### Aliases: `{{ cmd.aliases | join(sep="`, `") }}`{{""-}}
 {% endif -%}
 
 {% if cmd.long_help %}
-{{ cmd.long_help | trim }}
+
+{{ cmd.long_help | trim -}}
 {% elif cmd.help %}
-{{ cmd.help | trim }}
+
+{{ cmd.help | trim -}}
+{% endif -%}
+
+{% for name, cmd in cmd.subcommands -%}
+{% if loop.first %}
+{{header}}# Subcommands
+{% endif %}
+* `{{ cmd.usage }}` - {{ cmd.help -}}
+{% endfor -%}
+
+{% if cmd.args -%}
+{% for arg in cmd.args %}
+
+###### Arg `{{ arg.usage }}`
+
+{% if arg.required %}(required){% endif -%}
+{{ arg.long_help | default(value=arg.help) -}}
+
+{% endfor -%}
+{% endif -%}
+{% if cmd.flags -%}
+{% for flag in cmd.flags %}
+
+{% if flag.deprecated -%}
+##### Flag ~~`{{ flag.usage }}`~~ (deprecated)
+{% else -%}
+##### Flag `{{ flag.usage }}`
+{% endif %}
+{{ flag.long_help | default(value=flag.help) -}}
+{% endfor -%}
 {% endif -%}
 
 {% for ex in cmd.examples -%}
 {% if loop.first %}
-**Examples**
+
+##### Examples
 {% endif %}
 {% if ex.header -%}
-**{{ ex.header }}**
+###### {{ ex.header }}
 {% endif %}
 ```{{ ex.lang | default(value="") }}
 {{ ex.code }}
@@ -442,7 +452,7 @@ impl MarkdownBuilder {
                                     .join(format!("{}.md", cmd.full_cmd.join("/")))
                             }
                             None => {
-                                ctx.insert("header", &"#".repeat(cmd.full_cmd.len() + 2));
+                                ctx.insert("header", &"#".repeat(cmd.full_cmd.len() + 1));
                                 self.inject.clone()
                             }
                         };

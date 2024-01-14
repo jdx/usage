@@ -1,6 +1,6 @@
 name "mise"
 bin "mise"
-version "2024.1.19-DEBUG macos-arm64 (4b93e5e 2024-01-14)"
+version "2024.1.19-DEBUG macos-arm64 (2c0d40a 2024-01-14)"
 about "The front-end to your dev env"
 long_about "mise is a tool for managing runtime versions. https://github.com/jdx/mise\n\nIt's a replacement for tools like nvm, nodenv, rbenv, rvm, chruby, pyenv, etc.\nthat works for any language. It's also great for managing linters/tools like\njq and shellcheck.\n\nIt is inspired by asdf and uses asdf's plugin ecosystem under the hood:\nhttps://asdf-vm.com/"
 usage "Usage: mise [OPTIONS] <COMMAND>"
@@ -393,7 +393,7 @@ cmd "upgrade" help="Upgrades outdated tool versions" {
     arg "[TOOL@VERSION]..." help="Tool(s) to upgrade\ne.g.: node@20 python@3.10\nIf not specified, all current tools will be upgraded" var=true
 }
 cmd "usage" help="Generate usage spec"
-cmd "use" help="Change the active version of a tool locally or globally." long_help="Change the active version of a tool locally or globally.\n\nThis will install the tool if it is not already installed.\nBy default, this will use an `.mise.toml` file in the current directory.\nUse the --global flag to use the global config file instead.\nThis replaces asdf's `local` and `global` commands, however those are still available in mise." after_long_help="Examples:\n  # set the current version of node to 20.x in .mise.toml of current directory\n  # will write the fuzzy version (e.g.: 20)\n  $ mise use node@20\n\n  # set the current version of node to 20.x in ~/.config/mise/config.toml\n  # will write the precise version (e.g.: 20.0.0)\n  $ mise use -g --pin node@20\n\n  # sets .mise.local.toml (which is intended not to be committed to a project)\n  $ mise use --env local node@20\n\n  # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n  $ mise use --env staging node@20\n" {
+cmd "use" help="Change the active version of a tool locally or globally." long_help="Change the active version of a tool locally or globally.\n\nThis will install the tool if it is not already installed.\nBy default, this will use an `.mise.toml` file in the current directory.\nUse the --global flag to use the global config file instead.\nThis replaces asdf's `local` and `global` commands, however those are still available in mise." after_long_help="Examples:\n    # set the current version of node to 20.x in .mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n    $ mise use node@20\n\n    # set the current version of node to 20.x in ~/.config/mise/config.toml\n    # will write the precise version (e.g.: 20.0.0)\n    $ mise use -g --pin node@20\n\n    # sets .mise.local.toml (which is intended not to be committed to a project)\n    $ mise use --env local node@20\n\n    # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n    $ mise use --env staging node@20\n" {
     alias "u"
     flag "-f,--force" help="Force reinstall even if already installed"
     flag "--fuzzy" help="Save fuzzy version to config file\ne.g.: `mise use --fuzzy node@20` will save 20 as the version\nthis is the default behavior unless MISE_ASDF_COMPAT=1"

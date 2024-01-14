@@ -1,14 +1,16 @@
-use crate::error::UsageErr;
-use crate::parse::context::ParsingContext;
-use crate::parse::helpers::NodeHelper;
-use crate::{Spec, SpecArg, SpecFlag};
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
+use crate::error::UsageErr;
+use crate::parse::context::ParsingContext;
+use crate::parse::helpers::NodeHelper;
+use crate::{Spec, SpecArg, SpecFlag};
+
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct SpecCommand {
     pub full_cmd: Vec<String>,
+    pub usage: String,
     pub subcommands: IndexMap<String, SpecCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
@@ -117,6 +119,19 @@ impl SpecCommand {
     }
     pub(crate) fn is_empty(&self) -> bool {
         self.args.is_empty() && self.flags.is_empty() && self.subcommands.is_empty()
+    }
+    pub(crate) fn usage(&self) -> String {
+        let mut name = self.name.clone();
+        if !self.args.is_empty() {
+            name = format!("{name} [args]");
+        }
+        if !self.flags.is_empty() {
+            name = format!("{name} [flags]");
+        }
+        if !self.subcommands.is_empty() {
+            name = format!("{name} [subcommand]");
+        }
+        name
     }
     pub(crate) fn merge(&mut self, other: Self) {
         if !other.name.is_empty() {
