@@ -121,15 +121,23 @@ foooooooo
 
 ### `activate`
 
-**Args:**
+**Args**
 
 * `[SHELL_TYPE]` – Shell type to generate the script for
 
-**Flags:**
+**Flags**
 
-* `-s,--shell <SHELL>` – Shell type to generate the script for
-* `--status` – Show "mise: <PLUGIN>@<VERSION>" message when changing directories
-* `-q,--quiet` – Suppress non-error messages
+
+###### `-s,--shell <SHELL>`
+Shell type to generate the script for
+
+
+###### `--status`
+Show "mise: <PLUGIN>@<VERSION>" message when changing directories
+
+
+###### `-q,--quiet`
+Suppress non-error messages
 
 Initializes mise in the current shell session
 
@@ -159,16 +167,21 @@ Examples:
 
 * Aliases: `a`
 
-**Flags:**
+**Flags**
 
-* `-p,--plugin <PLUGIN>` – filter aliases by plugin
-* `--no-header` – Don't show table header
+
+###### `-p,--plugin <PLUGIN>`
+filter aliases by plugin
+
+
+###### `--no-header`
+Don't show table header
 
 Manage aliases
 
 #### `alias get`
 
-**Args:**
+**Args**
 
 * `<PLUGIN>` – The plugin to show the alias for
 * `<ALIAS>` – The alias to show
@@ -184,13 +197,15 @@ Examples:
 
 * Aliases: `list`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]` – Show aliases for <PLUGIN>
 
-**Flags:**
+**Flags**
 
-* `--no-header` – Don't show table header
+
+###### `--no-header`
+Don't show table header
 
 List aliases
 Shows the aliases that can be specified.
@@ -208,7 +223,7 @@ Examples:
 
 * Aliases: `add`, `create`
 
-**Args:**
+**Args**
 
 * `<PLUGIN>` – The plugin to set the alias for
 * `<ALIAS>` – The alias to set
@@ -224,7 +239,7 @@ Examples:
 
 * Aliases: `rm`, `remove`, `delete`, `del`
 
-**Args:**
+**Args**
 
 * `<PLUGIN>` – The plugin to remove the alias from
 * `<ALIAS>` – The alias to remove
@@ -249,7 +264,7 @@ Run `mise cache` with no args to view the current cache directory.
 
 * Aliases: `c`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]...` – Plugin(s) to clear cache for e.g.: node, python
 
@@ -257,13 +272,15 @@ Deletes all cache files in mise
 
 ### `completion`
 
-**Args:**
+**Args**
 
 * `[SHELL]` – Shell type to generate completions for
 
-**Flags:**
+**Flags**
 
-* `-s,--shell <SHELL_TYPE>` – Shell type to generate completions for
+
+###### `-s,--shell <SHELL_TYPE>`
+Shell type to generate completions for
 
 Generate shell completions
 Examples:
@@ -275,17 +292,21 @@ Examples:
 
 * Aliases: `cfg`
 
-**Flags:**
+**Flags**
 
-* `--no-header` – Do not print table header
+
+###### `--no-header`
+Do not print table header
 
 [experimental] Manage config files
 
 #### `config ls`
 
-**Flags:**
+**Flags**
 
-* `--no-header` – Do not print table header
+
+###### `--no-header`
+Do not print table header
 
 [experimental] List config files currently in use
 Examples:
@@ -295,9 +316,11 @@ Examples:
 
 * Aliases: `g`
 
-**Flags:**
+**Flags**
 
-* `-o,--output <OUTPUT>` – Output to file instead of stdout
+
+###### `-o,--output <OUTPUT>`
+Output to file instead of stdout
 
 [experimental] Generate an .mise.toml file
 Examples:
@@ -306,7 +329,7 @@ Examples:
 
 ### `current`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]` – Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
 
@@ -375,14 +398,19 @@ Examples:
 
 * Aliases: `e`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to use
 
-**Flags:**
+**Flags**
 
-* `-s,--shell <SHELL>` – Shell type to generate environment variables for
-* `-J,--json` – Output in JSON format
+
+###### `-s,--shell <SHELL>`
+Shell type to generate environment variables for
+
+
+###### `-J,--json`
+Output in JSON format
 
 Exports env vars to activate mise a single time
 
@@ -398,17 +426,25 @@ Examples:
 
 * Aliases: `x`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to start e.g.: node@20 python@3.10
 * `[COMMAND]...` – Command string to execute (same as --command)
 
-**Flags:**
+**Flags**
 
-* `-c,--command <C>` – Command string to execute
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+###### `-c,--command <C>`
+Command string to execute
+
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 [default: 4]
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
+
+
+###### `--raw`
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
 Execute a command with tool(s) set
 
@@ -431,10 +467,15 @@ Examples:
 
 ### `implode`
 
-**Flags:**
+**Flags**
 
-* `--config` – Also remove config directory
-* `-n,--dry-run` – List directories that would be removed without actually removing them
+
+###### `--config`
+Also remove config directory
+
+
+###### `-n,--dry-run`
+List directories that would be removed without actually removing them
 
 Removes mise CLI and all related data
 
@@ -444,17 +485,28 @@ Skips config directory by default.
 
 * Aliases: `i`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to install e.g.: node@20
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Force reinstall even if already installed
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+###### `-f,--force`
+Force reinstall even if already installed
+
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 [default: 4]
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
-* `-v,--verbose` – Show installation output
+
+
+###### `--raw`
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
+
+
+###### `-v,--verbose`
+Show installation output
 
 Install a tool version
 
@@ -472,14 +524,16 @@ Examples:
 
 ### `latest`
 
-**Args:**
+**Args**
 
 * `<TOOL@VERSION>` – Tool to get the latest version of
 * `[ASDF_VERSION]` – The version prefix to use when querying the latest version same as the first argument after the "@" used for asdf compatibility
 
-**Flags:**
+**Flags**
 
-* `-i,--installed` – Show latest installed instead of available version
+
+###### `-i,--installed`
+Show latest installed instead of available version
 
 Gets the latest available version for a plugin
 Examples:
@@ -493,15 +547,17 @@ Examples:
 
 * Aliases: `ln`
 
-**Args:**
+**Args**
 
 * `<TOOL@VERSION>` – Tool name and version to create a symlink for
 * `<PATH>` – The local path to the tool version
 e.g.: ~/.nvm/versions/node/v20.0.0
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Overwrite an existing tool version if it exists
+
+###### `-f,--force`
+Overwrite an existing tool version if it exists
 
 Symlinks a tool version into mise
 
@@ -521,21 +577,47 @@ Examples:
 
 * Aliases: `list`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]...` – Only show tool versions from [PLUGIN]
 
-**Flags:**
+**Flags**
 
-* `-p,--plugin <PLUGIN_FLAG>` – 
-* `-c,--current` – Only show tool versions currently specified in a .tool-versions/.mise.toml
-* `-g,--global` – Only show tool versions currently specified in a the global .tool-versions/.mise.toml
-* `-i,--installed` – Only show tool versions that are installed Hides missing ones defined in .tool-versions/.mise.toml but not yet installed
-* `--parseable` – Output in an easily parseable format
-* `-J,--json` – Output in json format
-* `-m,--missing` – Display missing tool versions
-* `--prefix <PREFIX>` – Display versions matching this prefix
-* `--no-header` – Don't display headers
+
+###### `-p,--plugin <PLUGIN_FLAG>`
+
+
+
+###### `-c,--current`
+Only show tool versions currently specified in a .tool-versions/.mise.toml
+
+
+###### `-g,--global`
+Only show tool versions currently specified in a the global .tool-versions/.mise.toml
+
+
+###### `-i,--installed`
+Only show tool versions that are installed Hides missing ones defined in .tool-versions/.mise.toml but not yet installed
+
+
+###### `--parseable`
+Output in an easily parseable format
+
+
+###### `-J,--json`
+Output in json format
+
+
+###### `-m,--missing`
+Display missing tool versions
+
+
+###### `--prefix <PREFIX>`
+Display versions matching this prefix
+
+
+###### `--no-header`
+Don't display headers
 
 List installed and/or currently selected tool versions
 Examples:
@@ -565,15 +647,17 @@ Examples:
 
 ### `ls-remote`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]` – Plugin to get versions for
 * `[PREFIX]` – The version prefix to use when querying the latest version
 same as the first argument after the "@"
 
-**Flags:**
+**Flags**
 
-* `--all` – Show all installed plugins and versions
+
+###### `--all`
+Show all installed plugins and versions
 
 List runtime versions available for install
 
@@ -594,7 +678,7 @@ Examples:
 
 ### `outdated`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to show outdated versions for
 e.g.: node@20 python@3.10
@@ -615,20 +699,34 @@ Examples:
 
 * Aliases: `p`
 
-**Flags:**
+**Flags**
 
-* `-a,--all` – list all available remote plugins
+
+###### `-a,--all`
+list all available remote plugins
 
 same as `mise plugins ls-remote`
-* `-c,--core` – The built-in plugins only
+
+
+###### `-c,--core`
+The built-in plugins only
 Normally these are not shown
-* `--user` – List installed plugins
+
+
+###### `--user`
+List installed plugins
 
 This is the default behavior but can be used with --core
 to show core and user plugins
-* `-u,--urls` – Show the git url for each plugin
+
+
+###### `-u,--urls`
+Show the git url for each plugin
 e.g.: https://github.com/asdf-vm/asdf-node.git
-* `--refs` – Show the git refs for each plugin
+
+
+###### `--refs`
+Show the git refs for each plugin
 e.g.: main 1234abc
 
 Manage plugins
@@ -637,7 +735,7 @@ Manage plugins
 
 * Aliases: `i`, `a`, `add`
 
-**Args:**
+**Args**
 
 * `[NEW_PLUGIN]` – The name of the plugin to install
 e.g.: node, ruby
@@ -645,13 +743,21 @@ Can specify multiple plugins: `mise plugins install node ruby python`
 * `[GIT_URL]` – The git url of the plugin
 * `[REST]...` – 
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Reinstall even if plugin exists
-* `-a,--all` – Install all missing plugins
+
+###### `-f,--force`
+Reinstall even if plugin exists
+
+
+###### `-a,--all`
+Install all missing plugins
 This will only install plugins that have matching shorthands.
 i.e.: they don't need the full git repo url
-* `-v,--verbose` – Show installation output
+
+
+###### `-v,--verbose`
+Show installation output
 
 Install a plugin
 
@@ -677,16 +783,18 @@ Examples:
 
 * Aliases: `ln`
 
-**Args:**
+**Args**
 
 * `<NAME>` – The name of the plugin
 e.g.: node, ruby
 * `[PATH]` – The local path to the plugin
 e.g.: ./mise-node
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Overwrite existing plugin
+
+###### `-f,--force`
+Overwrite existing plugin
 
 Symlinks a plugin into mise
 
@@ -702,19 +810,33 @@ Examples:
 
 * Aliases: `list`
 
-**Flags:**
+**Flags**
 
-* `-a,--all` – List all available remote plugins
+
+###### `-a,--all`
+List all available remote plugins
 Same as `mise plugins ls-remote`
-* `-c,--core` – The built-in plugins only
+
+
+###### `-c,--core`
+The built-in plugins only
 Normally these are not shown
-* `--user` – List installed plugins
+
+
+###### `--user`
+List installed plugins
 
 This is the default behavior but can be used with --core
 to show core and user plugins
-* `-u,--urls` – Show the git url for each plugin
+
+
+###### `-u,--urls`
+Show the git url for each plugin
 e.g.: https://github.com/asdf-vm/asdf-node.git
-* `--refs` – Show the git refs for each plugin
+
+
+###### `--refs`
+Show the git refs for each plugin
 e.g.: main 1234abc
 
 List installed plugins
@@ -733,10 +855,15 @@ Examples:
 
 * Aliases: `list-remote`, `list-all`
 
-**Flags:**
+**Flags**
 
-* `-u,--urls` – Show the git url for each plugin e.g.: https://github.com/mise-plugins/rtx-nodejs.git
-* `--only-names` – Only show the name of each plugin by default it will show a "*" next to installed plugins
+
+###### `-u,--urls`
+Show the git url for each plugin e.g.: https://github.com/mise-plugins/rtx-nodejs.git
+
+
+###### `--only-names`
+Only show the name of each plugin by default it will show a "*" next to installed plugins
 
 List all available remote plugins
 
@@ -749,14 +876,19 @@ Examples:
 
 * Aliases: `remove`, `rm`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]...` – Plugin(s) to remove
 
-**Flags:**
+**Flags**
 
-* `-p,--purge` – Also remove the plugin's installs, downloads, and cache
-* `-a,--all` – Remove all plugins
+
+###### `-p,--purge`
+Also remove the plugin's installs, downloads, and cache
+
+
+###### `-a,--all`
+Remove all plugins
 
 Removes a plugin
 Examples:
@@ -766,13 +898,15 @@ Examples:
 
 * Aliases: `upgrade`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]...` – Plugin(s) to update
 
-**Flags:**
+**Flags**
 
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 Default: 4
 
 Updates a plugin to the latest version
@@ -785,13 +919,15 @@ Examples:
 
 ### `prune`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]...` – Prune only versions from this plugin(s)
 
-**Flags:**
+**Flags**
 
-* `-n,--dry-run` – Do not actually delete anything
+
+###### `-n,--dry-run`
+Do not actually delete anything
 
 Delete unused versions of tools
 
@@ -806,7 +942,7 @@ Examples:
 
 ### `reshim`
 
-**Args:**
+**Args**
 
 * `[PLUGIN]` – 
 * `[VERSION]` – 
@@ -835,29 +971,52 @@ Examples:
 
 * Aliases: `r`
 
-**Args:**
+**Args**
 
 * `[TASK]` – Task to run
 Can specify multiple tasks by separating with `:::`
 e.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2
 * `[ARGS]...` – Arguments to pass to the task. Use ":::" to separate tasks
 
-**Flags:**
+**Flags**
 
-* `-C,--cd <CD>` – Change to this directory before executing the command
-* `-n,--dry-run` – Don't actually run the task(s), just print them in order of execution
-* `-f,--force` – Force the task to run even if outputs are up to date
-* `-p,--prefix` – Print stdout/stderr by line, prefixed with the task's label
+
+###### `-C,--cd <CD>`
+Change to this directory before executing the command
+
+
+###### `-n,--dry-run`
+Don't actually run the task(s), just print them in order of execution
+
+
+###### `-f,--force`
+Force the task to run even if outputs are up to date
+
+
+###### `-p,--prefix`
+Print stdout/stderr by line, prefixed with the task's label
 Defaults to true if --jobs > 1
 Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-* `-i,--interleave` – Print directly to stdout/stderr instead of by line
+
+
+###### `-i,--interleave`
+Print directly to stdout/stderr instead of by line
 Defaults to true if --jobs == 1
 Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-* `-t,--tool <TOOL@VERSION>` – Tool(s) to also add e.g.: node@20 python@3.10
-* `-j,--jobs <JOBS>` – Number of tasks to run in parallel
+
+
+###### `-t,--tool <TOOL@VERSION>`
+Tool(s) to also add e.g.: node@20 python@3.10
+
+
+###### `-j,--jobs <JOBS>`
+Number of tasks to run in parallel
 [default: 4]
 Configure with `jobs` config or `MISE_JOBS` env var
-* `-r,--raw` – Read/write directly to stdin/stdout/stderr instead of by line
+
+
+###### `-r,--raw`
+Read/write directly to stdin/stdout/stderr instead of by line
 Configure with `raw` config or `MISE_RAW` env var
 
 [experimental] Run a task
@@ -904,15 +1063,23 @@ Examples:
 
 ### `self-update`
 
-**Args:**
+**Args**
 
 * `[VERSION]` – Update to a specific version
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Update even if already up to date
-* `--no-plugins` – Disable auto-updating plugins
-* `-y,--yes` – Skip confirmation prompt
+
+###### `-f,--force`
+Update even if already up to date
+
+
+###### `--no-plugins`
+Disable auto-updating plugins
+
+
+###### `-y,--yes`
+Skip confirmation prompt
 
 Updates mise itself
 
@@ -921,18 +1088,26 @@ By default, this will also update any installed plugins
 
 ### `set`
 
-**Args:**
+**Args**
 
 * `[ENV_VARS]...` – Environment variable(s) to set
 e.g.: NODE_ENV=production
 
-**Flags:**
+**Flags**
 
-* `--file <FILE>` – The TOML file to update
+
+###### `--file <FILE>`
+The TOML file to update
 
 Defaults to MISE_DEFAULT_CONFIG_FILENAME environment variable, or ".mise.toml".
-* `-g,--global` – Set the environment variable in the global config file
-* `--remove <ENV_VAR>` – Remove the environment variable from config file
+
+
+###### `-g,--global`
+Set the environment variable in the global config file
+
+
+###### `--remove <ENV_VAR>`
+Remove the environment variable from config file
 
 Can be used multiple times.
 
@@ -955,7 +1130,7 @@ Manage settings
 
 #### `settings get`
 
-**Args:**
+**Args**
 
 * `<SETTING>` – The setting to show
 
@@ -987,7 +1162,7 @@ Examples:
 
 * Aliases: `add`, `create`
 
-**Args:**
+**Args**
 
 * `<SETTING>` – The setting to set
 * `<VALUE>` – The value to set
@@ -1002,7 +1177,7 @@ Examples:
 
 * Aliases: `rm`, `remove`, `delete`, `del`
 
-**Args:**
+**Args**
 
 * `<SETTING>` – The setting to remove
 
@@ -1016,16 +1191,24 @@ Examples:
 
 * Aliases: `sh`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to use
 
-**Flags:**
+**Flags**
 
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 [default: 4]
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
-* `-u,--unset` – Removes a previously set version
+
+
+###### `--raw`
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
+
+
+###### `-u,--unset`
+Removes a previously set version
 
 Sets a tool version for the current shell session
 
@@ -1041,11 +1224,19 @@ Add tool versions from external tools to mise
 
 #### `sync node`
 
-**Flags:**
+**Flags**
 
-* `--brew` – Get tool versions from Homebrew
-* `--nvm` – Get tool versions from nvm
-* `--nodenv` – Get tool versions from nodenv
+
+###### `--brew`
+Get tool versions from Homebrew
+
+
+###### `--nvm`
+Get tool versions from nvm
+
+
+###### `--nodenv`
+Get tool versions from nodenv
 
 Symlinks all tool versions from an external tool into mise
 
@@ -1057,9 +1248,11 @@ Examples:
 
 #### `sync python`
 
-**Flags:**
+**Flags**
 
-* `--pyenv` – Get tool versions from pyenv
+
+###### `--pyenv`
+Get tool versions from pyenv
 
 Symlinks all tool versions from an external tool into mise
 
@@ -1073,10 +1266,15 @@ Examples:
 
 * Aliases: `t`
 
-**Flags:**
+**Flags**
 
-* `--no-header` – Do not print table header
-* `--hidden` – Show hidden tasks
+
+###### `--no-header`
+Do not print table header
+
+
+###### `--hidden`
+Show hidden tasks
 
 [experimental] Manage tasks
 Examples:
@@ -1084,15 +1282,17 @@ Examples:
 
 #### `task deps`
 
-**Args:**
+**Args**
 
 * `[TASKS]...` – Tasks to show dependencies for
 Can specify multiple tasks by separating with spaces
 e.g.: mise task deps lint test check
 
-**Flags:**
+**Flags**
 
-* `--dot` – Display dependencies in DOT format
+
+###### `--dot`
+Display dependencies in DOT format
 
 [experimental] Display a tree visualization of a dependency graph
 Examples:
@@ -1107,13 +1307,15 @@ Examples:
 
 #### `task edit`
 
-**Args:**
+**Args**
 
 * `<TASK>` – Task to edit
 
-**Flags:**
+**Flags**
 
-* `-p,--path` – Display the path to the task instead of editing it
+
+###### `-p,--path`
+Display the path to the task instead of editing it
 
 [experimental] Edit a task with $EDITOR
 
@@ -1124,10 +1326,15 @@ Examples:
 
 #### `task ls`
 
-**Flags:**
+**Flags**
 
-* `--no-header` – Do not print table header
-* `--hidden` – Show hidden tasks
+
+###### `--no-header`
+Do not print table header
+
+
+###### `--hidden`
+Show hidden tasks
 
 [experimental] List available tasks to execute
 These may be included from the config file or from the project's .mise/tasks directory
@@ -1143,29 +1350,52 @@ Examples:
 
 * Aliases: `r`
 
-**Args:**
+**Args**
 
 * `[TASK]` – Task to run
 Can specify multiple tasks by separating with `:::`
 e.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2
 * `[ARGS]...` – Arguments to pass to the task. Use ":::" to separate tasks
 
-**Flags:**
+**Flags**
 
-* `-C,--cd <CD>` – Change to this directory before executing the command
-* `-n,--dry-run` – Don't actually run the task(s), just print them in order of execution
-* `-f,--force` – Force the task to run even if outputs are up to date
-* `-p,--prefix` – Print stdout/stderr by line, prefixed with the task's label
+
+###### `-C,--cd <CD>`
+Change to this directory before executing the command
+
+
+###### `-n,--dry-run`
+Don't actually run the task(s), just print them in order of execution
+
+
+###### `-f,--force`
+Force the task to run even if outputs are up to date
+
+
+###### `-p,--prefix`
+Print stdout/stderr by line, prefixed with the task's label
 Defaults to true if --jobs > 1
 Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-* `-i,--interleave` – Print directly to stdout/stderr instead of by line
+
+
+###### `-i,--interleave`
+Print directly to stdout/stderr instead of by line
 Defaults to true if --jobs == 1
 Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-* `-t,--tool <TOOL@VERSION>` – Tool(s) to also add e.g.: node@20 python@3.10
-* `-j,--jobs <JOBS>` – Number of tasks to run in parallel
+
+
+###### `-t,--tool <TOOL@VERSION>`
+Tool(s) to also add e.g.: node@20 python@3.10
+
+
+###### `-j,--jobs <JOBS>`
+Number of tasks to run in parallel
 [default: 4]
 Configure with `jobs` config or `MISE_JOBS` env var
-* `-r,--raw` – Read/write directly to stdin/stdout/stderr instead of by line
+
+
+###### `-r,--raw`
+Read/write directly to stdin/stdout/stderr instead of by line
 Configure with `raw` config or `MISE_RAW` env var
 
 [experimental] Run a task
@@ -1212,14 +1442,19 @@ Examples:
 
 ### `trust`
 
-**Args:**
+**Args**
 
 * `[CONFIG_FILE]` – The config file to trust
 
-**Flags:**
+**Flags**
 
-* `-a,--all` – Trust all config files in the current directory and its parents
-* `--untrust` – No longer trust this config
+
+###### `-a,--all`
+Trust all config files in the current directory and its parents
+
+
+###### `--untrust`
+No longer trust this config
 
 Marks a config file as trusted
 
@@ -1241,14 +1476,19 @@ Examples:
 
 * Aliases: `remove`, `rm`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to remove
 
-**Flags:**
+**Flags**
 
-* `-a,--all` – Delete all installed versions
-* `-n,--dry-run` – Do not actually delete anything
+
+###### `-a,--all`
+Delete all installed versions
+
+
+###### `-n,--dry-run`
+Do not actually delete anything
 
 Removes runtime versions
 Examples:
@@ -1258,15 +1498,20 @@ Examples:
 
 ### `unset`
 
-**Args:**
+**Args**
 
 * `[KEYS]...` – Environment variable(s) to remove
 e.g.: NODE_ENV
 
-**Flags:**
+**Flags**
 
-* `-f,--file <FILE>` – Specify a file to use instead of ".mise.toml"
-* `-g,--global` – Use the global config file
+
+###### `-f,--file <FILE>`
+Specify a file to use instead of ".mise.toml"
+
+
+###### `-g,--global`
+Use the global config file
 
 Remove environment variable(s) from the config file
 
@@ -1276,19 +1521,30 @@ By default this command modifies ".mise.toml" in the current directory.
 
 * Aliases: `up`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to upgrade
 e.g.: node@20 python@3.10
 If not specified, all current tools will be upgraded
 
-**Flags:**
+**Flags**
 
-* `-n,--dry-run` – Just print what would be done, don't actually do it
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+###### `-n,--dry-run`
+Just print what would be done, don't actually do it
+
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 [default: 4]
-* `-i,--interactive` – Display multiselect menu to choose which tools to upgrade
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
+
+
+###### `-i,--interactive`
+Display multiselect menu to choose which tools to upgrade
+
+
+###### `--raw`
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
 Upgrades outdated tool versions
 
@@ -1300,26 +1556,52 @@ Generate usage spec
 
 * Aliases: `u`
 
-**Args:**
+**Args**
 
 * `[TOOL@VERSION]...` – Tool(s) to add to config file
 e.g.: node@20, cargo:ripgrep@latest npm:prettier@3
 If no version is specified, it will default to @latest
 
-**Flags:**
+**Flags**
 
-* `-f,--force` – Force reinstall even if already installed
-* `--fuzzy` – Save fuzzy version to config file
+
+###### `-f,--force`
+Force reinstall even if already installed
+
+
+###### `--fuzzy`
+Save fuzzy version to config file
 e.g.: `mise use --fuzzy node@20` will save 20 as the version
 this is the default behavior unless MISE_ASDF_COMPAT=1
-* `-g,--global` – Use the global config file (~/.config/mise/config.toml) instead of the local one
-* `-e,--env <ENV>` – Modify an environment-specific config file like .mise.<env>.toml
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+
+
+###### `-g,--global`
+Use the global config file (~/.config/mise/config.toml) instead of the local one
+
+
+###### `-e,--env <ENV>`
+Modify an environment-specific config file like .mise.<env>.toml
+
+
+###### `-j,--jobs <JOBS>`
+Number of jobs to run in parallel
 [default: 4]
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
-* `--remove <PLUGIN>` – Remove the plugin(s) from config file
-* `-p,--path <PATH>` – Specify a path to a config file or directory If a directory is specified, it will look for .mise.toml (default) or .tool-versions
-* `--pin` – Save exact version to config file
+
+
+###### `--raw`
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
+
+
+###### `--remove <PLUGIN>`
+Remove the plugin(s) from config file
+
+
+###### `-p,--path <PATH>`
+Specify a path to a config file or directory If a directory is specified, it will look for .mise.toml (default) or .tool-versions
+
+
+###### `--pin`
+Save exact version to config file
 e.g.: `mise use --pin node@20` will save 20.0.0 as the version
 Set MISE_ASDF_COMPAT=1 to make this the default behavior
 
@@ -1352,14 +1634,19 @@ Show mise version
 
 * Aliases: `w`
 
-**Args:**
+**Args**
 
 * `[ARGS]...` – Extra arguments
 
-**Flags:**
+**Flags**
 
-* `-t,--task <TASK>` – Task to run
-* `-g,--glob <GLOB>` – Files to watch
+
+###### `-t,--task <TASK>`
+Task to run
+
+
+###### `-g,--glob <GLOB>`
+Files to watch
 Defaults to sources from the task(s)
 
 [experimental] Run a task watching for changes
@@ -1377,7 +1664,7 @@ Examples:
 
 ### `where`
 
-**Args:**
+**Args**
 
 * `<TOOL@VERSION>` – Tool(s) to look up
 e.g.: ruby@3
@@ -1404,15 +1691,23 @@ Examples:
 
 ### `which`
 
-**Args:**
+**Args**
 
 * `<BIN_NAME>` – The bin name to look up
 
-**Flags:**
+**Flags**
 
-* `--plugin` – Show the plugin name instead of the path
-* `--version` – Show the version instead of the path
-* `-t,--tool <TOOL@VERSION>` – Use a specific tool@version
+
+###### `--plugin`
+Show the plugin name instead of the path
+
+
+###### `--version`
+Show the version instead of the path
+
+
+###### `-t,--tool <TOOL@VERSION>`
+Use a specific tool@version
 e.g.: `mise which npm --tool=node@20`
 
 Shows the path that a bin name points to
@@ -1424,11 +1719,17 @@ Examples:
   $ mise which node --version
   20.0.0
 
-### `zzz`
+### ~~`zzz`~~ (deprecated)
+
+**Flags**
+
+
+###### `~~--timeout~~ (deprecated)`
+The amount of time to sleep for.
 
 Sleeps for a while.  The amount of time is determined by the --timeout option.
 
-**Examples:**
+**Examples**
 
 **Create something**
 

@@ -19,6 +19,7 @@ pub struct SpecFlag {
     pub short: Vec<char>,
     pub long: Vec<String>,
     pub required: bool,
+    pub deprecated: Option<String>,
     pub var: bool,
     pub hide: bool,
     pub global: bool,
@@ -37,6 +38,13 @@ impl SpecFlag {
                 "required" => flag.required = v.ensure_bool()?,
                 "var" => flag.var = v.ensure_bool()?,
                 "hide" => flag.hide = v.ensure_bool()?,
+                "deprecated" => {
+                    flag.deprecated = match v.value.as_bool() {
+                        Some(true) => Some("deprecated".into()),
+                        Some(false) => None,
+                        None => Some(v.ensure_string()?),
+                    }
+                }
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
                 "default" => flag.default = v.ensure_string().map(Some)?,
@@ -98,6 +106,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.count {
             node.push(KdlEntry::new_prop("count", true));
+        }
+        if let Some(deprecated) = &flag.deprecated {
+            node.push(KdlEntry::new_prop("deprecated", deprecated.clone()));
         }
         if let Some(arg) = &flag.arg {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -183,6 +194,7 @@ impl From<&clap::Arg> for SpecFlag {
             arg,
             count: matches!(c.get_action(), clap::ArgAction::Count),
             default,
+            deprecated: None,
         }
     }
 }

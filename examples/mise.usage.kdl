@@ -14,6 +14,7 @@ config {
 
 cmd "zzz" \
         help="Sleeps for a while." \
+        deprecated=true \
         long_help="Sleeps for a while.  The amount of time is determined by the --timeout option." {
 
    example lang="sh" header="Create something" help="xxx" r#"
@@ -32,4 +33,6 @@ $ mise zzz --timeout 2
 Sleeping for 2 seconds...
 Done.
    "#
+
+   flag "--timeout" help="The amount of time to sleep for." deprecated=true
 }

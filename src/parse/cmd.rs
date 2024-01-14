@@ -12,6 +12,7 @@ pub struct SpecCommand {
     pub subcommands: IndexMap<String, SpecCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
+    pub deprecated: Option<String>,
     pub hide: bool,
     pub subcommand_required: bool,
     pub help: Option<String>,
@@ -62,6 +63,13 @@ impl SpecCommand {
                 }
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "deprecated" => {
+                    cmd.deprecated = match v.value.as_bool() {
+                        Some(true) => Some("deprecated".to_string()),
+                        Some(false) => None,
+                        None => Some(v.ensure_string()?),
+                    }
+                }
                 k => bail_parse!(ctx, node.span(), "unsupported cmd prop {k}"),
             }
         }

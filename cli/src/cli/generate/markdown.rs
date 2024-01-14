@@ -94,10 +94,11 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 "#;
 
 const COMMAND_TEMPLATE: &str = r##"
+{% set deprecated = "" %}{% if cmd.deprecated %}{% set deprecated = "~~" %}{% endif %}
 {% if multi_dir %}
-{{ header }} `{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`
+{{ header }} {{deprecated}}`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif %}
 {% else %}
-{{ header }} `{{ cmd.full_cmd | join(sep=" ") }}`
+{{ header }} {{deprecated}}`{{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif %}
 {% endif -%}
 
 {% if cmd.before_long_help %}
@@ -110,17 +111,24 @@ const COMMAND_TEMPLATE: &str = r##"
 * Aliases: `{{ cmd.aliases | join(sep="`, `") }}`
 {% endif -%}
 {% if cmd.args %}
-**Args:**
+**Args**
 
 {% for arg in cmd.args -%}
 * `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
 {% endfor -%}
 {% endif -%}
 {% if cmd.flags %}
-**Flags:**
+**Flags**
+{% for flag in cmd.flags %}
 
-{% for flag in cmd.flags -%}
-* `{{ flag.usage }}` – {{ flag.long_help | default(value=flag.help) }}
+{% if flag.deprecated -%}
+###### `~~{{ flag.usage }}~~ (deprecated)`
+{% else -%}
+###### `{{ flag.usage }}`
+{% endif -%}
+
+
+{{ flag.long_help | default(value=flag.help) }}
 {% endfor -%}
 {% endif -%}
 
@@ -132,7 +140,7 @@ const COMMAND_TEMPLATE: &str = r##"
 
 {% for ex in cmd.examples -%}
 {% if loop.first %}
-**Examples:**
+**Examples**
 {% endif %}
 {% if ex.header -%}
 **{{ ex.header }}**
