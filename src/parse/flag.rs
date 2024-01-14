@@ -8,10 +8,10 @@ use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
-use crate::{bail_parse, Arg};
+use crate::{bail_parse, SpecArg};
 
 #[derive(Debug, Default, Serialize, Clone)]
-pub struct Flag {
+pub struct SpecFlag {
     pub name: String,
     pub usage: String,
     pub help: Option<String>,
@@ -23,11 +23,11 @@ pub struct Flag {
     pub hide: bool,
     pub global: bool,
     pub count: bool,
-    pub arg: Option<Arg>,
+    pub arg: Option<SpecArg>,
     pub default: Option<String>,
 }
 
-impl Flag {
+impl SpecFlag {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         for (k, v) in node.props() {
@@ -45,7 +45,7 @@ impl Flag {
         }
         for child in node.children() {
             match child.name() {
-                "arg" => flag.arg = Some(Arg::parse(ctx, &child)?),
+                "arg" => flag.arg = Some(SpecArg::parse(ctx, &child)?),
                 k => bail_parse!(ctx, *child.node.span(), "unsupported flag value key {k}"),
             }
         }
@@ -67,8 +67,8 @@ impl Flag {
     }
 }
 
-impl From<&Flag> for KdlNode {
-    fn from(flag: &Flag) -> KdlNode {
+impl From<&SpecFlag> for KdlNode {
+    fn from(flag: &SpecFlag) -> KdlNode {
         let mut node = KdlNode::new("flag");
         let name = flag
             .short
@@ -107,7 +107,7 @@ impl From<&Flag> for KdlNode {
     }
 }
 
-impl FromStr for Flag {
+impl FromStr for SpecFlag {
     type Err = UsageErr;
     fn from_str(input: &str) -> std::result::Result<Self, UsageErr> {
         let mut flag = Self::default();
@@ -133,7 +133,7 @@ impl FromStr for Flag {
 }
 
 #[cfg(feature = "clap")]
-impl From<&clap::Arg> for Flag {
+impl From<&clap::Arg> for SpecFlag {
     fn from(c: &clap::Arg) -> Self {
         let required = c.is_required_set();
         let help = c.get_help().map(|s| s.to_string());
@@ -188,8 +188,8 @@ impl From<&clap::Arg> for Flag {
 }
 
 #[cfg(feature = "clap")]
-impl From<&Flag> for clap::Arg {
-    fn from(flag: &Flag) -> Self {
+impl From<&SpecFlag> for clap::Arg {
+    fn from(flag: &SpecFlag) -> Self {
         let mut a = clap::Arg::new(&flag.name);
         if let Some(desc) = &flag.help {
             a = a.help(desc);

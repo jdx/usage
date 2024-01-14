@@ -10,7 +10,7 @@ use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug, Default, Serialize, Clone)]
-pub struct Arg {
+pub struct SpecArg {
     pub name: String,
     pub usage: String,
     pub help: Option<String>,
@@ -23,9 +23,9 @@ pub struct Arg {
     pub default: Option<String>,
 }
 
-impl Arg {
+impl SpecArg {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
-        let mut arg: Arg = node.arg(0)?.ensure_string()?.parse()?;
+        let mut arg: SpecArg = node.arg(0)?.ensure_string()?.parse()?;
         for (k, v) in node.props() {
             match k {
                 "help" => arg.help = Some(v.ensure_string()?),
@@ -44,7 +44,7 @@ impl Arg {
     }
 }
 
-impl Arg {
+impl SpecArg {
     pub(crate) fn usage(&self) -> String {
         let mut name = if self.required {
             format!("<{}>", self.name)
@@ -58,8 +58,8 @@ impl Arg {
     }
 }
 
-impl From<&Arg> for KdlNode {
-    fn from(arg: &Arg) -> Self {
+impl From<&SpecArg> for KdlNode {
+    fn from(arg: &SpecArg) -> Self {
         let mut node = KdlNode::new("arg");
         node.push(KdlEntry::new(arg.usage()));
         if let Some(desc) = &arg.help {
@@ -87,9 +87,9 @@ impl From<&Arg> for KdlNode {
     }
 }
 
-impl From<&str> for Arg {
+impl From<&str> for SpecArg {
     fn from(input: &str) -> Self {
-        let mut arg = Arg {
+        let mut arg = SpecArg {
             name: input.to_string(),
             required: true,
             ..Default::default()
@@ -113,7 +113,7 @@ impl From<&str> for Arg {
         arg
     }
 }
-impl FromStr for Arg {
+impl FromStr for SpecArg {
     type Err = UsageErr;
     fn from_str(input: &str) -> std::result::Result<Self, UsageErr> {
         Ok(input.into())
@@ -121,7 +121,7 @@ impl FromStr for Arg {
 }
 
 #[cfg(feature = "clap")]
-impl From<&clap::Arg> for Arg {
+impl From<&clap::Arg> for SpecArg {
     fn from(arg: &clap::Arg) -> Self {
         let required = arg.is_required_set();
         let help = arg.get_help().map(|s| s.to_string());
@@ -162,8 +162,8 @@ impl From<&clap::Arg> for Arg {
 }
 
 #[cfg(feature = "clap")]
-impl From<&Arg> for clap::Arg {
-    fn from(arg: &Arg) -> Self {
+impl From<&SpecArg> for clap::Arg {
+    fn from(arg: &SpecArg) -> Self {
         let mut a = clap::Arg::new(&arg.name);
         if let Some(desc) = &arg.help {
             a = a.help(desc);

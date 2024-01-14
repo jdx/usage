@@ -11,7 +11,7 @@ use crate::parse::cmd::SpecCommand;
 use crate::parse::config::SpecConfig;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
-use crate::{Arg, Flag};
+use crate::{SpecArg, SpecFlag};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Spec {
@@ -66,8 +66,8 @@ impl Spec {
                 "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
                 "long_about" => schema.long_about = Some(node.arg(0)?.ensure_string()?),
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
-                "arg" => schema.cmd.args.push(Arg::parse(ctx, &node)?),
-                "flag" => schema.cmd.flags.push(Flag::parse(ctx, &node)?),
+                "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
+                "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
                 "cmd" => {
                     let node: SpecCommand = SpecCommand::parse(ctx, &node)?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);

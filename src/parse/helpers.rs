@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use kdl::{KdlEntry, KdlNode, KdlValue};
 use miette::SourceSpan;
 use std::fmt::Debug;
-use std::ops::{Range, RangeBounds, RangeFrom};
+use std::ops::{RangeBounds};
 
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
@@ -74,7 +74,7 @@ impl<'a> NodeHelper<'a> {
             .map(|c| {
                 c.nodes()
                     .iter()
-                    .map(|n| NodeHelper::new(&self.ctx, n))
+                    .map(|n| NodeHelper::new(self.ctx, n))
                     .collect()
             })
             .unwrap_or_default()

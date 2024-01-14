@@ -1,7 +1,7 @@
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
-use crate::{Arg, Flag, Spec};
+use crate::{Spec, SpecArg, SpecFlag};
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
@@ -10,8 +10,8 @@ use serde::Serialize;
 pub struct SpecCommand {
     pub full_cmd: Vec<String>,
     pub subcommands: IndexMap<String, SpecCommand>,
-    pub args: Vec<Arg>,
-    pub flags: Vec<Flag>,
+    pub args: Vec<SpecArg>,
+    pub flags: Vec<SpecFlag>,
     pub hide: bool,
     pub subcommand_required: bool,
     pub help: Option<String>,
@@ -50,8 +50,8 @@ impl SpecCommand {
         }
         for child in node.children() {
             match child.name() {
-                "flag" => cmd.flags.push(Flag::parse(ctx, &child)?),
-                "arg" => cmd.args.push(Arg::parse(ctx, &child)?),
+                "flag" => cmd.flags.push(SpecFlag::parse(ctx, &child)?),
+                "arg" => cmd.args.push(SpecArg::parse(ctx, &child)?),
                 "cmd" => {
                     let node = SpecCommand::parse(ctx, &child)?;
                     cmd.subcommands.insert(node.name.to_string(), node);
