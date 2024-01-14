@@ -121,7 +121,7 @@ foooooooo
 
 <!-- [USAGE] -->
 ## Commands
-<!-- [USAGE] commands -->
+<!-- [USAGE] commands inline_depth=2 -->
 
 ### `activate`
 

@@ -41,10 +41,9 @@ mod tests {
 
     #[test]
     fn test_complete_zsh() {
-        let spec: Spec = r#"
-        "#
-        .parse()
-        .unwrap();
+        let spec = r#"
+        "#;
+        let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_zsh(&spec).trim(), @r###"
         #compdef 
         _() {

@@ -33,10 +33,9 @@ mod tests {
 
     #[test]
     fn test_complete_bash() {
-        let spec: Spec = r#"
-        "#
-        .parse()
-        .unwrap();
+        let spec = r#"
+        "#;
+        let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_bash(&spec).trim(), @r###"
         _() {
             local raw

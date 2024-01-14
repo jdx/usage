@@ -20,10 +20,9 @@ mod tests {
 
     #[test]
     fn test_complete_fish() {
-        let spec: Spec = r#"
-        "#
-        .parse()
-        .unwrap();
+        let spec = r#"
+        "#;
+        let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_fish(&spec).trim(), @r###"
         set _usage_spec_ ''
         complete -xc  -a '(usage complete-word -s "$_usage_spec_" --ctoken=(commandline -t) -- (commandline -op))'

@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::{env, fs};
 
 use clap::Args;
 use contracts::requires;
@@ -177,7 +177,7 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 {% endfor %}
 "#;
 
-const COMMANDS_TEMPLATE: &str = r#"
+const COMMAND_TEMPLATE: &str = r#"
 ### `{{ cmd.full_cmd | join(sep=" ") }}`
 
 {% if cmd.before_long_help -%}
@@ -245,7 +245,9 @@ impl Display for UsageMdDirective {
             UsageMdDirective::GlobalArgs => write!(f, "<!-- [USAGE] global_args -->"),
             UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
             UsageMdDirective::CommandIndex => write!(f, "<!-- [USAGE] command_index -->"),
-            UsageMdDirective::Commands { .. } => write!(f, "<!-- [USAGE] commands -->"),
+            UsageMdDirective::Commands { inline_depth } => {
+                write!(f, "<!-- [USAGE] commands inline_depth={inline_depth} -->")
+            }
             UsageMdDirective::Config => write!(f, "<!-- [USAGE] config -->"),
             UsageMdDirective::EndToken => write!(f, "<!-- [USAGE] -->"),
             UsageMdDirective::Plain(line) => write!(f, "{}", line),
@@ -373,7 +375,7 @@ impl UsageMdDirective {
                 for cmd in &commands {
                     let mut tctx = ctx.tera.clone();
                     tctx.insert("cmd", &cmd);
-                    ctx.push(render_template(COMMANDS_TEMPLATE, &tctx)?);
+                    ctx.push(render_template(COMMAND_TEMPLATE, &tctx)?);
                 }
                 ctx.push("<!-- [USAGE] -->".to_string());
             }

@@ -266,6 +266,8 @@ cmd "config" {
         let cmd = clap::Command::new("test");
         assert_display_snapshot!(Spec::from(&cmd), @r###"
         name "test"
+        bin "test"
+        usage "Usage: test"
         "###);
     }
 }
