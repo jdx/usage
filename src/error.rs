@@ -14,6 +14,10 @@ pub enum UsageErr {
         #[source_code] NamedSource,
     ),
 
+    #[error("Invalid usage config")]
+    #[diagnostic(transparent)]
+    Miette(#[from] miette::MietteError),
+
     #[error(transparent)]
     IO(#[from] std::io::Error),
 
@@ -23,6 +27,10 @@ pub enum UsageErr {
     #[error(transparent)]
     #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    XXError(#[from] xx::error::XXError),
 }
 
 impl UsageErr {

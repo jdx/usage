@@ -1,11 +1,13 @@
 use crate::error::UsageErr;
 use crate::parse::helpers::NodeHelper;
-use crate::{Arg, Flag};
+use crate::{Arg, Flag, Spec};
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
+use serde::Serialize;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct SchemaCmd {
+    pub full_cmd: Vec<String>,
     pub subcommands: IndexMap<String, SchemaCmd>,
     pub args: Vec<Arg>,
     pub flags: Vec<Flag>,
@@ -209,5 +211,12 @@ impl From<&SchemaCmd> for clap::Command {
             app = app.subcommand(subcmd);
         }
         app
+    }
+}
+
+#[cfg(feature = "clap")]
+impl From<clap::Command> for Spec {
+    fn from(cmd: clap::Command) -> Self {
+        (&cmd).into()
     }
 }

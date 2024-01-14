@@ -10,14 +10,17 @@ use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
 use crate::parse::config::SpecConfig;
 use miette::NamedSource;
+use serde::Serialize;
 use std::cell::RefCell;
+use std::iter::once;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct Spec {
     pub name: String,
     pub bin: String,
     pub cmd: SchemaCmd,
     pub config: SpecConfig,
+    pub version: Option<String>,
 }
 
 impl Spec {
@@ -25,7 +28,7 @@ impl Spec {
         static PARSING_FILE: RefCell<Option<(PathBuf, String)>> = RefCell::new(None);
     }
 
-    pub fn parse_file(file: &Path) -> miette::Result<(Spec, String)> {
+    pub fn parse_file(file: &Path) -> Result<(Spec, String), UsageErr> {
         let (spec, body) = split_script(file)?;
         Self::set_parsing_file(Some((file.to_path_buf(), spec.clone())));
         let mut schema = Self::from_str(&spec)?;
@@ -70,7 +73,7 @@ impl Spec {
     }
 }
 
-fn split_script(file: &Path) -> miette::Result<(String, String)> {
+fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
     let (schema, body) = schema.split_once("\n#!").unwrap_or((&schema, ""));
@@ -85,9 +88,21 @@ fn get_string_prop(node: &KdlNode, name: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+fn set_subcommand_ancestors(cmd: &mut SchemaCmd, ancestors: &[String]) {
+    let ancestors = ancestors.to_vec();
+    for subcmd in cmd.subcommands.values_mut() {
+        subcmd.full_cmd = ancestors
+            .clone()
+            .into_iter()
+            .chain(once(subcmd.name.clone()))
+            .collect();
+        set_subcommand_ancestors(subcmd, &subcmd.full_cmd.clone());
+    }
+}
+
 impl FromStr for Spec {
-    type Err = miette::Error;
-    fn from_str(input: &str) -> Result<Spec, Self::Err> {
+    type Err = UsageErr;
+    fn from_str(input: &str) -> miette::Result<Spec, Self::Err> {
         let kdl: KdlDocument = input
             .parse()
             .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
@@ -109,14 +124,14 @@ impl FromStr for Spec {
                     let file = get_string_prop(node, "file")
                         .map(context::prepend_load_root)
                         .ok_or_else(|| UsageErr::new(node.to_string(), node.span()))?;
-                    ensure!(file.exists(), "File not found: {}", file.display());
                     info!("include: {}", file.display());
                     let (spec, _) = split_script(&file)?;
                     schema.merge(spec.parse()?);
                 }
-                _ => Err(UsageErr::new(node.to_string(), node.span()))?,
+                k => bail_parse!(node, "unsupported key {k}"),
             }
         }
+        set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }
 }
@@ -158,6 +173,7 @@ impl From<&clap::Command> for Spec {
             bin: cmd.get_bin_name().unwrap_or_default().to_string(),
             name: cmd.get_name().to_string(),
             cmd: cmd.into(),
+            version: cmd.get_version().map(|v| v.to_string()),
             ..Default::default()
         }
     }
@@ -178,13 +194,6 @@ impl From<&Spec> for clap::Command {
             cmd = cmd.subcommand(scmd);
         }
         cmd
-    }
-}
-
-#[cfg(feature = "clap")]
-impl From<clap::Command> for Spec {
-    fn from(cmd: clap::Command) -> Self {
-        (&cmd).into()
     }
 }
 

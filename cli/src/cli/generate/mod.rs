@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use usage::error::UsageErr;
 
 use usage::Spec;
 
@@ -27,7 +28,7 @@ impl Generate {
     }
 }
 
-pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> miette::Result<Spec> {
+pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> Result<Spec, UsageErr> {
     if let Some(file) = file {
         let (spec, _) = Spec::parse_file(file)?;
         Ok(spec)

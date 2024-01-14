@@ -3,13 +3,15 @@ use std::str::FromStr;
 #[cfg(feature = "clap")]
 use itertools::Itertools;
 use kdl::{KdlEntry, KdlNode};
+use serde::Serialize;
 
 use crate::error::UsageErr;
 use crate::parse::helpers::NodeHelper;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct Arg {
     pub name: String,
+    pub usage: String,
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub required: bool,
@@ -81,6 +83,7 @@ impl TryFrom<&KdlNode> for Arg {
                 k => bail_parse!(v.entry, "unsupported key {k}"),
             }
         }
+        arg.usage = arg.usage();
         Ok(arg)
     }
 }
@@ -137,6 +140,7 @@ impl From<&clap::Arg> for Arg {
                 .cloned()
                 .unwrap_or_default()
                 .to_string(),
+            usage: "".into(),
             required,
             help,
             long_help,

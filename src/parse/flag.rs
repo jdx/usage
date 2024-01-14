@@ -2,15 +2,17 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
+use serde::Serialize;
 
 use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
 use crate::parse::helpers::NodeHelper;
 use crate::{bail_parse, Arg};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub struct Flag {
     pub name: String,
+    pub usage: String,
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub short: Vec<char>,
@@ -104,6 +106,7 @@ impl TryFrom<&KdlNode> for Flag {
                 k => bail_parse!(child.node, "unsupported key {k}"),
             }
         }
+        flag.usage = flag.usage();
         Ok(flag)
     }
 }
@@ -168,6 +171,7 @@ impl From<&clap::Arg> for Flag {
         };
         Self {
             name,
+            usage: "".into(),
             short,
             long,
             required,

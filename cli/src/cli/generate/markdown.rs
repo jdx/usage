@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -9,6 +8,7 @@ use contracts::requires;
 use kdl::{KdlDocument, KdlNode};
 use miette::{IntoDiagnostic, NamedSource, SourceOffset, SourceSpan};
 use strum::EnumIs;
+use tera::Tera;
 use thiserror::Error;
 use xx::{context, file};
 
@@ -147,6 +147,64 @@ impl Markdown {
     // }
 }
 
+const USAGE_TITLE_TEMPLATE: &str = r#"
+# {spec.name}
+"#;
+
+const USAGE_OVERVIEW_TEMPLATE: &str = r#"
+## Usage
+
+```bash
+{{spec.bin}} [flags] [args]
+```
+"#;
+
+static CONFIG_TEMPLATE: &str = r#"
+### `!KEY!`
+
+!ENV!
+!DEFAULT!
+
+!HELP!
+!LONG_HELP!
+"#;
+
+const COMMANDS_INDEX_TEMPLATE: &str = r#"
+## Commands Index
+
+{% for cmd in commands -%}
+* [`{{ cmd.full_cmd | join(sep=" ") }}`](#{{ cmd.full_cmd | join(sep=" ") | slugify }})
+{% endfor %}
+"#;
+
+const COMMANDS_TEMPLATE: &str = r#"
+### `{{ cmd.full_cmd | join(sep=" ") }}`
+
+{% if cmd.args -%}
+#### Args
+
+{% for arg in cmd.args -%}
+* `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
+{% endfor -%}
+{% endif -%}
+
+{% if cmd.flags -%}
+#### Flags
+
+{% for flag in cmd.flags -%}
+* `{{ flag.usage }}` – {{ flag.long_help | default(value=flag.help) }}
+{% endfor -%}
+{% endif -%}
+
+{% if cmd.help -%}
+{{ cmd.help }}
+{% endif -%}
+
+{% if cmd.long_help -%}
+{{ cmd.long_help }}
+{% endif -%}
+"#;
+
 #[derive(Debug, EnumIs)]
 #[strum(serialize_all = "snake_case")]
 enum UsageMdDirective {
@@ -185,6 +243,7 @@ struct UsageMdContext {
     plain: bool,
     spec: Option<Spec>,
     out: Mutex<Vec<String>>,
+    tera: tera::Context,
 }
 
 impl UsageMdContext {
@@ -193,6 +252,7 @@ impl UsageMdContext {
             plain: true,
             spec: None,
             out: Mutex::new(vec![]),
+            tera: tera::Context::new(),
         }
     }
 
@@ -209,25 +269,27 @@ impl UsageMdDirective {
         match self {
             UsageMdDirective::Load { file } => {
                 let file = context::prepend_load_root(file);
-                ctx.spec = Some(Spec::parse_file(&file)?.0);
+                let spec: Spec = Spec::parse_file(&file)?.0;
+                ctx.tera.insert("spec", &spec.clone());
+                let commands: Vec<_> = gather_subcommands(&[&spec.cmd])
+                    .into_iter()
+                    .filter(|c| !c.hide)
+                    .collect();
+                ctx.tera.insert("commands", &commands);
+                ctx.spec = Some(spec);
                 ctx.push(self.to_string());
             }
             UsageMdDirective::Title => {
                 ensure!(ctx.spec.is_some(), "spec must be loaded before title");
                 ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
-                ctx.push(format!("# {name}", name = spec.name));
+                ctx.push(render_template(USAGE_TITLE_TEMPLATE, &ctx.tera)?);
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::UsageOverview => {
                 ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-
                 ctx.push(self.to_string());
-                ctx.push("```".to_string());
-                ctx.push(format!("{bin} [flags] [args]", bin = spec.bin));
-                ctx.push("```".to_string());
+                ctx.push(render_template(USAGE_OVERVIEW_TEMPLATE, &ctx.tera)?);
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::GlobalArgs => {
@@ -279,16 +341,20 @@ impl UsageMdDirective {
             }
             UsageMdDirective::CommandIndex => {
                 ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
-                print_commands_index(&ctx, &[&spec.cmd])?;
+                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::Commands => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
-                print_commands(&ctx, &[&spec.cmd])?;
+                let commands = gather_subcommands(&[&spec.cmd]);
+                for cmd in &commands {
+                    let mut tctx = ctx.tera.clone();
+                    tctx.insert("cmd", &cmd);
+                    ctx.push(render_template(COMMANDS_TEMPLATE, &tctx)?);
+                }
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::Config => {
@@ -318,58 +384,25 @@ impl UsageMdDirective {
     }
 }
 
-fn print_commands_index(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<()> {
-    let subcommands = cmds[cmds.len() - 1]
-        .subcommands
-        .values()
-        .filter(|c| !c.hide)
-        .collect::<Vec<_>>();
-    for cmd in subcommands {
-        let cmds = cmds.iter().cloned().chain(once(cmd)).collect::<Vec<_>>();
-        let full_name = cmds
-            .iter()
-            .skip(1)
-            .map(|c| c.name.as_str())
-            .collect::<Vec<_>>()
-            .join(" ");
-        let slug = full_name.replace(' ', "-");
-        ctx.push(format!("- [`{full_name}`](#{slug})",));
-        print_commands_index(ctx, &cmds)?;
-    }
-
-    Ok(())
+fn render_template(template: &str, tctx: &tera::Context) -> miette::Result<String> {
+    let out = Tera::one_off(template, tctx, false).into_diagnostic()?;
+    Ok(out)
 }
 
-fn print_commands(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<()> {
-    let subcommands = cmds[cmds.len() - 1]
-        .subcommands
-        .values()
-        .filter(|c| !c.hide)
-        .collect::<Vec<_>>();
-    for cmd in subcommands {
-        let cmds = cmds.iter().cloned().chain(once(cmd)).collect::<Vec<_>>();
-        let full_name = cmds
-            .iter()
-            .skip(1)
-            .map(|c| c.name.as_str())
-            .collect::<Vec<_>>()
-            .join(" ");
-        ctx.push(format!("### `{full_name}`"));
-        print_commands(ctx, &cmds)?;
+fn gather_subcommands(cmds: &[&SchemaCmd]) -> Vec<SchemaCmd> {
+    let mut subcommands = vec![];
+    for cmd in cmds {
+        if cmd.hide {
+            continue;
+        }
+        if !cmd.name.is_empty() {
+            subcommands.push((*cmd).clone());
+        }
+        let more = gather_subcommands(&cmd.subcommands.values().collect::<Vec<_>>());
+        subcommands.extend(more);
     }
-
-    Ok(())
+    subcommands
 }
-
-static CONFIG_TEMPLATE: &str = r#"
-### `!KEY!`
-
-!ENV!
-!DEFAULT!
-
-!HELP!
-!LONG_HELP!
-"#;
 
 fn print_config(config: &SpecConfig) -> miette::Result<String> {
     let mut all = vec![];
@@ -384,14 +417,7 @@ fn print_config(config: &SpecConfig) -> miette::Result<String> {
             tmpl("!ENV!", format!("* env: `{env}`"));
             // out = out.replace("!ENV!", &format!("* env: `{env}`"));
         }
-        if let Some(default) = prop
-            .default_note
-            .clone()
-            .or_else(|| match prop.default.is_null() {
-                true => None,
-                false => Some(prop.default.to_string()),
-            })
-        {
+        if let Some(default) = prop.default_note.clone().or_else(|| prop.default.clone()) {
             tmpl("!DEFAULT!", format!("* default: `{default}`"));
             // out = out.replace("!DEFAULT!", &format!("* default: `{default}`"));
         }

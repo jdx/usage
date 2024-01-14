@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 
-use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use kdl::{KdlDocument, KdlEntry, KdlNode, };
+use serde::{Serialize};
 
 use crate::bail_parse;
 use crate::error::UsageErr;
 use crate::parse::data_types::SpecDataTypes;
 use crate::parse::helpers::NodeHelper;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
 }
@@ -18,9 +19,9 @@ impl SpecConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SpecConfigProp {
-    pub default: KdlValue,
+    pub default: Option<String>,
     pub default_note: Option<String>,
     pub data_type: SpecDataTypes,
     pub env: Option<String>,
@@ -32,8 +33,11 @@ impl SpecConfigProp {
     fn to_kdl_node(&self, key: String) -> KdlNode {
         let mut node = KdlNode::new("prop");
         node.push(KdlEntry::new(key));
-        if self.default != KdlValue::Null {
-            node.push(KdlEntry::new_prop("default", self.default.clone()));
+        if let Some(default) = &self.default {
+            node.push(KdlEntry::new_prop("default", default.clone()));
+        }
+        if let Some(default_note) = &self.default_note {
+            node.push(KdlEntry::new_prop("default_note", default_note.clone()));
         }
         if let Some(env) = &self.env {
             node.push(KdlEntry::new_prop("env", env.clone()));
@@ -63,7 +67,7 @@ impl TryFrom<&KdlNode> for SpecConfig {
                         let mut prop = SpecConfigProp::default();
                         for (k, v) in ph.props() {
                             match k {
-                                "default" => prop.default = v.value.clone(),
+                                "default" => prop.default = v.value.to_string().into(),
                                 "default_note" => prop.default_note = Some(v.ensure_string()?),
                                 "data_type" => prop.data_type = v.ensure_string()?.parse()?,
                                 "env" => prop.env = v.ensure_string()?.to_string().into(),
@@ -87,7 +91,7 @@ impl TryFrom<&KdlNode> for SpecConfig {
 impl Default for SpecConfigProp {
     fn default() -> Self {
         Self {
-            default: KdlValue::Null,
+            default: None,
             default_note: None,
             data_type: SpecDataTypes::Null,
             env: None,
