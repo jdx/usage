@@ -20,7 +20,7 @@ impl<'a> NodeHelper<'a> {
         let count = self
             .node
             .entries()
-            .into_iter()
+            .iter()
             .filter(|e| e.name().is_none())
             .count();
         if count < min || count > max {
@@ -46,11 +46,8 @@ impl<'a> NodeHelper<'a> {
     pub(crate) fn props(&self) -> IndexMap<&str, ParseEntry> {
         self.node
             .entries()
-            .into_iter()
-            .filter_map(|e| match e.name() {
-                Some(key) => Some((key.value(), e.into())),
-                None => None,
-            })
+            .iter()
+            .filter_map(|e| e.name().map(|key| (key.value(), e.into())))
             .collect()
     }
 }

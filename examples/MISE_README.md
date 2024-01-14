@@ -150,3 +150,23 @@ mise.usage.kdl [flags] [args]
 <!-- [USAGE] -->
 ## Config
 <!-- [USAGE] config -->
+### `activate_accessive`
+env: `MISE_ACTIVATE_ACCESSIVE`
+default: `false`
+Pushes tools' bin-paths to the front of PATH instead of allowing modifications of PATH after activation to take precedence.
+foooooooo
+Used by commnds: global|*
+### `color`
+env: `MISE_COLOR`
+default: `true`
+Used by commnds: global|*
+### `jobs`
+default: `4`
+Used by commnds: global|*
+### `timeout`
+default: `1.5`
+Used by commnds: global|*
+### `user`
+default: `"admin"`
+Used by commnds: global|*
+<!-- [USAGE] -->

@@ -13,6 +13,7 @@ use cli::Cli;
 
 mod cli;
 mod env;
+mod errors;
 mod hash;
 mod shebang;
 

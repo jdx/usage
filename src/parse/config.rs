@@ -7,6 +7,7 @@ use crate::error::UsageErr;
 use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug)]
+#[derive(Default)]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
 }
@@ -79,13 +80,7 @@ impl TryFrom<&KdlNode> for SpecConfig {
     }
 }
 
-impl Default for SpecConfig {
-    fn default() -> Self {
-        Self {
-            props: BTreeMap::new(),
-        }
-    }
-}
+
 
 impl Default for SpecConfigProp {
     fn default() -> Self {

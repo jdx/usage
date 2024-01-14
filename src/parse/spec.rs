@@ -43,8 +43,8 @@ impl Spec {
         Self::PARSING_FILE.with(|f| {
             f.borrow()
                 .as_ref()
-                .map(|(p, s)| NamedSource::new(p.to_string_lossy().to_string(), s.clone()))
-                .unwrap_or_else(|| NamedSource::new("".to_string(), "".to_string()))
+                .map(|(p, s)| NamedSource::new(p.to_string_lossy(), s.clone()))
+                .unwrap_or_else(|| NamedSource::new("", "".to_string()))
         })
     }
     fn set_parsing_file(file: Option<(PathBuf, String)>) {
