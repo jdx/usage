@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
+use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 use crate::{bail_parse, Arg};
 
@@ -27,6 +28,30 @@ pub struct Flag {
 }
 
 impl Flag {
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+        let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
+        for (k, v) in node.props() {
+            match k {
+                "help" => flag.help = Some(v.ensure_string()?),
+                "long_help" => flag.long_help = Some(v.ensure_string()?),
+                "required" => flag.required = v.ensure_bool()?,
+                "var" => flag.var = v.ensure_bool()?,
+                "hide" => flag.hide = v.ensure_bool()?,
+                "global" => flag.global = v.ensure_bool()?,
+                "count" => flag.count = v.ensure_bool()?,
+                "default" => flag.default = v.ensure_string().map(Some)?,
+                k => bail_parse!(ctx, *v.entry.span(), "unsupported flag key {k}"),
+            }
+        }
+        for child in node.children() {
+            match child.name() {
+                "arg" => flag.arg = Some(Arg::parse(ctx, &child)?),
+                k => bail_parse!(ctx, *child.node.span(), "unsupported flag value key {k}"),
+            }
+        }
+        flag.usage = flag.usage();
+        Ok(flag)
+    }
     pub fn usage(&self) -> String {
         let mut name = self
             .short
@@ -79,37 +104,6 @@ impl From<&Flag> for KdlNode {
             children.nodes_mut().push(arg.into());
         }
         node
-    }
-}
-
-impl TryFrom<&KdlNode> for Flag {
-    type Error = UsageErr;
-    fn try_from(node: &KdlNode) -> Result<Self, UsageErr> {
-        let hnode: NodeHelper = node.into();
-        let mut flag: Self = hnode.arg(0)?.ensure_string()?.parse()?;
-        for (k, v) in hnode.props() {
-            match k {
-                "help" => flag.help = Some(v.ensure_string()?),
-                "long_help" => flag.long_help = Some(v.ensure_string()?),
-                "required" => flag.required = v.ensure_bool()?,
-                "var" => flag.var = v.ensure_bool()?,
-                "hide" => flag.hide = v.ensure_bool()?,
-                "global" => flag.global = v.ensure_bool()?,
-                "count" => flag.count = v.ensure_bool()?,
-                "default" => flag.default = v.ensure_string().map(Some)?,
-                k => bail_parse!(v.entry, "unsupported key {k}"),
-            }
-        }
-        let children = node.children().map(|c| c.nodes()).unwrap_or_default();
-        for child in children {
-            let child: NodeHelper = child.into();
-            match child.name() {
-                "arg" => flag.arg = Some(child.node.try_into()?),
-                k => bail_parse!(child.node, "unsupported key {k}"),
-            }
-        }
-        flag.usage = flag.usage();
-        Ok(flag)
     }
 }
 

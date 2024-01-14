@@ -33,6 +33,6 @@ pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> Result<Spe
         let (spec, _) = Spec::parse_file(file)?;
         Ok(spec)
     } else {
-        spec.as_ref().unwrap().parse()
+        Spec::parse_spec(spec.as_ref().unwrap())
     }
 }

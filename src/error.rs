@@ -1,4 +1,3 @@
-use crate::Spec;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -33,21 +32,16 @@ pub enum UsageErr {
     XXError(#[from] xx::error::XXError),
 }
 
-impl UsageErr {
-    pub fn new(msg: String, span: &SourceSpan) -> Self {
-        let named_source = Spec::get_parsing_file();
-        Self::InvalidInput(msg, *span, named_source)
-    }
-}
-
 #[macro_export]
 macro_rules! bail_parse {
-    ($span:expr, $fmt:literal) => {{
+    ($ctx:expr, $span:expr, $fmt:literal) => {{
         let msg = format!($fmt);
-        return std::result::Result::Err(UsageErr::new(msg, $span.span()));
+        let err = $ctx.build_err(msg, $span);
+        return std::result::Result::Err(err);
     }};
-    ($span:expr, $fmt:literal, $($arg:tt)*) => {{
+    ($ctx:expr, $span:expr, $fmt:literal, $($arg:tt)*) => {{
         let msg = format!($fmt, $($arg)*);
-        return std::result::Result::Err(UsageErr::new(msg, $span.span()));
+        let err = $ctx.build_err(msg, $span);
+        return std::result::Result::Err(err);
     }};
 }

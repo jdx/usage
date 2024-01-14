@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::{env, fs};
 
 use clap::Args;
 use contracts::requires;
@@ -54,7 +54,7 @@ impl Markdown {
         context::set_load_root(inject.parent().unwrap().to_path_buf());
         let out = parse_readme_directives(inject, &raw)?
             .into_iter()
-            .try_fold(UsageMdContext::new(), |ctx, d| d.run(ctx))?
+            .try_fold(UsageMdContext::new(inject), |ctx, d| d.run(ctx))?
             .out
             .lock()
             .unwrap()
@@ -259,18 +259,20 @@ impl Display for UsageMdDirective {
 
 struct UsageMdContext {
     plain: bool,
+    root: PathBuf,
     spec: Option<Spec>,
     out: Mutex<Vec<String>>,
     tera: tera::Context,
 }
 
 impl UsageMdContext {
-    fn new() -> Self {
+    fn new(inject: &Path) -> Self {
         Self {
             plain: true,
             spec: None,
             out: Mutex::new(vec![]),
             tera: tera::Context::new(),
+            root: inject.parent().unwrap().to_path_buf(),
         }
     }
 
@@ -286,7 +288,10 @@ impl UsageMdDirective {
     fn run(&self, mut ctx: UsageMdContext) -> miette::Result<UsageMdContext> {
         match self {
             UsageMdDirective::Load { file } => {
-                let file = context::prepend_load_root(file);
+                let file = match file.is_relative() {
+                    true => ctx.root.join(file),
+                    false => file.to_path_buf(),
+                };
                 let spec: Spec = Spec::parse_file(&file)?.0;
                 ctx.tera.insert("spec", &spec.clone());
                 let commands: Vec<_> = gather_subcommands(&[&spec.cmd])
@@ -318,7 +323,8 @@ impl UsageMdDirective {
                 let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
                 if !args.is_empty() {
                     for arg in args {
-                        let name = &arg.usage();
+                        // let name = &arg.usage();
+                        let name = "USAGE";
                         if let Some(about) = &arg.long_help {
                             ctx.push(format!("### {name}", name = name));
                             ctx.push(about.to_string());

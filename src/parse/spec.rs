@@ -1,18 +1,17 @@
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::iter::once;
+use std::path::Path;
 
 use kdl::{KdlDocument, KdlEntry, KdlNode};
-
-use xx::{context, file};
+use serde::Serialize;
+use xx::file;
 
 use crate::error::UsageErr;
 use crate::parse::cmd::SchemaCmd;
 use crate::parse::config::SpecConfig;
-use miette::NamedSource;
-use serde::Serialize;
-use std::cell::RefCell;
-use std::iter::once;
+use crate::parse::context::ParsingContext;
+use crate::parse::helpers::NodeHelper;
+use crate::{Arg, Flag};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Spec {
@@ -28,34 +27,65 @@ pub struct Spec {
 }
 
 impl Spec {
-    thread_local! {
-        static PARSING_FILE: RefCell<Option<(PathBuf, String)>> = RefCell::new(None);
-    }
-
     pub fn parse_file(file: &Path) -> Result<(Spec, String), UsageErr> {
         let (spec, body) = split_script(file)?;
-        Self::set_parsing_file(Some((file.to_path_buf(), spec.clone())));
-        let mut schema = Self::from_str(&spec)?;
+        let ctx = ParsingContext::new(file, &spec);
+        let mut schema = Self::parse(&ctx, &spec)?;
         if schema.bin.is_empty() {
             schema.bin = file.file_name().unwrap().to_str().unwrap().to_string();
         }
         if schema.name.is_empty() {
             schema.name = schema.bin.clone();
         }
-        Self::set_parsing_file(None);
         Ok((schema, body))
     }
-
-    pub fn get_parsing_file() -> NamedSource {
-        Self::PARSING_FILE.with(|f| {
-            f.borrow()
-                .as_ref()
-                .map(|(p, s)| NamedSource::new(p.to_string_lossy(), s.clone()))
-                .unwrap_or_else(|| NamedSource::new("", "".to_string()))
-        })
+    pub fn parse_spec(input: &str) -> Result<Spec, UsageErr> {
+        Self::parse(&Default::default(), input)
     }
-    fn set_parsing_file(file: Option<(PathBuf, String)>) {
-        Self::PARSING_FILE.with(|f| *f.borrow_mut() = file);
+
+    pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
+        let kdl: KdlDocument = input
+            .parse()
+            .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
+        let mut schema = Self {
+            ..Default::default()
+        };
+        for node in kdl.nodes().iter().map(|n| NodeHelper::new(ctx, n)) {
+            match node.name() {
+                "name" => schema.name = node.arg(0)?.ensure_string()?,
+                "bin" => schema.bin = node.arg(0)?.ensure_string()?,
+                "version" => schema.version = Some(node.arg(0)?.ensure_string()?),
+                "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
+                "long_about" => schema.long_about = Some(node.arg(0)?.ensure_string()?),
+                "usage" => schema.usage = node.arg(0)?.ensure_string()?,
+                "arg" => schema.cmd.args.push(Arg::parse(ctx, &node)?),
+                "flag" => schema.cmd.flags.push(Flag::parse(ctx, &node)?),
+                "cmd" => {
+                    let node: SchemaCmd = SchemaCmd::parse(ctx, &node)?;
+                    schema.cmd.subcommands.insert(node.name.to_string(), node);
+                }
+                "config" => schema.config = SpecConfig::parse(ctx, &node)?,
+                "include" => {
+                    let file = node
+                        .props()
+                        .get("file")
+                        .map(|v| v.ensure_string())
+                        .transpose()?
+                        .ok_or_else(|| ctx.build_err("missing file".into(), node.span()))?;
+                    let file = Path::new(&file);
+                    let file = match file.is_relative() {
+                        true => ctx.file.parent().unwrap().join(file),
+                        false => file.to_path_buf(),
+                    };
+                    info!("include: {}", file.display());
+                    let (other, _) = Self::parse_file(&file)?;
+                    schema.merge(other);
+                }
+                k => bail_parse!(ctx, node.span(), "unsupported spec key {k}"),
+            }
+        }
+        set_subcommand_ancestors(&mut schema.cmd, &[]);
+        Ok(schema)
     }
 
     fn merge(&mut self, other: Spec) {
@@ -64,6 +94,18 @@ impl Spec {
         }
         if !other.bin.is_empty() {
             self.bin = other.bin;
+        }
+        if !other.usage.is_empty() {
+            self.usage = other.usage;
+        }
+        if other.about.is_some() {
+            self.about = other.about;
+        }
+        if other.long_about.is_some() {
+            self.long_about = other.long_about;
+        }
+        if !other.config.is_empty() {
+            self.config.merge(&other.config);
         }
         for flag in other.cmd.flags {
             self.cmd.flags.push(flag);
@@ -86,12 +128,6 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     Ok((schema, body))
 }
 
-fn get_string_prop(node: &KdlNode, name: &str) -> Option<String> {
-    node.get(name)
-        .and_then(|entry| entry.value().as_string())
-        .map(|s| s.to_string())
-}
-
 fn set_subcommand_ancestors(cmd: &mut SchemaCmd, ancestors: &[String]) {
     let ancestors = ancestors.to_vec();
     for subcmd in cmd.subcommands.values_mut() {
@@ -101,42 +137,6 @@ fn set_subcommand_ancestors(cmd: &mut SchemaCmd, ancestors: &[String]) {
             .chain(once(subcmd.name.clone()))
             .collect();
         set_subcommand_ancestors(subcmd, &subcmd.full_cmd.clone());
-    }
-}
-
-impl FromStr for Spec {
-    type Err = UsageErr;
-    fn from_str(input: &str) -> miette::Result<Spec, Self::Err> {
-        let kdl: KdlDocument = input
-            .parse()
-            .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
-        let mut schema = Self {
-            ..Default::default()
-        };
-        for node in kdl.nodes() {
-            match node.name().to_string().as_str() {
-                "name" => schema.name = node.entries()[0].value().as_string().unwrap().to_string(),
-                "bin" => schema.bin = node.entries()[0].value().as_string().unwrap().to_string(),
-                "arg" => schema.cmd.args.push(node.try_into()?),
-                "flag" => schema.cmd.flags.push(node.try_into()?),
-                "cmd" => {
-                    let node: SchemaCmd = node.try_into()?;
-                    schema.cmd.subcommands.insert(node.name.to_string(), node);
-                }
-                "config" => schema.config = node.try_into()?,
-                "include" => {
-                    let file = get_string_prop(node, "file")
-                        .map(context::prepend_load_root)
-                        .ok_or_else(|| UsageErr::new(node.to_string(), node.span()))?;
-                    info!("include: {}", file.display());
-                    let (spec, _) = split_script(&file)?;
-                    schema.merge(spec.parse()?);
-                }
-                k => bail_parse!(node, "unsupported key {k}"),
-            }
-        }
-        set_subcommand_ancestors(&mut schema.cmd, &[]);
-        Ok(schema)
     }
 }
 
@@ -230,7 +230,9 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let spec: Spec = r#"
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
 name "Usage CLI"
 bin "usage"
 arg "arg1"
@@ -241,8 +243,8 @@ cmd "config" {
     arg "value"
   }
 }
-        "#
-        .parse()
+        "#,
+        )
         .unwrap();
         assert_display_snapshot!(spec, @r###"
         name "Usage CLI"

@@ -1,4 +1,5 @@
 use crate::error::UsageErr;
+use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 use crate::{Arg, Flag, Spec};
 use indexmap::IndexMap;
@@ -22,6 +23,63 @@ pub struct SchemaCmd {
     pub before_long_help: Option<String>,
     pub after_help: Option<String>,
     pub after_long_help: Option<String>,
+}
+
+impl SchemaCmd {
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+        node.ensure_args_count(1, 1)?;
+        let mut cmd = Self {
+            name: node.arg(0)?.ensure_string()?.to_string(),
+            ..Default::default()
+        };
+        for (k, v) in node.props() {
+            match k {
+                "help" => cmd.help = Some(v.ensure_string()?),
+                "long_help" => cmd.long_help = Some(v.ensure_string()?),
+                "before_help" => cmd.before_help = Some(v.ensure_string()?),
+                "before_long_help" => cmd.before_long_help = Some(v.ensure_string()?),
+                "after_help" => cmd.after_help = Some(v.ensure_string()?),
+                "after_long_help" => {
+                    cmd.after_long_help = Some(v.ensure_string()?);
+                }
+                "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
+                "hide" => cmd.hide = v.ensure_bool()?,
+                k => bail_parse!(ctx, node.span(), "unsupported cmd key {k}"),
+            }
+        }
+        for child in node.children() {
+            let child: NodeHelper = child.into();
+            match child.name() {
+                "flag" => cmd.flags.push(Flag::parse(ctx, &child)?),
+                "arg" => cmd.args.push(Arg::parse(ctx, &child)?),
+                "cmd" => {
+                    let node = SchemaCmd::parse(ctx, &child)?;
+                    cmd.subcommands.insert(node.name.to_string(), node);
+                }
+                "alias" => {
+                    let alias = child
+                        .node
+                        .entries()
+                        .iter()
+                        .filter_map(|e| e.value().as_string().map(|v| v.to_string()))
+                        .collect::<Vec<_>>();
+                    let hide = child
+                        .props()
+                        .get("hide")
+                        .map(|n| n.ensure_bool())
+                        .transpose()?
+                        .unwrap_or(false);
+                    if hide {
+                        cmd.hidden_aliases.extend(alias);
+                    } else {
+                        cmd.aliases.extend(alias);
+                    }
+                }
+                k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
+            }
+        }
+        Ok(cmd)
+    }
 }
 
 impl From<&SchemaCmd> for KdlNode {
@@ -89,65 +147,6 @@ impl From<&SchemaCmd> for KdlNode {
             children.nodes_mut().push(cmd.into());
         }
         node
-    }
-}
-
-impl TryFrom<&KdlNode> for SchemaCmd {
-    type Error = UsageErr;
-    fn try_from(node: &KdlNode) -> Result<Self, UsageErr> {
-        let hnode: NodeHelper = node.into();
-        hnode.ensure_args_count(1, 1)?;
-        let mut cmd = Self {
-            name: hnode.arg(0)?.ensure_string()?.to_string(),
-            ..Default::default()
-        };
-        for (k, v) in hnode.props() {
-            match k {
-                "help" => cmd.help = Some(v.ensure_string()?),
-                "long_help" => cmd.long_help = Some(v.ensure_string()?),
-                "before_help" => cmd.before_help = Some(v.ensure_string()?),
-                "before_long_help" => cmd.before_long_help = Some(v.ensure_string()?),
-                "after_help" => cmd.after_help = Some(v.ensure_string()?),
-                "after_long_help" => {
-                    cmd.after_long_help = Some(v.ensure_string()?);
-                }
-                "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
-                "hide" => cmd.hide = v.ensure_bool()?,
-                k => bail_parse!(node, "unsupported key {k}"),
-            }
-        }
-        for child in node.children().map(|c| c.nodes()).unwrap_or_default() {
-            let child: NodeHelper = child.into();
-            match child.name() {
-                "flag" => cmd.flags.push(child.node.try_into()?),
-                "arg" => cmd.args.push(child.node.try_into()?),
-                "cmd" => {
-                    let node: SchemaCmd = child.node.try_into()?;
-                    cmd.subcommands.insert(node.name.to_string(), node);
-                }
-                "alias" => {
-                    let alias = child
-                        .node
-                        .entries()
-                        .iter()
-                        .filter_map(|e| e.value().as_string().map(|v| v.to_string()))
-                        .collect::<Vec<_>>();
-                    let hide = child
-                        .props()
-                        .get("hide")
-                        .map(|n| n.ensure_bool())
-                        .transpose()?
-                        .unwrap_or(false);
-                    if hide {
-                        cmd.hidden_aliases.extend(alias);
-                    } else {
-                        cmd.aliases.extend(alias);
-                    }
-                }
-                k => bail_parse!(child.node, "unsupported key {k}"),
-            }
-        }
-        Ok(cmd)
     }
 }
 

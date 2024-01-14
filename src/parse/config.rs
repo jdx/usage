@@ -1,16 +1,55 @@
 use std::collections::BTreeMap;
 
-use kdl::{KdlDocument, KdlEntry, KdlNode, };
-use serde::{Serialize};
+use kdl::{KdlDocument, KdlEntry, KdlNode};
+use serde::Serialize;
 
 use crate::bail_parse;
 use crate::error::UsageErr;
+use crate::parse::context::ParsingContext;
 use crate::parse::data_types::SpecDataTypes;
 use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
+}
+
+impl SpecConfig {
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+        let mut config = Self::default();
+        for node in node.children() {
+            node.ensure_args_count(1, 1)?;
+            match node.name() {
+                "prop" => {
+                    let key = node.arg(0)?;
+                    let key = key.ensure_string()?.to_string();
+                    let mut prop = SpecConfigProp::default();
+                    for (k, v) in node.props() {
+                        match k {
+                            "default" => prop.default = v.value.to_string().into(),
+                            "default_note" => prop.default_note = Some(v.ensure_string()?),
+                            "data_type" => prop.data_type = v.ensure_string()?.parse()?,
+                            "env" => prop.env = v.ensure_string()?.to_string().into(),
+                            "help" => prop.help = v.ensure_string()?.to_string().into(),
+                            "long_help" => prop.long_help = v.ensure_string()?.to_string().into(),
+                            k => bail_parse!(ctx, node.span(), "unsupported config prop key {k}"),
+                        }
+                    }
+                    config.props.insert(key, prop);
+                }
+                k => bail_parse!(ctx, *node.node.name().span(), "unsupported config key {k}"),
+            }
+        }
+        Ok(config)
+    }
+
+    pub(crate) fn merge(&mut self, other: &Self) {
+        for (key, prop) in &other.props {
+            self.props
+                .entry(key.to_string())
+                .or_insert_with(|| prop.clone());
+        }
+    }
 }
 
 impl SpecConfig {
@@ -52,42 +91,6 @@ impl SpecConfigProp {
     }
 }
 
-impl TryFrom<&KdlNode> for SpecConfig {
-    type Error = UsageErr;
-    fn try_from(doc: &KdlNode) -> Result<Self, Self::Error> {
-        let mut config = Self::default();
-        if let Some(children) = doc.children().map(|doc| doc.nodes()) {
-            for node in children {
-                let ph = NodeHelper::new(node);
-                ph.ensure_args_count(1, 1)?;
-                match ph.name() {
-                    "prop" => {
-                        let key = ph.arg(0)?;
-                        let key = key.ensure_string()?.to_string();
-                        let mut prop = SpecConfigProp::default();
-                        for (k, v) in ph.props() {
-                            match k {
-                                "default" => prop.default = v.value.to_string().into(),
-                                "default_note" => prop.default_note = Some(v.ensure_string()?),
-                                "data_type" => prop.data_type = v.ensure_string()?.parse()?,
-                                "env" => prop.env = v.ensure_string()?.to_string().into(),
-                                "help" => prop.help = v.ensure_string()?.to_string().into(),
-                                "long_help" => {
-                                    prop.long_help = v.ensure_string()?.to_string().into()
-                                }
-                                _ => bail_parse!(ph.node, "unsupported key {k}"),
-                            }
-                        }
-                        config.props.insert(key, prop);
-                    }
-                    k => bail_parse!(node.name(), "unsupported key {k}"),
-                }
-            }
-        }
-        Ok(config)
-    }
-}
-
 impl Default for SpecConfigProp {
     fn default() -> Self {
         Self {
@@ -118,7 +121,9 @@ mod tests {
 
     #[test]
     fn test_config_defaults() {
-        let spec: Spec = r#"
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
 config {
     prop "color" default=true env="COLOR" help="Enable color output"
     prop "user" default="admin" env="USER" help="User to run as"
@@ -126,9 +131,10 @@ config {
     prop "timeout" default=1.5 env="TIMEOUT" help="Timeout in seconds" \
         long_help="Timeout in seconds, can be fractional"
 }
-        "#
-        .parse()
+        "#,
+        )
         .unwrap();
+
         assert_display_snapshot!(spec, @r###"
         config {
             prop "color" default="true" env="COLOR" help="Enable color output"

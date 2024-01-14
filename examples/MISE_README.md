@@ -1,7 +1,7 @@
 <!-- [USAGE] load file="./mise.usage.kdl" -->
 <!-- [USAGE] title -->
 
-# {spec.name}
+# mise
 
 <!-- [USAGE] -->
 <!-- [USAGE] usage_overview -->
@@ -9,7 +9,7 @@
 ## Usage
 
 ```bash
-mise [flags] [args]
+Usage: mise [OPTIONS] <COMMAND>
 ```
 
 <!-- [USAGE] -->

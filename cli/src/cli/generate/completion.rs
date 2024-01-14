@@ -23,7 +23,7 @@ impl Completion {
             let (spec, _) = Spec::parse_file(file)?;
             spec
         } else {
-            self.spec.as_ref().unwrap().parse()?
+            Spec::parse_spec(self.spec.as_ref().unwrap())?
         };
         let script = match self.shell.as_str() {
             "bash" => usage::complete::bash::complete_bash(&spec),

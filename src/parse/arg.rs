@@ -6,6 +6,7 @@ use kdl::{KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::UsageErr;
+use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -23,7 +24,28 @@ pub struct Arg {
 }
 
 impl Arg {
-    pub fn usage(&self) -> String {
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+        let mut arg: Arg = node.arg(0)?.ensure_string()?.parse()?;
+        for (k, v) in node.props() {
+            match k {
+                "help" => arg.help = Some(v.ensure_string()?),
+                "long_help" => arg.long_help = Some(v.ensure_string()?),
+                "required" => arg.required = v.ensure_bool()?,
+                "var" => arg.var = v.ensure_bool()?,
+                "hide" => arg.hide = v.ensure_bool()?,
+                "var_min" => arg.var_min = v.ensure_i64().map(Some)?,
+                "var_max" => arg.var_max = v.ensure_i64().map(Some)?,
+                "default" => arg.default = v.ensure_string().map(Some)?,
+                k => bail_parse!(ctx, *v.entry.span(), "unsupported arg key {k}"),
+            }
+        }
+        arg.usage = arg.usage();
+        Ok(arg)
+    }
+}
+
+impl Arg {
+    pub(crate) fn usage(&self) -> String {
         let mut name = if self.required {
             format!("<{}>", self.name)
         } else {
@@ -62,29 +84,6 @@ impl From<&Arg> for KdlNode {
             node.push(KdlEntry::new_prop("default", default.clone()));
         }
         node
-    }
-}
-
-impl TryFrom<&KdlNode> for Arg {
-    type Error = UsageErr;
-    fn try_from(node: &KdlNode) -> Result<Self, UsageErr> {
-        let hnode: NodeHelper = node.into();
-        let mut arg: Arg = hnode.arg(0)?.ensure_string()?.parse()?;
-        for (k, v) in hnode.props() {
-            match k {
-                "help" => arg.help = Some(v.ensure_string()?),
-                "long_help" => arg.long_help = Some(v.ensure_string()?),
-                "required" => arg.required = v.ensure_bool()?,
-                "var" => arg.var = v.ensure_bool()?,
-                "hide" => arg.hide = v.ensure_bool()?,
-                "var_min" => arg.var_min = v.ensure_i64().map(Some)?,
-                "var_max" => arg.var_max = v.ensure_i64().map(Some)?,
-                "default" => arg.default = v.ensure_string().map(Some)?,
-                k => bail_parse!(v.entry, "unsupported key {k}"),
-            }
-        }
-        arg.usage = arg.usage();
-        Ok(arg)
     }
 }
 
