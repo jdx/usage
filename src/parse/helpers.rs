@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use kdl::{KdlEntry, KdlNode, KdlValue};
 use miette::SourceSpan;
 use std::fmt::Debug;
-use std::ops::{RangeBounds};
+use std::ops::RangeBounds;
 
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
@@ -40,14 +40,8 @@ impl<'a> NodeHelper<'a> {
         self.node.get(key).map(|e| ParseEntry::new(self.ctx, e))
     }
     pub(crate) fn arg(&self, i: usize) -> Result<ParseEntry, UsageErr> {
-        if let Some(entry) = self.node.entries().get(i) {
-            if entry.name().is_some() {
-                let ctx = self.ctx;
-                let span = *entry.span();
-                let param = entry.to_string();
-                bail_parse!(ctx, span, "expected argument, got param: {param}")
-            }
-            return Ok(ParseEntry::new(self.ctx, entry));
+        if let Some(entry) = self.args().nth(i) {
+            return Ok(entry);
         }
         bail_parse!(self.ctx, self.span(), "missing argument")
     }

@@ -23,7 +23,24 @@ pub struct SpecCommand {
     pub before_long_help: Option<String>,
     pub after_help: Option<String>,
     pub after_long_help: Option<String>,
-    pub examples: Vec<String>,
+    pub examples: Vec<SpecExample>,
+}
+
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct SpecExample {
+    pub code: String,
+    pub header: Option<String>,
+    pub help: Option<String>,
+    pub lang: String,
+}
+
+impl SpecExample {
+    pub(crate) fn new(code: String) -> Self {
+        Self {
+            code,
+            ..Default::default()
+        }
+    }
 }
 
 impl SpecCommand {
@@ -73,12 +90,17 @@ impl SpecCommand {
                     }
                 }
                 "example" => {
-                    let example = child
-                        .ensure_arg_len(1..=1)?
-                        .args()
-                        .map(|e| e.ensure_string())
-                        .collect::<Result<Vec<_>, _>>()?;
-                    cmd.examples.extend(example);
+                    let code = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
+                    let mut example = SpecExample::new(code.trim().to_string());
+                    for (k, v) in child.props() {
+                        match k {
+                            "header" => example.header = Some(v.ensure_string()?),
+                            "help" => example.help = Some(v.ensure_string()?),
+                            "lang" => example.lang = v.ensure_string()?,
+                            k => bail_parse!(ctx, *v.entry.span(), "unsupported example key {k}"),
+                        }
+                    }
+                    cmd.examples.push(example);
                 }
                 k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
             }
@@ -121,6 +143,9 @@ impl SpecCommand {
         }
         if !other.hidden_aliases.is_empty() {
             self.hidden_aliases = other.hidden_aliases;
+        }
+        if !other.examples.is_empty() {
+            self.examples = other.examples;
         }
         self.hide = other.hide;
         self.subcommand_required = other.subcommand_required;

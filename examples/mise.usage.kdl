@@ -16,14 +16,20 @@ cmd "zzz" \
         help="Sleeps for a while." \
         long_help="Sleeps for a while.  The amount of time is determined by the --timeout option." {
 
-   example r#"
-     mise zzz
-     mise zzz --timeout 2
+   example lang="sh" header="Create something" help="xxx" r#"
+mise zzz
+mise zzz --timeout 2
    "#
 
    example r#"
-        $ mise zzz
-        Sleeping for 1.5 seconds...
-        Done.
+$ mise zzz
+Sleeping for 1.5 seconds...
+Done.
+   "#
+
+    example lang="sh" header="Create something" help="xxx" r#"
+$ mise zzz --timeout 2
+Sleeping for 2 seconds...
+Done.
    "#
 }

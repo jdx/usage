@@ -94,30 +94,29 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 "#;
 
 const COMMAND_TEMPLATE: &str = r##"
-{% if multi_dir -%}
+{% if multi_dir %}
 {{ header }} `{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`
-{% else -%}
+{% else %}
 {{ header }} `{{ cmd.full_cmd | join(sep=" ") }}`
 {% endif -%}
 
-{% if cmd.before_long_help -%}
-{{ cmd.before_long_help }}
-{% elif cmd.before_help -%}
-{{ cmd.before_help }}
+{% if cmd.before_long_help %}
+{{ cmd.before_long_help | trim }}
+{% elif cmd.before_help %}
+{{ cmd.before_help | trim }}
 {% endif -%}
 
-{% if cmd.aliases -%}
+{% if cmd.aliases %}
 * Aliases: `{{ cmd.aliases | join(sep="`, `") }}`
 {% endif -%}
-
-{% if cmd.args -%}
+{% if cmd.args %}
 **Args:**
 
 {% for arg in cmd.args -%}
 * `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
 {% endfor -%}
-{% endif %}
-{% if cmd.flags -%}
+{% endif -%}
+{% if cmd.flags %}
 **Flags:**
 
 {% for flag in cmd.flags -%}
@@ -125,16 +124,31 @@ const COMMAND_TEMPLATE: &str = r##"
 {% endfor -%}
 {% endif -%}
 
-{% if cmd.long_help -%}
-{{ cmd.long_help }}
-{% elif cmd.help -%}
-{{ cmd.help }}
+{% if cmd.long_help %}
+{{ cmd.long_help | trim }}
+{% elif cmd.help %}
+{{ cmd.help | trim }}
 {% endif -%}
 
+{% for ex in cmd.examples -%}
+{% if loop.first %}
+**Examples:**
+{% endif %}
+{% if ex.header -%}
+**{{ ex.header }}**
+{% endif %}
+```{{ ex.lang | default(value="") }}
+{{ ex.code }}
+```
+{% if ex.help %}
+{{ ex.help -}}
+{% endif -%}
+{% endfor -%}
+
 {% if cmd.after_long_help -%}
-{{ cmd.after_long_help }}
+{{ cmd.after_long_help | trim }}
 {% elif cmd.after_help -%}
-{{ cmd.after_help }}
+{{ cmd.after_help | trim }}
 {% endif -%}
 "##;
 
@@ -425,7 +439,8 @@ impl MarkdownBuilder {
                             }
                         };
                         let out = outputs.entry(output_file).or_insert_with(Vec::new);
-                        out.push(render_template(COMMAND_TEMPLATE.trim_start(), &ctx)?);
+                        let s = render_template(COMMAND_TEMPLATE, &ctx)?.trim().to_string();
+                        out.push(s + "\n");
                     }
                     let main = outputs.get_mut(&self.inject).unwrap();
                     main.push("<!-- [USAGE] -->".to_string());
