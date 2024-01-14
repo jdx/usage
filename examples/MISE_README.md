@@ -163,9 +163,7 @@ Examples:
 
 ### `alias`
 
-#### Aliases
-
-* `a`
+* Aliases: `a`
 
 
 #### Flags
@@ -194,9 +192,7 @@ Examples:
 
 ### `alias ls`
 
-#### Aliases
-
-* `list`
+* Aliases: `list`
 #### Args
 
 * `[PLUGIN]` – Show aliases for <PLUGIN>
@@ -221,10 +217,7 @@ Examples:
 
 ### `alias set`
 
-#### Aliases
-
-* `add`
-* `create`
+* Aliases: `add`, `create`
 #### Args
 
 * `<PLUGIN>` – The plugin to set the alias for
@@ -242,12 +235,7 @@ Examples:
 
 ### `alias unset`
 
-#### Aliases
-
-* `rm`
-* `remove`
-* `delete`
-* `del`
+* Aliases: `rm`, `remove`, `delete`, `del`
 #### Args
 
 * `<PLUGIN>` – The plugin to remove the alias from
@@ -280,9 +268,7 @@ Run `mise cache` with no args to view the current cache directory.
 
 ### `cache clear`
 
-#### Aliases
-
-* `c`
+* Aliases: `c`
 #### Args
 
 * `[PLUGIN]...` – Plugin(s) to clear cache for e.g.: node, python
@@ -311,9 +297,7 @@ Examples:
 
 ### `config`
 
-#### Aliases
-
-* `cfg`
+* Aliases: `cfg`
 
 
 #### Flags
@@ -337,9 +321,7 @@ Examples:
 
 ### `config generate`
 
-#### Aliases
-
-* `g`
+* Aliases: `g`
 
 
 #### Flags
@@ -439,9 +421,7 @@ Examples:
 
 ### `env`
 
-#### Aliases
-
-* `e`
+* Aliases: `e`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to use
@@ -465,9 +445,7 @@ Examples:
 
 ### `exec`
 
-#### Aliases
-
-* `x`
+* Aliases: `x`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to start e.g.: node@20 python@3.10
@@ -516,9 +494,7 @@ Skips config directory by default.
 
 ### `install`
 
-#### Aliases
-
-* `i`
+* Aliases: `i`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to install e.g.: node@20
@@ -570,9 +546,7 @@ Examples:
 
 ### `link`
 
-#### Aliases
-
-* `ln`
+* Aliases: `ln`
 #### Args
 
 * `<TOOL@VERSION>` – Tool name and version to create a symlink for
@@ -601,9 +575,7 @@ Examples:
 
 ### `ls`
 
-#### Aliases
-
-* `list`
+* Aliases: `list`
 #### Args
 
 * `[PLUGIN]...` – Only show tool versions from [PLUGIN]
@@ -703,9 +675,7 @@ Examples:
 
 ### `plugins`
 
-#### Aliases
-
-* `p`
+* Aliases: `p`
 
 
 #### Flags
@@ -728,11 +698,7 @@ Manage plugins
 
 ### `plugins install`
 
-#### Aliases
-
-* `i`
-* `a`
-* `add`
+* Aliases: `i`, `a`, `add`
 #### Args
 
 * `[NEW_PLUGIN]` – The name of the plugin to install
@@ -773,9 +739,7 @@ Examples:
 
 ### `plugins link`
 
-#### Aliases
-
-* `ln`
+* Aliases: `ln`
 #### Args
 
 * `<NAME>` – The name of the plugin
@@ -801,9 +765,7 @@ Examples:
 
 ### `plugins ls`
 
-#### Aliases
-
-* `list`
+* Aliases: `list`
 
 
 #### Flags
@@ -836,10 +798,7 @@ Examples:
 
 ### `plugins ls-remote`
 
-#### Aliases
-
-* `list-remote`
-* `list-all`
+* Aliases: `list-remote`, `list-all`
 
 
 #### Flags
@@ -858,10 +817,7 @@ Examples:
 
 ### `plugins uninstall`
 
-#### Aliases
-
-* `remove`
-* `rm`
+* Aliases: `remove`, `rm`
 #### Args
 
 * `[PLUGIN]...` – Plugin(s) to remove
@@ -879,9 +835,7 @@ Examples:
 
 ### `plugins update`
 
-#### Aliases
-
-* `upgrade`
+* Aliases: `upgrade`
 #### Args
 
 * `[PLUGIN]...` – Plugin(s) to update
@@ -956,9 +910,7 @@ Examples:
 
 ### `run`
 
-#### Aliases
-
-* `r`
+* Aliases: `r`
 #### Args
 
 * `[TASK]` – Task to run
@@ -1106,9 +1058,7 @@ Examples:
 
 ### `settings ls`
 
-#### Aliases
-
-* `list`
+* Aliases: `list`
 
 
 Show current settings
@@ -1125,10 +1075,7 @@ Examples:
 
 ### `settings set`
 
-#### Aliases
-
-* `add`
-* `create`
+* Aliases: `add`, `create`
 #### Args
 
 * `<SETTING>` – The setting to set
@@ -1145,12 +1092,7 @@ Examples:
 
 ### `settings unset`
 
-#### Aliases
-
-* `rm`
-* `remove`
-* `delete`
-* `del`
+* Aliases: `rm`, `remove`, `delete`, `del`
 #### Args
 
 * `<SETTING>` – The setting to remove
@@ -1166,9 +1108,7 @@ Examples:
 
 ### `shell`
 
-#### Aliases
-
-* `sh`
+* Aliases: `sh`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to use
@@ -1235,9 +1175,7 @@ Examples:
 
 ### `task`
 
-#### Aliases
-
-* `t`
+* Aliases: `t`
 
 
 #### Flags
@@ -1316,9 +1254,7 @@ Examples:
 
 ### `task run`
 
-#### Aliases
-
-* `r`
+* Aliases: `r`
 #### Args
 
 * `[TASK]` – Task to run
@@ -1419,10 +1355,7 @@ Examples:
 
 ### `uninstall`
 
-#### Aliases
-
-* `remove`
-* `rm`
+* Aliases: `remove`, `rm`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to remove
@@ -1459,9 +1392,7 @@ By default this command modifies ".mise.toml" in the current directory.
 
 ### `upgrade`
 
-#### Aliases
-
-* `up`
+* Aliases: `up`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to upgrade
@@ -1488,9 +1419,7 @@ Generate usage spec
 
 ### `use`
 
-#### Aliases
-
-* `u`
+* Aliases: `u`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to add to config file
@@ -1546,9 +1475,7 @@ Show mise version
 
 ### `watch`
 
-#### Aliases
-
-* `w`
+* Aliases: `w`
 #### Args
 
 * `[ARGS]...` – Extra arguments

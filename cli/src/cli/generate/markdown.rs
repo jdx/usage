@@ -187,11 +187,7 @@ const COMMANDS_TEMPLATE: &str = r#"
 {% endif -%}
 
 {% if cmd.aliases -%}
-#### Aliases
-
-{% for alias in cmd.aliases -%}
-* `{{ alias }}`
-{% endfor -%}
+* Aliases: `{{ cmd.aliases | join(sep="`, `") }}`
 {% endif -%}
 
 {% if cmd.args -%}
