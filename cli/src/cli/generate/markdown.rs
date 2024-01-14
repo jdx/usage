@@ -148,6 +148,7 @@ impl Markdown {
 }
 
 #[derive(Debug, EnumIs)]
+#[strum(serialize_all = "snake_case")]
 enum UsageMdDirective {
     Load { file: PathBuf },
     Title,
@@ -294,7 +295,7 @@ impl UsageMdDirective {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
-                print_config(&ctx, &spec.config)?;
+                ctx.push(print_config(&spec.config)?);
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
             UsageMdDirective::EndToken => {
@@ -360,24 +361,55 @@ fn print_commands(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<(
     Ok(())
 }
 
-fn print_config(ctx: &UsageMdContext, config: &SpecConfig) -> miette::Result<()> {
+static CONFIG_TEMPLATE: &str = r#"
+### `!KEY!`
+
+!ENV!
+!DEFAULT!
+
+!HELP!
+!LONG_HELP!
+"#;
+
+fn print_config(config: &SpecConfig) -> miette::Result<String> {
+    let mut all = vec![];
     for (key, prop) in &config.props {
-        ctx.push(format!("### `{key}`", key = key));
+        let mut out = CONFIG_TEMPLATE.to_string();
+        let mut tmpl = |k, d: String| {
+            out = out.replace(k, &d);
+        };
+        tmpl("!KEY!", key.to_string());
+        // out = out.replace("!KEY!", &format!("### `{key}`"));
         if let Some(env) = &prop.env {
-            ctx.push(format!("env: `{env}`", env = env));
+            tmpl("!ENV!", format!("* env: `{env}`"));
+            // out = out.replace("!ENV!", &format!("* env: `{env}`"));
         }
-        if !prop.default.is_null() {
-            ctx.push(format!("default: `{default}`", default = prop.default));
+        if let Some(default) = prop
+            .default_note
+            .clone()
+            .or_else(|| match prop.default.is_null() {
+                true => None,
+                false => Some(prop.default.to_string()),
+            })
+        {
+            tmpl("!DEFAULT!", format!("* default: `{default}`"));
+            // out = out.replace("!DEFAULT!", &format!("* default: `{default}`"));
         }
-        if let Some(help) = &prop.help {
-            ctx.push(help.to_string());
+        if let Some(help) = prop.long_help.clone().or(prop.help.clone()) {
+            // out = out.replace("!HELP!", &format!("* help: `{help}`"));
+            tmpl("!HELP!", help);
         }
-        if let Some(long_help) = &prop.long_help {
-            ctx.push(long_help.to_string());
-        }
-        ctx.push("Used by commnds: global|*".to_string());
+        out = regex!(r#"!.+!\n"#)
+            .replace_all(&out, "")
+            .trim_start()
+            .trim_end()
+            .to_string()
+            + "\n";
+        all.push(out)
+        // TODO: data type
+        // TODO: show which commands use this prop ctx.push("Used by commnds: global|*".to_string());
     }
-    Ok(())
+    Ok(all.join("\n"))
 }
 
 #[derive(Error, Diagnostic, Debug)]

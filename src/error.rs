@@ -18,6 +18,9 @@ pub enum UsageErr {
     IO(#[from] std::io::Error),
 
     #[error(transparent)]
+    Strum(#[from] strum::ParseError),
+
+    #[error(transparent)]
     #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
 }

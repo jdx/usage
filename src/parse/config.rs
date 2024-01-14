@@ -4,10 +4,10 @@ use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
 use crate::bail_parse;
 use crate::error::UsageErr;
+use crate::parse::data_types::SpecDataTypes;
 use crate::parse::helpers::NodeHelper;
 
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
 }
@@ -21,6 +21,8 @@ impl SpecConfig {
 #[derive(Debug)]
 pub struct SpecConfigProp {
     pub default: KdlValue,
+    pub default_note: Option<String>,
+    pub data_type: SpecDataTypes,
     pub env: Option<String>,
     pub help: Option<String>,
     pub long_help: Option<String>,
@@ -62,6 +64,8 @@ impl TryFrom<&KdlNode> for SpecConfig {
                         for (k, v) in ph.props() {
                             match k {
                                 "default" => prop.default = v.value.clone(),
+                                "default_note" => prop.default_note = Some(v.ensure_string()?),
+                                "data_type" => prop.data_type = v.ensure_string()?.parse()?,
                                 "env" => prop.env = v.ensure_string()?.to_string().into(),
                                 "help" => prop.help = v.ensure_string()?.to_string().into(),
                                 "long_help" => {
@@ -80,12 +84,12 @@ impl TryFrom<&KdlNode> for SpecConfig {
     }
 }
 
-
-
 impl Default for SpecConfigProp {
     fn default() -> Self {
         Self {
             default: KdlValue::Null,
+            default_note: None,
+            data_type: SpecDataTypes::Null,
             env: None,
             help: None,
             long_help: None,
