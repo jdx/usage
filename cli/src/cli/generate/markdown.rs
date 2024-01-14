@@ -427,7 +427,7 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 "usage_overview" => UsageMdDirective::UsageOverview,
                 "global_args" => UsageMdDirective::GlobalArgs,
                 "global_flags" => UsageMdDirective::GlobalFlags,
-                "cnfig" => UsageMdDirective::Config,
+                "config" => UsageMdDirective::Config,
                 "command_index" => UsageMdDirective::CommandIndex,
                 "commands" => UsageMdDirective::Commands,
                 k => Err(UsageCLIError::MarkdownParseError {
