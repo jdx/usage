@@ -170,11 +170,11 @@ const CONFIG_TEMPLATE: &str = r#"
 "#;
 
 const COMMANDS_INDEX_TEMPLATE: &str = r#"
-## Commands Index
+## CLI Command Reference
 
 {% for cmd in commands -%}
 * [`{{ cmd.full_cmd | join(sep=" ") }}`](#{{ cmd.full_cmd | join(sep=" ") | slugify }})
-{% endfor %}
+{% endfor -%}
 "#;
 
 const COMMAND_TEMPLATE: &str = r#"
@@ -197,7 +197,6 @@ const COMMAND_TEMPLATE: &str = r#"
 * `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
 {% endfor -%}
 {% endif %}
-
 {% if cmd.flags -%}
 #### Flags
 
@@ -227,7 +226,6 @@ enum UsageMdDirective {
     UsageOverview,
     GlobalArgs,
     GlobalFlags,
-    CommandIndex,
     Commands { inline_depth: usize },
     Config,
     EndToken,
@@ -244,7 +242,6 @@ impl Display for UsageMdDirective {
             UsageMdDirective::UsageOverview => write!(f, "<!-- [USAGE] usage_overview -->"),
             UsageMdDirective::GlobalArgs => write!(f, "<!-- [USAGE] global_args -->"),
             UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
-            UsageMdDirective::CommandIndex => write!(f, "<!-- [USAGE] command_index -->"),
             UsageMdDirective::Commands { inline_depth } => {
                 write!(f, "<!-- [USAGE] commands inline_depth={inline_depth} -->")
             }
@@ -361,21 +358,32 @@ impl UsageMdDirective {
                 }
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
-            UsageMdDirective::CommandIndex => {
-                ctx.plain = false;
-                ctx.push(self.to_string());
-                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::Commands { .. } => {
+            UsageMdDirective::Commands { inline_depth: 2.. } => {
                 ctx.plain = false;
                 let spec = ctx.spec.as_ref().unwrap();
                 ctx.push(self.to_string());
+                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
                 let commands = gather_subcommands(&[&spec.cmd]);
                 for cmd in &commands {
                     let mut tctx = ctx.tera.clone();
                     tctx.insert("cmd", &cmd);
-                    ctx.push(render_template(COMMAND_TEMPLATE, &tctx)?);
+                    ctx.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
+                }
+                ctx.push("<!-- [USAGE] -->".to_string());
+            }
+            UsageMdDirective::Commands { inline_depth: 1 } => {
+                unimplemented!("inline_depth=1")
+            }
+            UsageMdDirective::Commands { inline_depth: 0 } => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+                ctx.push(self.to_string());
+                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
+                let commands = gather_subcommands(&[&spec.cmd]);
+                for cmd in &commands {
+                    let mut tctx = ctx.tera.clone();
+                    tctx.insert("cmd", &cmd);
+                    ctx.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
                 }
                 ctx.push("<!-- [USAGE] -->".to_string());
             }
@@ -524,7 +532,6 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 "global_args" => UsageMdDirective::GlobalArgs,
                 "global_flags" => UsageMdDirective::GlobalFlags,
                 "config" => UsageMdDirective::Config,
-                "command_index" => UsageMdDirective::CommandIndex,
                 "commands" => UsageMdDirective::Commands {
                     inline_depth: get_i64(node, "inline_depth")?.unwrap_or(2) as usize,
                 },
