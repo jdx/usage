@@ -21,6 +21,10 @@ pub struct Spec {
     pub cmd: SchemaCmd,
     pub config: SpecConfig,
     pub version: Option<String>,
+    pub usage: String,
+
+    pub about: Option<String>,
+    pub long_about: Option<String>,
 }
 
 impl Spec {
@@ -150,6 +154,26 @@ impl Display for Spec {
             node.push(KdlEntry::new(self.bin.clone()));
             nodes.push(node);
         }
+        if let Some(version) = &self.version {
+            let mut node = KdlNode::new("version");
+            node.push(KdlEntry::new(version.clone()));
+            nodes.push(node);
+        }
+        if let Some(about) = &self.about {
+            let mut node = KdlNode::new("about");
+            node.push(KdlEntry::new(about.clone()));
+            nodes.push(node);
+        }
+        if let Some(long_about) = &self.long_about {
+            let mut node = KdlNode::new("long_about");
+            node.push(KdlEntry::new(long_about.clone()));
+            nodes.push(node);
+        }
+        if !self.usage.is_empty() {
+            let mut node = KdlNode::new("usage");
+            node.push(KdlEntry::new(self.usage.clone()));
+            nodes.push(node);
+        }
         for flag in self.cmd.flags.iter() {
             nodes.push(flag.into());
         }
@@ -170,10 +194,13 @@ impl Display for Spec {
 impl From<&clap::Command> for Spec {
     fn from(cmd: &clap::Command) -> Self {
         Spec {
-            bin: cmd.get_bin_name().unwrap_or_default().to_string(),
             name: cmd.get_name().to_string(),
+            bin: cmd.get_bin_name().unwrap_or(cmd.get_name()).to_string(),
             cmd: cmd.into(),
             version: cmd.get_version().map(|v| v.to_string()),
+            about: cmd.get_about().map(|a| a.to_string()),
+            long_about: cmd.get_long_about().map(|a| a.to_string()),
+            usage: cmd.clone().render_usage().to_string(),
             ..Default::default()
         }
     }

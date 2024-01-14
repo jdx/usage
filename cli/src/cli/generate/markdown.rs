@@ -159,7 +159,7 @@ const USAGE_OVERVIEW_TEMPLATE: &str = r#"
 ```
 "#;
 
-static CONFIG_TEMPLATE: &str = r#"
+const CONFIG_TEMPLATE: &str = r#"
 ### `!KEY!`
 
 !ENV!
@@ -180,13 +180,27 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 const COMMANDS_TEMPLATE: &str = r#"
 ### `{{ cmd.full_cmd | join(sep=" ") }}`
 
+{% if cmd.before_long_help -%}
+{{ cmd.before_long_help }}
+{% elif cmd.before_help -%}
+{{ cmd.before_help }}
+{% endif -%}
+
+{% if cmd.aliases -%}
+#### Aliases
+
+{% for alias in cmd.aliases -%}
+* `{{ alias }}`
+{% endfor -%}
+{% endif -%}
+
 {% if cmd.args -%}
 #### Args
 
 {% for arg in cmd.args -%}
 * `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
 {% endfor -%}
-{% endif -%}
+{% endif %}
 
 {% if cmd.flags -%}
 #### Flags
@@ -196,12 +210,16 @@ const COMMANDS_TEMPLATE: &str = r#"
 {% endfor -%}
 {% endif -%}
 
-{% if cmd.help -%}
+{% if cmd.long_help -%}
+{{ cmd.long_help }}
+{% elif cmd.help -%}
 {{ cmd.help }}
 {% endif -%}
 
-{% if cmd.long_help -%}
-{{ cmd.long_help }}
+{% if cmd.after_long_help -%}
+{{ cmd.after_long_help }}
+{% elif cmd.after_help -%}
+{{ cmd.after_help }}
 {% endif -%}
 "#;
 

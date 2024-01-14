@@ -1554,9 +1554,9 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "xx"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bb55e119e08a15c8a896dbf586e2517ff1d84efa83b7940747582e264531817"
+checksum = "846a62538e6f30c0b450a936b9c711a11579803d41e6b4f959318693a7041bdc"
 dependencies = [
  "miette",
  "thiserror",

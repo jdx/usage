@@ -52,6 +52,30 @@ impl From<&SchemaCmd> for KdlNode {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(aliases);
         }
+        if let Some(help) = &cmd.help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("help", help.clone()));
+        }
+        if let Some(help) = &cmd.long_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("long_help", help.clone()));
+        }
+        if let Some(help) = &cmd.before_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("before_help", help.clone()));
+        }
+        if let Some(help) = &cmd.before_long_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("before_long_help", help.clone()));
+        }
+        if let Some(help) = &cmd.after_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("after_help", help.clone()));
+        }
+        if let Some(help) = &cmd.after_long_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("after_long_help", help.clone()));
+        }
         for flag in &cmd.flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(flag.into());
