@@ -148,3 +148,5 @@ mise.usage.kdl [flags] [args]
 ### `where`
 ### `which`
 <!-- [USAGE] -->
+## Config
+<!-- [USAGE] config -->

@@ -10,10 +10,11 @@ use std::sync::Mutex;
 use clap::Args;
 use contracts::requires;
 use kdl::{KdlDocument, KdlNode};
-use miette::{IntoDiagnostic, SourceSpan};
+use miette::{IntoDiagnostic, LabeledSpan, NamedSource, SourceOffset, SourceSpan};
 use strum::EnumIs;
 use thiserror::Error;
 
+use usage::parse::config::SpecConfig;
 use usage::{SchemaCmd, Spec};
 use xx::{context, file};
 
@@ -52,10 +53,7 @@ impl Markdown {
     fn inject_file(&self, inject: &Path) -> miette::Result<()> {
         let raw = file::read_to_string(inject).into_diagnostic()?;
         context::set_load_root(inject.parent().unwrap().to_path_buf());
-        let out = raw
-            .lines()
-            .map(|line| line.parse())
-            .collect::<miette::Result<Vec<UsageMdDirective>>>()?
+        let out = parse_readme_directives(inject, &raw)?
             .into_iter()
             .try_fold(UsageMdContext::new(), |ctx, d| d.run(ctx))?
             .out
@@ -159,6 +157,7 @@ enum UsageMdDirective {
     GlobalFlags,
     CommandIndex,
     Commands,
+    Config,
     EndToken,
     Plain(String),
 }
@@ -175,6 +174,7 @@ impl Display for UsageMdDirective {
             UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
             UsageMdDirective::CommandIndex => write!(f, "<!-- [USAGE] command_index -->"),
             UsageMdDirective::Commands => write!(f, "<!-- [USAGE] commands -->"),
+            UsageMdDirective::Config => write!(f, "<!-- [USAGE] config -->"),
             UsageMdDirective::EndToken => write!(f, "<!-- [USAGE] -->"),
             UsageMdDirective::Plain(line) => write!(f, "{}", line),
         }
@@ -291,6 +291,13 @@ impl UsageMdDirective {
                 print_commands(&ctx, &[&spec.cmd])?;
                 ctx.push(format!("<!-- [USAGE] -->"));
             }
+            UsageMdDirective::Config => {
+                ctx.plain = false;
+                let spec = ctx.spec.as_ref().unwrap();
+                ctx.push(self.to_string());
+                print_config(&ctx, &spec.config)?;
+                ctx.push(format!("<!-- [USAGE] -->"));
+            }
             UsageMdDirective::EndToken => {
                 ctx.plain = true;
             }
@@ -354,6 +361,26 @@ fn print_commands(ctx: &UsageMdContext, cmds: &[&SchemaCmd]) -> miette::Result<(
     Ok(())
 }
 
+fn print_config(ctx: &UsageMdContext, config: &SpecConfig) -> miette::Result<()> {
+    for (key, prop) in &config.props {
+        ctx.push(format!("### `{key}`", key = key));
+        if let Some(env) = &prop.env {
+            ctx.push(format!("env: `{env}`", env = env));
+        }
+        if !prop.default.is_null() {
+            ctx.push(format!("default: `{default}`", default = prop.default));
+        }
+        if let Some(help) = &prop.help {
+            ctx.push(format!("{help}", help = help));
+        }
+        if let Some(long_help) = &prop.long_help {
+            ctx.push(format!("{long_help}", long_help = long_help));
+        }
+        ctx.push("Used by commnds: global|*".to_string());
+    }
+    Ok(())
+}
+
 #[derive(Error, Diagnostic, Debug)]
 #[error("Error parsing markdown directive")]
 #[diagnostic()]
@@ -367,11 +394,12 @@ struct MarkdownError {
     err_span: SourceSpan,
 }
 
-impl FromStr for UsageMdDirective {
-    type Err = miette::Error;
-    fn from_str(line: &str) -> Result<Self, Self::Err> {
+fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageMdDirective>> {
+    let mut directives = vec![];
+    for (line_num, line) in full.lines().enumerate() {
         if line == "<!-- [USAGE] -->" {
-            return Ok(UsageMdDirective::EndToken);
+            directives.push(UsageMdDirective::EndToken);
+            continue;
         }
         let directive = if let Some(x) = regex!(r#"<!-- \[USAGE\] (.*) -->"#).captures(line) {
             let doc: KdlDocument = x.get(1).unwrap().as_str().parse()?;
@@ -400,13 +428,28 @@ impl FromStr for UsageMdDirective {
                 "usage_overview" => UsageMdDirective::UsageOverview,
                 "global_args" => UsageMdDirective::GlobalArgs,
                 "global_flags" => UsageMdDirective::GlobalFlags,
+                //"config" => UsageMdDirective::Config,
                 "command_index" => UsageMdDirective::CommandIndex,
                 "commands" => UsageMdDirective::Commands,
-                _ => Err(err("unknown directive type".into(), *node.name().span()))?,
+                // k => Err(err("unknown directive type".into(), *node.name().span()))?,
+                // k => diagnostic!(source_code=doc.to_string(),
+                //     source_code= "unknown directive type".into(),
+                //     // err_span= *node.name().span()
+                // }),
+                k => Err(miette!(
+                    labels = vec![LabeledSpan::new(
+                        Some(format!("unknown directive type: {k}")),
+                        SourceOffset::from_location(full, line_num + 1, 14).offset(),
+                        node.name().span().len(),
+                    )],
+                    "Error parsing markdown directive",
+                )
+                .with_source_code(NamedSource::new(path.to_string_lossy(), full.to_string())))?,
             }
         } else {
             UsageMdDirective::Plain(line.into())
         };
-        Ok(directive)
+        directives.push(directive);
     }
+    Ok(directives)
 }

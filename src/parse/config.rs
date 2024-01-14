@@ -19,10 +19,10 @@ impl SpecConfig {
 
 #[derive(Debug)]
 pub struct SpecConfigProp {
-    default: KdlValue,
-    env: Option<String>,
-    help: Option<String>,
-    long_help: Option<String>,
+    pub default: KdlValue,
+    pub env: Option<String>,
+    pub help: Option<String>,
+    pub long_help: Option<String>,
 }
 
 impl SpecConfigProp {
