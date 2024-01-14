@@ -1,5 +1,9 @@
 name "mise"
 bin "mise"
+version "2024.1.19-DEBUG macos-arm64 (4b93e5e 2024-01-14)"
+about "The front-end to your dev env"
+long_about "mise is a tool for managing runtime versions. https://github.com/jdx/mise\n\nIt's a replacement for tools like nvm, nodenv, rbenv, rvm, chruby, pyenv, etc.\nthat works for any language. It's also great for managing linters/tools like\njq and shellcheck.\n\nIt is inspired by asdf and uses asdf's plugin ecosystem under the hood:\nhttps://asdf-vm.com/"
+usage "Usage: mise [OPTIONS] <COMMAND>"
 flag "-C,--cd" help="Change directory before running command" global=true {
     arg "<DIR>"
 }
@@ -443,3 +447,4 @@ cmd "render-completion" hide=true help="Generate shell completions" {
 }
 cmd "render-help" hide=true help="internal command to generate markdown from help"
 cmd "render-mangen" hide=true help="internal command to generate markdown from help"
+

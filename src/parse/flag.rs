@@ -23,6 +23,7 @@ pub struct Flag {
     pub global: bool,
     pub count: bool,
     pub arg: Option<Arg>,
+    pub default: Option<String>,
 }
 
 impl Flag {
@@ -95,6 +96,7 @@ impl TryFrom<&KdlNode> for Flag {
                 "hide" => flag.hide = v.ensure_bool()?,
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
+                "default" => flag.default = v.ensure_string().map(Some)?,
                 k => bail_parse!(v.entry, "unsupported key {k}"),
             }
         }
@@ -147,6 +149,10 @@ impl From<&clap::Arg> for Flag {
             c.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         );
+        let default = c
+            .get_default_values()
+            .first()
+            .map(|s| s.to_string_lossy().to_string());
         let short = c.get_short_and_visible_aliases().unwrap_or_default();
         let long = c
             .get_long_and_visible_aliases()
@@ -182,6 +188,7 @@ impl From<&clap::Arg> for Flag {
             global: c.is_global_set(),
             arg,
             count: matches!(c.get_action(), clap::ArgAction::Count),
+            default,
         }
     }
 }

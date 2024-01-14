@@ -148,14 +148,14 @@ impl Markdown {
 }
 
 const USAGE_TITLE_TEMPLATE: &str = r#"
-# {spec.name}
+# {{spec.name}}
 "#;
 
 const USAGE_OVERVIEW_TEMPLATE: &str = r#"
 ## Usage
 
 ```bash
-{{spec.bin}} [flags] [args]
+{{spec.usage}}
 ```
 "#;
 
