@@ -1,5 +1,4 @@
-### `alias`
-
+# `mise alias`
 * Aliases: `a`
 
 #### Flags

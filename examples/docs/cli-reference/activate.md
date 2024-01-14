@@ -1,5 +1,4 @@
-### `activate`
-
+# `mise activate`
 #### Args
 
 * `[SHELL_TYPE]` – Shell type to generate the script for

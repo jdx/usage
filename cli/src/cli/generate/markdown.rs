@@ -85,16 +85,20 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 ## CLI Command Reference
 
 {% for cmd in commands -%}
-{% if multi -%}
-* [`{{ cmd.full_cmd | join(sep=" ") }}`](./{{ cmd.full_cmd | join(sep="/") | slugify }})
+{% if multi_dir -%}
+* [`{{ cmd.full_cmd | join(sep=" ") }}`]({{ multi_dir }}/{% for c in cmd.full_cmd %}{{ c | slugify }}{% if not loop.last %}/{% endif %}{% endfor %}.md)
 {% else -%}
 * [`{{ cmd.full_cmd | join(sep=" ") }}`](#{{ cmd.full_cmd | join(sep=" ") | slugify }})
 {% endif -%}
 {% endfor -%}
 "#;
 
-const COMMAND_TEMPLATE: &str = r#"
-### `{{ cmd.full_cmd | join(sep=" ") }}`
+const COMMAND_TEMPLATE: &str = r##"
+{% if multi_dir -%}
+{{ header }} `{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`
+{% else -%}
+{{ header }} `{{ cmd.full_cmd | join(sep=" ") }}`
+{% endif -%}
 
 {% if cmd.before_long_help -%}
 {{ cmd.before_long_help }}
@@ -107,14 +111,14 @@ const COMMAND_TEMPLATE: &str = r#"
 {% endif -%}
 
 {% if cmd.args -%}
-#### Args
+**Args:**
 
 {% for arg in cmd.args -%}
 * `{{ arg.usage }}` – {{ arg.long_help | default(value=arg.help) }}
 {% endfor -%}
 {% endif %}
 {% if cmd.flags -%}
-#### Flags
+**Flags:**
 
 {% for flag in cmd.flags -%}
 * `{{ flag.usage }}` – {{ flag.long_help | default(value=flag.help) }}
@@ -132,7 +136,7 @@ const COMMAND_TEMPLATE: &str = r#"
 {% elif cmd.after_help -%}
 {{ cmd.after_help }}
 {% endif -%}
-"#;
+"##;
 
 #[derive(Debug, EnumIs)]
 #[strum(serialize_all = "snake_case")]
@@ -409,11 +413,16 @@ impl MarkdownBuilder {
                         let mut ctx = ctx.clone();
                         ctx.insert("cmd", &cmd);
                         let output_file = match &multi_dir {
-                            Some(multi_dir) => self
-                                .root
-                                .join(multi_dir)
-                                .join(format!("{}.md", cmd.full_cmd.join("/"))),
-                            None => self.inject.clone(),
+                            Some(multi_dir) => {
+                                ctx.insert("header", "#");
+                                self.root
+                                    .join(multi_dir)
+                                    .join(format!("{}.md", cmd.full_cmd.join("/")))
+                            }
+                            None => {
+                                ctx.insert("header", &"#".repeat(cmd.full_cmd.len() + 2));
+                                self.inject.clone()
+                            }
                         };
                         let out = outputs.entry(output_file).or_insert_with(Vec::new);
                         out.push(render_template(COMMAND_TEMPLATE.trim_start(), &ctx)?);

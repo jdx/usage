@@ -1,5 +1,4 @@
-### `alias set`
-
+# `mise alias set`
 * Aliases: `add`, `create`
 #### Args
 

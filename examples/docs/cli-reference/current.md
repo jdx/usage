@@ -1,5 +1,4 @@
-### `current`
-
+# `mise current`
 #### Args
 
 * `[PLUGIN]` – Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc

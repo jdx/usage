@@ -1,5 +1,4 @@
-### `settings unset`
-
+# `mise settings unset`
 * Aliases: `rm`, `remove`, `delete`, `del`
 #### Args
 

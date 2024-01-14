@@ -1,5 +1,4 @@
-### `doctor`
-
+# `mise doctor`
 
 Check mise installation for possible problems.
 Examples:

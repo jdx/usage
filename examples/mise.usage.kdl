@@ -11,3 +11,8 @@ config {
 
     prop "color" default=true env="MISE_COLOR"
 }
+
+cmd "zzz" \
+        help="Sleeps for a while." \
+        long_help="Sleeps for a while.  The amount of time is determined by the --timeout option." {
+}

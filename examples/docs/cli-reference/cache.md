@@ -1,5 +1,4 @@
-### `cache`
-
+# `mise cache`
 
 Manage the mise cache
 

@@ -115,15 +115,7 @@ impl Spec {
         if !other.config.is_empty() {
             self.config.merge(&other.config);
         }
-        for flag in other.cmd.flags {
-            self.cmd.flags.push(flag);
-        }
-        for arg in other.cmd.args {
-            self.cmd.args.push(arg);
-        }
-        for (name, cmd) in other.cmd.subcommands {
-            self.cmd.subcommands.insert(name, cmd);
-        }
+        self.cmd.merge(other.cmd);
     }
 }
 

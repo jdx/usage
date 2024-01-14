@@ -1,5 +1,4 @@
-### `env`
-
+# `mise env`
 * Aliases: `e`
 #### Args
 

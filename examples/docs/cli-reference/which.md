@@ -1,5 +1,4 @@
-### `which`
-
+# `mise which`
 #### Args
 
 * `<BIN_NAME>` – The bin name to look up

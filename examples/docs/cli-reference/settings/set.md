@@ -1,5 +1,4 @@
-### `settings set`
-
+# `mise settings set`
 * Aliases: `add`, `create`
 #### Args
 

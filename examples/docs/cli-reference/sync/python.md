@@ -1,5 +1,4 @@
-### `sync python`
-
+# `mise sync python`
 
 #### Flags
 

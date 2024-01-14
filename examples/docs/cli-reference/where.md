@@ -1,5 +1,4 @@
-### `where`
-
+# `mise where`
 #### Args
 
 * `<TOOL@VERSION>` – Tool(s) to look up

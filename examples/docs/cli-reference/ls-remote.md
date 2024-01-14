@@ -1,5 +1,4 @@
-### `ls-remote`
-
+# `mise ls-remote`
 #### Args
 
 * `[TOOL@VERSION]` – Plugin to get versions for

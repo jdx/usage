@@ -1,4 +1,3 @@
-### `usage`
-
+# `mise usage`
 
 Generate usage spec

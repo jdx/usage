@@ -1,5 +1,4 @@
-### `link`
-
+# `mise link`
 * Aliases: `ln`
 #### Args
 

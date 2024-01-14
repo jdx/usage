@@ -1,5 +1,4 @@
-### `plugins link`
-
+# `mise plugins link`
 * Aliases: `ln`
 #### Args
 

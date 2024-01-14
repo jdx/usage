@@ -1,5 +1,4 @@
-### `latest`
-
+# `mise latest`
 #### Args
 
 * `<TOOL@VERSION>` – Tool to get the latest version of

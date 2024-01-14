@@ -1,5 +1,4 @@
-### `upgrade`
-
+# `mise upgrade`
 * Aliases: `up`
 #### Args
 

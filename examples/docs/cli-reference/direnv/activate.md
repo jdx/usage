@@ -1,5 +1,4 @@
-### `direnv activate`
-
+# `mise direnv activate`
 
 Output direnv function to use mise inside direnv
 

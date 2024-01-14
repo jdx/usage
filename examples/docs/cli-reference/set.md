@@ -1,5 +1,4 @@
-### `set`
-
+# `mise set`
 #### Args
 
 * `[ENV_VARS]...` – Environment variable(s) to set

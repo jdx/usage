@@ -1,5 +1,4 @@
-### `shell`
-
+# `mise shell`
 * Aliases: `sh`
 #### Args
 

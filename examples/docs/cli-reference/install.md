@@ -1,5 +1,4 @@
-### `install`
-
+# `mise install`
 * Aliases: `i`
 #### Args
 

@@ -1,5 +1,4 @@
-### `implode`
-
+# `mise implode`
 
 #### Flags
 

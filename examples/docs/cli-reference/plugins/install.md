@@ -1,5 +1,4 @@
-### `plugins install`
-
+# `mise plugins install`
 * Aliases: `i`, `a`, `add`
 #### Args
 

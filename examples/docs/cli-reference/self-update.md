@@ -1,5 +1,4 @@
-### `self-update`
-
+# `mise self-update`
 #### Args
 
 * `[VERSION]` – Update to a specific version

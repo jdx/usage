@@ -1,5 +1,4 @@
-### `cache clear`
-
+# `mise cache clear`
 * Aliases: `c`
 #### Args
 

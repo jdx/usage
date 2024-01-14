@@ -1,5 +1,4 @@
-### `sync node`
-
+# `mise sync node`
 
 #### Flags
 

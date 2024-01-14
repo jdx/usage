@@ -1,5 +1,4 @@
-### `unset`
-
+# `mise unset`
 #### Args
 
 * `[KEYS]...` – Environment variable(s) to remove

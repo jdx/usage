@@ -1,5 +1,4 @@
-### `settings get`
-
+# `mise settings get`
 #### Args
 
 * `<SETTING>` – The setting to show

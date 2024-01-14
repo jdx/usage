@@ -1,5 +1,4 @@
-### `deactivate`
-
+# `mise deactivate`
 
 Disable mise for current shell session
 

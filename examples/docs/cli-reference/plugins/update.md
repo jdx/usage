@@ -1,5 +1,4 @@
-### `plugins update`
-
+# `mise plugins update`
 * Aliases: `upgrade`
 #### Args
 

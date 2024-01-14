@@ -1,5 +1,4 @@
-### `settings ls`
-
+# `mise settings ls`
 * Aliases: `list`
 
 Show current settings

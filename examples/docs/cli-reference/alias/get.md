@@ -1,5 +1,4 @@
-### `alias get`
-
+# `mise alias get`
 #### Args
 
 * `<PLUGIN>` – The plugin to show the alias for

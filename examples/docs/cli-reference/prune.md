@@ -1,5 +1,4 @@
-### `prune`
-
+# `mise prune`
 #### Args
 
 * `[PLUGIN]...` – Prune only versions from this plugin(s)

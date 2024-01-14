@@ -1,5 +1,4 @@
-### `plugins ls`
-
+# `mise plugins ls`
 * Aliases: `list`
 
 #### Flags

@@ -26,10 +26,6 @@ pub struct SchemaCmd {
 }
 
 impl SchemaCmd {
-    pub(crate) fn is_empty(&self) -> bool {
-        self.args.is_empty() && self.flags.is_empty() && self.subcommands.is_empty()
-    }
-
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         node.ensure_args_count(1, 1)?;
         let mut cmd = Self {
@@ -83,6 +79,49 @@ impl SchemaCmd {
             }
         }
         Ok(cmd)
+    }
+    pub(crate) fn is_empty(&self) -> bool {
+        self.args.is_empty() && self.flags.is_empty() && self.subcommands.is_empty()
+    }
+    pub(crate) fn merge(&mut self, other: Self) {
+        if !other.name.is_empty() {
+            self.name = other.name;
+        }
+        if other.help.is_some() {
+            self.help = other.help;
+        }
+        if other.long_help.is_some() {
+            self.long_help = other.long_help;
+        }
+        if other.before_help.is_some() {
+            self.before_help = other.before_help;
+        }
+        if other.before_long_help.is_some() {
+            self.before_long_help = other.before_long_help;
+        }
+        if other.after_help.is_some() {
+            self.after_help = other.after_help;
+        }
+        if other.after_long_help.is_some() {
+            self.after_long_help = other.after_long_help;
+        }
+        if !other.args.is_empty() {
+            self.args = other.args;
+        }
+        if !other.flags.is_empty() {
+            self.flags = other.flags;
+        }
+        if !other.aliases.is_empty() {
+            self.aliases = other.aliases;
+        }
+        if !other.hidden_aliases.is_empty() {
+            self.hidden_aliases = other.hidden_aliases;
+        }
+        self.hide = other.hide;
+        self.subcommand_required = other.subcommand_required;
+        for (name, cmd) in other.subcommands {
+            self.subcommands.insert(name, cmd);
+        }
     }
 }
 

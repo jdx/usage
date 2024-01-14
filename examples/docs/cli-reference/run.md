@@ -1,5 +1,4 @@
-### `run`
-
+# `mise run`
 * Aliases: `r`
 #### Args
 

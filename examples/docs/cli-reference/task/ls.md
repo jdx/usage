@@ -1,5 +1,4 @@
-### `task ls`
-
+# `mise task ls`
 
 #### Flags
 

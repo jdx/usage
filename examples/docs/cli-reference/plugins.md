@@ -1,5 +1,4 @@
-### `plugins`
-
+# `mise plugins`
 * Aliases: `p`
 
 #### Flags

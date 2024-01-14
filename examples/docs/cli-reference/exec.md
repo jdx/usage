@@ -1,5 +1,4 @@
-### `exec`
-
+# `mise exec`
 * Aliases: `x`
 #### Args
 

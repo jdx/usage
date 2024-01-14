@@ -1,5 +1,4 @@
-### `config`
-
+# `mise config`
 * Aliases: `cfg`
 
 #### Flags

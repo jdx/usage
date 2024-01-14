@@ -1,5 +1,4 @@
-### `plugins ls-remote`
-
+# `mise plugins ls-remote`
 * Aliases: `list-remote`, `list-all`
 
 #### Flags

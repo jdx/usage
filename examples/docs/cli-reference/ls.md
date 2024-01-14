@@ -1,5 +1,4 @@
-### `ls`
-
+# `mise ls`
 * Aliases: `list`
 #### Args
 

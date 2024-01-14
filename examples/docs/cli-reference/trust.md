@@ -1,5 +1,4 @@
-### `trust`
-
+# `mise trust`
 #### Args
 
 * `[CONFIG_FILE]` – The config file to trust

@@ -1,5 +1,4 @@
-### `task deps`
-
+# `mise task deps`
 #### Args
 
 * `[TASKS]...` – Tasks to show dependencies for

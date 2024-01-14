@@ -1,5 +1,4 @@
-### `outdated`
-
+# `mise outdated`
 #### Args
 
 * `[TOOL@VERSION]...` – Tool(s) to show outdated versions for

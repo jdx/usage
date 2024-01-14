@@ -1,5 +1,4 @@
-### `completion`
-
+# `mise completion`
 #### Args
 
 * `[SHELL]` – Shell type to generate completions for

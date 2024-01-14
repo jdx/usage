@@ -1,4 +1,3 @@
-### `version`
-
+# `mise version`
 
 Show mise version

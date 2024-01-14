@@ -1,4 +1,3 @@
-### `settings`
-
+# `mise settings`
 
 Manage settings

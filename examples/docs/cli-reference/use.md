@@ -1,5 +1,4 @@
-### `use`
-
+# `mise use`
 * Aliases: `u`
 #### Args
 

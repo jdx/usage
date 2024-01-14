@@ -1,5 +1,4 @@
-### `watch`
-
+# `mise watch`
 * Aliases: `w`
 #### Args
 

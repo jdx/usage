@@ -1,5 +1,4 @@
-### `task`
-
+# `mise task`
 * Aliases: `t`
 
 #### Flags

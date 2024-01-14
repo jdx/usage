@@ -1,5 +1,4 @@
-### `plugins uninstall`
-
+# `mise plugins uninstall`
 * Aliases: `remove`, `rm`
 #### Args
 

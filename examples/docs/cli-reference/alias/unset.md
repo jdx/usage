@@ -1,5 +1,4 @@
-### `alias unset`
-
+# `mise alias unset`
 * Aliases: `rm`, `remove`, `delete`, `del`
 #### Args
 

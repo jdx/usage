@@ -1,5 +1,4 @@
-### `config generate`
-
+# `mise config generate`
 * Aliases: `g`
 
 #### Flags

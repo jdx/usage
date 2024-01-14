@@ -1,5 +1,4 @@
-### `task run`
-
+# `mise task run`
 * Aliases: `r`
 #### Args
 

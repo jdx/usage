@@ -1,5 +1,4 @@
-### `uninstall`
-
+# `mise uninstall`
 * Aliases: `remove`, `rm`
 #### Args
 

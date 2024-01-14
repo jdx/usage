@@ -1,5 +1,4 @@
-### `task edit`
-
+# `mise task edit`
 #### Args
 
 * `<TASK>` – Task to edit

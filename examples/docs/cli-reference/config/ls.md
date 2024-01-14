@@ -1,5 +1,4 @@
-### `config ls`
-
+# `mise config ls`
 
 #### Flags
 
