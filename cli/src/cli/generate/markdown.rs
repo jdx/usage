@@ -1,7 +1,6 @@
-use std::fmt::{Display, Formatter};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use clap::Args;
 use contracts::requires;
@@ -10,7 +9,7 @@ use miette::{Context, IntoDiagnostic, NamedSource, SourceOffset, SourceSpan};
 use strum::EnumIs;
 use tera::Tera;
 use thiserror::Error;
-use xx::{context, file};
+use xx::file;
 
 use usage::parse::config::SpecConfig;
 use usage::{SchemaCmd, Spec};
@@ -51,17 +50,12 @@ impl Markdown {
 
     fn inject_file(&self, inject: &Path) -> miette::Result<()> {
         let raw = file::read_to_string(inject).into_diagnostic()?;
-        context::set_load_root(inject.parent().unwrap().to_path_buf());
-        let out = parse_readme_directives(inject, &raw)?
-            .into_iter()
-            .try_fold(UsageMdContext::new(inject), |ctx, d| d.run(ctx))?
-            .out
-            .lock()
-            .unwrap()
-            .join("\n")
-            + "\n";
-        print!("{}", out);
-        fs::write(inject, out).into_diagnostic()?;
+        let directives = parse_readme_directives(inject, &raw)?;
+        let b = MarkdownBuilder::new(inject, directives);
+        for (file, out) in b.load()?.render()? {
+            print!("{}", out);
+            fs::write(file, out).into_diagnostic()?;
+        }
         Ok(())
     }
 
@@ -221,201 +215,19 @@ const COMMAND_TEMPLATE: &str = r#"
 #[derive(Debug, EnumIs)]
 #[strum(serialize_all = "snake_case")]
 enum UsageMdDirective {
-    Load { file: PathBuf },
-    Title,
-    UsageOverview,
-    GlobalArgs,
-    GlobalFlags,
-    Commands { inline_depth: usize },
-    Config,
-    EndToken,
-    Plain(String),
+    Load { token: String, file: PathBuf },
+    Title { token: String },
+    UsageOverview { token: String },
+    GlobalArgs { token: String },
+    GlobalFlags { token: String },
+    Commands { token: String, inline_depth: usize },
+    Config { token: String },
+    EndToken {},
+    Plain { token: String },
 }
 
-impl Display for UsageMdDirective {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UsageMdDirective::Load { file } => {
-                write!(f, "<!-- [USAGE] load file=\"{}\" -->", file.display())
-            }
-            UsageMdDirective::Title => write!(f, "<!-- [USAGE] title -->"),
-            UsageMdDirective::UsageOverview => write!(f, "<!-- [USAGE] usage_overview -->"),
-            UsageMdDirective::GlobalArgs => write!(f, "<!-- [USAGE] global_args -->"),
-            UsageMdDirective::GlobalFlags => write!(f, "<!-- [USAGE] global_flags -->"),
-            UsageMdDirective::Commands { inline_depth } => {
-                write!(f, "<!-- [USAGE] commands inline_depth={inline_depth} -->")
-            }
-            UsageMdDirective::Config => write!(f, "<!-- [USAGE] config -->"),
-            UsageMdDirective::EndToken => write!(f, "<!-- [USAGE] -->"),
-            UsageMdDirective::Plain(line) => write!(f, "{}", line),
-        }
-    }
-}
-
-struct UsageMdContext {
-    plain: bool,
-    root: PathBuf,
-    spec: Option<Spec>,
-    out: Mutex<Vec<String>>,
-    tera: tera::Context,
-}
-
-impl UsageMdContext {
-    fn new(inject: &Path) -> Self {
-        Self {
-            plain: true,
-            spec: None,
-            out: Mutex::new(vec![]),
-            tera: tera::Context::new(),
-            root: inject.parent().unwrap().to_path_buf(),
-        }
-    }
-
-    fn push(&self, line: String) {
-        self.out.lock().unwrap().push(line);
-    }
-}
-
-impl UsageMdDirective {
-    //noinspection RsFormatMacroWithoutFormatArguments
-    #[requires(self.requires_spec() -> ctx.spec.is_some())]
-    #[requires(self.is_load() -> ctx.spec.is_none())]
-    fn run(&self, mut ctx: UsageMdContext) -> miette::Result<UsageMdContext> {
-        match self {
-            UsageMdDirective::Load { file } => {
-                let file = match file.is_relative() {
-                    true => ctx.root.join(file),
-                    false => file.to_path_buf(),
-                };
-                let spec: Spec = Spec::parse_file(&file)?.0;
-                ctx.tera.insert("spec", &spec.clone());
-                let commands: Vec<_> = gather_subcommands(&[&spec.cmd])
-                    .into_iter()
-                    .filter(|c| !c.hide)
-                    .collect();
-                ctx.tera.insert("commands", &commands);
-                ctx.spec = Some(spec);
-                ctx.push(self.to_string());
-            }
-            UsageMdDirective::Title => {
-                ensure!(ctx.spec.is_some(), "spec must be loaded before title");
-                ctx.plain = false;
-                ctx.push(self.to_string());
-                ctx.push(render_template(USAGE_TITLE_TEMPLATE, &ctx.tera)?);
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::UsageOverview => {
-                ctx.plain = false;
-                ctx.push(self.to_string());
-                ctx.push(render_template(USAGE_OVERVIEW_TEMPLATE, &ctx.tera)?);
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::GlobalArgs => {
-                ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-
-                ctx.push(self.to_string());
-                let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
-                if !args.is_empty() {
-                    for arg in args {
-                        // let name = &arg.usage();
-                        let name = "USAGE";
-                        if let Some(about) = &arg.long_help {
-                            ctx.push(format!("### {name}", name = name));
-                            ctx.push(about.to_string());
-                        } else if let Some(about) = &arg.help {
-                            ctx.push(format!("- `{name}`: {about}", name = name, about = about));
-                        } else {
-                            ctx.push(format!("- `{name}`", name = name));
-                        }
-                    }
-                }
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::GlobalFlags => {
-                ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-
-                ctx.push(self.to_string());
-                let flags = spec
-                    .cmd
-                    .flags
-                    .iter()
-                    .filter(|f| !f.hide)
-                    .collect::<Vec<_>>();
-                if !flags.is_empty() {
-                    for flag in flags {
-                        let name = flag.usage();
-                        if let Some(about) = &flag.long_help {
-                            ctx.push(format!("### {name}", name = name));
-                            ctx.push(about.to_string());
-                        } else if let Some(about) = &flag.help {
-                            ctx.push(format!("- `{name}`: {about}", name = name, about = about));
-                        } else {
-                            ctx.push(format!("- `{name}`", name = name));
-                        }
-                    }
-                }
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::Commands { inline_depth: 2.. } => {
-                ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(self.to_string());
-                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
-                let commands = gather_subcommands(&[&spec.cmd]);
-                for cmd in &commands {
-                    let mut tctx = ctx.tera.clone();
-                    tctx.insert("cmd", &cmd);
-                    ctx.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
-                }
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::Commands { inline_depth: 1 } => {
-                unimplemented!("inline_depth=1")
-            }
-            UsageMdDirective::Commands { inline_depth: 0 } => {
-                ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(self.to_string());
-                ctx.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx.tera)?);
-                let commands = gather_subcommands(&[&spec.cmd]);
-                for cmd in &commands {
-                    let mut tctx = ctx.tera.clone();
-                    tctx.insert("cmd", &cmd);
-                    ctx.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
-                }
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::Config => {
-                ctx.plain = false;
-                let spec = ctx.spec.as_ref().unwrap();
-                ctx.push(self.to_string());
-                ctx.push(print_config(&spec.config)?);
-                ctx.push("<!-- [USAGE] -->".to_string());
-            }
-            UsageMdDirective::EndToken => {
-                ctx.plain = true;
-            }
-            UsageMdDirective::Plain(line) => {
-                if ctx.plain {
-                    ctx.push(line.clone());
-                }
-            }
-        };
-        Ok(ctx)
-    }
-
-    fn requires_spec(&self) -> bool {
-        !matches!(
-            self,
-            UsageMdDirective::Load { .. } | UsageMdDirective::Plain(_)
-        )
-    }
-}
-
-fn render_template(template: &str, tctx: &tera::Context) -> miette::Result<String> {
-    let out = Tera::one_off(template, tctx, false).into_diagnostic()?;
+fn render_template(template: &str, ctx: &tera::Context) -> miette::Result<String> {
+    let out = Tera::one_off(template, ctx, false).into_diagnostic()?;
     Ok(out)
 }
 
@@ -485,7 +297,7 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
     let mut directives = vec![];
     for (line_num, line) in full.lines().enumerate() {
         if line == "<!-- [USAGE] -->" {
-            directives.push(UsageMdDirective::EndToken);
+            directives.push(UsageMdDirective::EndToken {});
             continue;
         }
         let directive = if let Some(x) = regex!(r#"<!-- \[USAGE\] (.*) -->"#).captures(line) {
@@ -526,14 +338,16 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                                 err("load directive must have a file".into(), *node.span())
                             })?,
                     ),
+                    token: line.into(),
                 },
-                "title" => UsageMdDirective::Title,
-                "usage_overview" => UsageMdDirective::UsageOverview,
-                "global_args" => UsageMdDirective::GlobalArgs,
-                "global_flags" => UsageMdDirective::GlobalFlags,
-                "config" => UsageMdDirective::Config,
+                "title" => UsageMdDirective::Title { token: line.into() },
+                "usage_overview" => UsageMdDirective::UsageOverview { token: line.into() },
+                "global_args" => UsageMdDirective::GlobalArgs { token: line.into() },
+                "global_flags" => UsageMdDirective::GlobalFlags { token: line.into() },
+                "config" => UsageMdDirective::Config { token: line.into() },
                 "commands" => UsageMdDirective::Commands {
                     inline_depth: get_i64(node, "inline_depth")?.unwrap_or(2) as usize,
+                    token: line.into(),
                 },
                 k => Err(UsageCLIError::MarkdownParseError {
                     message: format!("unknown directive type: {k}"),
@@ -542,7 +356,7 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 })?,
             }
         } else {
-            UsageMdDirective::Plain(line.into())
+            UsageMdDirective::Plain { token: line.into() }
         };
         directives.push(directive);
     }
@@ -556,4 +370,176 @@ fn get_named_source(path: &Path, full: &str) -> NamedSource {
 fn get_source_span(full: &str, line_num: usize, len: usize) -> SourceSpan {
     let offset = SourceOffset::from_location(full, line_num + 1, 14).offset();
     (offset, len).into()
+}
+
+struct MarkdownBuilder {
+    inject: PathBuf,
+    root: PathBuf,
+    directives: Vec<UsageMdDirective>,
+    commands: Vec<SchemaCmd>,
+
+    spec: Option<Spec>,
+}
+
+impl MarkdownBuilder {
+    fn new(inject: &Path, directives: Vec<UsageMdDirective>) -> Self {
+        let inject = inject.to_path_buf();
+        Self {
+            root: inject.parent().unwrap().to_path_buf(),
+            inject,
+            directives,
+            commands: vec![],
+            spec: None,
+        }
+    }
+
+    #[requires(self.spec.is_none())]
+    fn load(mut self) -> miette::Result<Self> {
+        for dct in &self.directives {
+            if let UsageMdDirective::Load { file, .. } = dct {
+                let file = match file.is_relative() {
+                    true => self.root.join(file),
+                    false => file.to_path_buf(),
+                };
+                let (spec, _) = Spec::parse_file(&file)?;
+                self.commands = gather_subcommands(&[&spec.cmd])
+                    .into_iter()
+                    .filter(|c| !c.hide)
+                    .collect();
+                self.spec = Some(spec);
+            }
+        }
+        ensure!(self.spec.is_some(), "spec must be loaded before title");
+        Ok(self)
+    }
+
+    #[requires(self.spec.is_some())]
+    #[requires(! self.commands.is_empty())] // TODO: remove this later
+    fn render(&self) -> miette::Result<HashMap<PathBuf, String>> {
+        let spec = self.spec.as_ref().unwrap();
+        let mut outputs = HashMap::new();
+        let main = outputs
+            .entry(self.inject.clone())
+            .or_insert_with(std::vec::Vec::new);
+        let mut ctx = tera::Context::new();
+        ctx.insert("spec", &self.spec);
+        ctx.insert("commands", &self.commands);
+        let mut plain = true;
+        for dct in &self.directives {
+            match dct {
+                UsageMdDirective::Plain { .. } | UsageMdDirective::Load { .. } => {}
+                UsageMdDirective::EndToken { .. } => {
+                    plain = true;
+                }
+                _ => plain = false,
+            }
+            match dct {
+                UsageMdDirective::Load { token, .. } => {
+                    main.push(token.clone());
+                }
+                UsageMdDirective::Title { token } => {
+                    main.push(token.clone());
+                    main.push(render_template(USAGE_TITLE_TEMPLATE, &ctx)?);
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::UsageOverview { token } => {
+                    main.push(token.clone());
+                    main.push(render_template(USAGE_OVERVIEW_TEMPLATE, &ctx)?);
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::GlobalArgs { token } => {
+                    main.push(token.clone());
+                    let args = spec.cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
+                    if !args.is_empty() {
+                        for arg in args {
+                            // let name = &arg.usage();
+                            let name = "USAGE";
+                            if let Some(about) = &arg.long_help {
+                                main.push(format!("### {name}", name = name));
+                                main.push(about.to_string());
+                            } else if let Some(about) = &arg.help {
+                                main.push(format!("- `{name}`: {about}",));
+                            } else {
+                                main.push(format!("- `{name}`", name = name));
+                            }
+                        }
+                    }
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::GlobalFlags { token } => {
+                    main.push(token.clone());
+                    let flags = spec
+                        .cmd
+                        .flags
+                        .iter()
+                        .filter(|f| !f.hide)
+                        .collect::<Vec<_>>();
+                    if !flags.is_empty() {
+                        for flag in flags {
+                            let name = flag.usage();
+                            if let Some(about) = &flag.long_help {
+                                main.push(format!("### {name}"));
+                                main.push(about.to_string());
+                            } else if let Some(about) = &flag.help {
+                                main.push(format!("- `{name}`: {about}",));
+                            } else {
+                                main.push(format!("- `{name}`"));
+                            }
+                        }
+                    }
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::Commands {
+                    token,
+                    inline_depth: 2..,
+                } => {
+                    main.push(token.clone());
+                    main.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx)?);
+                    let commands = gather_subcommands(&[&spec.cmd]);
+                    for cmd in &commands {
+                        let mut tctx = ctx.clone();
+                        tctx.insert("cmd", &cmd);
+                        main.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
+                    }
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::Commands {
+                    token,
+                    inline_depth: 1,
+                } => {
+                    main.push(token.clone());
+                    unimplemented!("inline_depth=1")
+                }
+                UsageMdDirective::Commands {
+                    token,
+                    inline_depth: 0,
+                } => {
+                    main.push(token.clone());
+                    main.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx)?);
+                    let commands = gather_subcommands(&[&spec.cmd]);
+                    for cmd in &commands {
+                        let mut tctx = ctx.clone();
+                        tctx.insert("cmd", &cmd);
+                        main.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
+                    }
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::Config { token } => {
+                    main.push(token.clone());
+                    main.push(print_config(&spec.config)?);
+                    main.push("<!-- [USAGE] -->".to_string());
+                }
+                UsageMdDirective::EndToken { .. } => {}
+                UsageMdDirective::Plain { token } => {
+                    if plain {
+                        main.push(token.clone());
+                    }
+                }
+            };
+        }
+        Ok(outputs
+            .into_iter()
+            .map(|(k, v)| (k, v.join("\n").trim_start().trim_end().to_string() + "\n"))
+            .collect())
+    }
 }

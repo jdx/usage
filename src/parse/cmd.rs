@@ -26,6 +26,10 @@ pub struct SchemaCmd {
 }
 
 impl SchemaCmd {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.args.is_empty() && self.flags.is_empty() && self.subcommands.is_empty()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         node.ensure_args_count(1, 1)?;
         let mut cmd = Self {

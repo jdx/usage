@@ -43,6 +43,14 @@ impl Spec {
         Self::parse(&Default::default(), input)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+            && self.bin.is_empty()
+            && self.usage.is_empty()
+            && self.cmd.is_empty()
+            && self.config.is_empty()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
         let kdl: KdlDocument = input
             .parse()
