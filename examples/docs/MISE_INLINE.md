@@ -1,4 +1,4 @@
-<!-- [USAGE] load file="./mise.usage.kdl" -->
+<!-- [USAGE] load file="../mise.usage.kdl" -->
 <!-- [USAGE] title -->
 
 # mise
@@ -50,7 +50,7 @@ foooooooo
 * default: `"admin"`
 
 <!-- [USAGE] -->
-<!-- [USAGE] commands inline_depth=0 -->
+<!-- [USAGE] commands -->
 
 ## CLI Command Reference
 

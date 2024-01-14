@@ -1,0 +1,4 @@
+### `version`
+
+
+Show mise version

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Args;
@@ -54,102 +53,21 @@ impl Markdown {
         let b = MarkdownBuilder::new(inject, directives);
         for (file, out) in b.load()?.render()? {
             print!("{}", out);
-            fs::write(file, out).into_diagnostic()?;
+            file::write(file, &out).into_diagnostic()?;
         }
         Ok(())
     }
-
-    //noinspection RsFormatMacroWithoutFormatArguments
-    // fn _print(&self, spec: &Spec, dir: &Path, cmds: &[&SchemaCmd]) -> miette::Result<()> {
-    //     let cmd = cmds.last().unwrap();
-    //     let mut out = vec![];
-    //     let cmd_path = cmds
-    //         .iter()
-    //         .map(|c| c.name.as_str())
-    //         .collect::<Vec<_>>()
-    //         .join(" ");
-    //     out.push(format!("# {cmd_path}"));
-    //     out.push("## Usage".to_string());
-    //     out.push("```".to_string());
-    //     out.push(format!("{cmd_path} [flags] [args]"));
-    //     out.push("```".to_string());
-    //
-    //     let args = cmd.args.iter().filter(|a| !a.hide).collect::<Vec<_>>();
-    //     if !args.is_empty() {
-    //         out.push("## Args".to_string());
-    //         for arg in args {
-    //             let name = &arg.usage();
-    //             if let Some(about) = &arg.long_help {
-    //                 out.push(format!("### {name}"));
-    //                 out.push(about.to_string());
-    //             } else if let Some(about) = &arg.help {
-    //                 out.push(format!("- `{name}`: {about}"));
-    //             } else {
-    //                 out.push(format!("- `{name}`"));
-    //             }
-    //         }
-    //     }
-    //     let flags = cmd.flags.iter().filter(|f| !f.hide).collect::<Vec<_>>();
-    //     if !flags.is_empty() {
-    //         out.push("## Flags".to_string());
-    //         for flag in flags {
-    //             let name = flag.usage();
-    //             if let Some(about) = &flag.long_help {
-    //                 out.push(format!("### {name}"));
-    //                 out.push(about.to_string());
-    //             } else if let Some(about) = &flag.help {
-    //                 out.push(format!("- `{name}`: {about}"));
-    //             } else {
-    //                 out.push(format!("- `{name}`"));
-    //             }
-    //         }
-    //     }
-    //     let subcommands = cmd
-    //         .subcommands
-    //         .values()
-    //         .filter(|c| !c.hide)
-    //         .collect::<Vec<_>>();
-    //     if !subcommands.is_empty() {
-    //         out.push("## Commands".to_string());
-    //         for cmd in subcommands {
-    //             let name = cmd.name.as_str();
-    //             if let Some(about) = &cmd.help {
-    //                 out.push(format!("- [`{name}`](./{name}): {about}"));
-    //             } else {
-    //                 out.push(format!("- [`{name}`](./{name})"));
-    //             }
-    //         }
-    //     }
-    //
-    //     let dir = dir.join(&cmd.name);
-    //     let file = if cmd.subcommands.is_empty() {
-    //         let dir = dir.parent().unwrap();
-    //         fs::create_dir_all(dir).into_diagnostic()?;
-    //         dir.join(format!("{}.md", cmd.name))
-    //     } else {
-    //         fs::create_dir_all(&dir).into_diagnostic()?;
-    //         dir.join("index.md")
-    //     };
-    //     let mut file = File::create(file).into_diagnostic()?;
-    //     writeln!(file, "{}", out.join("\n")).into_diagnostic()?;
-    //
-    //     for cmd in cmd.subcommands.values() {
-    //         let cmds = cmds.iter().cloned().chain(once(cmd)).collect::<Vec<_>>();
-    //         self._print(spec, &dir, &cmds)?;
-    //     }
-    //     Ok(())
-    // }
 }
 
 const USAGE_TITLE_TEMPLATE: &str = r#"
-# {{spec.name}}
+# {{name}}
 "#;
 
 const USAGE_OVERVIEW_TEMPLATE: &str = r#"
 ## Usage
 
 ```bash
-{{spec.usage}}
+{{usage}}
 ```
 "#;
 
@@ -167,7 +85,11 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 ## CLI Command Reference
 
 {% for cmd in commands -%}
+{% if multi -%}
+* [`{{ cmd.full_cmd | join(sep=" ") }}`](./{{ cmd.full_cmd | join(sep="/") | slugify }})
+{% else -%}
 * [`{{ cmd.full_cmd | join(sep=" ") }}`](#{{ cmd.full_cmd | join(sep=" ") | slugify }})
+{% endif -%}
 {% endfor -%}
 "#;
 
@@ -215,35 +137,38 @@ const COMMAND_TEMPLATE: &str = r#"
 #[derive(Debug, EnumIs)]
 #[strum(serialize_all = "snake_case")]
 enum UsageMdDirective {
-    Load { token: String, file: PathBuf },
-    Title { token: String },
-    UsageOverview { token: String },
-    GlobalArgs { token: String },
-    GlobalFlags { token: String },
-    Commands { token: String, inline_depth: usize },
-    Config { token: String },
+    Load {
+        token: String,
+        file: PathBuf,
+    },
+    Title {
+        token: String,
+    },
+    UsageOverview {
+        token: String,
+    },
+    GlobalArgs {
+        token: String,
+    },
+    GlobalFlags {
+        token: String,
+    },
+    Commands {
+        token: String,
+        multi_dir: Option<String>,
+    },
+    Config {
+        token: String,
+    },
     EndToken {},
-    Plain { token: String },
+    Plain {
+        token: String,
+    },
 }
 
 fn render_template(template: &str, ctx: &tera::Context) -> miette::Result<String> {
     let out = Tera::one_off(template, ctx, false).into_diagnostic()?;
     Ok(out)
-}
-
-fn gather_subcommands(cmds: &[&SchemaCmd]) -> Vec<SchemaCmd> {
-    let mut subcommands = vec![];
-    for cmd in cmds {
-        if cmd.hide {
-            continue;
-        }
-        if !cmd.name.is_empty() {
-            subcommands.push((*cmd).clone());
-        }
-        let more = gather_subcommands(&cmd.subcommands.values().collect::<Vec<_>>());
-        subcommands.extend(more);
-    }
-    subcommands
 }
 
 fn print_config(config: &SpecConfig) -> miette::Result<String> {
@@ -322,13 +247,6 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                     .map(Some),
                 None => Ok(None),
             };
-            let get_i64 = |node: &KdlNode, key: &'static str| match get_prop(node, key)? {
-                Some(v) => v
-                    .as_i64()
-                    .ok_or_else(|| err(format!("{key} must be an integer"), *node.span()))
-                    .map(Some),
-                None => Ok(None),
-            };
             match node.name().value() {
                 "load" => UsageMdDirective::Load {
                     file: PathBuf::from(
@@ -346,8 +264,8 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
                 "global_flags" => UsageMdDirective::GlobalFlags { token: line.into() },
                 "config" => UsageMdDirective::Config { token: line.into() },
                 "commands" => UsageMdDirective::Commands {
-                    inline_depth: get_i64(node, "inline_depth")?.unwrap_or(2) as usize,
                     token: line.into(),
+                    multi_dir: get_string(node, "multi_dir")?,
                 },
                 k => Err(UsageCLIError::MarkdownParseError {
                     message: format!("unknown directive type: {k}"),
@@ -376,7 +294,6 @@ struct MarkdownBuilder {
     inject: PathBuf,
     root: PathBuf,
     directives: Vec<UsageMdDirective>,
-    commands: Vec<SchemaCmd>,
 
     spec: Option<Spec>,
 }
@@ -388,7 +305,6 @@ impl MarkdownBuilder {
             root: inject.parent().unwrap().to_path_buf(),
             inject,
             directives,
-            commands: vec![],
             spec: None,
         }
     }
@@ -402,10 +318,6 @@ impl MarkdownBuilder {
                     false => file.to_path_buf(),
                 };
                 let (spec, _) = Spec::parse_file(&file)?;
-                self.commands = gather_subcommands(&[&spec.cmd])
-                    .into_iter()
-                    .filter(|c| !c.hide)
-                    .collect();
                 self.spec = Some(spec);
             }
         }
@@ -414,18 +326,16 @@ impl MarkdownBuilder {
     }
 
     #[requires(self.spec.is_some())]
-    #[requires(! self.commands.is_empty())] // TODO: remove this later
     fn render(&self) -> miette::Result<HashMap<PathBuf, String>> {
         let spec = self.spec.as_ref().unwrap();
+        let commands = gather_subcommands(&[&spec.cmd]);
+        let ctx = tera::Context::from_serialize(&self.spec).into_diagnostic()?;
         let mut outputs = HashMap::new();
-        let main = outputs
-            .entry(self.inject.clone())
-            .or_insert_with(std::vec::Vec::new);
-        let mut ctx = tera::Context::new();
-        ctx.insert("spec", &self.spec);
-        ctx.insert("commands", &self.commands);
         let mut plain = true;
         for dct in &self.directives {
+            let main = outputs
+                .entry(self.inject.clone())
+                .or_insert_with(std::vec::Vec::new);
             match dct {
                 UsageMdDirective::Plain { .. } | UsageMdDirective::Load { .. } => {}
                 UsageMdDirective::EndToken { .. } => {
@@ -489,39 +399,26 @@ impl MarkdownBuilder {
                     }
                     main.push("<!-- [USAGE] -->".to_string());
                 }
-                UsageMdDirective::Commands {
-                    token,
-                    inline_depth: 2..,
-                } => {
+                UsageMdDirective::Commands { token, multi_dir } => {
                     main.push(token.clone());
+                    let mut ctx = ctx.clone();
+                    ctx.insert("commands", &commands);
+                    ctx.insert("multi_dir", &multi_dir);
                     main.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx)?);
-                    let commands = gather_subcommands(&[&spec.cmd]);
                     for cmd in &commands {
-                        let mut tctx = ctx.clone();
-                        tctx.insert("cmd", &cmd);
-                        main.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
+                        let mut ctx = ctx.clone();
+                        ctx.insert("cmd", &cmd);
+                        let output_file = match &multi_dir {
+                            Some(multi_dir) => self
+                                .root
+                                .join(multi_dir)
+                                .join(format!("{}.md", cmd.full_cmd.join("/"))),
+                            None => self.inject.clone(),
+                        };
+                        let out = outputs.entry(output_file).or_insert_with(Vec::new);
+                        out.push(render_template(COMMAND_TEMPLATE.trim_start(), &ctx)?);
                     }
-                    main.push("<!-- [USAGE] -->".to_string());
-                }
-                UsageMdDirective::Commands {
-                    token,
-                    inline_depth: 1,
-                } => {
-                    main.push(token.clone());
-                    unimplemented!("inline_depth=1")
-                }
-                UsageMdDirective::Commands {
-                    token,
-                    inline_depth: 0,
-                } => {
-                    main.push(token.clone());
-                    main.push(render_template(COMMANDS_INDEX_TEMPLATE, &ctx)?);
-                    let commands = gather_subcommands(&[&spec.cmd]);
-                    for cmd in &commands {
-                        let mut tctx = ctx.clone();
-                        tctx.insert("cmd", &cmd);
-                        main.push(render_template(COMMAND_TEMPLATE.trim_start(), &tctx)?);
-                    }
+                    let main = outputs.get_mut(&self.inject).unwrap();
                     main.push("<!-- [USAGE] -->".to_string());
                 }
                 UsageMdDirective::Config { token } => {
@@ -542,4 +439,19 @@ impl MarkdownBuilder {
             .map(|(k, v)| (k, v.join("\n").trim_start().trim_end().to_string() + "\n"))
             .collect())
     }
+}
+
+fn gather_subcommands(cmds: &[&SchemaCmd]) -> Vec<SchemaCmd> {
+    let mut subcommands = vec![];
+    for cmd in cmds {
+        if cmd.hide {
+            continue;
+        }
+        if !cmd.name.is_empty() {
+            subcommands.push((*cmd).clone());
+        }
+        let more = gather_subcommands(&cmd.subcommands.values().collect::<Vec<_>>());
+        subcommands.extend(more);
+    }
+    subcommands
 }
