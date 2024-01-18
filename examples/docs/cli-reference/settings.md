@@ -1,0 +1,3 @@
+# `mise settings`
+
+Manage settings

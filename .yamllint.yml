@@ -1,0 +1,3 @@
+document-start: disable
+ignore: |
+  pnpm-lock.yaml

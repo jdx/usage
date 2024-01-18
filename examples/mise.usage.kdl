@@ -1,0 +1,38 @@
+include file="mise.gen.usage.kdl"
+config {
+    prop "color" default=true
+    prop "user" default="admin"
+    prop "jobs" default=4
+    prop "timeout" default=1.5
+
+    prop "activate_accessive" default=false env="MISE_ACTIVATE_ACCESSIVE" \
+        help="Pushes tools' bin-paths to the front of PATH instead of allowing modifications of PATH after activation to take precedence." \
+        long_help="foooooooo"
+
+    prop "color" default=true env="MISE_COLOR"
+}
+
+cmd "zzz" \
+        help="Sleeps for a while." \
+        deprecated=true \
+        long_help="Sleeps for a while.  The amount of time is determined by the --timeout option." {
+
+   example lang="sh" header="Create something" help="xxx" r#"
+mise zzz
+mise zzz --timeout 2
+   "#
+
+   example r#"
+$ mise zzz
+Sleeping for 1.5 seconds...
+Done.
+   "#
+
+    example lang="sh" header="Create something" help="xxx" r#"
+$ mise zzz --timeout 2
+Sleeping for 2 seconds...
+Done.
+   "#
+
+   flag "--timeout" help="The amount of time to sleep for." deprecated=true
+}

@@ -1,0 +1,43 @@
+[package]
+name = "usage-lib"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70.0"
+description = "Library for working with usage specs"
+license = "MIT"
+authors = ["Jeff Dickey @jdx"]
+documentation = "https://github.com/jdx/usage"
+
+[workspace]
+members = [
+    "cli",
+]
+
+[lib]
+name = "usage"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "string"], optional = true }
+indexmap = { version = "2", features = ["serde"] }
+itertools = "0.12"
+kdl = "4"
+log = "0.4"
+miette = "5"
+once_cell = "1"
+serde = { version = "1", features = ["derive"] }
+shell-escape = "0.1"
+strum = { version = "0.25", features = ["derive"] }
+thiserror = "1"
+xx = "0.2"
+
+[features]
+default = ["clap"]
+
+[dev-dependencies]
+insta = "1"
+
+[package.metadata.release]
+allow-branch = ["main"]
+sign-commit = true
+sign-tag = true
+shared-version = true
