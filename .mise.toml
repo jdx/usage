@@ -32,13 +32,16 @@ raw = true
 run = 'cargo test --all --all-features'
 
 [tasks.lint]
-run = 'cargo clippy --all --all-features -- -D warnings'
+run = [
+  'cargo clippy --all --all-features -- -D warnings',
+  'cargo fmt --all -- --check',
+]
 
 [tasks.lint-fix]
-run = 'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings'
-
-[tasks.format-check]
-run = 'cargo fmt --all -- --check'
+run = [
+  'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
+  'cargo fmt --all',
+]
 
 [tasks.ci]
-depends = ['test', 'lint', 'format-check']
+depends = ['test', 'lint']
