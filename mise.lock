@@ -5,6 +5,7 @@ version = "1.7.4"
 version = "1.10.8"
 
 [tools.cargo-binstall.checksums]
+"cargo-binstall-aarch64-apple-darwin.zip" = "sha256:23a27d534c98fed95e88c320fd7de154f851af7bce9100eed15e72fee316804c"
 cargo-binstall-macos-aarch64 = "sha256:c30a499060745f0c4435a446253fc676838cff0a18d2dd555fcf10399176b1bf"
 
 [tools."cargo:cargo-edit"]

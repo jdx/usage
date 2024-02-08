@@ -13,7 +13,7 @@ pub enum UsageErr {
     InvalidInput(
         String,
         #[label = "{0}"] SourceSpan,
-        #[source_code] NamedSource,
+        #[source_code] NamedSource<String>,
     ),
 
     #[error("Missing required arg: <{0}>")]
@@ -52,13 +52,15 @@ pub type Result<T> = std::result::Result<T, UsageErr>;
 #[macro_export]
 macro_rules! bail_parse {
     ($ctx:expr, $span:expr, $fmt:literal) => {{
+        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt);
-        let err = $ctx.build_err(msg, $span);
+        let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
     ($ctx:expr, $span:expr, $fmt:literal, $($arg:tt)*) => {{
+        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt, $($arg)*);
-        let err = $ctx.build_err(msg, $span);
+        let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
 }
