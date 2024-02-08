@@ -3,7 +3,7 @@ extern crate log;
 #[macro_use]
 extern crate miette;
 #[macro_use]
-mod regex;
+extern crate xx;
 
 use std::path::PathBuf;
 
