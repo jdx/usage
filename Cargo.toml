@@ -7,6 +7,13 @@ description = "Library for working with usage specs"
 license = "MIT"
 authors = ["Jeff Dickey @jdx"]
 documentation = "https://github.com/jdx/usage"
+include = [
+    "Cargo.toml",
+    "Cargo.lock",
+    "README.md",
+    "LICENSE",
+    "src/**/*.rs",
+]
 
 [workspace]
 members = [
