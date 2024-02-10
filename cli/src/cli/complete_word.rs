@@ -188,7 +188,7 @@ fn complete_path(
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
-    if path.is_dir() && ctoken.ends_with("/") {
+    if path.is_dir() && ctoken.ends_with('/') {
         dir = path.to_path_buf();
         prefix = "".to_string();
     };
@@ -201,7 +201,7 @@ fn complete_path(
         .map(|de| de.path())
         .filter(|p| filter(p))
         .map(|p| {
-            p.strip_prefix(&base)
+            p.strip_prefix(base)
                 .unwrap_or(&p)
                 .to_string_lossy()
                 .to_string()
