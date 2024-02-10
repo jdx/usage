@@ -32,9 +32,6 @@ pub struct CompleteWord {
     /// current word index
     #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
-
-    #[clap(long)]
-    ctoken: Option<String>,
 }
 
 impl CompleteWord {
@@ -50,12 +47,7 @@ impl CompleteWord {
 
     fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<String>> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
-        let ctoken = self
-            .ctoken
-            .as_ref()
-            .or(self.words.get(cword))
-            .cloned()
-            .unwrap_or_default();
+        let ctoken = self.words.get(cword).cloned().unwrap_or_default();
         let words: VecDeque<_> = self.words.iter().take(cword).cloned().collect();
 
         trace!(
