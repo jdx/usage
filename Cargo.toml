@@ -61,3 +61,6 @@ allow-branch = ["main"]
 sign-commit = true
 sign-tag = true
 shared-version = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/usage-{target}{ archive-suffix }"
