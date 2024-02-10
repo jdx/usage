@@ -26,9 +26,17 @@ flag "--file <file>" required_if="--dir"     # if --dir is set, --file must also
 flag "--file <file>" required_unless="--dir" # either --file or --dir must be present
 flag "--file <file>" overrides="--stdin"     # if --file is set, previous --stdin will be ignored
 
-flag "--file <file>" long_help="longer help for --help (as oppoosed to -h)"
-
 flag "--shell <shell>" {
   choices "bash" "zsh" "fish" # <shell> must be one of the choices
+}
+
+flag "--file <file>" long_help="longer help for --help (as oppoosed to -h)"
+# this is equivalent to the above but preferred when a lot of space is needed
+flag "--file <file>" {
+  long_help r#"longer help for --help (as oppoosed to -h)
+   even
+   more
+   text
+   "#
 }
 ```

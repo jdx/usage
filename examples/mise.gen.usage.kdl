@@ -1,6 +1,6 @@
 name "mise"
 bin "mise"
-version "2024.2.9-DEBUG macos-arm64 (6bfe004 2024-02-10)"
+version "2024.2.9-DEBUG macos-arm64 (c5587ce 2024-02-10)"
 about "The front-end to your dev env"
 long_about r"mise is a tool for managing runtime versions. https://github.com/jdx/mise
 
@@ -526,14 +526,13 @@ cmd "outdated" help="Shows outdated tool versions" {
 cmd "plugins" help="Manage plugins" {
     alias "p"
     alias "plugin" "plugin-list" hide=true
-    flag "-a --all" help="list all available remote plugins" long_help=r"list all available remote plugins
-
-same as `mise plugins ls-remote`" hide=true
+    flag "-a --all" help="list all available remote plugins" hide=true {
+        long_help "list all available remote plugins\n\nsame as `mise plugins ls-remote`"
+    }
     flag "-c --core" help="The built-in plugins only\nNormally these are not shown"
-    flag "--user" help="List installed plugins" long_help=r"List installed plugins
-
-This is the default behavior but can be used with --core
-to show core and user plugins"
+    flag "--user" help="List installed plugins" {
+        long_help "List installed plugins\n\nThis is the default behavior but can be used with --core\nto show core and user plugins"
+    }
     flag "-u --urls" help="Show the git url for each plugin\ne.g.: https://github.com/asdf-vm/asdf-nodejs.git"
     flag "--refs" help="Show the git refs for each plugin\ne.g.: main 1234abc" hide=true
     cmd "install" help="Install a plugin" {
@@ -598,10 +597,9 @@ Can also show remotely available plugins to install."
 "
         flag "-a --all" help="List all available remote plugins\nSame as `mise plugins ls-remote`" hide=true
         flag "-c --core" help="The built-in plugins only\nNormally these are not shown"
-        flag "--user" help="List installed plugins" long_help=r"List installed plugins
-
-This is the default behavior but can be used with --core
-to show core and user plugins"
+        flag "--user" help="List installed plugins" {
+            long_help "List installed plugins\n\nThis is the default behavior but can be used with --core\nto show core and user plugins"
+        }
         flag "-u --urls" help="Show the git url for each plugin\ne.g.: https://github.com/asdf-vm/asdf-nodejs.git"
         flag "--refs" help="Show the git refs for each plugin\ne.g.: main 1234abc" hide=true
     }
@@ -775,15 +773,13 @@ By default this command modifies ".mise.toml" in the current directory."#
     key       value       source
     NODE_ENV  production  ~/.config/mise/config.toml
 "
-    flag "--file" help="The TOML file to update" long_help=r#"The TOML file to update
-
-Defaults to MISE_DEFAULT_CONFIG_FILENAME environment variable, or ".mise.toml"."# {
+    flag "--file" help="The TOML file to update" {
+        long_help "The TOML file to update\n\nDefaults to MISE_DEFAULT_CONFIG_FILENAME environment variable, or \".mise.toml\"."
         arg "<FILE>"
     }
     flag "-g --global" help="Set the environment variable in the global config file"
-    flag "--remove" help="Remove the environment variable from config file" long_help=r"Remove the environment variable from config file
-
-Can be used multiple times." var=true hide=true {
+    flag "--remove" help="Remove the environment variable from config file" var=true hide=true {
+        long_help "Remove the environment variable from config file\n\nCan be used multiple times."
         arg "<ENV_VAR>"
     }
     arg "[ENV_VARS]..." help="Environment variable(s) to set\ne.g.: NODE_ENV=production" var=true

@@ -16,9 +16,14 @@ cmd "config" help="short description"
 cmd "config" after_help="shown after the command"
 
 # these are shown under --help
-cmd "config" before_long_help="shown before the command"
-cmd "config" long_help="longer description"
-cmd "config" after_long_help="shown after the command"
+# all help fields can be either inline params or separate nodes like
+# below for the *_long_help fields. Typically when a lot of space is needed
+# it's cleaner to use separate nodes.
+cmd "config" {
+  before_long_help "shown before the command"
+  long_help "longer description"
+  after_long_help "shown after the command"
+}
 
 cmd "list" {
   example "Basic usage" r#"
