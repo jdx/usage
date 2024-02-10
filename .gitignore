@@ -1,5 +1,6 @@
 /target
 /schema/usage.json
+/node_modules/
 
 
 # Added by cargo
