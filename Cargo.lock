@@ -1352,13 +1352,13 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c5ca851d9ff7fca51314fa1ae20ea00710ca73a08f7acfedbe95dd3ad02212a"
 dependencies = [
  "clap",
- "ctor",
  "heck",
  "indexmap",
- "insta",
  "itertools",
  "kdl",
  "log",
@@ -1373,13 +1373,13 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5ca851d9ff7fca51314fa1ae20ea00710ca73a08f7acfedbe95dd3ad02212a"
+version = "0.1.2"
 dependencies = [
  "clap",
+ "ctor",
  "heck",
  "indexmap",
+ "insta",
  "itertools",
  "kdl",
  "log",
