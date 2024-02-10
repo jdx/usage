@@ -2,7 +2,7 @@
 name = "usage-cli"
 edition = "2021"
 repository = "https://github.com/jdx/usage"
-version.workspace = true
+version = "0.1.5-beta.1"
 license.workspace = true
 authors.workspace = true
 description.workspace = true

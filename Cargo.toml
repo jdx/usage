@@ -1,6 +1,7 @@
 [package]
 name = "usage-lib"
 edition = "2021"
+version = "0.1.5-beta.1"
 rust-version = "1.70.0"
 include = [
     "/Cargo.toml",
@@ -9,7 +10,6 @@ include = [
     "/LICENSE",
     "/src/**/*.rs",
 ]
-version.workspace = true
 description.workspace = true
 homepage.workspace = true
 documentation.workspace = true
@@ -21,7 +21,6 @@ members = [
     "cli",
 ]
 [workspace.package]
-version = "0.1.5-beta.1"
 description = "Library for working with usage specs"
 homepage = "https://usage.jdx.dev"
 documentation = "https://github.com/jdx/usage"
