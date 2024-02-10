@@ -25,6 +25,7 @@ name = "usage"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "string"], optional = true }
+heck = "0.4.1"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.12"
 kdl = "4"
@@ -36,7 +37,6 @@ shell-escape = "0.1"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "1"
 xx = "0.2"
-heck = "0.4.1"
 
 [features]
 default = ["clap"]
