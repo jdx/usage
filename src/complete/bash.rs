@@ -14,14 +14,14 @@ _{bin}() {{
         _USAGE_SPEC_{bin_up}="$({usage_cmd})"
     fi
 
-    COMPREPLY=( $({usage} complete-word -s "${{_USAGE_SPEC_{bin_up}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}") )
+    COMPREPLY=( $({usage} complete-word -s "${{_USAGE_SPEC_{bin_up}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" ) )
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
     fi
     return 0
 }}
 
-complete -F _{bin} {bin}
+shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin} {bin}
 # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh
 "#
     )

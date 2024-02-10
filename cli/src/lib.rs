@@ -21,7 +21,10 @@ mod shebang;
 mod test;
 
 pub fn run(args: &[String]) -> Result<()> {
-    trace!("args: {:?}", args);
+    // trace!(
+    //     "args: {:?}",
+    //     args.iter().map(|s| s[..100].to_string()).collect_vec()
+    // );
     // if let Some("__USAGE__") = args.get(2).map(|s| s.as_str()) {
     //     return split_script(&args[1]);
     // } else if let Some(script) = args.get(1) {

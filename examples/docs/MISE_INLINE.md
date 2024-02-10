@@ -1196,9 +1196,13 @@ Manage settings
 ### Subcommands
 
 * `get [args]` - Show a current setting
-* `ls` - Show current settings
+* `ls [flags]` - Show current settings
 * `set [args]` - Add/update a setting
 * `unset [args]` - Clears a setting
+
+##### Flag `--keys`
+
+Only display key names for each setting
 
 ### `mise settings get`
 
@@ -1228,6 +1232,10 @@ This is the contents of ~/.config/mise/config.toml
 
 Note that aliases are also stored in this file
 but managed separately with `mise aliases`
+
+##### Flag `--keys`
+
+Only display key names for each setting
 
 Examples:
 
