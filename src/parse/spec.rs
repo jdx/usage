@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::Path;
 
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 use xx::file;
 
@@ -121,6 +121,9 @@ impl Spec {
         if !other.config.is_empty() {
             self.config.merge(&other.config);
         }
+        if !other.complete.is_empty() {
+            self.complete.extend(other.complete);
+        }
         self.cmd.merge(other.cmd);
     }
 }
@@ -175,7 +178,7 @@ impl Display for Spec {
         }
         if let Some(long_about) = &self.long_about {
             let mut node = KdlNode::new("long_about");
-            node.push(KdlEntry::new(long_about.clone()));
+            node.push(KdlEntry::new(KdlValue::RawString(long_about.clone())));
             nodes.push(node);
         }
         if !self.usage.is_empty() {

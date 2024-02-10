@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
 use crate::error::UsageErr;
@@ -211,24 +211,26 @@ impl From<&SpecCommand> for KdlNode {
                 .push(KdlEntry::new_prop("help", help.clone()));
         }
         if let Some(help) = &cmd.long_help {
-            node.entries_mut()
-                .push(KdlEntry::new_prop("long_help", help.clone()));
+            let v = KdlValue::RawString(help.clone());
+            node.entries_mut().push(KdlEntry::new_prop("long_help", v));
         }
         if let Some(help) = &cmd.before_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("before_help", help.clone()));
         }
         if let Some(help) = &cmd.before_long_help {
+            let v = KdlValue::RawString(help.clone());
             node.entries_mut()
-                .push(KdlEntry::new_prop("before_long_help", help.clone()));
+                .push(KdlEntry::new_prop("before_long_help", v));
         }
         if let Some(help) = &cmd.after_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("after_help", help.clone()));
         }
         if let Some(help) = &cmd.after_long_help {
+            let v = KdlValue::RawString(help.clone());
             node.entries_mut()
-                .push(KdlEntry::new_prop("after_long_help", help.clone()));
+                .push(KdlEntry::new_prop("after_long_help", v));
         }
         for flag in &cmd.flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 
 use itertools::Itertools;
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
 use crate::error::UsageErr::InvalidFlag;
@@ -100,7 +100,10 @@ impl From<&SpecFlag> for KdlNode {
             node.push(KdlEntry::new_prop("help", desc.clone()));
         }
         if let Some(desc) = &flag.long_help {
-            node.push(KdlEntry::new_prop("long_help", desc.clone()));
+            node.push(KdlEntry::new_prop(
+                "long_help",
+                KdlValue::RawString(desc.clone()),
+            ));
         }
         if flag.required {
             node.push(KdlEntry::new_prop("required", true));
