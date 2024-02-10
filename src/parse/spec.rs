@@ -215,23 +215,23 @@ impl From<&clap::Command> for Spec {
     }
 }
 
-#[cfg(feature = "clap")]
-impl From<&Spec> for clap::Command {
-    fn from(schema: &Spec) -> Self {
-        let mut cmd = clap::Command::new(&schema.name);
-        for flag in schema.cmd.flags.iter() {
-            cmd = cmd.arg(flag);
-        }
-        for arg in schema.cmd.args.iter() {
-            let a = clap::Arg::new(&arg.name).required(arg.required);
-            cmd = cmd.arg(a);
-        }
-        for scmd in schema.cmd.subcommands.values() {
-            cmd = cmd.subcommand(scmd);
-        }
-        cmd
-    }
-}
+// #[cfg(feature = "clap")]
+// impl From<&Spec> for clap::Command {
+//     fn from(schema: &Spec) -> Self {
+//         let mut cmd = clap::Command::new(&schema.name);
+//         for flag in schema.cmd.flags.iter() {
+//             cmd = cmd.arg(flag);
+//         }
+//         for arg in schema.cmd.args.iter() {
+//             let a = clap::Arg::new(&arg.name).required(arg.required);
+//             cmd = cmd.arg(a);
+//         }
+//         for scmd in schema.cmd.subcommands.values() {
+//             cmd = cmd.subcommand(scmd);
+//         }
+//         cmd
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -245,7 +245,7 @@ mod tests {
 name "Usage CLI"
 bin "usage"
 arg "arg1"
-flag "-f,--force" global=true
+flag "-f --force" global=true
 cmd "config" {
   cmd "set" {
     arg "key" help="Key to set"
@@ -258,7 +258,7 @@ cmd "config" {
         assert_display_snapshot!(spec, @r###"
         name "Usage CLI"
         bin "usage"
-        flag "-f,--force" global=true
+        flag "-f --force" global=true
         arg "<arg1>"
         cmd "config" {
             cmd "set" {

@@ -9,7 +9,7 @@ use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Hash)]
 pub struct SpecArg {
     pub name: String,
     pub usage: String,
@@ -161,22 +161,22 @@ impl From<&clap::Arg> for SpecArg {
     }
 }
 
-#[cfg(feature = "clap")]
-impl From<&SpecArg> for clap::Arg {
-    fn from(arg: &SpecArg) -> Self {
-        let mut a = clap::Arg::new(&arg.name);
-        if let Some(desc) = &arg.help {
-            a = a.help(desc);
-        }
-        if arg.required {
-            a = a.required(true);
-        }
-        // if arg.multiple {
-        //     a = a.multiple(true);
-        // }
-        if arg.hide {
-            a = a.hide_possible_values(true);
-        }
-        a
-    }
-}
+// #[cfg(feature = "clap")]
+// impl From<&SpecArg> for clap::Arg {
+//     fn from(arg: &SpecArg) -> Self {
+//         let mut a = clap::Arg::new(&arg.name);
+//         if let Some(desc) = &arg.help {
+//             a = a.help(desc);
+//         }
+//         if arg.required {
+//             a = a.required(true);
+//         }
+//         // if arg.multiple {
+//         //     a = a.multiple(true);
+//         // }
+//         if arg.hide {
+//             a = a.hide_possible_values(true);
+//         }
+//         a
+//     }
+// }

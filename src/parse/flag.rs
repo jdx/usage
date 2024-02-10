@@ -1,16 +1,18 @@
+use std::fmt::Display;
+use std::hash::Hash;
 use std::str::FromStr;
 
 use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
-use crate::error::UsageErr;
 use crate::error::UsageErr::InvalidFlag;
+use crate::error::{Result, UsageErr};
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 use crate::{bail_parse, SpecArg};
 
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
     pub name: String,
     pub usage: String,
@@ -29,7 +31,7 @@ pub struct SpecFlag {
 }
 
 impl SpecFlag {
-    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         for (k, v) in node.props() {
             match k {
@@ -61,17 +63,25 @@ impl SpecFlag {
         Ok(flag)
     }
     pub fn usage(&self) -> String {
-        let mut name = self
-            .short
-            .iter()
-            .map(|c| format!("-{c}"))
-            .chain(self.long.iter().map(|s| format!("--{s}")))
-            .collect::<Vec<_>>()
-            .join(",");
-        if let Some(arg) = &self.arg {
-            name = format!("{} {}", name, arg.usage());
+        let mut parts = vec![];
+        let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
+        if name != self.name {
+            parts.push(format!("{}:", self.name));
         }
-        name
+        if let Some(short) = self.short.first() {
+            parts.push(format!("-{}", short));
+        }
+        if let Some(long) = self.long.first() {
+            parts.push(format!("--{}", long));
+        }
+        let mut out = parts.join(" ");
+        if self.var {
+            out = format!("{}...", out);
+        }
+        if let Some(arg) = &self.arg {
+            out = format!("{} {}", out, arg.usage());
+        }
+        out
     }
 }
 
@@ -84,7 +94,7 @@ impl From<&SpecFlag> for KdlNode {
             .map(|c| format!("-{c}"))
             .chain(flag.long.iter().map(|s| format!("--{s}")))
             .collect::<Vec<_>>()
-            .join(",");
+            .join(" ");
         node.push(KdlEntry::new(name));
         if let Some(desc) = &flag.help {
             node.push(KdlEntry::new_prop("help", desc.clone()));
@@ -120,25 +130,45 @@ impl From<&SpecFlag> for KdlNode {
 
 impl FromStr for SpecFlag {
     type Err = UsageErr;
-    fn from_str(input: &str) -> std::result::Result<Self, UsageErr> {
+    fn from_str(input: &str) -> Result<Self> {
         let mut flag = Self::default();
-        let (names, val) = input.split_once(' ').unwrap_or((input, ""));
-        for (i, n) in names.split(',').enumerate() {
-            if i == 0 {
-                flag.name = n.trim_start_matches('-').to_string();
-            }
-            if n.starts_with("--") {
-                flag.long.push(n.trim_start_matches('-').to_string());
-            } else if n.starts_with('-') {
-                flag.short.extend(n.trim_start_matches('-').chars());
+        let input = input.replace("...", " ... ");
+        for part in input.split_whitespace() {
+            if let Some(name) = part.strip_suffix(':') {
+                flag.name = name.to_string();
+            } else if let Some(long) = part.strip_prefix("--") {
+                flag.long.push(long.to_string());
+            } else if let Some(short) = part.strip_prefix('-') {
+                if short.len() != 1 {
+                    return Err(InvalidFlag(
+                        short.to_string(),
+                        (0, input.len()).into(),
+                        input.to_string(),
+                    ));
+                }
+                flag.short.push(short.chars().next().unwrap());
+            } else if part == "..." {
+                if let Some(arg) = &mut flag.arg {
+                    arg.var = true;
+                } else {
+                    flag.var = true;
+                }
+            } else if part.starts_with('<') && part.ends_with('>')
+                || part.starts_with('[') && part.ends_with(']')
+            {
+                flag.arg = Some(part.to_string().parse()?);
             } else {
-                let span = (0, names.len());
-                return Err(InvalidFlag(n.to_string(), span.into(), input.to_string()));
+                return Err(InvalidFlag(
+                    part.to_string(),
+                    (0, input.len()).into(),
+                    input.to_string(),
+                ));
             }
         }
-        if !val.is_empty() {
-            flag.arg = Some(val.parse()?);
+        if flag.name.is_empty() {
+            flag.name = get_name_from_short_and_long(&flag.short, &flag.long).unwrap_or_default();
         }
+        flag.usage = flag.usage();
         Ok(flag)
     }
 }
@@ -165,14 +195,11 @@ impl From<&clap::Arg> for SpecFlag {
             .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
-        let name = long
-            .first()
-            .map(|s| s.to_string())
-            .unwrap_or(short.first().cloned().unwrap_or_default().to_string());
+        let name = get_name_from_short_and_long(&short, &long).unwrap_or_default();
         let arg = if let clap::ArgAction::Set | clap::ArgAction::Append = c.get_action() {
             let arg = c
                 .get_value_names()
-                .map(|s| s.iter().map(|s| s.to_string()).join(","))
+                .map(|s| s.iter().map(|s| s.to_string()).join(" "))
                 .unwrap_or(name.clone())
                 .as_str()
                 .into();
@@ -199,48 +226,91 @@ impl From<&clap::Arg> for SpecFlag {
     }
 }
 
-#[cfg(feature = "clap")]
-impl From<&SpecFlag> for clap::Arg {
-    fn from(flag: &SpecFlag) -> Self {
-        let mut a = clap::Arg::new(&flag.name);
-        if let Some(desc) = &flag.help {
-            a = a.help(desc);
-        }
-        if flag.required {
-            a = a.required(true);
-        }
-        if let Some(arg) = &flag.arg {
-            a = a.value_name(&arg.name);
-            if arg.var {
-                a = a.action(clap::ArgAction::Append)
-            } else {
-                a = a.action(clap::ArgAction::Set)
-            }
-        } else {
-            a = a.action(clap::ArgAction::SetTrue)
-        }
-        // let mut a = clap::Arg::new(&flag.name)
-        //     .required(flag.required)
-        //     .action(clap::ArgAction::SetTrue);
-        if let Some(short) = flag.short.first() {
-            a = a.short(*short);
-        }
-        if let Some(long) = flag.long.first() {
-            a = a.long(long);
-        }
-        for short in flag.short.iter().skip(1) {
-            a = a.visible_short_alias(*short);
-        }
-        for long in flag.long.iter().skip(1) {
-            a = a.visible_alias(long);
-        }
-        // cmd = cmd.arg(a);
-        // if flag.multiple {
-        //     a = a.multiple(true);
-        // }
-        // if flag.hide {
-        //     a = a.hide_possible_values(true);
-        // }
-        a
+// #[cfg(feature = "clap")]
+// impl From<&SpecFlag> for clap::Arg {
+//     fn from(flag: &SpecFlag) -> Self {
+//         let mut a = clap::Arg::new(&flag.name);
+//         if let Some(desc) = &flag.help {
+//             a = a.help(desc);
+//         }
+//         if flag.required {
+//             a = a.required(true);
+//         }
+//         if let Some(arg) = &flag.arg {
+//             a = a.value_name(&arg.name);
+//             if arg.var {
+//                 a = a.action(clap::ArgAction::Append)
+//             } else {
+//                 a = a.action(clap::ArgAction::Set)
+//             }
+//         } else {
+//             a = a.action(clap::ArgAction::SetTrue)
+//         }
+//         // let mut a = clap::Arg::new(&flag.name)
+//         //     .required(flag.required)
+//         //     .action(clap::ArgAction::SetTrue);
+//         if let Some(short) = flag.short.first() {
+//             a = a.short(*short);
+//         }
+//         if let Some(long) = flag.long.first() {
+//             a = a.long(long);
+//         }
+//         for short in flag.short.iter().skip(1) {
+//             a = a.visible_short_alias(*short);
+//         }
+//         for long in flag.long.iter().skip(1) {
+//             a = a.visible_alias(long);
+//         }
+//         // cmd = cmd.arg(a);
+//         // if flag.multiple {
+//         //     a = a.multiple(true);
+//         // }
+//         // if flag.hide {
+//         //     a = a.hide_possible_values(true);
+//         // }
+//         a
+//     }
+// }
+
+impl Display for SpecFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.usage())
+    }
+}
+impl PartialEq for SpecFlag {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+impl Eq for SpecFlag {}
+impl Hash for SpecFlag {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+fn get_name_from_short_and_long(short: &[char], long: &[String]) -> Option<String> {
+    long.first()
+        .map(|s| s.to_string())
+        .or_else(|| short.first().map(|c| c.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_str() {
+        assert_display_snapshot!("-f".parse::<SpecFlag>().unwrap(), @"-f");
+        assert_display_snapshot!("--flag".parse::<SpecFlag>().unwrap(), @"--flag");
+        assert_display_snapshot!("-f --flag".parse::<SpecFlag>().unwrap(), @"-f --flag");
+        assert_display_snapshot!("-f --flag...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
+        assert_display_snapshot!("-f --flag ...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
+        assert_display_snapshot!("--flag <arg>".parse::<SpecFlag>().unwrap(), @"--flag <arg>");
+        assert_display_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
+        assert_display_snapshot!("-f --flag... <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag... <arg>");
+        assert_display_snapshot!("-f --flag <arg>...".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>...");
+        assert_display_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
+        assert_display_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
     }
 }

@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 
 use clap::Args;
+use indexmap::IndexMap;
 use itertools::Itertools;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
@@ -72,7 +73,7 @@ struct ParseOutput<'a> {
     cmd: &'a SpecCommand,
     cmds: Vec<&'a SpecCommand>,
     args: Vec<(&'a SpecArg, Vec<String>)>,
-    flags: Vec<(&'a SpecFlag, Vec<String>)>,
+    flags: IndexMap<&'a SpecFlag, Vec<String>>,
 }
 
 fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<ParseOutput<'a>> {
@@ -90,15 +91,16 @@ fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<Par
         }
     }
 
-    let mut flag = None;
     let mut args = vec![];
+    let mut flags: IndexMap<&SpecFlag, Vec<String>> = IndexMap::new();
     let mut arg_specs = cmd.args.iter().collect_vec();
 
     while !words.is_empty() {
         if words[0].starts_with("--") {
             let long = words[0].strip_prefix("--").unwrap().to_string();
             if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
-                flag = Some(f);
+                let word = words.pop_front().unwrap().to_string();
+                flags.entry(f).or_default().push(word);
                 continue;
             }
         }
@@ -117,14 +119,13 @@ fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<Par
         }
         panic!("unexpected word: {:?}", words[0]);
     }
-
-    dbg!(&flag);
+    dbg!(&flags);
 
     Ok(ParseOutput {
         cmd,
         cmds,
         args,
-        flags: vec![],
+        flags,
     })
 }
 

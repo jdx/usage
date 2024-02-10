@@ -2,7 +2,6 @@ use std::fs;
 use std::os::unix::prelude::*;
 use std::path::{Path, PathBuf};
 
-use clap::Command;
 use miette::IntoDiagnostic;
 
 use usage::Spec;
@@ -10,28 +9,28 @@ use usage::Spec;
 use crate::{env, hash};
 
 pub fn execute(script: &Path, args: &[String]) -> miette::Result<()> {
-    let (schema, body) = Spec::parse_file(script)?;
-    let cmd: Command = (&schema).into();
-    let m = cmd.get_matches_from(args[1..].to_vec());
-    for flag in &schema.cmd.flags {
-        if flag.arg.is_some() {
-            env::set_var(
-                format!("usage_{}", &flag.name),
-                m.get_one::<String>(&flag.name).cloned().unwrap_or_default(),
-            )
-        } else {
-            env::set_var(
-                format!("usage_{}", &flag.name),
-                m.get_flag(&flag.name).to_string(),
-            )
-        }
-    }
-    for arg in &schema.cmd.args {
-        env::set_var(
-            format!("usage_{}", &arg.name),
-            m.get_one::<String>(&arg.name).cloned().unwrap_or_default(),
-        )
-    }
+    let (_schema, body) = Spec::parse_file(script)?;
+    // let cmd: Command = (&schema).into();
+    // let m = cmd.get_matches_from(args[1..].to_vec());
+    // for flag in &schema.cmd.flags {
+    //     if flag.arg.is_some() {
+    //         env::set_var(
+    //             format!("usage_{}", &flag.name),
+    //             m.get_one::<String>(&flag.name).cloned().unwrap_or_default(),
+    //         )
+    //     } else {
+    //         env::set_var(
+    //             format!("usage_{}", &flag.name),
+    //             m.get_flag(&flag.name).to_string(),
+    //         )
+    //     }
+    // }
+    // for arg in &schema.cmd.args {
+    //     env::set_var(
+    //         format!("usage_{}", &arg.name),
+    //         m.get_one::<String>(&arg.name).cloned().unwrap_or_default(),
+    //     )
+    // }
     let output_path = create_script(script, &body)?;
     let mut cmd = exec::Command::new(output_path);
     let err = cmd.args(&args[1..]).exec();

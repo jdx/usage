@@ -5,19 +5,30 @@ use assert_cmd::prelude::*;
 use predicates::prelude::*;
 
 #[test]
-fn complete() {
+fn complete_word_completer() {
     assert_cmd(&["plugins", "install", "pl"]).stdout("plugin-1\nplugin-2\nplugin-3\n");
 }
 
 #[test]
-fn subcommands() {
+fn complete_word_subcommands() {
     assert_cmd(&["plugins", "install"]).stdout(predicate::str::contains("install"));
 }
 
 #[test]
-fn cword() {
+fn complete_word_cword() {
     assert_cmd(&["--cword=2", "plugins", "install"]).stdout(predicate::str::contains("plugin-2"));
 }
+
+#[test]
+fn complete_word_long_flag() {
+    assert_cmd(&["plugins", "install", "--global", "pl"])
+        .stdout(predicate::str::contains("plugin-2"));
+}
+
+// #[test]
+// fn complete_word_short_flag() {
+//     assert_cmd(&["plugins", "install", "-g", "pl"]).stdout(predicate::str::contains("plugin-2"));
+// }
 
 fn cmd() -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();

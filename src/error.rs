@@ -31,6 +31,7 @@ pub enum UsageErr {
     #[diagnostic(transparent)]
     XXError(#[from] xx::error::XXError),
 }
+pub type Result<T> = std::result::Result<T, UsageErr>;
 
 #[macro_export]
 macro_rules! bail_parse {

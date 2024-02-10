@@ -286,52 +286,52 @@ impl From<&clap::Command> for SpecCommand {
     }
 }
 
-#[cfg(feature = "clap")]
-impl From<&SpecCommand> for clap::Command {
-    fn from(cmd: &SpecCommand) -> Self {
-        let mut app = Self::new(cmd.name.to_string());
-        if let Some(help) = &cmd.help {
-            app = app.about(help);
-        }
-        if let Some(help) = &cmd.long_help {
-            app = app.long_about(help);
-        }
-        if let Some(help) = &cmd.before_help {
-            app = app.before_help(help);
-        }
-        if let Some(help) = &cmd.before_long_help {
-            app = app.before_long_help(help);
-        }
-        if let Some(help) = &cmd.after_help {
-            app = app.after_help(help);
-        }
-        if let Some(help) = &cmd.after_long_help {
-            app = app.after_long_help(help);
-        }
-        if cmd.subcommand_required {
-            app = app.subcommand_required(true);
-        }
-        if cmd.hide {
-            app = app.hide(true);
-        }
-        for alias in &cmd.aliases {
-            app = app.visible_alias(alias);
-        }
-        for alias in &cmd.hidden_aliases {
-            app = app.alias(alias);
-        }
-        for arg in &cmd.args {
-            app = app.arg(arg);
-        }
-        for flag in &cmd.flags {
-            app = app.arg(flag);
-        }
-        for subcmd in cmd.subcommands.values() {
-            app = app.subcommand(subcmd);
-        }
-        app
-    }
-}
+// #[cfg(feature = "clap")]
+// impl From<&SpecCommand> for clap::Command {
+//     fn from(cmd: &SpecCommand) -> Self {
+//         let mut app = Self::new(cmd.name.to_string());
+//         if let Some(help) = &cmd.help {
+//             app = app.about(help);
+//         }
+//         if let Some(help) = &cmd.long_help {
+//             app = app.long_about(help);
+//         }
+//         if let Some(help) = &cmd.before_help {
+//             app = app.before_help(help);
+//         }
+//         if let Some(help) = &cmd.before_long_help {
+//             app = app.before_long_help(help);
+//         }
+//         if let Some(help) = &cmd.after_help {
+//             app = app.after_help(help);
+//         }
+//         if let Some(help) = &cmd.after_long_help {
+//             app = app.after_long_help(help);
+//         }
+//         if cmd.subcommand_required {
+//             app = app.subcommand_required(true);
+//         }
+//         if cmd.hide {
+//             app = app.hide(true);
+//         }
+//         for alias in &cmd.aliases {
+//             app = app.visible_alias(alias);
+//         }
+//         for alias in &cmd.hidden_aliases {
+//             app = app.alias(alias);
+//         }
+//         for arg in &cmd.args {
+//             app = app.arg(arg);
+//         }
+//         for flag in &cmd.flags {
+//             app = app.arg(flag);
+//         }
+//         for subcmd in cmd.subcommands.values() {
+//             app = app.subcommand(subcmd);
+//         }
+//         app
+//     }
+// }
 
 #[cfg(feature = "clap")]
 impl From<clap::Command> for Spec {

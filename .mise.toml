@@ -29,6 +29,7 @@ run = './target/debug/usage g completion fish -f examples/example.sh > ~/.config
 raw = true
 
 [tasks.test]
+alias = 't'
 run = 'cargo test --all --all-features'
 
 [tasks.lint]

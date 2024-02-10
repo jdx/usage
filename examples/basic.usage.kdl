@@ -2,6 +2,7 @@ cmd "plugins" {
   cmd "install" {
     arg "plugin"
     arg "version"
+    flag "-g --global"
   }
 }
 
