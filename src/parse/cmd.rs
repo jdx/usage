@@ -132,6 +132,17 @@ impl SpecCommand {
                     cmd.after_long_help =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
+                "subcommand_required" => {
+                    cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
+                "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
+                "deprecated" => {
+                    cmd.deprecated = match child.arg(0)?.value.as_bool() {
+                        Some(true) => Some("deprecated".to_string()),
+                        Some(false) => None,
+                        None => Some(child.arg(0)?.ensure_string()?),
+                    }
+                }
                 k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
             }
         }

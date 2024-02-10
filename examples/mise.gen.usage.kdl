@@ -1,6 +1,6 @@
 name "mise"
 bin "mise"
-version "2024.2.9-DEBUG macos-arm64 (c5587ce 2024-02-10)"
+version "2024.2.9-DEBUG macos-arm64 (389e76e 2024-02-10)"
 about "The front-end to your dev env"
 long_about r"mise is a tool for managing runtime versions. https://github.com/jdx/mise
 

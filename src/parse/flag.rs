@@ -56,6 +56,21 @@ impl SpecFlag {
         for child in node.children() {
             match child.name() {
                 "arg" => flag.arg = Some(SpecArg::parse(ctx, &child)?),
+                "help" => flag.help = Some(child.arg(0)?.ensure_string()?),
+                "long_help" => flag.long_help = Some(child.arg(0)?.ensure_string()?),
+                "required" => flag.required = child.arg(0)?.ensure_bool()?,
+                "var" => flag.var = child.arg(0)?.ensure_bool()?,
+                "hide" => flag.hide = child.arg(0)?.ensure_bool()?,
+                "deprecated" => {
+                    flag.deprecated = match child.arg(0)?.ensure_bool() {
+                        Ok(true) => Some("deprecated".into()),
+                        Ok(false) => None,
+                        _ => Some(child.arg(0)?.ensure_string()?),
+                    }
+                }
+                "global" => flag.global = child.arg(0)?.ensure_bool()?,
+                "count" => flag.count = child.arg(0)?.ensure_bool()?,
+                "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, *child.node.span(), "unsupported flag value key {k}"),
             }
         }
