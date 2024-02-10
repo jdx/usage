@@ -5,4 +5,4 @@ cmd "plugins" {
   }
 }
 
-complete "plugin" run="echo plugin-1"
+complete "plugin" run="echo \"plugin-1\nplugin-2\nplugin-3\""

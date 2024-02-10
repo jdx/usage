@@ -53,7 +53,6 @@ impl CompleteWord {
         );
 
         let parsed = parse(&spec, words)?;
-        dbg!(&parsed);
 
         let mut choices = vec![];
         choices.extend(complete_subcommands(parsed.cmd, &ctoken));
@@ -99,7 +98,6 @@ fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<Par
         if words[0].starts_with("--") {
             let long = words[0].strip_prefix("--").unwrap().to_string();
             if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
-                dbg!(&f, &words[0]);
                 flag = Some(f);
                 continue;
             }
@@ -150,7 +148,6 @@ fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
 
 fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
     let name = arg.name.to_lowercase();
-    dbg!(&name);
 
     if let Ok(cwd) = env::current_dir() {
         match name.as_str() {
