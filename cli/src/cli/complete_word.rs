@@ -38,6 +38,15 @@ pub struct CompleteWord {
 impl CompleteWord {
     pub fn run(&self) -> miette::Result<()> {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
+        let choices = self.complete_word(&spec)?;
+        for c in &choices {
+            println!("{}", c);
+        }
+
+        Ok(())
+    }
+
+    fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<String>> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self
             .ctoken
@@ -45,7 +54,6 @@ impl CompleteWord {
             .or(self.words.get(cword))
             .cloned()
             .unwrap_or_default();
-
         let words: VecDeque<_> = self.words.iter().take(cword).cloned().collect();
 
         trace!(
@@ -53,19 +61,23 @@ impl CompleteWord {
             words.iter().join(" ")
         );
 
-        let parsed = parse(&spec, words)?;
-
-        let mut choices = vec![];
-        choices.extend(complete_subcommands(parsed.cmd, &ctoken));
-        if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
-            choices.extend(complete_arg(&spec, arg, &ctoken)?);
-        }
-
-        for c in &choices {
-            println!("{}", c);
-        }
-
-        Ok(())
+        let parsed = parse(spec, words)?;
+        let choices = if !parsed.cmd.subcommands.is_empty() {
+            complete_subcommands(parsed.cmd, &ctoken)
+        } else if ctoken == "-" {
+            let shorts = complete_short_flag_names(parsed.cmd, "");
+            let longs = complete_long_flag_names(parsed.cmd, "");
+            shorts.into_iter().chain(longs).collect()
+        } else if ctoken.starts_with("--") {
+            complete_long_flag_names(parsed.cmd, &ctoken)
+        } else if ctoken.starts_with('-') {
+            complete_short_flag_names(parsed.cmd, &ctoken)
+        } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
+            complete_arg(spec, arg, &ctoken)?
+        } else {
+            vec![]
+        };
+        Ok(choices)
     }
 }
 
@@ -141,7 +153,6 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
         }
         panic!("unexpected word: {:?}", words[0]);
     }
-    dbg!(&flags);
 
     Ok(ParseOutput {
         cmd,
@@ -152,6 +163,7 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
 }
 
 fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+    trace!("complete_subcommands: {ctoken}");
     let mut choices = vec![];
     for subcommand in cmd.subcommands.values() {
         if subcommand.hide {
@@ -169,7 +181,30 @@ fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
         .collect()
 }
 
+fn complete_long_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+    trace!("complete_long_flag_names: {ctoken}");
+    let ctoken = ctoken.strip_prefix("--").unwrap_or(ctoken);
+    cmd.list_visible_long_flags()
+        .into_iter()
+        .filter(|c| c.starts_with(ctoken))
+        .map(|c| format!("--{}", c))
+        .sorted()
+        .collect()
+}
+
+fn complete_short_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+    trace!("complete_short_flag_names: {ctoken}");
+    let cur = ctoken.chars().nth(1);
+    cmd.list_visible_short_flags()
+        .into_iter()
+        .filter(|c| cur.is_none() || cur == Some(**c))
+        .map(|c| format!("-{}", c))
+        .sorted()
+        .collect()
+}
+
 fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
+    trace!("complete_arg: {} {ctoken}", &arg.name);
     let name = arg.name.to_lowercase();
 
     if let Ok(cwd) = env::current_dir() {
@@ -198,6 +233,7 @@ fn complete_path(
     ctoken: &str,
     filter: impl Fn(&Path) -> bool,
 ) -> miette::Result<Vec<String>> {
+    trace!("complete_path: {ctoken}");
     let path = PathBuf::from(ctoken);
     let mut dir = path.parent().unwrap_or(&path).to_path_buf();
     if dir.is_relative() {

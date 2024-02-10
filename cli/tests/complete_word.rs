@@ -21,12 +21,22 @@ fn complete_word_cword() {
 
 #[test]
 fn complete_word_long_flag() {
+    assert_cmd(&["--", "plugins", "install", "--"]).stdout("--dir\n--global\n");
+    assert_cmd(&["--", "plugins", "install", "--g"]).stdout("--global\n");
     assert_cmd(&["--", "plugins", "install", "--global", "pl"])
         .stdout(predicate::str::contains("plugin-2"));
 }
 
+// #[test]
+// fn complete_word_long_flag_val() {
+//     assert_cmd(&["--", "plugins", "install", "--dir", "mydir"])
+//         .stdout(predicate::str::contains("plugin-2"));
+// }
+
 #[test]
 fn complete_word_short_flag() {
+    assert_cmd(&["--", "plugins", "install", "-"]).stdout("-d\n-g\n--dir\n--global\n");
+    assert_cmd(&["--", "plugins", "install", "-g"]).stdout("-g\n");
     assert_cmd(&["--", "plugins", "install", "-g", "pl"])
         .stdout(predicate::str::contains("plugin-2"));
 }

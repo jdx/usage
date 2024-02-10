@@ -3,6 +3,7 @@ cmd "plugins" {
     arg "plugin"
     arg "version"
     flag "-g --global"
+    flag "-d --dir <dir>"
   }
 }
 
