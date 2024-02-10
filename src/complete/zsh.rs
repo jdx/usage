@@ -4,16 +4,18 @@ pub fn complete_zsh(bin: &str, usage_cmd: &str) -> String {
     format!(
         r#"
 #compdef {bin}
+
 _{bin}() {{
   typeset -A opt_args
-  local context state line curcontext=$curcontext
-  local spec
-  spec="$({usage_cmd})"
+  local curcontext="$curcontext"
 
-  _arguments -s -S \
-   '-h[Show help information]' \
-   '-V[Show version information]' \
-   '*:: :->command' && return
+  if [[ -z "${{_usage_spec_{bin}:-}}" ]]; then
+    #echo "Fetching usage spec..." >&2
+    _usage_spec_{bin}="$({usage_cmd})"
+  fi
+
+  _arguments '*: :( $(usage complete-word -s "${{_usage_spec_{bin}}}" -- "${{words[@]}}" ) )'
+  return 0
 }}
 
 if [ "$funcstack[1]" = "_{bin}" ]; then
@@ -42,16 +44,18 @@ mod tests {
         // let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_zsh("mycli", "mycli complete --usage").trim(), @r###"
         #compdef mycli
+
         _mycli() {
           typeset -A opt_args
-          local context state line curcontext=$curcontext
-          local spec
-          spec="$(mycli complete --usage)"
+          local curcontext="$curcontext"
 
-          _arguments -s -S \
-           '-h[Show help information]' \
-           '-V[Show version information]' \
-           '*:: :->command' && return
+          if [[ -z "${_usage_spec_mycli:-}" ]]; then
+            #echo "Fetching usage spec..." >&2
+            _usage_spec_mycli="$(mycli complete --usage)"
+          fi
+
+          _arguments '*: :( $(usage complete-word -s "${_usage_spec_mycli}" -- "${words[@]}" ) )'
+          return 0
         }
 
         if [ "$funcstack[1]" = "_mycli" ]; then
