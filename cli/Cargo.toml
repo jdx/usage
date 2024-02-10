@@ -1,6 +1,6 @@
 [package]
 name = "usage-cli"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2021"
 authors = ["Jeff Dickey @jdx"]
 description = "Helper for CLIs which follow the Usage spec"
