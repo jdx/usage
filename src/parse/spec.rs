@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::Path;
@@ -11,7 +12,7 @@ use crate::parse::cmd::SpecCommand;
 use crate::parse::config::SpecConfig;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
-use crate::{SpecArg, SpecFlag};
+use crate::{Complete, SpecArg, SpecFlag};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Spec {
@@ -21,6 +22,7 @@ pub struct Spec {
     pub config: SpecConfig,
     pub version: Option<String>,
     pub usage: String,
+    pub complete: IndexMap<String, Complete>,
 
     pub about: Option<String>,
     pub long_about: Option<String>,
@@ -73,6 +75,10 @@ impl Spec {
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
                 "config" => schema.config = SpecConfig::parse(ctx, &node)?,
+                "complete" => {
+                    let complete = Complete::parse(ctx, &node)?;
+                    schema.complete.insert(complete.name.clone(), complete);
+                }
                 "include" => {
                     let file = node
                         .props()

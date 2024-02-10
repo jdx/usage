@@ -36,3 +36,5 @@ Done.
 
    flag "--timeout" help="The amount of time to sleep for." deprecated=true
 }
+
+complete "plugin" run="echo 123"

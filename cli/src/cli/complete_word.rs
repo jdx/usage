@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use clap::Args;
 use itertools::Itertools;
+
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
 use crate::cli::generate;
@@ -57,7 +58,7 @@ impl CompleteWord {
         let mut choices = vec![];
         choices.extend(complete_subcommands(parsed.cmd, &ctoken));
         if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
-            choices.extend(complete_arg(arg, &ctoken)?);
+            choices.extend(complete_arg(&spec, arg, &ctoken)?);
         }
 
         for c in &choices {
@@ -147,34 +148,35 @@ fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
         .collect()
 }
 
-fn complete_arg(arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
+fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
     let name = arg.name.to_lowercase();
     dbg!(&name);
 
     if let Ok(cwd) = env::current_dir() {
         match name.as_str() {
-            "path" => return complete_path(&cwd, ctoken, PathCompleteType::Any),
-            "dir" | "plugin" => return complete_path(&cwd, ctoken, PathCompleteType::Dir),
-            "file" => return complete_path(&cwd, ctoken, PathCompleteType::File),
+            "path" => return complete_path(&cwd, ctoken, |_| true),
+            "dir" => return complete_path(&cwd, ctoken, |p| p.is_dir()),
+            "file" => return complete_path(&cwd, ctoken, |p| p.is_file()),
             _ => {}
         }
     }
-    match name.as_str() {
-        _ => Ok(vec![]),
-    }
-}
 
-#[derive(Debug, Clone, Copy)]
-enum PathCompleteType {
-    File,
-    Dir,
-    Any,
+    if let Some(complete) = spec.complete.get(&name) {
+        let stdout = xx::process::sh(&complete.run)?;
+        return Ok(stdout
+            .lines()
+            .filter(|l| l.starts_with(ctoken))
+            .map(|l| l.to_string())
+            .collect());
+    }
+
+    Ok(vec![])
 }
 
 fn complete_path(
     base: &Path,
     ctoken: &str,
-    type_: PathCompleteType,
+    filter: impl Fn(&Path) -> bool,
 ) -> miette::Result<Vec<String>> {
     let path = PathBuf::from(ctoken);
     let mut dir = path.parent().unwrap_or(&path).to_path_buf();
@@ -195,16 +197,12 @@ fn complete_path(
         .into_iter()
         .flatten()
         .filter_map(Result::ok)
-        .filter(|f| match (type_, f.file_type()) {
-            (PathCompleteType::File, ft) => ft.is_ok_and(|ft| ft.is_file()),
-            (PathCompleteType::Dir, ft) => ft.is_ok_and(|ft| ft.is_dir()),
-            (PathCompleteType::Any, _) => true,
-        })
-        .filter(|f| f.file_name().to_string_lossy().starts_with(&prefix))
-        .map(|f| {
-            f.path()
-                .strip_prefix(&base)
-                .unwrap_or(&f.path())
+        .filter(|de| de.file_name().to_string_lossy().starts_with(&prefix))
+        .map(|de| de.path())
+        .filter(|p| filter(p))
+        .map(|p| {
+            p.strip_prefix(&base)
+                .unwrap_or(&p)
                 .to_string_lossy()
                 .to_string()
         })
