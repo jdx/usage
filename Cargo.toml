@@ -61,10 +61,3 @@ allow-branch = ["main"]
 sign-commit = true
 sign-tag = true
 shared-version = true
-
-[package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/v{ version }/usage-{target}{ archive-suffix }"
-[package.metadata.binstall.overrides.aarch64-apple-darwin]
-pkg-url = "{ repo }/releases/download/v{ version }/usage-universal-apple-darwin{ archive-suffix }"
-[package.metadata.binstall.overrides.x86_64-apple-darwin]
-pkg-url = "{ repo }/releases/download/v{ version }/usage-universal-apple-darwin{ archive-suffix }"
