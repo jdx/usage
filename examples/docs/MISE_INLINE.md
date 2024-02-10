@@ -117,7 +117,7 @@ foooooooo
 * [`mise watch`](#mise-watch)
 * [`mise where`](#mise-where)
 * [`mise which`](#mise-which)
-* ~~[`mise zzz`](#mise-zzz)~~ [deprecated]
+* ~~[`mise zzz`](#mise-zzz-deprecated)~~ [deprecated]
 
 ## `mise activate`
 

@@ -88,7 +88,7 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 {% if multi_dir -%}
 * [`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`]({{ multi_dir }}/{% for c in cmd.full_cmd %}{{ c | slugify }}{% if not loop.last %}/{% endif %}{% endfor %}.md)
 {% elif cmd.deprecated -%}
-* ~~[`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`](#{{ bin | slugify }}-{{ cmd.full_cmd | join(sep=" ") | slugify }})~~ [deprecated]
+* ~~[`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`](#{{ bin | slugify }}-{{ cmd.full_cmd | join(sep=" ") | slugify }}-deprecated)~~ [deprecated]
 {% else -%}
 * [`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`](#{{ bin | slugify }}-{{ cmd.full_cmd | join(sep=" ") | slugify }})
 {% endif -%}
