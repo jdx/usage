@@ -2,7 +2,7 @@
 
 Output direnv function to use mise inside direnv
 
-See https://mise.rtx.dev/direnv.html for more information
+See https://mise.jdx.dev/direnv.html for more information
 
 Because this generates the legacy files based on currently installed plugins,
 you should run this command after installing new plugins. Otherwise
