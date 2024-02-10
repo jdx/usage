@@ -66,3 +66,6 @@ run = [
   "usage g md examples/docs/MISE_INLINE.md",
   "usage g md examples/docs/MISE_MULTI.md",
 ]
+
+[tasks.release]
+run = "cargo release -x --workspace"
