@@ -25,29 +25,6 @@ Usage: mise [OPTIONS] <COMMAND>
 <!-- [USAGE] -->
 ## Config
 <!-- [USAGE] config -->
-### `activate_accessive`
-
-* env: `MISE_ACTIVATE_ACCESSIVE`
-* default: `false`
-
-foooooooo
-
-### `color`
-
-* env: `MISE_COLOR`
-* default: `true`
-
-### `jobs`
-
-* default: `4`
-
-### `timeout`
-
-* default: `1.5`
-
-### `user`
-
-* default: `"admin"`
 
 <!-- [USAGE] -->
 <!-- [USAGE] commands -->
@@ -117,7 +94,6 @@ foooooooo
 * [`mise watch`](#mise-watch)
 * [`mise where`](#mise-where)
 * [`mise which`](#mise-which)
-* ~~[`mise zzz`](#mise-zzz-deprecated)~~ [deprecated]
 
 ## `mise activate`
 
@@ -1846,40 +1822,5 @@ Examples:
     node
     $ mise which node --version
     20.0.0
-
-## ~~`mise zzz`~~ [deprecated]
-
-Sleeps for a while.  The amount of time is determined by the --timeout option.
-
-##### Flag ~~`--timeout`~~ [deprecated]
-
-The amount of time to sleep for.
-
-##### Examples
-
-###### Create something
-
-```sh
-mise zzz
-mise zzz --timeout 2
-```
-
-xxx
-
-```
-$ mise zzz
-Sleeping for 1.5 seconds...
-Done.
-```
-
-###### Create something
-
-```sh
-$ mise zzz --timeout 2
-Sleeping for 2 seconds...
-Done.
-```
-
-xxx
 
 <!-- [USAGE] -->

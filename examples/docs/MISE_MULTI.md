@@ -25,29 +25,6 @@ Usage: mise [OPTIONS] <COMMAND>
 <!-- [USAGE] -->
 ## Config
 <!-- [USAGE] config -->
-### `activate_accessive`
-
-* env: `MISE_ACTIVATE_ACCESSIVE`
-* default: `false`
-
-foooooooo
-
-### `color`
-
-* env: `MISE_COLOR`
-* default: `true`
-
-### `jobs`
-
-* default: `4`
-
-### `timeout`
-
-* default: `1.5`
-
-### `user`
-
-* default: `"admin"`
 
 <!-- [USAGE] -->
 <!-- [USAGE] commands multi_dir="./cli-reference" -->
@@ -117,6 +94,5 @@ foooooooo
 * [`mise watch`](./cli-reference/watch.md)
 * [`mise where`](./cli-reference/where.md)
 * [`mise which`](./cli-reference/which.md)
-* [`mise zzz`](./cli-reference/zzz.md)
 
 <!-- [USAGE] -->
