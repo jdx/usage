@@ -48,3 +48,6 @@ xx = "0.2"
 assert_cmd = { version = "2", features = ["color-auto"] }
 ctor = "0.2"
 predicates = "3"
+
+[package.metadata.release]
+shared-version = true
