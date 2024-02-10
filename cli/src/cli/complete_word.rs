@@ -65,6 +65,7 @@ impl CompleteWord {
         ctx.insert("PREV", &(cword - 1));
 
         let parsed = parse(spec, words)?;
+        debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
         let choices = if !parsed.cmd.subcommands.is_empty() {
             complete_subcommands(parsed.cmd, &ctoken)
         } else if ctoken == "-" {
@@ -274,7 +275,8 @@ fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
 }
 
 fn complete_long_flag_names(flags: &BTreeMap<String, SpecFlag>, ctoken: &str) -> Vec<String> {
-    trace!("complete_long_flag_names: {ctoken}");
+    debug!("complete_long_flag_names: {ctoken}");
+    trace!("flags: {}", flags.keys().join(", "));
     let ctoken = ctoken.strip_prefix("--").unwrap_or(ctoken);
     flags
         .values()
@@ -288,7 +290,7 @@ fn complete_long_flag_names(flags: &BTreeMap<String, SpecFlag>, ctoken: &str) ->
 }
 
 fn complete_short_flag_names(flags: &BTreeMap<String, SpecFlag>, ctoken: &str) -> Vec<String> {
-    trace!("complete_short_flag_names: {ctoken}");
+    debug!("complete_short_flag_names: {ctoken}");
     let cur = ctoken.chars().nth(1);
     flags
         .values()
