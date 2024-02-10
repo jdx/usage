@@ -1,6 +1,6 @@
 # `complete`
 
 ```sh
-# use a custom completion command for args named "PLUGIN"
-complete "<plugin>" run="mycli plugins list" 
+# use a custom completion command for all args named "plugin"
+complete "plugin" run="mycli plugins list" 
 ```

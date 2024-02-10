@@ -57,7 +57,7 @@ export default defineConfig({
       {icon: 'github', link: 'https://github.com/jdx/usage'}
     ],
     editLink: {
-      pattern: 'https://github.com/jdx/usage/edit/main/:path',
+      pattern: 'https://github.com/jdx/usage/edit/main/docs/:path',
     },
     // carbonAds: {
     //   code: 'CWYIPKQN',
