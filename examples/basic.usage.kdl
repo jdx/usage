@@ -1,0 +1,8 @@
+cmd "plugins" {
+  cmd "install" {
+    arg "plugin"
+    arg "version"
+  }
+}
+
+complete "plugin" run="echo plugin-1"
