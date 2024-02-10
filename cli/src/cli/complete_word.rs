@@ -1,7 +1,11 @@
-use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::env;
+use std::fmt::{Debug, Formatter};
+use std::path::{Path, PathBuf};
 
 use clap::Args;
 use itertools::Itertools;
+use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
 use crate::cli::generate;
 
@@ -10,14 +14,18 @@ use crate::cli::generate;
 pub struct CompleteWord {
     // #[clap(value_parser = ["bash", "fish", "zsh"])]
     // shell: String,
+    /// user's input from the command line
     words: Vec<String>,
 
+    /// usage spec file or script with usage shebang
     #[clap(short, long)]
     file: Option<PathBuf>,
 
+    /// raw string spec input
     #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
     spec: Option<String>,
 
+    /// current word index
     #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
 
@@ -35,66 +43,196 @@ impl CompleteWord {
             .or(self.words.get(cword))
             .cloned()
             .unwrap_or_default();
+
+        let words: VecDeque<_> = self.words.iter().take(cword).collect();
+
+        trace!(
+            "cword: {cword} ctoken: {ctoken} words: {}",
+            words.iter().join(" ")
+        );
+
+        let parsed = parse(&spec, words)?;
+        dbg!(&parsed);
+
         let mut choices = vec![];
-        let mut cli = clap::Command::from(&spec).ignore_errors(true);
-        dbg!(&cli);
-        match cli.try_get_matches_from_mut(&self.words) {
-            Ok(m) => {
-                dbg!(&m);
-                let mut cmd = &spec.cmd;
-                let mut m = &m;
-                loop {
-                    if ctoken.starts_with('-') {
-                        for flag in cmd.flags.iter().filter(|f| f.global) {
-                            for short in flag.short.iter() {
-                                choices.push(format!("-{}", short));
-                            }
-                            for long in flag.long.iter() {
-                                choices.push(format!("--{}", long));
-                            }
-                        }
-                    }
-                    if let Some((name, subcommand)) = m.subcommand() {
-                        cmd = cmd.subcommands.get(name).unwrap();
-                        m = subcommand;
-                    } else {
-                        break;
-                    }
-                }
-                if ctoken.starts_with('-') {
-                    for flag in cmd.flags.iter().filter(|f| !f.global) {
-                        for short in flag.short.iter() {
-                            choices.push(format!("-{}", short));
-                        }
-                        for long in flag.long.iter() {
-                            choices.push(format!("--{}", long));
-                        }
-                    }
-                }
-                for cmd in cmd.subcommands.values() {
-                    choices.push(cmd.name.clone());
-                    choices.extend(cmd.aliases.iter().cloned());
-                }
-            }
-            Err(err) => {
-                warn!("clap error: {}", err);
-            }
+        choices.extend(complete_subcommands(parsed.cmd, &ctoken));
+        if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
+            choices.extend(complete_arg(arg, &ctoken)?);
         }
-        // if let Ok(m) = m {
-        //     for arg in spec.cmd.args.iter() {
-        //         if let Some(v) = m.value_of(&arg.name) {
-        //             choices.push(v.to_string());
-        //         }
-        //     }
-        // }
-        // for cmd in spec.cmd.subcommands.values() {
-        //     choices.push(cmd.name.clone());
-        // }
-        for c in choices.iter().sorted().unique() {
-            if c.starts_with(&ctoken) {
-                println!("{}", c);
-            }
+
+        for c in &choices {
+            println!("{}", c);
         }
+
         Ok(())
+    }
+}
+
+struct ParseOutput<'a> {
+    cmd: &'a SpecCommand,
+    cmds: Vec<&'a SpecCommand>,
+    args: Vec<(&'a SpecArg, Vec<String>)>,
+    flags: Vec<(&'a SpecFlag, Vec<String>)>,
+}
+
+fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<ParseOutput<'a>> {
+    let mut cmds = vec![];
+    let mut cmd = &spec.cmd;
+    cmds.push(cmd);
+
+    while !words.is_empty() {
+        if let Some(subcommand) = cmd.subcommands.get(words[0]) {
+            words.pop_front();
+            cmds.push(subcommand);
+            cmd = subcommand;
+        } else {
+            break;
+        }
+    }
+
+    let mut flag = None;
+    let mut args = vec![];
+    let mut arg_specs = cmd.args.iter().collect_vec();
+
+    while !words.is_empty() {
+        if words[0].starts_with("--") {
+            let long = words[0].strip_prefix("--").unwrap().to_string();
+            if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
+                dbg!(&f, &words[0]);
+                flag = Some(f);
+                continue;
+            }
+        }
+
+        if !arg_specs.is_empty() {
+            let arg_spec = arg_specs[0];
+            let word = words.pop_front().unwrap();
+            args.push((arg_spec, vec![word.clone()]));
+            if arg_spec.var {
+                // TODO: handle var_min/var_max
+                continue;
+            } else {
+                arg_specs.pop();
+                continue;
+            }
+        }
+        panic!("unexpected word: {:?}", words[0]);
+    }
+
+    dbg!(&flag);
+
+    Ok(ParseOutput {
+        cmd,
+        cmds,
+        args,
+        flags: vec![],
+    })
+}
+
+fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+    let mut choices = vec![];
+    for subcommand in cmd.subcommands.values() {
+        if subcommand.hide {
+            continue;
+        }
+        choices.push(subcommand.name.clone());
+        for alias in &subcommand.aliases {
+            choices.push(alias.clone());
+        }
+    }
+    choices
+        .into_iter()
+        .filter(|c| c.starts_with(ctoken))
+        .sorted()
+        .collect()
+}
+
+fn complete_arg(arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
+    let name = arg.name.to_lowercase();
+    dbg!(&name);
+
+    if let Ok(cwd) = env::current_dir() {
+        match name.as_str() {
+            "path" => return complete_path(&cwd, ctoken, PathCompleteType::Any),
+            "dir" | "plugin" => return complete_path(&cwd, ctoken, PathCompleteType::Dir),
+            "file" => return complete_path(&cwd, ctoken, PathCompleteType::File),
+            _ => {}
+        }
+    }
+    match name.as_str() {
+        _ => Ok(vec![]),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum PathCompleteType {
+    File,
+    Dir,
+    Any,
+}
+
+fn complete_path(
+    base: &Path,
+    ctoken: &str,
+    type_: PathCompleteType,
+) -> miette::Result<Vec<String>> {
+    let path = PathBuf::from(ctoken);
+    let mut dir = path.parent().unwrap_or(&path).to_path_buf();
+    if dir.is_relative() {
+        dir = base.join(dir);
+    }
+    let mut prefix = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    if path.is_dir() && ctoken.ends_with("/") {
+        dir = path.to_path_buf();
+        prefix = "".to_string();
+    };
+    let mut files: Vec<String> = std::fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter(|f| match (type_, f.file_type()) {
+            (PathCompleteType::File, ft) => ft.is_ok_and(|ft| ft.is_file()),
+            (PathCompleteType::Dir, ft) => ft.is_ok_and(|ft| ft.is_dir()),
+            (PathCompleteType::Any, _) => true,
+        })
+        .filter(|f| f.file_name().to_string_lossy().starts_with(&prefix))
+        .map(|f| {
+            f.path()
+                .strip_prefix(&base)
+                .unwrap_or(&f.path())
+                .to_string_lossy()
+                .to_string()
+        })
+        .collect();
+    files.sort();
+    Ok(files)
+}
+
+impl Debug for ParseOutput<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParseOutput")
+            .field("cmds", &self.cmds.iter().map(|c| &c.name).join(" ").trim())
+            .field(
+                "args",
+                &self
+                    .args
+                    .iter()
+                    .map(|(a, w)| format!("{}: {}", a.name, w.join(",")))
+                    .collect_vec(),
+            )
+            .field(
+                "flags",
+                &self
+                    .flags
+                    .iter()
+                    .map(|(f, w)| format!("{}: {}", &f.name, w.join(",")))
+                    .collect_vec(),
+            )
+            .finish()
     }
 }
