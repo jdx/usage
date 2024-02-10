@@ -4,17 +4,35 @@ pub fn complete_zsh(bin: &str, usage_cmd: &str) -> String {
     format!(
         r#"
 #compdef {bin}
+local curcontext="$curcontext"
+
+# caching config
+_usage_{bin}_cache_policy() {{
+  if [[ -z "${{lifetime}}" ]]; then
+    lifetime=$((60*60*4)) # 4 hours
+  fi
+  local -a oldp
+  oldp=( "$1"(Nms+${{lifetime}}) )
+  (( $#oldp ))
+}}
 
 _{bin}() {{
   typeset -A opt_args
-  local curcontext="$curcontext"
+  local curcontext="$curcontext" spec cache_policy
 
-  if [[ -z "${{_usage_spec_{bin}:-}}" ]]; then
-    #echo "Fetching usage spec..." >&2
-    _usage_spec_{bin}="$({usage_cmd})"
+  zstyle -s ":completion:${{curcontext}}:" cache-policy cache_policy
+  if [[ -z $cache_policy ]]; then
+    zstyle ":completion:${{curcontext}}:" cache-policy _usage_{bin}_cache_policy
   fi
 
-  _arguments '*: :( $(usage complete-word -s "${{_usage_spec_{bin}}}" -- "${{words[@]}}" ) )'
+  if ( [[ -z "${{_usage_{bin}_spec:-}}" ]] || _cache_invalid _usage_{bin}_spec ) \
+      && ! _retrieve_cache _usage_{bin}_spec;
+  then
+    spec="$({usage_cmd})"
+    _store_cache _usage_{bin}_spec spec
+  fi
+
+  _arguments '*: :( $(usage complete-word -s "$spec" -- "${{words[@]}}" ) )'
   return 0
 }}
 

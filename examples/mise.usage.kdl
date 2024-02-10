@@ -784,6 +784,7 @@ By default this command modifies ".mise.toml" in the current directory."#
     arg "[ENV_VARS]..." help="Environment variable(s) to set\ne.g.: NODE_ENV=production" var=true
 }
 cmd "settings" help="Manage settings" {
+    flag "--keys" help="Only display key names for each setting"
     cmd "get" help="Show a current setting" {
         long_help r"Show a current setting
 
@@ -811,6 +812,7 @@ but managed separately with `mise aliases`"
     $ mise settings
     legacy_version_file = false
 "
+        flag "--keys" help="Only display key names for each setting"
     }
     cmd "set" help="Add/update a setting" {
         alias "add" "create"
@@ -1169,4 +1171,7 @@ cmd "render-mangen" hide=true help="internal command to generate markdown from h
 
 complete "config_file" type="file"
 complete "plugin" run="mise plugins"
+complete "prefix" run="mise ls-remote {{words[PREV]}}"
+complete "task" run="mise tasks | awk '{print $1}'"
+complete "setting" run="mise settings --keys"
 

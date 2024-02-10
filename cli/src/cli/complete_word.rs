@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use miette::IntoDiagnostic;
 use once_cell::sync::Lazy;
 use strum::EnumTryAs;
 
@@ -55,6 +56,11 @@ impl CompleteWord {
             words.iter().join(" ")
         );
 
+        let mut ctx = tera::Context::new();
+        ctx.insert("words", &words);
+        ctx.insert("CURRENT", &cword);
+        ctx.insert("PREV", &(cword - 1));
+
         let parsed = parse(spec, words)?;
         let choices = if !parsed.cmd.subcommands.is_empty() {
             complete_subcommands(parsed.cmd, &ctoken)
@@ -67,9 +73,9 @@ impl CompleteWord {
         } else if ctoken.starts_with('-') {
             complete_short_flag_names(&parsed.available_flags, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value {
-            complete_arg(spec, flag.arg.as_ref().unwrap(), &ctoken)?
+            complete_arg(&ctx, spec, flag.arg.as_ref().unwrap(), &ctoken)?
         } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
-            complete_arg(spec, arg, &ctoken)?
+            complete_arg(&ctx, spec, arg, &ctoken)?
         } else {
             vec![]
         };
@@ -301,7 +307,12 @@ fn complete_builtin(type_: &str, ctoken: &str) -> Vec<String> {
     }
 }
 
-fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
+fn complete_arg(
+    ctx: &tera::Context,
+    spec: &Spec,
+    arg: &SpecArg,
+    ctoken: &str,
+) -> miette::Result<Vec<String>> {
     static EMPTY_COMPL: Lazy<Complete> = Lazy::new(Complete::default);
 
     trace!("complete_arg: {arg} {ctoken}");
@@ -315,7 +326,9 @@ fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<
     }
 
     if let Some(run) = &complete.run {
-        let stdout = xx::process::sh(run)?;
+        let run = tera::Tera::one_off(run, ctx, false).into_diagnostic()?;
+        trace!("run: {run}");
+        let stdout = xx::process::sh(&run)?;
         return Ok(stdout
             .lines()
             .filter(|l| l.starts_with(ctoken))
