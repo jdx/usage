@@ -1,12 +1,7 @@
 [package]
 name = "usage-lib"
-version = "0.1.5-beta.1"
 edition = "2021"
 rust-version = "1.70.0"
-description = "Library for working with usage specs"
-license = "MIT"
-authors = ["Jeff Dickey @jdx"]
-documentation = "https://github.com/jdx/usage"
 include = [
     "/Cargo.toml",
     "/Cargo.lock",
@@ -19,6 +14,16 @@ include = [
 members = [
     "cli",
 ]
+[workspace.package]
+version = "0.1.5-beta.1"
+description = "Library for working with usage specs"
+homepage = "https://usage.jdx.dev"
+documentation = "https://github.com/jdx/usage"
+authors = ["Jeff Dickey @jdx"]
+license = "MIT"
+
+[workspace.dependencies]
+kdl = "4"
 
 [lib]
 name = "usage"
@@ -28,8 +33,8 @@ clap = { version = "4", features = ["derive", "string"], optional = true }
 heck = "0.4.1"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.12"
-kdl = "4"
 log = "0.4"
+kdl.workspace = true
 miette = "5"
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }

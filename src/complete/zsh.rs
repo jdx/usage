@@ -1,4 +1,7 @@
+// use crate::env;
+
 pub fn complete_zsh(bin: &str, usage_cmd: &str) -> String {
+    // let usage = env::USAGE_BIN.display();
     // let cmds = vec![&spec.cmd];
     // let args = render_args(&cmds);
     format!(
@@ -20,6 +23,11 @@ _{bin}() {{
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
+  if ! command -v usage &> /dev/null; then
+      echo "Error: usage not found. This is required for completions to work in {bin}." >&2
+      return 1
+  fi
+
   zstyle -s ":completion:${{curcontext}}:" cache-policy cache_policy
   if [[ -z $cache_policy ]]; then
     zstyle ":completion:${{curcontext}}:" cache-policy _usage_{bin}_cache_policy
@@ -32,7 +40,7 @@ _{bin}() {{
     _store_cache _usage_{bin}_spec spec
   fi
 
-  _arguments '*: :( $(usage complete-word -s "$spec" -- "${{words[@]}}" ) )'
+  _arguments '*: :($(usage complete-word -s "$spec" -- "${{words[@]}}" ))'
   return 0
 }}
 

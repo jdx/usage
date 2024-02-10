@@ -1,20 +1,23 @@
 use heck::ToShoutySnakeCase;
 
-use crate::env;
-
 pub fn complete_bash(bin: &str, usage_cmd: &str) -> String {
-    let usage = env::USAGE_BIN.display();
+    // let usage = env::USAGE_BIN.display();
     let bin_up = bin.to_shouty_snake_case();
     // let bin = &spec.bin;
     // let raw = shell_escape::unix::escape(spec.to_string().into());
     format!(
         r#"
 _{bin}() {{
+    if ! command -v usage &> /dev/null; then
+        echo "Error: usage not found. This is required for completions to work in {bin}." >&2
+        return 1
+    fi
+
     if [[ -z ${{_USAGE_SPEC_{bin_up}:-}} ]]; then
         _USAGE_SPEC_{bin_up}="$({usage_cmd})"
     fi
-
-    COMPREPLY=( $({usage} complete-word -s "${{_USAGE_SPEC_{bin_up}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" ) )
+    
+    COMPREPLY=( $(usage complete-word -s "${{_USAGE_SPEC_{bin_up}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" ) )
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
     fi
