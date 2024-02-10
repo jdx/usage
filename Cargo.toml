@@ -8,11 +8,11 @@ license = "MIT"
 authors = ["Jeff Dickey @jdx"]
 documentation = "https://github.com/jdx/usage"
 include = [
-    "Cargo.toml",
-    "Cargo.lock",
-    "README.md",
-    "LICENSE",
-    "src/**/*.rs",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE",
+    "/src/**/*.rs",
 ]
 
 [workspace]

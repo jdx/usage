@@ -9,11 +9,11 @@ documentation = "https://docs.rs/usage-lib"
 homepage = "https://usage.jdx.dev"
 repository = "https://github.com/jdx/usage"
 include = [
-    "Cargo.toml",
-    "Cargo.lock",
-    "README.md",
-    "LICENSE",
-    "src/**/*.rs",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE",
+    "/src/**/*.rs",
 ]
 
 [[bin]]
