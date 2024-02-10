@@ -39,14 +39,14 @@ mod tests {
                 _USAGE_SPEC_MYCLI="$(mycli complete --usage)"
             fi
 
-            COMPREPLY=( $(usage complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}") )
+            COMPREPLY=( $(usage complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}" ) )
             if [[ $? -ne 0 ]]; then
                 unset COMPREPLY
             fi
             return 0
         }
 
-        complete -F _mycli mycli
+        shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _mycli mycli
         # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh
         "###);
     }

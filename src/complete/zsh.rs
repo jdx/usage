@@ -62,17 +62,35 @@ mod tests {
         // let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_zsh("mycli", "mycli complete --usage").trim(), @r###"
         #compdef mycli
+        local curcontext="$curcontext"
+
+        # caching config
+        _usage_mycli_cache_policy() {
+          if [[ -z "${lifetime}" ]]; then
+            lifetime=$((60*60*4)) # 4 hours
+          fi
+          local -a oldp
+          oldp=( "$1"(Nms+${lifetime}) )
+          (( $#oldp ))
+        }
 
         _mycli() {
           typeset -A opt_args
-          local curcontext="$curcontext"
+          local curcontext="$curcontext" spec cache_policy
 
-          if [[ -z "${_usage_spec_mycli:-}" ]]; then
-            #echo "Fetching usage spec..." >&2
-            _usage_spec_mycli="$(mycli complete --usage)"
+          zstyle -s ":completion:${curcontext}:" cache-policy cache_policy
+          if [[ -z $cache_policy ]]; then
+            zstyle ":completion:${curcontext}:" cache-policy _usage_mycli_cache_policy
           fi
 
-          _arguments '*: :( $(usage complete-word -s "${_usage_spec_mycli}" -- "${words[@]}" ) )'
+          if ( [[ -z "${_usage_mycli_spec:-}" ]] || _cache_invalid _usage_mycli_spec ) \
+              && ! _retrieve_cache _usage_mycli_spec;
+          then
+            spec="$(mycli complete --usage)"
+            _store_cache _usage_mycli_spec spec
+          fi
+
+          _arguments '*: :( $(usage complete-word -s "$spec" -- "${words[@]}" ) )'
           return 0
         }
 

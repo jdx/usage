@@ -1164,6 +1164,7 @@ cmd "render-completion" hide=true help="Generate shell completions" {
     flag "-s --shell" help="Shell type to generate completions for" hide=true {
         arg "<SHELL_TYPE>"
     }
+    flag "--usage" help="Use usage for completions"
     arg "[SHELL]" help="Shell type to generate completions for"
 }
 cmd "render-help" hide=true help="internal command to generate markdown from help"
