@@ -3,6 +3,7 @@ use std::process::Command;
 
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
+use predicates::str::contains;
 
 #[test]
 fn complete_word_completer() {
@@ -11,34 +12,32 @@ fn complete_word_completer() {
 
 #[test]
 fn complete_word_subcommands() {
-    assert_cmd(&["plugins", "install"]).stdout(predicate::str::contains("install"));
+    assert_cmd(&["plugins", "install"]).stdout(contains("install"));
 }
 
 #[test]
 fn complete_word_cword() {
-    assert_cmd(&["--cword=2", "plugins", "install"]).stdout(predicate::str::contains("plugin-2"));
+    assert_cmd(&["--cword=2", "plugins", "install"]).stdout(contains("plugin-2"));
 }
 
 #[test]
 fn complete_word_long_flag() {
     assert_cmd(&["--", "plugins", "install", "--"]).stdout("--dir\n--global\n");
     assert_cmd(&["--", "plugins", "install", "--g"]).stdout("--global\n");
-    assert_cmd(&["--", "plugins", "install", "--global", "pl"])
-        .stdout(predicate::str::contains("plugin-2"));
+    assert_cmd(&["--", "plugins", "install", "--global", "pl"]).stdout(contains("plugin-2"));
 }
 
-// #[test]
-// fn complete_word_long_flag_val() {
-//     assert_cmd(&["--", "plugins", "install", "--dir", "mydir"])
-//         .stdout(predicate::str::contains("plugin-2"));
-// }
+#[test]
+fn complete_word_long_flag_val() {
+    assert_cmd(&["--", "plugins", "install", "--dir", ""])
+        .stdout(contains("src").and(contains("tests")));
+}
 
 #[test]
 fn complete_word_short_flag() {
     assert_cmd(&["--", "plugins", "install", "-"]).stdout("-d\n-g\n--dir\n--global\n");
     assert_cmd(&["--", "plugins", "install", "-g"]).stdout("-g\n");
-    assert_cmd(&["--", "plugins", "install", "-g", "pl"])
-        .stdout(predicate::str::contains("plugin-2"));
+    assert_cmd(&["--", "plugins", "install", "-g", "pl"]).stdout(contains("plugin-2"));
 }
 
 fn cmd() -> Command {

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+use std::hash::Hash;
 use std::str::FromStr;
 
 #[cfg(feature = "clap")]
@@ -9,7 +11,7 @@ use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
 
-#[derive(Debug, Default, Clone, Serialize, Hash)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
     pub name: String,
     pub usage: String,
@@ -17,8 +19,8 @@ pub struct SpecArg {
     pub long_help: Option<String>,
     pub required: bool,
     pub var: bool,
-    pub var_min: Option<i64>,
-    pub var_max: Option<i64>,
+    pub var_min: Option<usize>,
+    pub var_max: Option<usize>,
     pub hide: bool,
     pub default: Option<String>,
 }
@@ -33,8 +35,8 @@ impl SpecArg {
                 "required" => arg.required = v.ensure_bool()?,
                 "var" => arg.var = v.ensure_bool()?,
                 "hide" => arg.hide = v.ensure_bool()?,
-                "var_min" => arg.var_min = v.ensure_i64().map(Some)?,
-                "var_max" => arg.var_max = v.ensure_i64().map(Some)?,
+                "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
+                "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, *v.entry.span(), "unsupported arg key {k}"),
             }
@@ -72,10 +74,10 @@ impl From<&SpecArg> for KdlNode {
             node.push(KdlEntry::new_prop("var", true));
         }
         if let Some(min) = arg.var_min {
-            node.push(KdlEntry::new_prop("var_min", min));
+            node.push(KdlEntry::new_prop("var_min", min as i64));
         }
         if let Some(max) = arg.var_max {
-            node.push(KdlEntry::new_prop("var_max", max));
+            node.push(KdlEntry::new_prop("var_max", max as i64));
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
@@ -161,22 +163,19 @@ impl From<&clap::Arg> for SpecArg {
     }
 }
 
-// #[cfg(feature = "clap")]
-// impl From<&SpecArg> for clap::Arg {
-//     fn from(arg: &SpecArg) -> Self {
-//         let mut a = clap::Arg::new(&arg.name);
-//         if let Some(desc) = &arg.help {
-//             a = a.help(desc);
-//         }
-//         if arg.required {
-//             a = a.required(true);
-//         }
-//         // if arg.multiple {
-//         //     a = a.multiple(true);
-//         // }
-//         if arg.hide {
-//             a = a.hide_possible_values(true);
-//         }
-//         a
-//     }
-// }
+impl Display for SpecArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.usage())
+    }
+}
+impl PartialEq for SpecArg {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+impl Eq for SpecArg {}
+impl Hash for SpecArg {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}

@@ -97,10 +97,10 @@ impl<'a> ParseEntry<'a> {
 }
 
 impl<'a> ParseEntry<'a> {
-    pub fn ensure_i64(&self) -> Result<i64, UsageErr> {
+    pub fn ensure_usize(&self) -> Result<usize, UsageErr> {
         match self.value.as_i64() {
-            Some(i) => Ok(i),
-            None => bail_parse!(self.ctx, self.span(), "expected integer"),
+            Some(i) => Ok(i as usize),
+            None => bail_parse!(self.ctx, self.span(), "expected usize"),
         }
     }
     #[allow(dead_code)]

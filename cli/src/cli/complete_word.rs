@@ -1,11 +1,12 @@
 use std::collections::VecDeque;
 use std::env;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use clap::Args;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use strum::EnumTryAs;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
@@ -72,6 +73,8 @@ impl CompleteWord {
             complete_long_flag_names(parsed.cmd, &ctoken)
         } else if ctoken.starts_with('-') {
             complete_short_flag_names(parsed.cmd, &ctoken)
+        } else if let Some(flag) = parsed.flag_awaiting_value {
+            complete_arg(spec, flag.arg.as_ref().unwrap(), &ctoken)?
         } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
             complete_arg(spec, arg, &ctoken)?
         } else {
@@ -84,8 +87,28 @@ impl CompleteWord {
 struct ParseOutput<'a> {
     cmd: &'a SpecCommand,
     cmds: Vec<&'a SpecCommand>,
-    args: Vec<(&'a SpecArg, Vec<String>)>,
-    flags: IndexMap<&'a SpecFlag, Vec<String>>,
+    args: IndexMap<&'a SpecArg, ParseValue>,
+    flags: IndexMap<&'a SpecFlag, ParseValue>,
+    flag_awaiting_value: Option<&'a SpecFlag>,
+}
+
+#[derive(EnumTryAs)]
+enum ParseValue {
+    Bool(bool),
+    String(String),
+    MultiBool(Vec<bool>),
+    MultiString(Vec<String>),
+}
+
+impl Display for ParseValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseValue::Bool(b) => write!(f, "{}", b),
+            ParseValue::String(s) => write!(f, "{}", s),
+            ParseValue::MultiBool(b) => write!(f, "{:?}", b),
+            ParseValue::MultiString(s) => write!(f, "{:?}", s),
+        }
+    }
 }
 
 fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput> {
@@ -103,55 +126,103 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
         }
     }
 
-    let mut args = vec![];
-    let mut flags: IndexMap<&SpecFlag, Vec<String>> = IndexMap::new();
-    let mut arg_specs = cmd.args.iter().collect_vec();
+    let mut args: IndexMap<&SpecArg, ParseValue> = IndexMap::new();
+    let mut flags: IndexMap<&SpecFlag, ParseValue> = IndexMap::new();
+    let mut next_arg = cmd.args.first();
+    let mut flag_awaiting_value: Option<&SpecFlag> = None;
     let mut enable_flags = true;
 
     while !words.is_empty() {
-        if words[0] == "--" {
-            words.pop_front();
+        let w = words.pop_front().unwrap();
+
+        if let Some(flag) = flag_awaiting_value {
+            flag_awaiting_value = None;
+            if flag.var {
+                let arr = flags
+                    .entry(flag)
+                    .or_insert_with(|| ParseValue::MultiString(vec![]))
+                    .try_as_multi_string_mut()
+                    .unwrap();
+                arr.push(w);
+            } else {
+                flags.insert(flag, ParseValue::String(w));
+            }
+            continue;
+        }
+
+        if w == "--" {
             enable_flags = false;
             continue;
         }
 
         // long flags
-        if enable_flags && words[0].starts_with("--") {
-            let long = words[0].strip_prefix("--").unwrap().to_string();
+        if enable_flags && w.starts_with("--") {
+            let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
+            if !val.is_empty() {
+                words.push_front(val.to_string());
+            }
+            let long = word.strip_prefix("--").unwrap().to_string();
             if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
-                let word = words.pop_front().unwrap().to_string();
-                flags.entry(f).or_default().push(word);
+                if f.arg.is_some() {
+                    flag_awaiting_value = Some(f);
+                } else if f.var {
+                    let arr = flags
+                        .entry(f)
+                        .or_insert_with(|| ParseValue::MultiBool(vec![]))
+                        .try_as_multi_bool_mut()
+                        .unwrap();
+                    arr.push(true);
+                } else {
+                    flags.insert(f, ParseValue::Bool(true));
+                }
                 continue;
             }
         }
 
         // short flags
-        if enable_flags && words[0].starts_with('-') && words[0].len() > 1 {
-            let short = words[0].chars().nth(1).unwrap();
+        if enable_flags && w.starts_with('-') && w.len() > 1 {
+            let short = w.chars().nth(1).unwrap();
             if let Some(f) = cmd.flags.iter().find(|f| f.short.contains(&short)) {
-                if words[0].len() > 2 {
-                    words.push_front(format!("-{}", &words[0][2..]));
-                } else {
-                    words.pop_front();
+                let mut next = format!("-{}", &w[2..]);
+                if f.arg.is_some() {
+                    flag_awaiting_value = Some(f);
+                    next = w[2..].to_string();
                 }
-                flags.entry(f).or_default().push(format!("-{}", short));
+                if next != "-" {
+                    words.push_front(next);
+                }
+                if f.var {
+                    let arr = flags
+                        .entry(f)
+                        .or_insert_with(|| ParseValue::MultiBool(vec![]))
+                        .try_as_multi_bool_mut()
+                        .unwrap();
+                    arr.push(true);
+                } else {
+                    flags.insert(f, ParseValue::Bool(true));
+                }
                 continue;
             }
         }
 
-        if !arg_specs.is_empty() {
-            let arg_spec = arg_specs[0];
-            let word = words.pop_front().unwrap();
-            args.push((arg_spec, vec![word.clone()]));
-            if arg_spec.var {
-                // TODO: handle var_min/var_max
-                continue;
+        if let Some(arg) = next_arg {
+            if arg.var {
+                let arr = args
+                    .entry(arg)
+                    .or_insert_with(|| ParseValue::MultiString(vec![]))
+                    .try_as_multi_string_mut()
+                    .unwrap();
+                arr.push(w);
+                if arr.len() >= arg.var_max.unwrap_or(usize::MAX) {
+                    next_arg = cmd.args.get(args.len());
+                }
             } else {
-                arg_specs.pop();
-                continue;
+                args.insert(arg, ParseValue::String(w));
+                next_arg = cmd.args.get(args.len());
             }
+            continue;
         }
-        panic!("unexpected word: {:?}", words[0]);
+        panic!("unexpected word: {w}");
     }
 
     Ok(ParseOutput {
@@ -159,6 +230,7 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
         cmds,
         args,
         flags,
+        flag_awaiting_value,
     })
 }
 
@@ -204,7 +276,7 @@ fn complete_short_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
 }
 
 fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
-    trace!("complete_arg: {} {ctoken}", &arg.name);
+    trace!("complete_arg: {arg} {ctoken}");
     let name = arg.name.to_lowercase();
 
     if let Ok(cwd) = env::current_dir() {
@@ -276,7 +348,7 @@ impl Debug for ParseOutput<'_> {
                 &self
                     .args
                     .iter()
-                    .map(|(a, w)| format!("{}: {}", a.name, w.join(",")))
+                    .map(|(a, w)| format!("{a}: {w}"))
                     .collect_vec(),
             )
             .field(
@@ -284,7 +356,7 @@ impl Debug for ParseOutput<'_> {
                 &self
                     .flags
                     .iter()
-                    .map(|(f, w)| format!("{}: {}", &f.name, w.join(",")))
+                    .map(|(f, w)| format!("{f}: {w}"))
                     .collect_vec(),
             )
             .finish()
