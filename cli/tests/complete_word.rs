@@ -21,7 +21,7 @@ fn complete_word_cword() {
 
 #[test]
 fn complete_word_long_flag() {
-    assert_cmd(&["plugins", "install", "--global", "pl"])
+    assert_cmd(&["--", "plugins", "install", "--global", "pl"])
         .stdout(predicate::str::contains("plugin-2"));
 }
 
