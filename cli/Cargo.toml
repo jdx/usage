@@ -2,7 +2,7 @@
 name = "usage-cli"
 edition = "2021"
 repository = "https://github.com/jdx/usage"
-version = "0.1.5-beta.1"
+version = "0.1.5-beta.2"
 license.workspace = true
 authors.workspace = true
 description.workspace = true
@@ -41,7 +41,7 @@ serde = { version = "1", features = ["derive"] }
 strum = { version = "0.26", features = ["derive"] }
 tera = "1"
 thiserror = "1"
-usage-lib = { path = "..", version = "0.1.5-beta.1", features = ["clap"] }
+usage-lib = { path = "..", version = "0.1.5-beta.2", features = ["clap"] }
 xx = "0.2"
 
 [dev-dependencies]
