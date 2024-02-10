@@ -25,10 +25,11 @@ fn complete_word_long_flag() {
         .stdout(predicate::str::contains("plugin-2"));
 }
 
-// #[test]
-// fn complete_word_short_flag() {
-//     assert_cmd(&["plugins", "install", "-g", "pl"]).stdout(predicate::str::contains("plugin-2"));
-// }
+#[test]
+fn complete_word_short_flag() {
+    assert_cmd(&["--", "plugins", "install", "-g", "pl"])
+        .stdout(predicate::str::contains("plugin-2"));
+}
 
 fn cmd() -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();

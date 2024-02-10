@@ -46,7 +46,7 @@ impl CompleteWord {
             .cloned()
             .unwrap_or_default();
 
-        let words: VecDeque<_> = self.words.iter().take(cword).collect();
+        let words: VecDeque<_> = self.words.iter().take(cword).cloned().collect();
 
         trace!(
             "cword: {cword} ctoken: {ctoken} words: {}",
@@ -76,13 +76,13 @@ struct ParseOutput<'a> {
     flags: IndexMap<&'a SpecFlag, Vec<String>>,
 }
 
-fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<ParseOutput<'a>> {
+fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput> {
     let mut cmds = vec![];
     let mut cmd = &spec.cmd;
     cmds.push(cmd);
 
     while !words.is_empty() {
-        if let Some(subcommand) = cmd.subcommands.get(words[0]) {
+        if let Some(subcommand) = cmd.subcommands.get(&words[0]) {
             words.pop_front();
             cmds.push(subcommand);
             cmd = subcommand;
@@ -94,13 +94,35 @@ fn parse<'a>(spec: &'a Spec, mut words: VecDeque<&String>) -> miette::Result<Par
     let mut args = vec![];
     let mut flags: IndexMap<&SpecFlag, Vec<String>> = IndexMap::new();
     let mut arg_specs = cmd.args.iter().collect_vec();
+    let mut enable_flags = true;
 
     while !words.is_empty() {
-        if words[0].starts_with("--") {
+        if words[0] == "--" {
+            words.pop_front();
+            enable_flags = false;
+            continue;
+        }
+
+        // long flags
+        if enable_flags && words[0].starts_with("--") {
             let long = words[0].strip_prefix("--").unwrap().to_string();
             if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
                 let word = words.pop_front().unwrap().to_string();
                 flags.entry(f).or_default().push(word);
+                continue;
+            }
+        }
+
+        // short flags
+        if enable_flags && words[0].starts_with('-') && words[0].len() > 1 {
+            let short = words[0].chars().nth(1).unwrap();
+            if let Some(f) = cmd.flags.iter().find(|f| f.short.contains(&short)) {
+                if words[0].len() > 2 {
+                    words.push_front(format!("-{}", &words[0][2..]));
+                } else {
+                    words.pop_front();
+                }
+                flags.entry(f).or_default().push(format!("-{}", short));
                 continue;
             }
         }
