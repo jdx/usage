@@ -71,7 +71,11 @@ impl SpecFlag {
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
-                k => bail_parse!(ctx, *child.node.span(), "unsupported flag value key {k}"),
+                k => bail_parse!(
+                    ctx,
+                    *child.node.name().span(),
+                    "unsupported flag value key {k}"
+                ),
             }
         }
         flag.usage = flag.usage();

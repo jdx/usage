@@ -6,9 +6,10 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use strum::EnumTryAs;
 
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Complete, Spec, SpecArg, SpecCommand, SpecFlag};
 
 use crate::cli::generate;
 
@@ -276,21 +277,30 @@ fn complete_short_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
         .collect()
 }
 
+fn complete_builtin(type_: &str, ctoken: &str) -> Vec<String> {
+    match (type_, env::current_dir()) {
+        ("path", Ok(cwd)) => complete_path(&cwd, ctoken, |_| true),
+        ("dir", Ok(cwd)) => complete_path(&cwd, ctoken, |p| p.is_dir()),
+        ("file", Ok(cwd)) => complete_path(&cwd, ctoken, |p| p.is_file()),
+        _ => vec![],
+    }
+}
+
 fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<String>> {
+    static EMPTY_COMPL: Lazy<Complete> = Lazy::new(Complete::default);
+
     trace!("complete_arg: {arg} {ctoken}");
     let name = arg.name.to_lowercase();
+    let complete = spec.complete.get(&name).unwrap_or(&EMPTY_COMPL);
+    let type_ = complete.type_.as_ref().unwrap_or(&name);
 
-    if let Ok(cwd) = env::current_dir() {
-        match name.as_str() {
-            "path" => return complete_path(&cwd, ctoken, |_| true),
-            "dir" => return complete_path(&cwd, ctoken, |p| p.is_dir()),
-            "file" => return complete_path(&cwd, ctoken, |p| p.is_file()),
-            _ => {}
-        }
+    let builtin = complete_builtin(type_, ctoken);
+    if !builtin.is_empty() {
+        return Ok(builtin);
     }
 
-    if let Some(complete) = spec.complete.get(&name) {
-        let stdout = xx::process::sh(&complete.run)?;
+    if let Some(run) = &complete.run {
+        let stdout = xx::process::sh(run)?;
         return Ok(stdout
             .lines()
             .filter(|l| l.starts_with(ctoken))
@@ -301,11 +311,7 @@ fn complete_arg(spec: &Spec, arg: &SpecArg, ctoken: &str) -> miette::Result<Vec<
     Ok(vec![])
 }
 
-fn complete_path(
-    base: &Path,
-    ctoken: &str,
-    filter: impl Fn(&Path) -> bool,
-) -> miette::Result<Vec<String>> {
+fn complete_path(base: &Path, ctoken: &str, filter: impl Fn(&Path) -> bool) -> Vec<String> {
     trace!("complete_path: {ctoken}");
     let path = PathBuf::from(ctoken);
     let mut dir = path.parent().unwrap_or(&path).to_path_buf();
@@ -321,7 +327,7 @@ fn complete_path(
         dir = path.to_path_buf();
         prefix = "".to_string();
     };
-    let mut files: Vec<String> = std::fs::read_dir(dir)
+    std::fs::read_dir(dir)
         .ok()
         .into_iter()
         .flatten()
@@ -335,9 +341,8 @@ fn complete_path(
                 .to_string_lossy()
                 .to_string()
         })
-        .collect();
-    files.sort();
-    Ok(files)
+        .sorted()
+        .collect()
 }
 
 impl Debug for ParseOutput<'_> {

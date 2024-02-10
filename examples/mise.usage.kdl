@@ -1167,5 +1167,6 @@ cmd "render-completion" hide=true help="Generate shell completions" {
 cmd "render-help" hide=true help="internal command to generate markdown from help"
 cmd "render-mangen" hide=true help="internal command to generate markdown from help"
 
+complete "config_file" type="file"
 complete "plugin" run="mise plugins"
 

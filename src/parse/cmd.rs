@@ -78,7 +78,7 @@ impl SpecCommand {
                         None => Some(v.ensure_string()?),
                     }
                 }
-                k => bail_parse!(ctx, node.span(), "unsupported cmd prop {k}"),
+                k => bail_parse!(ctx, *v.entry.span(), "unsupported cmd prop {k}"),
             }
         }
         for child in node.children() {
@@ -149,7 +149,7 @@ impl SpecCommand {
                         None => Some(child.arg(0)?.ensure_string()?),
                     }
                 }
-                k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
+                k => bail_parse!(ctx, *child.node.name().span(), "unsupported cmd key {k}"),
             }
         }
         Ok(cmd)

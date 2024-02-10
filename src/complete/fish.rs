@@ -6,8 +6,8 @@ pub fn complete_fish(bin: &str, usage_cmd: &str) -> String {
     // let raw = spec.to_string().replace('\'', r"\'").to_string();
     format!(
         r#"
-set _usage_spec_{bin} ({usage_cmd})
-complete -xc {bin} -a '({usage} complete-word -s "$_usage_spec_{bin}" --ctoken=(commandline -t) -- (commandline -op))'
+set _usage_spec_{bin} ({usage_cmd} | string collect)
+complete -xc {bin} -a '({usage} complete-word -s "$_usage_spec_{bin}" -- (commandline -cop) (commandline -t))'
 "#
     )
 }
@@ -22,8 +22,8 @@ mod tests {
         // "#;
         // let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_fish("mycli", "mycli complete --usage").trim(), @r###"
-        set _usage_spec_mycli (mycli complete --usage)
-        complete -xc mycli -a '(usage complete-word -s "$_usage_spec_mycli" --ctoken=(commandline -t) -- (commandline -op))'
+        set _usage_spec_mycli (mycli complete --usage | string collect)
+        complete -xc mycli -a '(usage complete-word -s "$_usage_spec_mycli" -- (commandline -cop) (commandline -t))'
         "###);
     }
 }

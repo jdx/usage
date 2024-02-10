@@ -52,6 +52,14 @@ depends = ['test', 'lint']
 [tasks.render]
 depends = ['render:*']
 
+[tasks."render:mise-completions"]
+depends = ['build']
+run = [
+  'usage g completion bash mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.bash',
+  'usage g completion zsh mise --usage-cmd "@mise usage" > ~/src/mise/completions/_mise',
+  'usage g completion fish mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.fish',
+]
+
 [tasks."render:example-md"]
 depends = ['build']
 run = [

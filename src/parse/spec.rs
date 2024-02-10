@@ -95,7 +95,7 @@ impl Spec {
                     let (other, _) = Self::parse_file(&file)?;
                     schema.merge(other);
                 }
-                k => bail_parse!(ctx, node.span(), "unsupported spec key {k}"),
+                k => bail_parse!(ctx, *node.node.name().span(), "unsupported spec key {k}"),
             }
         }
         set_subcommand_ancestors(&mut schema.cmd, &[]);
