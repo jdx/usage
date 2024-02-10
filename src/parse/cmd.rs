@@ -112,6 +112,26 @@ impl SpecCommand {
                     }
                     cmd.examples.push(example);
                 }
+                "help" => {
+                    cmd.help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "long_help" => {
+                    cmd.long_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "before_help" => {
+                    cmd.before_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "before_long_help" => {
+                    cmd.before_long_help =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "after_help" => {
+                    cmd.after_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "after_long_help" => {
+                    cmd.after_long_help =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
                 k => bail_parse!(ctx, *child.node.span(), "unsupported cmd key {k}"),
             }
         }
@@ -211,26 +231,30 @@ impl From<&SpecCommand> for KdlNode {
                 .push(KdlEntry::new_prop("help", help.clone()));
         }
         if let Some(help) = &cmd.long_help {
-            let v = KdlValue::RawString(help.clone());
-            node.entries_mut().push(KdlEntry::new_prop("long_help", v));
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.before_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("before_help", help.clone()));
         }
         if let Some(help) = &cmd.before_long_help {
-            let v = KdlValue::RawString(help.clone());
-            node.entries_mut()
-                .push(KdlEntry::new_prop("before_long_help", v));
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("before_long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.after_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("after_help", help.clone()));
         }
         if let Some(help) = &cmd.after_long_help {
-            let v = KdlValue::RawString(help.clone());
-            node.entries_mut()
-                .push(KdlEntry::new_prop("after_long_help", v));
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("after_long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
         }
         for flag in &cmd.flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -287,53 +311,6 @@ impl From<&clap::Command> for SpecCommand {
         spec
     }
 }
-
-// #[cfg(feature = "clap")]
-// impl From<&SpecCommand> for clap::Command {
-//     fn from(cmd: &SpecCommand) -> Self {
-//         let mut app = Self::new(cmd.name.to_string());
-//         if let Some(help) = &cmd.help {
-//             app = app.about(help);
-//         }
-//         if let Some(help) = &cmd.long_help {
-//             app = app.long_about(help);
-//         }
-//         if let Some(help) = &cmd.before_help {
-//             app = app.before_help(help);
-//         }
-//         if let Some(help) = &cmd.before_long_help {
-//             app = app.before_long_help(help);
-//         }
-//         if let Some(help) = &cmd.after_help {
-//             app = app.after_help(help);
-//         }
-//         if let Some(help) = &cmd.after_long_help {
-//             app = app.after_long_help(help);
-//         }
-//         if cmd.subcommand_required {
-//             app = app.subcommand_required(true);
-//         }
-//         if cmd.hide {
-//             app = app.hide(true);
-//         }
-//         for alias in &cmd.aliases {
-//             app = app.visible_alias(alias);
-//         }
-//         for alias in &cmd.hidden_aliases {
-//             app = app.alias(alias);
-//         }
-//         for arg in &cmd.args {
-//             app = app.arg(arg);
-//         }
-//         for flag in &cmd.flags {
-//             app = app.arg(flag);
-//         }
-//         for subcmd in cmd.subcommands.values() {
-//             app = app.subcommand(subcmd);
-//         }
-//         app
-//     }
-// }
 
 #[cfg(feature = "clap")]
 impl From<clap::Command> for Spec {
