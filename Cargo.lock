@@ -1346,7 +1346,7 @@ dependencies = [
  "strum",
  "tera",
  "thiserror",
- "usage-lib",
+ "usage-lib 0.1.1",
  "xx",
 ]
 
@@ -1359,6 +1359,27 @@ dependencies = [
  "heck",
  "indexmap",
  "insta",
+ "itertools",
+ "kdl",
+ "log",
+ "miette",
+ "once_cell",
+ "serde",
+ "shell-escape",
+ "strum",
+ "thiserror",
+ "xx",
+]
+
+[[package]]
+name = "usage-lib"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c5ca851d9ff7fca51314fa1ae20ea00710ca73a08f7acfedbe95dd3ad02212a"
+dependencies = [
+ "clap",
+ "heck",
+ "indexmap",
  "itertools",
  "kdl",
  "log",

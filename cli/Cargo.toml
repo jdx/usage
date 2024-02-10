@@ -42,7 +42,7 @@ serde = { version = "1", features = ["derive"] }
 strum = { version = "0.26", features = ["derive"] }
 tera = "1"
 thiserror = "1"
-usage-lib = { path = "..", features = ["clap"] }
+usage-lib = { version = "0.1", features = ["clap"] }
 xx = "0.2"
 
 [dev-dependencies]
