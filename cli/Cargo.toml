@@ -30,4 +30,4 @@ tera = "1.19.1"
 thiserror = "1"
 usage-lib = { path = "..", features=["clap"] }
 xx = "0.2"
-serde = { version = "1.0.195", features = ["derive"] }
+serde = { version = "1.0.196", features = ["derive"] }
