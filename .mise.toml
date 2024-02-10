@@ -1,5 +1,6 @@
 [env]
 CARGO_TERM_COLOR = 'always'
+_.path = ["./target/debug"]
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
@@ -8,13 +9,13 @@ run = 'cargo build --all'
 
 [tasks.cli]
 depends = ['build']
-run = './target/debug/usage'
+run = 'usage'
 raw = true
 
 [tasks.complete-word]
 alias = ['cw']
 depends = ['build']
-run = './target/debug/usage cw'
+run = 'usage cw'
 raw = true
 
 [tasks.run]
@@ -25,7 +26,7 @@ raw = true
 
 [tasks.complete_fish]
 depends = ['build']
-run = './target/debug/usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
+run = 'usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
 raw = true
 
 [tasks.test]
@@ -47,3 +48,10 @@ run = [
 
 [tasks.ci]
 depends = ['test', 'lint']
+
+[tasks.render]
+depends = ['render:*']
+
+[tasks."render:example-md-inline"]
+depends = ['build']
+run = "usage g md examples/docs/MISE_INLINE.md"
