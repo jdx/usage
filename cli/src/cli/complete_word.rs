@@ -385,6 +385,7 @@ fn sh(script: &str) -> XXResult<String> {
         .arg(script)
         .stdin(std::process::Stdio::null())
         .stderr(std::process::Stdio::inherit())
+        .env("__usage", env!("CARGO_PKG_VERSION"))
         .output()
         .map_err(|err| XXError::ProcessError(err, format!("sh -c {script}")))?;
 
