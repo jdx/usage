@@ -1169,9 +1169,11 @@ cmd "render-completion" hide=true help="Generate shell completions" {
 cmd "render-help" hide=true help="internal command to generate markdown from help"
 cmd "render-mangen" hide=true help="internal command to generate markdown from help"
 
+complete "alias" run="mise alias ls {{words[PREV]}} | awk '{print $2}'"
 complete "config_file" type="file"
-complete "plugin" run="mise plugins"
+complete "new_plugin" run="mise plugins --all"
+complete "plugin" run="mise plugins --core --user"
 complete "prefix" run="mise ls-remote {{words[PREV]}}"
-complete "task" run="mise tasks | awk '{print $1}'"
 complete "setting" run="mise settings --keys"
+complete "task" run="mise tasks | awk '{print $1}'"
 
