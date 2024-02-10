@@ -9,6 +9,12 @@ include = [
     "/LICENSE",
     "/src/**/*.rs",
 ]
+version.workspace = true
+description.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [workspace]
 members = [
