@@ -231,23 +231,6 @@ impl SpecCommand {
         let name = sl.get(name)?;
         self.subcommands.get(name)
     }
-
-    pub fn list_visible_long_flags(&self) -> Vec<String> {
-        self.flags
-            .iter()
-            .filter(|f| !f.hide)
-            .flat_map(|f| f.long.iter())
-            .map(|s| s.to_string())
-            .collect()
-    }
-
-    pub fn list_visible_short_flags(&self) -> Vec<&char> {
-        self.flags
-            .iter()
-            .filter(|f| !f.hide)
-            .flat_map(|f| f.short.iter())
-            .collect()
-    }
 }
 
 impl From<&SpecCommand> for KdlNode {

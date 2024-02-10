@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::env;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -59,13 +59,13 @@ impl CompleteWord {
         let choices = if !parsed.cmd.subcommands.is_empty() {
             complete_subcommands(parsed.cmd, &ctoken)
         } else if ctoken == "-" {
-            let shorts = complete_short_flag_names(parsed.cmd, "");
-            let longs = complete_long_flag_names(parsed.cmd, "");
+            let shorts = complete_short_flag_names(&parsed.available_flags, "");
+            let longs = complete_long_flag_names(&parsed.available_flags, "");
             shorts.into_iter().chain(longs).collect()
         } else if ctoken.starts_with("--") {
-            complete_long_flag_names(parsed.cmd, &ctoken)
+            complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
-            complete_short_flag_names(parsed.cmd, &ctoken)
+            complete_short_flag_names(&parsed.available_flags, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value {
             complete_arg(spec, flag.arg.as_ref().unwrap(), &ctoken)?
         } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
@@ -81,8 +81,9 @@ struct ParseOutput<'a> {
     cmd: &'a SpecCommand,
     cmds: Vec<&'a SpecCommand>,
     args: IndexMap<&'a SpecArg, ParseValue>,
-    flags: IndexMap<&'a SpecFlag, ParseValue>,
-    flag_awaiting_value: Option<&'a SpecFlag>,
+    _flags: IndexMap<SpecFlag, ParseValue>,
+    available_flags: BTreeMap<String, SpecFlag>,
+    flag_awaiting_value: Option<SpecFlag>,
 }
 
 #[derive(EnumTryAs)]
@@ -105,13 +106,29 @@ impl Display for ParseValue {
 }
 
 fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput> {
-    let mut cmds = vec![];
     let mut cmd = &spec.cmd;
+    let mut cmds = vec![];
     words.pop_front();
     cmds.push(cmd);
 
+    let gather_flags = |cmd: &SpecCommand| {
+        cmd.flags
+            .iter()
+            .flat_map(|f| {
+                f.long
+                    .iter()
+                    .map(|l| (format!("--{}", l), f.clone()))
+                    .chain(f.short.iter().map(|s| (format!("-{}", s), f.clone())))
+            })
+            .collect()
+    };
+
+    let mut available_flags: BTreeMap<String, SpecFlag> = gather_flags(cmd);
+
     while !words.is_empty() {
         if let Some(subcommand) = cmd.find_subcommand(&words[0]) {
+            available_flags.retain(|_, f| f.global);
+            available_flags.extend(gather_flags(subcommand));
             words.pop_front();
             cmds.push(subcommand);
             cmd = subcommand;
@@ -121,9 +138,9 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
     }
 
     let mut args: IndexMap<&SpecArg, ParseValue> = IndexMap::new();
-    let mut flags: IndexMap<&SpecFlag, ParseValue> = IndexMap::new();
+    let mut flags: IndexMap<SpecFlag, ParseValue> = IndexMap::new();
     let mut next_arg = cmd.args.first();
-    let mut flag_awaiting_value: Option<&SpecFlag> = None;
+    let mut flag_awaiting_value: Option<SpecFlag> = None;
     let mut enable_flags = true;
 
     while !words.is_empty() {
@@ -155,19 +172,18 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
             if !val.is_empty() {
                 words.push_front(val.to_string());
             }
-            let long = word.strip_prefix("--").unwrap().to_string();
-            if let Some(f) = cmd.flags.iter().find(|f| f.long.contains(&long)) {
+            if let Some(f) = available_flags.get(word) {
                 if f.arg.is_some() {
-                    flag_awaiting_value = Some(f);
+                    flag_awaiting_value = Some(f.clone());
                 } else if f.var {
                     let arr = flags
-                        .entry(f)
+                        .entry(f.clone())
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
                         .unwrap();
                     arr.push(true);
                 } else {
-                    flags.insert(f, ParseValue::Bool(true));
+                    flags.insert(f.clone(), ParseValue::Bool(true));
                 }
                 continue;
             }
@@ -176,10 +192,10 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
         // short flags
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
-            if let Some(f) = cmd.flags.iter().find(|f| f.short.contains(&short)) {
+            if let Some(f) = available_flags.get(&format!("-{}", short)) {
                 let mut next = format!("-{}", &w[2..]);
                 if f.arg.is_some() {
-                    flag_awaiting_value = Some(f);
+                    flag_awaiting_value = Some(f.clone());
                     next = w[2..].to_string();
                 }
                 if next != "-" {
@@ -187,13 +203,13 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
                 }
                 if f.var {
                     let arr = flags
-                        .entry(f)
+                        .entry(f.clone())
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
                         .unwrap();
                     arr.push(true);
                 } else {
-                    flags.insert(f, ParseValue::Bool(true));
+                    flags.insert(f.clone(), ParseValue::Bool(true));
                 }
                 continue;
             }
@@ -223,7 +239,8 @@ fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput
         cmd,
         cmds,
         args,
-        flags,
+        _flags: flags,
+        available_flags,
         flag_awaiting_value,
     })
 }
@@ -247,24 +264,30 @@ fn complete_subcommands(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
         .collect()
 }
 
-fn complete_long_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+fn complete_long_flag_names(flags: &BTreeMap<String, SpecFlag>, ctoken: &str) -> Vec<String> {
     trace!("complete_long_flag_names: {ctoken}");
     let ctoken = ctoken.strip_prefix("--").unwrap_or(ctoken);
-    cmd.list_visible_long_flags()
-        .into_iter()
+    flags
+        .values()
+        .filter(|f| !f.hide)
+        .flat_map(|f| &f.long)
+        .unique()
         .filter(|c| c.starts_with(ctoken))
-        .map(|c| format!("--{}", c))
+        .map(|c| format!("--{c}"))
         .sorted()
         .collect()
 }
 
-fn complete_short_flag_names(cmd: &SpecCommand, ctoken: &str) -> Vec<String> {
+fn complete_short_flag_names(flags: &BTreeMap<String, SpecFlag>, ctoken: &str) -> Vec<String> {
     trace!("complete_short_flag_names: {ctoken}");
     let cur = ctoken.chars().nth(1);
-    cmd.list_visible_short_flags()
-        .into_iter()
+    flags
+        .values()
+        .filter(|f| !f.hide)
+        .flat_map(|f| &f.short)
+        .unique()
         .filter(|c| cur.is_none() || cur == Some(**c))
-        .map(|c| format!("-{}", c))
+        .map(|c| format!("-{c}"))
         .sorted()
         .collect()
 }
@@ -352,7 +375,7 @@ impl Debug for ParseOutput<'_> {
             .field(
                 "flags",
                 &self
-                    .flags
+                    .available_flags
                     .iter()
                     .map(|(f, w)| format!("{f}: {w}"))
                     .collect_vec(),
