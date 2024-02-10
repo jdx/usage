@@ -38,10 +38,15 @@ mod tests {
     fn test_complete_bash() {
         assert_snapshot!(complete_bash("mycli", "mycli complete --usage").trim(), @r###"
         _mycli() {
+            if ! command -v usage &> /dev/null; then
+                echo "Error: usage not found. This is required for completions to work in mycli." >&2
+                return 1
+            fi
+
             if [[ -z ${_USAGE_SPEC_MYCLI:-} ]]; then
                 _USAGE_SPEC_MYCLI="$(mycli complete --usage)"
             fi
-
+            
             COMPREPLY=( $(usage complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}" ) )
             if [[ $? -ne 0 ]]; then
                 unset COMPREPLY

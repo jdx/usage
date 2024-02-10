@@ -86,6 +86,11 @@ mod tests {
           typeset -A opt_args
           local curcontext="$curcontext" spec cache_policy
 
+          if ! command -v usage &> /dev/null; then
+              echo "Error: usage not found. This is required for completions to work in mycli." >&2
+              return 1
+          fi
+
           zstyle -s ":completion:${curcontext}:" cache-policy cache_policy
           if [[ -z $cache_policy ]]; then
             zstyle ":completion:${curcontext}:" cache-policy _usage_mycli_cache_policy
@@ -98,7 +103,7 @@ mod tests {
             _store_cache _usage_mycli_spec spec
           fi
 
-          _arguments '*: :( $(usage complete-word -s "$spec" -- "${words[@]}" ) )'
+          _arguments '*: :($(usage complete-word -s "$spec" -- "${words[@]}" ))'
           return 0
         }
 
