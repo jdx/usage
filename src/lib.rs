@@ -14,6 +14,6 @@ pub mod parse;
 
 pub use crate::parse::arg::SpecArg;
 pub use crate::parse::cmd::SpecCommand;
+pub use crate::parse::complete::Complete;
 pub use crate::parse::flag::SpecFlag;
 pub use crate::parse::spec::Spec;
-pub use crate::parse::complete::Complete;
