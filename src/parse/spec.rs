@@ -218,24 +218,6 @@ impl From<&clap::Command> for Spec {
     }
 }
 
-// #[cfg(feature = "clap")]
-// impl From<&Spec> for clap::Command {
-//     fn from(schema: &Spec) -> Self {
-//         let mut cmd = clap::Command::new(&schema.name);
-//         for flag in schema.cmd.flags.iter() {
-//             cmd = cmd.arg(flag);
-//         }
-//         for arg in schema.cmd.args.iter() {
-//             let a = clap::Arg::new(&arg.name).required(arg.required);
-//             cmd = cmd.arg(a);
-//         }
-//         for scmd in schema.cmd.subcommands.values() {
-//             cmd = cmd.subcommand(scmd);
-//         }
-//         cmd
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;

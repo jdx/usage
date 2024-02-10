@@ -36,6 +36,7 @@ shell-escape = "0.1"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "1"
 xx = "0.2"
+heck = "0.4.1"
 
 [features]
 default = ["clap"]

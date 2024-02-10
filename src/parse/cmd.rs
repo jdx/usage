@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
@@ -27,6 +30,9 @@ pub struct SpecCommand {
     pub after_help: Option<String>,
     pub after_long_help: Option<String>,
     pub examples: Vec<SpecExample>,
+
+    #[serde(skip)]
+    pub subcommand_lookup: OnceLock<HashMap<String, String>>,
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -206,6 +212,24 @@ impl SpecCommand {
         for (name, cmd) in other.subcommands {
             self.subcommands.insert(name, cmd);
         }
+    }
+
+    pub fn find_subcommand(&self, name: &str) -> Option<&SpecCommand> {
+        let sl = self.subcommand_lookup.get_or_init(|| {
+            let mut map = HashMap::new();
+            for (name, cmd) in &self.subcommands {
+                map.insert(name.clone(), name.clone());
+                for alias in &cmd.aliases {
+                    map.insert(alias.clone(), name.clone());
+                }
+                for alias in &cmd.hidden_aliases {
+                    map.insert(alias.clone(), name.clone());
+                }
+            }
+            map
+        });
+        let name = sl.get(name)?;
+        self.subcommands.get(name)
     }
 
     pub fn list_visible_long_flags(&self) -> Vec<String> {

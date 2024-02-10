@@ -1,17 +1,23 @@
-use crate::{env, Spec};
+use heck::ToShoutySnakeCase;
 
-pub fn complete_bash(spec: &Spec) -> String {
-    let usage = &*env::USAGE_CMD;
-    let bin = &spec.bin;
-    let raw = shell_escape::unix::escape(spec.to_string().into());
+use crate::env;
+
+pub fn complete_bash(bin: &str, usage_cmd: &str) -> String {
+    let usage = env::USAGE_BIN.display();
+    let bin_up = bin.to_shouty_snake_case();
+    // let bin = &spec.bin;
+    // let raw = shell_escape::unix::escape(spec.to_string().into());
     format!(
         r#"
 _{bin}() {{
-    local raw
-    spec={raw}
+    if [[ -z ${{_USAGE_SPEC_{bin_up}:-}} ]]; then
+        _USAGE_SPEC_{bin_up}="$({usage_cmd})"
+    fi
 
-    COMPREPLY=($({usage} complete-word -s "$spec" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}"))
-    #COMPREPLY=($(compgen -W "${{COMPREPLY[*]}}" -- "${{COMP_WORDS[$COMP_CWORD]}}"))
+    COMPREPLY=( $({usage} complete-word -s "${{_USAGE_SPEC_{bin_up}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}") )
+    if [[ $? -ne 0 ]]; then
+        unset COMPREPLY
+    fi
     return 0
 }}
 
@@ -21,32 +27,26 @@ complete -F _{bin} {bin}
     )
 }
 
-// fn render_args(cmds: &[&SchemaCmd]) -> String {
-//     format!("XX")
-// }
-
 #[cfg(test)]
 mod tests {
-    use crate::parse::spec::Spec;
-
     use super::*;
 
     #[test]
     fn test_complete_bash() {
-        let spec = r#"
-        "#;
-        let spec = Spec::parse(&Default::default(), spec).unwrap();
-        assert_snapshot!(complete_bash(&spec).trim(), @r###"
-        _() {
-            local raw
-            spec=''
+        assert_snapshot!(complete_bash("mycli", "mycli complete --usage").trim(), @r###"
+        _mycli() {
+            if [[ -z ${_USAGE_SPEC_MYCLI:-} ]]; then
+                _USAGE_SPEC_MYCLI="$(mycli complete --usage)"
+            fi
 
-            COMPREPLY=($(usage complete-word -s "$spec" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}"))
-            #COMPREPLY=($(compgen -W "${COMPREPLY[*]}" -- "${COMP_WORDS[$COMP_CWORD]}"))
+            COMPREPLY=( $(/Users/jdx/src/usage/target/debug/deps/usage-6b6342071eb3064a complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}") )
+            if [[ $? -ne 0 ]]; then
+                unset COMPREPLY
+            fi
             return 0
         }
 
-        complete -F _ 
+        complete -F _mycli mycli
         # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh
         "###);
     }

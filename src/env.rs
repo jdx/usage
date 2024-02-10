@@ -1,6 +1,12 @@
 pub use std::env::*;
+use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
 
-pub static USAGE_CMD: Lazy<String> =
-    Lazy::new(|| var("USAGE_CMD").unwrap_or_else(|_| "usage".to_string()));
+#[cfg(target_os = "macos")]
+pub static USAGE_BIN: Lazy<PathBuf> = Lazy::new(|| {
+    var_os("USAGE_BIN")
+        .map(PathBuf::from)
+        .or_else(|| current_exe().ok())
+        .unwrap_or_else(|| "usage".into())
+});

@@ -8,6 +8,7 @@ outputs = ['target/debug/rtx']
 run = 'cargo build --all'
 
 [tasks.cli]
+alias = ['x']
 depends = ['build']
 run = 'usage'
 raw = true
@@ -18,8 +19,7 @@ depends = ['build']
 run = 'usage cw'
 raw = true
 
-[tasks.run]
-alias = ['x']
+[tasks.run-example]
 depends = ['build']
 run = './examples/example.sh'
 raw = true

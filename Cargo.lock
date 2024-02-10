@@ -1322,6 +1322,7 @@ dependencies = [
  "contracts",
  "env_logger",
  "exec",
+ "heck",
  "indexmap",
  "itertools",
  "kdl",
@@ -1343,6 +1344,7 @@ name = "usage-lib"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "heck",
  "indexmap",
  "insta",
  "itertools",

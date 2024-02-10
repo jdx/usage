@@ -114,10 +114,11 @@ impl Display for ParseValue {
 fn parse(spec: &Spec, mut words: VecDeque<String>) -> miette::Result<ParseOutput> {
     let mut cmds = vec![];
     let mut cmd = &spec.cmd;
+    words.pop_front();
     cmds.push(cmd);
 
     while !words.is_empty() {
-        if let Some(subcommand) = cmd.subcommands.get(&words[0]) {
+        if let Some(subcommand) = cmd.find_subcommand(&words[0]) {
             words.pop_front();
             cmds.push(subcommand);
             cmd = subcommand;

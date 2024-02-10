@@ -17,7 +17,7 @@ fn complete_word_subcommands() {
 
 #[test]
 fn complete_word_cword() {
-    assert_cmd(&["--cword=2", "plugins", "install"]).stdout(contains("plugin-2"));
+    assert_cmd(&["--cword=3", "plugins", "install"]).stdout(contains("plugin-2"));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn complete_word_short_flag() {
 
 fn cmd() -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();
-    cmd.args(["cw", "-f", "../examples/basic.usage.kdl"]);
+    cmd.args(["cw", "-f", "../examples/basic.usage.kdl", "mycli"]);
     cmd
 }
 
