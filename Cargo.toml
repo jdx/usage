@@ -17,6 +17,7 @@ authors.workspace = true
 license.workspace = true
 
 [workspace]
+resolver = "2"
 members = [
     "cli",
 ]
