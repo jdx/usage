@@ -1,8 +1,8 @@
 # `mise config ls`
 
-#### Flags
-
-* `--no-header` – Do not print table header
 [experimental] List config files currently in use
-Examples:
+
+##### Flag `--no-header`
+
+Do not print table headerExamples:
   $ mise config ls

@@ -1,16 +1,7 @@
 # `mise exec`
-* Aliases: `x`
-#### Args
 
-* `[TOOL@VERSION]...` – Tool(s) to start e.g.: node@20 python@3.10
-* `[COMMAND]...` – Command string to execute (same as --command)
+###### Aliases: `x`
 
-#### Flags
-
-* `-c,--command <C>` – Command string to execute
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
-[default: 4]
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 Execute a command with tool(s) set
 
 use this to avoid modifying the shell session or running ad-hoc commands with mise tools set.
@@ -20,7 +11,27 @@ Note that only the plugin specified will be overridden, so if a `.tool-versions`
 includes "node 20" but you run `mise exec python@3.11`; it will still load node@20.
 
 The "--" separates runtimes from the commands to pass along to the subprocess.
-Examples:
+
+###### Arg `[TOOL@VERSION]...`
+
+Tool(s) to start e.g.: node@20 python@3.10
+
+###### Arg `[COMMAND]...`
+
+Command string to execute (same as --command)
+
+##### Flag `-c --command <C>`
+
+Command string to execute
+
+##### Flag `-j --jobs <JOBS>`
+
+Number of jobs to run in parallel
+[default: 4]
+
+##### Flag `--raw`
+
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1Examples:
   $ mise exec node@20 -- node ./app.js  # launch app.js using node-20.x
   $ mise x node@20 -- node ./app.js     # shorter alias
 

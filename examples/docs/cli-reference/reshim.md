@@ -1,8 +1,4 @@
 # `mise reshim`
-#### Args
-
-* `[PLUGIN]` – 
-* `[VERSION]` – 
 
 rebuilds the shim farm
 
@@ -19,6 +15,13 @@ npm() {
   command npm "$@"
   mise reshim
 }
+
+###### Arg `[PLUGIN]`
+
+
+
+###### Arg `[VERSION]`
+
 Examples:
   $ mise reshim
   $ ~/.local/share/mise/shims/node -v

@@ -1,13 +1,18 @@
 # `mise plugins uninstall`
-* Aliases: `remove`, `rm`
-#### Args
 
-* `[PLUGIN]...` – Plugin(s) to remove
+###### Aliases: `remove`, `rm`
 
-#### Flags
-
-* `-p,--purge` – Also remove the plugin's installs, downloads, and cache
-* `-a,--all` – Remove all plugins
 Removes a plugin
-Examples:
+
+###### Arg `[PLUGIN]...`
+
+Plugin(s) to remove
+
+##### Flag `-p --purge`
+
+Also remove the plugin's installs, downloads, and cache
+
+##### Flag `-a --all`
+
+Remove all pluginsExamples:
   $ mise uninstall node

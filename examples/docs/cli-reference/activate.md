@@ -1,13 +1,5 @@
 # `mise activate`
-#### Args
 
-* `[SHELL_TYPE]` – Shell type to generate the script for
-
-#### Flags
-
-* `-s,--shell <SHELL>` – Shell type to generate the script for
-* `--status` – Show "mise: <PLUGIN>@<VERSION>" message when changing directories
-* `-q,--quiet` – Suppress non-error messages
 Initializes mise in the current shell session
 
 This should go into your shell's rc file.
@@ -26,7 +18,30 @@ However, this requires that "mise" is in your PATH. If it is not, you need to
 specify the full path like this:
 
     echo 'eval "$(/path/to/mise activate)"' >> ~/.zshrc
-Examples:
+
+Customize status output with `status` settings.
+
+###### Arg `[SHELL_TYPE]`
+
+Shell type to generate the script for
+
+##### Flag `-s --shell <SHELL>`
+
+Shell type to generate the script for
+
+##### Flag `--status`
+
+Show "mise: <PLUGIN>@<VERSION>" message when changing directories
+
+##### Flag `--shims`
+
+Use shims instead of modifying PATH
+Effectively the same as:
+    PATH="$HOME/.local/share/mise/shims:$PATH"
+
+##### Flag `-q --quiet`
+
+Suppress non-error messagesExamples:
   $ eval "$(mise activate bash)"
   $ eval "$(mise activate zsh)"
   $ mise activate fish | source

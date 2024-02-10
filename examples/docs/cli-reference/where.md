@@ -1,19 +1,22 @@
 # `mise where`
-#### Args
-
-* `<TOOL@VERSION>` – Tool(s) to look up
-e.g.: ruby@3
-if "@<PREFIX>" is specified, it will show the latest installed version
-that matches the prefix
-otherwise, it will show the current, active installed version
-* `[ASDF_VERSION]` – the version prefix to use when querying the latest version
-same as the first argument after the "@"
-used for asdf compatibility
 
 Display the installation path for a runtime
 
 Must be installed.
-Examples:
+
+###### Arg `<TOOL@VERSION>`
+
+(required)Tool(s) to look up
+e.g.: ruby@3
+if "@<PREFIX>" is specified, it will show the latest installed version
+that matches the prefix
+otherwise, it will show the current, active installed version
+
+###### Arg `[ASDF_VERSION]`
+
+the version prefix to use when querying the latest version
+same as the first argument after the "@"
+used for asdf compatibilityExamples:
   # Show the latest installed version of node
   # If it is is not installed, errors
   $ mise where node@20

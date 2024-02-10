@@ -1,16 +1,28 @@
 # `mise upgrade`
-* Aliases: `up`
-#### Args
 
-* `[TOOL@VERSION]...` – Tool(s) to upgrade
+###### Aliases: `up`
+
+Upgrades outdated tool versions
+
+###### Arg `[TOOL@VERSION]...`
+
+Tool(s) to upgrade
 e.g.: node@20 python@3.10
 If not specified, all current tools will be upgraded
 
-#### Flags
+##### Flag `-n --dry-run`
 
-* `-n,--dry-run` – Just print what would be done, don't actually do it
-* `-j,--jobs <JOBS>` – Number of jobs to run in parallel
+Just print what would be done, don't actually do it
+
+##### Flag `-j --jobs <JOBS>`
+
+Number of jobs to run in parallel
 [default: 4]
-* `-i,--interactive` – Display multiselect menu to choose which tools to upgrade
-* `--raw` – Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
-Upgrades outdated tool versions
+
+##### Flag `-i --interactive`
+
+Display multiselect menu to choose which tools to upgrade
+
+##### Flag `--raw`
+
+Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1

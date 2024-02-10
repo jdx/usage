@@ -1,27 +1,41 @@
 # `mise plugins install`
-* Aliases: `i`, `a`, `add`
-#### Args
 
-* `[NEW_PLUGIN]` – The name of the plugin to install
-e.g.: node, ruby
-Can specify multiple plugins: `mise plugins install node ruby python`
-* `[GIT_URL]` – The git url of the plugin
-* `[REST]...` – 
+###### Aliases: `i`, `a`, `add`
 
-#### Flags
-
-* `-f,--force` – Reinstall even if plugin exists
-* `-a,--all` – Install all missing plugins
-This will only install plugins that have matching shorthands.
-i.e.: they don't need the full git repo url
-* `-v,--verbose` – Show installation output
 Install a plugin
 
 note that mise automatically can install plugins when you install a tool
 e.g.: `mise install node@20` will autoinstall the node plugin
 
 This behavior can be modified in ~/.config/mise/config.toml
-Examples:
+
+###### Arg `[NEW_PLUGIN]`
+
+The name of the plugin to install
+e.g.: node, ruby
+Can specify multiple plugins: `mise plugins install node ruby python`
+
+###### Arg `[GIT_URL]`
+
+The git url of the plugin
+
+###### Arg `[REST]...`
+
+
+
+##### Flag `-f --force`
+
+Reinstall even if plugin exists
+
+##### Flag `-a --all`
+
+Install all missing plugins
+This will only install plugins that have matching shorthands.
+i.e.: they don't need the full git repo url
+
+##### Flag `-v --verbose...`
+
+Show installation outputExamples:
   # install the node via shorthand
   $ mise plugins install node
 

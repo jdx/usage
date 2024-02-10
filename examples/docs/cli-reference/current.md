@@ -1,13 +1,13 @@
 # `mise current`
-#### Args
-
-* `[PLUGIN]` – Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
 
 Shows current active and installed runtime versions
 
 This is similar to `mise ls --current`, but this only shows the runtime
 and/or version. It's designed to fit into scripts more easily.
-Examples:
+
+###### Arg `[PLUGIN]`
+
+Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etcExamples:
     # outputs `.tool-versions` compatible format
     $ mise current
     python 3.11.0 3.10.0

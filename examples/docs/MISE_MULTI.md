@@ -18,10 +18,10 @@ Usage: mise [OPTIONS] <COMMAND>
 <!-- [USAGE] -->
 ## Global Flags
 <!-- [USAGE] global_flags -->
-- `-C,--cd <DIR>`: Change directory before running command
-- `-q,--quiet`: Suppress non-error messages
-- `-v,--verbose`: Show extra output (use -vv for even more)
-- `-y,--yes`: Answer yes to all confirmation prompts
+- `-C --cd <DIR>`: Change directory before running command
+- `-q --quiet`: Suppress non-error messages
+- `-v --verbose...`: Show extra output (use -vv for even more)
+- `-y --yes`: Answer yes to all confirmation prompts
 <!-- [USAGE] -->
 ## Config
 <!-- [USAGE] config -->
@@ -102,11 +102,11 @@ foooooooo
 * [`sync`](./cli-reference/sync.md)
 * [`sync node`](./cli-reference/sync/node.md)
 * [`sync python`](./cli-reference/sync/python.md)
-* [`task`](./cli-reference/task.md)
-* [`task deps`](./cli-reference/task/deps.md)
-* [`task edit`](./cli-reference/task/edit.md)
-* [`task ls`](./cli-reference/task/ls.md)
-* [`task run`](./cli-reference/task/run.md)
+* [`tasks`](./cli-reference/tasks.md)
+* [`tasks deps`](./cli-reference/tasks/deps.md)
+* [`tasks edit`](./cli-reference/tasks/edit.md)
+* [`tasks ls`](./cli-reference/tasks/ls.md)
+* [`tasks run`](./cli-reference/tasks/run.md)
 * [`trust`](./cli-reference/trust.md)
 * [`uninstall`](./cli-reference/uninstall.md)
 * [`unset`](./cli-reference/unset.md)
@@ -117,5 +117,6 @@ foooooooo
 * [`watch`](./cli-reference/watch.md)
 * [`where`](./cli-reference/where.md)
 * [`which`](./cli-reference/which.md)
+* [`zzz`](./cli-reference/zzz.md)
 
 <!-- [USAGE] -->

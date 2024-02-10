@@ -1,4 +1,4 @@
-# `mise run`
+# `mise tasks run`
 
 ###### Aliases: `r`
 

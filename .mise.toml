@@ -52,6 +52,9 @@ depends = ['test', 'lint']
 [tasks.render]
 depends = ['render:*']
 
-[tasks."render:example-md-inline"]
+[tasks."render:example-md"]
 depends = ['build']
-run = "usage g md examples/docs/MISE_INLINE.md"
+run = [
+  "usage g md examples/docs/MISE_INLINE.md",
+  "usage g md examples/docs/MISE_MULTI.md",
+]

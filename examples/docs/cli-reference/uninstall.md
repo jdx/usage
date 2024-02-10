@@ -1,15 +1,20 @@
 # `mise uninstall`
-* Aliases: `remove`, `rm`
-#### Args
 
-* `[TOOL@VERSION]...` – Tool(s) to remove
+###### Aliases: `remove`, `rm`
 
-#### Flags
-
-* `-a,--all` – Delete all installed versions
-* `-n,--dry-run` – Do not actually delete anything
 Removes runtime versions
-Examples:
+
+###### Arg `[TOOL@VERSION]...`
+
+Tool(s) to remove
+
+##### Flag `-a --all`
+
+Delete all installed versions
+
+##### Flag `-n --dry-run`
+
+Do not actually delete anythingExamples:
   $ mise uninstall node@18.0.0 # will uninstall specific version
   $ mise uninstall node        # will uninstall current node version
   $ mise uninstall --all node@18.0.0 # will uninstall all node versions

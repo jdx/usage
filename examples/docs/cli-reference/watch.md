@@ -1,23 +1,28 @@
 # `mise watch`
-* Aliases: `w`
-#### Args
 
-* `[ARGS]...` – Extra arguments
+###### Aliases: `w`
 
-#### Flags
+[experimental] Run a tasks watching for changes
 
-* `-t,--task <TASK>` – Task to run
-* `-g,--glob <GLOB>` – Files to watch
-Defaults to sources from the task(s)
-[experimental] Run a task watching for changes
-Examples:
+###### Arg `[ARGS]...`
+
+Extra arguments
+
+##### Flag `-t --task... <TASK>`
+
+Tasks to run
+
+##### Flag `-g --glob... <GLOB>`
+
+Files to watch
+Defaults to sources from the tasks(s)Examples:
   $ mise watch -t build
-  Runs the "build" task. Will re-run the task when any of its sources change.
-  Uses "sources" from the task definition to determine which files to watch.
+  Runs the "build" tasks. Will re-run the tasks when any of its sources change.
+  Uses "sources" from the tasks definition to determine which files to watch.
 
   $ mise watch -t build --glob src/**/*.rs
-  Runs the "build" task but specify the files to watch with a glob pattern.
-  This overrides the "sources" from the task definition.
+  Runs the "build" tasks but specify the files to watch with a glob pattern.
+  This overrides the "sources" from the tasks definition.
 
   $ mise run -t build --clear
   Extra arguments are passed to watchexec. See `watchexec --help` for details.

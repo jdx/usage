@@ -1,18 +1,22 @@
 # `mise ls-remote`
-#### Args
 
-* `[TOOL@VERSION]` – Plugin to get versions for
-* `[PREFIX]` – The version prefix to use when querying the latest version
-same as the first argument after the "@"
-
-#### Flags
-
-* `--all` – Show all installed plugins and versions
 List runtime versions available for install
 
 note that the results are cached for 24 hours
 run `mise cache clean` to clear the cache and get fresh results
-Examples:
+
+###### Arg `[TOOL@VERSION]`
+
+Plugin to get versions for
+
+###### Arg `[PREFIX]`
+
+The version prefix to use when querying the latest version
+same as the first argument after the "@"
+
+##### Flag `--all`
+
+Show all installed plugins and versionsExamples:
   $ mise ls-remote node
   18.0.0
   20.0.0

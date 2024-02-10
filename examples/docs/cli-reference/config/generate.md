@@ -1,10 +1,11 @@
 # `mise config generate`
-* Aliases: `g`
 
-#### Flags
+###### Aliases: `g`
 
-* `-o,--output <OUTPUT>` – Output to file instead of stdout
 [experimental] Generate an .mise.toml file
-Examples:
+
+##### Flag `-o --output <OUTPUT>`
+
+Output to file instead of stdoutExamples:
   $ mise cf generate > .mise.toml
   $ mise cf generate --output=.mise.toml

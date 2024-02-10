@@ -1,22 +1,54 @@
 # `mise ls`
-* Aliases: `list`
-#### Args
 
-* `[PLUGIN]...` – Only show tool versions from [PLUGIN]
+###### Aliases: `list`
 
-#### Flags
+List installed and active tool versions
 
-* `-p,--plugin <PLUGIN_FLAG>` – 
-* `-c,--current` – Only show tool versions currently specified in a .tool-versions/.mise.toml
-* `-g,--global` – Only show tool versions currently specified in a the global .tool-versions/.mise.toml
-* `-i,--installed` – Only show tool versions that are installed Hides missing ones defined in .tool-versions/.mise.toml but not yet installed
-* `--parseable` – Output in an easily parseable format
-* `-J,--json` – Output in json format
-* `-m,--missing` – Display missing tool versions
-* `--prefix <PREFIX>` – Display versions matching this prefix
-* `--no-header` – Don't display headers
-List installed and/or currently selected tool versions
-Examples:
+This command lists tools that mise "knows about".
+These may be tools that are currently installed, or those
+that are in a config file (active) but may or may not be installed.
+
+It's a useful command to get the current state of your tools.
+
+###### Arg `[PLUGIN]...`
+
+Only show tool versions from [PLUGIN]
+
+##### Flag `-p --plugin <PLUGIN_FLAG>`
+
+
+
+##### Flag `-c --current`
+
+Only show tool versions currently specified in a .tool-versions/.mise.toml
+
+##### Flag `-g --global`
+
+Only show tool versions currently specified in a the global .tool-versions/.mise.toml
+
+##### Flag `-i --installed`
+
+Only show tool versions that are installed (Hides tools defined in .tool-versions/.mise.toml but not installed)
+
+##### Flag `--parseable`
+
+Output in an easily parseable format
+
+##### Flag `-J --json`
+
+Output in json format
+
+##### Flag `-m --missing`
+
+Display missing tool versions
+
+##### Flag `--prefix <PREFIX>`
+
+Display versions matching this prefix
+
+##### Flag `--no-header`
+
+Don't display headersExamples:
   $ mise ls
   node    20.0.0 ~/src/myapp/.tool-versions latest
   python  3.11.0 ~/.tool-versions           3.10
