@@ -32,10 +32,11 @@ raw = true
 run = 'cargo test --all --all-features'
 
 [tasks.lint]
-run = [
-  'cargo clippy --all --all-features -- -D warnings',
-  'cargo fmt --all -- --check',
-]
+depends = ['lint:*']
+[tasks."lint:clippy"]
+run = 'cargo clippy --all --all-features -- -D warnings'
+[tasks."lint:fmt"]
+run = 'cargo fmt --all -- --check'
 
 [tasks.lint-fix]
 run = [

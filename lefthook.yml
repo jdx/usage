@@ -3,3 +3,5 @@ pre-commit:
     lint:
       interactive: true
       run: mise run lint
+
+skip_output: true
