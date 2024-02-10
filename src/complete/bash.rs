@@ -39,7 +39,7 @@ mod tests {
                 _USAGE_SPEC_MYCLI="$(mycli complete --usage)"
             fi
 
-            COMPREPLY=( $(/Users/jdx/src/usage/target/debug/deps/usage-6b6342071eb3064a complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}") )
+            COMPREPLY=( $(usage complete-word -s "${_USAGE_SPEC_MYCLI}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}") )
             if [[ $? -ne 0 ]]; then
                 unset COMPREPLY
             fi

@@ -17,6 +17,9 @@ mod errors;
 mod hash;
 mod shebang;
 
+#[cfg(test)]
+mod test;
+
 pub fn run(args: &[String]) -> Result<()> {
     trace!("args: {:?}", args);
     // if let Some("__USAGE__") = args.get(2).map(|s| s.as_str()) {

@@ -23,7 +23,7 @@ mod tests {
         // let spec = Spec::parse(&Default::default(), spec).unwrap();
         assert_snapshot!(complete_fish("mycli", "mycli complete --usage").trim(), @r###"
         set _usage_spec_mycli (mycli complete --usage)
-        complete -xc mycli -a '(/Users/jdx/src/usage/target/debug/deps/usage-6b6342071eb3064a complete-word -s "$_usage_spec_mycli" --ctoken=(commandline -t) -- (commandline -op))'
+        complete -xc mycli -a '(usage complete-word -s "$_usage_spec_mycli" --ctoken=(commandline -t) -- (commandline -op))'
         "###);
     }
 }

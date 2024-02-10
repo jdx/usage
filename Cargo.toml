@@ -42,6 +42,7 @@ heck = "0.4.1"
 default = ["clap"]
 
 [dev-dependencies]
+ctor = "0.2"
 insta = "1"
 
 [package.metadata.release]
