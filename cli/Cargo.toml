@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Jeff Dickey @jdx"]
 description = "Helper for CLIs which follow the Usage spec"
+license = "MIT"
+documentation = "https://docs.rs/usage-lib"
+homepage = "https://usage.jdx.dev"
+repository = "https://github.com/jdx/usage"
 include = [
     "Cargo.toml",
     "Cargo.lock",
