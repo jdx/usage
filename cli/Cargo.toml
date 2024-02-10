@@ -19,7 +19,7 @@ contracts = "0.6.3"
 env_logger = "0.11"
 indexmap = "2.1.0"
 exec = "0.3.1"
-itertools = "0.12.0"
+itertools = "0.12.1"
 kdl = "4"
 log = "0.4"
 miette = { version = "5", features = ["fancy"] }
