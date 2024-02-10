@@ -22,7 +22,10 @@ npm() {
 
 ###### Arg `[VERSION]`
 
+
+
 Examples:
-  $ mise reshim
-  $ ~/.local/share/mise/shims/node -v
-  v20.0.0
+
+    $ mise reshim
+    $ ~/.local/share/mise/shims/node -v
+    v20.0.0

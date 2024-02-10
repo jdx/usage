@@ -31,11 +31,14 @@ e.g.: https://github.com/asdf-vm/asdf-nodejs.git
 ##### Flag `--refs`
 
 Show the git refs for each plugin
-e.g.: main 1234abcExamples:
-  $ mise plugins ls
-  node
-  ruby
+e.g.: main 1234abc
 
-  $ mise plugins ls --urls
-  node    https://github.com/asdf-vm/asdf-nodejs.git
-  ruby    https://github.com/asdf-vm/asdf-ruby.git
+Examples:
+
+    $ mise plugins ls
+    node
+    ruby
+
+    $ mise plugins ls --urls
+    node    https://github.com/asdf-vm/asdf-nodejs.git
+    ruby    https://github.com/asdf-vm/asdf-ruby.git

@@ -17,8 +17,11 @@ Output in JSON format
 
 ##### Flag `-s --shell <SHELL>`
 
-Shell type to generate environment variables forExamples:
-  $ eval "$(mise env -s bash)"
-  $ eval "$(mise env -s zsh)"
-  $ mise env -s fish | source
-  $ execx($(mise env -s xonsh))
+Shell type to generate environment variables for
+
+Examples:
+
+    $ eval "$(mise env -s bash)"
+    $ eval "$(mise env -s zsh)"
+    $ mise env -s fish | source
+    $ execx($(mise env -s xonsh))

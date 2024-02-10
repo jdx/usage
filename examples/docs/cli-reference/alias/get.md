@@ -10,6 +10,8 @@ This is the contents of an alias.<PLUGIN> entry in ~/.config/mise/config.toml
 
 ###### Arg `<ALIAS>`
 
-(required)The alias to showExamples:
- $ mise alias get node lts-hydrogen
- 20.0.0
+(required)The alias to show
+
+Examples:
+   $ mise alias get node lts-hydrogen
+   20.0.0

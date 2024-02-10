@@ -20,9 +20,11 @@ Trust all config files in the current directory and its parents
 
 ##### Flag `--untrust`
 
-No longer trust this configExamples:
-  # trusts ~/some_dir/.mise.toml
-  $ mise trust ~/some_dir/.mise.toml
+No longer trust this config
 
-  # trusts .mise.toml in the current or parent directory
-  $ mise trust
+Examples:
+    # trusts ~/some_dir/.mise.toml
+    $ mise trust ~/some_dir/.mise.toml
+
+    # trusts .mise.toml in the current or parent directory
+    $ mise trust

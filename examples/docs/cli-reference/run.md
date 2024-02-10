@@ -78,20 +78,23 @@ Configure with `raw` config or `MISE_RAW` env var
 
 ##### Flag `--timings`
 
-Shows elapsed time after each tasksExamples:
-  $ mise run lint
-  Runs the "lint" tasks. This needs to either be defined in .mise.toml
-  or as a standalone script. See the project README for more information.
+Shows elapsed time after each tasks
 
-  $ mise run build --force
-  Forces the "build" tasks to run even if its sources are up-to-date.
+Examples:
 
-  $ mise run test --raw
-  Runs "test" with stdin/stdout/stderr all connected to the current terminal.
-  This forces `--jobs=1` to prevent interleaving of output.
+    # Runs the "lint" tasks. This needs to either be defined in .mise.toml
+    # or as a standalone script. See the project README for more information.
+    $ mise run lint
 
-  $ mise run lint ::: test ::: check
-  Runs the "lint", "test", and "check" tasks in parallel.
+    # Forces the "build" tasks to run even if its sources are up-to-date.
+    $ mise run build --force
 
-  $ mise tasks cmd1 arg1 arg2 ::: cmd2 arg1 arg2
-  Execute multiple tasks each with their own arguments.
+    # Run "test" with stdin/stdout/stderr all connected to the current terminal.
+    # This forces `--jobs=1` to prevent interleaving of output.
+    $ mise run test --raw
+
+    # Runs the "lint", "test", and "check" tasks in parallel.
+    $ mise run lint ::: test ::: check
+
+    # Execute multiple tasks each with their own arguments.
+    $ mise tasks cmd1 arg1 arg2 ::: cmd2 arg1 arg2

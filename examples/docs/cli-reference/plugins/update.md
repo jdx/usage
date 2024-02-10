@@ -13,7 +13,10 @@ Plugin(s) to update
 ##### Flag `-j --jobs <JOBS>`
 
 Number of jobs to run in parallel
-Default: 4Examples:
-  $ mise plugins update            # update all plugins
-  $ mise plugins update node       # update only node
-  $ mise plugins update node#beta  # specify a ref
+Default: 4
+
+Examples:
+
+    $ mise plugins update            # update all plugins
+    $ mise plugins update node       # update only node
+    $ mise plugins update node#beta  # specify a ref

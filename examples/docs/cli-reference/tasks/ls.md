@@ -14,5 +14,8 @@ Do not print table header
 
 ##### Flag `--hidden`
 
-Show hidden tasksExamples:
-  $ mise tasks ls
+Show hidden tasks
+
+Examples:
+    
+    $ mise tasks ls

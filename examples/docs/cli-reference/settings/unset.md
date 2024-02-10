@@ -8,5 +8,8 @@ This modifies the contents of ~/.config/mise/config.toml
 
 ###### Arg `<SETTING>`
 
-(required)The setting to removeExamples:
-  $ mise settings unset legacy_version_file
+(required)The setting to remove
+
+Examples:
+
+    $ mise settings unset legacy_version_file

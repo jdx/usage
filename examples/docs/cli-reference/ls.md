@@ -48,27 +48,30 @@ Display versions matching this prefix
 
 ##### Flag `--no-header`
 
-Don't display headersExamples:
-  $ mise ls
-  node    20.0.0 ~/src/myapp/.tool-versions latest
-  python  3.11.0 ~/.tool-versions           3.10
-  python  3.10.0
+Don't display headers
 
-  $ mise ls --current
-  node    20.0.0 ~/src/myapp/.tool-versions 20
-  python  3.11.0 ~/.tool-versions           3.11.0
+Examples:
 
-  $ mise ls --json
-  {
-    "node": [
-      {
-        "version": "20.0.0",
-        "install_path": "/Users/jdx/.mise/installs/node/20.0.0",
-        "source": {
-          "type": ".mise.toml",
-          "path": "/Users/jdx/.mise.toml"
+    $ mise ls
+    node    20.0.0 ~/src/myapp/.tool-versions latest
+    python  3.11.0 ~/.tool-versions           3.10
+    python  3.10.0
+
+    $ mise ls --current
+    node    20.0.0 ~/src/myapp/.tool-versions 20
+    python  3.11.0 ~/.tool-versions           3.11.0
+
+    $ mise ls --json
+    {
+      "node": [
+        {
+          "version": "20.0.0",
+          "install_path": "/Users/jdx/.mise/installs/node/20.0.0",
+          "source": {
+            "type": ".mise.toml",
+            "path": "/Users/jdx/.mise.toml"
+          }
         }
-      }
-    ],
-    "python": [...]
-  }
+      ],
+      "python": [...]
+    }

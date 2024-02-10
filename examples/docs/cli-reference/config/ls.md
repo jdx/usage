@@ -4,5 +4,8 @@
 
 ##### Flag `--no-header`
 
-Do not print table headerExamples:
-  $ mise config ls
+Do not print table header
+
+Examples:
+
+    $ mise config ls

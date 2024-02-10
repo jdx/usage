@@ -16,15 +16,18 @@ same as the first argument after the "@"
 
 ##### Flag `--all`
 
-Show all installed plugins and versionsExamples:
-  $ mise ls-remote node
-  18.0.0
-  20.0.0
+Show all installed plugins and versions
 
-  $ mise ls-remote node@20
-  20.0.0
-  20.1.0
+Examples:
 
-  $ mise ls-remote node 20
-  20.0.0
-  20.1.0
+    $ mise ls-remote node
+    18.0.0
+    20.0.0
+
+    $ mise ls-remote node@20
+    20.0.0
+    20.1.0
+
+    $ mise ls-remote node 20
+    20.0.0
+    20.1.0

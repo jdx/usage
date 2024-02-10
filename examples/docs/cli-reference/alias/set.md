@@ -16,5 +16,8 @@ This modifies the contents of ~/.config/mise/config.toml
 
 ###### Arg `<VALUE>`
 
-(required)The value to set the alias toExamples:
-  $ mise alias set node lts-hydrogen 18.0.0
+(required)The value to set the alias to
+
+Examples:
+
+    $ mise alias set node lts-hydrogen 18.0.0

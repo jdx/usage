@@ -10,12 +10,15 @@ e.g.: mise tasks deps lint test check
 
 ##### Flag `--dot`
 
-Display dependencies in DOT formatExamples:
-  $ mise tasks deps
-  Shows dependencies for all tasks
+Display dependencies in DOT format
 
-  $ mise tasks deps lint test check
-  Shows dependencies for the "lint", "test" and "check" tasks
+Examples:
 
-  $ mise tasks deps --dot
-  Shows dependencies in DOT format
+    # Show dependencies for all tasks
+    $ mise tasks deps
+
+    # Show dependencies for the "lint", "test" and "check" tasks
+    $ mise tasks deps lint test check
+
+    # Show dependencies in DOT format
+    $ mise tasks deps --dot

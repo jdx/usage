@@ -41,8 +41,11 @@ Effectively the same as:
 
 ##### Flag `-q --quiet`
 
-Suppress non-error messagesExamples:
-  $ eval "$(mise activate bash)"
-  $ eval "$(mise activate zsh)"
-  $ mise activate fish | source
-  $ execx($(mise activate xonsh))
+Suppress non-error messages
+
+Examples:
+
+    $ eval "$(mise activate bash)"
+    $ eval "$(mise activate zsh)"
+    $ mise activate fish | source
+    $ execx($(mise activate xonsh))

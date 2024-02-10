@@ -23,12 +23,15 @@ Set the environment variable in the global config file
 
 Remove the environment variable from config file
 
-Can be used multiple times.Examples:
-  $ mise set NODE_ENV=production
+Can be used multiple times.
 
-  $ mise set NODE_ENV
-  production
+Examples:
 
-  $ mise set
-  key       value       source
-  NODE_ENV  production  ~/.config/mise/config.toml
+    $ mise set NODE_ENV=production
+
+    $ mise set NODE_ENV
+    production
+
+    $ mise set
+    key       value       source
+    NODE_ENV  production  ~/.config/mise/config.toml

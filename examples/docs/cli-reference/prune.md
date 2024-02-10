@@ -13,7 +13,10 @@ Prune only versions from this plugin(s)
 
 ##### Flag `-n --dry-run`
 
-Do not actually delete anythingExamples:
-  $ mise prune --dry-run
-  rm -rf ~/.local/share/mise/versions/node/20.0.0
-  rm -rf ~/.local/share/mise/versions/node/20.0.1
+Do not actually delete anything
+
+Examples:
+
+    $ mise prune --dry-run
+    rm -rf ~/.local/share/mise/versions/node/20.0.0
+    rm -rf ~/.local/share/mise/versions/node/20.0.1

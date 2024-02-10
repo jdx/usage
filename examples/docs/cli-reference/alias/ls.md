@@ -17,6 +17,9 @@ Show aliases for <PLUGIN>
 
 ##### Flag `--no-header`
 
-Don't show table headerExamples:
-  $ mise aliases
-  node    lts-hydrogen   20.0.0
+Don't show table header
+
+Examples:
+
+    $ mise aliases
+    node    lts-hydrogen   20.0.0

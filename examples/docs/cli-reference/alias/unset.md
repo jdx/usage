@@ -12,5 +12,8 @@ This modifies the contents of ~/.config/mise/config.toml
 
 ###### Arg `<ALIAS>`
 
-(required)The alias to removeExamples:
-  $ mise alias unset node lts-hydrogen
+(required)The alias to remove
+
+Examples:
+
+    $ mise alias unset node lts-hydrogen

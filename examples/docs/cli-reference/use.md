@@ -54,7 +54,10 @@ Specify a path to a config file or directory If a directory is specified, it wil
 
 Save exact version to config file
 e.g.: `mise use --pin node@20` will save 20.0.0 as the version
-Set MISE_ASDF_COMPAT=1 to make this the default behaviorExamples:
+Set MISE_ASDF_COMPAT=1 to make this the default behavior
+
+Examples:
+
     # set the current version of node to 20.x in .mise.toml of current directory
     # will write the fuzzy version (e.g.: 20)
     $ mise use node@20

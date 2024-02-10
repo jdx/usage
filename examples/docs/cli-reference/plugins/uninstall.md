@@ -14,5 +14,8 @@ Also remove the plugin's installs, downloads, and cache
 
 ##### Flag `-a --all`
 
-Remove all pluginsExamples:
-  $ mise uninstall node
+Remove all plugins
+
+Examples:
+
+    $ mise uninstall node

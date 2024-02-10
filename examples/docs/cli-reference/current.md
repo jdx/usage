@@ -7,7 +7,9 @@ and/or version. It's designed to fit into scripts more easily.
 
 ###### Arg `[PLUGIN]`
 
-Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etcExamples:
+Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
+
+Examples:
     # outputs `.tool-versions` compatible format
     $ mise current
     python 3.11.0 3.10.0

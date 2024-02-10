@@ -1,8 +1,8 @@
-# ~~`mise zzz`~~ (deprecated)
+# ~~`mise zzz`~~ [deprecated]
 
 Sleeps for a while.  The amount of time is determined by the --timeout option.
 
-##### Flag ~~`--timeout`~~ (deprecated)
+##### Flag ~~`--timeout`~~ [deprecated]
 
 The amount of time to sleep for.
 

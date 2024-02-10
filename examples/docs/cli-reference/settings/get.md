@@ -9,6 +9,9 @@ but managed separately with `mise aliases get`
 
 ###### Arg `<SETTING>`
 
-(required)The setting to showExamples:
-  $ mise settings get legacy_version_file
-  true
+(required)The setting to show
+
+Examples:
+
+    $ mise settings get legacy_version_file
+    true

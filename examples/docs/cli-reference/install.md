@@ -30,8 +30,11 @@ Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
 ##### Flag `-v --verbose...`
 
-Show installation outputExamples:
-  $ mise install node@20.0.0  # install specific node version
-  $ mise install node@20      # install fuzzy node version
-  $ mise install node         # install version specified in .tool-versions or .mise.toml
-  $ mise install              # installs everything specified in .tool-versions or .mise.toml
+Show installation output
+
+Examples:
+
+    $ mise install node@20.0.0  # install specific node version
+    $ mise install node@20      # install fuzzy node version
+    $ mise install node         # install version specified in .tool-versions or .mise.toml
+    $ mise install              # installs everything specified in .tool-versions or .mise.toml

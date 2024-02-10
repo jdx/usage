@@ -12,5 +12,8 @@ This modifies the contents of ~/.config/mise/config.toml
 
 ###### Arg `<VALUE>`
 
-(required)The value to setExamples:
-  $ mise settings set legacy_version_file true
+(required)The value to set
+
+Examples:
+
+    $ mise settings set legacy_version_file true

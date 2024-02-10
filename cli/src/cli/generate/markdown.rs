@@ -87,6 +87,8 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 {% for cmd in commands -%}
 {% if multi_dir -%}
 * [`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`]({{ multi_dir }}/{% for c in cmd.full_cmd %}{{ c | slugify }}{% if not loop.last %}/{% endif %}{% endfor %}.md)
+{% elif cmd.deprecated -%}
+* ~~[`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`](#{{ bin | slugify }}-{{ cmd.full_cmd | join(sep=" ") | slugify }})~~ [deprecated]
 {% else -%}
 * [`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`](#{{ bin | slugify }}-{{ cmd.full_cmd | join(sep=" ") | slugify }})
 {% endif -%}
@@ -95,7 +97,7 @@ const COMMANDS_INDEX_TEMPLATE: &str = r#"
 
 const COMMAND_TEMPLATE: &str = r##"
 {% set deprecated = "" %}{% if cmd.deprecated %}{% set deprecated = "~~" %}{% endif %}
-{{ header }} {{deprecated}}`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} (deprecated){% endif -%}
+{{ header }} {{deprecated}}`{{ bin }} {{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} [deprecated]{% endif -%}
 
 {% if cmd.before_long_help %}
 
@@ -139,7 +141,7 @@ const COMMAND_TEMPLATE: &str = r##"
 {% for flag in cmd.flags %}
 
 {% if flag.deprecated -%}
-##### Flag ~~`{{ flag.usage }}`~~ (deprecated)
+##### Flag ~~`{{ flag.usage }}`~~ [deprecated]
 {% else -%}
 ##### Flag `{{ flag.usage }}`
 {% endif %}
@@ -163,9 +165,11 @@ const COMMAND_TEMPLATE: &str = r##"
 {% endif -%}
 {% endfor -%}
 
-{% if cmd.after_long_help -%}
+{% if cmd.after_long_help %}
+
 {{ cmd.after_long_help | trim }}
-{% elif cmd.after_help -%}
+{% elif cmd.after_help %}
+
 {{ cmd.after_help | trim }}
 {% endif -%}
 "##;

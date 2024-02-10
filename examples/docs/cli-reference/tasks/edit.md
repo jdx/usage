@@ -10,6 +10,9 @@ The tasks will be created as a standalone script if it does not already exist.
 
 ##### Flag `-p --path`
 
-Display the path to the tasks instead of editing itExamples:
-  $ mise tasks edit build
-  $ mise tasks edit test
+Display the path to the tasks instead of editing it
+
+Examples:
+
+    $ mise tasks edit build
+    $ mise tasks edit test

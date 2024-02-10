@@ -16,13 +16,15 @@ otherwise, it will show the current, active installed version
 
 the version prefix to use when querying the latest version
 same as the first argument after the "@"
-used for asdf compatibilityExamples:
-  # Show the latest installed version of node
-  # If it is is not installed, errors
-  $ mise where node@20
-  /home/jdx/.local/share/mise/installs/node/20.0.0
+used for asdf compatibility
 
-  # Show the current, active install directory of node
-  # Errors if node is not referenced in any .tool-version file
-  $ mise where node
-  /home/jdx/.local/share/mise/installs/node/20.0.0
+Examples:
+    # Show the latest installed version of node
+    # If it is is not installed, errors
+    $ mise where node@20
+    /home/jdx/.local/share/mise/installs/node/20.0.0
+
+    # Show the current, active install directory of node
+    # Errors if node is not referenced in any .tool-version file
+    $ mise where node
+    /home/jdx/.local/share/mise/installs/node/20.0.0

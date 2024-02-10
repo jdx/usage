@@ -25,7 +25,10 @@ Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
 ##### Flag `-u --unset`
 
-Removes a previously set versionExamples:
-  $ mise shell node@20
-  $ node -v
-  v20.0.0
+Removes a previously set version
+
+Examples:
+
+    $ mise shell node@20
+    $ node -v
+    v20.0.0
