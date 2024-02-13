@@ -6,7 +6,7 @@ pub fn complete_fish(bin: &str, usage_cmd: &str) -> String {
         r#"
 # if "usage" is not installed show an error
 if ! command -v usage &> /dev/null
-    echo "Error: usage not found. This is required for completions to work in {bin}." >&2
+    echo "Error: usage not found. This is required for completions to work in {bin}. https://usage.jdx.dev" >&2
     return 1
 end
 
