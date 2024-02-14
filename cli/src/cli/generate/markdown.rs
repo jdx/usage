@@ -26,8 +26,8 @@ pub struct Markdown {
     // spec_str: Option<String>,
     /// A markdown file taken as input
     /// This file should have a comment like this:
-    /// <!-- usage file="path/to/usage.kdl" -->
-    #[clap(required_unless_present = "out_dir", value_hint = clap::ValueHint::FilePath)]
+    /// <!-- [USAGE] load file="path/to/usage.kdl" -->
+    #[clap(required_unless_present = "out_dir", verbatim_doc_comment, value_hint = clap::ValueHint::FilePath)]
     inject: Option<PathBuf>,
 
     /// Output markdown files to this directory

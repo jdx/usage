@@ -24,6 +24,7 @@ pub struct Spec {
     pub usage: String,
     pub complete: IndexMap<String, Complete>,
 
+    pub author: Option<String>,
     pub about: Option<String>,
     pub long_about: Option<String>,
 }
@@ -65,6 +66,7 @@ impl Spec {
                 "name" => schema.name = node.arg(0)?.ensure_string()?,
                 "bin" => schema.bin = node.arg(0)?.ensure_string()?,
                 "version" => schema.version = Some(node.arg(0)?.ensure_string()?),
+                "author" => schema.author = Some(node.arg(0)?.ensure_string()?),
                 "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
                 "long_about" => schema.long_about = Some(node.arg(0)?.ensure_string()?),
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
@@ -169,6 +171,11 @@ impl Display for Spec {
         if let Some(version) = &self.version {
             let mut node = KdlNode::new("version");
             node.push(KdlEntry::new(version.clone()));
+            nodes.push(node);
+        }
+        if let Some(author) = &self.author {
+            let mut node = KdlNode::new("author");
+            node.push(KdlEntry::new(author.clone()));
             nodes.push(node);
         }
         if let Some(about) = &self.about {

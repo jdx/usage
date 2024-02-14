@@ -292,6 +292,15 @@ Shell type to generate completions for
 
 Shell type to generate completions for
 
+##### Flag `--usage`
+
+Always use usage for completions.
+Currently, usage is the default for fish and bash but not zsh since it has a few quirks
+to work out first.
+
+This requires the `usage` CLI to be installed.
+https://usage.jdx.dev
+
 Examples:
 
     $ mise completion bash > /etc/bash_completion.d/mise
@@ -1659,7 +1668,9 @@ Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
 ## `mise usage`
 
-Generate usage spec
+Generate a usage CLI spec
+
+See https://usage.jdx.dev for more information
 
 ## `mise use`
 
