@@ -28,7 +28,7 @@ mod tests {
         assert_snapshot!(complete_fish("mycli", "mycli complete --usage").trim(), @r###"
         # if "usage" is not installed show an error
         if ! command -v usage &> /dev/null
-            echo "Error: usage not found. This is required for completions to work in mycli." >&2
+            echo "Error: usage not found. This is required for completions to work in mycli. https://usage.jdx.dev" >&2
             return 1
         end
 

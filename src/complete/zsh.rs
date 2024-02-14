@@ -87,7 +87,7 @@ mod tests {
           local curcontext="$curcontext" spec cache_policy
 
           if ! command -v usage &> /dev/null; then
-              echo "Error: usage not found. This is required for completions to work in mycli." >&2
+              echo "Error: usage not found. This is required for completions to work in mycli. https://usage.jdx.dev" >&2
               return 1
           fi
 
