@@ -7,6 +7,7 @@
       "release-type": "rust",
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false,
+      "group-pull-request-title-pattern": "chore: release ${version}",
       "draft": false,
       "prerelease-type": "beta",
       "prerelease": true
