@@ -4,6 +4,7 @@ dependencies_update = true
 git_release_enable = false
 git_tag_enable = false
 pr_labels = ["release"]
+semver_check = false # TODO: disable after 1.0.0
 
 [[package]]
 name = "usage-cli"
