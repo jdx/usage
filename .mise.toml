@@ -35,6 +35,8 @@ run = 'cargo test --all --all-features'
 
 [tasks.lint]
 depends = ['lint:*']
+[tasks."lint:prettier"]
+run = "prettier -c ."
 [tasks."lint:clippy"]
 run = 'cargo clippy --all --all-features -- -D warnings'
 [tasks."lint:fmt"]
@@ -45,6 +47,9 @@ run = [
   'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
   'cargo fmt --all',
 ]
+
+[tasks.format]
+run = 'prettier -w .'
 
 [tasks.ci]
 depends = ['test', 'lint']

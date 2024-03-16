@@ -1,0 +1,11 @@
+[workspace]
+changelog_update = false
+
+[[package]]
+name = "usage-cli"
+changelog_update = true
+changelog_path = "./CHANGELOG.md"
+changelog_include = ["usage-lib"]
+
+[[package]]
+name = "usage-lib"
