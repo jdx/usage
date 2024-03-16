@@ -135,7 +135,7 @@ config {
         )
         .unwrap();
 
-        assert_display_snapshot!(spec, @r###"
+        assert_snapshot!(spec, @r###"
         config {
             prop "color" default="true" env="COLOR" help="Enable color output"
             prop "jobs" default="4" env="JOBS" help="Number of jobs to run"
