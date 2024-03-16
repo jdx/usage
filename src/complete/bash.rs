@@ -41,7 +41,9 @@ mod tests {
         assert_snapshot!(complete_bash("mycli", "mycli complete --usage").trim(), @r###"
         _mycli() {
             if ! command -v usage &> /dev/null; then
-                echo "Error: usage not found. This is required for completions to work in mycli. https://usage.jdx.dev" >&2
+                echo >&2
+                echo "Error: usage CLI not found. This is required for completions to work in mycli." >&2
+                echo "See https://usage.jdx.dev for more information." >&2
                 return 1
             fi
 
