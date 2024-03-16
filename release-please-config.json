@@ -1,11 +1,10 @@
 {
+  "bootstrap-sha": "1a10e641aa7803f6cc9fea98fea959e7e29b8430",
   "packages": {
     ".": {
-      "bootstrap-sha": "1a10e641aa7803f6cc9fea98fea959e7e29b8430",
       "plugins": ["cargo-workspace"],
       "changelog-path": "CHANGELOG.md",
       "release-type": "rust",
-      "skip-github-release": true,
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
