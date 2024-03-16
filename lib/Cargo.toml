@@ -1,7 +1,6 @@
 [package]
 name = "usage-lib"
 edition = "2021"
-version = "0.1.9"
 rust-version = "1.70.0"
 include = [
     "/Cargo.toml",
@@ -10,10 +9,11 @@ include = [
     "/src/**/*.rs",
 ]
 description = "Library for working with usage specs"
-homepage.workspace = true
-documentation.workspace = true
-authors.workspace = true
-license.workspace = true
+version = { workspace = true }
+homepage = { workspace = true }
+documentation = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
 
 [lib]
 name = "usage"
@@ -39,3 +39,7 @@ default = ["clap"]
 [dev-dependencies]
 ctor = "0.2"
 insta = "1"
+
+[package.metadata.release]
+shared-version = true
+release = true

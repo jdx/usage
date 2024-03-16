@@ -6,7 +6,15 @@ members = [
 ]
 
 [workspace.package]
+version = "0.1.9"
 homepage = "https://usage.jdx.dev"
 documentation = "https://github.com/jdx/usage"
 authors = ["Jeff Dickey @jdx"]
 license = "MIT"
+
+[workspace.dependencies]
+usage-cli = { path = "cli" }
+usage-lib = { path = "lib" }
+
+[workspace.metadata.release]
+allow-branch = ["main"]

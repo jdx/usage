@@ -20,15 +20,44 @@ env:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: google-github-actions/release-please-action@v4
         id: release
         with:
           token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
           release-type: simple
-  upload-assets:
+          prereleae: true
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          branch: release-please--branches--main
+      - name: update version string
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          sed -i "s/^version = .*/version = \"${{ steps.release.outputs.tag_name }}\"/" Cargo.toml
+          git add Cargo.toml
+          git commit --amend --no-edit
+          git push -f
+  publish-crates:
     needs: ["release-please"]
-    if: ${{ needs.release-please.steps.release.outputs.releases_created }}
+    if: ${{ needs.release-please.outputs.releases_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Publish crates
+        run: |
+          cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          cargo publish --manifest-path cli/Cargo.toml
+  upload-assets:
+    needs: ["publish-crates"]
     strategy:
       matrix:
         include:
