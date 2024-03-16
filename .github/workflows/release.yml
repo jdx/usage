@@ -28,7 +28,7 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
   upload-assets:
-    needs: ['release-please']
+    needs: ["release-please"]
     if: ${{ needs.release-please.steps.release.outputs.releases_created }}
     strategy:
       matrix:

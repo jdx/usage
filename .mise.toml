@@ -46,6 +46,9 @@ run = [
   'cargo fmt --all',
 ]
 
+[tasks.format]
+run = 'prettier -w .'
+
 [tasks.ci]
 depends = ['test', 'lint']
 
