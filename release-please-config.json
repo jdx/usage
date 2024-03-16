@@ -8,8 +8,8 @@
   "draft": false,
   "prerelease": true,
   "packages": {
-    "cli": {},
-    "lib": {}
+    "cli": {"package-name": "usage-cli"},
+    "lib": {"package-name": "usage-lib"}
   },
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
