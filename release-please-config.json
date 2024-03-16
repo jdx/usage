@@ -1,6 +1,5 @@
 {
   "bootstrap-sha": "1a10e641aa7803f6cc9fea98fea959e7e29b8430",
-  "group-pull-request-title-pattern": "chore: release ${version}",
   "plugins": ["cargo-workspace"],
   "changelog-path": "CHANGELOG.md",
   "release-type": "rust",
