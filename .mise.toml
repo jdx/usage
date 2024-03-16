@@ -74,3 +74,6 @@ run = [
 
 [tasks.release]
 run = "cargo release --workspace"
+
+[tools]
+"npm:prettier" = "latest"
