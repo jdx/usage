@@ -29,7 +29,7 @@ jobs:
         with:
           token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
           release-type: simple
-          prereleae: true
+          prerelease: true
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
         with:
