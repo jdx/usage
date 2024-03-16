@@ -61,3 +61,4 @@ allow-branch = ["main"]
 sign-commit = true
 sign-tag = true
 shared-version = true
+pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}" ]
