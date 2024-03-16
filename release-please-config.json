@@ -1,18 +1,15 @@
 {
   "bootstrap-sha": "1a10e641aa7803f6cc9fea98fea959e7e29b8430",
+  "group-pull-request-title-pattern": "chore: release ${version}",
+  "plugins": ["cargo-workspace"],
+  "changelog-path": "CHANGELOG.md",
+  "release-type": "rust",
+  "bump-minor-pre-major": false,
+  "bump-patch-for-minor-pre-major": false,
+  "draft": false,
+  "prerelease": true,
   "packages": {
-    ".": {
-      "plugins": ["cargo-workspace"],
-      "changelog-path": "CHANGELOG.md",
-      "release-type": "rust",
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
-      "group-pull-request-title-pattern": "chore: release ${version}",
-      "draft-pull-request": true,
-      "draft": false,
-      "prerelease-type": "beta",
-      "prerelease": true
-    }
+    ".": {}
   },
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
