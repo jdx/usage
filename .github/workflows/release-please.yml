@@ -15,5 +15,5 @@ jobs:
     steps:
       - uses: google-github-actions/release-please-action@v4
         with:
+          command: manifest
           token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
-          release-type: rust

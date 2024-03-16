@@ -8,3 +8,5 @@
 # already existing elements were commented out
 
 #/target
+
+megalinter-reports/
