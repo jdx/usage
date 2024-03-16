@@ -1,4 +1,4 @@
-name: Release-plz
+name: release-plz
 
 permissions:
   pull-requests: write
@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+
+concurrency:
+  group: release-plz-${{ github.ref }}
 
 jobs:
   release-plz:
