@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-plz-${{ github.ref }}
+
 jobs:
   release-plz:
     runs-on: ubuntu-latest
