@@ -247,7 +247,7 @@ cmd "config" {
         "#,
         )
         .unwrap();
-        assert_display_snapshot!(spec, @r###"
+        assert_snapshot!(spec, @r###"
         name "Usage CLI"
         bin "usage"
         flag "-f --force" global=true
@@ -265,7 +265,7 @@ cmd "config" {
     #[cfg(feature = "clap")]
     fn test_clap() {
         let cmd = clap::Command::new("test");
-        assert_display_snapshot!(Spec::from(&cmd), @r###"
+        assert_snapshot!(Spec::from(&cmd), @r###"
         name "test"
         bin "test"
         usage "Usage: test"

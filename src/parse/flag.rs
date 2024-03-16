@@ -323,16 +323,16 @@ mod tests {
 
     #[test]
     fn from_str() {
-        assert_display_snapshot!("-f".parse::<SpecFlag>().unwrap(), @"-f");
-        assert_display_snapshot!("--flag".parse::<SpecFlag>().unwrap(), @"--flag");
-        assert_display_snapshot!("-f --flag".parse::<SpecFlag>().unwrap(), @"-f --flag");
-        assert_display_snapshot!("-f --flag...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
-        assert_display_snapshot!("-f --flag ...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
-        assert_display_snapshot!("--flag <arg>".parse::<SpecFlag>().unwrap(), @"--flag <arg>");
-        assert_display_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
-        assert_display_snapshot!("-f --flag... <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag... <arg>");
-        assert_display_snapshot!("-f --flag <arg>...".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>...");
-        assert_display_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
-        assert_display_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+        assert_snapshot!("-f".parse::<SpecFlag>().unwrap(), @"-f");
+        assert_snapshot!("--flag".parse::<SpecFlag>().unwrap(), @"--flag");
+        assert_snapshot!("-f --flag".parse::<SpecFlag>().unwrap(), @"-f --flag");
+        assert_snapshot!("-f --flag...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
+        assert_snapshot!("-f --flag ...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
+        assert_snapshot!("--flag <arg>".parse::<SpecFlag>().unwrap(), @"--flag <arg>");
+        assert_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
+        assert_snapshot!("-f --flag... <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag... <arg>");
+        assert_snapshot!("-f --flag <arg>...".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>...");
+        assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
+        assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
     }
 }
