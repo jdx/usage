@@ -2,10 +2,10 @@
 
 The default priority for configuration properties in usage is the following:
 
-* CLI flag (e.g. `--user alice`)
-* Environment variable (e.g. `MYCLI_USER=alice`)
-* Config file (e.g. `~/.mycli.toml`)
-* Default value
+- CLI flag (e.g. `--user alice`)
+- Environment variable (e.g. `MYCLI_USER=alice`)
+- Config file (e.g. `~/.mycli.toml`)
+- Default value
 
 ## Environment Variables
 
