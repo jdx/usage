@@ -36,7 +36,7 @@ name = "usage"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "string"], optional = true }
-heck = "0.4.1"
+heck = "0.5.0"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.12"
 log = "0.4"
