@@ -1,16 +1,15 @@
 [workspace]
 changelog_update = false
+dependencies_update = true
 git_release_enable = false
 git_tag_enable = false
+pr_labels = ["release"]
 
 [[package]]
 name = "usage-cli"
-changelog_update = true
-changelog_path = "./CHANGELOG.md"
 changelog_include = ["usage-lib"]
-git_tag_name = "v${version}"
-git_tag_enable = true
+changelog_path = "./CHANGELOG.md"
+changelog_update = true
 git_release_enable = true
-
-# [[package]]
-# name = "usage-lib"
+git_tag_enable = true
+git_tag_name = "v${version}"
