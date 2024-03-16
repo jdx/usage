@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.9"
+version = "0.2.0"
 homepage = "https://usage.jdx.dev"
 documentation = "https://github.com/jdx/usage"
 authors = ["Jeff Dickey @jdx"]
