@@ -3,24 +3,24 @@
 Usage can generate completion scripts for any shell. Here is an example for bash:
 
 ```sh-session
-$ usage g completion bash -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
-$ source ~/.bash_completions/mycli.bash
-$ mycli --<TAB>
+usage g completion bash -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
+source ~/.bash_completions/mycli.bash
+mycli --<TAB>
 ```
 
 zsh:
 
 ```sh-session
-$ usage g completion zsh -f ./mycli.usage.kdl > ~/.zsh_completions/_mycli
-$ source ~/.zsh_completions/_mycli
-$ mycli --<TAB>
+usage g completion zsh -f ./mycli.usage.kdl > ~/.zsh_completions/_mycli
+source ~/.zsh_completions/_mycli
+mycli --<TAB>
 ```
 
 fish:
 
 ```sh-session
-$ usage g completion fish -f ./mycli.usage.kdl > ~/.config/fish/completions/mycli.fish
-$ mycli --<TAB>
+usage g completion fish -f ./mycli.usage.kdl > ~/.config/fish/completions/mycli.fish
+mycli --<TAB>
 ```
 
 ::: info
