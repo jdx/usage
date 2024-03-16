@@ -1,0 +1,6 @@
+CHANGELOG.md
+docs/.vitepress
+docs/public/site.webmanifest
+examples/docs
+lefthook.yml
+pnpm-lock.yaml
