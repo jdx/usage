@@ -1,11 +1,16 @@
 [workspace]
 changelog_update = false
+dependencies_update = true
+git_release_enable = false
+git_tag_enable = false
+pr_labels = ["release"]
+semver_check = false # TODO: disable after 1.0.0
 
 [[package]]
 name = "usage-cli"
-changelog_update = true
-changelog_path = "./CHANGELOG.md"
 changelog_include = ["usage-lib"]
-
-[[package]]
-name = "usage-lib"
+changelog_path = "./CHANGELOG.md"
+changelog_update = true
+git_release_enable = true
+git_tag_enable = true
+git_tag_name = "v${version}"

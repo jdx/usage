@@ -1,4 +1,4 @@
-name: Release-plz
+name: release-plz
 
 permissions:
   pull-requests: write
@@ -9,18 +9,19 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-plz-${{ github.ref }}
+
 jobs:
   release-plz:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Run release-plz
-        uses: MarcoIeni/release-plz-action@v0.5
+          token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: MarcoIeni/release-plz-action@v0.5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

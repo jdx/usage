@@ -13,8 +13,8 @@ authors = ["Jeff Dickey @jdx"]
 license = "MIT"
 
 [workspace.dependencies]
-usage-cli = { path = "cli" }
-usage-lib = { path = "lib" }
+usage-cli = { path = "./cli" }
+usage-lib = { path = "./lib" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
