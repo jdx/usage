@@ -16,7 +16,6 @@ env:
 
 jobs:
   publish-cli:
-    if: github.repository_owner == 'jdx' && startsWith(github.event.release.name, 'usage-v')
     strategy:
       matrix:
         include:
