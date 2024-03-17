@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 released_versions="$(git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')"
-cur_version="$(cargo pkgid usage-lib | cut -d# -f2)"
+cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
 if ! echo "$released_versions" | grep -q "^$cur_version$"; then
   echo "Releasing $cur_version"
   cargo publish -p usage-lib
