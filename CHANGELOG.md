@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11](https://github.com/jdx/usage/releases/tag/v${version}) - 2024-03-17
+
+### Other
+- fixing cargo metadata
+
 ## [0.1.10](https://github.com/jdx/usage/releases/tag/v${version}) - 2024-03-17
 
 ### Fixed
