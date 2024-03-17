@@ -7,6 +7,11 @@ if ! echo "$released_versions" | grep -q "^$cur_version$"; then
   echo "Releasing $cur_version"
   cargo publish -p usage-lib
   cargo publish -p usage-cli
+  changelog="$(git cliff --tag "v$cur_version" --strip all --unreleased)"
+  git tag "$cur_version"
+  git push --tags
+  gh release create "$cur_version" --title "$cur_version" --notes "$changelog"
+  exit 0
 fi
 
 version="$(git cliff --bumped-version)"
