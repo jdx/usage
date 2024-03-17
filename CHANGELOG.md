@@ -1,16 +1,64 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+---
+## [unreleased]
 
-## [Unreleased]
+### ⚙️ Miscellaneous Tasks
 
-## [0.1.10](https://github.com/jdx/usage/releases/tag/v${version}) - 2024-03-17
+- **(release-plz)** add all cargo files - ([6bc237d](https://github.com/jdx/mise/commit/6bc237d1babee025a0b4737781a6a742d93b7f4a)) - jdx
+- switch to dtolnay/rust-toolchain - ([d96d2a3](https://github.com/jdx/mise/commit/d96d2a37ff801d10868db265f26c10cf42181a11)) - jdx
 
-### Fixed
-- *(deps)* update rust crate heck to v0.5.0 ([#30](https://github.com/jdx/usage/pull/30))
+---
+## [0.1.17](https://github.com/jdx/mise/compare/v0.1.16..v0.1.17) - 2024-03-17
 
-### Other
-- move usage-lib into its own dir
-- added author field
+### ⚙️ Miscellaneous Tasks
+
+- ensure we publish the CLI - ([8b1f379](https://github.com/jdx/mise/commit/8b1f379ed94b5e85429846d0e3d1b0198a1449d1)) - jdx
+- bump release - ([3fa016a](https://github.com/jdx/mise/commit/3fa016a266753e9e5ebeb81eed61c74ced46e5cb)) - jdx
+
+---
+## [0.1.16](https://github.com/jdx/mise/compare/v0.1.9..v0.1.16) - 2024-03-17
+
+### 🐛 Bug Fixes
+
+- **(completions)** add newline before error message - ([bbbafad](https://github.com/jdx/mise/commit/bbbafad126889ccc415e586b7601f7bb97c6f5a8)) - jdx
+- bug fix for release tagging - ([2c4832f](https://github.com/jdx/mise/commit/2c4832f7c7c67d8d5c477a11e56a49b487f574b8)) - jdx
+
+### 🚜 Refactor
+
+- move usage-lib into its own dir - ([37e2379](https://github.com/jdx/mise/commit/37e2379122f123a85c4888e6efa1f62c631ac013)) - jdx
+
+### 🧪 Testing
+
+- **(markdown-link-check)** ignore placeholder urls - ([6744453](https://github.com/jdx/mise/commit/67444538f25a11c09f842e20a5baa30fc3f41fae)) - jdx
+- **(markdown-link-check)** ignore placeholder urls - ([940dfb7](https://github.com/jdx/mise/commit/940dfb7cd5d1dbc8d2f1bab3029c1c4ba786f6ee)) - jdx
+- fix snapshots - ([0ea3d8b](https://github.com/jdx/mise/commit/0ea3d8b6ae7e3343c71c6d23b9e2b5d0f648a575)) - jdx
+- fix deprecation warnings - ([be8d6d5](https://github.com/jdx/mise/commit/be8d6d5b9090103d5596ff6a038ad63e538c1722)) - jdx
+
+### ⚙️ Miscellaneous Tasks
+
+- **(release-plz)** autopublish tag/gh release - ([5f78550](https://github.com/jdx/mise/commit/5f7855048912adda5ebfa6cfd2375cf5e5ccb79b)) - jdx
+- **(release-plz)** remove old logic - ([9ac8a0e](https://github.com/jdx/mise/commit/9ac8a0e95ae51398633486365a45a447bd8664e5)) - jdx
+- **(release-plz)** prefix versions with "v" - ([964503c](https://github.com/jdx/mise/commit/964503c57d8960abec4d6655257c1b904e585eba)) - jdx
+- added git-cliff - ([6cca2bb](https://github.com/jdx/mise/commit/6cca2bbc77e459c45838e1957bc35eb42601a727)) - jdx
+- added release-please - ([e60127f](https://github.com/jdx/mise/commit/e60127f63a48a841b9aadfa04c9c4df045167dde)) - jdx
+- attempt to fix mega-linter - ([25a35e0](https://github.com/jdx/mise/commit/25a35e064c2ca29771d1c6b1ac5d2bea2b03b530)) - jdx
+- bootstrap release-please (#31) - ([b6a7584](https://github.com/jdx/mise/commit/b6a758421231e33582c9571aa3690936faa1e59b)) - jdx
+- release-plz - ([b7aa490](https://github.com/jdx/mise/commit/b7aa490d7b401d86ac11569aae824951ab4de27c)) - jdx
+- cargo update - ([0aa872c](https://github.com/jdx/mise/commit/0aa872ca68822d32d9fa8a5228525124ed076abb)) - jdx
+- remove markdown link checker since it keeps failing - ([0668a1f](https://github.com/jdx/mise/commit/0668a1f6dae63bd3ea916939ab0a4c9c58fd0c13)) - jdx
+- release (#39) - ([c88d57e](https://github.com/jdx/mise/commit/c88d57ed40974bea0a9370c76f79536805c4679c)) - mise-en-dev
+- fixing cargo metadata - ([64f19d7](https://github.com/jdx/mise/commit/64f19d7d40de0f897ccd22c07cd72e74b98b435f)) - jdx
+- use custom release-plz logic - ([bf4c151](https://github.com/jdx/mise/commit/bf4c151205d0560eefbf7a64cefd2524c57813db)) - jdx
+- bump version to try another release - ([badf251](https://github.com/jdx/mise/commit/badf251feb7fe86d763e4458261060b81f85fe7e)) - jdx
+- set metadata for usage-lib dependency - ([7e3538a](https://github.com/jdx/mise/commit/7e3538a304372c8d010386e22d39c02c9319d297)) - jdx
+- added git-cliff dependency - ([afd74d0](https://github.com/jdx/mise/commit/afd74d020d86fd77fe9b0696ae63863237297009)) - jdx
+- bump version to try another release - ([032f686](https://github.com/jdx/mise/commit/032f6860f569874e8ca2928f7db367191a8e69b3)) - jdx
+- bump release - ([4f3e3ea](https://github.com/jdx/mise/commit/4f3e3ea284968006e677402bd78afd3c592698b4)) - jdx
+- release on tags - ([6fd60be](https://github.com/jdx/mise/commit/6fd60be73ed06d62520fd2d39f175857243ec6e7)) - jdx
+- bump release - ([58be1c4](https://github.com/jdx/mise/commit/58be1c40f45fa86d1d8c6c6e58cbec85451c0d40)) - jdx
+- bump release - ([cd92e36](https://github.com/jdx/mise/commit/cd92e366ee60d9ea2cc6b43f9dadc7f27c0dd63e)) - jdx
+
+<!-- generated by git-cliff -->
