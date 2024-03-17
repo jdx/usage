@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+released_versions="$(git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')"
+cur_version="$(cargo pkgid usage-lib | cut -d# -f2)"
+if ! echo "$released_versions" | grep -q "^$cur_version$"; then
+  echo "Releasing $cur_version"
+  cargo publish -p usage-lib
+  cargo publish -p usage-cli
+fi
+
+version="$(git cliff --bumped-version)"
+changelog="$(git cliff --bump --unreleased --strip all)"
+
+git cliff --bump -o CHANGELOG.md
+cargo set-version "${version#v}"
+
+git config user.name mise-en-dev
+git config user.email 123107610+mise-en-dev@users.noreply.github.com
+cargo update
+git add \
+  Cargo.lock \
+  Cargo.toml \
+  CHANGELOG.md
+git checkout -B release
+git commit -m "Release $version"
+git push origin release --force
+gh pr create --title "Release $version" --body "$changelog" --label "release" ||
+  gh pr edit --title "Release $version" --body "$changelog"

@@ -8,9 +8,10 @@ on:
   push:
     branches:
       - main
+      - release-plz
 
 concurrency:
-  group: release-plz-${{ github.ref }}
+  group: release-plz
 
 jobs:
   release-plz:
@@ -20,7 +21,18 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: false
+      - uses: jdx/mise-action@v2
+        with:
+          experimental: true
+      - run: mise trust --all
+      - run: mise run release-plz
+        env:
+          GITHUB_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       - uses: MarcoIeni/release-plz-action@v0.5
         env:
           GITHUB_TOKEN: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}

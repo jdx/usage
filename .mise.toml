@@ -2,6 +2,10 @@
 CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
+[tools]
+"npm:prettier" = "latest"
+"cargo:cargo-edit" = "latest"
+
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
 outputs = ['target/debug/rtx']
@@ -74,6 +78,3 @@ run = [
 
 [tasks.release]
 run = "cargo release --workspace"
-
-[tools]
-"npm:prettier" = "latest"
