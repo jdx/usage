@@ -1,0 +1,3 @@
+{
+  "ignorePatterns": "https://github.com/jdx/usage/releases/tag/v$%7Bversion%7D"
+}
