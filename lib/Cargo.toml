@@ -1,6 +1,7 @@
 [package]
 name = "usage-lib"
 edition = "2021"
+version = "0.1.10"
 rust-version = "1.70.0"
 include = [
     "/Cargo.toml",
@@ -9,9 +10,9 @@ include = [
     "/src/**/*.rs",
 ]
 description = "Library for working with usage specs"
-version = { workspace = true }
 homepage = { workspace = true }
 documentation = { workspace = true }
+repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 

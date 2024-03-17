@@ -8,7 +8,8 @@ members = [
 [workspace.package]
 version = "0.1.10"
 homepage = "https://usage.jdx.dev"
-documentation = "https://github.com/jdx/usage"
+documentation = "https://usage.jdx.dev"
+repository = "https://github.com/jdx/usage"
 authors = ["Jeff Dickey @jdx"]
 license = "MIT"
 

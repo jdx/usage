@@ -1,11 +1,11 @@
 [package]
 name = "usage-cli"
 edition = "2021"
-repository = "https://github.com/jdx/usage"
+version = "0.1.10"
 description = "CLI for working with usage-based CLIs"
-version = { workspace = true }
 license = { workspace = true }
 authors = { workspace = true }
+repository = { workspace = true }
 documentation = { workspace = true }
 homepage = { workspace = true }
 include = [
