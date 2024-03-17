@@ -6,7 +6,6 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.10"
 homepage = "https://usage.jdx.dev"
 documentation = "https://usage.jdx.dev"
 repository = "https://github.com/jdx/usage"
