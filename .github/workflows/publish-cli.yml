@@ -4,8 +4,8 @@ permissions:
   contents: write
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 concurrency:
   group: publish-cli-${{ github.ref_name }}
