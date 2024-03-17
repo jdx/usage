@@ -24,8 +24,7 @@ git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
 cargo update
 git add \
-  Cargo.lock \
-  Cargo.toml \
+  {./,cli/,lib/}Cargo.* \
   CHANGELOG.md
 git checkout -B release
 git commit -m "Release $version"
