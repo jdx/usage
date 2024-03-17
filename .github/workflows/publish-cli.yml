@@ -32,10 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: usage
