@@ -3,7 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 ---
-## [unreleased]
+## [0.1.18](https://github.com/jdx/mise/compare/v0.1.17..v0.1.18) - 2024-03-23
+
+### 📚 Documentation
+
+- **(changelog)** ran git-cliff - ([e2b6df1](https://github.com/jdx/mise/commit/e2b6df1b7fdb0318fa0eed709396cd202abd296b)) - jdx
 
 ### ⚙️ Miscellaneous Tasks
 
