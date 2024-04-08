@@ -38,7 +38,7 @@ impl Spec {
             schema.bin = file.file_name().unwrap().to_str().unwrap().to_string();
         }
         if schema.name.is_empty() {
-            schema.name = schema.bin.clone();
+            schema.name.clone_from(&schema.bin);
         }
         Ok((schema, body))
     }

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::env;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -9,10 +9,10 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 use once_cell::sync::Lazy;
-use strum::EnumTryAs;
 use xx::process::check_status;
 use xx::{XXError, XXResult};
 
+use usage::cli::{ParseOutput, ParseValue};
 use usage::{Complete, Spec, SpecArg, SpecCommand, SpecFlag};
 
 use crate::cli::generate;
@@ -84,34 +84,6 @@ impl CompleteWord {
             vec![]
         };
         Ok(choices)
-    }
-}
-
-struct ParseOutput<'a> {
-    cmd: &'a SpecCommand,
-    cmds: Vec<&'a SpecCommand>,
-    args: IndexMap<&'a SpecArg, ParseValue>,
-    _flags: IndexMap<SpecFlag, ParseValue>,
-    available_flags: BTreeMap<String, SpecFlag>,
-    flag_awaiting_value: Option<SpecFlag>,
-}
-
-#[derive(EnumTryAs)]
-enum ParseValue {
-    Bool(bool),
-    String(String),
-    MultiBool(Vec<bool>),
-    MultiString(Vec<String>),
-}
-
-impl Display for ParseValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseValue::Bool(b) => write!(f, "{}", b),
-            ParseValue::String(s) => write!(f, "{}", s),
-            ParseValue::MultiBool(b) => write!(f, "{:?}", b),
-            ParseValue::MultiString(s) => write!(f, "{:?}", s),
-        }
     }
 }
 
@@ -393,28 +365,4 @@ fn sh(script: &str) -> XXResult<String> {
         .map_err(|err| XXError::ProcessError(err, format!("sh -c {script}")))?;
     let stdout = String::from_utf8(output.stdout).expect("stdout is not utf-8");
     Ok(stdout)
-}
-
-impl Debug for ParseOutput<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ParseOutput")
-            .field("cmds", &self.cmds.iter().map(|c| &c.name).join(" ").trim())
-            .field(
-                "args",
-                &self
-                    .args
-                    .iter()
-                    .map(|(a, w)| format!("{a}: {w}"))
-                    .collect_vec(),
-            )
-            .field(
-                "flags",
-                &self
-                    .available_flags
-                    .iter()
-                    .map(|(f, w)| format!("{f}: {w}"))
-                    .collect_vec(),
-            )
-            .finish()
-    }
 }
