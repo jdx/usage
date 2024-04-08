@@ -1,6 +1,27 @@
 # Changelog
 
 ---
+## [0.1.18](https://github.com/jdx/usage/compare/v0.1.17..v0.1.18) - 2024-04-08
+
+### 📦️ Dependency Updates
+
+- update dependency vitepress to v1.0.1 (#42) by [@renovate[bot]](https://github.com/renovate[bot]) in [#42](https://github.com/jdx/usage/pull/42)
+- update actions/configure-pages action to v5 (#44) by [@renovate[bot]](https://github.com/renovate[bot]) in [#44](https://github.com/jdx/usage/pull/44)
+- lock file maintenance (#45) by [@renovate[bot]](https://github.com/renovate[bot]) in [#45](https://github.com/jdx/usage/pull/45)
+- update dependency vitepress to v1.0.2 (#46) by [@renovate[bot]](https://github.com/renovate[bot]) in [#46](https://github.com/jdx/usage/pull/46)
+- lock file maintenance (#47) by [@renovate[bot]](https://github.com/renovate[bot]) in [#47](https://github.com/jdx/usage/pull/47)
+
+### 📚 Documentation
+
+- **(changelog)** ran git-cliff by [@jdx](https://github.com/jdx) in [e2b6df1](https://github.com/jdx/usage/commit/e2b6df1b7fdb0318fa0eed709396cd202abd296b)
+- improve CHANGELOG (#43) by [@jdx](https://github.com/jdx) in [#43](https://github.com/jdx/usage/pull/43)
+
+### ⚙️ Miscellaneous Tasks
+
+- **(release-plz)** add all cargo files by [@jdx](https://github.com/jdx) in [6bc237d](https://github.com/jdx/usage/commit/6bc237d1babee025a0b4737781a6a742d93b7f4a)
+- switch to dtolnay/rust-toolchain by [@jdx](https://github.com/jdx) in [d96d2a3](https://github.com/jdx/usage/commit/d96d2a37ff801d10868db265f26c10cf42181a11)
+
+---
 ## [0.1.17](https://github.com/jdx/usage/compare/v0.1.16..v0.1.17) - 2024-03-17
 
 ### ⚙️ Miscellaneous Tasks
