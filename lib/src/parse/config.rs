@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
-use crate::bail_parse;
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
 use crate::parse::data_types::SpecDataTypes;
