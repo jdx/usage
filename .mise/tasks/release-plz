@@ -1,4 +1,4 @@
-#!/usr/bin/env -S usage exec bash
+#!/usr/bin/bash
 # shellcheck shell=bash
 set -euxo pipefail
 
