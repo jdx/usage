@@ -11,7 +11,7 @@ pub struct ParseOutput<'a> {
     pub cmd: &'a SpecCommand,
     pub cmds: Vec<&'a SpecCommand>,
     pub args: IndexMap<&'a SpecArg, ParseValue>,
-    pub _flags: IndexMap<SpecFlag, ParseValue>,
+    pub flags: IndexMap<SpecFlag, ParseValue>,
     pub available_flags: BTreeMap<String, SpecFlag>,
     pub flag_awaiting_value: Option<SpecFlag>,
 }
@@ -159,7 +159,7 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
         cmd,
         cmds,
         args,
-        _flags: flags,
+        flags,
         available_flags,
         flag_awaiting_value,
     })
@@ -185,15 +185,23 @@ impl Debug for ParseOutput<'_> {
                 &self
                     .args
                     .iter()
-                    .map(|(a, w)| format!("{a}: {w}"))
+                    .map(|(a, w)| format!("{}: {w}", &a.name))
+                    .collect_vec(),
+            )
+            .field(
+                "available_flags",
+                &self
+                    .available_flags
+                    .iter()
+                    .map(|(f, w)| format!("{f}: {w}"))
                     .collect_vec(),
             )
             .field(
                 "flags",
                 &self
-                    .available_flags
+                    .flags
                     .iter()
-                    .map(|(f, w)| format!("{f}: {w}"))
+                    .map(|(f, w)| format!("{}: {w}", &f.name))
                     .collect_vec(),
             )
             .finish()
