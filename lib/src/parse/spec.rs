@@ -133,7 +133,7 @@ impl Spec {
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
-    let (schema, body) = schema.split_once("\n#!").unwrap_or((&schema, ""));
+    let (schema, body) = schema.split_once("\n#!").unwrap_or((schema, ""));
     let schema = schema.trim().to_string();
     let body = format!("#!{}", body);
     Ok((schema, body))
