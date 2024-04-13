@@ -70,4 +70,18 @@ export default defineConfig({
       copyright: 'Copyright © 2024 <a href="https://github.com/jdx">@jdx</a>',
     },
   },
+  head: [
+    [
+      'script',
+      { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-63L7VEB1RB' }
+    ],
+    [
+      'script',
+      {},
+      `window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-63L7VEB1RB');`
+    ]
+  ],
 });
