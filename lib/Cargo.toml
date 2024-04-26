@@ -32,7 +32,7 @@ serde = { version = "1", features = ["derive"] }
 shell-escape = "0.1"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "1"
-xx = "0.2"
+xx = "0.3"
 
 [features]
 default = ["clap"]

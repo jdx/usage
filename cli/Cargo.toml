@@ -41,7 +41,7 @@ strum = { version = "0.26", features = ["derive"] }
 tera = "1"
 thiserror = "1"
 usage-lib = { workspace = true, features = ["clap"] }
-xx = "0.2"
+xx = "0.3"
 
 [dev-dependencies]
 assert_cmd = { version = "2", features = ["color-auto"] }
