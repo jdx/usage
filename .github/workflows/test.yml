@@ -21,7 +21,6 @@ jobs:
         with:
           shared-key: test
           save-if: ${{ github.ref_name == 'main' }}
-          log_level: trace
       - uses: jdx/mise-action@v2
       - run: mise r build
       - run: mise r test
