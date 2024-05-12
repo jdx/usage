@@ -1,6 +1,6 @@
 [env]
 CARGO_TERM_COLOR = 'always'
-_.path = ["./target/debug"]
+# _.path = ["./target/debug"]
 
 [tools]
 "npm:prettier" = "latest"
