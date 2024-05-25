@@ -27,7 +27,9 @@ pub struct Markdown {
     /// A markdown file taken as input
     /// This file should have a comment like this:
     /// <!-- [USAGE] load file="path/to/usage.kdl" -->
-    #[clap(required_unless_present = "out_dir", verbatim_doc_comment, value_hint = clap::ValueHint::FilePath)]
+    #[clap(
+        required_unless_present = "out_dir", verbatim_doc_comment, value_hint = clap::ValueHint::FilePath
+    )]
     inject: Option<PathBuf>,
 
     /// Output markdown files to this directory
@@ -268,7 +270,7 @@ fn parse_readme_directives(path: &Path, full: &str) -> miette::Result<Vec<UsageM
         let directive = if let Some(x) = regex!(r#"<!-- \[USAGE\] (.*) -->"#).captures(line) {
             let doc: KdlDocument = x.get(1).unwrap().as_str().parse()?;
             if !doc.nodes().len() == 1 {
-                bail!("only one node allowed in usage directive");
+                miette::bail!("only one node allowed in usage directive");
             }
             let node = doc.nodes().first().unwrap();
             let err = |msg: String, span| MarkdownError {

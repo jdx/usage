@@ -30,7 +30,7 @@ env_logger = "0.11"
 exec = "0.3"
 heck = "0.5"
 indexmap = "2"
-itertools = "0.12"
+itertools = "0.13"
 kdl = "4"
 log = "0.4"
 miette = { version = "5", features = ["fancy"] }
@@ -41,7 +41,7 @@ strum = { version = "0.26", features = ["derive"] }
 tera = "1"
 thiserror = "1"
 usage-lib = { workspace = true, features = ["clap"] }
-xx = "1.0"
+xx = "1"
 
 [dev-dependencies]
 assert_cmd = { version = "2", features = ["color-auto"] }
