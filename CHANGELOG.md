@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/jdx/usage/compare/v0.2.0..v0.2.1) - 2024-05-25
+
+### 🔍 Other Changes
+
+- updated deps by [@jdx](https://github.com/jdx) in [a457da9](https://github.com/jdx/usage/commit/a457da9ccec4890d63f3ab8e2215e51e64fd2425)
+
+### 📦️ Dependency Updates
+
+- update rust crate xx to v1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#64](https://github.com/jdx/usage/pull/64)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#65](https://github.com/jdx/usage/pull/65)
+- update rust crate serde to v1.0.202 by [@renovate[bot]](https://github.com/renovate[bot]) in [#68](https://github.com/jdx/usage/pull/68)
+- update rust crate thiserror to v1.0.61 by [@renovate[bot]](https://github.com/renovate[bot]) in [#69](https://github.com/jdx/usage/pull/69)
+
 ## [0.2.0](https://github.com/jdx/usage/compare/v0.1.18..v0.2.0) - 2024-05-12
 
 ### 🚀 Features
