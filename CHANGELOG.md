@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0](https://github.com/jdx/usage/compare/v0.2.1..v0.3.0) - 2024-05-26
+
+### 🚀 Features
+
+- complete descriptions by [@jdx](https://github.com/jdx) in [a8afca7](https://github.com/jdx/usage/commit/a8afca7d6ad773431acfde8280e9dfb2884ef4e0)
+
 ## [0.2.1](https://github.com/jdx/usage/compare/v0.2.0..v0.2.1) - 2024-05-25
 
 ### 🔍 Other Changes
