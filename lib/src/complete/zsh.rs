@@ -42,7 +42,7 @@ _{bin}() {{
     _store_cache _usage_{bin}_spec spec
   fi
 
-  _arguments '*: :($(usage complete-word -s "$spec" -- "${{words[@]}}" ))'
+  _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${{words[@]}}" )))"
   return 0
 }}
 
@@ -107,7 +107,7 @@ mod tests {
             _store_cache _usage_mycli_spec spec
           fi
 
-          _arguments '*: :($(usage complete-word -s "$spec" -- "${words[@]}" ))'
+          _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
           return 0
         }
 
