@@ -23,5 +23,5 @@ cargo binstall usage-cli
 ### Homebrew
 
 ```sh
-brew install jdx/tap/usage
+brew install usage
 ```
