@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.1](https://github.com/jdx/usage/compare/v0.3.0..v0.3.1) - 2024-07-01
+
+### 📦️ Dependency Updates
+
+- update dependency vitepress to v1.2.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#72](https://github.com/jdx/usage/pull/72)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#73](https://github.com/jdx/usage/pull/73)
+- update rust crate tera to v1.20.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#75](https://github.com/jdx/usage/pull/75)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#76](https://github.com/jdx/usage/pull/76)
+- update dependency vitepress to v1.2.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#77](https://github.com/jdx/usage/pull/77)
+- update rust crate clap to v4.5.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#78](https://github.com/jdx/usage/pull/78)
+- update rust crate clap to v4.5.7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#79](https://github.com/jdx/usage/pull/79)
+- update rust crate regex to v1.10.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#80](https://github.com/jdx/usage/pull/80)
+- update rust crate log to v0.4.22 by [@renovate[bot]](https://github.com/renovate[bot]) in [#82](https://github.com/jdx/usage/pull/82)
+- update rust crate clap to v4.5.8 by [@renovate[bot]](https://github.com/renovate[bot]) in [#81](https://github.com/jdx/usage/pull/81)
+
 ## [0.3.0](https://github.com/jdx/usage/compare/v0.2.1..v0.3.0) - 2024-05-26
 
 ### 🚀 Features
