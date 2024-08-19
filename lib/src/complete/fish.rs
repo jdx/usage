@@ -13,7 +13,7 @@ if ! command -v usage &> /dev/null
 end
 
 set _usage_spec_{bin} ({usage_cmd} | string collect)
-complete -xc {bin} -a '(usage complete-word -s "$_usage_spec_{bin}" -- (commandline -cop) (commandline -t))'
+complete -xc {bin} -a '(usage complete-word --shell fish -s "$_usage_spec_{bin}" -- (commandline -cop) (commandline -t))'
 "#
     )
 }
@@ -37,7 +37,7 @@ mod tests {
         end
 
         set _usage_spec_mycli (mycli complete --usage | string collect)
-        complete -xc mycli -a '(usage complete-word -s "$_usage_spec_mycli" -- (commandline -cop) (commandline -t))'
+        complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -cop) (commandline -t))'
         "###);
     }
 }
