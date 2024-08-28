@@ -1,16 +1,16 @@
 # `flag`
 
 ```sh
-flag "-u,--user <user>" # one way to define a flag
+flag "-u --user <user>" # one way to define a flag
 flag "--user" { # another way to define the same flag
   alias "-u"
   arg "<user>"
 }
 flag "--user" { alias "-u" hide=true } # hide alias from docs and completions
 
-flag "-f,--force" global=true           # global can be set on any subcommand
+flag "-f --force" global=true           # global can be set on any subcommand
 flag "--file <file>" default="file.txt" # default value for flag
-flag "-v,--verbose" count=true          # instead of true/false $usage_verbose is # of times
+flag "-v --verbose" count=true          # instead of true/false $usage_verbose is # of times
                                         # flag was used (e.g. -vvv = 3)
 
 flag "--color" negate="--no-color" default=true  # $usage_color=true by default

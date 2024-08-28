@@ -6,8 +6,8 @@ single file. Here is an example in bash:
 
 ```bash
 #!/usr/bin/env usage
-flag "-f,--force" help="Overwrite existing <file>"
-flag "-u,--user <user>" help="User to run as"
+flag "-f --force" help="Overwrite existing <file>"
+flag "-u --user <user>" help="User to run as"
 arg "<file>" help="The file to write" default="file.txt"
 
 #!/usr/bin/env bash
