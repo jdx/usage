@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.3.1](https://github.com/jdx/usage/compare/v0.3.0..v0.3.1) - 2024-08-28
+
+### 🐛 Bug Fixes
+
+- **(brew)** use official homebrew formula by [@jdx](https://github.com/jdx) in [#54](https://github.com/jdx/usage/pull/54)
+- make shebang scripts work with comments by [@jdx](https://github.com/jdx) in [9eb2a64](https://github.com/jdx/usage/commit/9eb2a64ff0e3c463f53fe0c283bbb932e5b3dd77)
+
+### 📦️ Dependency Updates
+
+- update dependency vitepress to v1.2.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#72](https://github.com/jdx/usage/pull/72)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#73](https://github.com/jdx/usage/pull/73)
+- update rust crate tera to v1.20.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#75](https://github.com/jdx/usage/pull/75)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#76](https://github.com/jdx/usage/pull/76)
+- update dependency vitepress to v1.2.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#77](https://github.com/jdx/usage/pull/77)
+- update rust crate clap to v4.5.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#78](https://github.com/jdx/usage/pull/78)
+- update rust crate clap to v4.5.7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#79](https://github.com/jdx/usage/pull/79)
+- update rust crate regex to v1.10.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#80](https://github.com/jdx/usage/pull/80)
+- update rust crate log to v0.4.22 by [@renovate[bot]](https://github.com/renovate[bot]) in [#82](https://github.com/jdx/usage/pull/82)
+- update rust crate clap to v4.5.8 by [@renovate[bot]](https://github.com/renovate[bot]) in [#81](https://github.com/jdx/usage/pull/81)
+- update rust crate serde to v1.0.204 by [@renovate[bot]](https://github.com/renovate[bot]) in [#85](https://github.com/jdx/usage/pull/85)
+- update rust crate clap to v4.5.9 by [@renovate[bot]](https://github.com/renovate[bot]) in [#84](https://github.com/jdx/usage/pull/84)
+- update rust crate strum to v0.26.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#86](https://github.com/jdx/usage/pull/86)
+- update rust crate thiserror to v1.0.63 by [@renovate[bot]](https://github.com/renovate[bot]) in [#87](https://github.com/jdx/usage/pull/87)
+- update dependency vitepress to v1.3.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#88](https://github.com/jdx/usage/pull/88)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#89](https://github.com/jdx/usage/pull/89)
+- update rust crate predicates to v3.1.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#91](https://github.com/jdx/usage/pull/91)
+- update rust crate assert_cmd to v2.0.15 by [@renovate[bot]](https://github.com/renovate[bot]) in [#90](https://github.com/jdx/usage/pull/90)
+- update rust crate env_logger to v0.11.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#93](https://github.com/jdx/usage/pull/93)
+- update rust crate clap to v4.5.13 by [@renovate[bot]](https://github.com/renovate[bot]) in [#92](https://github.com/jdx/usage/pull/92)
+- update rust crate assert_cmd to v2.0.16 by [@renovate[bot]](https://github.com/renovate[bot]) in [#94](https://github.com/jdx/usage/pull/94)
+- update dependency vitepress to v1.3.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#95](https://github.com/jdx/usage/pull/95)
+- update dependency vitepress to v1.3.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#96](https://github.com/jdx/usage/pull/96)
+- update rust crate clap to v4.5.16 by [@renovate[bot]](https://github.com/renovate[bot]) in [#97](https://github.com/jdx/usage/pull/97)
+- update dependency vitepress to v1.3.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#98](https://github.com/jdx/usage/pull/98)
+- update rust crate regex to v1.10.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#99](https://github.com/jdx/usage/pull/99)
+
 ## [0.3.0](https://github.com/jdx/usage/compare/v0.2.1..v0.3.0) - 2024-05-26
 
 ### 🚀 Features
