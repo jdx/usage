@@ -68,7 +68,9 @@ impl CompleteWord {
         let mut ctx = tera::Context::new();
         ctx.insert("words", &self.words);
         ctx.insert("CURRENT", &cword);
-        ctx.insert("PREV", &(cword - 1));
+        if cword > 0 {
+            ctx.insert("PREV", &(cword - 1));
+        }
 
         let parsed = usage::cli::parse(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));

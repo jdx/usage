@@ -134,7 +134,12 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
     let (schema, body) = schema.split_once("\n#!").unwrap_or((schema, ""));
-    let schema = schema.trim().to_string();
+    let schema = schema
+        .trim()
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
     let body = format!("#!{}", body);
     Ok((schema, body))
 }
