@@ -132,6 +132,9 @@ impl Spec {
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
+    if full.contains("# |usage.jdx.dev|") {
+        return Ok((extract_usage_from_comments(&full), full));
+    }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
     let (schema, body) = schema.split_once("\n#!").unwrap_or((schema, ""));
     let schema = schema
@@ -142,6 +145,21 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
         .join("\n");
     let body = format!("#!{}", body);
     Ok((schema, body))
+}
+
+fn extract_usage_from_comments(full: &str) -> String {
+    let mut usage = vec![];
+    let mut inside = false;
+    for line in full.lines() {
+        if line.starts_with("# |usage.jdx.dev|") {
+            inside = !inside;
+            continue;
+        }
+        if inside {
+            usage.push(line.strip_prefix("# ").unwrap());
+        }
+    }
+    usage.join("\n")
 }
 
 fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
