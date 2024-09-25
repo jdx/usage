@@ -132,7 +132,7 @@ impl Spec {
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
-    if full.contains("# |usage.jdx.dev|") {
+    if full.contains("#USAGE") {
         return Ok((extract_usage_from_comments(&full), full));
     }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
@@ -149,14 +149,14 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
 
 fn extract_usage_from_comments(full: &str) -> String {
     let mut usage = vec![];
-    let mut inside = false;
+    let mut found = false;
     for line in full.lines() {
-        if line.starts_with("# |usage.jdx.dev|") {
-            inside = !inside;
-            continue;
-        }
-        if inside {
-            usage.push(line.strip_prefix("# ").unwrap());
+        if line.starts_with("#USAGE") {
+            found = true;
+            usage.push(line.strip_prefix("#USAGE").unwrap().trim());
+        } else if found {
+            // if there is a gap, stop reading
+            break;
         }
     }
     usage.join("\n")

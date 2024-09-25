@@ -1,11 +1,9 @@
 #!/usr/bin/env -S usage bash
-# |usage.jdx.dev|
-# bin "ex"
-# flag "--foo" help="Flag value"
-# flag "--bar <bar>" help="Option value"
-# arg "baz" help="Positional values"
-# |usage.jdx.dev|
-# shellcheck disable=all
+# shellcheck disable=SC2154
+#USAGE bin "ex"
+#USAGE flag "--foo" help="Flag value"
+#USAGE flag "--bar <bar>" help="Option value"
+#USAGE arg "baz" help="Positional values"
 set -euo pipefail
 
 echo foo: $usage_foo
