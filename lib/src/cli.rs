@@ -1,6 +1,7 @@
 use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use miette::bail;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use strum::EnumTryAs;
@@ -152,7 +153,7 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
             }
             continue;
         }
-        panic!("unexpected word: {w}");
+        bail!("unexpected word: {w}");
     }
 
     Ok(ParseOutput {
