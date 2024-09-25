@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/jdx/usage/compare/v0.4.0..v0.5.0) - 2024-09-25
+
+### 🚀 Features
+
+- added .as_env() to CLI parser by [@jdx](https://github.com/jdx) in [b1f6617](https://github.com/jdx/usage/commit/b1f66179b70a4bcdc6792add24a7b62e1afdd81d)
+- added Spec::parse_script fn by [@jdx](https://github.com/jdx) in [124a705](https://github.com/jdx/usage/commit/124a7050c6b1b5bb502049204556b74b6e8a4b71)
+
 ## [0.4.0](https://github.com/jdx/usage/compare/v0.3.1..v0.4.0) - 2024-09-25
 
 ### 🚀 Features
