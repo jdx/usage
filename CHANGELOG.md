@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/jdx/usage/compare/v0.3.1..v0.4.0) - 2024-09-25
+
+### 🚀 Features
+
+- add comment syntax for file scripts by [@jdx](https://github.com/jdx) in [ee75493](https://github.com/jdx/usage/commit/ee7549303a0cf63c5da8257287be21d0af85ce86)
+
+### 🐛 Bug Fixes
+
+- tweak comment syntax by [@jdx](https://github.com/jdx) in [dfff6e2](https://github.com/jdx/usage/commit/dfff6e2daaafb47200a32d4654482beabbe2f343)
+
+### 📚 Documentation
+
+- update flag syntax by [@jdx](https://github.com/jdx) in [a67de2e](https://github.com/jdx/usage/commit/a67de2e6e855b24d340d559ded9e1464f95c2894)
+
+### 📦️ Dependency Updates
+
+- update rust crate serde to v1.0.210 by [@renovate[bot]](https://github.com/renovate[bot]) in [#102](https://github.com/jdx/usage/pull/102)
+- update rust crate clap to v4.5.18 by [@renovate[bot]](https://github.com/renovate[bot]) in [#101](https://github.com/jdx/usage/pull/101)
+
 ## [0.3.1](https://github.com/jdx/usage/compare/v0.3.0..v0.3.1) - 2024-08-28
 
 ### 🐛 Bug Fixes
