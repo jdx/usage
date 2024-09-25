@@ -1,8 +1,8 @@
-use std::collections::{BTreeMap, VecDeque};
-use std::fmt::{Debug, Display, Formatter};
-
+use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use std::collections::{BTreeMap, VecDeque};
+use std::fmt::{Debug, Display, Formatter};
 use strum::EnumTryAs;
 
 use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
@@ -165,6 +165,23 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
     })
 }
 
+impl ParseOutput<'_> {
+    pub fn as_env(&self) -> BTreeMap<String, String> {
+        let mut env = BTreeMap::new();
+        for (flag, val) in &self.flags {
+            let key = format!("usage_{}", flag.name.to_snake_case());
+            let val = match val {
+                ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+                ParseValue::String(s) => s.clone(),
+                ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
+                ParseValue::MultiString(s) => s.join(","),
+            };
+            env.insert(key, val);
+        }
+        env
+    }
+}
+
 impl Display for ParseValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -205,5 +222,62 @@ impl Debug for ParseOutput<'_> {
                     .collect_vec(),
             )
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd: SpecCommand {
+                name: "test".to_string(),
+                args: vec![SpecArg {
+                    name: "arg".to_string(),
+                    ..Default::default()
+                }],
+                flags: vec![SpecFlag {
+                    name: "flag".to_string(),
+                    long: vec!["flag".to_string()],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let input = vec!["test".to_string(), "arg1".to_string(), "--flag".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.cmds.len(), 1);
+        assert_eq!(parsed.cmds[0].name, "test");
+        assert_eq!(parsed.args.len(), 1);
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(parsed.available_flags.len(), 1);
+    }
+
+    #[test]
+    fn test_as_env() {
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd: SpecCommand {
+                name: "test".to_string(),
+                flags: vec![SpecFlag {
+                    name: "flag".to_string(),
+                    long: vec!["flag".to_string()],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let input = vec!["test".to_string(), "--flag".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(env.len(), 1);
+        assert_eq!(env.get("usage_flag"), Some(&"true".to_string()));
     }
 }
