@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1](https://github.com/jdx/usage/compare/v0.5.0..v0.5.1) - 2024-09-25
+
+### 🐛 Bug Fixes
+
+- bail instead of panic on CLI parse error by [@jdx](https://github.com/jdx) in [b935cca](https://github.com/jdx/usage/commit/b935ccae9a442378c71182293cd24380fdadf744)
+
 ## [0.5.0](https://github.com/jdx/usage/compare/v0.4.0..v0.5.0) - 2024-09-25
 
 ### 🚀 Features
