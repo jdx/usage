@@ -42,6 +42,18 @@ impl Spec {
         }
         Ok((schema, body))
     }
+    pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
+        let raw = extract_usage_from_comments(&file::read_to_string(file)?);
+        let ctx = ParsingContext::new(file, &raw);
+        let mut spec = Self::parse(&ctx, &raw)?;
+        if spec.bin.is_empty() {
+            spec.bin = file.file_name().unwrap().to_str().unwrap().to_string();
+        }
+        if spec.name.is_empty() {
+            spec.name.clone_from(&spec.bin);
+        }
+        Ok(spec)
+    }
     pub fn parse_spec(input: &str) -> Result<Spec, UsageErr> {
         Self::parse(&Default::default(), input)
     }
