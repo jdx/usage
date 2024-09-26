@@ -6,4 +6,5 @@ mod context;
 mod data_types;
 pub mod flag;
 pub(crate) mod helpers;
+pub mod mount;
 pub mod spec;

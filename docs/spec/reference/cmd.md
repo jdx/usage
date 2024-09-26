@@ -41,3 +41,35 @@ cmd "list" {
   "#
 }
 ```
+
+## Mounting dynamic commands
+
+A usage spec can define a command to run which emits extra usage spec which will be merged into the cmd.
+For example, assume a CLI named `mycli` has a command `run` which executes a set of tasks, those tasks
+are themselves commands which have their own sets of args/flags dynamically generated. To support this,
+create a hidden command like `mycli mount-usage-tasks` which emits usage spec for the tasks. Then,
+create a `mount` on the `run` command. Here is the static usage spec for the `mycli` CLI as described:
+
+```sh
+cmd "mount-usage-tasks" hide=true
+cmd "run" {
+	mount run="mycli mount-usage-tasks"
+}
+```
+
+Calling `mycli mount-usage-tasks` would emit something like this:
+
+```sh
+cmd "task1" {
+  arg "arg1" help="task1 arg1"
+  flag "flag1" help="task1 flag1"
+}
+cmd "task2" {
+  arg "arg1" help="task2 arg1"
+  flag "flag1" help="task2 flag1"
+}
+```
+
+Now when using completion with usage, if the user types `mycli run <tab><tab>`, usage will then
+call `mycli mount-usage-tasks` and merge the emitted usage into the `run` command and display the
+task commands as if they were statically defined in the usage spec.

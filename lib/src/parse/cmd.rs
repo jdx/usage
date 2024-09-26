@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use indexmap::IndexMap;
-use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
-use serde::Serialize;
-
 use crate::error::UsageErr;
 use crate::parse::context::ParsingContext;
 use crate::parse::helpers::NodeHelper;
+use crate::parse::mount::SpecMount;
+use crate::sh::sh;
 use crate::{Spec, SpecArg, SpecFlag};
+use indexmap::IndexMap;
+use itertools::Itertools;
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use serde::Serialize;
 
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct SpecCommand {
@@ -17,6 +19,7 @@ pub struct SpecCommand {
     pub subcommands: IndexMap<String, SpecCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
+    pub mounts: Vec<SpecMount>,
     pub deprecated: Option<String>,
     pub hide: bool,
     pub subcommand_required: bool,
@@ -85,6 +88,7 @@ impl SpecCommand {
             match child.name() {
                 "flag" => cmd.flags.push(SpecFlag::parse(ctx, &child)?),
                 "arg" => cmd.args.push(SpecArg::parse(ctx, &child)?),
+                "mount" => cmd.mounts.push(SpecMount::parse(ctx, &child)?),
                 "cmd" => {
                     let node = SpecCommand::parse(ctx, &child)?;
                     cmd.subcommands.insert(node.name.to_string(), node);
@@ -155,7 +159,10 @@ impl SpecCommand {
         Ok(cmd)
     }
     pub(crate) fn is_empty(&self) -> bool {
-        self.args.is_empty() && self.flags.is_empty() && self.subcommands.is_empty()
+        self.args.is_empty()
+            && self.flags.is_empty()
+            && self.mounts.is_empty()
+            && self.subcommands.is_empty()
     }
     pub(crate) fn usage(&self) -> String {
         let mut name = self.name.clone();
@@ -165,6 +172,9 @@ impl SpecCommand {
         if !self.flags.is_empty() {
             name = format!("{name} [flags]");
         }
+        // if !self.mounts.is_empty() {
+        //     name = format!("{name} [mounts]");
+        // }
         if !self.subcommands.is_empty() {
             name = format!("{name} [subcommand]");
         }
@@ -198,6 +208,9 @@ impl SpecCommand {
         if !other.flags.is_empty() {
             self.flags = other.flags;
         }
+        if !other.mounts.is_empty() {
+            self.mounts = other.mounts;
+        }
         if !other.aliases.is_empty() {
             self.aliases = other.aliases;
         }
@@ -230,6 +243,17 @@ impl SpecCommand {
         });
         let name = sl.get(name)?;
         self.subcommands.get(name)
+    }
+
+    pub(crate) fn mount(&mut self) -> Result<(), UsageErr> {
+        for mount in self.mounts.iter().cloned().collect_vec() {
+            let output = sh(&mount.run)?;
+            dbg!(&output);
+            let spec = Spec::parse_spec(&output)?;
+            dbg!(&spec);
+            self.merge(spec.cmd);
+        }
+        Ok(())
     }
 }
 
@@ -298,6 +322,10 @@ impl From<&SpecCommand> for KdlNode {
         for arg in &cmd.args {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(arg.into());
+        }
+        for mount in &cmd.mounts {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(mount.into());
         }
         for cmd in cmd.subcommands.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

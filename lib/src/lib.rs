@@ -20,5 +20,6 @@ pub(crate) mod env;
 pub mod parse;
 
 pub mod cli;
+pub(crate) mod sh;
 #[cfg(test)]
 mod test;

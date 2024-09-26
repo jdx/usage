@@ -3,11 +3,9 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use clap::Args;
-use heck::ToSnakeCase;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 
-use usage::cli::ParseValue;
 use usage::Spec;
 
 #[derive(Debug, Args)]
@@ -38,14 +36,7 @@ impl Bash {
             .collect_vec();
         cmd.args(&args);
 
-        for (flag, val) in &parsed.flags {
-            let key = format!("usage_{}", flag.name.to_snake_case());
-            let val = match val {
-                ParseValue::Bool(b) => if *b { "1" } else { "0" }.to_string(),
-                ParseValue::String(s) => s.clone(),
-                ParseValue::MultiBool(b) => b.iter().map(|b| if *b { "1" } else { "0" }).join(","),
-                ParseValue::MultiString(_s) => unimplemented!("multi string"),
-            };
+        for (key, val) in &parsed.as_env() {
             cmd.env(key, val);
         }
 

@@ -74,16 +74,17 @@ impl CompleteWord {
 
         let parsed = usage::cli::parse(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
-        let choices = if !parsed.cmd.subcommands.is_empty() {
-            self.complete_subcommands(parsed.cmd, &ctoken)
-        } else if ctoken == "-" {
+        let choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
+            dbg!(&shorts, &longs);
             shorts.into_iter().chain(longs).collect()
         } else if ctoken.starts_with("--") {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
+        } else if !parsed.cmd.subcommands.is_empty() {
+            self.complete_subcommands(&parsed.cmd, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value {
             self.complete_arg(&ctx, spec, flag.arg.as_ref().unwrap(), &ctoken)?
         } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {

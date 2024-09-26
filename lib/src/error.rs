@@ -24,6 +24,9 @@ pub enum UsageErr {
     Strum(#[from] strum::ParseError),
 
     #[error(transparent)]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+
+    #[error(transparent)]
     #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
 

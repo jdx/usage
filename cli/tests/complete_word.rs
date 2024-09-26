@@ -1,4 +1,5 @@
 use assert_cmd::assert::Assert;
+use std::env;
 use std::process::Command;
 
 use assert_cmd::prelude::*;
@@ -63,6 +64,24 @@ fn complete_word_kitchen_sink() {
 #[test]
 fn complete_word_shebang() {
     assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--foo\n");
+}
+
+#[test]
+fn complete_word_mounted() {
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+    assert_cmd("mounted.sh", &["--", "-"]).stdout("--mount\n");
+    assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
+    assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
 fn cmd(example: &str) -> Command {

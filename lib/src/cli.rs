@@ -8,10 +8,10 @@ use strum::EnumTryAs;
 
 use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
 
-pub struct ParseOutput<'a> {
-    pub cmd: &'a SpecCommand,
-    pub cmds: Vec<&'a SpecCommand>,
-    pub args: IndexMap<&'a SpecArg, ParseValue>,
+pub struct ParseOutput {
+    pub cmd: SpecCommand,
+    pub cmds: Vec<SpecCommand>,
+    pub args: IndexMap<SpecArg, ParseValue>,
     pub flags: IndexMap<SpecFlag, ParseValue>,
     pub available_flags: BTreeMap<String, SpecFlag>,
     pub flag_awaiting_value: Option<SpecFlag>,
@@ -25,12 +25,9 @@ pub enum ParseValue {
     MultiString(Vec<String>),
 }
 
-pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, miette::Error> {
+pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
-    let mut cmd = &spec.cmd;
-    let mut cmds = vec![];
     input.pop_front();
-    cmds.push(cmd);
 
     let gather_flags = |cmd: &SpecCommand| {
         cmd.flags
@@ -50,40 +47,47 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
             .collect()
     };
 
-    let mut available_flags: BTreeMap<String, SpecFlag> = gather_flags(cmd);
+    let mut out = ParseOutput {
+        cmd: spec.cmd.clone(),
+        cmds: vec![spec.cmd.clone()],
+        args: IndexMap::new(),
+        flags: IndexMap::new(),
+        available_flags: gather_flags(&spec.cmd),
+        flag_awaiting_value: None,
+    };
 
     while !input.is_empty() {
-        if let Some(subcommand) = cmd.find_subcommand(&input[0]) {
-            available_flags.retain(|_, f| f.global);
-            available_flags.extend(gather_flags(subcommand));
+        if let Some(subcommand) = out.cmd.find_subcommand(&input[0]) {
+            let mut subcommand = subcommand.clone();
+            subcommand.mount()?;
+            out.available_flags.retain(|_, f| f.global);
+            out.available_flags.extend(gather_flags(&subcommand));
             input.pop_front();
-            cmds.push(subcommand);
-            cmd = subcommand;
+            out.cmds.push(subcommand.clone());
+            out.cmd = subcommand.clone();
         } else {
             break;
         }
     }
 
-    let mut args: IndexMap<&SpecArg, ParseValue> = IndexMap::new();
-    let mut flags: IndexMap<SpecFlag, ParseValue> = IndexMap::new();
-    let mut next_arg = cmd.args.first();
-    let mut flag_awaiting_value: Option<SpecFlag> = None;
+    let mut next_arg = out.cmd.args.first();
     let mut enable_flags = true;
 
     while !input.is_empty() {
         let w = input.pop_front().unwrap();
 
-        if let Some(flag) = flag_awaiting_value {
-            flag_awaiting_value = None;
+        if let Some(flag) = out.flag_awaiting_value {
+            out.flag_awaiting_value = None;
             if flag.var {
-                let arr = flags
+                let arr = out
+                    .flags
                     .entry(flag)
                     .or_insert_with(|| ParseValue::MultiString(vec![]))
                     .try_as_multi_string_mut()
                     .unwrap();
                 arr.push(w);
             } else {
-                flags.insert(flag, ParseValue::String(w));
+                out.flags.insert(flag, ParseValue::String(w));
             }
             continue;
         }
@@ -99,11 +103,12 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
             if !val.is_empty() {
                 input.push_front(val.to_string());
             }
-            if let Some(f) = available_flags.get(word) {
+            if let Some(f) = out.available_flags.get(word) {
                 if f.arg.is_some() {
-                    flag_awaiting_value = Some(f.clone());
+                    out.flag_awaiting_value = Some(f.clone());
                 } else if f.var {
-                    let arr = flags
+                    let arr = out
+                        .flags
                         .entry(f.clone())
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
@@ -111,7 +116,7 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
-                    flags.insert(f.clone(), ParseValue::Bool(w != negate));
+                    out.flags.insert(f.clone(), ParseValue::Bool(w != negate));
                 }
                 continue;
             }
@@ -120,24 +125,25 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
         // short flags
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
-            if let Some(f) = available_flags.get(&format!("-{}", short)) {
+            if let Some(f) = out.available_flags.get(&format!("-{}", short)) {
                 let mut next = format!("-{}", &w[2..]);
                 if f.arg.is_some() {
-                    flag_awaiting_value = Some(f.clone());
+                    out.flag_awaiting_value = Some(f.clone());
                     next = w[2..].to_string();
                 }
                 if next != "-" {
                     input.push_front(next);
                 }
                 if f.var {
-                    let arr = flags
+                    let arr = out
+                        .flags
                         .entry(f.clone())
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
                         .unwrap();
                     arr.push(true);
                 } else {
-                    flags.insert(f.clone(), ParseValue::Bool(true));
+                    out.flags.insert(f.clone(), ParseValue::Bool(true));
                 }
                 continue;
             }
@@ -145,35 +151,29 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
 
         if let Some(arg) = next_arg {
             if arg.var {
-                let arr = args
-                    .entry(arg)
+                let arr = out
+                    .args
+                    .entry(arg.clone())
                     .or_insert_with(|| ParseValue::MultiString(vec![]))
                     .try_as_multi_string_mut()
                     .unwrap();
                 arr.push(w);
                 if arr.len() >= arg.var_max.unwrap_or(usize::MAX) {
-                    next_arg = cmd.args.get(args.len());
+                    next_arg = out.cmd.args.get(out.args.len());
                 }
             } else {
-                args.insert(arg, ParseValue::String(w));
-                next_arg = cmd.args.get(args.len());
+                out.args.insert(arg.clone(), ParseValue::String(w));
+                next_arg = out.cmd.args.get(out.args.len());
             }
             continue;
         }
         bail!("unexpected word: {w}");
     }
 
-    Ok(ParseOutput {
-        cmd,
-        cmds,
-        args,
-        flags,
-        available_flags,
-        flag_awaiting_value,
-    })
+    Ok(out)
 }
 
-impl ParseOutput<'_> {
+impl ParseOutput {
     pub fn as_env(&self) -> BTreeMap<String, String> {
         let mut env = BTreeMap::new();
         for (flag, val) in &self.flags {
@@ -201,7 +201,7 @@ impl Display for ParseValue {
     }
 }
 
-impl Debug for ParseOutput<'_> {
+impl Debug for ParseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ParseOutput")
             .field("cmds", &self.cmds.iter().map(|c| &c.name).join(" ").trim())
