@@ -12,7 +12,7 @@ use miette::Result;
 use cli::Cli;
 
 mod cli;
-mod env;
+pub mod env;
 mod errors;
 mod hash;
 mod shebang;

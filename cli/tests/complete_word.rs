@@ -52,6 +52,15 @@ fn complete_word_short_flag() {
 }
 
 #[test]
+fn complete_word_kitchen_sink() {
+    assert_cmd(
+        "kitchen-sink.usage.kdl",
+        &["--", "plugins", "install", "--"],
+    )
+    .stdout("--dir\n--force\n--global\n--no-force\n");
+}
+
+#[test]
 fn complete_word_shebang() {
     assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--foo\n");
 }

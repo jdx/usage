@@ -1,0 +1,11 @@
+cmd "plugins" {
+  cmd "install" {
+    arg "plugin"
+    arg "version"
+    flag "-g --global"
+    flag "-d --dir <dir>"
+    flag "-f --force" negate="--no-force"
+  }
+}
+
+complete "plugin" run="echo \"plugin-1\nplugin-2\nplugin-3\""

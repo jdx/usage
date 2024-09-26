@@ -28,6 +28,7 @@ pub struct SpecFlag {
     pub count: bool,
     pub arg: Option<SpecArg>,
     pub default: Option<String>,
+    pub negate: Option<String>,
 }
 
 impl SpecFlag {
@@ -50,6 +51,7 @@ impl SpecFlag {
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
                 "default" => flag.default = v.ensure_string().map(Some)?,
+                "negate" => flag.negate = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, *v.entry.span(), "unsupported flag key {k}"),
             }
         }
@@ -244,6 +246,7 @@ impl From<&clap::Arg> for SpecFlag {
             count: matches!(c.get_action(), clap::ArgAction::Count),
             default,
             deprecated: None,
+            negate: None,
         }
     }
 }

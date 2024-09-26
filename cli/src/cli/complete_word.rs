@@ -123,15 +123,23 @@ impl CompleteWord {
     ) -> Vec<(String, String)> {
         debug!("complete_long_flag_names: {ctoken}");
         trace!("flags: {}", flags.keys().join(", "));
-        let ctoken = ctoken.strip_prefix("--").unwrap_or(ctoken);
         flags
             .values()
             .filter(|f| !f.hide)
-            .flat_map(|f| &f.long)
-            .unique()
-            .filter(|c| c.starts_with(ctoken))
+            .flat_map(|f| {
+                let mut flags = f
+                    .long
+                    .iter()
+                    .map(|l| (format!("--{}", l), f.help.clone().unwrap_or_default()))
+                    .collect::<Vec<_>>();
+                if let Some(negate) = &f.negate {
+                    flags.push((negate.clone(), String::new()))
+                }
+                flags
+            })
+            .unique_by(|(f, _)| f.to_string())
+            .filter(|(f, _)| f.starts_with(ctoken))
             // TODO: get flag description
-            .map(|c| (format!("--{c}"), String::new()))
             .sorted()
             .collect()
     }

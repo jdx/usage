@@ -36,10 +36,16 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
         cmd.flags
             .iter()
             .flat_map(|f| {
-                f.long
+                let mut flags = f
+                    .long
                     .iter()
                     .map(|l| (format!("--{}", l), f.clone()))
                     .chain(f.short.iter().map(|s| (format!("-{}", s), f.clone())))
+                    .collect::<Vec<_>>();
+                if let Some(negate) = &f.negate {
+                    flags.push((negate.clone(), f.clone()));
+                }
+                flags
             })
             .collect()
     };
