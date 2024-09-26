@@ -10,7 +10,7 @@ use tera::Tera;
 use thiserror::Error;
 use xx::file;
 
-use usage::parse::config::SpecConfig;
+use usage::spec::config::SpecConfig;
 use usage::{Spec, SpecCommand};
 
 use crate::errors::UsageCLIError;

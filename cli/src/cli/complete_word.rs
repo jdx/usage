@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use xx::process::check_status;
 use xx::{XXError, XXResult};
 
-use usage::{Complete, Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
 use crate::cli::generate;
 
@@ -180,7 +180,7 @@ impl CompleteWord {
         arg: &SpecArg,
         ctoken: &str,
     ) -> miette::Result<Vec<(String, String)>> {
-        static EMPTY_COMPL: Lazy<Complete> = Lazy::new(Complete::default);
+        static EMPTY_COMPL: Lazy<SpecComplete> = Lazy::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");
         let name = arg.name.to_lowercase();

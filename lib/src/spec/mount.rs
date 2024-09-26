@@ -4,8 +4,8 @@ use kdl::{KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::Result;
-use crate::parse::context::ParsingContext;
-use crate::parse::helpers::NodeHelper;
+use crate::spec::context::ParsingContext;
+use crate::spec::helpers::NodeHelper;
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecMount {

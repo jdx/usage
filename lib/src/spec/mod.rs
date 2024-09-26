@@ -1,3 +1,13 @@
+pub mod arg;
+pub mod cmd;
+pub mod complete;
+pub mod config;
+mod context;
+mod data_types;
+pub mod flag;
+pub mod helpers;
+pub mod mount;
+
 use indexmap::IndexMap;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
@@ -8,11 +18,11 @@ use serde::Serialize;
 use xx::file;
 
 use crate::error::UsageErr;
-use crate::parse::cmd::SpecCommand;
-use crate::parse::config::SpecConfig;
-use crate::parse::context::ParsingContext;
-use crate::parse::helpers::NodeHelper;
-use crate::{Complete, SpecArg, SpecFlag};
+use crate::spec::cmd::SpecCommand;
+use crate::spec::config::SpecConfig;
+use crate::spec::context::ParsingContext;
+use crate::spec::helpers::NodeHelper;
+use crate::{SpecArg, SpecComplete, SpecFlag};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Spec {
@@ -22,7 +32,7 @@ pub struct Spec {
     pub config: SpecConfig,
     pub version: Option<String>,
     pub usage: String,
-    pub complete: IndexMap<String, Complete>,
+    pub complete: IndexMap<String, SpecComplete>,
 
     pub author: Option<String>,
     pub about: Option<String>,
@@ -90,7 +100,7 @@ impl Spec {
                 }
                 "config" => schema.config = SpecConfig::parse(ctx, &node)?,
                 "complete" => {
-                    let complete = Complete::parse(ctx, &node)?;
+                    let complete = SpecComplete::parse(ctx, &node)?;
                     schema.complete.insert(complete.name.clone(), complete);
                 }
                 "include" => {

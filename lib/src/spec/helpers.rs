@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::ops::RangeBounds;
 
 use crate::error::UsageErr;
-use crate::parse::context::ParsingContext;
+use crate::spec::context::ParsingContext;
 
 #[derive(Debug)]
 pub struct NodeHelper<'a> {

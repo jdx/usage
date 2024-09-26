@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use crate::error::UsageErr;
-use crate::parse::context::ParsingContext;
-use crate::parse::helpers::NodeHelper;
-use crate::parse::mount::SpecMount;
 use crate::sh::sh;
+use crate::spec::context::ParsingContext;
+use crate::spec::helpers::NodeHelper;
+use crate::spec::mount::SpecMount;
 use crate::{Spec, SpecArg, SpecFlag};
 use indexmap::IndexMap;
 use itertools::Itertools;

@@ -1,24 +1,20 @@
-// #[macro_use]
-// extern crate miette;
 #[cfg(test)]
 #[macro_use]
 extern crate insta;
 #[macro_use]
 extern crate log;
 
-pub use crate::parse::arg::SpecArg;
-pub use crate::parse::cmd::SpecCommand;
-pub use crate::parse::complete::Complete;
-pub use crate::parse::flag::SpecFlag;
-pub use crate::parse::mount::SpecMount;
-pub use crate::parse::spec::Spec;
+pub use crate::spec::arg::SpecArg;
+pub use crate::spec::cmd::SpecCommand;
+pub use crate::spec::complete::SpecComplete;
+pub use crate::spec::flag::SpecFlag;
+pub use crate::spec::mount::SpecMount;
+pub use crate::spec::Spec;
 
 #[macro_use]
 pub mod error;
 pub mod complete;
-pub mod context;
-pub(crate) mod env;
-pub mod parse;
+pub mod spec;
 
 pub mod cli;
 pub(crate) mod sh;

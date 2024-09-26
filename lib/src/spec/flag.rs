@@ -8,8 +8,8 @@ use serde::Serialize;
 
 use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
-use crate::parse::context::ParsingContext;
-use crate::parse::helpers::NodeHelper;
+use crate::spec::context::ParsingContext;
+use crate::spec::helpers::NodeHelper;
 use crate::SpecArg;
 
 #[derive(Debug, Default, Clone, Serialize)]
