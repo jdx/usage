@@ -77,7 +77,6 @@ impl CompleteWord {
         let choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
-            dbg!(&shorts, &longs);
             shorts.into_iter().chain(longs).collect()
         } else if ctoken.starts_with("--") {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)

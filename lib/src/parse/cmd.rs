@@ -248,9 +248,7 @@ impl SpecCommand {
     pub(crate) fn mount(&mut self) -> Result<(), UsageErr> {
         for mount in self.mounts.iter().cloned().collect_vec() {
             let output = sh(&mount.run)?;
-            dbg!(&output);
             let spec = Spec::parse_spec(&output)?;
-            dbg!(&spec);
             self.merge(spec.cmd);
         }
         Ok(())
