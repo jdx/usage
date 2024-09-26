@@ -54,11 +54,9 @@ fn complete_word_short_flag() {
 
 #[test]
 fn complete_word_kitchen_sink() {
-    assert_cmd(
-        "kitchen-sink.usage.kdl",
-        &["--", "plugins", "install", "--"],
-    )
-    .stdout("--dir\n--force\n--global\n--no-force\n");
+    assert_cmd("kitchen-sink.usage.kdl", &["--", "install", "--"])
+        .stdout("--dir\n--force\n--global\n--no-force\n");
+    assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("bash\nzsh\nfish\n");
 }
 
 #[test]

@@ -1,4 +1,5 @@
 pub mod arg;
+pub mod choices;
 pub mod cmd;
 pub mod complete;
 pub mod config;
@@ -9,12 +10,12 @@ pub mod helpers;
 pub mod mount;
 
 use indexmap::IndexMap;
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::Path;
-
-use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
-use serde::Serialize;
+use std::str::FromStr;
 use xx::file;
 
 use crate::error::UsageErr;
@@ -64,6 +65,8 @@ impl Spec {
         }
         Ok(spec)
     }
+
+    #[deprecated]
     pub fn parse_spec(input: &str) -> Result<Spec, UsageErr> {
         Self::parse(&Default::default(), input)
     }
@@ -251,6 +254,14 @@ impl Display for Spec {
             nodes.push((&self.config).into());
         }
         write!(f, "{}", doc)
+    }
+}
+
+impl FromStr for Spec {
+    type Err = UsageErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(&Default::default(), s)
     }
 }
 

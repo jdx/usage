@@ -22,7 +22,7 @@ impl Bash {
         let (spec, _script) = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
-        let parsed = usage::cli::parse(&spec, &args)?;
+        let parsed = usage::parse::parse(&spec, &args)?;
 
         let mut cmd = std::process::Command::new("bash");
         cmd.stdin(Stdio::inherit());

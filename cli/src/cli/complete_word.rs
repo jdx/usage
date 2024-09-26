@@ -72,7 +72,7 @@ impl CompleteWord {
             ctx.insert("PREV", &(cword - 1));
         }
 
-        let parsed = usage::cli::parse(spec, &words)?;
+        let parsed = usage::parse::parse(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
         let choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
@@ -82,14 +82,17 @@ impl CompleteWord {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
-        } else if !parsed.cmd.subcommands.is_empty() {
-            self.complete_subcommands(&parsed.cmd, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value {
             self.complete_arg(&ctx, spec, flag.arg.as_ref().unwrap(), &ctoken)?
-        } else if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
-            self.complete_arg(&ctx, spec, arg, &ctoken)?
         } else {
-            vec![]
+            let mut choices = vec![];
+            if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
+                choices.extend(self.complete_arg(&ctx, spec, arg, &ctoken)?);
+            }
+            if !parsed.cmd.subcommands.is_empty() {
+                choices.extend(self.complete_subcommands(&parsed.cmd, &ctoken));
+            }
+            choices
         };
         Ok(choices)
     }
@@ -192,6 +195,14 @@ impl CompleteWord {
             return Ok(builtin);
         }
 
+        if let Some(choices) = &arg.choices {
+            return Ok(choices
+                .choices
+                .iter()
+                .map(|c| (c.clone(), String::new()))
+                .filter(|(c, _)| c.starts_with(ctoken))
+                .collect());
+        }
         if let Some(run) = &complete.run {
             let run = tera::Tera::one_off(run, ctx, false).into_diagnostic()?;
             trace!("run: {run}");

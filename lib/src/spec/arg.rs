@@ -4,12 +4,13 @@ use std::str::FromStr;
 
 #[cfg(feature = "clap")]
 use itertools::Itertools;
-use kdl::{KdlEntry, KdlNode};
+use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
+use crate::SpecChoices;
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
@@ -23,6 +24,7 @@ pub struct SpecArg {
     pub var_max: Option<usize>,
     pub hide: bool,
     pub default: Option<String>,
+    pub choices: Option<SpecChoices>,
 }
 
 impl SpecArg {
@@ -39,6 +41,12 @@ impl SpecArg {
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, *v.entry.span(), "unsupported arg key {k}"),
+            }
+        }
+        for child in node.children() {
+            match child.name() {
+                "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),
+                k => bail_parse!(ctx, *child.node.name().span(), "unsupported arg child {k}"),
             }
         }
         arg.usage = arg.usage();
@@ -84,6 +92,10 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(default) = &arg.default {
             node.push(KdlEntry::new_prop("default", default.clone()));
+        }
+        if let Some(choices) = &arg.choices {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(choices.into());
         }
         node
     }
@@ -159,6 +171,7 @@ impl From<&clap::Arg> for SpecArg {
                         .join("|"),
                 )
             },
+            choices: None, // TODO: pull from clap
         }
     }
 }
