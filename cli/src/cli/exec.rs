@@ -38,7 +38,7 @@ impl Exec {
         };
         let mut args = self.args.clone();
         args.insert(0, self.command.clone());
-        let parsed = usage::cli::parse(&spec, &args)?;
+        let parsed = usage::parse::parse(&spec, &args)?;
 
         let mut cmd = std::process::Command::new(&self.command);
         cmd.stdin(Stdio::inherit());

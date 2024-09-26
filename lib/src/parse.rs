@@ -78,6 +78,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 
         if let Some(flag) = out.flag_awaiting_value {
             out.flag_awaiting_value = None;
+            let arg = flag.arg.as_ref().unwrap();
             if flag.var {
                 let arr = out
                     .flags
@@ -87,6 +88,15 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                     .unwrap();
                 arr.push(w);
             } else {
+                if let Some(choices) = &arg.choices {
+                    if !choices.choices.contains(&w) {
+                        bail!(
+                            "invalid choice for option {}: {w}, expected one of {}",
+                            flag.name,
+                            choices.choices.join(", ")
+                        );
+                    }
+                }
                 out.flags.insert(flag, ParseValue::String(w));
             }
             continue;
@@ -131,7 +141,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                     out.flag_awaiting_value = Some(f.clone());
                     next = w[2..].to_string();
                 }
-                if next != "-" {
+                if !next.is_empty() && next != "-" {
                     input.push_front(next);
                 }
                 if f.var {
@@ -143,7 +153,8 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                         .unwrap();
                     arr.push(true);
                 } else {
-                    out.flags.insert(f.clone(), ParseValue::Bool(true));
+                    let negate = f.negate.clone().unwrap_or_default();
+                    out.flags.insert(f.clone(), ParseValue::Bool(w != negate));
                 }
                 continue;
             }
@@ -162,6 +173,15 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                     next_arg = out.cmd.args.get(out.args.len());
                 }
             } else {
+                if let Some(choices) = &arg.choices {
+                    if !choices.choices.contains(&w) {
+                        bail!(
+                            "invalid choice for arg {}: {w}, expected one of {}",
+                            arg.name,
+                            choices.choices.join(", ")
+                        );
+                    }
+                }
                 out.args.insert(arg.clone(), ParseValue::String(w));
                 next_arg = out.cmd.args.get(out.args.len());
             }
@@ -178,6 +198,16 @@ impl ParseOutput {
         let mut env = BTreeMap::new();
         for (flag, val) in &self.flags {
             let key = format!("usage_{}", flag.name.to_snake_case());
+            let val = match val {
+                ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+                ParseValue::String(s) => s.clone(),
+                ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
+                ParseValue::MultiString(s) => s.join(","),
+            };
+            env.insert(key, val);
+        }
+        for (arg, val) in &self.args {
+            let key = format!("usage_{}", arg.name.to_snake_case());
             let val = match val {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),

@@ -10,7 +10,7 @@ use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
-use crate::SpecArg;
+use crate::{SpecArg, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
@@ -73,11 +73,18 @@ impl SpecFlag {
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
-                k => bail_parse!(
-                    ctx,
-                    *child.node.name().span(),
-                    "unsupported flag value key {k}"
-                ),
+                "choices" => {
+                    if let Some(arg) = &mut flag.arg {
+                        arg.choices = Some(SpecChoices::parse(ctx, &child)?);
+                    } else {
+                        bail_parse!(
+                            ctx,
+                            *child.node.name().span(),
+                            "flag must have value to have choices"
+                        )
+                    }
+                }
+                k => bail_parse!(ctx, *child.node.name().span(), "unsupported flag child {k}"),
             }
         }
         flag.usage = flag.usage();
@@ -140,6 +147,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.count {
             node.push(KdlEntry::new_prop("count", true));
+        }
+        if let Some(negate) = &flag.negate {
+            node.push(KdlEntry::new_prop("negate", negate.clone()));
         }
         if let Some(deprecated) = &flag.deprecated {
             node.push(KdlEntry::new_prop("deprecated", deprecated.clone()));
