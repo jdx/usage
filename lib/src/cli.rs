@@ -110,7 +110,8 @@ pub fn parse<'a>(spec: &'a Spec, input: &[String]) -> Result<ParseOutput<'a>, mi
                         .unwrap();
                     arr.push(true);
                 } else {
-                    flags.insert(f.clone(), ParseValue::Bool(true));
+                    let negate = f.negate.clone().unwrap_or_default();
+                    flags.insert(f.clone(), ParseValue::Bool(w != negate));
                 }
                 continue;
             }
@@ -272,19 +273,32 @@ mod tests {
             bin: "test".to_string(),
             cmd: SpecCommand {
                 name: "test".to_string(),
-                flags: vec![SpecFlag {
-                    name: "flag".to_string(),
-                    long: vec!["flag".to_string()],
-                    ..Default::default()
-                }],
+                flags: vec![
+                    SpecFlag {
+                        name: "flag".to_string(),
+                        long: vec!["flag".to_string()],
+                        ..Default::default()
+                    },
+                    SpecFlag {
+                        name: "force".to_string(),
+                        long: vec!["force".to_string()],
+                        negate: Some("--no-force".to_string()),
+                        ..Default::default()
+                    },
+                ],
                 ..Default::default()
             },
             ..Default::default()
         };
-        let input = vec!["test".to_string(), "--flag".to_string()];
+        let input = vec![
+            "test".to_string(),
+            "--flag".to_string(),
+            "--no-force".to_string(),
+        ];
         let parsed = parse(&spec, &input).unwrap();
         let env = parsed.as_env();
-        assert_eq!(env.len(), 1);
+        assert_eq!(env.len(), 2);
         assert_eq!(env.get("usage_flag"), Some(&"true".to_string()));
+        assert_eq!(env.get("usage_force"), Some(&"false".to_string()));
     }
 }
