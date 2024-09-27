@@ -11,10 +11,11 @@ concurrency:
   group: publish-cli-${{ github.ref_name }}
 
 env:
-  CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  NPM_CONFIG_FUND: false
+  CARGO_TERM_COLOR: always
   DRY_RUN: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NPM_CONFIG_FUND: false
 
 jobs:
   build:
