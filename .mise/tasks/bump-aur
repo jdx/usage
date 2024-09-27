@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+#USAGE arg "pkgname"
+env
+
+USAGE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
+
+if [ ! -d aur ]; then
+  git clone ssh://aur@aur.archlinux.org/usage.git aur
+fi
+git -C aur pull
+
+if [ "$usage_pkgname" == "usage" ]; then
+  SOURCE_SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
+  SHA512="$SOURCE_SHA512"
+  cat >aur/PKGBUILD <<EOF
+# Maintainer: Jeff Dickey <releases-usage at jdx dot dev>
+
+pkgname=usage
+pkgver=${USAGE_VERSION#v*}
+pkgrel=1
+pkgdesc='A specification for CLIs'
+arch=('x86_64')
+url='https://github.com/jdx/usage'
+license=('MIT')
+makedepends=('cargo')
+provides=('usage')
+source=("\$pkgname-\$pkgver.tar.gz::https://github.com/jdx/\$pkgname/archive/v\$pkgver.tar.gz")
+sha512sums=('$SOURCE_SHA512')
+
+prepare() {
+  cd "\$srcdir/\$pkgname-\$pkgver"
+  cargo fetch --locked --target "\$CARCH-unknown-linux-gnu"
+}
+
+build() {
+  cd "\$srcdir/\$pkgname-\$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release --bin usage
+}
+
+package() {
+  cd "\$srcdir/\$pkgname-\$pkgver"
+  install -Dm755 target/release/usage "\$pkgdir/usr/bin/usage"
+}
+
+check() {
+  cd "\$srcdir/\$pkgname-\$pkgver"
+  ./target/release/usage --version
+}
+EOF
+  cat >aur/.SRCINFO <<EOF
+pkgbase = usage
+pkgdesc = A specification for CLIs
+pkgver = ${USAGE_VERSION#v*}
+pkgrel = 1
+url = https://github.com/jdx/usage
+arch = x86_64
+license = MIT
+makedepends = cargo
+provides = usage
+source = usage-${USAGE_VERSION#v*}.tar.gz::https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz
+sha512sums = $SHA512
+
+pkgname = usage
+EOF
+elif [ "$usage_pkgname" == "usage-bin" ]; then
+  SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
+  cat >aur/PKGBUILD <<EOF
+# Maintainer: Jeff Dickey <releases-usage at jdx dot dev>
+
+pkgname=usage-bin
+pkgver=${USAGE_VERSION#v*}
+pkgrel=1
+pkgdesc='A specification for CLIs'
+arch=('x86_64')
+url='https://github.com/jdx/usage'
+license=('MIT')
+makedepends=('cargo')
+provides=('usage')
+source=("usage-\$pkgver.tar.gz::https://github.com/jdx/usage/releases/download/v\$pkgver/usage-x86_64-unknown-linux-gnu.tar.gz")
+sha512sums=('$SHA512')
+
+build() {
+  cd "\$srcdir/"
+}
+
+package() {
+  cd "\$srcdir/"
+  install -Dm755 usage "\$pkgdir/usr/bin/usage"
+}
+
+check() {
+  "\$srcdir/usage" --version
+}
+EOF
+  cat >aur/.SRCINFO <<EOF
+pkgbase = usage-bin
+pkgdesc = A specification for CLIs
+pkgver = ${USAGE_VERSION#v*}
+pkgrel = 1
+url = https://github.com/jdx/usage
+arch = x86_64
+license = MIT
+makedepends = cargo
+provides = usage
+source = usage-${USAGE_VERSION#v*}.tar.gz::https://github.com/jdx/usage/releases/download/$USAGE_VERSION/usage-x86_64-unknown-linux-gnu.tar.gz
+sha512sums = $SHA512
+
+pkgname = usage-bin
+EOF
+fi
+
+cd aur
+git config user.name jdx
+git config user.email 216188+jdx@users.noreply.github.com
+git add .SRCINFO PKGBUILD
+if git diff-index --quiet HEAD --; then
+  echo "No changes to PKGBUILD or .SRCINFO"
+  exit 0
+fi
+git diff --cached
+git commit -m "usage ${USAGE_VERSION#v}"
+if [ "$DRY_RUN" == 0 ]; then
+  git push
+fi

@@ -10,6 +10,9 @@ on:
       - main
       - release-plz
 
+env:
+  NPM_CONFIG_FUND: false
+
 concurrency:
   group: release-plz
 
