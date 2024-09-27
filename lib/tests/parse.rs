@@ -20,6 +20,16 @@ macro_rules! tests {
 }
 
 tests! {
+    required_arg:
+        spec=r#"arg "<name>""#,
+        args="",
+        expected=r#"missing required arg <name>"#,
+
+    required_option:
+        spec=r#"flag "--name <name>" required=true"#,
+        args="",
+        expected=r#"missing required option --name <name>"#,
+
     negate:
         spec=r#"flag "--force" negate="--no-force""#,
         args="--no-force",

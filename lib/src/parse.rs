@@ -15,6 +15,7 @@ pub struct ParseOutput {
     pub flags: IndexMap<SpecFlag, ParseValue>,
     pub available_flags: BTreeMap<String, SpecFlag>,
     pub flag_awaiting_value: Option<SpecFlag>,
+    pub errors: Vec<String>,
 }
 
 #[derive(Debug, EnumTryAs)]
@@ -26,6 +27,14 @@ pub enum ParseValue {
 }
 
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
+    let out = parse_partial(spec, input)?;
+    if !out.errors.is_empty() {
+        bail!("{}", out.errors.join("\n"));
+    }
+    Ok(out)
+}
+
+pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
 
@@ -54,6 +63,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
         flags: IndexMap::new(),
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: None,
+        errors: vec![],
     };
 
     while !input.is_empty() {
@@ -188,6 +198,22 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
             continue;
         }
         bail!("unexpected word: {w}");
+    }
+
+    for arg in out.cmd.args.iter().skip(out.args.len()) {
+        if arg.required {
+            out.errors
+                .push(format!("missing required arg <{}>", arg.name));
+        }
+    }
+
+    for flag in out.available_flags.values() {
+        if flag.required && !out.flags.contains_key(flag) {
+            out.errors.push(format!(
+                "missing required option --{} <{}>",
+                flag.name, flag.name
+            ));
+        }
     }
 
     Ok(out)

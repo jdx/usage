@@ -72,7 +72,7 @@ impl CompleteWord {
             ctx.insert("PREV", &(cword - 1));
         }
 
-        let parsed = usage::parse::parse(spec, &words)?;
+        let parsed = usage::parse::parse_partial(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
         let choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
