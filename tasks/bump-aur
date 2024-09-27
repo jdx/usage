@@ -3,7 +3,7 @@ set -euxo pipefail
 #USAGE arg "pkgname"
 env
 
-USAGE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
+USAGE_VERSION=v$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
 
 if [ ! -d aur ]; then
   git clone ssh://aur@aur.archlinux.org/usage.git aur
