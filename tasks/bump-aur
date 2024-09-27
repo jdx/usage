@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 #USAGE arg "pkgname"
-env
 
+pkgname="${usage_pkgname:-}"
 USAGE_VERSION=v$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
 
-if [ ! -d aur ]; then
-  git clone ssh://aur@aur.archlinux.org/$usage_pkgname.git aur
+if [ ! -d "aur-$pkgname" ]; then
+  git clone "ssh://aur@aur.archlinux.org/$pkgname.git aur"
 fi
 git -C aur pull
 
-if [ "$usage_pkgname" == "usage" ]; then
+if [ "$pkgname" == "usage" ]; then
   SOURCE_SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
   SHA512="$SOURCE_SHA512"
   cat >aur/PKGBUILD <<EOF
@@ -65,7 +65,7 @@ sha512sums = $SHA512
 
 pkgname = usage
 EOF
-elif [ "$usage_pkgname" == "usage-bin" ]; then
+elif [ "$pkgname" == "usage-bin" ]; then
   SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
   cat >aur/PKGBUILD <<EOF
 # Maintainer: Jeff Dickey <releases-usage at jdx dot dev>
