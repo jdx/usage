@@ -40,7 +40,7 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           experimental: true
-      - if: matrix.os == 'macos'
+      - if: matrix.os == 'macos-latest'
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTS_P12 }}
@@ -52,7 +52,7 @@ jobs:
           target: ${{ matrix.target }}
           manifest-path: cli/Cargo.toml
           dry_run: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          codesign: true
+          codesign: "Developer ID Application: Jeffrey Dickey (4993Y37DX6)"
           codesign_prefix: dev.jdx.
         env:
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
