@@ -6,6 +6,7 @@ _.path = ["./target/debug"]
 "npm:prettier" = "latest"
 "cargo:cargo-edit" = "latest"
 "cargo:git-cliff" = "latest"
+github-cli = "latest"
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
@@ -49,8 +50,8 @@ run = 'cargo fmt --all -- --check'
 
 [tasks.lint-fix]
 run = [
-  'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
-  'cargo fmt --all',
+    'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
+    'cargo fmt --all',
 ]
 
 [tasks.format]
@@ -65,17 +66,20 @@ depends = ['render:*']
 [tasks."render:mise-completions"]
 depends = ['build']
 run = [
-  'usage g completion bash mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.bash',
-  'usage g completion zsh mise --usage-cmd "@mise usage" > ~/src/mise/completions/_mise',
-  'usage g completion fish mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.fish',
+    'usage g completion bash mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.bash',
+    'usage g completion zsh mise --usage-cmd "@mise usage" > ~/src/mise/completions/_mise',
+    'usage g completion fish mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.fish',
 ]
 
 [tasks."render:example-md"]
 depends = ['build']
 run = [
-  "usage g md examples/docs/MISE_INLINE.md",
-  "usage g md examples/docs/MISE_MULTI.md",
+    "usage g md examples/docs/MISE_INLINE.md",
+    "usage g md examples/docs/MISE_MULTI.md",
 ]
 
 [tasks.release]
 run = "cargo release --workspace"
+
+[task_config]
+includes = ['tasks']
