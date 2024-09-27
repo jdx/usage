@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.0](https://github.com/jdx/usage/compare/v0.7.4..v0.8.0) - 2024-09-27
+
+### 🚀 Features
+
+- basic support for markdown generation in lib by [@jdx](https://github.com/jdx) in [de004c8](https://github.com/jdx/usage/commit/de004c87890bda993288503fe49e02b342c72487)
+
+### 🔍 Other Changes
+
+- enable aur publishing by [@jdx](https://github.com/jdx) in [0049e95](https://github.com/jdx/usage/commit/0049e950001bf8a9dfb350d5e675c474f6958d18)
+
 ## [0.7.4](https://github.com/jdx/usage/compare/v0.7.3..v0.7.4) - 2024-09-27
 
 ### 🔍 Other Changes
