@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.3](https://github.com/jdx/usage/compare/v0.7.2..v0.7.3) - 2024-09-27
+
+### 🔍 Other Changes
+
+- fix aur publishing by [@jdx](https://github.com/jdx) in [9e21529](https://github.com/jdx/usage/commit/9e21529ba1e4ed3f1ae4c69a480cf801ff311c1a)
+
 ## [0.7.2](https://github.com/jdx/usage/compare/v0.7.1..v0.7.2) - 2024-09-27
 
 ### 🔍 Other Changes
