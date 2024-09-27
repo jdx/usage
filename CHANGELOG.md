@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/jdx/usage/compare/v0.7.1..v0.7.2) - 2024-09-27
+
+### 🔍 Other Changes
+
+- set GITHUB_TOKEN by [@jdx](https://github.com/jdx) in [fc7d06f](https://github.com/jdx/usage/commit/fc7d06ff15ca7b72d421fd3706c22b9e632b2224)
+- fix codesign config by [@jdx](https://github.com/jdx) in [cf0b731](https://github.com/jdx/usage/commit/cf0b7311806d60b9d1e79c671958205156818311)
+
 ## [0.7.1](https://github.com/jdx/usage/compare/v0.7.0..v0.7.1) - 2024-09-27
 
 ### 🐛 Bug Fixes
