@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/jdx/usage/compare/v0.6.0..v0.7.0) - 2024-09-26
+
+### 🚀 Features
+
+- implemented choices for args/flags by jdx in [3db63bd](https://github.com/jdx/usage/commit/3db63bd540d3fe796136218bdf6862f27a678767)
+
+### 🔍 Other Changes
+
+- clean up pub exports by Jeff Dickey in [9996ab8](https://github.com/jdx/usage/commit/9996ab8ca041d27a0754096fe7b04ebd3958431b)
+
 ## [0.6.0](https://github.com/jdx/usage/compare/v0.5.1..v0.6.0) - 2024-09-26
 
 ### 🚀 Features
