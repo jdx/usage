@@ -18,6 +18,8 @@ pub mod error;
 pub mod complete;
 pub mod spec;
 
+#[cfg(feature = "docs")]
+mod docs;
 pub mod parse;
 pub(crate) mod sh;
 #[cfg(test)]

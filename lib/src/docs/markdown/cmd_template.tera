@@ -1,0 +1,76 @@
+{% set deprecated = "" %}{% if cmd.deprecated %}{% set deprecated = "~~" %}{% endif %}
+{{ header }} {{deprecated}}`{{ bin }}{{ cmd.full_cmd | join(sep=" ") }}`{{deprecated}}{% if cmd.deprecated %} [deprecated]{% endif -%}
+
+{% if cmd.before_long_help %}
+
+{{ cmd.before_long_help | trim }}
+
+{% elif cmd.before_help %}
+{{ cmd.before_help | trim }}
+{% endif -%}
+
+{% if cmd.aliases %}
+
+{{ header }}# Aliases: `{{ cmd.aliases | join(sep="`, `") }}`{{""-}}
+{% endif -%}
+
+{% if cmd.long_help %}
+
+{{ cmd.long_help | trim -}}
+{% elif cmd.help %}
+
+{{ cmd.help | trim -}}
+{% endif -%}
+
+{% for name, cmd in cmd.subcommands -%}
+{% if loop.first %}
+{{ header }}# Subcommands
+{% endif %}
+* `{{ cmd.usage }}` - {{ cmd.help -}}
+{% endfor -%}
+
+{% if cmd.args -%}
+{% for arg in cmd.args %}
+
+{{ header }}# Arg `{{ arg.usage }}`
+
+{% if arg.required %}(required) {% endif -%}
+{{ arg.long_help | default(value=arg.help) -}}
+
+{% endfor -%}
+{% endif -%}
+{% if cmd.flags -%}
+{% for flag in cmd.flags %}
+
+{% if flag.deprecated -%}
+{{ header }}# Flag ~~`{{ flag.usage }}`~~ [deprecated]
+{% else -%}
+{{ header }}# Flag `{{ flag.usage }}`
+{% endif %}
+{{ flag.long_help | default(value=flag.help) -}}
+{% endfor -%}
+{% endif -%}
+
+{% for ex in cmd.examples -%}
+{% if loop.first %}
+
+{{ header}}# Examples
+{% endif %}
+{% if ex.header -%}
+{{ header }}# {{ ex.header }}
+{% endif %}
+```{{ ex.lang | default(value="") }}
+{{ ex.code }}
+```
+{% if ex.help %}
+{{ ex.help -}}
+{% endif -%}
+{% endfor -%}
+
+{% if cmd.after_long_help %}
+
+{{ cmd.after_long_help | trim }}
+{% elif cmd.after_help %}
+
+{{ cmd.after_help | trim }}
+{% endif -%}
