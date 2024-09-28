@@ -5,10 +5,9 @@ set -euxo pipefail
 pkgname="${usage_pkgname:-}"
 USAGE_VERSION=v$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
 
-if [ ! -d "aur-$pkgname" ]; then
-  git clone "ssh://aur@aur.archlinux.org/$pkgname.git aur"
-fi
-git -C "aur-$pkgname" pull
+rm -rf aur
+git clone "ssh://aur@aur.archlinux.org/$pkgname.git aur"
+git -C aur pull
 
 if [ "$pkgname" == "usage" ]; then
   SOURCE_SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
