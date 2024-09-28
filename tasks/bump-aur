@@ -6,7 +6,7 @@ pkgname="${usage_pkgname:-}"
 USAGE_VERSION=v$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "usage-cli") | .version')
 
 rm -rf aur
-git clone "ssh://aur@aur.archlinux.org/$pkgname.git aur"
+git clone "ssh://aur@aur.archlinux.org/$pkgname.git" aur
 git -C aur pull
 
 if [ "$pkgname" == "usage" ]; then
