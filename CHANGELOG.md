@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.1](https://github.com/jdx/usage/compare/v0.8.0..v0.8.1) - 2024-09-28
+
+### 🐛 Bug Fixes
+
+- handle bug with usage-bin aur script by [@jdx](https://github.com/jdx) in [6e4b7a7](https://github.com/jdx/usage/commit/6e4b7a79be85d5b02285718625f6302bef75cb75)
+- improving md generation by [@jdx](https://github.com/jdx) in [#117](https://github.com/jdx/usage/pull/117)
+
+### 🔍 Other Changes
+
+- enable brew publish by [@jdx](https://github.com/jdx) in [d8cd84a](https://github.com/jdx/usage/commit/d8cd84afbf4ae21386fda4b5a01d0adeaf7839a9)
+
 ## [0.8.0](https://github.com/jdx/usage/compare/v0.7.4..v0.8.0) - 2024-09-27
 
 ### 🚀 Features
