@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2](https://github.com/jdx/usage/compare/v0.8.1..v0.8.2) - 2024-09-28
+
+### 🐛 Bug Fixes
+
+- whitespace in md generation by [@jdx](https://github.com/jdx) in [3cb7769](https://github.com/jdx/usage/commit/3cb776920cd9bd18693cdc0e547b98b0efd25aca)
+- escape html in md by [@jdx](https://github.com/jdx) in [a691143](https://github.com/jdx/usage/commit/a6911436156c15246c69ea66e62e2745e419b813)
+- more work on html encoding md by [@jdx](https://github.com/jdx) in [b5cb342](https://github.com/jdx/usage/commit/b5cb342fa79ac70bd2723c026f3184021e5ae3ac)
+
 ## [0.8.1](https://github.com/jdx/usage/compare/v0.8.0..v0.8.1) - 2024-09-28
 
 ### 🐛 Bug Fixes
