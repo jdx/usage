@@ -1,15 +1,12 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
-use crate::docs::markdown::tera::TERA;
 use crate::error::UsageErr;
 use crate::SpecCommand;
 
 impl MarkdownRenderer {
     pub fn render_cmd(&self, cmd: &SpecCommand) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
-
         ctx.insert("cmd", cmd);
-
-        Ok(TERA.render("cmd_template.md.tera", &ctx.tera_ctx())?)
+        ctx.render("cmd_template.md.tera")
     }
 }
 

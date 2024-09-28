@@ -1,15 +1,12 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
-use crate::docs::markdown::tera::TERA;
 use crate::error::UsageErr;
 use crate::SpecFlag;
 
 impl MarkdownRenderer {
     pub fn render_flag(&self, flag: &SpecFlag) -> Result<String, UsageErr> {
-        let tera = TERA.clone();
         let mut ctx = self.clone();
         ctx.insert("flag", &flag);
-
-        Ok(tera.render("flag_template.md.tera", &ctx.tera_ctx())?)
+        ctx.render("flag_template.md.tera")
     }
 }
 

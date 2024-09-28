@@ -1,23 +1,18 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
-use crate::docs::markdown::tera::TERA;
 use crate::error::UsageErr;
 
 impl MarkdownRenderer {
     pub fn render_spec(&self) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
-
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
-
-        Ok(TERA.render("spec_template.md.tera", &ctx.tera_ctx())?)
+        ctx.render("spec_template.md.tera")
     }
 
     pub fn render_index(&self) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
-
         ctx.multi = false;
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
-
-        Ok(TERA.render("index_template.md.tera", &ctx.tera_ctx())?)
+        ctx.render("index_template.md.tera")
     }
 }
 

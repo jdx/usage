@@ -21,9 +21,10 @@ pub struct Markdown {
     #[clap(long)]
     url_prefix: Option<String>,
 
-    // /// Escape HTML in markdown
-    // #[clap(long)]
-    // html_escape: bool,
+    /// Escape HTML in markdown
+    #[clap(long)]
+    html_encode: bool,
+
     /// Output markdown files to this directory
     #[clap(long, value_hint = clap::ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
@@ -40,7 +41,7 @@ impl Markdown {
             Ok(())
         };
         let (spec, _) = Spec::parse_file(&self.file)?;
-        let mut ctx = MarkdownRenderer::new(&spec);
+        let mut ctx = MarkdownRenderer::new(&spec).with_html_encode(self.html_encode);
         if let Some(url_prefix) = &self.url_prefix {
             ctx = ctx.with_url_prefix(url_prefix);
         }
