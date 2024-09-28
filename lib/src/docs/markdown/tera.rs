@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use tera::Tera;
@@ -27,7 +28,25 @@ pub(crate) static TERA: Lazy<Tera> = Lazy::new(|| {
         "escape_md",
         move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
             let value = value.as_str().unwrap();
-            Ok(value.replace("<", "&lt;").replace(">", "&gt;").into())
+            let value = value
+                .lines()
+                .map(|line| {
+                    if line.starts_with("    ") {
+                        return line.to_string();
+                    }
+                    // replace '<' with '&lt;' but not inside code blocks
+                    xx::regex!(r"(`[^`]*`)|(<)")
+                        .replace_all(line, |caps: &regex::Captures| {
+                            if caps.get(1).is_some() {
+                                caps.get(1).unwrap().as_str().to_string()
+                            } else {
+                                "&lt;".to_string()
+                            }
+                        })
+                        .to_string()
+                })
+                .join("\n");
+            Ok(value.into())
         },
     );
 

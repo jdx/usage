@@ -134,7 +134,11 @@ impl Spec {
                 k => bail_parse!(ctx, *node.node.name().span(), "unsupported spec key {k}"),
             }
         }
-        schema.cmd.name = schema.name.clone();
+        schema.cmd.name = if schema.bin.is_empty() {
+            schema.name.clone()
+        } else {
+            schema.bin.clone()
+        };
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }

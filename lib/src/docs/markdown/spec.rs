@@ -8,8 +8,6 @@ impl MarkdownRenderer {
 
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
 
-        // TODO: global flags
-
         Ok(TERA.render("spec_template.md.tera", &ctx.tera_ctx())?)
     }
 
