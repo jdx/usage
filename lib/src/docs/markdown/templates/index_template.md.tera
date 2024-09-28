@@ -1,6 +1,6 @@
 {%- set about = spec.about_long | default(value=spec.about) %}
 {%- set cmd = spec.cmd %}
-{{- "#" | repeat(count=header_level) }} `{{ spec.cmd.usage }}`
+{{- "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ spec.cmd.usage | trim }}`
 
 {%- if spec.version %}
 * **version**: {{ spec.version }}{% endif %}
@@ -14,5 +14,5 @@
 
 {{ "#" | repeat(count=header_level) }} Subcommands
 {% endif %}
-* [`{{ spec.bin }} {{ cmd.usage }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+* [`{{ spec.bin ~ " " ~ cmd.usage | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
 {%- endfor -%}

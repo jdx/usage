@@ -2,7 +2,7 @@
 {%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% else %}{% set help = cmd.help %}{% endif %}
 {%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% else %}{% set after_help = cmd.after_help %}{% endif %}
 {%- if multi -%}
-{{ "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ cmd.usage }}`
+{{ "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ cmd.usage | trim }}`
 {%- endif %}
 {%- if before_help %}
 
@@ -59,7 +59,7 @@
 
 {{ "#" | repeat(count=header_level) }}# Subcommands
 {% endif %}
-* [`{{ spec.bin }} {{ cmd.usage }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+* [`{{ spec.bin ~ " " ~ cmd.usage | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
 {%- endif -%}
 {%- endfor -%}
 {%- endif -%}

@@ -1,6 +1,6 @@
 {%- set about = spec.about_long | default(value=spec.about) %}
 {%- set cmd = spec.cmd %}
-{{- "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ spec.cmd.usage }}`
+{{- "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ spec.cmd.usage | trim }}`
 
 {%- if spec.version %}
 * **version**: {{ spec.version }}{% endif %}
@@ -15,7 +15,7 @@
 
 {%- for cmd in all_commands %}
 
-{{ "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ cmd.usage }}`
+{{ "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ cmd.usage | trim }}`
 
 {%- include "cmd_template.md.tera" %}
 {%- endfor -%}
