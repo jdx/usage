@@ -21,6 +21,9 @@ pub struct Markdown {
     #[clap(long)]
     url_prefix: Option<String>,
 
+    // /// Escape HTML in markdown
+    // #[clap(long)]
+    // html_escape: bool,
     /// Output markdown files to this directory
     #[clap(long, value_hint = clap::ValueHint::DirPath)]
     out_dir: Option<PathBuf>,

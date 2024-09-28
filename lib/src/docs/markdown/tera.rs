@@ -23,5 +23,13 @@ pub(crate) static TERA: Lazy<Tera> = Lazy::new(|| {
         },
     );
 
+    tera.register_filter(
+        "escape_md",
+        move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
+            let value = value.as_str().unwrap();
+            Ok(value.replace("<", "&lt;").replace(">", "&gt;").into())
+        },
+    );
+
     tera
 });

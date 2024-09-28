@@ -2,5 +2,5 @@
 
 {%- if help %}
 
-{{ help }}
+{{ help | escape_md }}
 {%- endif -%}

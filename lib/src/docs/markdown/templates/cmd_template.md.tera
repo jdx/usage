@@ -6,12 +6,12 @@
 {%- endif %}
 {%- if before_help %}
 
-{{ before_help }}
+{{ before_help | escape_md }}
 {%- endif %}
 
 {%- if help %}
 
-{{ help }}
+{{ help | escape_md }}
 {%- endif %}
 
 {%- set args = cmd.args | filter(attribute="hide", value=false) %}
@@ -66,5 +66,5 @@
 
 {%- if after_help %}
 
-{{ after_help }}
+{{ after_help | escape_md }}
 {%- endif -%}

@@ -207,7 +207,7 @@ impl SpecCommand {
             && self.subcommands.is_empty()
     }
     pub fn usage(&self) -> String {
-        let mut usage = self.name.clone();
+        let mut usage = self.full_cmd.join(" ");
         let total_count = self.args.len() + self.flags.len();
         if self.subcommands.is_empty() && total_count <= 2 {
             let inlines = self

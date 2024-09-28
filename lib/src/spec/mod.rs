@@ -201,9 +201,6 @@ fn extract_usage_from_comments(full: &str) -> String {
 }
 
 fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
-    if cmd.usage.is_empty() {
-        cmd.usage = cmd.usage();
-    }
     let ancestors = ancestors.to_vec();
     for subcmd in cmd.subcommands.values_mut() {
         subcmd.full_cmd = ancestors
@@ -212,6 +209,9 @@ fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
             .chain(once(subcmd.name.clone()))
             .collect();
         set_subcommand_ancestors(subcmd, &subcmd.full_cmd.clone());
+    }
+    if cmd.usage.is_empty() {
+        cmd.usage = cmd.usage();
     }
 }
 

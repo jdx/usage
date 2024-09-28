@@ -46,6 +46,7 @@ impl MarkdownRenderer {
         ctx.insert("multi", &self.multi);
         ctx.insert("spec", &self.spec);
         ctx.insert("url_prefix", &self.url_prefix);
+        ctx.insert("html_escape", &true);
         ctx
     }
 }

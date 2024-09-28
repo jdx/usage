@@ -1,6 +1,6 @@
 {%- set about = spec.about_long | default(value=spec.about) %}
 {%- set cmd = spec.cmd %}
-{{- "#" | repeat(count=header_level) }} `{{ spec.cmd.usage }}`
+{{- "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ spec.cmd.usage }}`
 
 {%- if spec.version %}
 * **version**: {{ spec.version }}{% endif %}

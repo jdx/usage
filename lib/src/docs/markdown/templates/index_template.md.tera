@@ -5,11 +5,6 @@
 {%- if spec.version %}
 * **version**: {{ spec.version }}{% endif %}
 
-{%- if about %}
-
-{{ about }}
-{% endif %}
-
 {%- include "cmd_template.md.tera" %}
 
 {%- set header_level = header_level + 1 %}
@@ -19,11 +14,5 @@
 
 {{ "#" | repeat(count=header_level) }} Subcommands
 {% endif %}
-{%- if cmd.full_cmd | length >= 2 %}
-{%- set full_cmd = cmd.full_cmd | slice(end=1) | join(sep=" ") %}
-{%- set full_cmd = spec.bin ~ " " ~ full_cmd %}
-{%- else %}
-{%- set full_cmd = spec.bin %}
-{%- endif %}
-* [`{{ full_cmd }} {{ cmd.usage }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+* [`{{ spec.bin }} {{ cmd.usage }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
 {%- endfor -%}

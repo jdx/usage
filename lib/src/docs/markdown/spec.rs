@@ -69,7 +69,7 @@ mod tests {
 
         ## `mycli plugin [subcommand]`
 
-        ## `mycli install [args] [flags]`
+        ## `mycli plugin install [args] [flags]`
 
         ### Arguments
 
