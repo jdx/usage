@@ -23,7 +23,7 @@ mod tests {
     fn test_render_markdown_cmd() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK).with_multi(true);
         assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r####"
-        # `mycli [args] [flags] [subcommand]`
+        # `mycli [flags] <args>… [subcommand]`
 
         ## Arguments
 

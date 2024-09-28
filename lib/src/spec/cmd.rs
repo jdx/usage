@@ -208,27 +208,36 @@ impl SpecCommand {
     }
     pub fn usage(&self) -> String {
         let mut usage = self.full_cmd.join(" ");
-        let total_count = self.args.len() + self.flags.len();
-        if self.subcommands.is_empty() && total_count <= 2 {
-            let inlines = self
-                .args
-                .iter()
-                .filter(|a| !a.hide)
-                .map(|a| a.usage())
-                .chain(
-                    self.flags
-                        .iter()
-                        .filter(|f| !f.hide)
-                        .map(|f| format!("[{f}]")),
-                )
-                .join(" ");
-            return format!("{usage} {inlines}").trim().to_string();
+        let flags = self.flags.iter().filter(|f| !f.hide).collect_vec();
+        let args = self.args.iter().filter(|a| !a.hide).collect_vec();
+        if !flags.is_empty() {
+            if flags.len() <= 2 {
+                let inlines = flags
+                    .iter()
+                    .map(|f| {
+                        if f.required {
+                            format!("<{}>", f.usage())
+                        } else {
+                            format!("[{}]", f.usage())
+                        }
+                    })
+                    .join(" ");
+                usage = format!("{usage} {inlines}").trim().to_string();
+            } else if flags.iter().any(|f| f.required) {
+                usage = format!("{usage} <flags>");
+            } else {
+                usage = format!("{usage} [flags]");
+            }
         }
-        if !self.args.is_empty() {
-            usage = format!("{usage} [args]");
-        }
-        if !self.flags.is_empty() {
-            usage = format!("{usage} [flags]");
+        if !args.is_empty() {
+            if args.len() <= 2 {
+                let inlines = args.iter().map(|a| a.usage()).join(" ");
+                usage = format!("{usage} {inlines}").trim().to_string();
+            } else if args.iter().any(|a| a.required) {
+                usage = format!("{usage} <args>…");
+            } else {
+                usage = format!("{usage} [args]…");
+            }
         }
         // TODO: mounts?
         // if !self.mounts.is_empty() {

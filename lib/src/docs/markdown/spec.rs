@@ -31,7 +31,7 @@ mod tests {
     fn test_render_markdown_spec() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK);
         assert_snapshot!(ctx.render_spec().unwrap(), @r#####"
-        # `mycli [args] [flags] [subcommand]`
+        # `mycli [flags] <args>… [subcommand]`
 
         ## Arguments
 
@@ -67,7 +67,7 @@ mod tests {
 
         ## `mycli plugin [subcommand]`
 
-        ## `mycli plugin install [args] [flags]`
+        ## `mycli plugin install [flags] <plugin> <version>`
 
         ### Arguments
 
