@@ -9,6 +9,11 @@
 {{ before_help | escape_md }}
 {%- endif %}
 
+{%- if cmd.aliases %}
+
+**Aliases**: {{ cmd.aliases | join(sep=", ") }}
+{%- endif %}
+
 {%- if help %}
 
 {{ help | escape_md }}
