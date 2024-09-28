@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
-#[macro_use]
 extern crate miette;
-#[macro_use]
 extern crate xx;
 
 use std::path::PathBuf;

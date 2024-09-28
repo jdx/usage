@@ -1,7 +1,5 @@
 #[cfg(test)]
-#[macro_use]
 extern crate insta;
-#[macro_use]
 extern crate log;
 
 pub use crate::parse::parse;
@@ -19,8 +17,9 @@ pub mod complete;
 pub mod spec;
 
 #[cfg(feature = "docs")]
-mod docs;
+pub mod docs;
 pub mod parse;
 pub(crate) mod sh;
+pub(crate) mod string;
 #[cfg(test)]
 mod test;

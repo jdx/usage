@@ -1,23 +1,24 @@
-use std::fmt::Display;
-use std::hash::Hash;
-use std::str::FromStr;
-
 use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::str::FromStr;
 
 use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
-use crate::{SpecArg, SpecChoices};
+use crate::{string, SpecArg, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
     pub name: String,
     pub usage: String,
     pub help: Option<String>,
-    pub long_help: Option<String>,
+    pub help_long: Option<String>,
+    pub help_md: Option<String>,
+    pub help_first_line: Option<String>,
     pub short: Vec<char>,
     pub long: Vec<String>,
     pub required: bool,
@@ -37,7 +38,9 @@ impl SpecFlag {
         for (k, v) in node.props() {
             match k {
                 "help" => flag.help = Some(v.ensure_string()?),
-                "long_help" => flag.long_help = Some(v.ensure_string()?),
+                "long_help" => flag.help_long = Some(v.ensure_string()?),
+                "help_long" => flag.help_long = Some(v.ensure_string()?),
+                "help_md" => flag.help_md = Some(v.ensure_string()?),
                 "required" => flag.required = v.ensure_bool()?,
                 "var" => flag.var = v.ensure_bool()?,
                 "hide" => flag.hide = v.ensure_bool()?,
@@ -59,7 +62,9 @@ impl SpecFlag {
             match child.name() {
                 "arg" => flag.arg = Some(SpecArg::parse(ctx, &child)?),
                 "help" => flag.help = Some(child.arg(0)?.ensure_string()?),
-                "long_help" => flag.long_help = Some(child.arg(0)?.ensure_string()?),
+                "long_help" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
+                "help_long" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
+                "help_md" => flag.help_md = Some(child.arg(0)?.ensure_string()?),
                 "required" => flag.required = child.arg(0)?.ensure_bool()?,
                 "var" => flag.var = child.arg(0)?.ensure_bool()?,
                 "hide" => flag.hide = child.arg(0)?.ensure_bool()?,
@@ -88,6 +93,7 @@ impl SpecFlag {
             }
         }
         flag.usage = flag.usage();
+        flag.help_first_line = flag.help.as_ref().map(|s| string::first_line(s));
         Ok(flag)
     }
     pub fn usage(&self) -> String {
@@ -121,15 +127,21 @@ impl From<&SpecFlag> for KdlNode {
             .iter()
             .map(|c| format!("-{c}"))
             .chain(flag.long.iter().map(|s| format!("--{s}")))
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(" ");
         node.push(KdlEntry::new(name));
         if let Some(desc) = &flag.help {
             node.push(KdlEntry::new_prop("help", desc.clone()));
         }
-        if let Some(desc) = &flag.long_help {
+        if let Some(desc) = &flag.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
+            node.entries_mut().push(KdlEntry::new(desc.clone()));
+            children.nodes_mut().push(node);
+        }
+        if let Some(desc) = &flag.help_md {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("help_md");
             node.entries_mut().push(KdlEntry::new(desc.clone()));
             children.nodes_mut().push(node);
         }
@@ -212,7 +224,8 @@ impl From<&clap::Arg> for SpecFlag {
     fn from(c: &clap::Arg) -> Self {
         let required = c.is_required_set();
         let help = c.get_help().map(|s| s.to_string());
-        let long_help = c.get_long_help().map(|s| s.to_string());
+        let help_long = c.get_long_help().map(|s| s.to_string());
+        let help_first_line = help.as_ref().map(|s| string::first_line(s));
         let hide = c.is_hide_set();
         let var = matches!(
             c.get_action(),
@@ -248,7 +261,9 @@ impl From<&clap::Arg> for SpecFlag {
             long,
             required,
             help,
-            long_help,
+            help_long,
+            help_md: None,
+            help_first_line,
             var,
             hide,
             global: c.is_global_set(),
@@ -333,6 +348,7 @@ fn get_name_from_short_and_long(short: &[char], long: &[String]) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
 
     #[test]
     fn from_str() {

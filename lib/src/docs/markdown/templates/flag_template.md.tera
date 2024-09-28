@@ -1,0 +1,5 @@
+{%- if flag.help_long_md %}{% set help = flag.long_help %}{% elif flag.help_long %}{% set help = flag.help_long %}{% else %}{% set help = flag.help %}{% endif %}
+{%- if help %}
+
+{{ help }}
+{%- endif -%}

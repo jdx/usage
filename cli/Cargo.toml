@@ -40,7 +40,7 @@ serde = { version = "1", features = ["derive"] }
 strum = { version = "0.26", features = ["derive"] }
 tera = "1"
 thiserror = "1"
-usage-lib = { workspace = true, features = ["clap"] }
+usage-lib = { workspace = true, features = ["clap", "docs"] }
 xx = "1"
 
 [dev-dependencies]
