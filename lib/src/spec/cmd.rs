@@ -12,7 +12,7 @@ use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct SpecCommand {
     pub full_cmd: Vec<String>,
     pub usage: String,
@@ -24,18 +24,52 @@ pub struct SpecCommand {
     pub hide: bool,
     pub subcommand_required: bool,
     pub help: Option<String>,
-    pub long_help: Option<String>,
+    pub help_long: Option<String>,
+    pub help_md: Option<String>,
     pub name: String,
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
     pub before_help: Option<String>,
-    pub before_long_help: Option<String>,
+    pub before_help_long: Option<String>,
+    pub before_help_md: Option<String>,
     pub after_help: Option<String>,
-    pub after_long_help: Option<String>,
+    pub after_help_long: Option<String>,
+    pub after_help_md: Option<String>,
     pub examples: Vec<SpecExample>,
 
+    // TODO: make this non-public
     #[serde(skip)]
-    pub subcommand_lookup: OnceLock<HashMap<String, String>>,
+    subcommand_lookup: OnceLock<HashMap<String, String>>,
+}
+
+impl Default for SpecCommand {
+    fn default() -> Self {
+        Self {
+            full_cmd: vec![],
+            usage: "".to_string(),
+            subcommands: IndexMap::new(),
+            args: vec![],
+            flags: vec![],
+            mounts: vec![],
+            deprecated: None,
+            hide: false,
+            subcommand_required: false,
+            help: None,
+            help_long: None,
+            help_md: None,
+            name: "".to_string(),
+            aliases: vec![],
+            hidden_aliases: vec![],
+            before_help: None,
+            before_help_long: None,
+            before_help_md: None,
+            after_help: None,
+            after_help_long: None,
+            after_help_md: None,
+            examples: vec![],
+            subcommand_lookup: OnceLock::new(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -65,13 +99,21 @@ impl SpecCommand {
         for (k, v) in node.props() {
             match k {
                 "help" => cmd.help = Some(v.ensure_string()?),
-                "long_help" => cmd.long_help = Some(v.ensure_string()?),
+                "long_help" => cmd.help_long = Some(v.ensure_string()?),
+                "help_long" => cmd.help_long = Some(v.ensure_string()?),
+                "help_md" => cmd.help_md = Some(v.ensure_string()?),
                 "before_help" => cmd.before_help = Some(v.ensure_string()?),
-                "before_long_help" => cmd.before_long_help = Some(v.ensure_string()?),
+                "before_long_help" => cmd.before_help_long = Some(v.ensure_string()?),
+                "before_help_long" => cmd.before_help_long = Some(v.ensure_string()?),
+                "before_help_md" => cmd.before_help_md = Some(v.ensure_string()?),
                 "after_help" => cmd.after_help = Some(v.ensure_string()?),
                 "after_long_help" => {
-                    cmd.after_long_help = Some(v.ensure_string()?);
+                    cmd.after_help_long = Some(v.ensure_string()?);
                 }
+                "after_help_long" => {
+                    cmd.after_help_long = Some(v.ensure_string()?);
+                }
+                "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "deprecated" => {
@@ -126,20 +168,20 @@ impl SpecCommand {
                     cmd.help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "long_help" => {
-                    cmd.long_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                    cmd.help_long = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "before_help" => {
                     cmd.before_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "before_long_help" => {
-                    cmd.before_long_help =
+                    cmd.before_help_long =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "after_help" => {
                     cmd.after_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "after_long_help" => {
-                    cmd.after_long_help =
+                    cmd.after_help_long =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "subcommand_required" => {
@@ -164,21 +206,38 @@ impl SpecCommand {
             && self.mounts.is_empty()
             && self.subcommands.is_empty()
     }
-    pub(crate) fn usage(&self) -> String {
-        let mut name = self.name.clone();
+    pub fn usage(&self) -> String {
+        let mut usage = self.name.clone();
+        let total_count = self.args.len() + self.flags.len();
+        if self.subcommands.is_empty() && total_count <= 2 {
+            let inlines = self
+                .args
+                .iter()
+                .filter(|a| !a.hide)
+                .map(|a| a.usage())
+                .chain(
+                    self.flags
+                        .iter()
+                        .filter(|f| !f.hide)
+                        .map(|f| format!("[{f}]")),
+                )
+                .join(" ");
+            return format!("{usage} {inlines}").trim().to_string();
+        }
         if !self.args.is_empty() {
-            name = format!("{name} [args]");
+            usage = format!("{usage} [args]");
         }
         if !self.flags.is_empty() {
-            name = format!("{name} [flags]");
+            usage = format!("{usage} [flags]");
         }
+        // TODO: mounts?
         // if !self.mounts.is_empty() {
         //     name = format!("{name} [mounts]");
         // }
         if !self.subcommands.is_empty() {
-            name = format!("{name} [subcommand]");
+            usage = format!("{usage} [subcommand]");
         }
-        name
+        usage.trim().to_string()
     }
     pub(crate) fn merge(&mut self, other: Self) {
         if !other.name.is_empty() {
@@ -187,20 +246,29 @@ impl SpecCommand {
         if other.help.is_some() {
             self.help = other.help;
         }
-        if other.long_help.is_some() {
-            self.long_help = other.long_help;
+        if other.help_long.is_some() {
+            self.help_long = other.help_long;
+        }
+        if other.help_md.is_some() {
+            self.help_md = other.help_md;
         }
         if other.before_help.is_some() {
             self.before_help = other.before_help;
         }
-        if other.before_long_help.is_some() {
-            self.before_long_help = other.before_long_help;
+        if other.before_help_long.is_some() {
+            self.before_help_long = other.before_help_long;
+        }
+        if other.before_help_md.is_some() {
+            self.before_help_md = other.before_help_md;
         }
         if other.after_help.is_some() {
             self.after_help = other.after_help;
         }
-        if other.after_long_help.is_some() {
-            self.after_long_help = other.after_long_help;
+        if other.after_help_long.is_some() {
+            self.after_help_long = other.after_help_long;
+        }
+        if other.after_help_md.is_some() {
+            self.after_help_md = other.after_help_md;
         }
         if !other.args.is_empty() {
             self.args = other.args;
@@ -225,6 +293,15 @@ impl SpecCommand {
         for (name, cmd) in other.subcommands {
             self.subcommands.insert(name, cmd);
         }
+    }
+
+    pub fn all_subcommands(&self) -> Vec<&SpecCommand> {
+        let mut cmds = vec![];
+        for cmd in self.subcommands.values() {
+            cmds.push(cmd);
+            cmds.extend(cmd.all_subcommands());
+        }
+        cmds
     }
 
     pub fn find_subcommand(&self, name: &str) -> Option<&SpecCommand> {
@@ -287,9 +364,15 @@ impl From<&SpecCommand> for KdlNode {
             node.entries_mut()
                 .push(KdlEntry::new_prop("help", help.clone()));
         }
-        if let Some(help) = &cmd.long_help {
+        if let Some(help) = &cmd.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
+        }
+        if let Some(help) = &cmd.help_md {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("help_md");
             node.insert(0, KdlValue::RawString(help.clone()));
             children.nodes_mut().push(node);
         }
@@ -297,9 +380,15 @@ impl From<&SpecCommand> for KdlNode {
             node.entries_mut()
                 .push(KdlEntry::new_prop("before_help", help.clone()));
         }
-        if let Some(help) = &cmd.before_long_help {
+        if let Some(help) = &cmd.before_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
+        }
+        if let Some(help) = &cmd.before_help_md {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("before_help_md");
             node.insert(0, KdlValue::RawString(help.clone()));
             children.nodes_mut().push(node);
         }
@@ -307,9 +396,15 @@ impl From<&SpecCommand> for KdlNode {
             node.entries_mut()
                 .push(KdlEntry::new_prop("after_help", help.clone()));
         }
-        if let Some(help) = &cmd.after_long_help {
+        if let Some(help) = &cmd.after_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_long_help");
+            node.insert(0, KdlValue::RawString(help.clone()));
+            children.nodes_mut().push(node);
+        }
+        if let Some(help) = &cmd.after_help_md {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut node = KdlNode::new("after_help_md");
             node.insert(0, KdlValue::RawString(help.clone()));
             children.nodes_mut().push(node);
         }
@@ -340,11 +435,11 @@ impl From<&clap::Command> for SpecCommand {
             name: cmd.get_name().to_string(),
             hide: cmd.is_hide_set(),
             help: cmd.get_about().map(|s| s.to_string()),
-            long_help: cmd.get_long_about().map(|s| s.to_string()),
+            help_long: cmd.get_long_about().map(|s| s.to_string()),
             before_help: cmd.get_before_help().map(|s| s.to_string()),
-            before_long_help: cmd.get_before_long_help().map(|s| s.to_string()),
+            before_help_long: cmd.get_before_long_help().map(|s| s.to_string()),
             after_help: cmd.get_after_help().map(|s| s.to_string()),
-            after_long_help: cmd.get_after_long_help().map(|s| s.to_string()),
+            after_help_long: cmd.get_after_long_help().map(|s| s.to_string()),
             ..Default::default()
         };
         for alias in cmd.get_visible_aliases() {

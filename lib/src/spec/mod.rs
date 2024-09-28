@@ -11,6 +11,7 @@ pub mod mount;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use log::info;
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
@@ -37,7 +38,8 @@ pub struct Spec {
 
     pub author: Option<String>,
     pub about: Option<String>,
-    pub long_about: Option<String>,
+    pub about_long: Option<String>,
+    pub about_md: Option<String>,
 }
 
 impl Spec {
@@ -89,11 +91,18 @@ impl Spec {
         for node in kdl.nodes().iter().map(|n| NodeHelper::new(ctx, n)) {
             match node.name() {
                 "name" => schema.name = node.arg(0)?.ensure_string()?,
-                "bin" => schema.bin = node.arg(0)?.ensure_string()?,
+                "bin" => {
+                    schema.bin = node.arg(0)?.ensure_string()?;
+                    if schema.name.is_empty() {
+                        schema.name.clone_from(&schema.bin);
+                    }
+                }
                 "version" => schema.version = Some(node.arg(0)?.ensure_string()?),
                 "author" => schema.author = Some(node.arg(0)?.ensure_string()?),
                 "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
-                "long_about" => schema.long_about = Some(node.arg(0)?.ensure_string()?),
+                "long_about" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
+                "about_long" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
+                "about_md" => schema.about_md = Some(node.arg(0)?.ensure_string()?),
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
                 "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
@@ -125,6 +134,7 @@ impl Spec {
                 k => bail_parse!(ctx, *node.node.name().span(), "unsupported spec key {k}"),
             }
         }
+        schema.cmd.name = schema.name.clone();
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }
@@ -142,8 +152,11 @@ impl Spec {
         if other.about.is_some() {
             self.about = other.about;
         }
-        if other.long_about.is_some() {
-            self.long_about = other.long_about;
+        if other.about_long.is_some() {
+            self.about_long = other.about_long;
+        }
+        if other.about_md.is_some() {
+            self.about_md = other.about_md;
         }
         if !other.config.is_empty() {
             self.config.merge(&other.config);
@@ -231,7 +244,7 @@ impl Display for Spec {
             node.push(KdlEntry::new(about.clone()));
             nodes.push(node);
         }
-        if let Some(long_about) = &self.long_about {
+        if let Some(long_about) = &self.about_long {
             let mut node = KdlNode::new("long_about");
             node.push(KdlEntry::new(KdlValue::RawString(long_about.clone())));
             nodes.push(node);
@@ -274,7 +287,7 @@ impl From<&clap::Command> for Spec {
             cmd: cmd.into(),
             version: cmd.get_version().map(|v| v.to_string()),
             about: cmd.get_about().map(|a| a.to_string()),
-            long_about: cmd.get_long_about().map(|a| a.to_string()),
+            about_long: cmd.get_long_about().map(|a| a.to_string()),
             usage: cmd.clone().render_usage().to_string(),
             ..Default::default()
         }
@@ -284,6 +297,7 @@ impl From<&clap::Command> for Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
 
     #[test]
     fn test_display() {

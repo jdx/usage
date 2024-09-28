@@ -117,6 +117,7 @@ impl From<&SpecConfig> for KdlNode {
 #[cfg(test)]
 mod tests {
     use crate::Spec;
+    use insta::assert_snapshot;
 
     #[test]
     fn test_config_defaults() {

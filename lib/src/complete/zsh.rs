@@ -64,6 +64,7 @@ fi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
 
     #[test]
     fn test_complete_zsh() {

@@ -21,6 +21,7 @@ complete -xc {bin} -a '(usage complete-word --shell fish -s "$_usage_spec_{bin}"
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
 
     #[test]
     fn test_complete_fish() {

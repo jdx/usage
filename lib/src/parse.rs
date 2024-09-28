@@ -295,22 +295,21 @@ mod tests {
 
     #[test]
     fn test_parse() {
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "arg".to_string(),
+            ..Default::default()
+        }];
+        cmd.flags = vec![SpecFlag {
+            name: "flag".to_string(),
+            long: vec!["flag".to_string()],
+            ..Default::default()
+        }];
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
-            cmd: SpecCommand {
-                name: "test".to_string(),
-                args: vec![SpecArg {
-                    name: "arg".to_string(),
-                    ..Default::default()
-                }],
-                flags: vec![SpecFlag {
-                    name: "flag".to_string(),
-                    long: vec!["flag".to_string()],
-                    ..Default::default()
-                }],
-                ..Default::default()
-            },
+            cmd,
             ..Default::default()
         };
         let input = vec!["test".to_string(), "arg1".to_string(), "--flag".to_string()];
@@ -324,26 +323,29 @@ mod tests {
 
     #[test]
     fn test_as_env() {
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "arg".to_string(),
+            ..Default::default()
+        }];
+        cmd.flags = vec![
+            SpecFlag {
+                name: "flag".to_string(),
+                long: vec!["flag".to_string()],
+                ..Default::default()
+            },
+            SpecFlag {
+                name: "force".to_string(),
+                long: vec!["force".to_string()],
+                negate: Some("--no-force".to_string()),
+                ..Default::default()
+            },
+        ];
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
-            cmd: SpecCommand {
-                name: "test".to_string(),
-                flags: vec![
-                    SpecFlag {
-                        name: "flag".to_string(),
-                        long: vec!["flag".to_string()],
-                        ..Default::default()
-                    },
-                    SpecFlag {
-                        name: "force".to_string(),
-                        long: vec!["force".to_string()],
-                        negate: Some("--no-force".to_string()),
-                        ..Default::default()
-                    },
-                ],
-                ..Default::default()
-            },
+            cmd,
             ..Default::default()
         };
         let input = vec![

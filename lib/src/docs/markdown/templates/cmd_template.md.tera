@@ -1,0 +1,70 @@
+{%- if cmd.before_help_md %}{% set before_help = cmd.before_help_md %}{% elif cmd.before_help_long %}{% set before_help = cmd.before_help_long %}{% else %}{% set before_help = cmd.before_help %}{% endif %}
+{%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% else %}{% set help = cmd.help %}{% endif %}
+{%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% else %}{% set after_help = cmd.after_help %}{% endif %}
+{%- if multi %}
+{{ "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ cmd.usage }}`
+{%- endif %}
+{%- if before_help %}
+
+{{ before_help }}
+{%- endif %}
+
+{%- if help %}
+
+{{ help }}
+{%- endif %}
+
+{%- set args = cmd.args | filter(attribute="hide", value=false) %}
+{%- set flags = cmd.flags | filter(attribute="hide", value=false) %}
+{%- set global_flags = flags | filter(attribute="global", value=true) %}
+{%- set local_flags = flags | filter(attribute="global", value=false) %}
+
+{%- if args %}
+
+{{ "#" | repeat(count=header_level) }}# Arguments
+
+{%- for arg in args %}
+
+{{ "#" | repeat(count=header_level) }}## `{{ arg.usage }}`
+{%- include "arg_template.md.tera" %}
+{%- endfor %}
+{%- endif %}
+
+{%- if global_flags %}
+
+{{ "#" | repeat(count=header_level) }}# Global Flags
+
+{%- for flag in global_flags %}
+
+{{ "#" | repeat(count=header_level) }}## `{{ flag.usage }}`
+{%- include "flag_template.md.tera" %}
+{%- endfor %}
+{%- endif %}
+
+{%- if local_flags %}
+
+{{ "#" | repeat(count=header_level) }}# Flags
+
+{%- for flag in local_flags %}
+
+{{ "#" | repeat(count=header_level) }}## `{{ flag.usage }}`
+{%- include "flag_template.md.tera" %}
+{%- endfor %}
+{%- endif %}
+
+{%- if multi %}
+{%- for name, cmd in cmd.subcommands %}
+{%- if cmd.hide == false %}
+{%- if loop.first %}
+
+{{ "#" | repeat(count=header_level) }}# Subcommands
+{% endif %}
+* [`{{ spec.bin }} {{ cmd.usage }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+{%- endif -%}
+{%- endfor -%}
+{%- endif -%}
+
+{%- if after_help %}
+
+{{ after_help }}
+{%- endif -%}

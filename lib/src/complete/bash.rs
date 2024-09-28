@@ -35,6 +35,7 @@ shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin} 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
 
     #[test]
     fn test_complete_bash() {
