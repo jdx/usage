@@ -1,7 +1,7 @@
 {%- if cmd.before_help_md %}{% set before_help = cmd.before_help_md %}{% elif cmd.before_help_long %}{% set before_help = cmd.before_help_long %}{% else %}{% set before_help = cmd.before_help %}{% endif %}
 {%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% else %}{% set help = cmd.help %}{% endif %}
 {%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% else %}{% set after_help = cmd.after_help %}{% endif %}
-{%- if multi %}
+{%- if multi -%}
 {{ "#" | repeat(count=header_level) }} `{{ spec.bin }} {{ cmd.usage }}`
 {%- endif %}
 {%- if before_help %}

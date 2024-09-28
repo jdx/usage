@@ -33,7 +33,7 @@ impl Markdown {
     pub fn run(&self) -> miette::Result<()> {
         let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
             println!("writing to {}", path.display());
-            xx::file::write(path, md)?;
+            xx::file::write(path, format!("{}\n", md.trim()))?;
             Ok(())
         };
         let (spec, _) = Spec::parse_file(&self.file)?;
