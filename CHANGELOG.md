@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.3](https://github.com/jdx/usage/compare/v0.8.2..v0.8.3) - 2024-09-28
+
+### 🐛 Bug Fixes
+
+- minor whitespace bug in md output by [@jdx](https://github.com/jdx) in [dcced73](https://github.com/jdx/usage/commit/dcced7300a3abfd2cde2eee2879d27fa30b50694)
+- added aliases to command info by [@jdx](https://github.com/jdx) in [ac745d6](https://github.com/jdx/usage/commit/ac745d66215566500faa684b93192392bf307521)
+- tweak usage output by [@jdx](https://github.com/jdx) in [c488b76](https://github.com/jdx/usage/commit/c488b76249c6ab6eb022cc022567faed82332074)
+- make html_encode optional by [@jdx](https://github.com/jdx) in [cc629ee](https://github.com/jdx/usage/commit/cc629ee36acbbd2fe9a4e69c4b3216334f356739)
+
+### 🔍 Other Changes
+
+- always remove aur repo by [@jdx](https://github.com/jdx) in [368ae97](https://github.com/jdx/usage/commit/368ae97a73ecb82fb5855fdc8610dc7e2dd17084)
+
 ## [0.8.2](https://github.com/jdx/usage/compare/v0.8.1..v0.8.2) - 2024-09-28
 
 ### 🐛 Bug Fixes
