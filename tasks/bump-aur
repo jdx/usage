@@ -65,7 +65,7 @@ sha512sums = $SHA512
 pkgname = usage
 EOF
 elif [ "$pkgname" == "usage-bin" ]; then
-  SHA512=$(curl -fsSL "https://github.com/jdx/usage/archive/$USAGE_VERSION.tar.gz" | sha512sum | awk '{print $1}')
+  SHA512=$(curl -fsSL "https://github.com/jdx/usage/releases/download/$USAGE_VERSION/usage-x86_64-unknown-linux-gnu.tar.gz" | sha512sum | awk '{print $1}')
   cat >aur/PKGBUILD <<EOF
 # Maintainer: Jeff Dickey <releases-usage at jdx dot dev>
 
