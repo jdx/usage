@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.4](https://github.com/jdx/usage/compare/v0.8.3..v0.8.4) - 2024-09-29
+
+### 🐛 Bug Fixes
+
+- capitalize ARGS/FLAGS in md docs by [@jdx](https://github.com/jdx) in [3a314d5](https://github.com/jdx/usage/commit/3a314d5bcb7a1552a4cf2e833bd81b35a7e9e514)
+- move usage out of header by [@jdx](https://github.com/jdx) in [9a43a72](https://github.com/jdx/usage/commit/9a43a72ae26606cc9c03ee718627c1a6636d77f2)
+
+### 🔍 Other Changes
+
+- fix aur by [@jdx](https://github.com/jdx) in [56a0cf7](https://github.com/jdx/usage/commit/56a0cf7250890dd7147e41d69f3942150fdbd5d5)
+
 ## [0.8.3](https://github.com/jdx/usage/compare/v0.8.2..v0.8.3) - 2024-09-28
 
 ### 🐛 Bug Fixes
