@@ -224,9 +224,9 @@ impl SpecCommand {
                     .join(" ");
                 usage = format!("{usage} {inlines}").trim().to_string();
             } else if flags.iter().any(|f| f.required) {
-                usage = format!("{usage} <flags>");
+                usage = format!("{usage} <FLAGS>");
             } else {
-                usage = format!("{usage} [flags]");
+                usage = format!("{usage} [FLAGS]");
             }
         }
         if !args.is_empty() {
@@ -234,9 +234,9 @@ impl SpecCommand {
                 let inlines = args.iter().map(|a| a.usage()).join(" ");
                 usage = format!("{usage} {inlines}").trim().to_string();
             } else if args.iter().any(|a| a.required) {
-                usage = format!("{usage} <args>…");
+                usage = format!("{usage} <ARGS>…");
             } else {
-                usage = format!("{usage} [args]…");
+                usage = format!("{usage} [ARGS]…");
             }
         }
         // TODO: mounts?
@@ -244,7 +244,7 @@ impl SpecCommand {
         //     name = format!("{name} [mounts]");
         // }
         if !self.subcommands.is_empty() {
-            usage = format!("{usage} [subcommand]");
+            usage = format!("{usage} <SUBCOMMAND>");
         }
         usage.trim().to_string()
     }
