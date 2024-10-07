@@ -27,6 +27,10 @@ pub fn run(args: &[String]) -> Result<()> {
     //     return split_script(&args[1]);
     // } else if let Some(script) = args.get(1) {
     if let Some(script) = args.get(1) {
+        if script.to_lowercase() == "-v" {
+            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
         if script.starts_with("./") || script.starts_with('/') {
             let script: PathBuf = script.into();
             if script.starts_with("./") && script.exists() {
