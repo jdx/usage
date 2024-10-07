@@ -14,7 +14,7 @@
 
 {%- if cmd.aliases %}
 
-**Aliases**: {{ cmd.aliases | join(sep=", ") }}
+**Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
 {%- endif %}
 
 {%- if help %}
