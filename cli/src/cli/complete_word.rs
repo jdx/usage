@@ -47,7 +47,11 @@ impl CompleteWord {
             match (any_descriptions, shell) {
                 (true, "bash") => println!("{c}"),
                 (true, "fish") => println!("{c}\t{description}"),
-                (true, "zsh") => println!("{c}\\:'{description}'"),
+                (true, "zsh") => {
+                    // TODO: figure out how to properly escape single quotes
+                    let description = description.replace("'", "");
+                    println!("{c}\\:'{description}'")
+                }
                 _ => println!("{c}"),
             }
         }
@@ -94,6 +98,7 @@ impl CompleteWord {
             }
             choices
         };
+        trace!("choices: {}", choices.iter().map(|(c, _)| c).join(", "));
         Ok(choices)
     }
 
