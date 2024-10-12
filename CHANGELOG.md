@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0](https://github.com/jdx/usage/compare/v0.9.0..v0.10.0) - 2024-10-12
+
+### 🚀 Features
+
+- basic `--help` support by [@jdx](https://github.com/jdx) in [394df50](https://github.com/jdx/usage/commit/394df50623de7d497de47975267a4b7ec9377e70)
+
+### 🔍 Other Changes
+
+- debug output by [@jdx](https://github.com/jdx) in [53a4fe4](https://github.com/jdx/usage/commit/53a4fe4c155115e15dfe066844d83aa66c9bab83)
+
 ## [0.9.0](https://github.com/jdx/usage/compare/v0.8.4..v0.9.0) - 2024-10-12
 
 ### 🚀 Features
