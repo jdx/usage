@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.9.0](https://github.com/jdx/usage/compare/v0.8.4..v0.9.0) - 2024-10-12
+
+### 🚀 Features
+
+- put aliases in backticks by [@jdx](https://github.com/jdx) in [36b527f](https://github.com/jdx/usage/commit/36b527f8aaa9c64aadfb7dce06243625b28e091e)
+
+### 🐛 Bug Fixes
+
+- make `usage -v` work by [@jdx](https://github.com/jdx) in [caabb0f](https://github.com/jdx/usage/commit/caabb0f92f744bd1bcd0e1321c27649861b8ccea)
+- remove quotes in zsh descriptions by [@jdx](https://github.com/jdx) in [dba5fd8](https://github.com/jdx/usage/commit/dba5fd8ec4f08938ff6fc127f3542ef48deb8ca2)
+
+### 🔍 Other Changes
+
+- use correct url for aur checksum by [@jdx](https://github.com/jdx) in [36d577e](https://github.com/jdx/usage/commit/36d577eca41c290d47d03ad74783870eca806788)
+
+### 📦️ Dependency Updates
+
+- update rust crate once_cell to v1.20.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#123](https://github.com/jdx/usage/pull/123)
+- update rust crate regex to v1.11.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#124](https://github.com/jdx/usage/pull/124)
+- update rust crate clap to v4.5.19 by [@renovate[bot]](https://github.com/renovate[bot]) in [#125](https://github.com/jdx/usage/pull/125)
+- update rust crate once_cell to v1.20.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#126](https://github.com/jdx/usage/pull/126)
+
 ## [0.8.4](https://github.com/jdx/usage/compare/v0.8.3..v0.8.4) - 2024-09-29
 
 ### 🐛 Bug Fixes
