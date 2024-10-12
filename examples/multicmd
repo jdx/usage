@@ -1,0 +1,17 @@
+#!/usr/bin/env -S usage bash
+#USAGE cmd "apply" {
+#USAGE   arg "<file>"
+#USAGE }
+#USAGE cmd "select" {}
+
+function apply() {
+  echo "Applying theme $1"
+}
+function select_theme() {
+  echo "Selecting theme $1"
+}
+
+case "$1" in
+"apply") apply "$2" ;;
+"select") select_theme "$2" ;;
+esac
