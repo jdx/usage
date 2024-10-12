@@ -48,8 +48,7 @@ impl CompleteWord {
                 (true, "bash") => println!("{c}"),
                 (true, "fish") => println!("{c}\t{description}"),
                 (true, "zsh") => {
-                    // TODO: figure out how to properly escape single quotes
-                    let description = description.replace("'", "");
+                    let description = description.replace("'", "'\\''");
                     println!("{c}\\:'{description}'")
                 }
                 _ => println!("{c}"),
