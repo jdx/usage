@@ -31,6 +31,7 @@ impl Bash {
         }
 
         let parsed = usage::parse::parse(&spec, &args)?;
+        debug!("{parsed:?}");
 
         let mut cmd = std::process::Command::new("bash");
         cmd.stdin(Stdio::inherit());
