@@ -9,12 +9,15 @@ use miette::IntoDiagnostic;
 use usage::Spec;
 
 #[derive(Debug, Args)]
-#[clap()]
+#[clap(disable_help_flag = true)]
 pub struct Bash {
     script: PathBuf,
     /// arguments to pass to script
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
+
+    #[clap(short, long)]
+    help: bool,
 }
 
 impl Bash {
@@ -22,6 +25,11 @@ impl Bash {
         let (spec, _script) = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
+
+        if self.help {
+            return self.help(&spec, &args);
+        }
+
         let parsed = usage::parse::parse(&spec, &args)?;
 
         let mut cmd = std::process::Command::new("bash");
@@ -42,6 +50,11 @@ impl Bash {
 
         cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
 
+        Ok(())
+    }
+
+    pub fn help(&self, spec: &Spec, _args: &[String]) -> miette::Result<()> {
+        println!("{}", usage::docs::cli::render_help(spec));
         Ok(())
     }
 }
