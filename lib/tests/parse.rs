@@ -11,8 +11,8 @@ macro_rules! tests {
             let mut args = shell_words::split($args).unwrap();
             args.insert(0, "test".to_string());
             match parse(&spec, &args) {
-                Ok(env) => assert_str_eq!(format!("{:?}", env.as_env()), $expected.trim()),
-                Err(e) => assert_str_eq!(format!("{e}"), $expected.trim()),
+                Ok(env) => assert_str_eq!(format!("{:?}", env.as_env()).trim(), $expected.trim()),
+                Err(e) => assert_str_eq!(format!("{e}").trim(), $expected.trim()),
             }
         }
     )*
@@ -23,12 +23,12 @@ tests! {
     required_arg:
         spec=r#"arg "<name>""#,
         args="",
-        expected=r#"missing required arg <name>"#,
+        expected=r#"Missing required arg: <name>"#,
 
-    required_option:
+    required_flag:
         spec=r#"flag "--name <name>" required=true"#,
         args="",
-        expected=r#"missing required option --name <name>"#,
+        expected=r#"Missing required flag: --name <name>"#,
 
     negate:
         spec=r#"flag "--force" negate="--no-force""#,
@@ -57,7 +57,7 @@ tests! {
     choices "bash" "fish" "zsh"
 }"#,
         args="-s invalid",
-        expected=r#"invalid choice for option shell: invalid, expected one of bash, fish, zsh"#,
+        expected=r#"Invalid choice for option shell: invalid, expected one of bash, fish, zsh"#,
 
     arg_choices_ok:
         spec=r#"arg "<shell>" {
@@ -71,5 +71,16 @@ tests! {
     choices "bash" "fish" "zsh"
 }"#,
         args="invalid",
-        expected=r#"invalid choice for arg shell: invalid, expected one of bash, fish, zsh"#,
+        expected=r#"Invalid choice for arg shell: invalid, expected one of bash, fish, zsh"#,
+
+    arg_choices_help:
+        spec=r#"arg "<shell>" {
+    choices "bash" "fish" "zsh"
+}"#,
+        args="--help",
+        expected=r#"Usage: <shell>
+
+Arguments:
+  <shell>
+"#,
 }

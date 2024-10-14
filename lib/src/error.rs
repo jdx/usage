@@ -6,12 +6,21 @@ pub enum UsageErr {
     #[error("Invalid flag: {0}")]
     InvalidFlag(String, #[label] SourceSpan, #[source_code] String),
 
+    #[error("Missing required flag: --{0} <{0}>")]
+    MissingFlag(String),
+
     #[error("Invalid usage config")]
     InvalidInput(
         String,
         #[label = "{0}"] SourceSpan,
         #[source_code] NamedSource,
     ),
+
+    #[error("Missing required arg: <{0}>")]
+    MissingArg(String),
+
+    #[error("{0}")]
+    Help(String),
 
     #[error("Invalid usage config")]
     #[diagnostic(transparent)]

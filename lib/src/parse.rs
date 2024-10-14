@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use strum::EnumTryAs;
 
-use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
+use crate::error::UsageErr;
+use crate::{docs, Spec, SpecArg, SpecCommand, SpecFlag};
 
 pub struct ParseOutput {
     pub cmd: SpecCommand,
@@ -15,7 +16,7 @@ pub struct ParseOutput {
     pub flags: IndexMap<SpecFlag, ParseValue>,
     pub available_flags: BTreeMap<String, SpecFlag>,
     pub flag_awaiting_value: Option<SpecFlag>,
-    pub errors: Vec<String>,
+    pub errors: Vec<UsageErr>,
 }
 
 #[derive(Debug, EnumTryAs)]
@@ -28,8 +29,11 @@ pub enum ParseValue {
 
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let out = parse_partial(spec, input)?;
+    if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
+        bail!("{err}");
+    }
     if !out.errors.is_empty() {
-        bail!("{}", out.errors.join("\n"));
+        bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
     }
     Ok(out)
 }
@@ -100,8 +104,14 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             } else {
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
+                        if is_help_arg(spec, &w) {
+                            // TODO: render based on current args
+                            out.errors
+                                .push(UsageErr::Help(docs::cli::render_help(spec)));
+                            continue;
+                        }
                         bail!(
-                            "invalid choice for option {}: {w}, expected one of {}",
+                            "Invalid choice for option {}: {w}, expected one of {}",
                             flag.name,
                             choices.choices.join(", ")
                         );
@@ -185,8 +195,14 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             } else {
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
+                        if is_help_arg(spec, &w) {
+                            // TODO: render based on current args
+                            out.errors
+                                .push(UsageErr::Help(docs::cli::render_help(spec)));
+                            continue;
+                        }
                         bail!(
-                            "invalid choice for arg {}: {w}, expected one of {}",
+                            "Invalid choice for arg {}: {w}, expected one of {}",
                             arg.name,
                             choices.choices.join(", ")
                         );
@@ -197,26 +213,36 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             }
             continue;
         }
+        if is_help_arg(spec, &w) {
+            // TODO: render based on current args
+            out.errors
+                .push(UsageErr::Help(docs::cli::render_help(spec)));
+            continue;
+        }
         bail!("unexpected word: {w}");
     }
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
         if arg.required {
-            out.errors
-                .push(format!("missing required arg <{}>", arg.name));
+            out.errors.push(UsageErr::MissingArg(arg.name.clone()));
         }
     }
 
     for flag in out.available_flags.values() {
         if flag.required && !out.flags.contains_key(flag) {
-            out.errors.push(format!(
-                "missing required option --{} <{}>",
-                flag.name, flag.name
-            ));
+            out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
     }
 
     Ok(out)
+}
+
+fn is_help_arg(spec: &Spec, w: &str) -> bool {
+    spec.disable_help != Some(true)
+        && (w == "--help"
+            || w == "-h"
+            || w == "-?"
+            || (spec.cmd.subcommands.is_empty() && w == "help"))
 }
 
 impl ParseOutput {

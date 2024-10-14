@@ -40,6 +40,7 @@ pub struct Spec {
     pub about: Option<String>,
     pub about_long: Option<String>,
     pub about_md: Option<String>,
+    pub disable_help: Option<bool>,
 }
 
 impl Spec {
@@ -115,6 +116,7 @@ impl Spec {
                     let complete = SpecComplete::parse(ctx, &node)?;
                     schema.complete.insert(complete.name.clone(), complete);
                 }
+                "disable_help" => schema.disable_help = Some(node.arg(0)?.ensure_bool()?),
                 "include" => {
                     let file = node
                         .props()
@@ -167,6 +169,9 @@ impl Spec {
         }
         if !other.complete.is_empty() {
             self.complete.extend(other.complete);
+        }
+        if other.disable_help.is_some() {
+            self.disable_help = other.disable_help;
         }
         self.cmd.merge(other.cmd);
     }
@@ -251,6 +256,11 @@ impl Display for Spec {
         if let Some(long_about) = &self.about_long {
             let mut node = KdlNode::new("long_about");
             node.push(KdlEntry::new(KdlValue::RawString(long_about.clone())));
+            nodes.push(node);
+        }
+        if let Some(disable_help) = self.disable_help {
+            let mut node = KdlNode::new("disable_help");
+            node.push(KdlEntry::new(disable_help));
             nodes.push(node);
         }
         if !self.usage.is_empty() {
