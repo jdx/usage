@@ -1,15 +1,18 @@
-use crate::Spec;
+use crate::{Spec, SpecCommand};
 use once_cell::sync::Lazy;
 use tera::Tera;
 
-pub fn render_help(spec: &Spec) -> String {
+pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     let mut ctx = tera::Context::new();
     ctx.insert("spec", spec);
-    TERA.render("spec_template.md.tera", &ctx)
-        .unwrap()
-        .trim()
-        .to_string()
-        + "\n"
+    ctx.insert("cmd", cmd);
+    ctx.insert("long", &long);
+    let template = if long {
+        "spec_template_long.tera"
+    } else {
+        "spec_template_short.tera"
+    };
+    TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
 }
 
 static TERA: Lazy<Tera> = Lazy::new(|| {
@@ -17,7 +20,8 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
 
     #[rustfmt::skip]
     tera.add_raw_templates([
-        ("spec_template.md.tera", include_str!("templates/spec_template.tera")),
+        ("spec_template_short.tera", include_str!("templates/spec_template_short.tera")),
+        ("spec_template_long.tera", include_str!("templates/spec_template_long.tera")),
     ]).unwrap();
 
     // tera.register_filter(

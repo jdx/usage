@@ -16,7 +16,12 @@ pub struct Bash {
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
 
-    #[clap(short, long)]
+    /// show help
+    #[clap(short)]
+    h: bool,
+
+    /// show help
+    #[clap(long)]
     help: bool,
 }
 
@@ -26,8 +31,11 @@ impl Bash {
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
 
+        if self.h {
+            return self.help(&spec, &args, false);
+        }
         if self.help {
-            return self.help(&spec, &args);
+            return self.help(&spec, &args, true);
         }
 
         let parsed = usage::parse::parse(&spec, &args)?;
@@ -54,8 +62,9 @@ impl Bash {
         Ok(())
     }
 
-    pub fn help(&self, spec: &Spec, _args: &[String]) -> miette::Result<()> {
-        println!("{}", usage::docs::cli::render_help(spec));
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
+        let parsed = usage::parse::parse_partial(spec, args)?;
+        println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())
     }
 }

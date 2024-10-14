@@ -1,0 +1,52 @@
+{%- if spec.about_long %}{{ spec.about_long }}
+
+{% elif spec.about %}{{ spec.about }}
+
+{% endif %}
+Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
+
+{%- if cmd.subcommands %}
+
+Commands:
+{%- for name, cmd in cmd.subcommands %}
+  {{ cmd.usage | trim }}
+{%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
+{%- set help = cmd.help_long | default(value=cmd.help) %}
+{%- if help %}
+    {{ help | indent(width=4) }}
+{%- endif %}
+{% endfor %}
+  help
+    Print this message or the help of the given subcommand(s)
+{%- endif %}
+
+{%- if cmd.args %}
+
+Arguments:
+{%- for arg in cmd.args %}
+  {{ arg.usage | trim }}
+{%- set help = arg.help_long | default(value=arg.help) %}
+{%- if help %}
+    {{ help | indent(width=2) }}
+{%- endif %}
+{%- if arg.choices %}
+    [possible values: {{ arg.choices.choices | join(sep=", ") }}]
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+{%- if cmd.flags %}
+
+Flags:
+{%- for flag in cmd.flags %}
+  {{ flag.usage | trim }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- set help = flag.help_long | default(value=flag.help) %}
+{%- if help %}
+    {{ help | indent(width=2) }}
+{%- endif %}
+{%- if flag.arg.choices %}
+    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{%- endif %}
+{%- endfor %}
+{%- endif -%}

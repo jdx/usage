@@ -40,6 +40,16 @@ mod tests {
 
         arg2 description
 
+        #### Choices
+
+        - `choice1`
+        - `choice2`
+        - `choice3`
+
+        #### Default
+
+        `default value`
+
         ### `<arg3>`
 
         arg3 long description
@@ -61,6 +71,12 @@ mod tests {
         flag3 description
 
         ### `--shell <shell>`
+
+        #### Choices
+
+        - `bash`
+        - `zsh`
+        - `fish`
 
         ## `mycli plugin`
 

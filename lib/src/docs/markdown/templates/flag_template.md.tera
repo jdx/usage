@@ -2,4 +2,23 @@
 {%- if help %}
 
 {{ help | escape_md }}
+{%- endif %}
+{%- if flag.arg.choices %}
+
+{{ "#" | repeat(count=header_level) }}### Choices
+{% for choice in flag.arg.choices.choices %}
+- `{{ choice }}`
+{%- endfor %}
+{%- endif %}
+{%- if flag.default %}
+
+{{ "#" | repeat(count=header_level) }}### Default
+
+`{{ flag.default }}`
+{%- endif %}
+{%- if flag.env %}
+
+{{ "#" | repeat(count=header_level) }}### Environment Variable
+
+`{{ flag.env }}`
 {%- endif -%}
