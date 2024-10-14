@@ -217,7 +217,6 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         }
         if is_help_arg(spec, &w) {
             // TODO: render based on current args
-            dbg!(&out.cmd);
             let long = w.len() > 2;
             out.errors
                 .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
