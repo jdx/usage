@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.11.0](https://github.com/jdx/usage/compare/v0.10.0..v0.11.0) - 2024-10-14
+
+### 🚀 Features
+
+- support single quotes in zsh descriptions by [@jasisk](https://github.com/jasisk) in [#128](https://github.com/jdx/usage/pull/128)
+- render help in cli parsing by [@jdx](https://github.com/jdx) in [7c49fcb](https://github.com/jdx/usage/commit/7c49fcba4567da7ad8c7af9c4bb72a7c276a4a57)
+- implemented more cli help for args/flags/subcommands by [@jdx](https://github.com/jdx) in [669f44e](https://github.com/jdx/usage/commit/669f44ea0459f997444c46ebfac1f42c00e210b4)
+
+### 🐛 Bug Fixes
+
+- bug with help and args by [@jdx](https://github.com/jdx) in [6c615f9](https://github.com/jdx/usage/commit/6c615f9f8b1c6798fcba3ed88890b2891505c6ec)
+
+### 🔍 Other Changes
+
+- use dashes in CHANGELOG by [@jdx](https://github.com/jdx) in [c458d8c](https://github.com/jdx/usage/commit/c458d8c8a4c810271ac2474fcb9412651edc8c86)
+- remove dbg by [@jdx](https://github.com/jdx) in [cb6042c](https://github.com/jdx/usage/commit/cb6042cfcfec8b93b162361f5045eb94054316b8)
+
+### New Contributors
+
+- @jasisk made their first contribution in [#128](https://github.com/jdx/usage/pull/128)
+
 ## [0.10.0](https://github.com/jdx/usage/compare/v0.9.0..v0.10.0) - 2024-10-12
 
 ### 🚀 Features
