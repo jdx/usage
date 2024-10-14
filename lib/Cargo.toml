@@ -37,7 +37,7 @@ xx = "1"
 regex = "1"
 
 [features]
-default = []
+default = ["docs"]
 docs = ["tera"]
 
 [dev-dependencies]

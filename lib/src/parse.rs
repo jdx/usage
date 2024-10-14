@@ -7,8 +7,10 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use strum::EnumTryAs;
 
+#[cfg(feature = "docs")]
+use crate::docs;
 use crate::error::UsageErr;
-use crate::{docs, Spec, SpecArg, SpecCommand, SpecFlag};
+use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
 
 pub struct ParseOutput {
     pub cmd: SpecCommand,
@@ -108,9 +110,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
                         if is_help_arg(spec, &w) {
-                            let long = w.len() > 2;
                             out.errors
-                                .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
+                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
                             return Ok(out);
                         }
                         bail!(
@@ -155,7 +156,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             }
             if is_help_arg(spec, &w) {
                 out.errors
-                    .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, true)));
+                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 return Ok(out);
             }
         }
@@ -187,9 +188,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 continue;
             }
             if is_help_arg(spec, &w) {
-                out.errors.push(UsageErr::Help(docs::cli::render_help(
-                    spec, &out.cmd, false,
-                )));
+                out.errors
+                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 return Ok(out);
             }
         }
@@ -210,9 +210,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
                         if is_help_arg(spec, &w) {
-                            let long = w.len() > 2;
                             out.errors
-                                .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
+                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
                             return Ok(out);
                         }
                         bail!(
@@ -228,9 +227,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             continue;
         }
         if is_help_arg(spec, &w) {
-            let long = w.len() > 2;
             out.errors
-                .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
+                .push(render_help_err(spec, &out.cmd, w.len() > 2));
             return Ok(out);
         }
         bail!("unexpected word: {w}");
@@ -249,6 +247,16 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     }
 
     Ok(out)
+}
+
+#[cfg(feature = "docs")]
+fn render_help_err(spec: &Spec, cmd: &SpecCommand, long: bool) -> UsageErr {
+    UsageErr::Help(docs::cli::render_help(spec, cmd, long))
+}
+
+#[cfg(not(feature = "docs"))]
+fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
+    UsageErr::Help("help".to_string())
 }
 
 fn is_help_arg(spec: &Spec, w: &str) -> bool {
