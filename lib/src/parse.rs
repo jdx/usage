@@ -1,6 +1,7 @@
 use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use log::trace;
 use miette::bail;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
@@ -29,6 +30,7 @@ pub enum ParseValue {
 
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let out = parse_partial(spec, input)?;
+    trace!("{out:?}");
     if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
         bail!("{err}");
     }
@@ -39,6 +41,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 }
 
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
+    trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
 
@@ -105,11 +108,10 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
                         if is_help_arg(spec, &w) {
-                            // TODO: render based on current args
                             let long = w.len() > 2;
                             out.errors
                                 .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
-                            continue;
+                            return Ok(out);
                         }
                         bail!(
                             "Invalid choice for option {}: {w}, expected one of {}",
@@ -151,6 +153,11 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 }
                 continue;
             }
+            if is_help_arg(spec, &w) {
+                out.errors
+                    .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, true)));
+                return Ok(out);
+            }
         }
 
         // short flags
@@ -179,6 +186,12 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 }
                 continue;
             }
+            if is_help_arg(spec, &w) {
+                out.errors.push(UsageErr::Help(docs::cli::render_help(
+                    spec, &out.cmd, false,
+                )));
+                return Ok(out);
+            }
         }
 
         if let Some(arg) = next_arg {
@@ -197,11 +210,10 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 if let Some(choices) = &arg.choices {
                     if !choices.choices.contains(&w) {
                         if is_help_arg(spec, &w) {
-                            // TODO: render based on current args
                             let long = w.len() > 2;
                             out.errors
                                 .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
-                            continue;
+                            return Ok(out);
                         }
                         bail!(
                             "Invalid choice for arg {}: {w}, expected one of {}",
@@ -216,11 +228,10 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             continue;
         }
         if is_help_arg(spec, &w) {
-            // TODO: render based on current args
             let long = w.len() > 2;
             out.errors
                 .push(UsageErr::Help(docs::cli::render_help(spec, &out.cmd, long)));
-            continue;
+            return Ok(out);
         }
         bail!("unexpected word: {w}");
     }
@@ -314,6 +325,8 @@ impl Debug for ParseOutput {
                     .map(|(f, w)| format!("{}: {w}", &f.name))
                     .collect_vec(),
             )
+            .field("flag_awaiting_value", &self.flag_awaiting_value)
+            .field("errors", &self.errors)
             .finish()
     }
 }
