@@ -63,12 +63,12 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - name: Bump Homebrew formula
-        uses: dawidd6/action-homebrew-bump-formula@v3
+        uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           token: ${{ secrets.GH_BOT_TOKEN }}
           formula: usage
       - name: Bump Homebrew formula
-        uses: dawidd6/action-homebrew-bump-formula@v3
+        uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           token: ${{ secrets.GH_BOT_TOKEN }}
           formula: usage
