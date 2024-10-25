@@ -155,7 +155,12 @@ impl From<&clap::Arg> for SpecArg {
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         );
-        Self {
+        let choices = arg
+            .get_possible_values()
+            .iter()
+            .flat_map(|v| v.get_name_and_aliases().map(|s| s.to_string()))
+            .collect::<Vec<_>>();
+        let mut arg = Self {
             name: arg
                 .get_value_names()
                 .unwrap_or_default()
@@ -183,8 +188,13 @@ impl From<&clap::Arg> for SpecArg {
                         .join("|"),
                 )
             },
-            choices: None, // TODO: pull from clap
+            choices: None,
+        };
+        if !choices.is_empty() {
+            arg.choices = Some(SpecChoices { choices });
         }
+
+        arg
     }
 }
 

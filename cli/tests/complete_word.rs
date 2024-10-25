@@ -60,6 +60,12 @@ fn complete_word_kitchen_sink() {
 }
 
 #[test]
+fn complete_word_choices() {
+    assert_cmd("mise.usage.kdl", &["--", "env", "--shell", ""])
+        .stdout("bash\nfish\nnu\nxonsh\nzsh\n");
+}
+
+#[test]
 fn complete_word_shebang() {
     assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--defaulted\n--foo\n");
 }

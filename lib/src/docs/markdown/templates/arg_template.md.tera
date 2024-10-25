@@ -6,20 +6,16 @@
 {%- endif %}
 {%- if arg.choices %}
 
-{{ "#" | repeat(count=header_level) }}### Choices
+**Choices:**
 {% for choice in arg.choices.choices %}
 - `{{ choice }}`
 {%- endfor %}
 {%- endif %}
 {%- if arg.default %}
 
-{{ "#" | repeat(count=header_level) }}### Default
-
-`{{ arg.default }}`
+**Default:** `{{ arg.default }}`
 {%- endif %}
 {%- if arg.env %}
 
-{{ "#" | repeat(count=header_level) }}### Environment Variable
-
-`{{ arg.env }}`
+**Environment Variable:** `{{ arg.env }}`
 {%- endif -%}

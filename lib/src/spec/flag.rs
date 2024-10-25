@@ -244,12 +244,22 @@ impl From<&clap::Arg> for SpecFlag {
             .collect::<Vec<_>>();
         let name = get_name_from_short_and_long(&short, &long).unwrap_or_default();
         let arg = if let clap::ArgAction::Set | clap::ArgAction::Append = c.get_action() {
-            let arg = c
-                .get_value_names()
-                .map(|s| s.iter().map(|s| s.to_string()).join(" "))
-                .unwrap_or(name.clone())
-                .as_str()
-                .into();
+            let mut arg = SpecArg::from(
+                c.get_value_names()
+                    .map(|s| s.iter().map(|s| s.to_string()).join(" "))
+                    .unwrap_or(name.clone())
+                    .as_str(),
+            );
+
+            let choices = c
+                .get_possible_values()
+                .iter()
+                .flat_map(|v| v.get_name_and_aliases().map(|s| s.to_string()))
+                .collect::<Vec<_>>();
+            if !choices.is_empty() {
+                arg.choices = Some(SpecChoices { choices });
+            }
+
             Some(arg)
         } else {
             None
