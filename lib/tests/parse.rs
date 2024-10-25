@@ -161,4 +161,20 @@ Commands:
   plugins install  shorthelp
   help  Print this message or the help of the given subcommand(s)
 "#,
+
+flag_default:
+    spec=r#"
+    flag "--port <port>" default="8080"
+    flag "--host <host>" default="localhost"
+    "#,
+    args="--port 8081",
+    expected=r#"{"usage_host": "localhost", "usage_port": "8081"}"#,
+
+arg_default:
+    spec=r#"
+    arg "<port>" default="8080"
+    arg "<host>" default="localhost"
+    "#,
+    args="8081",
+    expected=r#"{"usage_host": "localhost", "usage_port": "8081"}"#,
 }

@@ -235,13 +235,27 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     }
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
-        if arg.required {
+        if let Some(default) = &arg.default {
+            out.args
+                .insert(arg.clone(), ParseValue::String(default.clone()));
+        } else if arg.required {
             out.errors.push(UsageErr::MissingArg(arg.name.clone()));
         }
     }
 
     for flag in out.available_flags.values() {
-        if flag.required && !out.flags.contains_key(flag) {
+        if out.flags.contains_key(flag) {
+            continue;
+        }
+        if let Some(default) = flag.default.as_ref() {
+            out.flags
+                .insert(flag.clone(), ParseValue::String(default.clone()));
+        }
+        if let Some(Some(default)) = flag.arg.as_ref().map(|a| &a.default) {
+            out.flags
+                .insert(flag.clone(), ParseValue::String(default.clone()));
+        }
+        if flag.required {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
     }
@@ -299,8 +313,8 @@ impl Display for ParseValue {
         match self {
             ParseValue::Bool(b) => write!(f, "{}", b),
             ParseValue::String(s) => write!(f, "{}", s),
-            ParseValue::MultiBool(b) => write!(f, "{:?}", b),
-            ParseValue::MultiString(s) => write!(f, "{:?}", s),
+            ParseValue::MultiBool(b) => write!(f, "{}", b.iter().join(" ")),
+            ParseValue::MultiString(s) => write!(f, "{}", s.iter().join(" ")),
         }
     }
 }

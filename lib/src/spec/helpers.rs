@@ -96,7 +96,7 @@ impl<'a> ParseEntry<'a> {
     }
 }
 
-impl<'a> ParseEntry<'a> {
+impl ParseEntry<'_> {
     pub fn ensure_usize(&self) -> Result<usize, UsageErr> {
         match self.value.as_i64() {
             Some(i) => Ok(i as usize),

@@ -61,7 +61,7 @@ fn complete_word_kitchen_sink() {
 
 #[test]
 fn complete_word_shebang() {
-    assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--foo\n");
+    assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--defaulted\n--foo\n");
 }
 
 #[test]
