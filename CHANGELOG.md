@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.1](https://github.com/jdx/usage/compare/v0.11.0..v0.11.1) - 2024-10-25
+
+### 🐛 Bug Fixes
+
+- fixed default arg/flags by [@jdx](https://github.com/jdx) in [#135](https://github.com/jdx/usage/pull/135)
+- read choices from clap args by [@jdx](https://github.com/jdx) in [#136](https://github.com/jdx/usage/pull/136)
+
+### 📦️ Dependency Updates
+
+- update dawidd6/action-homebrew-bump-formula action to v4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#131](https://github.com/jdx/usage/pull/131)
+- update dependency vitepress to v1.4.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#130](https://github.com/jdx/usage/pull/130)
+
 ## [0.11.0](https://github.com/jdx/usage/compare/v0.10.0..v0.11.0) - 2024-10-14
 
 ### 🚀 Features
@@ -11,6 +23,7 @@
 ### 🐛 Bug Fixes
 
 - bug with help and args by [@jdx](https://github.com/jdx) in [6c615f9](https://github.com/jdx/usage/commit/6c615f9f8b1c6798fcba3ed88890b2891505c6ec)
+- allow building without docs feature by [@jdx](https://github.com/jdx) in [212f96c](https://github.com/jdx/usage/commit/212f96ccb118f393ed6d5141996e02ec3e3630d9)
 
 ### 🔍 Other Changes
 
