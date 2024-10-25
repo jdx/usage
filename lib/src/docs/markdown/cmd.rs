@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn test_render_markdown_cmd() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK).with_multi(true);
-        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r#####"
+        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r####"
         # `mycli`
 
         **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
@@ -34,15 +34,13 @@ mod tests {
 
         arg2 description
 
-        #### Choices
+        **Choices:**
 
         - `choice1`
         - `choice2`
         - `choice3`
 
-        #### Default
-
-        `default value`
+        **Default:** `default value`
 
         ### `<arg3>`
 
@@ -66,7 +64,7 @@ mod tests {
 
         ### `--shell <shell>`
 
-        #### Choices
+        **Choices:**
 
         - `bash`
         - `zsh`
@@ -75,6 +73,6 @@ mod tests {
         ## Subcommands
 
         * [`mycli plugin <SUBCOMMAND>`](/plugin.md)
-        "#####);
+        "####);
     }
 }

@@ -40,15 +40,13 @@ mod tests {
 
         arg2 description
 
-        #### Choices
+        **Choices:**
 
         - `choice1`
         - `choice2`
         - `choice3`
 
-        #### Default
-
-        `default value`
+        **Default:** `default value`
 
         ### `<arg3>`
 
@@ -72,7 +70,7 @@ mod tests {
 
         ### `--shell <shell>`
 
-        #### Choices
+        **Choices:**
 
         - `bash`
         - `zsh`
