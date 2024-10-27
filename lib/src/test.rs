@@ -11,6 +11,7 @@ macro_rules! spec {
 pub static SPEC_KITCHEN_SINK: Lazy<Spec> = Lazy::new(|| {
     spec! {r#"
 bin "mycli"
+source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
 arg "arg1" help="arg1 description"
 arg "arg2" help="arg2 description" default="default value" {
     choices "choice1" "choice2" "choice3"

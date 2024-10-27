@@ -4,6 +4,7 @@ use crate::Spec;
 use itertools::Itertools;
 use serde::Serialize;
 use std::collections::HashMap;
+use xx::regex;
 
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
@@ -90,6 +91,34 @@ impl MarkdownRenderer {
                 Ok(value.into())
             },
         );
+        let path_re =
+            regex!(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/");
+        tera.register_function("source_code_link", |args: &HashMap<String, tera::Value>| {
+            let spec = args.get("spec").unwrap().as_object().unwrap();
+            let cmd = args.get("cmd").unwrap().as_object().unwrap();
+            let full_cmd = cmd.get("full_cmd").unwrap().as_array();
+            let source_code_link_template = spec
+                .get("source_code_link_template")
+                .map(|v| v.as_str().unwrap());
+            if let (Some(full_cmd), Some(source_code_link_template)) =
+                (full_cmd, source_code_link_template)
+            {
+                if full_cmd.is_empty() {
+                    return Ok("".into());
+                }
+                let mut ctx = tera::Context::new();
+                let path = full_cmd.iter().map(|v| v.as_str().unwrap()).join("/");
+                ctx.insert("spec", spec);
+                ctx.insert("cmd", cmd);
+                ctx.insert("path", &path);
+                let href = TERA.clone().render_str(source_code_link_template, &ctx)?;
+                let friendly = path_re.replace_all(&href, "").to_string();
+                let link = format!("[{friendly}]({href})");
+                Ok(link.into())
+            } else {
+                Ok("".into())
+            }
+        });
 
         Ok(tera.render(template_name, &self.tera_ctx())?)
     }

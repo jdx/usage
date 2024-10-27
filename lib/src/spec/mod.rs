@@ -36,6 +36,7 @@ pub struct Spec {
     pub usage: String,
     pub complete: IndexMap<String, SpecComplete>,
 
+    pub source_code_link_template: Option<String>,
     pub author: Option<String>,
     pub about: Option<String>,
     pub about_long: Option<String>,
@@ -100,6 +101,9 @@ impl Spec {
                 }
                 "version" => schema.version = Some(node.arg(0)?.ensure_string()?),
                 "author" => schema.author = Some(node.arg(0)?.ensure_string()?),
+                "source_code_link_template" => {
+                    schema.source_code_link_template = Some(node.arg(0)?.ensure_string()?)
+                }
                 "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
                 "long_about" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_long" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
@@ -157,6 +161,15 @@ impl Spec {
         }
         if other.about.is_some() {
             self.about = other.about;
+        }
+        if other.source_code_link_template.is_some() {
+            self.source_code_link_template = other.source_code_link_template;
+        }
+        if other.version.is_some() {
+            self.version = other.version;
+        }
+        if other.author.is_some() {
+            self.author = other.author;
         }
         if other.about_long.is_some() {
             self.about_long = other.about_long;
@@ -251,6 +264,16 @@ impl Display for Spec {
         if let Some(about) = &self.about {
             let mut node = KdlNode::new("about");
             node.push(KdlEntry::new(about.clone()));
+            nodes.push(node);
+        }
+        if let Some(source_code_link_template) = &self.source_code_link_template {
+            let mut node = KdlNode::new("source_code_link_template");
+            node.push(KdlEntry::new(source_code_link_template.clone()));
+            nodes.push(node);
+        }
+        if let Some(about_md) = &self.about_md {
+            let mut node = KdlNode::new("about_md");
+            node.push(KdlEntry::new(KdlValue::RawString(about_md.clone())));
             nodes.push(node);
         }
         if let Some(long_about) = &self.about_long {

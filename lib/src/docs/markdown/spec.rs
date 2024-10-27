@@ -80,9 +80,13 @@ mod tests {
 
         **Usage**: `mycli plugin <SUBCOMMAND>`
 
+        **Source code**: [src/cli/plugin.rs](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
+
         ## `mycli plugin install`
 
         **Usage**: `mycli plugin install [FLAGS] <plugin> <version>`
+
+        **Source code**: [src/cli/plugin/install.rs](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
 
         ### Arguments
 

@@ -49,7 +49,7 @@ impl Markdown {
             ctx = ctx.with_multi(true);
             let commands = spec.cmd.all_subcommands().into_iter().filter(|c| !c.hide);
             for cmd in commands {
-                let md = ctx.render_cmd(cmd)?;
+                let md = ctx.render_cmd(&spec, cmd)?;
                 let dir = cmd
                     .full_cmd
                     .iter()
