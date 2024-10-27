@@ -99,7 +99,7 @@ impl MarkdownRenderer {
             let full_cmd = cmd.get("full_cmd").unwrap().as_array();
             let source_code_link_template = spec
                 .get("source_code_link_template")
-                .map(|v| v.as_str().unwrap());
+                .and_then(|v| v.as_str());
             if let (Some(full_cmd), Some(source_code_link_template)) =
                 (full_cmd, source_code_link_template)
             {

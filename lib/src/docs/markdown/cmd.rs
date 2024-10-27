@@ -1,11 +1,10 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
-use crate::{Spec, SpecCommand};
+use crate::SpecCommand;
 
 impl MarkdownRenderer {
-    pub fn render_cmd(&self, spec: &Spec, cmd: &SpecCommand) -> Result<String, UsageErr> {
+    pub fn render_cmd(&self, cmd: &SpecCommand) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
-        ctx.insert("spec", spec);
         ctx.insert("cmd", cmd);
         ctx.render("cmd_template.md.tera")
     }
@@ -20,7 +19,7 @@ mod tests {
     #[test]
     fn test_render_markdown_cmd() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK).with_multi(true);
-        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK, &SPEC_KITCHEN_SINK.cmd).unwrap(), @r####"
+        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r####"
         # `mycli`
 
         **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
