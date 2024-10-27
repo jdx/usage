@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/jdx/usage/compare/v0.12.0..v0.12.1) - 2024-10-27
+
+### 🐛 Bug Fixes
+
+- added backticks around source code link by [@jdx](https://github.com/jdx) in [53121fa](https://github.com/jdx/usage/commit/53121fabc8bcb3603474b0864a6f9add592bcabf)
+- bug with missing source code template by [@jdx](https://github.com/jdx) in [3e3e303](https://github.com/jdx/usage/commit/3e3e30389a9c508b30f00c3751152ea51d2fc8fa)
+
 ## [0.12.0](https://github.com/jdx/usage/compare/v0.11.1..v0.12.0) - 2024-10-27
 
 ### 🚀 Features
