@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.0](https://github.com/jdx/usage/compare/v0.11.1..v0.12.0) - 2024-10-27
+
+### 🚀 Features
+
+- added source code links by [@jdx](https://github.com/jdx) in [6bc9c84](https://github.com/jdx/usage/commit/6bc9c84fc7a6efaf09e30af75925488f761834bd)
+
+### 🐛 Bug Fixes
+
+- use prettier-compatible md list syntax by [@jdx](https://github.com/jdx) in [2726bf2](https://github.com/jdx/usage/commit/2726bf22e7c4fabb48322b58813ff50bda698fe5)
+
 ## [0.11.1](https://github.com/jdx/usage/compare/v0.11.0..v0.11.1) - 2024-10-25
 
 ### 🐛 Bug Fixes
