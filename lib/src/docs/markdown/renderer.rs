@@ -113,7 +113,11 @@ impl MarkdownRenderer {
                 ctx.insert("path", &path);
                 let href = TERA.clone().render_str(source_code_link_template, &ctx)?;
                 let friendly = path_re.replace_all(&href, "").to_string();
-                let link = format!("[{friendly}]({href})");
+                let link = if path_re.is_match(&href) {
+                    format!("[`{friendly}`]({href})")
+                } else {
+                    format!("[{friendly}]({href})")
+                };
                 Ok(link.into())
             } else {
                 Ok("".into())
