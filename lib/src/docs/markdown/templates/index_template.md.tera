@@ -19,5 +19,5 @@
 
 {{ "#" | repeat(count=header_level) }} Subcommands
 {% endif %}
-* [`{{ spec.bin ~ " " ~ cmd.usage | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+- [`{{ spec.bin ~ " " ~ cmd.usage | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
 {%- endfor -%}

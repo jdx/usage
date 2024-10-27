@@ -4,7 +4,7 @@
 {{- "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ full_cmd | trim }}`
 
 {%- if spec.version %}
-* **version**: {{ spec.version }}{% endif %}
+- **version**: {{ spec.version }}{% endif %}
 
 {%- if about %}
 

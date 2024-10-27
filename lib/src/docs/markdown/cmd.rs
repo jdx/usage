@@ -72,7 +72,7 @@ mod tests {
 
         ## Subcommands
 
-        * [`mycli plugin <SUBCOMMAND>`](/plugin.md)
+        - [`mycli plugin <SUBCOMMAND>`](/plugin.md)
         "####);
     }
 }
