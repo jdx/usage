@@ -3,7 +3,7 @@
 Usage can generate completion scripts for any shell. Here is an example for bash:
 
 ```sh-session
-usage g completion bash -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
+usage g completion bash mycli -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
 source ~/.bash_completions/mycli.bash
 mycli --<TAB>
 ```
@@ -11,7 +11,7 @@ mycli --<TAB>
 zsh:
 
 ```sh-session
-usage g completion zsh -f ./mycli.usage.kdl > ~/.zsh_completions/_mycli
+usage g completion zsh mycli -f ./mycli.usage.kdl > ~/.zsh_completions/_mycli
 source ~/.zsh_completions/_mycli
 mycli --<TAB>
 ```
@@ -19,7 +19,7 @@ mycli --<TAB>
 fish:
 
 ```sh-session
-usage g completion fish -f ./mycli.usage.kdl > ~/.config/fish/completions/mycli.fish
+usage g completion fish mycli -f ./mycli.usage.kdl > ~/.config/fish/completions/mycli.fish
 mycli --<TAB>
 ```
 
