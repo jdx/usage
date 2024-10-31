@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.1](https://github.com/jdx/usage/compare/v1.0.0..v1.0.1) - 2024-10-31
+
+### 🐛 Bug Fixes
+
+- allow calling `usage g completion -f` by [@jdx](https://github.com/jdx) in [#143](https://github.com/jdx/usage/pull/143)
+
+### 📚 Documentation
+
+- add bin name to `mise g completion` examples by [@jdx](https://github.com/jdx) in [8892b5b](https://github.com/jdx/usage/commit/8892b5b8c706ad4db46aa70753718436ec464fee)
+
+## [1.0.0](https://github.com/jdx/usage/compare/v0.12.1..v1.0.0) - 2024-10-28
+
+### 📚 Documentation
+
+- document source_code_link_template by [@jdx](https://github.com/jdx) in [c408dad](https://github.com/jdx/usage/commit/c408dadeb3754c049a3db7aba882ba004e45aa9e)
+- remove beta note by [@jdx](https://github.com/jdx) in [18045f6](https://github.com/jdx/usage/commit/18045f69f22579cee363ec03d65689b6f00f2d5e)
+
 ## [0.12.1](https://github.com/jdx/usage/compare/v0.12.0..v0.12.1) - 2024-10-27
 
 ### 🐛 Bug Fixes
