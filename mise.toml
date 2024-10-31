@@ -6,7 +6,7 @@ _.path = ["./target/debug"]
 "npm:prettier" = "latest"
 "cargo:cargo-edit" = "latest"
 "cargo:git-cliff" = "latest"
-github-cli = "latest"
+gh = "latest"
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
