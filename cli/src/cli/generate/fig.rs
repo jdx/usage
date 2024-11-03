@@ -16,7 +16,7 @@ pub struct Fig {
     #[clap(short, long)]
     file: Option<PathBuf>,
 
-    /// To generate the fig outputs based on standard input instead of file
+    /// raw string spec input
     #[clap(long, required_unless_present="file", overrides_with = "file")]
     spec: Option<String>,
 
