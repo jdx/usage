@@ -5,6 +5,7 @@ use usage::Spec;
 
 mod completion;
 mod markdown;
+mod fig;
 
 #[derive(clap::Args)]
 #[clap(visible_alias = "g")]
@@ -17,6 +18,7 @@ pub struct Generate {
 pub enum Command {
     Completion(completion::Completion),
     Markdown(markdown::Markdown),
+    Fig(fig::Fig),
 }
 
 impl Generate {
@@ -24,6 +26,7 @@ impl Generate {
         match &self.command {
             Command::Completion(cmd) => cmd.run(),
             Command::Markdown(cmd) => cmd.run(),
+            Command::Fig(cmd) => cmd.run(),
         }
     }
 }
