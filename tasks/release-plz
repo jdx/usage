@@ -28,12 +28,15 @@ fi
 
 git cliff --bump -o CHANGELOG.md
 cargo set-version "${version#v}"
+mise run render
 
 git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
 cargo update
 git add \
   {./,cli/,lib/}Cargo.* \
+  cli/usage.usage.kdl \
+  docs/cli/reference.md \
   CHANGELOG.md
 git checkout -B release
 git commit -m "chore: release $version"
