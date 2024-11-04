@@ -23,10 +23,6 @@ pub struct Fig {
     /// File on where to save the generated Fig spec
     #[clap(long, value_hint = clap::ValueHint::FilePath)]
     out_file: Option<PathBuf>,
-
-    /// Whether to output to stdout
-    #[clap(long, action = clap::ArgAction::SetTrue, required_unless_present="out_file", overrides_with = "out_file")]
-    stdout: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -320,7 +316,6 @@ impl Fig {
         let completes = spec.complete;
         Fig::fill_args_complete(args, completes);
         let j = serde_json::to_string_pretty(&main_command).unwrap();
-        let path = self.out_file.clone().unwrap_or(PathBuf::from("./usage.ts"));
         let mut result = format!("const completionSpec: Fig.Spec = {j}");
 
         let generators = main_command.get_generators();
@@ -349,14 +344,14 @@ impl Fig {
                 )
             });
 
-        let output_to_str = self.stdout.unwrap_or(true);
-        if output_to_str {
-            print!("{result}");
-            Ok(())
-        } else {
+        if let Some(path) = &self.out_file {
             result = [Fig::get_prescript(), result, Fig::get_postscript()].join("\n\n");
-            write(&path, result.as_str())
+            write(path, result.as_str())?;
+        } else {
+            print!("{result}");
         }
+
+        Ok(())
     }
 
     fn get_prescript() -> String {
