@@ -54,6 +54,18 @@ cmd "generate" subcommand_required=true {
         }
         arg "<BIN>" help="The CLI which we're generates completions for"
     }
+    cmd "fig" {
+        flag "-f --file" help="A usage spec taken in as a file" {
+            arg "<FILE>"
+        }
+        flag "--spec" help="raw string spec input" {
+            arg "<SPEC>"
+        }
+        flag "--out-file" help="File on where to save the generated Fig spec" {
+            arg "<OUT_FILE>"
+        }
+        flag "--stdout" help="Whether to output to stdout"
+    }
     cmd "markdown" {
         alias "md"
         flag "-f --file" help="A usage spec taken in as a file" required=true {

@@ -1486,6 +1486,7 @@ dependencies = [
  "predicates",
  "regex",
  "serde",
+ "serde_json",
  "strum",
  "tera",
  "thiserror",

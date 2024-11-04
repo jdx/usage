@@ -1,5 +1,6 @@
 CHANGELOG.md
 docs/.vitepress
+docs/cli/reference.md
 docs/public/site.webmanifest
 examples/docs
 lefthook.yml

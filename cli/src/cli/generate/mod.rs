@@ -4,6 +4,7 @@ use usage::error::UsageErr;
 use usage::Spec;
 
 mod completion;
+mod fig;
 mod markdown;
 
 #[derive(clap::Args)]
@@ -16,6 +17,7 @@ pub struct Generate {
 #[derive(clap::Subcommand)]
 pub enum Command {
     Completion(completion::Completion),
+    Fig(fig::Fig),
     Markdown(markdown::Markdown),
 }
 
@@ -24,6 +26,7 @@ impl Generate {
         match &self.command {
             Command::Completion(cmd) => cmd.run(),
             Command::Markdown(cmd) => cmd.run(),
+            Command::Fig(cmd) => cmd.run(),
         }
     }
 }

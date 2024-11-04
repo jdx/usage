@@ -1,0 +1,3 @@
+---
+exclude_paths:
+  - "tasks/fig/generators.ts"
