@@ -26,7 +26,7 @@ mycli --<TAB>
 fig/Amazon Q:
 
 ```bash
-usage g completion fig mycli -f ./mycli.usage.kdl > ~/.config/fig/completions/mycli.fish
+usage g fig -f ./mycli.usage.kdl > ./mycli.fig.ts
 mycli --<TAB>
 ```
 

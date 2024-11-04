@@ -64,7 +64,6 @@ cmd "generate" subcommand_required=true {
         flag "--out-file" help="File on where to save the generated Fig spec" {
             arg "<OUT_FILE>"
         }
-        flag "--stdout" help="Whether to output to stdout"
     }
     cmd "markdown" {
         alias "md"

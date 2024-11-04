@@ -152,10 +152,6 @@ raw string spec input
 
 File on where to save the generated Fig spec
 
-#### `--stdout`
-
-Whether to output to stdout
-
 ## `usage generate markdown`
 
 - **Usage**: `usage generate markdown <FLAGS>`
