@@ -1,15 +1,15 @@
-name: test
+name: autofix.ci
 on:
+  workflow_call:
+  pull_request:
   push:
     branches: ["main"]
-  pull_request:
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  MISE_EXPERIMENTAL: 1
 
 jobs:
   test:
@@ -19,8 +19,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: test
-          save-if: ${{ github.ref_name == 'main' }}
+          save-if: false
       - uses: jdx/mise-action@v2
-      - run: mise r build
-      - run: mise r test
-      - run: mise r lint
+      - run: mise r autofix
+      - uses: autofix-ci/action@v1.3.1
