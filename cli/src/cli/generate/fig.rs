@@ -355,7 +355,7 @@ impl Fig {
     }
 
     fn get_prescript() -> String {
-        include_str!("../../../../tasks/fig/generators.ts").to_string()
+        include_str!("../../../assets/fig/generators.ts").to_string()
     }
 
     fn get_postscript() -> String {

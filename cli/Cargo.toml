@@ -13,6 +13,7 @@ include = [
     "/Cargo.lock",
     "/README.md",
     "/src/**/*.rs",
+    "/assets/**/*",
 ]
 
 [[bin]]

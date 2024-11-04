@@ -82,9 +82,9 @@ depends = ['build']
 run = [
     'usage --usage-spec > cli/usage.usage.kdl',
     'usage g md -f cli/usage.usage.kdl --out-file docs/cli/reference.md',
-    'usage g completion bash usage --usage-cmd "usage --usage-spec" > cli/completions/usage.bash',
-    'usage g completion fish usage --usage-cmd "usage --usage-spec" > cli/completions/usage.fish',
-    'usage g completion zsh  usage --usage-cmd "usage --usage-spec" > cli/completions/_usage',
+    'usage g completion bash usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.bash',
+    'usage g completion fish usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.fish',
+    'usage g completion zsh  usage --usage-cmd "usage --usage-spec" > cli/assets/completions/_usage',
 ]
 
 [tasks."render:example-md"]
