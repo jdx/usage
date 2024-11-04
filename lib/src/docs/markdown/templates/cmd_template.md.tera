@@ -11,15 +11,12 @@
 {{ before_help | escape_md }}
 {%- endif %}
 
-**Usage**: `{{ spec.bin ~ " " ~ cmd.usage | trim }}`
-{%- if source_code_link %}
-
-**Source code**: {{ source_code_link }}
-{%- endif %}
-
+- **Usage**: `{{ spec.bin ~ " " ~ cmd.usage | trim }}`
 {%- if cmd.aliases %}
-
-**Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
+- **Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
+{%- endif %}
+{%- if source_code_link %}
+- **Source code**: {{ source_code_link }}
 {%- endif %}
 
 {%- if help %}

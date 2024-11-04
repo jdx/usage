@@ -1,7 +1,7 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 
-impl MarkdownRenderer {
+impl MarkdownRenderer<'_> {
     pub fn render_spec(&self) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
@@ -25,10 +25,10 @@ mod tests {
     #[test]
     fn test_render_markdown_spec() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK);
-        assert_snapshot!(ctx.render_spec().unwrap(), @r#####"
+        assert_snapshot!(ctx.render_spec().unwrap(), @r"
         # `mycli`
 
-        **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
 
@@ -78,15 +78,13 @@ mod tests {
 
         ## `mycli plugin`
 
-        **Usage**: `mycli plugin <SUBCOMMAND>`
-
-        **Source code**: [`src/cli/plugin.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
+        - **Usage**: `mycli plugin <SUBCOMMAND>`
+        - **Source code**: [`src/cli/plugin.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
 
         ## `mycli plugin install`
 
-        **Usage**: `mycli plugin install [FLAGS] <plugin> <version>`
-
-        **Source code**: [`src/cli/plugin/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
+        - **Usage**: `mycli plugin install [FLAGS] <plugin> <version>`
+        - **Source code**: [`src/cli/plugin/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
 
         ### Arguments
 
@@ -101,6 +99,6 @@ mod tests {
         #### `-d --dir <dir>`
 
         #### `-f --force`
-        "#####);
+        ");
     }
 }

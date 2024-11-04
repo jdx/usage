@@ -14,6 +14,7 @@ authors = ["Jeff Dickey @jdx"]
 license = "MIT"
 
 [workspace.dependencies]
+clap_usage = { path = "./clap_usage" }
 usage-cli = { path = "./cli" }
 usage-lib = { path = "./lib", version = "1.0.1", features = ["clap"] }
 

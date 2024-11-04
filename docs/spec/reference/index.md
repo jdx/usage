@@ -1,9 +1,5 @@
 # Top-level metadata
 
-::: warning
-This spec is still a work in progress and is subject to change until 1.0
-:::
-
 ```sh
 name "My CLI"        # a friendly name for the CLI
 bin "mycli"          # the name of the binary
