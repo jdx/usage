@@ -7,6 +7,7 @@ _.path = ["./target/debug"]
 "cargo:cargo-edit" = "latest"
 "cargo:git-cliff" = "latest"
 gh = "latest"
+actionlint = "latest"
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
@@ -41,6 +42,8 @@ run = 'cargo test --all --all-features'
 
 [tasks.lint]
 depends = ['lint:*']
+[tasks."lint:actionlint"]
+run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]

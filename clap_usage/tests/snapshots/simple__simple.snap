@@ -1,0 +1,12 @@
+---
+source: clap_usage/tests/simple.rs
+expression: output
+snapshot_kind: text
+---
+name "example"
+bin "example"
+usage "Usage: example [OPTIONS]"
+flag "--file" help="some input file" {
+    arg "<FILE>"
+}
+flag "--usage"
