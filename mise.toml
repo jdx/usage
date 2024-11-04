@@ -12,6 +12,9 @@ gh = "latest"
 "cargo:git-cliff" = "latest"
 "npm:prettier" = "latest"
 
+[tasks.autofix]
+depends = ["render", "lint-fix", "snapshots"]
+
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
 outputs = ['target/debug/rtx']
