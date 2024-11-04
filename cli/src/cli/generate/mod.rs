@@ -17,8 +17,8 @@ pub struct Generate {
 #[derive(clap::Subcommand)]
 pub enum Command {
     Completion(completion::Completion),
-    Markdown(markdown::Markdown),
     Fig(fig::Fig),
+    Markdown(markdown::Markdown),
 }
 
 impl Generate {
