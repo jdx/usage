@@ -6,7 +6,7 @@ const usageGenerateSpec = (cmds: string[]) => {
           command: 'sh', args: ['-c', cmd]
         });
         const { stdout: figSpecOut } = await executeCommand({
-          command: 'usage', args: ['g', 'fig', '--spec', stdout, '--stdout']
+          command: 'usage', args: ['g', 'fig', '--spec', stdout]
         })
         const start_of_json = figSpecOut.indexOf("{")
         const j = figSpecOut.slice(start_of_json)
