@@ -10,7 +10,7 @@ It is inspired by asdf and uses asdf's plugin ecosystem under the hood:
 https://asdf-vm.com/
 
 
-**Usage**: `mise [FLAGS] <SUBCOMMAND>`
+- **Usage**: `mise [FLAGS] <SUBCOMMAND>`
 
 ## Global Flags
 
@@ -36,7 +36,7 @@ Answer yes to all confirmation prompts
 
 ## `mise activate`
 
-**Usage**: `mise activate [--shims] [-q --quiet] [SHELL_TYPE]`
+- **Usage**: `mise activate [--shims] [-q --quiet] [SHELL_TYPE]`
 
 Initializes mise in the current shell session
 
@@ -95,9 +95,8 @@ Examples:
 
 ## `mise alias`
 
-**Usage**: `mise alias [-p --plugin <PLUGIN>] [--no-header] <SUBCOMMAND>`
-
-**Aliases**: `a`
+- **Usage**: `mise alias [-p --plugin <PLUGIN>] [--no-header] <SUBCOMMAND>`
+- **Aliases**: `a`
 
 Manage aliases
 
@@ -113,7 +112,7 @@ Don't show table header
 
 ## `mise alias get`
 
-**Usage**: `mise alias get <PLUGIN> <ALIAS>`
+- **Usage**: `mise alias get <PLUGIN> <ALIAS>`
 
 Show an alias for a plugin
 
@@ -136,9 +135,8 @@ Examples:
 
 ## `mise alias ls`
 
-**Usage**: `mise alias ls [--no-header] [PLUGIN]`
-
-**Aliases**: `list`
+- **Usage**: `mise alias ls [--no-header] [PLUGIN]`
+- **Aliases**: `list`
 
 List aliases
 Shows the aliases that can be specified.
@@ -168,9 +166,8 @@ Examples:
 
 ## `mise alias set`
 
-**Usage**: `mise alias set <ARGS>…`
-
-**Aliases**: `add`, `create`
+- **Usage**: `mise alias set <ARGS>…`
+- **Aliases**: `add`, `create`
 
 Add/update an alias for a plugin
 
@@ -196,9 +193,8 @@ Examples:
 
 ## `mise alias unset`
 
-**Usage**: `mise alias unset <PLUGIN> <ALIAS>`
-
-**Aliases**: `rm`, `remove`, `delete`, `del`
+- **Usage**: `mise alias unset <PLUGIN> <ALIAS>`
+- **Aliases**: `rm`, `remove`, `delete`, `del`
 
 Clears an alias for a plugin
 
@@ -220,7 +216,7 @@ Examples:
 
 ## `mise asdf`
 
-**Usage**: `mise asdf [ARGS]...`
+- **Usage**: `mise asdf [ARGS]...`
 
 [internal] simulates asdf for plugins that call "asdf" internally
 
@@ -232,17 +228,15 @@ all arguments
 
 ## `mise backends`
 
-**Usage**: `mise backends <SUBCOMMAND>`
-
-**Aliases**: `b`
+- **Usage**: `mise backends <SUBCOMMAND>`
+- **Aliases**: `b`
 
 Manage backends
 
 ## `mise backends ls`
 
-**Usage**: `mise backends ls`
-
-**Aliases**: `list`
+- **Usage**: `mise backends ls`
+- **Aliases**: `list`
 
 List built-in backends
 
@@ -258,13 +252,13 @@ Examples:
 
 ## `mise bin-paths`
 
-**Usage**: `mise bin-paths`
+- **Usage**: `mise bin-paths`
 
 List all the active runtime bin paths
 
 ## `mise cache`
 
-**Usage**: `mise cache <SUBCOMMAND>`
+- **Usage**: `mise cache <SUBCOMMAND>`
 
 Manage the mise cache
 
@@ -272,9 +266,8 @@ Run `mise cache` with no args to view the current cache directory.
 
 ## `mise cache clear`
 
-**Usage**: `mise cache clear [PLUGIN]...`
-
-**Aliases**: `c`
+- **Usage**: `mise cache clear [PLUGIN]...`
+- **Aliases**: `c`
 
 Deletes all cache files in mise
 
@@ -286,9 +279,8 @@ Plugin(s) to clear cache for e.g.: node, python
 
 ## `mise cache prune`
 
-**Usage**: `mise cache prune [--dry-run] [-v --verbose...] [PLUGIN]...`
-
-**Aliases**: `p`
+- **Usage**: `mise cache prune [--dry-run] [-v --verbose...] [PLUGIN]...`
+- **Aliases**: `p`
 
 Removes stale mise cache files
 
@@ -313,7 +305,7 @@ Show pruned files
 
 ## `mise completion`
 
-**Usage**: `mise completion [SHELL]`
+- **Usage**: `mise completion [SHELL]`
 
 Generate shell completions
 
@@ -337,9 +329,8 @@ Examples:
 
 ## `mise config`
 
-**Usage**: `mise config [--no-header] [-J --json] <SUBCOMMAND>`
-
-**Aliases**: `cfg`
+- **Usage**: `mise config [--no-header] [-J --json] <SUBCOMMAND>`
+- **Aliases**: `cfg`
 
 Manage config files
 
@@ -355,9 +346,8 @@ Output in JSON format
 
 ## `mise config generate`
 
-**Usage**: `mise config generate [-o --output <OUTPUT>]`
-
-**Aliases**: `g`
+- **Usage**: `mise config generate [-o --output <OUTPUT>]`
+- **Aliases**: `g`
 
 [experimental] Generate a mise.toml file
 
@@ -374,7 +364,7 @@ Examples:
 
 ## `mise config get`
 
-**Usage**: `mise config get [-f --file <FILE>] [KEY]`
+- **Usage**: `mise config get [-f --file <FILE>] [KEY]`
 
 Display the value of a setting in a mise.toml file
 
@@ -399,7 +389,7 @@ Examples:
 
 ## `mise config ls`
 
-**Usage**: `mise config ls [--no-header] [-J --json]`
+- **Usage**: `mise config ls [--no-header] [-J --json]`
 
 List config files currently in use
 
@@ -419,7 +409,7 @@ Examples:
 
 ## `mise config set`
 
-**Usage**: `mise config set [-f --file <FILE>] [-t --type <TYPE>] <KEY> <VALUE>`
+- **Usage**: `mise config set [-f --file <FILE>] [-t --type <TYPE>] <KEY> <VALUE>`
 
 Display the value of a setting in a mise.toml file
 
@@ -458,7 +448,7 @@ Examples:
 
 ## `mise current`
 
-**Usage**: `mise current [PLUGIN]`
+- **Usage**: `mise current [PLUGIN]`
 
 Shows current active and installed runtime versions
 
@@ -489,7 +479,7 @@ Examples:
 
 ## `mise deactivate`
 
-**Usage**: `mise deactivate`
+- **Usage**: `mise deactivate`
 
 Disable mise for current shell session
 
@@ -501,7 +491,7 @@ Examples:
 
 ## `mise direnv`
 
-**Usage**: `mise direnv <SUBCOMMAND>`
+- **Usage**: `mise direnv <SUBCOMMAND>`
 
 Output direnv function to use mise inside direnv
 
@@ -513,21 +503,21 @@ direnv may not know to update environment variables when legacy file versions ch
 
 ## `mise direnv envrc`
 
-**Usage**: `mise direnv envrc`
+- **Usage**: `mise direnv envrc`
 
 [internal] This is an internal command that writes an envrc file
 for direnv to consume.
 
 ## `mise direnv exec`
 
-**Usage**: `mise direnv exec`
+- **Usage**: `mise direnv exec`
 
 [internal] This is an internal command that writes an envrc file
 for direnv to consume.
 
 ## `mise direnv activate`
 
-**Usage**: `mise direnv activate`
+- **Usage**: `mise direnv activate`
 
 Output direnv function to use mise inside direnv
 
@@ -545,9 +535,8 @@ Examples:
 
 ## `mise doctor`
 
-**Usage**: `mise doctor`
-
-**Aliases**: `dr`
+- **Usage**: `mise doctor`
+- **Aliases**: `dr`
 
 Check mise installation for possible problems
 
@@ -558,9 +547,8 @@ Examples:
 
 ## `mise env`
 
-**Usage**: `mise env [-J --json] [-s --shell <SHELL>] [TOOL@VERSION]...`
-
-**Aliases**: `e`
+- **Usage**: `mise env [-J --json] [-s --shell <SHELL>] [TOOL@VERSION]...`
+- **Aliases**: `e`
 
 Exports env vars to activate mise a single time
 
@@ -600,9 +588,8 @@ Examples:
 
 ## `mise exec`
 
-**Usage**: `mise exec [FLAGS] [TOOL@VERSION]... [COMMAND]...`
-
-**Aliases**: `x`
+- **Usage**: `mise exec [FLAGS] [TOOL@VERSION]... [COMMAND]...`
+- **Aliases**: `x`
 
 Execute a command with tool(s) set
 
@@ -652,17 +639,15 @@ Examples:
 
 ## `mise generate`
 
-**Usage**: `mise generate <SUBCOMMAND>`
-
-**Aliases**: `g`
+- **Usage**: `mise generate <SUBCOMMAND>`
+- **Aliases**: `g`
 
 [experimental] Generate files for various tools/services
 
 ## `mise generate git-pre-commit`
 
-**Usage**: `mise generate git-pre-commit [FLAGS]`
-
-**Aliases**: `pre-commit`
+- **Usage**: `mise generate git-pre-commit [FLAGS]`
+- **Aliases**: `pre-commit`
 
 [experimental] Generate a git pre-commit hook
 
@@ -690,7 +675,7 @@ Examples:
 
 ## `mise generate github-action`
 
-**Usage**: `mise generate github-action [FLAGS]`
+- **Usage**: `mise generate github-action [FLAGS]`
 
 [experimental] Generate a GitHub Action workflow file
 
@@ -719,7 +704,7 @@ Examples:
 
 ## `mise generate task-docs`
 
-**Usage**: `mise generate task-docs [FLAGS]`
+- **Usage**: `mise generate task-docs [FLAGS]`
 
 [experimental] Generate documentation for tasks in a project
 
@@ -762,7 +747,7 @@ Examples:
 
 ## `mise global`
 
-**Usage**: `mise global [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise global [FLAGS] [TOOL@VERSION]...`
 
 Sets/gets the global tool version(s)
 
@@ -820,7 +805,7 @@ Examples:
 
 ## `mise hook-env`
 
-**Usage**: `mise hook-env [-s --shell <SHELL>] [-q --quiet]`
+- **Usage**: `mise hook-env [-s --shell <SHELL>] [-q --quiet]`
 
 [internal] called by activate hook to update env vars directory change
 
@@ -844,7 +829,7 @@ Hide warnings such as when a tool is not installed
 
 ## `mise hook-not-found`
 
-**Usage**: `mise hook-not-found [-s --shell <SHELL>] <BIN>`
+- **Usage**: `mise hook-not-found [-s --shell <SHELL>] <BIN>`
 
 [internal] called by shell when a command is not found
 
@@ -870,7 +855,7 @@ Shell type to generate script for
 
 ## `mise implode`
 
-**Usage**: `mise implode [--config] [-n --dry-run]`
+- **Usage**: `mise implode [--config] [-n --dry-run]`
 
 Removes mise CLI and all related data
 
@@ -888,9 +873,8 @@ List directories that would be removed without actually removing them
 
 ## `mise install`
 
-**Usage**: `mise install [FLAGS] [TOOL@VERSION]...`
-
-**Aliases**: `i`
+- **Usage**: `mise install [FLAGS] [TOOL@VERSION]...`
+- **Aliases**: `i`
 
 Install a tool version
 
@@ -938,7 +922,7 @@ Examples:
 
 ## `mise latest`
 
-**Usage**: `mise latest [-i --installed] <TOOL@VERSION>`
+- **Usage**: `mise latest [-i --installed] <TOOL@VERSION>`
 
 Gets the latest available version for a plugin
 
@@ -966,9 +950,8 @@ Examples:
 
 ## `mise link`
 
-**Usage**: `mise link [-f --force] <TOOL@VERSION> <PATH>`
-
-**Aliases**: `ln`
+- **Usage**: `mise link [-f --force] <TOOL@VERSION> <PATH>`
+- **Aliases**: `ln`
 
 Symlinks a tool version into mise
 
@@ -1004,7 +987,7 @@ Examples:
 
 ## `mise local`
 
-**Usage**: `mise local [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise local [FLAGS] [TOOL@VERSION]...`
 
 Sets/gets tool version in local .tool-versions or mise.toml
 
@@ -1067,9 +1050,8 @@ Examples:
 
 ## `mise ls`
 
-**Usage**: `mise ls [FLAGS] [PLUGIN]...`
-
-**Aliases**: `list`
+- **Usage**: `mise ls [FLAGS] [PLUGIN]...`
+- **Aliases**: `list`
 
 List installed and active tool versions
 
@@ -1143,7 +1125,7 @@ Examples:
 
 ## `mise ls-remote`
 
-**Usage**: `mise ls-remote [--all] [TOOL@VERSION] [PREFIX]`
+- **Usage**: `mise ls-remote [--all] [TOOL@VERSION] [PREFIX]`
 
 List runtime versions available for install.
 
@@ -1182,7 +1164,7 @@ Examples:
 
 ## `mise outdated`
 
-**Usage**: `mise outdated [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise outdated [FLAGS] [TOOL@VERSION]...`
 
 Shows outdated tool versions
 
@@ -1231,9 +1213,8 @@ Examples:
 
 ## `mise plugins`
 
-**Usage**: `mise plugins [FLAGS] <SUBCOMMAND>`
-
-**Aliases**: `p`
+- **Usage**: `mise plugins [FLAGS] <SUBCOMMAND>`
+- **Aliases**: `p`
 
 Manage plugins
 
@@ -1258,9 +1239,8 @@ e.g.: https://github.com/asdf-vm/asdf-nodejs.git
 
 ## `mise plugins install`
 
-**Usage**: `mise plugins install [FLAGS] [NEW_PLUGIN] [GIT_URL]`
-
-**Aliases**: `i`, `a`, `add`
+- **Usage**: `mise plugins install [FLAGS] [NEW_PLUGIN] [GIT_URL]`
+- **Aliases**: `i`, `a`, `add`
 
 Install a plugin
 
@@ -1314,9 +1294,8 @@ Examples:
 
 ## `mise plugins link`
 
-**Usage**: `mise plugins link [-f --force] <NAME> [PATH]`
-
-**Aliases**: `ln`
+- **Usage**: `mise plugins link [-f --force] <NAME> [PATH]`
+- **Aliases**: `ln`
 
 Symlinks a plugin into mise
 
@@ -1350,9 +1329,8 @@ Examples:
 
 ## `mise plugins ls`
 
-**Usage**: `mise plugins ls [FLAGS]`
-
-**Aliases**: `list`
+- **Usage**: `mise plugins ls [FLAGS]`
+- **Aliases**: `list`
 
 List installed plugins
 
@@ -1389,9 +1367,8 @@ Examples:
 
 ## `mise plugins ls-remote`
 
-**Usage**: `mise plugins ls-remote [-u --urls] [--only-names]`
-
-**Aliases**: `list-remote`, `list-all`
+- **Usage**: `mise plugins ls-remote [-u --urls] [--only-names]`
+- **Aliases**: `list-remote`, `list-all`
 
 
 List all available remote plugins
@@ -1414,9 +1391,8 @@ Only show the name of each plugin by default it will show a "*" next to installe
 
 ## `mise plugins uninstall`
 
-**Usage**: `mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]...`
-
-**Aliases**: `remove`, `rm`
+- **Usage**: `mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]...`
+- **Aliases**: `remove`, `rm`
 
 Removes a plugin
 
@@ -1442,9 +1418,8 @@ Examples:
 
 ## `mise plugins update`
 
-**Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]...`
-
-**Aliases**: `up`, `upgrade`
+- **Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]...`
+- **Aliases**: `up`, `upgrade`
 
 Updates a plugin to the latest version
 
@@ -1471,7 +1446,7 @@ Examples:
 
 ## `mise prune`
 
-**Usage**: `mise prune [FLAGS] [PLUGIN]...`
+- **Usage**: `mise prune [FLAGS] [PLUGIN]...`
 
 Delete unused versions of tools
 
@@ -1508,7 +1483,7 @@ Examples:
 
 ## `mise registry`
 
-**Usage**: `mise registry`
+- **Usage**: `mise registry`
 
 [experimental] List available tools to install
 
@@ -1525,7 +1500,7 @@ Examples:
 
 ## `mise reshim`
 
-**Usage**: `mise reshim [-f --force]`
+- **Usage**: `mise reshim [-f --force]`
 
 Creates new shims based on bin paths from currently installed tools.
 
@@ -1560,9 +1535,8 @@ Examples:
 
 ## `mise run`
 
-**Usage**: `mise run [FLAGS]`
-
-**Aliases**: `r`
+- **Usage**: `mise run [FLAGS]`
+- **Aliases**: `r`
 
 [experimental] Run task(s)
 
@@ -1656,7 +1630,7 @@ Examples:
 
 ## `mise self-update`
 
-**Usage**: `mise self-update [FLAGS] [VERSION]`
+- **Usage**: `mise self-update [FLAGS] [VERSION]`
 
 Updates mise itself.
 
@@ -1688,7 +1662,7 @@ Skip confirmation prompt
 
 ## `mise set`
 
-**Usage**: `mise set [--file <FILE>] [-g --global] [ENV_VARS]...`
+- **Usage**: `mise set [--file <FILE>] [-g --global] [ENV_VARS]...`
 
 Set environment variables in mise.toml
 
@@ -1726,7 +1700,7 @@ Examples:
 
 ## `mise settings`
 
-**Usage**: `mise settings [--keys] <SUBCOMMAND>`
+- **Usage**: `mise settings [--keys] <SUBCOMMAND>`
 
 Manage settings
 
@@ -1738,7 +1712,7 @@ Only display key names for each setting
 
 ## `mise settings add`
 
-**Usage**: `mise settings add <SETTING> <VALUE>`
+- **Usage**: `mise settings add <SETTING> <VALUE>`
 
 Adds a setting to the configuration file
 
@@ -1761,7 +1735,7 @@ Examples:
 
 ## `mise settings get`
 
-**Usage**: `mise settings get <SETTING>`
+- **Usage**: `mise settings get <SETTING>`
 
 Show a current setting
 
@@ -1783,9 +1757,8 @@ Examples:
 
 ## `mise settings ls`
 
-**Usage**: `mise settings ls [--keys]`
-
-**Aliases**: `list`
+- **Usage**: `mise settings ls [--keys]`
+- **Aliases**: `list`
 
 Show current settings
 
@@ -1807,9 +1780,8 @@ Examples:
 
 ## `mise settings set`
 
-**Usage**: `mise settings set <SETTING> <VALUE>`
-
-**Aliases**: `create`
+- **Usage**: `mise settings set <SETTING> <VALUE>`
+- **Aliases**: `create`
 
 Add/update a setting
 
@@ -1831,9 +1803,8 @@ Examples:
 
 ## `mise settings unset`
 
-**Usage**: `mise settings unset <SETTING>`
-
-**Aliases**: `rm`, `remove`, `delete`, `del`
+- **Usage**: `mise settings unset <SETTING>`
+- **Aliases**: `rm`, `remove`, `delete`, `del`
 
 Clears a setting
 
@@ -1851,9 +1822,8 @@ Examples:
 
 ## `mise shell`
 
-**Usage**: `mise shell [FLAGS] [TOOL@VERSION]...`
-
-**Aliases**: `sh`
+- **Usage**: `mise shell [FLAGS] [TOOL@VERSION]...`
+- **Aliases**: `sh`
 
 Sets a tool version for the current session.
 
@@ -1891,13 +1861,13 @@ Examples:
 
 ## `mise sync`
 
-**Usage**: `mise sync <SUBCOMMAND>`
+- **Usage**: `mise sync <SUBCOMMAND>`
 
 Add tool versions from external tools to mise
 
 ## `mise sync node`
 
-**Usage**: `mise sync node [FLAGS]`
+- **Usage**: `mise sync node [FLAGS]`
 
 Symlinks all tool versions from an external tool into mise
 
@@ -1925,7 +1895,7 @@ Examples:
 
 ## `mise sync python`
 
-**Usage**: `mise sync python <--pyenv>`
+- **Usage**: `mise sync python <--pyenv>`
 
 Symlinks all tool versions from an external tool into mise
 
@@ -1945,9 +1915,8 @@ Examples:
 
 ## `mise tasks`
 
-**Usage**: `mise tasks [FLAGS] <SUBCOMMAND>`
-
-**Aliases**: `t`
+- **Usage**: `mise tasks [FLAGS] <SUBCOMMAND>`
+- **Aliases**: `t`
 
 [experimental] Manage tasks
 
@@ -1995,7 +1964,7 @@ Examples:
 
 ## `mise tasks deps`
 
-**Usage**: `mise tasks deps [--hidden] [--dot] [TASKS]...`
+- **Usage**: `mise tasks deps [--hidden] [--dot] [TASKS]...`
 
 [experimental] Display a tree visualization of a dependency graph
 
@@ -2030,7 +1999,7 @@ Examples:
 
 ## `mise tasks edit`
 
-**Usage**: `mise tasks edit [-p --path] <TASK>`
+- **Usage**: `mise tasks edit [-p --path] <TASK>`
 
 [experimental] Edit a tasks with $EDITOR
 
@@ -2055,7 +2024,7 @@ Examples:
 
 ## `mise tasks info`
 
-**Usage**: `mise tasks info [-J --json] <TASK>`
+- **Usage**: `mise tasks info [-J --json] <TASK>`
 
 [experimental] Get information about a task
 
@@ -2101,7 +2070,7 @@ Examples:
 
 ## `mise tasks ls`
 
-**Usage**: `mise tasks ls [FLAGS]`
+- **Usage**: `mise tasks ls [FLAGS]`
 
 [experimental] List available tasks to execute
 These may be included from the config file or from the project's .mise/tasks directory
@@ -2155,9 +2124,8 @@ Examples:
 
 ## `mise tasks run`
 
-**Usage**: `mise tasks run [FLAGS] [TASK] [ARGS]...`
-
-**Aliases**: `r`
+- **Usage**: `mise tasks run [FLAGS] [TASK] [ARGS]...`
+- **Aliases**: `r`
 
 [experimental] Run task(s)
 
@@ -2265,7 +2233,7 @@ Examples:
 
 ## `mise trust`
 
-**Usage**: `mise trust [FLAGS] [CONFIG_FILE]`
+- **Usage**: `mise trust [FLAGS] [CONFIG_FILE]`
 
 Marks a config file as trusted
 
@@ -2308,9 +2276,8 @@ Examples:
 
 ## `mise uninstall`
 
-**Usage**: `mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]...`
-
-**Aliases**: `remove`, `rm`
+- **Usage**: `mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]...`
+- **Aliases**: `remove`, `rm`
 
 Removes installed tool versions
 
@@ -2345,7 +2312,7 @@ Examples:
 
 ## `mise unset`
 
-**Usage**: `mise unset [-f --file <FILE>] [-g --global] [KEYS]...`
+- **Usage**: `mise unset [-f --file <FILE>] [-g --global] [KEYS]...`
 
 Remove environment variable(s) from the config file.
 
@@ -2378,9 +2345,8 @@ Examples:
 
 ## `mise upgrade`
 
-**Usage**: `mise upgrade [FLAGS] [TOOL@VERSION]...`
-
-**Aliases**: `up`
+- **Usage**: `mise upgrade [FLAGS] [TOOL@VERSION]...`
+- **Aliases**: `up`
 
 Upgrades outdated tools
 
@@ -2450,7 +2416,7 @@ Examples:
 
 ## `mise usage`
 
-**Usage**: `mise usage`
+- **Usage**: `mise usage`
 
 Generate a usage CLI spec
 
@@ -2458,9 +2424,8 @@ See https://usage.jdx.dev for more information on this specification.
 
 ## `mise use`
 
-**Usage**: `mise use [FLAGS] [TOOL@VERSION]...`
-
-**Aliases**: `u`
+- **Usage**: `mise use [FLAGS] [TOOL@VERSION]...`
+- **Aliases**: `u`
 
 Installs a tool and adds the version it to mise.toml.
 
@@ -2542,9 +2507,8 @@ Examples:
 
 ## `mise version`
 
-**Usage**: `mise version`
-
-**Aliases**: `v`
+- **Usage**: `mise version`
+- **Aliases**: `v`
 
 Display the version of mise
 
@@ -2561,9 +2525,8 @@ Examples:
 
 ## `mise watch`
 
-**Usage**: `mise watch [-t --task... <TASK>] [-g --glob... <GLOB>] [ARGS]...`
-
-**Aliases**: `w`
+- **Usage**: `mise watch [-t --task... <TASK>] [-g --glob... <GLOB>] [ARGS]...`
+- **Aliases**: `w`
 
 [experimental] Run task(s) and watch for changes to rerun it
 
@@ -2602,7 +2565,7 @@ Examples:
 
 ## `mise where`
 
-**Usage**: `mise where <TOOL@VERSION>`
+- **Usage**: `mise where <TOOL@VERSION>`
 
 Display the installation path for a tool
 
@@ -2632,7 +2595,7 @@ Examples:
 
 ## `mise which`
 
-**Usage**: `mise which [FLAGS] <BIN_NAME>`
+- **Usage**: `mise which [FLAGS] <BIN_NAME>`
 
 Shows the path that a tool's bin points to.
 
@@ -2672,12 +2635,12 @@ Examples:
 
 ## `mise render-help`
 
-**Usage**: `mise render-help`
+- **Usage**: `mise render-help`
 
 internal command to generate markdown from help
 
 ## `mise render-mangen`
 
-**Usage**: `mise render-mangen`
+- **Usage**: `mise render-mangen`
 
 internal command to generate markdown from help

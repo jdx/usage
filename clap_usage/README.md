@@ -24,7 +24,7 @@ fn main() {
         clap_usage::generate(&mut cmd, "example", &mut std::io::stderr()).unwrap();
         return;
     }
-    
+
     // Your CLI code here...
 }
 ```

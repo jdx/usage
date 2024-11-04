@@ -1,8 +1,8 @@
 # `usage`
+
 - **version**: 1.0.1
 
 CLI for working with usage-based CLIs
-
 
 - **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
