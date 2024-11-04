@@ -1,22 +1,27 @@
-const usageGeneratorTemplate = (usage_cmd: string): Fig.Generator => {
-  return {
-    custom: async (tokens: string[], executeCommand) => {
-      const { stdout: spec } = await executeCommand({
-        command: "sh",
-        args: ["-c", usage_cmd],
-      });
+const usageGenerateSpec = (cmds: string[]) => {
+  return async (tokens: string[], executeCommand: Fig.ExecuteCommandFunction): Promise<Fig.Spec> => {
+    const promises = cmds.map(async (cmd) => {
+      try {
+        const { stdout } = await executeCommand({
+          command: 'sh', args: ['-c', cmd]
+        });
+        const { stdout: figSpecOut } = await executeCommand({
+          command: 'usage', args: ['g', 'fig', '--spec', stdout, '--stdout']
+        })
+        const start_of_json = figSpecOut.indexOf("{")
+        const j = figSpecOut.slice(start_of_json)
+        return JSON.parse(j).subcommands as Fig.Subcommand[]
+      }
+      catch (e){
+        throw e;
+      }
+    })
 
-      const { stdout: completes } = await executeCommand({
-        command: "usage",
-        args: ["complete-word", "--shell", "bash", "-s", spec],
-      });
-
-      return completes
-        .split("\n")
-        .map((l) => ({ name: l.trim(), type: "special" }));
-    },
-  };
-};
+    const subcommands = (await Promise.allSettled(promises)).filter(p => p.status === 'fulfilled').map(p => p.value);
+    
+    return { subcommands: subcommands.flat() } as Fig.Spec
+  }
+}
 
 const completionGeneratorTemplate = (
   argSuggestionBash: string,
