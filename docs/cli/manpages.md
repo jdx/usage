@@ -2,7 +2,7 @@
 
 Usage CLI can generate manpages from a Usage definition. Here is an example:
 
-```sh-session
+```bash
 $ usage g manpage -f ./mycli.usage.kdl > /usr/share/man/man1/mycli.1
 $ man mycli
 mycli(1)                    General Commands Manual                   mycli(1)

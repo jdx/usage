@@ -2,7 +2,7 @@
 
 Usage can generate completion scripts for any shell. Here is an example for bash:
 
-```sh-session
+```bash
 usage g completion bash mycli -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
 source ~/.bash_completions/mycli.bash
 mycli --<TAB>
@@ -10,7 +10,7 @@ mycli --<TAB>
 
 zsh:
 
-```sh-session
+```bash
 usage g completion zsh mycli -f ./mycli.usage.kdl > ~/.zsh_completions/_mycli
 source ~/.zsh_completions/_mycli
 mycli --<TAB>
@@ -18,8 +18,15 @@ mycli --<TAB>
 
 fish:
 
-```sh-session
+```bash
 usage g completion fish mycli -f ./mycli.usage.kdl > ~/.config/fish/completions/mycli.fish
+mycli --<TAB>
+```
+
+fig/Amazon Q:
+
+```bash
+usage g completion fig mycli -f ./mycli.usage.kdl > ~/.config/fig/completions/mycli.fish
 mycli --<TAB>
 ```
 
@@ -32,7 +39,7 @@ New shells should be easy to add because the logic around completions is mostly 
 Typically, completion scripts will call usage like this to fetch completion choices (cword is the index of
 the current word):
 
-```sh-session
+```bash
 $ usage complete-word --file ./mycli.usage.kdl -- mycli cmd1 cmd2 --f
 --force
 --file
