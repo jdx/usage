@@ -12,14 +12,14 @@ export default defineConfig({
     // ]
   },
   sitemap: {
-    hostname: "https://usage.jdx.dev",
+    hostname: "https://usage.jdx.dev"
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: "Home", link: "/" },
       { text: "Spec", link: "/spec/" },
-      { text: "CLI", link: "/cli/" },
+      { text: "CLI", link: "/cli/" }
     ],
 
     sidebar: [
@@ -31,7 +31,8 @@ export default defineConfig({
           { text: "Manpages", link: "/cli/manpages" },
           { text: "Markdown", link: "/cli/markdown" },
           { text: "Scripts", link: "/cli/scripts" },
-        ],
+          { text: "CLI Reference", link: "/cli/reference" }
+        ]
       },
       {
         text: "Spec",
@@ -46,42 +47,43 @@ export default defineConfig({
               { text: "complete", link: "/spec/reference/complete" },
               { text: "flag", link: "/spec/reference/flag" },
               // { text: 'env', link: '/spec/reference/env' },
-              { text: "config", link: "/spec/reference/config" },
-            ],
+              { text: "config", link: "/spec/reference/config" }
+            ]
           },
-        ],
-      },
+          { text: "Integrations", link: "/spec/integrations" }
+        ]
+      }
     ],
 
     socialLinks: [{ icon: "github", link: "https://github.com/jdx/usage" }],
     editLink: {
-      pattern: "https://github.com/jdx/usage/edit/main/docs/:path",
+      pattern: "https://github.com/jdx/usage/edit/main/docs/:path"
     },
     // carbonAds: {
     //   code: 'CWYIPKQN',
     //   placement: 'misejdxdev',
     // },
     search: {
-      provider: "local",
+      provider: "local"
     },
     footer: {
       message:
-        'Licensed under the MIT License. Maintained by <a href="https://github.com/jdx">@jdx</a> and <a href="https://github.com/jdx/usage/graphs/contributors">friends</a>.',
-      copyright: 'Copyright © 2024 <a href="https://github.com/jdx">@jdx</a>',
-    },
+        "Licensed under the MIT License. Maintained by <a href=\"https://github.com/jdx\">@jdx</a> and <a href=\"https://github.com/jdx/usage/graphs/contributors\">friends</a>.",
+      copyright: "Copyright © 2024 <a href=\"https://github.com/jdx\">@jdx</a>"
+    }
   },
   head: [
     [
-      'script',
-      { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-63L7VEB1RB' }
+      "script",
+      { async: "", src: "https://www.googletagmanager.com/gtag/js?id=G-63L7VEB1RB" }
     ],
     [
-      'script',
+      "script",
       {},
       `window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-63L7VEB1RB');`
     ]
-  ],
+  ]
 });

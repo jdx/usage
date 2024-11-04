@@ -1471,6 +1471,7 @@ version = "1.0.1"
 dependencies = [
  "assert_cmd",
  "clap",
+ "clap_usage",
  "contracts",
  "ctor",
  "env_logger",

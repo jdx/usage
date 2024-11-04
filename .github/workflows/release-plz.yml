@@ -29,7 +29,6 @@ jobs:
         with:
           shared-key: test
           save-if: false
-      - uses: taiki-e/install-action@cargo-binstall
       - uses: jdx/mise-action@v2
         with:
           experimental: true

@@ -44,3 +44,13 @@ $ usage complete-word --file ./mycli.usage.kdl -- mycli cmd1 cmd2 --f
 --force
 --file
 ```
+
+## Completions for `usage` CLI itself
+
+Completions for the `usage` CLI itself can be generated with one of the following commands:
+
+```bash
+usage --completions bash > /etc/bash_completion.d/mise
+usage --completions zsh > /usr/share/zsh/site-functions/_mise
+usage --completions fish > ~/.config/fish/completions/mise.fish
+```

@@ -3,11 +3,14 @@ CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
 [tools]
-"npm:prettier" = "latest"
-"cargo:cargo-edit" = "latest"
-"cargo:git-cliff" = "latest"
-gh = "latest"
 actionlint = "latest"
+cargo-binstall = "latest"
+gh = "latest"
+"cargo:cargo-edit" = "latest"
+"cargo:cargo-insta" = "latest"
+"cargo:cargo-release" = "latest"
+"cargo:git-cliff" = "latest"
+"npm:prettier" = "latest"
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
@@ -36,6 +39,10 @@ depends = ['build']
 run = 'usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
 raw = true
 
+[tasks."docs:dev"]
+dir = 'docs'
+run = 'npm run docs:dev'
+
 [tasks.test]
 alias = 't'
 run = 'cargo test --all --all-features'
@@ -55,10 +62,8 @@ run = 'cargo fmt --all -- --check'
 run = [
     'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
     'cargo fmt --all',
+    'prettier -w .',
 ]
-
-[tasks.format]
-run = 'prettier -w .'
 
 [tasks.ci]
 depends = ['test', 'lint']
@@ -69,12 +74,14 @@ depends = ['lint', 'render']
 [tasks.render]
 depends = ['render:*']
 
-[tasks."render:mise-completions"]
+[tasks."render:usage-cli-completions"]
 depends = ['build']
 run = [
-    'usage g completion bash mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.bash',
-    'usage g completion zsh mise --usage-cmd "@mise usage" > ~/src/mise/completions/_mise',
-    'usage g completion fish mise --usage-cmd "@mise usage" > ~/src/mise/completions/mise.fish',
+    'usage --usage-spec > cli/usage.usage.kdl',
+    'usage g md -f cli/usage.usage.kdl --out-file docs/cli/reference.md',
+    'usage g completion bash usage --usage-cmd "usage --usage-spec" > cli/completions/usage.bash',
+    'usage g completion fish usage --usage-cmd "usage --usage-spec" > cli/completions/usage.fish',
+    'usage g completion zsh  usage --usage-cmd "usage --usage-spec" > cli/completions/_usage',
 ]
 
 [tasks."render:example-md"]
@@ -86,6 +93,9 @@ run = [
 
 [tasks.release]
 run = "cargo release --workspace"
+
+[tasks.snapshots]
+run = "cargo insta test --accept"
 
 [task_config]
 includes = ['tasks']

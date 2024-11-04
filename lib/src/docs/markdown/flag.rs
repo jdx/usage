@@ -2,7 +2,7 @@ use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 use crate::SpecFlag;
 
-impl MarkdownRenderer {
+impl MarkdownRenderer<'_> {
     pub fn render_flag(&self, flag: &SpecFlag) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("flag", &flag);
