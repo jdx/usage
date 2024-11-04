@@ -7,6 +7,7 @@ _.path = ["./target/debug"]
 "cargo:cargo-edit" = "latest"
 "cargo:git-cliff" = "latest"
 gh = "latest"
+actionlint = "latest"
 
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
@@ -41,6 +42,8 @@ run = 'cargo test --all --all-features'
 
 [tasks.lint]
 depends = ['lint:*']
+[tasks."lint:actionlint"]
+run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]
@@ -60,6 +63,9 @@ run = 'prettier -w .'
 [tasks.ci]
 depends = ['test', 'lint']
 
+[tasks.pre-commit]
+depends = ['lint', 'render']
+
 [tasks.render]
 depends = ['render:*']
 
@@ -74,8 +80,8 @@ run = [
 [tasks."render:example-md"]
 depends = ['build']
 run = [
-    "usage g md examples/docs/MISE_INLINE.md",
-    "usage g md examples/docs/MISE_MULTI.md",
+    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md",
+    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md",
 ]
 
 [tasks.release]

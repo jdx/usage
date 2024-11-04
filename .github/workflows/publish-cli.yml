@@ -18,7 +18,7 @@ env:
   NPM_CONFIG_FUND: false
 
 jobs:
-  build:
+  build-and-publish:
     strategy:
       matrix:
         include:
@@ -75,7 +75,7 @@ jobs:
           tap: jdx/homebrew-tap
   bump-aur:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@cargo-binstall
@@ -92,3 +92,10 @@ jobs:
           merge-multiple: true
       - run: mise run bump-aur usage
       - run: mise run bump-aur usage-bin
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-and-publish]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: gh release edit ${{ github.ref_name }} --draft=false

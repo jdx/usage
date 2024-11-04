@@ -1,0 +1,23 @@
+[package]
+name = "clap_usage"
+edition = "2021"
+version = "0.2.0"
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/src/**/*.rs",
+]
+description = "Library for working with usage specs"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+clap = { version = "4", default-features=false, features=["std"] }
+usage-lib = { workspace = true, features = ["clap"] }
+
+[dev-dependencies]
+insta = "1"

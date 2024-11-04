@@ -22,7 +22,7 @@ fi
 
 Assuming this script was located at `./mycli`, it could be used like this:
 
-```sh-session
+```bash
 $ ./mycli --help
 Usage: mycli [flags] [args]
 ...
