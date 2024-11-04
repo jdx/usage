@@ -57,7 +57,11 @@ impl Bash {
             cmd.env(key, val);
         }
 
-        cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+        let result = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+
+        if !result.success() {
+            std::process::exit(result.code().unwrap_or(1));
+        }
 
         Ok(())
     }
