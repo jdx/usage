@@ -6,8 +6,8 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use usage::{SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
-use serde::{Deserialize, Serialize, Serializer};
 use crate::cli::generate;
+use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Args)]
 #[clap()]
@@ -17,7 +17,7 @@ pub struct Fig {
     file: Option<PathBuf>,
 
     /// raw string spec input
-    #[clap(long, required_unless_present="file", overrides_with = "file")]
+    #[clap(long, required_unless_present = "file", overrides_with = "file")]
     spec: Option<String>,
 
     /// File on where to save the generated Fig spec
@@ -26,7 +26,7 @@ pub struct Fig {
 
     /// Whether to output to stdout
     #[clap(long, action = clap::ArgAction::SetTrue, required_unless_present="out_file", overrides_with = "out_file")]
-    stdout: Option<bool>
+    stdout: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -43,15 +43,16 @@ struct FigGenerator {
 }
 
 impl Serialize for FigGenerator {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> 
-        where
-            S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         serializer.serialize_str(&self.template_str)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")] 
+#[serde(rename_all = "camelCase")]
 struct FigArg {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,7 +64,7 @@ struct FigArg {
     #[serde(skip_serializing_if = "Option::is_none")]
     generators: Option<FigGenerator>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    suggestions: Vec<String>
+    suggestions: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -74,11 +75,11 @@ struct FigOption {
     #[serde(rename(serialize = "isRepeatable"))]
     is_repeatable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    args: Option<FigArg>
+    args: Option<FigArg>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")] 
+#[serde(rename_all = "camelCase")]
 struct FigCommand {
     name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,7 +92,7 @@ struct FigCommand {
     args: Vec<FigArg>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    generate_spec: Option<String>
+    generate_spec: Option<String>,
 }
 
 impl FigGenerator {
@@ -99,7 +100,7 @@ impl FigGenerator {
         Self {
             type_: type_.clone(),
             template_str: FigGenerator::get_generator_name(type_).to_uppercase(),
-            post_process: "".to_string()
+            post_process: "".to_string(),
         }
     }
 
@@ -116,9 +117,7 @@ impl FigGenerator {
                 let postprocess = self.post_process.clone();
                 format!("(`{postprocess}`)")
             }
-            _ => {
-                "".to_string()
-            }
+            _ => "".to_string(),
         }
     }
 
@@ -128,28 +127,37 @@ impl FigGenerator {
 
         format!("{generator_name}{arg}")
     }
-
 }
 
 impl FigArg {
     fn get_template(name: &String) -> Option<String> {
-        name.to_lowercase().contains("file")
+        name.to_lowercase()
+            .contains("file")
             .then(|| "filepaths".to_string())
-            .or(name.to_lowercase().contains("dir").then(|| "folders".to_string()))
-            .or(name.to_lowercase().contains("path").then(|| "filepaths".to_string()))
+            .or(name
+                .to_lowercase()
+                .contains("dir")
+                .then(|| "folders".to_string()))
+            .or(name
+                .to_lowercase()
+                .contains("path")
+                .then(|| "filepaths".to_string()))
     }
 
     fn get_generator(name: &String) -> Option<FigGenerator> {
-        name.to_lowercase().contains("env_vars")
-        .then(|| FigGenerator::create_simple_generator(GeneratorType::EnvVar))
-        .or(name.to_lowercase().contains("env_var")
-            .then(|| FigGenerator::create_simple_generator(GeneratorType::EnvVar)))
+        name.to_lowercase()
+            .contains("env_vars")
+            .then(|| FigGenerator::create_simple_generator(GeneratorType::EnvVar))
+            .or(name
+                .to_lowercase()
+                .contains("env_var")
+                .then(|| FigGenerator::create_simple_generator(GeneratorType::EnvVar)))
     }
 
     pub fn get_generators(&self) -> Vec<FigGenerator> {
         match self.generators.clone() {
             Some(a) => vec![a],
-            None => vec![]
+            None => vec![],
         }
     }
 
@@ -157,50 +165,53 @@ impl FigArg {
         name.replace("<", "")
             .replace(">", "")
             .replace("[", "")
-            .replace("]", "").to_ascii_lowercase()
+            .replace("]", "")
+            .to_ascii_lowercase()
     }
 
     pub fn parse_from_spec(arg: &SpecArg) -> Self {
         Self {
             name: FigArg::get_name(&arg.name),
             description: arg.help.clone(),
-            is_variadic: arg.var, 
+            is_variadic: arg.var,
             is_optional: !arg.required,
             template: FigArg::get_template(&arg.name),
             generators: FigArg::get_generator(&arg.name),
-            suggestions: arg.choices.clone().map(|c|c.choices).unwrap_or(vec![])
+            suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
         }
     }
 
     pub fn update_from_complete(&mut self, spec: SpecComplete) {
         let name = spec.name;
-        
-        self.generators = self.generators.clone().or_else(|| Some(FigGenerator {
-            type_: GeneratorType::Complete,
-            post_process: spec.run.unwrap_or("".to_string()),
-            template_str: format!("${name}$")
-        }))
+
+        self.generators = self.generators.clone().or_else(|| {
+            Some(FigGenerator {
+                type_: GeneratorType::Complete,
+                post_process: spec.run.unwrap_or("".to_string()),
+                template_str: format!("${name}$"),
+            })
+        })
     }
 }
 
 impl FigOption {
     fn get_names(flag: &SpecFlag) -> Vec<String> {
-        let mut n: Vec<String> = flag.short.iter().map(|c|format!("-{c}")).collect();
+        let mut n: Vec<String> = flag.short.iter().map(|c| format!("-{c}")).collect();
         n.extend(flag.long.iter().map(|l| format!("--{l}")));
-        return n
+        n
     }
 
     pub fn get_generators(&self) -> Vec<FigGenerator> {
-        self.args.iter().cloned()
-        .filter(|a| a.generators.is_some())
-        .map(|a| a.generators.unwrap())
-        .collect()
+        self.args
+            .iter()
+            .filter(|&a| a.generators.is_some())
+            .cloned()
+            .map(|a| a.generators.unwrap())
+            .collect()
     }
 
     pub fn get_args(&mut self) -> Vec<&mut FigArg> {
-        self.args.as_mut()
-            .and_then(|a| Some(vec![a]))
-            .unwrap_or(vec![])
+        self.args.as_mut().map(|a| vec![a]).unwrap_or_default()
     }
 
     pub fn parse_from_spec(flag: &SpecFlag) -> Self {
@@ -208,9 +219,9 @@ impl FigOption {
             name: FigOption::get_names(flag),
             description: flag.help.clone(),
             is_repeatable: flag.var,
-            args: flag.arg.clone().map(|arg | FigArg::parse_from_spec(&arg))
+            args: flag.arg.clone().map(|arg| FigArg::parse_from_spec(&arg)),
         }
-    }   
+    }
 }
 impl FigCommand {
     fn get_names(cmd: &SpecCommand) -> Vec<String> {
@@ -220,28 +231,37 @@ impl FigCommand {
     }
 
     pub fn get_generators(&self) -> Vec<FigGenerator> {
-        let sub = self.subcommands.iter()
+        let sub = self
+            .subcommands
+            .iter()
             .map(|s| s.get_generators())
-            .collect_vec().concat();
-        let opt = self.options.iter().map(|o| o.get_generators()).collect_vec().concat();
-        let args = self.args.iter().map(|a| a.get_generators()).collect_vec().concat();
-        [sub,opt,args].concat()
+            .collect_vec()
+            .concat();
+        let opt = self
+            .options
+            .iter()
+            .map(|o| o.get_generators())
+            .collect_vec()
+            .concat();
+        let args = self
+            .args
+            .iter()
+            .map(|a| a.get_generators())
+            .collect_vec()
+            .concat();
+        [sub, opt, args].concat()
     }
 
     pub fn get_commands(&self) -> Vec<FigCommand> {
-        let subcmds = self.subcommands.iter()
-            .map(|s| s.get_commands())
-            .concat();
+        let subcmds = self.subcommands.iter().map(|s| s.get_commands()).concat();
         [subcmds, vec![self.clone()]].concat()
     }
 
     pub fn get_args(&mut self) -> Vec<&mut FigArg> {
-        let opt_args = self.options.iter_mut()
-            .map(|o| o.get_args()).concat();
-        let sub_args = self.subcommands.iter_mut()
-            .map(|c| c.get_args()).concat();
-        
-        let args = self.args.iter_mut().map(|a| a).collect_vec();
+        let opt_args = self.options.iter_mut().map(|o| o.get_args()).concat();
+        let sub_args = self.subcommands.iter_mut().map(|c| c.get_args()).concat();
+
+        let args = self.args.iter_mut().collect_vec();
         let mut result = Vec::new();
         for vec in [opt_args, sub_args, args] {
             result.extend(vec);
@@ -253,26 +273,36 @@ impl FigCommand {
         (!cmd.hide).then(|| Self {
             name: FigCommand::get_names(cmd),
             description: cmd.help.clone(),
-            subcommands: cmd.subcommands.iter()
+            subcommands: cmd
+                .subcommands
+                .iter()
                 .filter(|(_, v)| !v.hide)
-                .map(|(_, v)| FigCommand::parse_from_spec(v))
-                .flatten()
+                .filter_map(|(_, v)| FigCommand::parse_from_spec(v))
                 .collect(),
-            options: cmd.flags.iter()
+            options: cmd
+                .flags
+                .iter()
                 .filter(|f| !f.hide)
-                .map(|flag| FigOption::parse_from_spec(flag))
+                .map(FigOption::parse_from_spec)
                 .collect(),
-            args: cmd.args.iter()
+            args: cmd
+                .args
+                .iter()
                 .filter(|a| !a.hide)
-                .map(|arg| FigArg::parse_from_spec(arg))
+                .map(FigArg::parse_from_spec)
                 .collect(),
-            generate_spec: (cmd.mounts.len() > 0).then(|| {
-                let calls = cmd.mounts.iter().cloned().map(|m| {
-                    let run = m.run;
-                    format!("\"{run}\"")
-                }).join(",");
+            generate_spec: (!cmd.mounts.is_empty()).then(|| {
+                let calls = cmd
+                    .mounts
+                    .iter()
+                    .cloned()
+                    .map(|m| {
+                        let run = m.run;
+                        format!("\"{run}\"")
+                    })
+                    .join(",");
                 format!("${calls}$")
-            })
+            }),
         })
     }
 }
@@ -292,22 +322,31 @@ impl Fig {
         let j = serde_json::to_string_pretty(&main_command).unwrap();
         let path = self.out_file.clone().unwrap_or(PathBuf::from("./usage.ts"));
         let mut result = format!("const completionSpec: Fig.Spec = {j}");
-        
+
         let generators = main_command.get_generators();
         generators.iter().cloned().for_each(|g| {
             let template_str = g.clone().template_str;
             let generator_call_text = g.get_generator_text();
-            result = result.replace(format!("\"{template_str}\"").as_str(), generator_call_text.as_str())
+            result = result.replace(
+                format!("\"{template_str}\"").as_str(),
+                generator_call_text.as_str(),
+            )
         });
 
         // Handle mount run commands
-        main_command.get_commands().iter().cloned()
-            .filter(|cmd| cmd.generate_spec.is_some())
+        main_command
+            .get_commands()
+            .iter()
+            .filter(|&cmd| cmd.generate_spec.is_some())
+            .cloned()
             .for_each(|cmd| {
                 let call_template_str = cmd.generate_spec.unwrap();
                 let args = call_template_str.replace("$", "");
                 let replace_str = call_template_str.replace("\"", "\\\"");
-                result = result.replace(format!("\"{replace_str}\"").as_str(), format!("usageGenerateSpec([{args}])").as_str())
+                result = result.replace(
+                    format!("\"{replace_str}\"").as_str(),
+                    format!("usageGenerateSpec([{args}])").as_str(),
+                )
             });
 
         let output_to_str = self.stdout.unwrap_or(true);
@@ -329,14 +368,17 @@ impl Fig {
     }
 
     fn fill_args_complete(args: Vec<&mut FigArg>, completes: IndexMap<String, SpecComplete>) {
-        let completable_args = args.into_iter().map(|a| {
-            let completekv = completes.get_key_value(&a.name);
-            completekv.and_then(|(_,v)| Some((a, v.clone())))
-        }).filter(Option::is_some);
-        
+        let completable_args = args
+            .into_iter()
+            .map(|a| {
+                let completekv = completes.get_key_value(&a.name);
+                completekv.map(|(_, v)| (a, v.clone()))
+            })
+            .filter(Option::is_some);
+
         completable_args.for_each(|a| {
             let x = a.unwrap();
             x.0.update_from_complete(x.1)
-        });   
+        });
     }
 }

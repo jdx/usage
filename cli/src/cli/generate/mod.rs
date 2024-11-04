@@ -4,8 +4,8 @@ use usage::error::UsageErr;
 use usage::Spec;
 
 mod completion;
-mod markdown;
 mod fig;
+mod markdown;
 
 #[derive(clap::Args)]
 #[clap(visible_alias = "g")]
