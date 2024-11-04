@@ -27,7 +27,7 @@ if [ "${usage_dry_run:-}" == 1 ]; then
 fi
 
 git cliff --bump -o CHANGELOG.md
-cargo set-version "${version#v}"
+cargo set-version "${version#v}" --exclude clap_usage
 mise run render
 
 git config user.name mise-en-dev
