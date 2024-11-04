@@ -7,21 +7,21 @@ use std::collections::HashMap;
 use xx::regex;
 
 #[derive(Debug, Clone)]
-pub struct MarkdownRenderer {
+pub struct MarkdownRenderer<'a> {
+    pub(crate) spec: &'a Spec,
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
-    pub(crate) spec: Spec,
-    url_prefix: Option<String>,
     tera_ctx: tera::Context,
+    url_prefix: Option<String>,
     html_encode: bool,
 }
 
-impl MarkdownRenderer {
-    pub fn new(spec: &Spec) -> Self {
+impl<'a> MarkdownRenderer<'a> {
+    pub fn new(spec: &'a Spec) -> Self {
         Self {
+            spec,
             header_level: 1,
             multi: false,
-            spec: spec.clone(),
             tera_ctx: tera::Context::new(),
             url_prefix: None,
             html_encode: true,
@@ -54,9 +54,9 @@ impl MarkdownRenderer {
 
     fn tera_ctx(&self) -> tera::Context {
         let mut ctx = self.tera_ctx.clone();
+        ctx.insert("spec", self.spec);
         ctx.insert("header_level", &self.header_level);
         ctx.insert("multi", &self.multi);
-        ctx.insert("spec", &self.spec);
         ctx.insert("url_prefix", &self.url_prefix);
         ctx.insert("html_encode", &self.html_encode);
         ctx

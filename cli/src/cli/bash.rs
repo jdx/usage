@@ -8,8 +8,11 @@ use miette::IntoDiagnostic;
 
 use usage::Spec;
 
+/// Executes a bash script
+///
+/// Typically, this will be called by a script's shebang
 #[derive(Debug, Args)]
-#[clap(disable_help_flag = true)]
+#[clap(disable_help_flag = true, verbatim_doc_comment)]
 pub struct Bash {
     script: PathBuf,
     /// arguments to pass to script

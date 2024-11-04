@@ -2,7 +2,7 @@ use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 use crate::SpecArg;
 
-impl MarkdownRenderer {
+impl MarkdownRenderer<'_> {
     pub fn render_arg(&self, arg: &SpecArg) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("arg", arg);

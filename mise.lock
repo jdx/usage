@@ -1,6 +1,9 @@
 [tools]
 actionlint = "1.7.3"
+cargo-binstall = "1.10.8"
 "cargo:cargo-edit" = "0.13.0"
+"cargo:cargo-insta" = "1.41.1"
+"cargo:cargo-release" = "0.25.12"
 "cargo:git-cliff" = "2.6.1"
 gh = "2.60.1"
 "npm:prettier" = "3.3.3"

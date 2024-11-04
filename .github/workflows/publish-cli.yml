@@ -36,7 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-binstall
       - uses: jdx/mise-action@v2
         with:
           experimental: true
@@ -78,7 +77,6 @@ jobs:
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
-      - uses: taiki-e/install-action@cargo-binstall
       - uses: jdx/mise-action@v2
         with:
           experimental: true

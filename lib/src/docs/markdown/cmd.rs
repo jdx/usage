@@ -2,7 +2,7 @@ use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 use crate::SpecCommand;
 
-impl MarkdownRenderer {
+impl MarkdownRenderer<'_> {
     pub fn render_cmd(&self, cmd: &SpecCommand) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("cmd", cmd);
@@ -19,10 +19,10 @@ mod tests {
     #[test]
     fn test_render_markdown_cmd() {
         let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK).with_multi(true);
-        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r####"
+        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r"
         # `mycli`
 
-        **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
 
@@ -73,6 +73,6 @@ mod tests {
         ## Subcommands
 
         - [`mycli plugin <SUBCOMMAND>`](/plugin.md)
-        "####);
+        ");
     }
 }

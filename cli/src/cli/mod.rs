@@ -1,3 +1,4 @@
+use crate::usage_spec;
 use clap::{Parser, Subcommand};
 use miette::Result;
 
@@ -11,6 +12,13 @@ mod generate;
 pub struct Cli {
     #[clap(subcommand)]
     command: Command,
+
+    /// Outputs a `usage.kdl` spec for this CLI itself
+    #[clap(long)]
+    usage_spec: bool,
+
+    /// Outputs completions for the specified shell for completing the `usage` CLI itself
+    completions: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -24,6 +32,9 @@ enum Command {
 impl Cli {
     pub fn run(argv: &[String]) -> Result<()> {
         let cli = Self::parse_from(argv);
+        if cli.usage_spec {
+            return usage_spec::generate();
+        }
         match cli.command {
             Command::Bash(mut cmd) => cmd.run(),
             Command::Generate(cmd) => cmd.run(),

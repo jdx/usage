@@ -15,15 +15,21 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install stable --profile minimal
+        with:
+          ref: ${{ github.head_ref }}
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: test
           save-if: ${{ github.ref_name == 'main' }}
-      - uses: taiki-e/install-action@cargo-binstall
       - uses: jdx/mise-action@v2
       - run: mise r build
       - run: mise r test
       - run: mise r lint
+      - run: "mise r render ::: lint-fix ::: snapshots"
+        if: ${{ always() }}
+      - if: ${{ github.ref_name != 'main' && always() }}
+        uses: stefanzweifel/git-auto-commit-action@v5

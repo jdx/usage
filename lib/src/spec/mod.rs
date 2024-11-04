@@ -192,7 +192,11 @@ impl Spec {
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
-    if full.contains("#USAGE") {
+    if full.starts_with("#!")
+        && full
+            .lines()
+            .any(|l| l.starts_with("#USAGE") || l.starts_with("//USAGE"))
+    {
         return Ok((extract_usage_from_comments(&full), full));
     }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
@@ -211,9 +215,12 @@ fn extract_usage_from_comments(full: &str) -> String {
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
-        if line.starts_with("#USAGE") {
+        if line.starts_with("#USAGE") || line.starts_with("//USAGE") {
             found = true;
-            usage.push(line.strip_prefix("#USAGE").unwrap().trim());
+            let line = line
+                .strip_prefix("#USAGE")
+                .unwrap_or_else(|| line.strip_prefix("//USAGE").unwrap());
+            usage.push(line.trim());
         } else if found {
             // if there is a gap, stop reading
             break;
