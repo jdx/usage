@@ -130,7 +130,7 @@ impl FigGenerator {
 }
 
 impl FigArg {
-    fn get_template(name: &String) -> Option<String> {
+    fn get_template(name: &str) -> Option<String> {
         name.to_lowercase()
             .contains("file")
             .then(|| "filepaths".to_string())
@@ -144,7 +144,7 @@ impl FigArg {
                 .then(|| "filepaths".to_string()))
     }
 
-    fn get_generator(name: &String) -> Option<FigGenerator> {
+    fn get_generator(name: &str) -> Option<FigGenerator> {
         name.to_lowercase()
             .contains("env_vars")
             .then(|| FigGenerator::create_simple_generator(GeneratorType::EnvVar))
@@ -161,7 +161,7 @@ impl FigArg {
         }
     }
 
-    fn get_name(name: &String) -> String {
+    fn get_name(name: &str) -> String {
         name.replace("<", "")
             .replace(">", "")
             .replace("[", "")
