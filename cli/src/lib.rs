@@ -42,5 +42,13 @@ pub fn run(args: &[String]) -> Result<()> {
             }
         }
     }
-    Cli::run(args)
+    let result = Cli::run(args);
+    if let Err(err) = &result {
+        if let Some(_err) = err.downcast_ref::<usage::error::UsageErr>() {
+            eprintln!("{err:?}");
+            std::process::exit(181);
+        }
+    };
+
+    result
 }
