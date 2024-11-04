@@ -1,8 +1,8 @@
 # `usage`
-
 - **version**: 1.0.1
 
 CLI for working with usage-based CLIs
+
 
 - **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
@@ -132,6 +132,29 @@ The CLI which we're generates completions for
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
 
 #### `-f --file <FILE>`
+
+## `usage generate fig`
+
+- **Usage**: `usage generate fig [FLAGS]`
+- **Source code**: [`cli/src/cli/generate/fig.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/fig.rs)
+
+### Flags
+
+#### `-f --file <FILE>`
+
+A usage spec taken in as a file
+
+#### `--spec <SPEC>`
+
+raw string spec input
+
+#### `--out-file <OUT_FILE>`
+
+File on where to save the generated Fig spec
+
+#### `--stdout`
+
+Whether to output to stdout
 
 ## `usage generate markdown`
 
