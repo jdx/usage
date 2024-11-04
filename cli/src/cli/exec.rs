@@ -8,7 +8,7 @@ use miette::IntoDiagnostic;
 use usage::Spec;
 
 #[derive(Debug, Args)]
-#[clap(visible_alias = "x")]
+#[clap(visible_alias = "x", hide = true)]
 pub struct Exec {
     /// command to execute after parsing usage spec
     command: String,
@@ -53,7 +53,11 @@ impl Exec {
             cmd.env(key, val);
         }
 
-        cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+        let result = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+
+        if !result.success() {
+            std::process::exit(result.code().unwrap_or(1));
+        }
 
         Ok(())
     }

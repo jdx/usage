@@ -63,6 +63,9 @@ run = 'prettier -w .'
 [tasks.ci]
 depends = ['test', 'lint']
 
+[tasks.pre-commit]
+depends = ['lint', 'render']
+
 [tasks.render]
 depends = ['render:*']
 
@@ -77,8 +80,8 @@ run = [
 [tasks."render:example-md"]
 depends = ['build']
 run = [
-    "usage g md examples/docs/MISE_INLINE.md",
-    "usage g md examples/docs/MISE_MULTI.md",
+    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md",
+    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md",
 ]
 
 [tasks.release]
