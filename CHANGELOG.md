@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.1.0](https://github.com/jdx/usage/compare/v1.0.1..v1.1.0) - 2024-11-04
+
+### 🚀 Features
+
+- added clap_usage by [@jdx](https://github.com/jdx) in [#150](https://github.com/jdx/usage/pull/150)
+- added completions for usage-cli itself by [@jdx](https://github.com/jdx) in [#151](https://github.com/jdx/usage/pull/151)
+
+### 🐛 Bug Fixes
+
+- pass exit codes with `usage bash` and `usage exec` by [@jdx](https://github.com/jdx) in [#152](https://github.com/jdx/usage/pull/152)
+- tweaks to fig completions by [@jdx](https://github.com/jdx) in [#153](https://github.com/jdx/usage/pull/153)
+- Include the generator for mount run commands by [@miguelmig](https://github.com/miguelmig) in [#154](https://github.com/jdx/usage/pull/154)
+
+### 📚 Documentation
+
+- fix highlighting by [@jdx](https://github.com/jdx) in [c03b934](https://github.com/jdx/usage/commit/c03b9348d0472891eef45a4ca4db1786bdb3683e)
+
+### 🔍 Other Changes
+
+- generate markdown examples by [@jdx](https://github.com/jdx) in [5057650](https://github.com/jdx/usage/commit/50576504497435138d301d3f2ee18258c8c2e5c0)
+- Add fig generate completion subcommand by [@miguelmig](https://github.com/miguelmig) in [#148](https://github.com/jdx/usage/pull/148)
+- run render when creating release by [@jdx](https://github.com/jdx) in [7d723b7](https://github.com/jdx/usage/commit/7d723b7525cf54a58aaedfcbac7352334fd9c3bb)
+- set clap_usage version by [@jdx](https://github.com/jdx) in [0a4909f](https://github.com/jdx/usage/commit/0a4909f39ac42b11bc4f9e0e23daf01466e12969)
+- do not bump clap_usage on every release by [@jdx](https://github.com/jdx) in [2cac664](https://github.com/jdx/usage/commit/2cac6649ca29bfdad4cb9f3aee0573f6be587d1e)
+- fix autolint action by [@jdx](https://github.com/jdx) in [#155](https://github.com/jdx/usage/pull/155)
+
+### 📦️ Dependency Updates
+
+- update dependency vitepress to v1.4.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#145](https://github.com/jdx/usage/pull/145)
+
+### New Contributors
+
+- @miguelmig made their first contribution in [#154](https://github.com/jdx/usage/pull/154)
+
 ## [1.0.1](https://github.com/jdx/usage/compare/v1.0.0..v1.0.1) - 2024-10-31
 
 ### 🐛 Bug Fixes
