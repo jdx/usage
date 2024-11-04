@@ -9,6 +9,8 @@
       <sourceFolder url="file://$MODULE_DIR$/xx/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/cli/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/lib/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/clap_usage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clap_usage/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/docs/.vitepress/cache" />
       <excludeFolder url="file://$MODULE_DIR$/docs/.vitepress/dist" />
       <excludeFolder url="file://$MODULE_DIR$/target" />

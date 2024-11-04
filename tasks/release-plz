@@ -12,7 +12,7 @@ if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
     changelog="$(git cliff --tag "v$cur_version" --strip all --unreleased)"
     git tag "v$cur_version"
     git push --tags
-    gh release create "v$cur_version" --title "v$cur_version" --notes "$changelog"
+    gh release create --draft "v$cur_version" --title "v$cur_version" --notes "$changelog"
   fi
   exit 0
 fi

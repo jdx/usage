@@ -1,4 +1,5 @@
 [tools]
+actionlint = "1.7.3"
 "cargo:cargo-edit" = "0.13.0"
 "cargo:git-cliff" = "2.6.1"
 gh = "2.60.1"
