@@ -1,0 +1,17 @@
+---
+source: lib/src/complete/fish.rs
+expression: "complete_fish(&CompleteOptions\n{\n    shell: \"fish\".to_string(), bin: \"mycli\".to_string(), cache_key:\n    Some(\"1.2.3\".to_string()), spec: None, usage_cmd:\n    Some(\"mycli complete --usage\".to_string()),\n})"
+snapshot_kind: text
+---
+# if "usage" is not installed show an error
+if ! command -v usage &> /dev/null
+    echo >&2
+    echo "Error: usage CLI not found. This is required for completions to work in mycli." >&2
+    echo "See https://usage.jdx.dev for more information." >&2
+    return 1
+end
+
+if ! set -q _usage_spec_mycli_1_2_3
+  set -U _usage_spec_mycli_1_2_3 (mycli complete --usage | string collect)
+end
+complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli_1_2_3" -- (commandline -cop) (commandline -t))'
