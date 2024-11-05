@@ -1,5 +1,5 @@
 # `usage`
-- **version**: 1.1.1
+- **version**: 1.2.0
 
 CLI for working with usage-based CLIs
 
