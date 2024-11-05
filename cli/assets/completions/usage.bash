@@ -6,11 +6,11 @@ _usage() {
         return 1
     fi
 
-    if [[ -z ${_USAGE_SPEC_USAGE:-} ]]; then
-        _USAGE_SPEC_USAGE="$(usage --usage-spec)"
+    if [[ -z ${_usage_spec_usage:-} ]]; then
+        _usage_spec_usage="$(usage --usage-spec)"
     fi
 
-    COMPREPLY=( $(usage complete-word --shell bash -s "${_USAGE_SPEC_USAGE}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}" ) )
+    COMPREPLY=( $(usage complete-word --shell bash -s "${_usage_spec_usage}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}" ) )
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
     fi

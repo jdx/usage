@@ -27,11 +27,11 @@ _usage() {
     zstyle ":completion:${curcontext}:" cache-policy _usage_usage_cache_policy
   fi
 
-  if ( [[ -z "${_usage_usage_spec:-}" ]] || _cache_invalid _usage_usage_spec ) \
-      && ! _retrieve_cache _usage_usage_spec;
+  if ( [[ -z "${_usage_spec_usage:-}" ]] || _cache_invalid _usage_spec_usage ) \
+      && ! _retrieve_cache _usage_spec_usage;
   then
     spec="$(usage --usage-spec)"
-    _store_cache _usage_usage_spec spec
+    _store_cache _usage_spec_usage spec
   fi
 
   _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
