@@ -14,7 +14,7 @@ pub struct Completion {
     /// A command which generates a usage spec
     /// e.g.: `mycli --usage` or `mycli completion usage`
     /// Defaults to "$bin --usage"
-    #[clap(long)]
+    #[clap(long, required_unless_present = "file")]
     usage_cmd: Option<String>,
     #[clap(short, long)]
     file: Option<PathBuf>,
