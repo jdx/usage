@@ -1,6 +1,16 @@
 # Changelog
 
-## [1.1.0](https://github.com/jdx/usage/compare/v1.0.1..v1.1.0) - 2024-11-04
+## [1.2.0](https://github.com/jdx/usage/compare/v1.1.1..v1.2.0) - 2024-11-05
+
+### 🚀 Features
+
+- added cache-key to generated completions by [@jdx](https://github.com/jdx) in [#159](https://github.com/jdx/usage/pull/159)
+
+### 🐛 Bug Fixes
+
+- require --file or --usage-cmd on `usage g completion` by [@jdx](https://github.com/jdx) in [3cae2ae](https://github.com/jdx/usage/commit/3cae2ae4a1ad6a97358bb49d9d0f3e15c65feb40)
+
+## [1.1.1](https://github.com/jdx/usage/compare/v1.0.1..v1.1.1) - 2024-11-04
 
 ### 🚀 Features
 
@@ -25,6 +35,7 @@
 - set clap_usage version by [@jdx](https://github.com/jdx) in [0a4909f](https://github.com/jdx/usage/commit/0a4909f39ac42b11bc4f9e0e23daf01466e12969)
 - do not bump clap_usage on every release by [@jdx](https://github.com/jdx) in [2cac664](https://github.com/jdx/usage/commit/2cac6649ca29bfdad4cb9f3aee0573f6be587d1e)
 - fix autolint action by [@jdx](https://github.com/jdx) in [#155](https://github.com/jdx/usage/pull/155)
+- fix cli assets by [@jdx](https://github.com/jdx) in [ab8c6a0](https://github.com/jdx/usage/commit/ab8c6a0a14af1d4ec829660183ec58605afa33c7)
 
 ### 📦️ Dependency Updates
 
