@@ -1,31 +1,52 @@
 const usageGenerateSpec = (cmds: string[]) => {
   return async (
-    tokens: string[],
+    context: string[],
     executeCommand: Fig.ExecuteCommandFunction,
   ): Promise<Fig.Spec> => {
-    const promises = cmds.map(async (cmd) => {
+    const promises = cmds.map(async (cmd): Promise<Fig.Subcommand[]> => {
       try {
-        const { stdout } = await executeCommand({
-          command: "sh",
-          args: ["-c", cmd],
+        const args = cmd.split(" ");
+        const {
+          stdout,
+          stderr: cmdStderr,
+          status: cmdStatus,
+        } = await executeCommand({
+          command: args[0],
+          args: args.splice(1),
         });
-        const { stdout: figSpecOut } = await executeCommand({
+        if (cmdStatus !== 0) {
+          return [{ name: "error", description: cmdStderr }];
+        }
+        const {
+          stdout: figSpecOut,
+          stderr: figSpecStderr,
+          status: usageFigStatus,
+        } = await executeCommand({
           command: "usage",
           args: ["g", "fig", "--spec", stdout],
         });
+        if (usageFigStatus !== 0) {
+          return [{ name: "error", description: figSpecStderr }];
+        }
+
         const start_of_json = figSpecOut.indexOf("{");
         const j = figSpecOut.slice(start_of_json);
         return JSON.parse(j).subcommands as Fig.Subcommand[];
       } catch (e) {
-        throw e;
+        return [{ name: "error", description: e }] as Fig.Subcommand[];
       }
     });
 
-    const subcommands = (await Promise.allSettled(promises))
+    // eslint-disable-next-line compat/compat
+    const results = await Promise.allSettled(promises);
+    const subcommands = results
       .filter((p) => p.status === "fulfilled")
       .map((p) => p.value);
+    const failed = results
+      .filter((p) => p.status === "rejected")
+      .map((p) => ({ name: "error", description: p.reason }));
 
-    return { subcommands: subcommands.flat() } as Fig.Spec;
+    return { subcommands: [...subcommands.flat(), ...failed] } as Fig.Spec;
   };
 };
 
