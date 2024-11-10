@@ -89,6 +89,8 @@ struct FigCommand {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     generate_spec: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cache: Option<bool>
 }
 
 impl FigGenerator {
@@ -299,6 +301,7 @@ impl FigCommand {
                     .join(",");
                 format!("${calls}$")
             }),
+            cache: (!cmd.mounts.is_empty()).then(|| false),
         })
     }
 }
