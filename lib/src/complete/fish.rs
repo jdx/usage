@@ -25,7 +25,7 @@ end"#
             out.push(format!(
                 r#"
 if ! set -q {spec_variable}
-  set -U {spec_variable} ({usage_cmd} | string collect)
+  set -g {spec_variable} ({usage_cmd} | string collect)
 end"#
             ));
         } else {

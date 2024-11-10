@@ -12,6 +12,6 @@ if ! command -v usage &> /dev/null
 end
 
 if ! set -q _usage_spec_mycli_1_2_3
-  set -U _usage_spec_mycli_1_2_3 (mycli complete --usage | string collect)
+  set -g _usage_spec_mycli_1_2_3 (mycli complete --usage | string collect)
 end
 complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli_1_2_3" -- (commandline -cop) (commandline -t))'
