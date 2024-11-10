@@ -5,7 +5,8 @@
 #USAGE flag "--bar <bar>" help="Option value"
 #USAGE flag "--defaulted <defaulted>" default="mydefault" help="Defaulted value"
 #USAGE arg "baz" help="Positional values"
-set -euo pipefail
+#USAGE min_usage_version "1"
+set -eo pipefail
 
 echo foo: $usage_foo
 echo bar: $usage_bar
