@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/jdx/usage/compare/v1.2.0..v1.3.0) - 2024-11-10
+
+### 🚀 Features
+
+- min_usage_version by [@jdx](https://github.com/jdx) in [#166](https://github.com/jdx/usage/pull/166)
+
+### 🐛 Bug Fixes
+
+- **(fig)** better generate spec for fig mount commands by [@miguelmig](https://github.com/miguelmig) in [#165](https://github.com/jdx/usage/pull/165)
+- completions for bins with dashes by [@jdx](https://github.com/jdx) in [adbb347](https://github.com/jdx/usage/commit/adbb3478b86a4eede4f9812c73fc547f13f00842)
+- bash script with snake case escapes by [@jdx](https://github.com/jdx) in [4e5ba4a](https://github.com/jdx/usage/commit/4e5ba4a6fa9d3adfe04c27a24b489c15af94ef69)
+
+### 📦️ Dependency Updates
+
+- update dependency vitepress to v1.5.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#160](https://github.com/jdx/usage/pull/160)
+
 ## [1.2.0](https://github.com/jdx/usage/compare/v1.1.1..v1.2.0) - 2024-11-05
 
 ### 🚀 Features
@@ -40,10 +56,6 @@
 ### 📦️ Dependency Updates
 
 - update dependency vitepress to v1.4.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#145](https://github.com/jdx/usage/pull/145)
-
-### New Contributors
-
-- @miguelmig made their first contribution in [#154](https://github.com/jdx/usage/pull/154)
 
 ## [1.0.1](https://github.com/jdx/usage/compare/v1.0.0..v1.0.1) - 2024-10-31
 
