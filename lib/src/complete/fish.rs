@@ -3,10 +3,11 @@ use heck::ToSnakeCase;
 
 pub fn complete_fish(opts: &CompleteOptions) -> String {
     let bin = &opts.bin;
+    let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
-        format!("_usage_spec_{bin}_{}", cache_key.to_snake_case())
+        format!("_usage_spec_{bin_snake}_{}", cache_key.to_snake_case())
     } else {
-        format!("_usage_spec_{bin}")
+        format!("_usage_spec_{bin_snake}")
     };
     let mut out = vec![format!(
         r#"

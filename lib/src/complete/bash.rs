@@ -3,10 +3,11 @@ use heck::ToSnakeCase;
 
 pub fn complete_bash(opts: &CompleteOptions) -> String {
     let bin = &opts.bin;
+    let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
-        format!("_usage_spec_{bin}_{}", cache_key.to_snake_case())
+        format!("_usage_spec_{bin_snake}_{}", cache_key.to_snake_case())
     } else {
-        format!("_usage_spec_{bin}")
+        format!("_usage_spec_{bin_snake}")
     };
     let mut out = vec![format!(
         r#"_{bin}() {{
@@ -46,7 +47,7 @@ __USAGE_EOF__"#,
     return 0
 }}
 
-shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin} {bin}
+shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin_snake} {bin}
 # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh
 "#
     ));

@@ -3,10 +3,11 @@ use heck::ToSnakeCase;
 
 pub fn complete_zsh(opts: &CompleteOptions) -> String {
     let bin = &opts.bin;
+    let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
-        format!("_usage_spec_{bin}_{}", cache_key.to_snake_case())
+        format!("_usage_spec_{bin_snake}_{}", cache_key.to_snake_case())
     } else {
-        format!("_usage_spec_{bin}")
+        format!("_usage_spec_{bin_snake}")
     };
     // let bin_snake = bin.to_snake_case();
     let mut out = vec![format!(
@@ -19,7 +20,7 @@ local curcontext="$curcontext""#
         out.push(format!(
             r#"
 # caching config
-_usage_{bin}_cache_policy() {{
+_usage_{bin_snake}_cache_policy() {{
   if [[ -z "${{lifetime}}" ]]; then
     lifetime=$((60*60*4)) # 4 hours
   fi
@@ -32,7 +33,7 @@ _usage_{bin}_cache_policy() {{
 
     out.push(format!(
         r#"
-_{bin}() {{
+_{bin_snake}() {{
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
@@ -49,7 +50,7 @@ _{bin}() {{
             r#"
   zstyle -s ":completion:${{curcontext}}:" cache-policy cache_policy
   if [[ -z $cache_policy ]]; then
-    zstyle ":completion:${{curcontext}}:" cache-policy _usage_{bin}_cache_policy
+    zstyle ":completion:${{curcontext}}:" cache-policy _usage_{bin_snake}_cache_policy
   fi
 
   if ( [[ -z "${{{spec_variable}:-}}" ]] || _cache_invalid {spec_variable} ) \
@@ -76,10 +77,10 @@ __USAGE_EOF__"#,
   return 0
 }}
 
-if [ "$funcstack[1]" = "_{bin}" ]; then
-    _{bin} "$@"
+if [ "$funcstack[1]" = "_{bin_snake}" ]; then
+    _{bin_snake} "$@"
 else
-    compdef _{bin} {bin}
+    compdef _{bin_snake} {bin}
 fi
 
 # vim: noet ci pi sts=0 sw=4 ts=4"#,
