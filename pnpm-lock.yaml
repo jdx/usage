@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       vitepress:
-        specifier: 1.4.5
-        version: 1.4.5(@algolia/client-search@4.24.0)(postcss@8.4.47)(search-insights@2.15.0)
+        specifier: 1.5.0
+        version: 1.5.0(@algolia/client-search@4.24.0)(postcss@8.4.47)(search-insights@2.15.0)
 
 packages:
 
@@ -256,6 +256,12 @@ packages:
     engines: {node: '>=12'}
     cpu: [x64]
     os: [win32]
+
+  '@iconify-json/simple-icons@1.2.11':
+    resolution: {integrity: sha512-AHCGDtBRqP+JzAbBzgO8uN/08CXxEmuaC6lQQZ3b5burKhRU12AJnJczwbUw2K5Mb/U85EpSUNhYMG3F28b8NA==}
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@jridgewell/sourcemap-codec@1.5.0':
     resolution: {integrity: sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==}
@@ -695,8 +701,8 @@ packages:
       terser:
         optional: true
 
-  vitepress@1.4.5:
-    resolution: {integrity: sha512-9K0k8kvdEbeowVCpKF/x0AySSq0Pr9pM8xufLgQcKMjsifwxtDjXJjcFhZv4LYw2dcpdYiBq2j7PnWi0tCaMCg==}
+  vitepress@1.5.0:
+    resolution: {integrity: sha512-q4Q/G2zjvynvizdB3/bupdYkCJe2umSAMv9Ju4d92E6/NXJ59z70xB0q5p/4lpRyAwflDsbwy1mLV9Q5+nlB+g==}
     hasBin: true
     peerDependencies:
       markdown-it-mathjax3: ^4
@@ -940,6 +946,12 @@ snapshots:
 
   '@esbuild/win32-x64@0.21.5':
     optional: true
+
+  '@iconify-json/simple-icons@1.2.11':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/types@2.0.0': {}
 
   '@jridgewell/sourcemap-codec@1.5.0': {}
 
@@ -1411,10 +1423,11 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  vitepress@1.4.5(@algolia/client-search@4.24.0)(postcss@8.4.47)(search-insights@2.15.0):
+  vitepress@1.5.0(@algolia/client-search@4.24.0)(postcss@8.4.47)(search-insights@2.15.0):
     dependencies:
       '@docsearch/css': 3.6.2
       '@docsearch/js': 3.6.2(@algolia/client-search@4.24.0)(search-insights@2.15.0)
+      '@iconify-json/simple-icons': 1.2.11
       '@shikijs/core': 1.22.2
       '@shikijs/transformers': 1.22.2
       '@shikijs/types': 1.22.2
