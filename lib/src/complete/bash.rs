@@ -10,7 +10,7 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
         format!("_usage_spec_{bin_snake}")
     };
     let mut out = vec![format!(
-        r#"_{bin}() {{
+        r#"_{bin_snake}() {{
     if ! command -v usage &> /dev/null; then
         echo >&2
         echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
