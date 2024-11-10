@@ -6,6 +6,7 @@ bin "mycli"          # the name of the binary
 version "1.0.0"      # the version of the CLI
 author "nobody"      # the author of the CLI
 license "MIT"        # SPDX license the CLI is released under
+min_usage_version "1.0.0" # the minimum version of usage this CLI supports
 
 # help for -h
 before_help "before about"

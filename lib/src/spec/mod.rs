@@ -11,7 +11,7 @@ pub mod mount;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
-use log::info;
+use log::{info, warn};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
@@ -42,6 +42,7 @@ pub struct Spec {
     pub about_long: Option<String>,
     pub about_md: Option<String>,
     pub disable_help: Option<bool>,
+    pub min_usage_version: Option<String>,
 }
 
 impl Spec {
@@ -121,6 +122,11 @@ impl Spec {
                     schema.complete.insert(complete.name.clone(), complete);
                 }
                 "disable_help" => schema.disable_help = Some(node.arg(0)?.ensure_bool()?),
+                "min_usage_version" => {
+                    let v = node.arg(0)?.ensure_string()?;
+                    check_usage_version(&v);
+                    schema.min_usage_version = Some(v);
+                }
                 "include" => {
                     let file = node
                         .props()
@@ -186,7 +192,26 @@ impl Spec {
         if other.disable_help.is_some() {
             self.disable_help = other.disable_help;
         }
+        if other.min_usage_version.is_some() {
+            self.min_usage_version = other.min_usage_version;
+        }
         self.cmd.merge(other.cmd);
+    }
+}
+
+fn check_usage_version(version: &str) {
+    let cur = versions::Versioning::new(env!("CARGO_PKG_VERSION")).unwrap();
+    match versions::Versioning::new(version) {
+        Some(v) => {
+            if cur < v {
+                warn!(
+                    "This usage spec requires at least version {}, but you are using version {} of usage",
+                    version,
+                    cur
+                );
+            }
+        }
+        _ => warn!("Invalid version: {}", version),
     }
 }
 
@@ -291,6 +316,11 @@ impl Display for Spec {
         if let Some(disable_help) = self.disable_help {
             let mut node = KdlNode::new("disable_help");
             node.push(KdlEntry::new(disable_help));
+            nodes.push(node);
+        }
+        if let Some(min_usage_version) = &self.min_usage_version {
+            let mut node = KdlNode::new("min_usage_version");
+            node.push(KdlEntry::new(min_usage_version.clone()));
             nodes.push(node);
         }
         if !self.usage.is_empty() {
