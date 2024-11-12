@@ -1,5 +1,5 @@
 [tools]
-actionlint = "1.7.3"
+actionlint = "1.7.4"
 cargo-binstall = "1.10.8"
 "cargo:cargo-edit" = "0.13.0"
 "cargo:cargo-insta" = "1.41.1"

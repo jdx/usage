@@ -172,9 +172,9 @@ impl CompleteWord {
 
     fn complete_builtin(&self, type_: &str, ctoken: &str) -> Vec<(String, String)> {
         let names = match (type_, env::current_dir()) {
-            ("path", Ok(cwd)) => self.complete_path(&cwd, ctoken, |_| true),
+            ("path" | "file", Ok(cwd)) => self.complete_path(&cwd, ctoken, |_| true),
             ("dir", Ok(cwd)) => self.complete_path(&cwd, ctoken, |p| p.is_dir()),
-            ("file", Ok(cwd)) => self.complete_path(&cwd, ctoken, |p| p.is_file()),
+            // ("file", Ok(cwd)) => self.complete_path(&cwd, ctoken, |p| p.is_file()),
             _ => vec![],
         };
         names.into_iter().map(|n| (n, String::new())).collect()
