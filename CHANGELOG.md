@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.1](https://github.com/jdx/usage/compare/v1.3.0..v1.3.1) - 2024-11-12
+
+### 🐛 Bug Fixes
+
+- **(fish)** cache usage spec in global by [@jdx](https://github.com/jdx) in [0b06c6c](https://github.com/jdx/usage/commit/0b06c6c5c4e7f30a97f5102faff302fa3e3c62e0)
+- show full path for file completions by [@jdx](https://github.com/jdx) in [eb18a91](https://github.com/jdx/usage/commit/eb18a91bb0e2245d1946ab89cdb9316da54d76f8)
+
+### 🔍 Other Changes
+
+- Update index.md by [@jdx](https://github.com/jdx) in [1a113d9](https://github.com/jdx/usage/commit/1a113d96f8ff49e25c1d54f0cc023e6425ad44c4)
+
 ## [1.3.0](https://github.com/jdx/usage/compare/v1.2.0..v1.3.0) - 2024-11-10
 
 ### 🚀 Features
