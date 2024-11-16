@@ -1,6 +1,12 @@
 # Changelog
 
-## [1.3.1](https://github.com/jdx/usage/compare/v1.3.0..v1.3.1) - 2024-11-12
+## [1.3.2](https://github.com/jdx/usage/compare/v1.3.1..v1.3.2) - 2024-11-16
+
+### 🐛 Bug Fixes
+
+- space-separate multi-args by [@jdx](https://github.com/jdx) in [4054034](https://github.com/jdx/usage/commit/4054034bb12414fd179c17a105855e86544d497a)
+
+## [1.3.1](https://github.com/jdx/usage/compare/v1.3.0..v1.3.1) - 2024-11-14
 
 ### 🐛 Bug Fixes
 
