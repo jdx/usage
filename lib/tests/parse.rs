@@ -177,4 +177,11 @@ arg_default:
     "#,
     args="8081",
     expected=r#"{"usage_host": "localhost", "usage_port": "8081"}"#,
+
+multi_arg:
+    spec=r#"
+    arg "<vars>" var=true
+    "#,
+    args="a b c",
+    expected=r#"{"usage_vars": "a b c"}"#,
 }

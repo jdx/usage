@@ -290,7 +290,7 @@ impl ParseOutput {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),
                 ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
-                ParseValue::MultiString(s) => s.join(","),
+                ParseValue::MultiString(s) => s.join(" "),
             };
             env.insert(key, val);
         }
@@ -300,7 +300,7 @@ impl ParseOutput {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),
                 ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
-                ParseValue::MultiString(s) => s.join(","),
+                ParseValue::MultiString(s) => s.join(" "),
             };
             env.insert(key, val);
         }
