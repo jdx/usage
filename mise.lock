@@ -1,9 +1,35 @@
-[tools]
-actionlint = "1.7.4"
-cargo-binstall = "1.10.8"
-"cargo:cargo-edit" = "0.13.0"
-"cargo:cargo-insta" = "1.41.1"
-"cargo:cargo-release" = "0.25.12"
-"cargo:git-cliff" = "2.6.1"
-gh = "2.60.1"
-"npm:prettier" = "3.3.3"
+[tools.actionlint]
+version = "1.7.4"
+
+[tools.cargo-binstall]
+version = "1.10.8"
+
+[tools.cargo-binstall.checksums]
+cargo-binstall-macos-aarch64 = "sha256:c30a499060745f0c4435a446253fc676838cff0a18d2dd555fcf10399176b1bf"
+
+[tools."cargo:cargo-edit"]
+version = "0.13.0"
+
+[tools."cargo:cargo-insta"]
+version = "1.41.1"
+
+[tools."cargo:cargo-release"]
+version = "0.25.12"
+
+[tools."cargo:git-cliff"]
+version = "2.6.1"
+
+[tools.gh]
+version = "2.60.1"
+
+[tools.gh.checksums]
+"gh_2.60.1_macOS_arm64.zip" = "sha256:1930a3db9a2d1c420e476d06f3d4a8f02db8472d2630a1099968c3b82f231f1f"
+
+[tools."npm:prettier"]
+version = "3.3.3"
+
+[tools.shellcheck]
+version = "0.10.0"
+
+[tools.shellcheck.checksums]
+shellcheck-macos-aarch64 = "sha256:b9e420df8c78ec7d261d66277d5767cbd4cf6da4e4a9f8b02ea4811cd4cc1109"
