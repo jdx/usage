@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.3](https://github.com/jdx/usage/compare/v1.3.2..v1.3.3) - 2024-11-22
+
+### 🐛 Bug Fixes
+
+- unset arg/flag required if default provided by [@jdx](https://github.com/jdx) in [#175](https://github.com/jdx/usage/pull/175)
+
+### 🔍 Other Changes
+
+- added shellcheck disable comment for bash completion by [@jdx](https://github.com/jdx) in [7e1da8f](https://github.com/jdx/usage/commit/7e1da8fabc78d94f752c59b09bb83e4b18ec0bfe)
+
 ## [1.3.2](https://github.com/jdx/usage/compare/v1.3.1..v1.3.2) - 2024-11-16
 
 ### 🐛 Bug Fixes
