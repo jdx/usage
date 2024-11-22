@@ -18,10 +18,12 @@ arg "arg2" help="arg2 description" default="default value" {
 }
 arg "arg3" help="arg3 description" required=true long_help="arg3 long description"
 arg "argrest" var=true
+arg "with-default" default="default value"
 
 flag "--flag1" help="flag1 description"
 flag "--flag2" help="flag2 description" long_help="flag2 long description"
 flag "--flag3" help="flag3 description" negate="--no-flag3"
+flag "--with-default" required=true default="default value"
 
 flag "--shell <shell>" {
   choices "bash" "zsh" "fish"
@@ -45,4 +47,14 @@ complete "plugin" run="echo \"plugin-1\nplugin-2\nplugin-3\""
 #[test]
 fn test_parse() {
     assert_eq!(SPEC_KITCHEN_SINK.name, "mycli");
+}
+
+#[test]
+fn test_arg_not_required_if_default() {
+    assert!(!SPEC_KITCHEN_SINK.cmd.args.iter().find(|f| f.name == "with-default").unwrap().required);
+}
+
+#[test]
+fn test_flag_not_required_if_default() {
+    assert!(!SPEC_KITCHEN_SINK.cmd.flags.iter().find(|f| f.name == "with-default").unwrap().required);
 }

@@ -30,7 +30,7 @@ mod tests {
 
         arg1 description
 
-        ### `<arg2>`
+        ### `[arg2]`
 
         arg2 description
 
@@ -48,6 +48,10 @@ mod tests {
 
         ### `<argrest>...`
 
+        ### `[with-default]`
+
+        **Default:** `default value`
+
         ## Flags
 
         ### `--flag1`
@@ -61,6 +65,10 @@ mod tests {
         ### `--flag3`
 
         flag3 description
+
+        ### `--with-default`
+
+        **Default:** `default value`
 
         ### `--shell <shell>`
 

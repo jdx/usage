@@ -58,6 +58,9 @@ impl SpecFlag {
                 k => bail_parse!(ctx, *v.entry.span(), "unsupported flag key {k}"),
             }
         }
+        if flag.default.is_some() {
+            flag.required = false;
+        }
         for child in node.children() {
             match child.name() {
                 "arg" => flag.arg = Some(SpecArg::parse(ctx, &child)?),
