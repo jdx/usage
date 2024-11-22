@@ -46,6 +46,9 @@ impl SpecArg {
                 k => bail_parse!(ctx, *v.entry.span(), "unsupported arg key {k}"),
             }
         }
+        if arg.default.is_some() {
+            arg.required = false;
+        }
         for child in node.children() {
             match child.name() {
                 "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),

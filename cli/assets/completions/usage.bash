@@ -10,6 +10,7 @@ _usage() {
         _usage_spec_usage="$(usage --usage-spec)"
     fi
 
+    # shellcheck disable=SC2207
     COMPREPLY=( $(usage complete-word --shell bash -s "${_usage_spec_usage}" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}" ) )
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY

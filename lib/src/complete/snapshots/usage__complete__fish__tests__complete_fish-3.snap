@@ -19,17 +19,19 @@ flag "--flag2" help="flag2 description" {
     long_help "flag2 long description"
 }
 flag "--flag3" help="flag3 description" negate="--no-flag3"
+flag "--with-default"
 flag "--shell" {
     arg "<shell>" {
         choices "bash" "zsh" "fish"
     }
 }
 arg "<arg1>" help="arg1 description"
-arg "<arg2>" help="arg2 description" default="default value" {
+arg "[arg2]" help="arg2 description" default="default value" {
     choices "choice1" "choice2" "choice3"
 }
 arg "<arg3>" help="arg3 description" help_long="arg3 long description"
 arg "<argrest>..." var=true
+arg "[with-default]" default="default value"
 cmd "plugin" {
     cmd "install" {
         flag "-g --global"
