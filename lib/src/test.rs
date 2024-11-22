@@ -51,10 +51,26 @@ fn test_parse() {
 
 #[test]
 fn test_arg_not_required_if_default() {
-    assert!(!SPEC_KITCHEN_SINK.cmd.args.iter().find(|f| f.name == "with-default").unwrap().required);
+    assert!(
+        !SPEC_KITCHEN_SINK
+            .cmd
+            .args
+            .iter()
+            .find(|f| f.name == "with-default")
+            .unwrap()
+            .required
+    );
 }
 
 #[test]
 fn test_flag_not_required_if_default() {
-    assert!(!SPEC_KITCHEN_SINK.cmd.flags.iter().find(|f| f.name == "with-default").unwrap().required);
+    assert!(
+        !SPEC_KITCHEN_SINK
+            .cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "with-default")
+            .unwrap()
+            .required
+    );
 }
