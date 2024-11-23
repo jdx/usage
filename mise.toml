@@ -11,6 +11,7 @@ gh = "latest"
 "cargo:cargo-release" = "latest"
 "cargo:git-cliff" = "latest"
 "npm:prettier" = "latest"
+shellcheck = "latest"
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]
@@ -60,6 +61,8 @@ run = "prettier -c ."
 run = 'cargo clippy --all --all-features -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
+[tasks."lint:shellcheck"]
+run = 'shellcheck cli/assets/completions/*.bash'
 
 [tasks.lint-fix]
 run = [

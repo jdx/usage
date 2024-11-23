@@ -42,6 +42,7 @@ __USAGE_EOF__"#,
         r#"
     # shellcheck disable=SC2207
     COMPREPLY=( $(usage complete-word --shell bash -s "${{{spec_variable}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" ) )
+    # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
     fi
