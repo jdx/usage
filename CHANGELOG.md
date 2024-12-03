@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.4](https://github.com/jdx/usage/compare/v1.3.3..v1.3.4) - 2024-12-03
+
+### 🔍 Other Changes
+
+- added shellcheck for bash completion file by [@jdx](https://github.com/jdx) in [#176](https://github.com/jdx/usage/pull/176)
+- skip autofix on renovate prs by [@jdx](https://github.com/jdx) in [ada6c92](https://github.com/jdx/usage/commit/ada6c92da40d54d3afcba9a6366213a22f215272)
+- pin kdl below 4.7 by [@jdx](https://github.com/jdx) in [045c9cf](https://github.com/jdx/usage/commit/045c9cf7edc6b9764fd9a794afbbde5b21ddba76)
+
 ## [1.3.3](https://github.com/jdx/usage/compare/v1.3.2..v1.3.3) - 2024-11-22
 
 ### 🐛 Bug Fixes
