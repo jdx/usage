@@ -36,7 +36,7 @@ cargo update
 git add \
   {./,cli/,lib/}Cargo.* \
   cli/usage.usage.kdl \
-  docs/cli/reference.md \
+  docs/cli/reference/* \
   CHANGELOG.md
 git checkout -B release
 git commit -m "chore: release $version"
