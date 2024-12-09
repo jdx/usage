@@ -7,7 +7,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
-use crate::{Spec, SpecArg, SpecFlag};
+use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
@@ -48,6 +48,8 @@ pub struct SpecCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_md: Option<String>,
     pub examples: Vec<SpecExample>,
+    #[serde(skip_serializing_if = "IndexMap::is_empty")]
+    pub complete: IndexMap<String, SpecComplete>,
 
     // TODO: make this non-public
     #[serde(skip)]
@@ -80,6 +82,7 @@ impl Default for SpecCommand {
             after_help_md: None,
             examples: vec![],
             subcommand_lookup: OnceLock::new(),
+            complete: IndexMap::new(),
         }
     }
 }
@@ -207,6 +210,10 @@ impl SpecCommand {
                         None => Some(child.arg(0)?.ensure_string()?),
                     }
                 }
+                "complete" => {
+                    let complete = SpecComplete::parse(ctx, &child)?;
+                    cmd.complete.insert(complete.name.clone(), complete);
+                }
                 k => bail_parse!(ctx, *child.node.name().span(), "unsupported cmd key {k}"),
             }
         }
@@ -313,6 +320,9 @@ impl SpecCommand {
         self.subcommand_required = other.subcommand_required;
         for (name, cmd) in other.subcommands {
             self.subcommands.insert(name, cmd);
+        }
+        for (name, complete) in other.complete {
+            self.complete.insert(name, complete);
         }
     }
 
@@ -444,6 +454,10 @@ impl From<&SpecCommand> for KdlNode {
         for cmd in cmd.subcommands.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(cmd.into());
+        }
+        for complete in cmd.complete.values() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(complete.into());
         }
         node
     }

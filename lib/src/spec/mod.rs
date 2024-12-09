@@ -346,6 +346,9 @@ impl Display for Spec {
         for complete in self.complete.values() {
             nodes.push(complete.into());
         }
+        for complete in self.cmd.complete.values() {
+            nodes.push(complete.into());
+        }
         for cmd in self.cmd.subcommands.values() {
             nodes.push(cmd.into())
         }

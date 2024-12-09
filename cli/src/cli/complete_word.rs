@@ -86,11 +86,11 @@ impl CompleteWord {
         } else if ctoken.starts_with('-') {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value {
-            self.complete_arg(&ctx, spec, flag.arg.as_ref().unwrap(), &ctoken)?
+            self.complete_arg(&ctx, spec, &parsed.cmd, flag.arg.as_ref().unwrap(), &ctoken)?
         } else {
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
-                choices.extend(self.complete_arg(&ctx, spec, arg, &ctoken)?);
+                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
             }
             if !parsed.cmd.subcommands.is_empty() {
                 choices.extend(self.complete_subcommands(&parsed.cmd, &ctoken));
@@ -184,6 +184,7 @@ impl CompleteWord {
         &self,
         ctx: &tera::Context,
         spec: &Spec,
+        cmd: &SpecCommand,
         arg: &SpecArg,
         ctoken: &str,
     ) -> miette::Result<Vec<(String, String)>> {
@@ -191,7 +192,11 @@ impl CompleteWord {
 
         trace!("complete_arg: {arg} {ctoken}");
         let name = arg.name.to_lowercase();
-        let complete = spec.complete.get(&name).unwrap_or(&EMPTY_COMPL);
+        let complete = spec
+            .complete
+            .get(&name)
+            .or(cmd.complete.get(&name))
+            .unwrap_or(&EMPTY_COMPL);
         let type_ = complete.type_.as_ref().unwrap_or(&name);
 
         let builtin = self.complete_builtin(type_, ctoken);
