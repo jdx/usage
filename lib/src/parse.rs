@@ -31,8 +31,27 @@ pub enum ParseValue {
 }
 
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    let out = parse_partial(spec, input)?;
+    let mut out = parse_partial(spec, input)?;
     trace!("{out:?}");
+    for arg in out.cmd.args.iter().skip(out.args.len()) {
+        if let Some(default) = arg.default.as_ref() {
+            out.args
+                .insert(arg.clone(), ParseValue::String(default.clone()));
+        }
+    }
+    for flag in out.available_flags.values() {
+        if out.flags.contains_key(flag) {
+            continue;
+        }
+        if let Some(default) = flag.default.as_ref() {
+            out.flags
+                .insert(flag.clone(), ParseValue::String(default.clone()));
+        }
+        if let Some(Some(default)) = flag.arg.as_ref().map(|a| &a.default) {
+            out.flags
+                .insert(flag.clone(), ParseValue::String(default.clone()));
+        }
+    }
     if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
         bail!("{err}");
     }
@@ -235,10 +254,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     }
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
-        if let Some(default) = &arg.default {
-            out.args
-                .insert(arg.clone(), ParseValue::String(default.clone()));
-        } else if arg.required {
+        if arg.required && !arg.default.is_some() {
             out.errors.push(UsageErr::MissingArg(arg.name.clone()));
         }
     }
@@ -247,15 +263,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         if out.flags.contains_key(flag) {
             continue;
         }
-        if let Some(default) = flag.default.as_ref() {
-            out.flags
-                .insert(flag.clone(), ParseValue::String(default.clone()));
-        }
-        if let Some(Some(default)) = flag.arg.as_ref().map(|a| &a.default) {
-            out.flags
-                .insert(flag.clone(), ParseValue::String(default.clone()));
-        }
-        if flag.required {
+        let has_default = flag.default.is_some() || flag.arg.iter().any(|a| a.default.is_some());
+        if flag.required && !has_default {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
     }
