@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.4.0](https://github.com/jdx/usage/compare/v1.3.5..v1.4.0) - 2024-12-09
+
+### 🚀 Features
+
+- `usage g json` by [@jdx](https://github.com/jdx) in [#184](https://github.com/jdx/usage/pull/184)
+
+### 🐛 Bug Fixes
+
+- bug with completing default args/flags by [@jdx](https://github.com/jdx) in [#185](https://github.com/jdx/usage/pull/185)
+- added completes to string output by [@jdx](https://github.com/jdx) in [#186](https://github.com/jdx/usage/pull/186)
+- added completes to string output by [@jdx](https://github.com/jdx) in [#187](https://github.com/jdx/usage/pull/187)
+- added completes to cmds by [@jdx](https://github.com/jdx) in [f421d9e](https://github.com/jdx/usage/commit/f421d9e5b8a88eae70914ff0be44bee824dc0aa1)
+
+### 📚 Documentation
+
+- fix links by [@jdx](https://github.com/jdx) in [46be80a](https://github.com/jdx/usage/commit/46be80a48d2174167546ecbf3b3e3cf32487d4b8)
+- fix links by [@jdx](https://github.com/jdx) in [8a4327b](https://github.com/jdx/usage/commit/8a4327bafc2c644867e0c01d3e4902a7e8ee20f4)
+
+### 🧪 Testing
+
+- set GITHUB_TOKEN by [@jdx](https://github.com/jdx) in [f43fa85](https://github.com/jdx/usage/commit/f43fa85280bf63211f4f6453e4bfc2e97e9d7c3b)
+
+### 🔍 Other Changes
+
+- Update markdown.md by [@jdx](https://github.com/jdx) in [a0f32d5](https://github.com/jdx/usage/commit/a0f32d5a664e21b4603402488606a52c320173a4)
+- lint-fix by [@jdx](https://github.com/jdx) in [a825d43](https://github.com/jdx/usage/commit/a825d43ec2d73339655645224f76f153f7484548)
+- fix release-plz by [@jdx](https://github.com/jdx) in [1586ede](https://github.com/jdx/usage/commit/1586ede484681162d2a85c41627835d9e95fcd89)
+- fix release-plz by [@jdx](https://github.com/jdx) in [650f5fb](https://github.com/jdx/usage/commit/650f5fb980c1b73c28a4eb23f5a65a0eb47fd58e)
+
 ## [1.3.5](https://github.com/jdx/usage/compare/v1.3.4..v1.3.5) - 2024-12-09
 
 ### 🔍 Other Changes
