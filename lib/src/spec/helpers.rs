@@ -22,7 +22,7 @@ impl<'a> NodeHelper<'a> {
         self.node.name().value()
     }
     pub(crate) fn span(&self) -> SourceSpan {
-        *self.node.span()
+        (self.node.span().offset(), self.node.span().len()).into()
     }
     pub(crate) fn ensure_arg_len<R>(&self, range: R) -> Result<&Self, UsageErr>
     where
@@ -92,7 +92,7 @@ impl<'a> ParseEntry<'a> {
     }
 
     fn span(&self) -> SourceSpan {
-        *self.entry.span()
+        (self.entry.span().offset(), self.entry.span().len()).into()
     }
 }
 
