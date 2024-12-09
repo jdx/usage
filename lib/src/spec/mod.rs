@@ -90,6 +90,7 @@ impl Spec {
             && self.usage.is_empty()
             && self.cmd.is_empty()
             && self.config.is_empty()
+            && self.complete.is_empty()
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
@@ -342,6 +343,9 @@ impl Display for Spec {
         for arg in self.cmd.args.iter() {
             nodes.push(arg.into());
         }
+        for complete in self.complete.values() {
+            nodes.push(complete.into());
+        }
         for cmd in self.cmd.subcommands.values() {
             nodes.push(cmd.into())
         }
@@ -406,6 +410,7 @@ cmd "config" {
     arg "value"
   }
 }
+complete "file" run="ls"
         "#,
         )
         .unwrap();
@@ -414,6 +419,7 @@ cmd "config" {
         bin "usage"
         flag "-f --force" global=true
         arg "<arg1>"
+        complete "file" run="ls"
         cmd "config" {
             cmd "set" {
                 arg "<key>" help="Key to set"
