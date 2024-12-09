@@ -254,7 +254,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     }
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
-        if arg.required && !arg.default.is_some() {
+        if arg.required && arg.default.is_none() {
             out.errors.push(UsageErr::MissingArg(arg.name.clone()));
         }
     }
