@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.5](https://github.com/jdx/usage/compare/v1.3.4..v1.3.5) - 2024-12-09
+
+### 🔍 Other Changes
+
+- Update README.md by [@jdx](https://github.com/jdx) in [3fc2181](https://github.com/jdx/usage/commit/3fc218107b0f911169a58f2c8dba3fba7e6bcdc3)
+- bump to miette-7 by [@jdx](https://github.com/jdx) in [#21](https://github.com/jdx/usage/pull/21)
+
 ## [1.3.4](https://github.com/jdx/usage/compare/v1.3.3..v1.3.4) - 2024-12-03
 
 ### 🔍 Other Changes
