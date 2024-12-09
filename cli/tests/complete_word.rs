@@ -71,6 +71,11 @@ fn complete_word_shebang() {
 }
 
 #[test]
+fn complete_word_arg_completer() {
+    assert_cmd("example.sh", &["--", "v"]).stdout("val-1\nval-2\nval-3\n");
+}
+
+#[test]
 fn complete_word_mounted() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
