@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1](https://github.com/jdx/usage/compare/v1.4.0..v1.4.1) - 2024-12-09
+
+### 🐛 Bug Fixes
+
+- bug when "about" is empty by [@jdx](https://github.com/jdx) in [1db423b](https://github.com/jdx/usage/commit/1db423b356510ab03023ed6348ca783b1a02a31e)
+
 ## [1.4.0](https://github.com/jdx/usage/compare/v1.3.5..v1.4.0) - 2024-12-09
 
 ### 🚀 Features
