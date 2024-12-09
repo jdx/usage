@@ -29,7 +29,7 @@ $ cat README.md
 Multiple files:
 
 ```sh
-$ usage g markdown -f ./mycli.usage.kdl --dir ./docs
+$ usage g markdown -mf ./mycli.usage.kdl --out-dir ./docs
 $ tree ./docs
 docs
 ├── config
