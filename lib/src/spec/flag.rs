@@ -9,26 +9,38 @@ use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
+use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
     pub name: String,
     pub usage: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
     pub short: Vec<char>,
     pub long: Vec<String>,
+    #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
     pub hide: bool,
     pub global: bool,
+    #[serde(skip_serializing_if = "is_false")]
     pub count: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub arg: Option<SpecArg>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
 }
 

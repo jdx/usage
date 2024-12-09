@@ -9,22 +9,32 @@ use std::str::FromStr;
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
+use crate::spec::is_false;
 use crate::{string, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
     pub name: String,
     pub usage: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
     pub required: bool,
+    #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub var_min: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
     pub hide: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
 }
 

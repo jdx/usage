@@ -5,6 +5,7 @@ use crate::error::UsageErr;
 use crate::sh::sh;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
+use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
 use crate::{Spec, SpecArg, SpecFlag};
 use indexmap::IndexMap;
@@ -20,20 +21,31 @@ pub struct SpecCommand {
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
     pub mounts: Vec<SpecMount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
     pub hide: bool,
+    #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
     pub name: String,
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help_md: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_md: Option<String>,
     pub examples: Vec<SpecExample>,
 
