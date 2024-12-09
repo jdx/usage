@@ -5,8 +5,8 @@ use usage::Spec;
 
 mod completion;
 mod fig;
-mod markdown;
 mod json;
+mod markdown;
 
 #[derive(clap::Args)]
 #[clap(visible_alias = "g")]
