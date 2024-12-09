@@ -32,16 +32,24 @@ pub struct Spec {
     pub bin: String,
     pub cmd: SpecCommand,
     pub config: SpecConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     pub usage: String,
     pub complete: IndexMap<String, SpecComplete>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source_code_link_template: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub about_long: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub about_md: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_help: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub min_usage_version: Option<String>,
 }
 
@@ -366,6 +374,16 @@ impl From<&clap::Command> for Spec {
             ..Default::default()
         }
     }
+}
+
+#[inline]
+pub fn is_true(b: &bool) -> bool {
+    *b
+}
+
+#[inline]
+pub fn is_false(b: &bool) -> bool {
+    !is_true(b)
 }
 
 #[cfg(test)]

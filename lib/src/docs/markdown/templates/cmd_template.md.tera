@@ -1,7 +1,7 @@
 {%- set source_code_link = source_code_link(spec=spec, cmd=cmd) %}
-{%- if cmd.before_help_md %}{% set before_help = cmd.before_help_md %}{% elif cmd.before_help_long %}{% set before_help = cmd.before_help_long %}{% else %}{% set before_help = cmd.before_help %}{% endif %}
-{%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% else %}{% set help = cmd.help %}{% endif %}
-{%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% else %}{% set after_help = cmd.after_help %}{% endif %}
+{%- if cmd.before_help_md %}{% set before_help = cmd.before_help_md %}{% elif cmd.before_help_long %}{% set before_help = cmd.before_help_long %}{% elif cmd.before_help %}{% set before_help = cmd.before_help %}{% endif %}
+{%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% elif cmd.help %}{% set help = cmd.help %}{% else %}{% set help = "" %}{% endif %}
+{%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% elif cmd.after_help %}{% set after_help = cmd.after_help %}{% endif %}
 {%- set full_cmd = cmd.full_cmd | join(sep=" ") %}
 {%- if multi -%}
 {{- "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ full_cmd | trim }}`
@@ -64,7 +64,7 @@
 
 {%- if multi %}
 {%- for name, cmd in cmd.subcommands %}
-{%- if cmd.hide == false %}
+{%- if not cmd.hide or cmd.hide == false %}
 {%- if loop.first %}
 
 {{ "#" | repeat(count=header_level) }}# Subcommands

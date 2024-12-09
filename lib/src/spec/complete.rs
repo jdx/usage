@@ -7,7 +7,9 @@ use crate::spec::helpers::NodeHelper;
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SpecComplete {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub run: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub type_: Option<String>,
 }
 

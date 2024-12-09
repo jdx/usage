@@ -1,0 +1,527 @@
+{
+  "name": "usage-cli",
+  "bin": "usage",
+  "cmd": {
+    "full_cmd": [],
+    "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
+    "subcommands": {
+      "bash": {
+        "full_cmd": ["bash"],
+        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]...",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]...",
+            "help": "arguments to pass to script",
+            "help_first_line": "arguments to pass to script",
+            "required": false,
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Executes a bash script",
+        "help_long": "Executes a bash script\n\nTypically, this will be called by a script's shebang",
+        "name": "bash",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "complete-word": {
+        "full_cmd": ["complete-word"],
+        "usage": "complete-word [FLAGS] [WORDS]...",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "WORDS",
+            "usage": "[WORDS]...",
+            "help": "user's input from the command line",
+            "help_first_line": "user's input from the command line",
+            "required": false,
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "shell",
+            "usage": "--shell <SHELL>",
+            "short": [],
+            "long": ["shell"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "SHELL",
+              "usage": "<SHELL>",
+              "required": true,
+              "hide": false,
+              "choices": {
+                "choices": ["bash", "fish", "zsh"]
+              }
+            }
+          },
+          {
+            "name": "file",
+            "usage": "-f --file <FILE>",
+            "help": "usage spec file or script with usage shebang",
+            "help_first_line": "usage spec file or script with usage shebang",
+            "short": ["f"],
+            "long": ["file"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FILE",
+              "usage": "<FILE>",
+              "required": true,
+              "hide": false
+            }
+          },
+          {
+            "name": "spec",
+            "usage": "-s --spec <SPEC>",
+            "help": "raw string spec input",
+            "help_first_line": "raw string spec input",
+            "short": ["s"],
+            "long": ["spec"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "SPEC",
+              "usage": "<SPEC>",
+              "required": true,
+              "hide": false
+            }
+          },
+          {
+            "name": "cword",
+            "usage": "--cword <CWORD>",
+            "help": "current word index",
+            "help_first_line": "current word index",
+            "short": [],
+            "long": ["cword"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "CWORD",
+              "usage": "<CWORD>",
+              "required": true,
+              "hide": false
+            }
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "name": "complete-word",
+        "aliases": ["cw"],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "exec": {
+        "full_cmd": ["exec"],
+        "usage": "exec <ARGS>…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "COMMAND",
+            "usage": "<COMMAND>",
+            "help": "command to execute after parsing usage spec",
+            "help_first_line": "command to execute after parsing usage spec",
+            "required": true,
+            "hide": false
+          },
+          {
+            "name": "BIN",
+            "usage": "<BIN>",
+            "help": "path to script to execute",
+            "help_first_line": "path to script to execute",
+            "required": true,
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]...",
+            "help": "arguments to pass to script",
+            "help_first_line": "arguments to pass to script",
+            "required": false,
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [],
+        "mounts": [],
+        "hide": true,
+        "name": "exec",
+        "aliases": ["x"],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "generate": {
+        "full_cmd": ["generate"],
+        "usage": "generate <SUBCOMMAND>",
+        "subcommands": {
+          "completion": {
+            "full_cmd": ["generate", "completion"],
+            "usage": "generate completion [FLAGS] <SHELL> <BIN>",
+            "subcommands": {},
+            "args": [
+              {
+                "name": "SHELL",
+                "usage": "<SHELL>",
+                "required": true,
+                "hide": false,
+                "choices": {
+                  "choices": ["bash", "fish", "zsh"]
+                }
+              },
+              {
+                "name": "BIN",
+                "usage": "<BIN>",
+                "help": "The CLI which we're generates completions for",
+                "help_first_line": "The CLI which we're generates completions for",
+                "required": true,
+                "hide": false
+              }
+            ],
+            "flags": [
+              {
+                "name": "cache-key",
+                "usage": "--cache-key <CACHE_KEY>",
+                "help": "A cache key to use for storing the results of calling the CLI with --usage-cmd",
+                "help_first_line": "A cache key to use for storing the results of calling the CLI with --usage-cmd",
+                "short": [],
+                "long": ["cache-key"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "CACHE_KEY",
+                  "usage": "<CACHE_KEY>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A .usage.kdl spec file to use for generating completions",
+                "help_first_line": "A .usage.kdl spec file to use for generating completions",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "usage-cmd",
+                "usage": "--usage-cmd <USAGE_CMD>",
+                "help": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",
+                "help_first_line": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",
+                "short": [],
+                "long": ["usage-cmd"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "USAGE_CMD",
+                  "usage": "<USAGE_CMD>",
+                  "required": true,
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "name": "completion",
+            "aliases": ["c"],
+            "hidden_aliases": ["complete", "completions"],
+            "examples": []
+          },
+          "fig": {
+            "full_cmd": ["generate", "fig"],
+            "usage": "generate fig [FLAGS]",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file",
+                "help_first_line": "A usage spec taken in as a file",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "raw string spec input",
+                "help_first_line": "raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "out-file",
+                "usage": "--out-file <OUT_FILE>",
+                "help": "File on where to save the generated Fig spec",
+                "help_first_line": "File on where to save the generated Fig spec",
+                "short": [],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "name": "fig",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "json": {
+            "full_cmd": ["generate", "json"],
+            "usage": "generate json [-f --file <FILE>] [--spec <SPEC>]",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file",
+                "help_first_line": "A usage spec taken in as a file",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "raw string spec input",
+                "help_first_line": "raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
+                  "required": true,
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "help": "Outputs a usage spec in json format",
+            "name": "json",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "markdown": {
+            "full_cmd": ["generate", "markdown"],
+            "usage": "generate markdown <FLAGS>",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file",
+                "help_first_line": "A usage spec taken in as a file",
+                "short": ["f"],
+                "long": ["file"],
+                "required": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "multi",
+                "usage": "-m --multi",
+                "help": "Render each subcommand as a separate markdown file",
+                "help_first_line": "Render each subcommand as a separate markdown file",
+                "short": ["m"],
+                "long": ["multi"],
+                "hide": false,
+                "global": false
+              },
+              {
+                "name": "url-prefix",
+                "usage": "--url-prefix <URL_PREFIX>",
+                "help": "Prefix to add to all URLs",
+                "help_first_line": "Prefix to add to all URLs",
+                "short": [],
+                "long": ["url-prefix"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "URL_PREFIX",
+                  "usage": "<URL_PREFIX>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "html-encode",
+                "usage": "--html-encode",
+                "help": "Escape HTML in markdown",
+                "help_first_line": "Escape HTML in markdown",
+                "short": [],
+                "long": ["html-encode"],
+                "hide": false,
+                "global": false
+              },
+              {
+                "name": "out-dir",
+                "usage": "--out-dir <OUT_DIR>",
+                "help": "Output markdown files to this directory",
+                "help_first_line": "Output markdown files to this directory",
+                "short": [],
+                "long": ["out-dir"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_DIR",
+                  "usage": "<OUT_DIR>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
+                "name": "out-file",
+                "usage": "--out-file <OUT_FILE>",
+                "short": [],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "name": "markdown",
+            "aliases": ["md"],
+            "hidden_aliases": [],
+            "examples": []
+          }
+        },
+        "args": [],
+        "flags": [],
+        "mounts": [],
+        "hide": false,
+        "subcommand_required": true,
+        "name": "generate",
+        "aliases": ["g"],
+        "hidden_aliases": [],
+        "examples": []
+      }
+    },
+    "args": [
+      {
+        "name": "COMPLETIONS",
+        "usage": "[COMPLETIONS]",
+        "help": "Outputs completions for the specified shell for completing the `usage` CLI itself",
+        "help_first_line": "Outputs completions for the specified shell for completing the `usage` CLI itself",
+        "required": false,
+        "hide": false
+      }
+    ],
+    "flags": [
+      {
+        "name": "usage-spec",
+        "usage": "--usage-spec",
+        "help": "Outputs a `usage.kdl` spec for this CLI itself",
+        "help_first_line": "Outputs a `usage.kdl` spec for this CLI itself",
+        "short": [],
+        "long": ["usage-spec"],
+        "hide": false,
+        "global": false
+      }
+    ],
+    "mounts": [],
+    "hide": false,
+    "name": "usage",
+    "aliases": [],
+    "hidden_aliases": [],
+    "examples": []
+  },
+  "config": {
+    "props": {}
+  },
+  "version": "1.3.5",
+  "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
+  "complete": {},
+  "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
+  "about": "CLI for working with usage-based CLIs"
+}

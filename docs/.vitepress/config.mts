@@ -1,4 +1,17 @@
 import { defineConfig } from "vitepress";
+import spec from "../cli/reference/commands.json";
+
+function getCommands(cmd): string[][] {
+  const commands = [];
+  for (const [name, sub] of Object.entries(cmd.subcommands)) {
+    if (sub.hide) continue;
+    commands.push(sub.full_cmd);
+    commands.push(...getCommands(sub));
+  }
+  return commands;
+}
+
+const commands = getCommands(spec.cmd);
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -31,7 +44,13 @@ export default defineConfig({
           { text: "Manpages", link: "/cli/manpages" },
           { text: "Markdown", link: "/cli/markdown" },
           { text: "Scripts", link: "/cli/scripts" },
-          { text: "CLI Reference", link: "/cli/reference" }
+          {
+            text: "CLI Reference", link: "/cli/reference/", items:
+              commands.map((command) => ({
+                text: command.join(" "),
+                link: `/cli/reference/${command.join("/")}`
+              }))
+          }
         ]
       },
       {

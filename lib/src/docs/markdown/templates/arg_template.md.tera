@@ -1,4 +1,4 @@
-{%- if arg.help_long_md %}{% set help = arg.long_help %}{% elif arg.help_long %}{% set help = arg.help_long %}{% else %}{% set help = arg.help %}{% endif %}
+{%- if arg.help_long_md %}{% set help = arg.long_help %}{% elif arg.help_long %}{% set help = arg.help_long %}{% elif arg.help %}{% set help = arg.help %}{% endif %}
 
 {%- if help %}
 
