@@ -87,7 +87,7 @@ run = [
     'usage --usage-spec > cli/usage.usage.kdl',
     'rm -rf docs/cli/reference && mkdir -p docs/cli/reference',
     'usage g json -f cli/usage.usage.kdl > docs/cli/reference/commands.json',
-    'usage g md -mf cli/usage.usage.kdl --out-dir docs/cli/reference --url-prefix /cli/reference/',
+    'usage g md -mf cli/usage.usage.kdl --out-dir docs/cli/reference --url-prefix cli/reference/',
     'usage g completion bash usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.bash',
     'usage g completion fish usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.fish',
     'usage g completion zsh  usage --usage-cmd "usage --usage-spec" > cli/assets/completions/_usage',

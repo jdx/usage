@@ -6,7 +6,7 @@
 
 ## Subcommands
 
-- [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference//generate/completion.md)
-- [`usage generate fig [FLAGS]`](/cli/reference//generate/fig.md)
-- [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference//generate/json.md)
-- [`usage generate markdown <FLAGS>`](/cli/reference//generate/markdown.md)
+- [`usage generate completion [FLAGS] <SHELL> <BIN>`](cli/reference//generate/completion.md)
+- [`usage generate fig [FLAGS]`](cli/reference//generate/fig.md)
+- [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](cli/reference//generate/json.md)
+- [`usage generate markdown <FLAGS>`](cli/reference//generate/markdown.md)
