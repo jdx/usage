@@ -76,7 +76,7 @@ run = [
 depends = ['test', 'lint']
 
 [tasks.pre-commit]
-depends = ['lint', 'render']
+depends = ['render']
 
 [tasks.render]
 depends = ['render:*']
@@ -91,6 +91,7 @@ run = [
     'usage g completion bash usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.bash',
     'usage g completion fish usage --usage-cmd "usage --usage-spec" > cli/assets/completions/usage.fish',
     'usage g completion zsh  usage --usage-cmd "usage --usage-spec" > cli/assets/completions/_usage',
+    'mise run lint-fix',
 ]
 
 [tasks."render:example-md"]

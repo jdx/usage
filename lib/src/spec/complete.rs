@@ -1,3 +1,4 @@
+use kdl::{KdlEntry, KdlNode};
 use serde::{Deserialize, Serialize};
 
 use crate::error::UsageErr;
@@ -36,5 +37,19 @@ impl SpecComplete {
             }
         }
         Ok(config)
+    }
+}
+
+impl From<&SpecComplete> for KdlNode {
+    fn from(complete: &SpecComplete) -> Self {
+        let mut node = KdlNode::new("complete");
+        node.push(KdlEntry::new(complete.name.clone()));
+        if let Some(run) = &complete.run {
+            node.push(KdlEntry::new_prop("run", run.clone()));
+        }
+        if let Some(type_) = &complete.type_ {
+            node.push(KdlEntry::new_prop("type", type_.clone()));
+        }
+        node
     }
 }
