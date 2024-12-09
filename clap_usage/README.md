@@ -21,7 +21,7 @@ fn main() {
     if matches.get_flag("usage") {
         let mut cmd = build_cli();
         eprintln!("Generating usage spec...");
-        clap_usage::generate(&mut cmd, "example", &mut std::io::stderr()).unwrap();
+        clap_usage::generate(&mut cmd, "example", &mut std::io::stdout()).unwrap();
         return;
     }
 
