@@ -7,6 +7,7 @@ version = "1.10.8"
 [tools.cargo-binstall.checksums]
 "cargo-binstall-aarch64-apple-darwin.zip" = "sha256:23a27d534c98fed95e88c320fd7de154f851af7bce9100eed15e72fee316804c"
 cargo-binstall-macos-aarch64 = "sha256:c30a499060745f0c4435a446253fc676838cff0a18d2dd555fcf10399176b1bf"
+"cargo-binstall-x86_64-unknown-linux-musl.tgz" = "sha256:d5fa990d527a637176128df63456ef70f91062e9126dbacef6a341bdd5ce0b50"
 
 [tools."cargo:cargo-edit"]
 version = "0.13.0"
@@ -24,6 +25,7 @@ version = "2.6.1"
 version = "2.60.1"
 
 [tools.gh.checksums]
+"gh_2.60.1_linux_amd64.tar.gz" = "sha256:dfcd9926de38a797e88e604c3111ecf9ddf13c524706712b2b0d2e2fc4a6ed7f"
 "gh_2.60.1_macOS_arm64.zip" = "sha256:1930a3db9a2d1c420e476d06f3d4a8f02db8472d2630a1099968c3b82f231f1f"
 
 [tools."npm:prettier"]
