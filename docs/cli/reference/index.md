@@ -2,7 +2,7 @@
 
 **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
-**Version**: 1.4.0
+**Version**: 1.4.1
 
 - **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
