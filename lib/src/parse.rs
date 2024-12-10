@@ -305,13 +305,7 @@ impl ParseOutput {
         }
         for (arg, val) in &self.args {
             let key = format!("usage_{}", arg.name.to_snake_case());
-            let val = match val {
-                ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
-                ParseValue::String(s) => s.clone(),
-                ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
-                ParseValue::MultiString(s) => s.join(" "),
-            };
-            env.insert(key, val);
+            env.insert(key, val.to_string());
         }
         env
     }
@@ -323,7 +317,7 @@ impl Display for ParseValue {
             ParseValue::Bool(b) => write!(f, "{}", b),
             ParseValue::String(s) => write!(f, "{}", s),
             ParseValue::MultiBool(b) => write!(f, "{}", b.iter().join(" ")),
-            ParseValue::MultiString(s) => write!(f, "{}", s.iter().join(" ")),
+            ParseValue::MultiString(s) => write!(f, "{}", shell_words::join(s)),
         }
     }
 }

@@ -1,7 +1,9 @@
 # Usage Scripts
 
-Scripts can be used with the Usage CLI to display help, powerful arg parsing, and autocompletion in any language.
-For this to work, we add comments to the script that describe the flags and arguments that the script accepts.
+Scripts can be used with the Usage CLI to display help, powerful arg parsing, and autocompletion in
+any language.
+For this to work, we add comments to the script that describe the flags and arguments that the
+script accepts.
 Here is an example in bash:
 
 ```bash
@@ -50,3 +52,14 @@ if (usage_force === "true") {
 const user = usage_user ?? "world";
 fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 ```
+
+## Shell Escaping
+
+### `var=true`
+
+When using `var=true`, the value will be a single string (because that's all env vars can do)
+delimited
+by spaces. If an arg itself has a space, then it will have quotes around it. This logic is handled
+by [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html). For now,
+this is not customizable behavior. It would be possible to
+support [alternatives](https://github.com/jdx/usage/issues/189) though.

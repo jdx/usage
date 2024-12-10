@@ -184,4 +184,18 @@ multi_arg:
     "#,
     args="a b c",
     expected=r#"{"usage_vars": "a b c"}"#,
+
+multi_arg_spaces:
+    spec=r#"
+    arg "<vars>" var=true
+    "#,
+    args=r#"a "b c""#,
+    expected=r#"{"usage_vars": "a 'b c'"}"#,
+    
+shell_escape_arg:
+    spec=r#"
+    arg "<vars>" shell_escape=true
+    "#,
+    args=r#"a "b c""#,
+    expected=r#"{"usage_vars": "a 'b c'"}"#,
 }
