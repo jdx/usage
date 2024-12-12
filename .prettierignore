@@ -2,6 +2,7 @@ CHANGELOG.md
 docs/.vitepress
 docs/cli/reference.md
 docs/public/site.webmanifest
+lib/bash-completion
 examples/docs
 lefthook.yml
 pnpm-lock.yaml
