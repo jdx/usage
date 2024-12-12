@@ -1,6 +1,6 @@
 name "usage-cli"
 bin "usage"
-version "1.5.1"
+version "1.5.2"
 about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
