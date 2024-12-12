@@ -9,8 +9,11 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     } else {
         format!("_usage_spec_{bin_snake}")
     };
+    let bash_completion = include_str!("../../../bash-completion/bash_completion");
     let mut out = vec![format!(
-        r#"_{bin_snake}() {{
+        r#"{bash_completion}
+
+_{bin_snake}() {{
     if ! command -v usage &> /dev/null; then
         echo >&2
         echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
@@ -40,8 +43,11 @@ __USAGE_EOF__"#,
 
     out.push(format!(
         r#"
+	local cur prev words cword was_split comp_args
+    _comp_initialize -n : -- "$@" || return
     # shellcheck disable=SC2207
-    COMPREPLY=( $(usage complete-word --shell bash -s "${{{spec_variable}}}" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" ) )
+	_comp_compgen -- -W "$(@usage complete-word --shell bash -s "${{spec_variable}}" --cword="$cword" -- "${{words[@]}}")"
+	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
@@ -79,6 +85,7 @@ mod tests {
             spec: None,
             usage_cmd: Some("mycli complete --usage".to_string()),
         }));
+
         assert_snapshot!(complete_bash(&CompleteOptions {
             shell: "bash".to_string(),
             bin: "mycli".to_string(),
