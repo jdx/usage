@@ -9,7 +9,7 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use once_cell::sync::Lazy;
 use xx::process::check_status;
-use xx::{XXError, XXResult};
+use xx::{regex, XXError, XXResult};
 
 use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
@@ -218,11 +218,21 @@ impl CompleteWord {
             trace!("run: {run}");
             let stdout = sh(&run)?;
             // trace!("stdout: {stdout}");
+            let re = regex!(r"[^\\]:");
             return Ok(stdout
                 .lines()
                 .filter(|l| l.starts_with(ctoken))
-                // TODO: allow a description somehow
-                .map(|l| (l.to_string(), String::new()))
+                .map(|l| {
+                    if complete.descriptions {
+                        match re.splitn(l, 2).collect::<Vec<_>>().as_slice() {
+                            [c, d] => (c.replace("\\:", ":"), d.to_string()),
+                            [c] => (c.replace("\\:", ":"), String::new()),
+                            _ => unreachable!(),
+                        }
+                    } else {
+                        (l.to_string(), String::new())
+                    }
+                })
                 .collect());
         }
 

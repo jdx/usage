@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
+use crate::spec::is_false;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SpecComplete {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
+    pub descriptions: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub type_: Option<String>,
 }
@@ -27,6 +30,7 @@ impl SpecComplete {
                     }
                     config.run = Some(v.ensure_string()?.to_string())
                 }
+                "descriptions" => config.descriptions = v.ensure_bool()?,
                 "type" => {
                     if config.run.is_some() {
                         bail_parse!(ctx, *v.entry.span(), "can set run or type, not both")
@@ -49,6 +53,9 @@ impl From<&SpecComplete> for KdlNode {
         }
         if let Some(type_) = &complete.type_ {
             node.push(KdlEntry::new_prop("type", type_.clone()));
+        }
+        if complete.descriptions {
+            node.push(KdlEntry::new_prop("descriptions", "true".to_string()));
         }
         node
     }
