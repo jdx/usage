@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.1](https://github.com/jdx/usage/compare/v1.5.0..v1.5.1) - 2024-12-12
+
+### 🔍 Other Changes
+
+- remove submodule by [@jdx](https://github.com/jdx) in [5922490](https://github.com/jdx/usage/commit/5922490244dd43f7e7852aa5be8eef3c549671de)
+
 ## [1.5.0](https://github.com/jdx/usage/compare/v1.4.2..v1.5.0) - 2024-12-12
 
 ### 🚀 Features
