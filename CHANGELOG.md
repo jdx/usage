@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.0](https://github.com/jdx/usage/compare/v1.4.2..v1.5.0) - 2024-12-12
+
+### 🚀 Features
+
+- descriptions in completions by [@jdx](https://github.com/jdx) in [ef73a40](https://github.com/jdx/usage/commit/ef73a40be990a611df13bb9f662fb5d1e1538651)
+
 ## [1.4.2](https://github.com/jdx/usage/compare/v1.4.1..v1.4.2) - 2024-12-12
 
 ### 🐛 Bug Fixes
