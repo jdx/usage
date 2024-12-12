@@ -1485,7 +1485,7 @@ checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "usage-cli"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1514,7 +1514,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "clap",
  "ctor",
@@ -1821,9 +1821,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "xx"
-version = "2.0.2"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53ba8e1329637bfde9509cf8be1b3b9eed7c0130e60408a45f6d514a11f7974b"
+checksum = "43e8a6586de03e05832a7e364b3b94fb86ae16bbaa881f3e7998c4e66c6b900f"
 dependencies = [
  "duct",
  "filetime",
