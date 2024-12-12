@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.2](https://github.com/jdx/usage/compare/v1.4.1..v1.4.2) - 2024-12-12
+
+### 🐛 Bug Fixes
+
+- handle colons in bash completions by [@jdx](https://github.com/jdx) in [240ea41](https://github.com/jdx/usage/commit/240ea418e6bcadfacca70a14670cd10de1086cbe)
+- handle colons in zsh completions by [@jdx](https://github.com/jdx) in [455b6f7](https://github.com/jdx/usage/commit/455b6f7435d07c6a9a2c20d82584da96c5ae5933)
+
+### 🧪 Testing
+
+- snapshots by [@jdx](https://github.com/jdx) in [4ab650f](https://github.com/jdx/usage/commit/4ab650f1e4b6bf35491f538f99d42a121702f173)
+
+### 🔍 Other Changes
+
+- add bash-completions to lib by [@jdx](https://github.com/jdx) in [8450ff7](https://github.com/jdx/usage/commit/8450ff7c15149d926a948c6f291b2d727bb607ce)
+- submodules by [@jdx](https://github.com/jdx) in [83d68a9](https://github.com/jdx/usage/commit/83d68a9976e778e3e98744f850b07be82a42e49a)
+- submodules by [@jdx](https://github.com/jdx) in [a4f5251](https://github.com/jdx/usage/commit/a4f52519c36972b962e4a9aaf973d72acdfdd100)
+- ignore bash-completion in prettier by [@jdx](https://github.com/jdx) in [4b58310](https://github.com/jdx/usage/commit/4b5831095041916aa1e220549efaee425a1ab928)
+
 ## [1.4.1](https://github.com/jdx/usage/compare/v1.4.0..v1.4.1) - 2024-12-10
 
 ### 🐛 Bug Fixes
