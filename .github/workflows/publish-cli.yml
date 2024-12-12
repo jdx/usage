@@ -35,6 +35,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - uses: jdx/mise-action@v2
         with:
@@ -77,6 +79,8 @@ jobs:
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: jdx/mise-action@v2
         with:
           experimental: true
@@ -95,5 +99,7 @@ jobs:
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: jdx/mise-action@v2
       - run: gh release edit ${{ github.ref_name }} --draft=false
