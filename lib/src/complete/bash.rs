@@ -9,7 +9,7 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     } else {
         format!("_usage_spec_{bin_snake}")
     };
-    let bash_completion = include_str!("../../../bash-completion/bash_completion");
+    let bash_completion = include_str!("../../bash-completion/bash_completion");
     let mut out = vec![format!(
         r#"{bash_completion}
 

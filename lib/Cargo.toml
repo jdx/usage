@@ -9,6 +9,7 @@ include = [
     "/README.md",
     "/src/**/*.rs",
     "/src/**/*.tera",
+    "/bash-completion/bash_completion",
 ]
 description = "Library for working with usage specs"
 homepage = { workspace = true }
