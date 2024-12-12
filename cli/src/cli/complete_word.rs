@@ -48,8 +48,9 @@ impl CompleteWord {
                 (true, "bash") => println!("{c}"),
                 (true, "fish") => println!("{c}\t{description}"),
                 (true, "zsh") => {
+                    let c = c.replace(":", "\\\\:");
                     let description = description.replace("'", "'\\''");
-                    println!("{c}\\:'{description}'")
+                    println!("'{c}'\\:'{description}'")
                 }
                 _ => println!("{c}"),
             }
