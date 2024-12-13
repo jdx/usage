@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.3](https://github.com/jdx/usage/compare/v1.5.2..v1.5.3) - 2024-12-13
+
+### 🐛 Bug Fixes
+
+- bash completion escape by [@jdx](https://github.com/jdx) in [ce80f20](https://github.com/jdx/usage/commit/ce80f207b609f251515ba0889844cd694ed6f820)
+
+### 🧪 Testing
+
+- snapshots by [@jdx](https://github.com/jdx) in [d15bd90](https://github.com/jdx/usage/commit/d15bd90af4d67440219182c287959013ca56b8d3)
+
+### 🔍 Other Changes
+
+- add snapshots to pre-commit by [@jdx](https://github.com/jdx) in [9d19066](https://github.com/jdx/usage/commit/9d1906603bd0ea505928a4423b78bb4edd744b18)
+
 ## [1.5.2](https://github.com/jdx/usage/compare/v1.5.1..v1.5.2) - 2024-12-12
 
 ### 🐛 Bug Fixes
