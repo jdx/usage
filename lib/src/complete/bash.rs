@@ -9,11 +9,13 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     } else {
         format!("_usage_spec_{bin_snake}")
     };
-    let bash_completion = include_str!("../../bash-completion/bash_completion");
+    let mut out = vec![];
+    if opts.include_bash_completion_lib {
+        out.push(include_str!("../../bash-completion/bash_completion").to_string());
+        out.push("\n".to_string());
+    };
     let mut out = vec![format!(
-        r#"{bash_completion}
-
-_{bin_snake}() {{
+        r#"_{bin_snake}() {{
     if ! command -v usage &> /dev/null; then
         echo >&2
         echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
@@ -77,6 +79,7 @@ mod tests {
             cache_key: None,
             spec: None,
             usage_cmd: Some("mycli complete --usage".to_string()),
+            include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_bash(&CompleteOptions {
             shell: "bash".to_string(),
@@ -84,6 +87,7 @@ mod tests {
             cache_key: Some("1.2.3".to_string()),
             spec: None,
             usage_cmd: Some("mycli complete --usage".to_string()),
+            include_bash_completion_lib: false,
         }));
 
         assert_snapshot!(complete_bash(&CompleteOptions {
@@ -92,6 +96,7 @@ mod tests {
             cache_key: None,
             spec: Some(SPEC_KITCHEN_SINK.clone()),
             usage_cmd: None,
+            include_bash_completion_lib: false,
         }));
     }
 }

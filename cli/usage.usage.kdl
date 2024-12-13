@@ -55,6 +55,9 @@ cmd "generate" subcommand_required=true {
         flag "--usage-cmd" help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
             arg "<USAGE_CMD>"
         }
+        flag "--include-bash-completion-lib" help="Include https://github.com/scop/bash-completion" {
+            long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
+        }
         arg "<SHELL>" {
             choices "bash" "fish" "zsh"
         }

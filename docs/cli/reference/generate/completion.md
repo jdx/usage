@@ -31,3 +31,9 @@ A .usage.kdl spec file to use for generating completions
 ### `--usage-cmd <USAGE_CMD>`
 
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+
+### `--include-bash-completion-lib`
+
+Include https://github.com/scop/bash-completion
+
+This is required for usage completions to work in bash, but the user may already provide it

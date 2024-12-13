@@ -25,6 +25,12 @@ pub struct Completion {
     /// Defaults to "$bin --usage"
     #[clap(long, required_unless_present = "file")]
     usage_cmd: Option<String>,
+
+    /// Include https://github.com/scop/bash-completion
+    ///
+    /// This is required for usage completions to work in bash, but the user may already provide it
+    #[clap(long, verbatim_doc_comment)]
+    include_bash_completion_lib: bool,
 }
 
 impl Completion {
@@ -44,6 +50,7 @@ impl Completion {
             cache_key: self.cache_key.clone(),
             spec,
             usage_cmd: self.usage_cmd.clone(),
+            include_bash_completion_lib: self.include_bash_completion_lib,
         };
 
         println!("{}", usage::complete::complete(&opts).trim());

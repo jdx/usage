@@ -10,6 +10,7 @@ pub struct CompleteOptions {
     pub cache_key: Option<String>,
     pub spec: Option<Spec>,
     pub usage_cmd: Option<String>,
+    pub include_bash_completion_lib: bool,
 }
 
 pub fn complete(options: &CompleteOptions) -> String {

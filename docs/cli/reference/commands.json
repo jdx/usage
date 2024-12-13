@@ -260,6 +260,17 @@
                   "required": true,
                   "hide": false
                 }
+              },
+              {
+                "name": "include-bash-completion-lib",
+                "usage": "--include-bash-completion-lib",
+                "help": "Include https://github.com/scop/bash-completion",
+                "help_long": "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it",
+                "help_first_line": "Include https://github.com/scop/bash-completion",
+                "short": [],
+                "long": ["include-bash-completion-lib"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
