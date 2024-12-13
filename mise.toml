@@ -74,7 +74,7 @@ run = [
 depends = ['test', 'lint']
 
 [tasks.pre-commit]
-depends = ['render']
+depends = ['render', 'snapshots']
 
 [tasks.render]
 depends = ['render:*']
