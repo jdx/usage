@@ -1,7 +1,7 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 
-impl MarkdownRenderer<'_> {
+impl MarkdownRenderer {
     pub fn render_spec(&self) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
@@ -24,7 +24,7 @@ mod tests {
 
     #[test]
     fn test_render_markdown_spec() {
-        let ctx = MarkdownRenderer::new(&SPEC_KITCHEN_SINK);
+        let ctx = MarkdownRenderer::new(SPEC_KITCHEN_SINK.clone());
         assert_snapshot!(ctx.render_spec().unwrap(), @r"
         # `mycli`
 
@@ -68,6 +68,18 @@ mod tests {
 
         flag2 long description
 
+        includes a code block:
+
+            $ echo hello world
+            hello world
+            
+            more code
+
+        some docs
+
+            $ echo hello world
+            hello world
+
         ### `--flag3`
 
         flag3 description
@@ -93,6 +105,8 @@ mod tests {
 
         - **Usage**: `mycli plugin install [FLAGS] <plugin> <version>`
         - **Source code**: [`src/cli/plugin/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
+
+        install a plugin
 
         ### Arguments
 

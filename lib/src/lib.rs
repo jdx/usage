@@ -15,6 +15,7 @@ pub use crate::spec::Spec;
 pub mod error;
 pub mod complete;
 pub mod spec;
+pub use error::Result;
 
 #[cfg(feature = "docs")]
 pub mod docs;

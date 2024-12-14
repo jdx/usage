@@ -92,6 +92,7 @@ cmd "generate" subcommand_required=true {
             arg "<URL_PREFIX>"
         }
         flag "--html-encode" help="Escape HTML in markdown"
+        flag "--replace-pre-with-code-fences"
         flag "--out-dir" help="Output markdown files to this directory" {
             arg "<OUT_DIR>"
         }

@@ -25,6 +25,9 @@ pub struct Markdown {
     #[clap(long)]
     html_encode: bool,
 
+    #[clap(long)]
+    replace_pre_with_code_fences: bool,
+
     /// Output markdown files to this directory
     #[clap(long, value_hint = clap::ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
@@ -41,7 +44,9 @@ impl Markdown {
             Ok(())
         };
         let (spec, _) = Spec::parse_file(&self.file)?;
-        let mut ctx = MarkdownRenderer::new(&spec).with_html_encode(self.html_encode);
+        let mut ctx = MarkdownRenderer::new(spec.clone())
+            .with_html_encode(self.html_encode)
+            .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);
         if let Some(url_prefix) = &self.url_prefix {
             ctx = ctx.with_url_prefix(url_prefix);
         }

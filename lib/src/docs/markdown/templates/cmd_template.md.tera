@@ -1,14 +1,11 @@
 {%- set source_code_link = source_code_link(spec=spec, cmd=cmd) %}
-{%- if cmd.before_help_md %}{% set before_help = cmd.before_help_md %}{% elif cmd.before_help_long %}{% set before_help = cmd.before_help_long %}{% elif cmd.before_help %}{% set before_help = cmd.before_help %}{% endif %}
-{%- if cmd.help_md %}{% set help = cmd.help_md %}{% elif cmd.help_long %}{% set help = cmd.help_long %}{% elif cmd.help %}{% set help = cmd.help %}{% else %}{% set help = "" %}{% endif %}
-{%- if cmd.after_help_md %}{% set after_help = cmd.after_help_md %}{% elif cmd.after_help_long %}{% set after_help = cmd.after_help_long %}{% elif cmd.after_help %}{% set after_help = cmd.after_help %}{% endif %}
 {%- set full_cmd = cmd.full_cmd | join(sep=" ") %}
 {%- if multi -%}
 {{- "#" | repeat(count=header_level) }} `{{ spec.bin ~ " " ~ full_cmd | trim }}`
 {%- endif %}
-{%- if before_help %}
+{%- if cmd.before_help_md %}
 
-{{ before_help | escape_md }}
+{{ cmd.before_help_md | escape_md }}
 {%- endif %}
 
 - **Usage**: `{{ spec.bin ~ " " ~ cmd.usage | trim }}`
@@ -19,15 +16,20 @@
 - **Source code**: {{ source_code_link }}
 {%- endif %}
 
-{%- if help %}
+{%- if cmd.help_md %}
 
-{{ help | escape_md }}
+{{ cmd.help_md | escape_md }}
 {%- endif %}
 
 {%- set args = cmd.args | filter(attribute="hide", value=false) %}
 {%- set flags = cmd.flags | filter(attribute="hide", value=false) %}
 {%- set global_flags = flags | filter(attribute="global", value=true) %}
 {%- set local_flags = flags | filter(attribute="global", value=false) %}
+{#- if no subcommands, don't display flags as global #}
+{%- if not cmd.subcommands %}
+{%- set local_flags = flags %}
+{%- set global_flags = [] %}
+{%- endif %}
 
 {%- if args %}
 
@@ -74,7 +76,7 @@
 {%- endfor -%}
 {%- endif -%}
 
-{%- if after_help %}
+{%- if cmd.after_help_md %}
 
-{{ after_help | escape_md }}
+{{ cmd.after_help_md | escape_md }}
 {%- endif -%}

@@ -1,8 +1,6 @@
-{%- if arg.help_long_md %}{% set help = arg.long_help %}{% elif arg.help_long %}{% set help = arg.help_long %}{% elif arg.help %}{% set help = arg.help %}{% endif %}
+{%- if arg.help_md %}
 
-{%- if help %}
-
-{{ help | escape_md }}
+{{ arg.help_md | escape_md }}
 {%- endif %}
 {%- if arg.choices %}
 
