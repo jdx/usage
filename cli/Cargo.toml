@@ -25,7 +25,7 @@ name = "usage_cli"
 path = "src/lib.rs"
 
 [dependencies]
-clap = { version = "4", features = ["derive", "string"] }
+clap = { version = "4", features = ["derive", "string", "env"] }
 clap_usage = { workspace = true }
 contracts = "0.6"
 env_logger = "0.11"

@@ -5,6 +5,7 @@ mod fish;
 mod zsh;
 
 pub struct CompleteOptions {
+    pub usage_bin: String,
     pub shell: String,
     pub bin: String,
     pub cache_key: Option<String>,

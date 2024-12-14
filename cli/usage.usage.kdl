@@ -52,6 +52,10 @@ cmd "generate" subcommand_required=true {
         flag "-f --file" help="A .usage.kdl spec file to use for generating completions" {
             arg "<FILE>"
         }
+        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" {
+            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            arg "<USAGE_BIN>"
+        }
         flag "--usage-cmd" help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
             arg "<USAGE_CMD>"
         }

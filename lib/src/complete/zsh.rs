@@ -2,6 +2,7 @@ use crate::complete::CompleteOptions;
 use heck::ToSnakeCase;
 
 pub fn complete_zsh(opts: &CompleteOptions) -> String {
+    let usage_bin = &opts.usage_bin;
     let bin = &opts.bin;
     let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
@@ -37,9 +38,9 @@ _{bin_snake}() {{
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
-  if ! command -v usage &> /dev/null; then
+  if ! command -v {usage_bin} &> /dev/null; then
       echo >&2
-      echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
+      echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
       echo "See https://usage.jdx.dev for more information." >&2
       return 1
   fi"#,
@@ -73,7 +74,7 @@ __USAGE_EOF__"#,
 
     out.push(format!(
         r#"
-  _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${{words[@]}}" )))"
+  _arguments "*: :(($({usage_bin} complete-word --shell zsh -s "$spec" -- "${{words[@]}}" )))"
   return 0
 }}
 
@@ -102,6 +103,7 @@ mod tests {
     #[test]
     fn test_complete_zsh() {
         assert_snapshot!(complete_zsh(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "zsh".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,
@@ -110,6 +112,7 @@ mod tests {
             include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_zsh(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "zsh".to_string(),
             bin: "mycli".to_string(),
             cache_key: Some("1.2.3".to_string()),
@@ -118,6 +121,7 @@ mod tests {
             include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_zsh(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "zsh".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,
