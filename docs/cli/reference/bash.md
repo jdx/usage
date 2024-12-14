@@ -14,13 +14,6 @@ to properly escape and quote values with spaces in them.
 
 ### `<SCRIPT>`
 
-Executes a bash script
-
-Typically, this will be called by a script's shebang
-
-If using `var=true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
-
 ### `[ARGS]...`
 
 arguments to pass to script

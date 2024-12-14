@@ -22,6 +22,8 @@ Prefix to add to all URLs
 
 Escape HTML in markdown
 
+### `--replace-pre-with-code-fences`
+
 ### `--out-dir <OUT_DIR>`
 
 Output markdown files to this directory

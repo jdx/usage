@@ -1,7 +1,6 @@
-{%- if flag.help_long_md %}{% set help = flag.long_help %}{% elif flag.help_long %}{% set help = flag.help_long %}{% elif flag.help %}{% set help = flag.help %}{% endif %}
-{%- if help %}
+{%- if flag.help_md %}
 
-{{ help | escape_md }}
+{{ flag.help_md | escape_md }}
 {%- endif %}
 {%- if flag.arg.choices %}
 

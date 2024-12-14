@@ -1,31 +1,37 @@
 use crate::docs::markdown::tera::TERA;
+use crate::docs::models::Spec;
 use crate::error::UsageErr;
-use crate::Spec;
 use itertools::Itertools;
 use serde::Serialize;
 use std::collections::HashMap;
 use xx::regex;
 
 #[derive(Debug, Clone)]
-pub struct MarkdownRenderer<'a> {
-    pub(crate) spec: &'a Spec,
+pub struct MarkdownRenderer {
+    pub(crate) spec: Spec,
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
     tera_ctx: tera::Context,
     url_prefix: Option<String>,
     html_encode: bool,
+    replace_pre_with_code_fences: bool,
 }
 
-impl<'a> MarkdownRenderer<'a> {
-    pub fn new(spec: &'a Spec) -> Self {
-        Self {
-            spec,
+impl MarkdownRenderer {
+    pub fn new(spec: crate::Spec) -> Self {
+        let mut renderer = Self {
+            spec: spec.into(),
             header_level: 1,
             multi: false,
             tera_ctx: tera::Context::new(),
             url_prefix: None,
             html_encode: true,
-        }
+            replace_pre_with_code_fences: false,
+        };
+        let mut spec = renderer.spec.clone();
+        spec.render_md(&renderer);
+        renderer.spec = spec;
+        renderer
     }
 
     pub fn with_header_level(mut self, header_level: usize) -> Self {
@@ -48,13 +54,18 @@ impl<'a> MarkdownRenderer<'a> {
         self
     }
 
+    pub fn with_replace_pre_with_code_fences(mut self, replace_pre_with_code_fences: bool) -> Self {
+        self.replace_pre_with_code_fences = replace_pre_with_code_fences;
+        self
+    }
+
     pub(crate) fn insert<T: Serialize + ?Sized, S: Into<String>>(&mut self, key: S, val: &T) {
         self.tera_ctx.insert(key, val);
     }
 
     fn tera_ctx(&self) -> tera::Context {
         let mut ctx = self.tera_ctx.clone();
-        ctx.insert("spec", self.spec);
+        ctx.insert("spec", &self.spec);
         ctx.insert("header_level", &self.header_level);
         ctx.insert("multi", &self.multi);
         ctx.insert("url_prefix", &self.url_prefix);
@@ -125,5 +136,34 @@ impl<'a> MarkdownRenderer<'a> {
         });
 
         Ok(tera.render(template_name, &self.tera_ctx())?)
+    }
+
+    pub(crate) fn replace_code_fences(&self, md: String) -> String {
+        if !self.replace_pre_with_code_fences {
+            return md;
+        }
+        // TODO: handle fences inside of <pre> or <code>
+        let mut in_code_block = false;
+        let mut new_md = String::new();
+        for line in md.lines() {
+            if let Some(line) = line.strip_prefix("    ") {
+                if in_code_block {
+                    new_md.push_str(&format!("{}\n", line));
+                } else {
+                    new_md.push_str(&format!("```\n{}\n", line));
+                    in_code_block = true;
+                }
+            } else {
+                if in_code_block {
+                    new_md.push_str("```\n");
+                    in_code_block = false;
+                }
+                new_md.push_str(&format!("{}\n", line));
+            }
+        }
+        if in_code_block {
+            new_md.push_str("```\n");
+        }
+        new_md
     }
 }

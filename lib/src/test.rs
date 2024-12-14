@@ -9,7 +9,7 @@ macro_rules! spec {
 }
 
 pub static SPEC_KITCHEN_SINK: Lazy<Spec> = Lazy::new(|| {
-    spec! {r#"
+    spec! {r##"
 bin "mycli"
 source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
 arg "arg1" help="arg1 description"
@@ -21,7 +21,20 @@ arg "argrest" var=true
 arg "with-default" default="default value"
 
 flag "--flag1" help="flag1 description"
-flag "--flag2" help="flag2 description" long_help="flag2 long description"
+flag "--flag2" help="flag2 description" long_help=r#"flag2 long description
+
+includes a code block:
+
+    $ echo hello world
+    hello world
+    
+    more code
+
+some docs
+
+    $ echo hello world
+    hello world
+"#
 flag "--flag3" help="flag3 description" negate="--no-flag3"
 flag "--with-default" required=true default="default value"
 
@@ -30,17 +43,17 @@ flag "--shell <shell>" {
 }
 
 cmd "plugin" {
-  cmd "install" {
+  cmd "install" long_help="install a plugin" {
     arg "plugin"
     arg "version"
-    flag "-g --global"
+    flag "-g --global" global=true
     flag "-d --dir <dir>"
     flag "-f --force" negate="--no-force"
   }
 }
 
 complete "plugin" run="echo \"plugin-1\nplugin-2\nplugin-3\""
-"#}
+"##}
     .unwrap()
 });
 

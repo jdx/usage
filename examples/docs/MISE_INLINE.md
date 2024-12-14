@@ -433,8 +433,6 @@ If not provided, the nearest mise.toml file will be used
 
 #### `-t --type <TYPE>`
 
-Display the value of a setting in a mise.toml file
-
 **Choices:**
 
 - `string`
@@ -737,8 +735,6 @@ writes the generated docs to a file/directory
 root directory to search for tasks
 
 #### `-s --style <STYLE>`
-
-[experimental] Generate documentation for tasks in a project
 
 **Choices:**
 

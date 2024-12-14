@@ -449,6 +449,14 @@
                 "global": false
               },
               {
+                "name": "replace-pre-with-code-fences",
+                "usage": "--replace-pre-with-code-fences",
+                "short": [],
+                "long": ["replace-pre-with-code-fences"],
+                "hide": false,
+                "global": false
+              },
+              {
                 "name": "out-dir",
                 "usage": "--out-dir <OUT_DIR>",
                 "help": "Output markdown files to this directory",
