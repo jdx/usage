@@ -20,6 +20,12 @@ pub struct Completion {
     #[clap(short, long)]
     file: Option<PathBuf>,
 
+    /// Override the bin used for calling back to usage-cli
+    ///
+    /// You may need to set this if you have a different bin named "usage"
+    #[clap(long, default_value = "usage", env = "JDX_USAGE_BIN")]
+    usage_bin: String,
+
     /// A command which generates a usage spec
     /// e.g.: `mycli --usage` or `mycli completion usage`
     /// Defaults to "$bin --usage"
@@ -45,6 +51,7 @@ impl Completion {
             false => None,
         };
         let opts = CompleteOptions {
+            usage_bin: self.usage_bin.clone(),
             shell: self.shell.clone(),
             bin: self.bin.clone(),
             cache_key: self.cache_key.clone(),

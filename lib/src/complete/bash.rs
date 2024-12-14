@@ -2,6 +2,7 @@ use crate::complete::CompleteOptions;
 use heck::ToSnakeCase;
 
 pub fn complete_bash(opts: &CompleteOptions) -> String {
+    let usage_bin = &opts.usage_bin;
     let bin = &opts.bin;
     let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
@@ -16,9 +17,9 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     };
     let mut out = vec![format!(
         r#"_{bin_snake}() {{
-    if ! command -v usage &> /dev/null; then
+    if ! command -v {usage_bin} &> /dev/null; then
         echo >&2
-        echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
+        echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
         echo "See https://usage.jdx.dev for more information." >&2
         return 1
     fi"#
@@ -48,7 +49,7 @@ __USAGE_EOF__"#,
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     # shellcheck disable=SC2207
-	_comp_compgen -- -W "$(usage complete-word --shell bash -s "${{{spec_variable}}}" --cword="$cword" -- "${{words[@]}}")"
+	_comp_compgen -- -W "$({usage_bin} complete-word --shell bash -s "${{{spec_variable}}}" --cword="$cword" -- "${{words[@]}}")"
 	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
@@ -74,6 +75,7 @@ mod tests {
     #[test]
     fn test_complete_bash() {
         assert_snapshot!(complete_bash(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "bash".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,
@@ -82,6 +84,7 @@ mod tests {
             include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_bash(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "bash".to_string(),
             bin: "mycli".to_string(),
             cache_key: Some("1.2.3".to_string()),
@@ -89,8 +92,8 @@ mod tests {
             usage_cmd: Some("mycli complete --usage".to_string()),
             include_bash_completion_lib: false,
         }));
-
         assert_snapshot!(complete_bash(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "bash".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,

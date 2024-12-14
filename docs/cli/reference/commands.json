@@ -246,6 +246,23 @@
                 }
               },
               {
+                "name": "usage-bin",
+                "usage": "--usage-bin <USAGE_BIN>",
+                "help": "Override the bin used for calling back to usage-cli",
+                "help_long": "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\"",
+                "help_first_line": "Override the bin used for calling back to usage-cli",
+                "short": [],
+                "long": ["usage-bin"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "USAGE_BIN",
+                  "usage": "<USAGE_BIN>",
+                  "required": true,
+                  "hide": false
+                }
+              },
+              {
                 "name": "usage-cmd",
                 "usage": "--usage-cmd <USAGE_CMD>",
                 "help": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",

@@ -28,6 +28,12 @@ A cache key to use for storing the results of calling the CLI with --usage-cmd
 
 A .usage.kdl spec file to use for generating completions
 
+### `--usage-bin <USAGE_BIN>`
+
+Override the bin used for calling back to usage-cli
+
+You may need to set this if you have a different bin named "usage"
+
 ### `--usage-cmd <USAGE_CMD>`
 
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"

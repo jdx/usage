@@ -2,6 +2,7 @@ use crate::complete::CompleteOptions;
 use heck::ToSnakeCase;
 
 pub fn complete_fish(opts: &CompleteOptions) -> String {
+    let usage_bin = &opts.usage_bin;
     let bin = &opts.bin;
     let bin_snake = bin.to_snake_case();
     let spec_variable = if let Some(cache_key) = &opts.cache_key {
@@ -11,10 +12,10 @@ pub fn complete_fish(opts: &CompleteOptions) -> String {
     };
     let mut out = vec![format!(
         r#"
-# if "usage" is not installed show an error
-if ! command -v usage &> /dev/null
+# if "{usage_bin}" is not installed show an error
+if ! command -v {usage_bin} &> /dev/null
     echo >&2
-    echo "Error: usage CLI not found. This is required for completions to work in {bin}." >&2
+    echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
     echo "See https://usage.jdx.dev for more information." >&2
     return 1
 end"#
@@ -45,7 +46,7 @@ set {spec_variable} '{spec_escaped}'"#
     }
 
     out.push(format!(
-        r#"complete -xc {bin} -a '(usage complete-word --shell fish -s "${spec_variable}" -- (commandline -cop) (commandline -t))'"#
+        r#"complete -xc {bin} -a '({usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -cop) (commandline -t))'"#
     ));
 
     out.join("\n")
@@ -60,6 +61,7 @@ mod tests {
     #[test]
     fn test_complete_fish() {
         assert_snapshot!(complete_fish(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "fish".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,
@@ -68,6 +70,7 @@ mod tests {
             include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_fish(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "fish".to_string(),
             bin: "mycli".to_string(),
             cache_key: Some("1.2.3".to_string()),
@@ -76,6 +79,7 @@ mod tests {
             include_bash_completion_lib: false,
         }));
         assert_snapshot!(complete_fish(&CompleteOptions {
+            usage_bin: "usage".to_string(),
             shell: "fish".to_string(),
             bin: "mycli".to_string(),
             cache_key: None,

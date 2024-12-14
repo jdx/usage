@@ -107,3 +107,6 @@ run = "cargo insta test --accept"
 
 [task_config]
 includes = ['tasks']
+
+[tasks.install-dev]
+run = "cargo install --path cli --debug"
