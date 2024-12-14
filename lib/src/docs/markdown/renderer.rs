@@ -164,6 +164,6 @@ impl MarkdownRenderer {
         if in_code_block {
             new_md.push_str("```\n");
         }
-        new_md
+        new_md.replace("```\n\n```\n", "\n")
     }
 }
