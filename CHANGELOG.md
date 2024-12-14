@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.0](https://github.com/jdx/usage/compare/v1.5.3..v1.6.0) - 2024-12-14
+
+### 🚀 Features
+
+- feature for automatically adding code fences by [@jdx](https://github.com/jdx) in [#197](https://github.com/jdx/usage/pull/197)
+
+### 🐛 Bug Fixes
+
+- make bash_completion optional by [@jdx](https://github.com/jdx) in [6705de4](https://github.com/jdx/usage/commit/6705de473fbd2207be2f933c051a48188029b069)
+
 ## [1.5.3](https://github.com/jdx/usage/compare/v1.5.2..v1.5.3) - 2024-12-13
 
 ### 🐛 Bug Fixes
