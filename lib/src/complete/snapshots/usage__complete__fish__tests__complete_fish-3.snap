@@ -1,6 +1,6 @@
 ---
 source: lib/src/complete/fish.rs
-expression: "complete_fish(&CompleteOptions\n{\n    shell: \"fish\".to_string(), bin: \"mycli\".to_string(), cache_key: None,\n    spec: Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false,\n})"
+expression: "complete_fish(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"fish\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false,\n})"
 snapshot_kind: text
 ---
 # if "usage" is not installed show an error
@@ -16,7 +16,7 @@ bin "mycli"
 source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
 flag "--flag1" help="flag1 description"
 flag "--flag2" help="flag2 description" {
-    long_help "flag2 long description\n\nincludes a code block:\n\n    $ echo hello world\n    hello world\n    \n    more code\n\nsome docs\n\n    $ echo hello world\n    hello world\n"
+    long_help "flag2 long description\n\nincludes a code block:\n\n    $ echo hello world\n    hello world\n\n    more code\n\nExamples:\n\n    # run with no arguments to use the interactive selector\n    $ mise use\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n\nsome docs\n\n    $ echo hello world\n    hello world\n"
 }
 flag "--flag3" help="flag3 description" negate="--no-flag3"
 flag "--with-default"

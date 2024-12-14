@@ -72,8 +72,16 @@ mod tests {
 
             $ echo hello world
             hello world
-            
+
             more code
+
+        Examples:
+
+            # run with no arguments to use the interactive selector
+            $ mise use
+
+            # set the current version of node to 20.x in mise.toml of current directory
+            # will write the fuzzy version (e.g.: 20)
 
         some docs
 
