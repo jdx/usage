@@ -33,7 +33,7 @@ mise run lint-fix
 
 git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
-cargo update
+# cargo update disable until kdl has new miette
 git add \
   {./,cli/,lib/}Cargo.* \
   cli/usage.usage.kdl \
