@@ -13,6 +13,7 @@ use crate::spec::is_false;
 use crate::{string, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum SpecDoubleDashChoices {
     /// Once an arg is entered, behave as if "--" was passed
     Automatic,
