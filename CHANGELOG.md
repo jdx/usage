@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.2](https://github.com/jdx/usage/compare/v1.7.1..v1.7.2) - 2024-12-18
+
+### 🐛 Bug Fixes
+
+- clean up double_dash rendering by [@jdx](https://github.com/jdx) in [eac7db8](https://github.com/jdx/usage/commit/eac7db8a68ded04f6c2260fe68a5bba2867a3a5d)
+
 ## [1.7.1](https://github.com/jdx/usage/compare/v1.7.0..v1.7.1) - 2024-12-18
 
 ### 🐛 Bug Fixes
