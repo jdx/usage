@@ -122,7 +122,7 @@ impl From<&SpecArg> for KdlNode {
         if !arg.required {
             node.push(KdlEntry::new_prop("required", false));
         }
-        if arg.double_dash != SpecDoubleDashChoices::Optional {
+        if arg.double_dash == SpecDoubleDashChoices::Automatic {
             node.push(KdlEntry::new_prop(
                 "double_dash",
                 arg.double_dash.to_string(),
@@ -158,9 +158,9 @@ impl From<&str> for SpecArg {
             required: true,
             ..Default::default()
         };
-        if input.strip_suffix("...").is_some() {
+        if let Some(name) = arg.name.strip_suffix("...") {
             arg.var = true;
-            arg.name = arg.name[..arg.name.len() - 3].to_string();
+            arg.name = name.to_string();
         }
         let first = arg.name.chars().next().unwrap_or_default();
         let last = arg.name.chars().last().unwrap_or_default();
@@ -174,7 +174,10 @@ impl From<&str> for SpecArg {
             }
             _ => {}
         }
-        // TODO: handle doubledash choice
+        if let Some(name) = arg.name.strip_prefix("-- ") {
+            arg.double_dash = SpecDoubleDashChoices::Required;
+            arg.name = name.to_string();
+        }
         arg
     }
 }

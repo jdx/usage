@@ -25,4 +25,6 @@ tests_same! {
     arg_choices: r#"arg "<shell>" {
     choices "bash" "fish" "zsh"
 }"#,
+
+    double_dash: r#"arg "<-- shell...>""#,
 }
