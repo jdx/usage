@@ -10,6 +10,12 @@ use predicates::str::contains;
 fn complete_word_completer() {
     assert_cmd("basic.usage.kdl", &["plugins", "install", "pl"])
         .stdout("plugin-1\nplugin-2\nplugin-3\n");
+    assert_cmd("basic.usage.kdl", &["plugins", "install_desc", "pl"]).stdout(
+        r#"'plugin-1'\:'desc'
+'plugin-2'\:'desc'
+'plugin-3'\:'desc'
+"#,
+    );
 }
 
 #[test]
@@ -67,7 +73,12 @@ fn complete_word_choices() {
 
 #[test]
 fn complete_word_shebang() {
-    assert_cmd("example.sh", &["--", "-"]).stdout("--bar\n--defaulted\n--foo\n");
+    assert_cmd("example.sh", &["--", "-"]).stdout(
+        r#"'--bar'\:'Option value'
+'--defaulted'\:'Defaulted value'
+'--foo'\:'Flag value'
+"#,
+    );
 }
 
 #[test]
@@ -88,17 +99,25 @@ fn complete_word_mounted() {
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     env::set_var("PATH", env::join_paths(path).unwrap());
-    assert_cmd("mounted.sh", &["--", "-"]).stdout("--mount\n");
+    assert_cmd("mounted.sh", &["--", "-"])
+        .stdout("\'--mount\'\\:\'Display kdl spec for mounted tasks\'\n");
     assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
-fn cmd(example: &str) -> Command {
+fn cmd(example: &str, shell: &str) -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();
-    cmd.args(["cw", "-f", &format!("../examples/{example}"), "mycli"]);
+    cmd.args([
+        "cw",
+        "--shell",
+        shell,
+        "-f",
+        &format!("../examples/{example}"),
+        "mycli",
+    ]);
     cmd
 }
 
 fn assert_cmd(example: &str, args: &[&str]) -> Assert {
-    cmd(example).args(args).assert().success()
+    cmd(example, "zsh").args(args).assert().success()
 }
