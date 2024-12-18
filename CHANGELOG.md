@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.0](https://github.com/jdx/usage/compare/v1.6.0..v1.7.0) - 2024-12-18
+
+### 🚀 Features
+
+- added double_dash option to args by [@jdx](https://github.com/jdx) in [#202](https://github.com/jdx/usage/pull/202)
+
+### 🐛 Bug Fixes
+
+- allow overriding `usage` in case of conflict by [@jdx](https://github.com/jdx) in [#198](https://github.com/jdx/usage/pull/198)
+- join code fences if they are right next to each other by [@jdx](https://github.com/jdx) in [#200](https://github.com/jdx/usage/pull/200)
+- default cmd help types by [@jdx](https://github.com/jdx) in [#203](https://github.com/jdx/usage/pull/203)
+
+### 🔍 Other Changes
+
+- disable cargo up in release-plz by [@jdx](https://github.com/jdx) in [16a36b7](https://github.com/jdx/usage/commit/16a36b78673b40a98a4701e30d5222f4a1b4bb95)
+
 ## [1.6.0](https://github.com/jdx/usage/compare/v1.5.3..v1.6.0) - 2024-12-14
 
 ### 🚀 Features
