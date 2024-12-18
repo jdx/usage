@@ -12,6 +12,17 @@ use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
 use crate::{string, SpecChoices};
 
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
+pub enum SpecDoubleDashChoices {
+    /// Once an arg is entered, behave as if "--" was passed
+    Automatic,
+    /// Allow "--" to be passed
+    #[default]
+    Optional,
+    /// Require "--" to be passed
+    Required,
+}
+
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
     pub name: String,
@@ -25,6 +36,7 @@ pub struct SpecArg {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
     pub required: bool,
+    pub double_dash: SpecDoubleDashChoices,
     #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -48,6 +60,7 @@ impl SpecArg {
                 "help_long" => arg.help_long = Some(v.ensure_string()?),
                 "help_md" => arg.help_md = Some(v.ensure_string()?),
                 "required" => arg.required = v.ensure_bool()?,
+                "double_dash" => arg.double_dash = v.ensure_string()?.parse()?,
                 "var" => arg.var = v.ensure_bool()?,
                 "hide" => arg.hide = v.ensure_bool()?,
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
@@ -75,10 +88,15 @@ impl SpecArg {
 
 impl SpecArg {
     pub fn usage(&self) -> String {
-        let mut name = if self.required {
-            format!("<{}>", self.name)
+        let name = if self.double_dash == SpecDoubleDashChoices::Required {
+            format!("-- {}", self.name)
         } else {
-            format!("[{}]", self.name)
+            self.name.clone()
+        };
+        let mut name = if self.required {
+            format!("<{}>", name)
+        } else {
+            format!("[{}]", name)
         };
         if self.var {
             name = format!("{}...", name);
@@ -99,6 +117,15 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(desc) = &arg.help_md {
             node.push(KdlEntry::new_prop("help_md", desc.clone()));
+        }
+        if !arg.required {
+            node.push(KdlEntry::new_prop("required", false));
+        }
+        if arg.double_dash != SpecDoubleDashChoices::Optional {
+            node.push(KdlEntry::new_prop(
+                "double_dash",
+                arg.double_dash.to_string(),
+            ));
         }
         if arg.var {
             node.push(KdlEntry::new_prop("var", true));
@@ -146,6 +173,7 @@ impl From<&str> for SpecArg {
             }
             _ => {}
         }
+        // TODO: handle doubledash choice
         arg
     }
 }
@@ -183,6 +211,13 @@ impl From<&clap::Arg> for SpecArg {
                 .to_string(),
             usage: "".into(),
             required,
+            double_dash: if arg.is_last_set() {
+                SpecDoubleDashChoices::Required
+            } else if arg.is_trailing_var_arg_set() {
+                SpecDoubleDashChoices::Automatic
+            } else {
+                SpecDoubleDashChoices::Optional
+            },
             help,
             help_long,
             help_md: None,

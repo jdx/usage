@@ -14,6 +14,7 @@
             "name": "SCRIPT",
             "usage": "<SCRIPT>",
             "required": true,
+            "double_dash": "Optional",
             "hide": false
           },
           {
@@ -22,6 +23,7 @@
             "help": "arguments to pass to script",
             "help_first_line": "arguments to pass to script",
             "required": false,
+            "double_dash": "Optional",
             "var": true,
             "hide": false
           }
@@ -68,6 +70,7 @@
             "help": "user's input from the command line",
             "help_first_line": "user's input from the command line",
             "required": false,
+            "double_dash": "Optional",
             "var": true,
             "hide": false
           }
@@ -84,6 +87,7 @@
               "name": "SHELL",
               "usage": "<SHELL>",
               "required": true,
+              "double_dash": "Optional",
               "hide": false,
               "choices": {
                 "choices": ["bash", "fish", "zsh"]
@@ -103,6 +107,7 @@
               "name": "FILE",
               "usage": "<FILE>",
               "required": true,
+              "double_dash": "Optional",
               "hide": false
             }
           },
@@ -119,6 +124,7 @@
               "name": "SPEC",
               "usage": "<SPEC>",
               "required": true,
+              "double_dash": "Optional",
               "hide": false
             }
           },
@@ -135,6 +141,7 @@
               "name": "CWORD",
               "usage": "<CWORD>",
               "required": true,
+              "double_dash": "Optional",
               "hide": false
             }
           }
@@ -157,6 +164,7 @@
             "help": "command to execute after parsing usage spec",
             "help_first_line": "command to execute after parsing usage spec",
             "required": true,
+            "double_dash": "Optional",
             "hide": false
           },
           {
@@ -165,6 +173,7 @@
             "help": "path to script to execute",
             "help_first_line": "path to script to execute",
             "required": true,
+            "double_dash": "Optional",
             "hide": false
           },
           {
@@ -173,6 +182,7 @@
             "help": "arguments to pass to script",
             "help_first_line": "arguments to pass to script",
             "required": false,
+            "double_dash": "Optional",
             "var": true,
             "hide": false
           }
@@ -198,6 +208,7 @@
                 "name": "SHELL",
                 "usage": "<SHELL>",
                 "required": true,
+                "double_dash": "Optional",
                 "hide": false,
                 "choices": {
                   "choices": ["bash", "fish", "zsh"]
@@ -209,6 +220,7 @@
                 "help": "The CLI which we're generates completions for",
                 "help_first_line": "The CLI which we're generates completions for",
                 "required": true,
+                "double_dash": "Optional",
                 "hide": false
               }
             ],
@@ -226,6 +238,7 @@
                   "name": "CACHE_KEY",
                   "usage": "<CACHE_KEY>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -242,6 +255,7 @@
                   "name": "FILE",
                   "usage": "<FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -259,6 +273,7 @@
                   "name": "USAGE_BIN",
                   "usage": "<USAGE_BIN>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -275,6 +290,7 @@
                   "name": "USAGE_CMD",
                   "usage": "<USAGE_CMD>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -316,6 +332,7 @@
                   "name": "FILE",
                   "usage": "<FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -332,6 +349,7 @@
                   "name": "SPEC",
                   "usage": "<SPEC>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -348,6 +366,7 @@
                   "name": "OUT_FILE",
                   "usage": "<OUT_FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               }
@@ -378,6 +397,7 @@
                   "name": "FILE",
                   "usage": "<FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -394,6 +414,7 @@
                   "name": "SPEC",
                   "usage": "<SPEC>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               }
@@ -426,6 +447,7 @@
                   "name": "FILE",
                   "usage": "<FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -452,6 +474,7 @@
                   "name": "URL_PREFIX",
                   "usage": "<URL_PREFIX>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -486,6 +509,7 @@
                   "name": "OUT_DIR",
                   "usage": "<OUT_DIR>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               },
@@ -500,6 +524,7 @@
                   "name": "OUT_FILE",
                   "usage": "<OUT_FILE>",
                   "required": true,
+                  "double_dash": "Optional",
                   "hide": false
                 }
               }
@@ -530,6 +555,7 @@
         "help": "Outputs completions for the specified shell for completing the `usage` CLI itself",
         "help_first_line": "Outputs completions for the specified shell for completing the `usage` CLI itself",
         "required": false,
+        "double_dash": "Optional",
         "hide": false
       }
     ],

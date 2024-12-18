@@ -4,7 +4,7 @@ version "1.6.0"
 about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
-arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself"
+arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=false
 cmd "bash" help="Executes a bash script" {
     long_help r"Executes a bash script
 
@@ -15,7 +15,7 @@ to properly escape and quote values with spaces in them."
     flag "-h" help="show help"
     flag "--help" help="show help"
     arg "<SCRIPT>"
-    arg "[ARGS]..." help="arguments to pass to script" var=true
+    arg "[ARGS]..." help="arguments to pass to script" required=false var=true
 }
 cmd "complete-word" {
     alias "cw"
@@ -33,13 +33,13 @@ cmd "complete-word" {
     flag "--cword" help="current word index" {
         arg "<CWORD>"
     }
-    arg "[WORDS]..." help="user's input from the command line" var=true
+    arg "[WORDS]..." help="user's input from the command line" required=false var=true
 }
 cmd "exec" hide=true {
     alias "x"
     arg "<COMMAND>" help="command to execute after parsing usage spec"
     arg "<BIN>" help="path to script to execute"
-    arg "[ARGS]..." help="arguments to pass to script" var=true
+    arg "[ARGS]..." help="arguments to pass to script" required=false var=true
 }
 cmd "generate" subcommand_required=true {
     alias "g"
