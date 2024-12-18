@@ -11,7 +11,7 @@ Commands:
 {%- for name, cmd in cmd.subcommands %}
   {{ cmd.usage | trim }}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
-{%- set help = cmd.help_long | default(value=cmd.help) %}
+{%- set help = cmd.help_long | default(value=cmd.help | default(value='')) %}
 {%- if help %}
     {{ help | indent(width=4) }}
 {%- endif %}
@@ -25,7 +25,7 @@ Commands:
 Arguments:
 {%- for arg in cmd.args %}
   {{ arg.usage | trim }}
-{%- set help = arg.help_long | default(value=arg.help) %}
+{%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
 {%- if help %}
     {{ help | indent(width=2) }}
 {%- endif %}
@@ -41,7 +41,7 @@ Flags:
 {%- for flag in cmd.flags %}
   {{ flag.usage | trim }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-{%- set help = flag.help_long | default(value=flag.help) %}
+{%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}
     {{ help | indent(width=2) }}
 {%- endif %}
