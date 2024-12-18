@@ -224,13 +224,18 @@ impl CompleteWord {
                 .filter(|l| l.starts_with(ctoken))
                 .map(|l| {
                     if complete.descriptions {
-                        match re.splitn(l, 2).collect::<Vec<_>>().as_slice() {
-                            [c, d] => (c.replace("\\:", ":"), d.to_string()),
-                            [c] => (c.replace("\\:", ":"), String::new()),
-                            _ => unreachable!(),
+                        match re.find(l).map(|m| l.split_at(m.end() - 1)) {
+                            Some((l, d)) if d.len() <= 1 => {
+                                (l.trim().replace("\\:", ":"), String::new())
+                            }
+                            Some((l, d)) => (
+                                l.trim().replace("\\:", ":"),
+                                d[1..].trim().replace("\\:", ":"),
+                            ),
+                            None => (l.trim().replace("\\:", ":"), String::new()),
                         }
                     } else {
-                        (l.to_string(), String::new())
+                        (l.trim().to_string(), String::new())
                     }
                 })
                 .collect());
