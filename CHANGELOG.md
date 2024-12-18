@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.1](https://github.com/jdx/usage/compare/v1.7.0..v1.7.1) - 2024-12-18
+
+### 🐛 Bug Fixes
+
+- completions with descriptions splitting by [@jdx](https://github.com/jdx) in [5e72f3b](https://github.com/jdx/usage/commit/5e72f3bcda74b3b05a0b3362cfc7a39a15c53146)
+- snake_case double_dash options by [@jdx](https://github.com/jdx) in [92d4dcc](https://github.com/jdx/usage/commit/92d4dccdfa922df5b030eaf6ed8197c9075ff1b2)
+
+### 🧪 Testing
+
+- added test case for completer with description by [@jdx](https://github.com/jdx) in [441bfa9](https://github.com/jdx/usage/commit/441bfa9b30c0026252202784f3aad1ce9bd7baf0)
+
 ## [1.7.0](https://github.com/jdx/usage/compare/v1.6.0..v1.7.0) - 2024-12-18
 
 ### 🚀 Features
@@ -11,10 +22,12 @@
 - allow overriding `usage` in case of conflict by [@jdx](https://github.com/jdx) in [#198](https://github.com/jdx/usage/pull/198)
 - join code fences if they are right next to each other by [@jdx](https://github.com/jdx) in [#200](https://github.com/jdx/usage/pull/200)
 - default cmd help types by [@jdx](https://github.com/jdx) in [#203](https://github.com/jdx/usage/pull/203)
+- make --include-bash-completion-lib work by [@jdx](https://github.com/jdx) in [c833bb4](https://github.com/jdx/usage/commit/c833bb4493d55dd23278ded7f3a1769e8aa448e5)
 
 ### 🔍 Other Changes
 
 - disable cargo up in release-plz by [@jdx](https://github.com/jdx) in [16a36b7](https://github.com/jdx/usage/commit/16a36b78673b40a98a4701e30d5222f4a1b4bb95)
+- pin kdl-rs by [@jdx](https://github.com/jdx) in [7feeb24](https://github.com/jdx/usage/commit/7feeb2403d8055232e3c7a828c8ffe56052d2063)
 
 ## [1.6.0](https://github.com/jdx/usage/compare/v1.5.3..v1.6.0) - 2024-12-14
 
