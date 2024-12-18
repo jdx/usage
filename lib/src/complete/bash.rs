@@ -15,15 +15,14 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
         out.push(include_str!("../../bash-completion/bash_completion").to_string());
         out.push("\n".to_string());
     };
-    let mut out = vec![format!(
+    out.push(format!(
         r#"_{bin_snake}() {{
     if ! command -v {usage_bin} &> /dev/null; then
         echo >&2
         echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
         echo "See https://usage.jdx.dev for more information." >&2
         return 1
-    fi"#
-    )];
+    fi"#));
 
     if let Some(usage_cmd) = &opts.usage_cmd {
         out.push(format!(
