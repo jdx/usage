@@ -948,9 +948,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.36.6"
+version = "0.36.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08dde84f120894086dbb40c7a0257f76fdc72b6f52cdb56c2b5121b2f81b0c83"
+checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "memchr",
 ]
@@ -1645,7 +1645,7 @@ checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "usage-cli"
-version = "1.7.3"
+version = "1.7.4"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1675,7 +1675,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "1.7.3"
+version = "1.7.4"
 dependencies = [
  "clap",
  "ctor",
