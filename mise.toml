@@ -99,6 +99,10 @@ run = [
     "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --replace-pre-with-code-fences",
 ]
 
+[tasks."render:fig"]
+depends = ['build']
+run = 'usage generate fig -f cli/usage.usage.kdl --out-file cli/assets/fig.ts'
+
 [tasks.release]
 run = "cargo release --workspace"
 

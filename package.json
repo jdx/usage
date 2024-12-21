@@ -5,9 +5,24 @@
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "lint-fig": "eslint '**/*.ts' && npx prettier --check '**/*.ts' --parser typescript",
+    "lint-fig:fix": "eslint '**/*.ts' --fix && npx prettier --write '**/*.ts' --parser typescript"
   },
   "dependencies": {
     "vitepress": "1.5.0"
+  },
+  "prettier": {
+    "trailingComma": "es5",
+    "printWidth": 80
+  },
+  "devDependencies": {
+    "@fig/eslint-config-autocomplete": "^2.0.0",
+    "@tsconfig/node18": "^18.2.4",
+    "@withfig/autocomplete": "^2.683.0",
+    "@withfig/autocomplete-tools": "^2.10.0",
+    "@withfig/autocomplete-types": "^1.31.0",
+    "eslint": "^8.57.0",
+    "semver": "^7.6.3"
   }
 }

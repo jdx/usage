@@ -1,3 +1,10 @@
+const envVarGenerator = {
+  script: ["sh", "-c", "env"],
+  postProcess: (output: string) => {
+    return output.split("\n").map((l) => ({ name: l.split("=")[0] }));
+  },
+};
+
 const usageGenerateSpec = (cmds: string[]) => {
   return async (
     context: string[],
