@@ -1,7 +1,14 @@
+const envVarGenerator = {
+  script: ["sh", "-c", "env"],
+  postProcess: (output: string) => {
+    return output.split("\n").map((l) => ({ name: l.split("=")[0] }));
+  },
+};
+
 const usageGenerateSpec = (cmds: string[]) => {
   return async (
     context: string[],
-    executeCommand: Fig.ExecuteCommandFunction,
+    executeCommand: Fig.ExecuteCommandFunction
   ): Promise<Fig.Spec> => {
     const promises = cmds.map(async (cmd): Promise<Fig.Subcommand[]> => {
       try {
@@ -51,7 +58,7 @@ const usageGenerateSpec = (cmds: string[]) => {
 };
 
 const completionGeneratorTemplate = (
-  argSuggestionBash: string,
+  argSuggestionBash: string
 ): Fig.Generator => {
   return {
     custom: async (tokens: string[], executeCommand) => {
@@ -59,7 +66,7 @@ const completionGeneratorTemplate = (
       if (tokens.length >= 1) {
         arg = argSuggestionBash.replace(
           "{{words[CURRENT]}}",
-          tokens[tokens.length - 1],
+          tokens[tokens.length - 1]
         );
       }
 

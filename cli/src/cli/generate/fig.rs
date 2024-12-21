@@ -8,6 +8,33 @@ use usage::{SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
 use crate::cli::generate;
 use serde::{Deserialize, Serialize, Serializer};
+use serde_with::{serde_as, OneOrMany};
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+mod description_format {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(description: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s: &str = description.as_ref().unwrap();
+        let mut v: Vec<char> = s.chars().collect();
+        v[0] = v[0].to_uppercase().next().unwrap();
+        serializer.serialize_str(v.iter().collect::<String>().as_str())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Some(s))
+    }
+}
 
 #[derive(Args)]
 #[clap()]
@@ -52,8 +79,11 @@ impl Serialize for FigGenerator {
 struct FigArg {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(with = "description_format")]
     description: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
     is_optional: bool,
+    #[serde(skip_serializing_if = "is_false")]
     is_variadic: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     template: Option<String>,
@@ -61,12 +91,17 @@ struct FigArg {
     generators: Option<FigGenerator>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     suggestions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    debounce: Option<bool>,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 struct FigOption {
+    #[serde_as(as = "OneOrMany<_>")]
     name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(with = "description_format")]
     description: Option<String>,
     #[serde(rename(serialize = "isRepeatable"))]
     is_repeatable: bool,
@@ -74,9 +109,11 @@ struct FigOption {
     args: Option<FigArg>,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct FigCommand {
+    #[serde_as(as = "OneOrMany<_>")]
     name: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
@@ -85,6 +122,7 @@ struct FigCommand {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     options: Vec<FigOption>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde_as(as = "OneOrMany<_>")]
     args: Vec<FigArg>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -176,6 +214,7 @@ impl FigArg {
             template: FigArg::get_template(&arg.name),
             generators: FigArg::get_generator(&arg.name),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
+            debounce: FigArg::get_generator(&arg.name).map(|_| true),
         }
     }
 
