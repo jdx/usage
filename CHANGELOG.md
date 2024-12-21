@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.4](https://github.com/jdx/usage/compare/v1.7.3..v1.7.4) - 2024-12-21
+
+### 🔍 Other Changes
+
+- expose spec.merge method by [@jdx](https://github.com/jdx) in [6de998c](https://github.com/jdx/usage/commit/6de998c00ec15b5bca70bbd46cb5700d9e620861)
+
 ## [1.7.3](https://github.com/jdx/usage/compare/v1.7.2..v1.7.3) - 2024-12-21
 
 ### 🔍 Other Changes
