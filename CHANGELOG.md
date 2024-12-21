@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.3](https://github.com/jdx/usage/compare/v1.7.2..v1.7.3) - 2024-12-21
+
+### 🔍 Other Changes
+
+- Better fig generation to avoid linter from complaining by [@miguelmig](https://github.com/miguelmig) in [#208](https://github.com/jdx/usage/pull/208)
+
 ## [1.7.2](https://github.com/jdx/usage/compare/v1.7.1..v1.7.2) - 2024-12-18
 
 ### 🐛 Bug Fixes
