@@ -164,7 +164,7 @@ impl Spec {
         Ok(schema)
     }
 
-    fn merge(&mut self, other: Spec) {
+    pub fn merge(&mut self, other: Spec) {
         if !other.name.is_empty() {
             self.name = other.name;
         }
