@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.5](https://github.com/jdx/usage/compare/v1.7.4..v1.7.5) - 2024-12-31
+
+### 🔍 Other Changes
+
+- Update LICENSE by [@jdx](https://github.com/jdx) in [e27b7d9](https://github.com/jdx/usage/commit/e27b7d9cbbbe096a844dde9ace93bfebd35e2e63)
+
 ## [1.7.4](https://github.com/jdx/usage/compare/v1.7.3..v1.7.4) - 2024-12-21
 
 ### 🔍 Other Changes
