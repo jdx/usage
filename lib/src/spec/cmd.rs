@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::sync::OnceLock;
-
 use crate::error::UsageErr;
 use crate::sh::sh;
 use crate::spec::context::ParsingContext;
@@ -8,10 +5,14 @@ use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
 use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
+use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::OnceLock;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct SpecCommand {
@@ -33,6 +34,8 @@ pub struct SpecCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -72,6 +75,7 @@ impl Default for SpecCommand {
             help_long: None,
             help_md: None,
             name: "".to_string(),
+            file_path: None,
             aliases: vec![],
             hidden_aliases: vec![],
             before_help: None,
@@ -131,6 +135,7 @@ impl SpecCommand {
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "file_path" => cmd.file_path = Some(v.ensure_string()?),
                 "deprecated" => {
                     cmd.deprecated = match v.value.as_bool() {
                         Some(true) => Some("deprecated".to_string()),
@@ -203,6 +208,7 @@ impl SpecCommand {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
+                "file_path" => cmd.file_path = Some(child.ensure_arg_len(1..1)?.arg(0)?.ensure_string()?),
                 "deprecated" => {
                     cmd.deprecated = match child.arg(0)?.value.as_bool() {
                         Some(true) => Some("deprecated".to_string()),
@@ -316,7 +322,10 @@ impl SpecCommand {
         if !other.examples.is_empty() {
             self.examples = other.examples;
         }
-        self.hide = other.hide;
+        self.hide = self.hide || other.hide;
+        if let Some(file_path) = other.file_path {
+            self.file_path = Some(file_path);
+        }
         self.subcommand_required = other.subcommand_required;
         for (name, cmd) in other.subcommands {
             self.subcommands.insert(name, cmd);
@@ -390,6 +399,10 @@ impl From<&SpecCommand> for KdlNode {
             aliases.entries_mut().push(KdlEntry::new_prop("hide", true));
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(aliases);
+        }
+        if let Some(file_path) = &cmd.file_path {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("file_path", file_path.clone()));
         }
         if let Some(help) = &cmd.help {
             node.entries_mut()
@@ -466,9 +479,11 @@ impl From<&SpecCommand> for KdlNode {
 #[cfg(feature = "clap")]
 impl From<&clap::Command> for SpecCommand {
     fn from(cmd: &clap::Command) -> Self {
+        let file_path = Path::new("./mod.rs");
         let mut spec = Self {
             name: cmd.get_name().to_string(),
             hide: cmd.is_hide_set(),
+            file_path: Some(file_path.to_string_lossy().to_string()),
             help: cmd.get_about().map(|s| s.to_string()),
             help_long: cmd.get_long_about().map(|s| s.to_string()),
             before_help: cmd.get_before_help().map(|s| s.to_string()),
@@ -497,6 +512,14 @@ impl From<&clap::Command> for SpecCommand {
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
+            scmd.file_path = Some(if scmd.subcommands.is_empty() {
+                let file_name = format!("{}.rs", scmd.name.to_snake_case());
+                file_path.parent().unwrap().join(file_name).to_string_lossy().to_string()
+            } else {
+                let file_name = format!("{}/mod.rs", scmd.name.to_snake_case());
+                file_path.parent().unwrap().join(file_name).to_string_lossy().to_string()
+            });
+            // TODO: need to iterate through every subcommand recursively to fix file_path
             spec.subcommands.insert(scmd.name.clone(), scmd);
         }
         spec
