@@ -208,7 +208,9 @@ impl SpecCommand {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
-                "file_path" => cmd.file_path = Some(child.ensure_arg_len(1..1)?.arg(0)?.ensure_string()?),
+                "file_path" => {
+                    cmd.file_path = Some(child.ensure_arg_len(1..1)?.arg(0)?.ensure_string()?)
+                }
                 "deprecated" => {
                     cmd.deprecated = match child.arg(0)?.value.as_bool() {
                         Some(true) => Some("deprecated".to_string()),
@@ -514,10 +516,20 @@ impl From<&clap::Command> for SpecCommand {
             scmd.name = subcmd.get_name().to_string();
             scmd.file_path = Some(if scmd.subcommands.is_empty() {
                 let file_name = format!("{}.rs", scmd.name.to_snake_case());
-                file_path.parent().unwrap().join(file_name).to_string_lossy().to_string()
+                file_path
+                    .parent()
+                    .unwrap()
+                    .join(file_name)
+                    .to_string_lossy()
+                    .to_string()
             } else {
                 let file_name = format!("{}/mod.rs", scmd.name.to_snake_case());
-                file_path.parent().unwrap().join(file_name).to_string_lossy().to_string()
+                file_path
+                    .parent()
+                    .unwrap()
+                    .join(file_name)
+                    .to_string_lossy()
+                    .to_string()
             });
             // TODO: need to iterate through every subcommand recursively to fix file_path
             spec.subcommands.insert(scmd.name.clone(), scmd);

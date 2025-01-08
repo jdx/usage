@@ -5,7 +5,7 @@ about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
 arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=false
-cmd "bash" help="Executes a bash script" {
+cmd "bash" file_path="./bash.rs" help="Executes a bash script" {
     long_help r"Executes a bash script
 
 Typically, this will be called by a script's shebang
@@ -17,7 +17,7 @@ to properly escape and quote values with spaces in them."
     arg "<SCRIPT>"
     arg "[ARGS]..." help="arguments to pass to script" required=false var=true
 }
-cmd "complete-word" {
+cmd "complete-word" file_path="./complete_word.rs" {
     alias "cw"
     flag "--shell" {
         arg "<SHELL>" {
@@ -35,15 +35,15 @@ cmd "complete-word" {
     }
     arg "[WORDS]..." help="user's input from the command line" required=false var=true
 }
-cmd "exec" hide=true {
+cmd "exec" hide=true file_path="./exec.rs" {
     alias "x"
     arg "<COMMAND>" help="command to execute after parsing usage spec"
     arg "<BIN>" help="path to script to execute"
     arg "[ARGS]..." help="arguments to pass to script" required=false var=true
 }
-cmd "generate" subcommand_required=true {
+cmd "generate" subcommand_required=true file_path="./generate/mod.rs" {
     alias "g"
-    cmd "completion" {
+    cmd "completion" file_path="./completion.rs" {
         alias "c"
         alias "complete" "completions" hide=true
         flag "--cache-key" help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
@@ -67,7 +67,7 @@ cmd "generate" subcommand_required=true {
         }
         arg "<BIN>" help="The CLI which we're generates completions for"
     }
-    cmd "fig" {
+    cmd "fig" file_path="./fig.rs" {
         flag "-f --file" help="A usage spec taken in as a file" {
             arg "<FILE>"
         }
@@ -78,7 +78,7 @@ cmd "generate" subcommand_required=true {
             arg "<OUT_FILE>"
         }
     }
-    cmd "json" help="Outputs a usage spec in json format" {
+    cmd "json" file_path="./json.rs" help="Outputs a usage spec in json format" {
         flag "-f --file" help="A usage spec taken in as a file" {
             arg "<FILE>"
         }
@@ -86,7 +86,7 @@ cmd "generate" subcommand_required=true {
             arg "<SPEC>"
         }
     }
-    cmd "markdown" {
+    cmd "markdown" file_path="./markdown.rs" {
         alias "md"
         flag "-f --file" help="A usage spec taken in as a file" required=true {
             arg "<FILE>"

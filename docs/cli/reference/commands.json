@@ -55,6 +55,7 @@
         "help": "Executes a bash script",
         "help_long": "Executes a bash script\n\nTypically, this will be called by a script's shebang\n\nIf using `var=true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
         "name": "bash",
+        "file_path": "./bash.rs",
         "aliases": [],
         "hidden_aliases": [],
         "examples": []
@@ -149,6 +150,7 @@
         "mounts": [],
         "hide": false,
         "name": "complete-word",
+        "file_path": "./complete_word.rs",
         "aliases": ["cw"],
         "hidden_aliases": [],
         "examples": []
@@ -191,6 +193,7 @@
         "mounts": [],
         "hide": true,
         "name": "exec",
+        "file_path": "./exec.rs",
         "aliases": ["x"],
         "hidden_aliases": [],
         "examples": []
@@ -309,6 +312,7 @@
             "mounts": [],
             "hide": false,
             "name": "completion",
+            "file_path": "./completion.rs",
             "aliases": ["c"],
             "hidden_aliases": ["complete", "completions"],
             "examples": []
@@ -374,6 +378,7 @@
             "mounts": [],
             "hide": false,
             "name": "fig",
+            "file_path": "./fig.rs",
             "aliases": [],
             "hidden_aliases": [],
             "examples": []
@@ -423,6 +428,7 @@
             "hide": false,
             "help": "Outputs a usage spec in json format",
             "name": "json",
+            "file_path": "./json.rs",
             "aliases": [],
             "hidden_aliases": [],
             "examples": []
@@ -532,6 +538,7 @@
             "mounts": [],
             "hide": false,
             "name": "markdown",
+            "file_path": "./markdown.rs",
             "aliases": ["md"],
             "hidden_aliases": [],
             "examples": []
@@ -543,6 +550,7 @@
         "hide": false,
         "subcommand_required": true,
         "name": "generate",
+        "file_path": "./generate/mod.rs",
         "aliases": ["g"],
         "hidden_aliases": [],
         "examples": []
