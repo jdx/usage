@@ -1,8 +1,13 @@
 [tools.actionlint]
 version = "1.7.4"
+backend = "aqua:rhysd/actionlint"
+
+[tools.actionlint.checksums]
+"actionlint_1.7.4_darwin_arm64.tar.gz" = "sha256:cbd193bb490f598d77e179261d7b76dfebd049dddede5803ba21cbf6a469aeee"
 
 [tools.cargo-binstall]
 version = "1.10.8"
+backend = "aqua:cargo-bins/cargo-binstall"
 
 [tools.cargo-binstall.checksums]
 "cargo-binstall-aarch64-apple-darwin.zip" = "sha256:23a27d534c98fed95e88c320fd7de154f851af7bce9100eed15e72fee316804c"
@@ -11,18 +16,23 @@ cargo-binstall-macos-aarch64 = "sha256:c30a499060745f0c4435a446253fc676838cff0a1
 
 [tools."cargo:cargo-edit"]
 version = "0.13.0"
+backend = "cargo:cargo-edit"
 
 [tools."cargo:cargo-insta"]
 version = "1.41.1"
+backend = "cargo:cargo-insta"
 
 [tools."cargo:cargo-release"]
 version = "0.25.12"
+backend = "cargo:cargo-release"
 
 [tools."cargo:git-cliff"]
 version = "2.6.1"
+backend = "cargo:git-cliff"
 
 [tools.gh]
 version = "2.60.1"
+backend = "aqua:cli/cli"
 
 [tools.gh.checksums]
 "gh_2.60.1_linux_amd64.tar.gz" = "sha256:dfcd9926de38a797e88e604c3111ecf9ddf13c524706712b2b0d2e2fc4a6ed7f"
@@ -30,9 +40,11 @@ version = "2.60.1"
 
 [tools."npm:prettier"]
 version = "3.3.3"
+backend = "npm:prettier"
 
 [tools.shellcheck]
 version = "0.10.0"
+backend = "aqua:koalaman/shellcheck"
 
 [tools.shellcheck.checksums]
 shellcheck-macos-aarch64 = "sha256:b9e420df8c78ec7d261d66277d5767cbd4cf6da4e4a9f8b02ea4811cd4cc1109"

@@ -57,7 +57,11 @@ __USAGE_EOF__"#,
     return 0
 }}
 
-shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin_snake} {bin}
+if [[ "${{BASH_VERSINFO[0]}}" -eq 4 && "${{BASH_VERSINFO[1]}}" -ge 4 || "${{BASH_VERSINFO[0]}}" -gt 4 ]]; then
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _{bin_snake} {bin}
+else
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -F _{bin_snake} {bin}
+fi
 # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh
 "#
     ));
