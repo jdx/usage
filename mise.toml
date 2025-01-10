@@ -102,7 +102,10 @@ run = [
 [tasks."render:fig"]
 depends = ['build']
 wait_for = 'render:usage-cli-completions'
-run = 'usage generate fig -f cli/usage.usage.kdl --out-file cli/assets/fig.ts'
+run = [
+    'usage generate fig -f cli/usage.usage.kdl --out-file cli/assets/fig.ts',
+    'prettier -w cli/assets/fig.ts',
+]
 
 [tasks.release]
 run = "cargo release --workspace"
