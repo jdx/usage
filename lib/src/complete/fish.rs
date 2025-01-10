@@ -46,8 +46,15 @@ set {spec_variable} '{spec_escaped}'"#
     }
 
     out.push(format!(
-        r#"complete -xc {bin} -a '({usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -cop) (commandline -t))'"#
-    ));
+        r#"
+set -l tokens
+if commandline -x >/dev/null 2>&1
+    complete -xc {bin} -a '({usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -xpc) (commandline -t))'
+else
+    complete -xc {bin} -a '({usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -opc) (commandline -t))'
+end
+"#
+    ).trim().to_string());
 
     out.join("\n")
 }

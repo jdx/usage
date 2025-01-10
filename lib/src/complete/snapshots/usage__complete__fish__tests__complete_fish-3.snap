@@ -46,4 +46,9 @@ cmd "plugin" {
     }
 }
 '
-complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -cop) (commandline -t))'
+set -l tokens
+if commandline -x >/dev/null 2>&1
+    complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -xpc) (commandline -t))'
+else
+    complete -xc mycli -a '(usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -opc) (commandline -t))'
+end
