@@ -1,6 +1,6 @@
 use crate::usage_spec;
 use clap::{Parser, Subcommand};
-use miette::Result;
+use miette7::Result;
 
 mod bash;
 mod complete_word;

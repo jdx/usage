@@ -1848,6 +1848,7 @@ dependencies = [
  "exec",
  "indexmap 2.7.0",
  "itertools 0.14.0",
+ "kdl 6.2.2",
  "log",
  "miette 7.4.0",
  "once_cell",

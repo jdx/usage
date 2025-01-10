@@ -24,7 +24,7 @@ pub enum Command {
 }
 
 impl Generate {
-    pub fn run(&self) -> miette::Result<()> {
+    pub fn run(&self) -> miette7::Result<()> {
         match &self.command {
             Command::Completion(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),

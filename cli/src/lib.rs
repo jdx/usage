@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate log;
-extern crate miette;
+extern crate miette7;
 extern crate xx;
 
 use std::path::PathBuf;
 
-use miette::Result;
+use miette7::Result;
 
 use cli::Cli;
 

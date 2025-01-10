@@ -1,5 +1,5 @@
 use crate::error::UsageErr;
-use miette::{NamedSource, SourceSpan};
+use miette7::{NamedSource, SourceSpan};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]

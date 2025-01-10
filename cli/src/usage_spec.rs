@@ -1,6 +1,6 @@
 use crate::cli::Cli;
 use clap::CommandFactory;
-use miette::Result;
+use miette7::Result;
 
 pub(crate) fn generate() -> Result<()> {
     let mut cli = Cli::command().version(env!("CARGO_PKG_VERSION"));

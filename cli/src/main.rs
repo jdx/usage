@@ -1,7 +1,7 @@
 use env_logger::Env;
 use usage_cli::env;
 
-fn main() -> miette::Result<()> {
+fn main() -> miette7::Result<()> {
     set_log_env_vars();
     env_logger::builder()
         .format_timestamp(None)

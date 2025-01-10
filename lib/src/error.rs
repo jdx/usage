@@ -1,4 +1,5 @@
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use miette7 as miette;
+use miette7::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
 #[derive(Error, Diagnostic, Debug)]
@@ -52,13 +53,13 @@ pub type Result<T> = std::result::Result<T, UsageErr>;
 #[macro_export]
 macro_rules! bail_parse {
     ($ctx:expr, $span:expr, $fmt:literal) => {{
-        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
+        let span: miette7::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt);
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
     ($ctx:expr, $span:expr, $fmt:literal, $($arg:tt)*) => {{
-        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
+        let span: miette7::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt, $($arg)*);
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);

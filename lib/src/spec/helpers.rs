@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use kdl::{KdlEntry, KdlNode, KdlValue};
-use miette::SourceSpan;
+use miette7::SourceSpan;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 

@@ -37,8 +37,8 @@ pub struct Markdown {
 }
 
 impl Markdown {
-    pub fn run(&self) -> miette::Result<()> {
-        let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
+    pub fn run(&self) -> miette7::Result<()> {
+        let write = |path: &PathBuf, md: &str| -> miette7::Result<()> {
             println!("writing to {}", path.display());
             xx::file::write(path, format!("{}\n", md.trim()))?;
             Ok(())
