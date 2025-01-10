@@ -25,7 +25,7 @@ name = "usage"
 clap = { version = "4", features = ["derive", "string"], optional = true }
 heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
-itertools = "0.13"
+itertools = "0.14"
 kdl = "= 4.7.0"
 log = "0.4"
 miette = "7"
