@@ -96,4 +96,4 @@ jobs:
         with:
           submodules: recursive
       - uses: jdx/mise-action@v2
-      - run: gh release edit ${{ github.ref_name }} --draft=#false
+      - run: gh release edit ${{ github.ref_name }} --draft=false
