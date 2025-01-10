@@ -37,7 +37,7 @@ impl<'a> NodeHelper<'a> {
         Ok(self)
     }
     pub(crate) fn get(&self, key: &str) -> Option<ParseEntry> {
-        self.node.get(key).map(|e| ParseEntry::new(self.ctx, e))
+        self.node.entry(key).map(|e| ParseEntry::new(self.ctx, e))
     }
     pub(crate) fn arg(&self, i: usize) -> Result<ParseEntry, UsageErr> {
         if let Some(entry) = self.args().nth(i) {
@@ -98,14 +98,14 @@ impl<'a> ParseEntry<'a> {
 
 impl ParseEntry<'_> {
     pub fn ensure_usize(&self) -> Result<usize, UsageErr> {
-        match self.value.as_i64() {
+        match self.value.as_integer() {
             Some(i) => Ok(i as usize),
             None => bail_parse!(self.ctx, self.span(), "expected usize"),
         }
     }
     #[allow(dead_code)]
     pub fn ensure_f64(&self) -> Result<f64, UsageErr> {
-        match self.value.as_f64() {
+        match self.value.as_float() {
             Some(f) => Ok(f),
             None => bail_parse!(self.ctx, self.span(), "expected float"),
         }

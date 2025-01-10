@@ -67,7 +67,7 @@ impl SpecFlag {
                 "count" => flag.count = v.ensure_bool()?,
                 "default" => flag.default = v.ensure_string().map(Some)?,
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
-                k => bail_parse!(ctx, *v.entry.span(), "unsupported flag key {k}"),
+                k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
         }
         if flag.default.is_some() {
@@ -99,12 +99,12 @@ impl SpecFlag {
                     } else {
                         bail_parse!(
                             ctx,
-                            *child.node.name().span(),
+                            child.node.name().span(),
                             "flag must have value to have choices"
                         )
                     }
                 }
-                k => bail_parse!(ctx, *child.node.name().span(), "unsupported flag child {k}"),
+                k => bail_parse!(ctx, child.node.name().span(), "unsupported flag child {k}"),
             }
         }
         flag.usage = flag.usage();

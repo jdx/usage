@@ -1,107 +1,102 @@
-name "usage-cli"
-bin "usage"
+name usage-cli
+bin usage
 version "1.7.4"
 about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
-flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
-arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=false
-cmd "bash" help="Executes a bash script" {
-    long_help r"Executes a bash script
-
-Typically, this will be called by a script's shebang
-
-If using `var=true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them."
-    flag "-h" help="show help"
-    flag "--help" help="show help"
-    arg "<SCRIPT>"
-    arg "[ARGS]..." help="arguments to pass to script" required=false var=true
+flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
+arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
+cmd bash help="Executes a bash script" {
+    long_help "Executes a bash script\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="show help"
+    flag --help help="show help"
+    arg <SCRIPT>
+    arg "[ARGS]..." help="arguments to pass to script" required=#false var=#true
 }
-cmd "complete-word" {
-    alias "cw"
-    flag "--shell" {
-        arg "<SHELL>" {
-            choices "bash" "fish" "zsh"
+cmd complete-word {
+    alias cw
+    flag --shell {
+        arg <SHELL> {
+            choices bash fish zsh
         }
     }
     flag "-f --file" help="usage spec file or script with usage shebang" {
-        arg "<FILE>"
+        arg <FILE>
     }
     flag "-s --spec" help="raw string spec input" {
-        arg "<SPEC>"
+        arg <SPEC>
     }
-    flag "--cword" help="current word index" {
-        arg "<CWORD>"
+    flag --cword help="current word index" {
+        arg <CWORD>
     }
-    arg "[WORDS]..." help="user's input from the command line" required=false var=true
+    arg "[WORDS]..." help="user's input from the command line" required=#false var=#true
 }
-cmd "exec" hide=true {
-    alias "x"
-    arg "<COMMAND>" help="command to execute after parsing usage spec"
-    arg "<BIN>" help="path to script to execute"
-    arg "[ARGS]..." help="arguments to pass to script" required=false var=true
+cmd exec hide=#true {
+    alias x
+    arg <COMMAND> help="command to execute after parsing usage spec"
+    arg <BIN> help="path to script to execute"
+    arg "[ARGS]..." help="arguments to pass to script" required=#false var=#true
 }
-cmd "generate" subcommand_required=true {
-    alias "g"
-    cmd "completion" {
-        alias "c"
-        alias "complete" "completions" hide=true
-        flag "--cache-key" help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
-            arg "<CACHE_KEY>"
+cmd generate subcommand_required=#true {
+    alias g
+    cmd completion {
+        alias c
+        alias complete completions hide=#true
+        flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
+            arg <CACHE_KEY>
         }
         flag "-f --file" help="A .usage.kdl spec file to use for generating completions" {
-            arg "<FILE>"
+            arg <FILE>
         }
-        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" {
+        flag --usage-bin help="Override the bin used for calling back to usage-cli" {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
-            arg "<USAGE_BIN>"
+            arg <USAGE_BIN>
         }
-        flag "--usage-cmd" help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
-            arg "<USAGE_CMD>"
+        flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
+            arg <USAGE_CMD>
         }
-        flag "--include-bash-completion-lib" help="Include https://github.com/scop/bash-completion" {
+        flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
             long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
-        arg "<SHELL>" {
-            choices "bash" "fish" "zsh"
+        arg <SHELL> {
+            choices bash fish zsh
         }
-        arg "<BIN>" help="The CLI which we're generates completions for"
+        arg <BIN> help="The CLI which we're generates completions for"
     }
-    cmd "fig" {
+    cmd fig {
         flag "-f --file" help="A usage spec taken in as a file" {
-            arg "<FILE>"
+            arg <FILE>
         }
-        flag "--spec" help="raw string spec input" {
-            arg "<SPEC>"
+        flag --spec help="raw string spec input" {
+            arg <SPEC>
         }
-        flag "--out-file" help="File on where to save the generated Fig spec" {
-            arg "<OUT_FILE>"
+        flag --out-file help="File on where to save the generated Fig spec" {
+            arg <OUT_FILE>
         }
     }
-    cmd "json" help="Outputs a usage spec in json format" {
+    cmd json help="Outputs a usage spec in json format" {
         flag "-f --file" help="A usage spec taken in as a file" {
-            arg "<FILE>"
+            arg <FILE>
         }
-        flag "--spec" help="raw string spec input" {
-            arg "<SPEC>"
+        flag --spec help="raw string spec input" {
+            arg <SPEC>
         }
     }
-    cmd "markdown" {
-        alias "md"
-        flag "-f --file" help="A usage spec taken in as a file" required=true {
-            arg "<FILE>"
+    cmd markdown {
+        alias md
+        flag "-f --file" help="A usage spec taken in as a file" required=#true {
+            arg <FILE>
         }
         flag "-m --multi" help="Render each subcommand as a separate markdown file"
-        flag "--url-prefix" help="Prefix to add to all URLs" {
-            arg "<URL_PREFIX>"
+        flag --url-prefix help="Prefix to add to all URLs" {
+            arg <URL_PREFIX>
         }
-        flag "--html-encode" help="Escape HTML in markdown"
-        flag "--replace-pre-with-code-fences"
-        flag "--out-dir" help="Output markdown files to this directory" {
-            arg "<OUT_DIR>"
+        flag --html-encode help="Escape HTML in markdown"
+        flag --replace-pre-with-code-fences
+        flag --out-dir help="Output markdown files to this directory" {
+            arg <OUT_DIR>
         }
-        flag "--out-file" {
-            arg "<OUT_FILE>"
+        flag --out-file {
+            arg <OUT_FILE>
         }
     }
 }

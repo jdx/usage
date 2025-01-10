@@ -16,12 +16,13 @@ arg "arg1" help="arg1 description"
 arg "arg2" help="arg2 description" default="default value" {
     choices "choice1" "choice2" "choice3"
 }
-arg "arg3" help="arg3 description" required=true long_help="arg3 long description"
-arg "argrest" var=true
+arg "arg3" help="arg3 description" required=#true long_help="arg3 long description"
+arg "argrest" var=#true
 arg "with-default" default="default value"
 
 flag "--flag1" help="flag1 description"
-flag "--flag2" help="flag2 description" long_help=r#"flag2 long description
+flag "--flag2" help="flag2 description" long_help=#"""
+flag2 long description
 
 includes a code block:
 
@@ -42,9 +43,9 @@ some docs
 
     $ echo hello world
     hello world
-"#
+"""#
 flag "--flag3" help="flag3 description" negate="--no-flag3"
-flag "--with-default" required=true default="default value"
+flag "--with-default" required=#true default="default value"
 
 flag "--shell <shell>" {
   choices "bash" "zsh" "fish"
@@ -54,7 +55,7 @@ cmd "plugin" {
   cmd "install" long_help="install a plugin" {
     arg "plugin"
     arg "version"
-    flag "-g --global" global=true
+    flag "-g --global" global=#true
     flag "-d --dir <dir>"
     flag "-f --force" negate="--no-force"
   }

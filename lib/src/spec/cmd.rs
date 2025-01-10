@@ -138,7 +138,7 @@ impl SpecCommand {
                         None => Some(v.ensure_string()?),
                     }
                 }
-                k => bail_parse!(ctx, *v.entry.span(), "unsupported cmd prop {k}"),
+                k => bail_parse!(ctx, v.entry.span(), "unsupported cmd prop {k}"),
             }
         }
         for child in node.children() {
@@ -174,7 +174,7 @@ impl SpecCommand {
                             "header" => example.header = Some(v.ensure_string()?),
                             "help" => example.help = Some(v.ensure_string()?),
                             "lang" => example.lang = v.ensure_string()?,
-                            k => bail_parse!(ctx, *v.entry.span(), "unsupported example key {k}"),
+                            k => bail_parse!(ctx, v.entry.span(), "unsupported example key {k}"),
                         }
                     }
                     cmd.examples.push(example);
@@ -214,7 +214,7 @@ impl SpecCommand {
                     let complete = SpecComplete::parse(ctx, &child)?;
                     cmd.complete.insert(complete.name.clone(), complete);
                 }
-                k => bail_parse!(ctx, *child.node.name().span(), "unsupported cmd key {k}"),
+                k => bail_parse!(ctx, child.node.name().span(), "unsupported cmd key {k}"),
             }
         }
         Ok(cmd)
@@ -398,13 +398,13 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(help) = &cmd.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("help_md");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.before_help {
@@ -414,13 +414,13 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(help) = &cmd.before_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_long_help");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.before_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_help_md");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.after_help {
@@ -430,13 +430,13 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(help) = &cmd.after_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_long_help");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.after_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_help_md");
-            node.insert(0, KdlValue::RawString(help.clone()));
+            node.insert(0, KdlValue::String(help.clone()));
             children.nodes_mut().push(node);
         }
         for flag in &cmd.flags {

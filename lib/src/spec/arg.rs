@@ -67,7 +67,7 @@ impl SpecArg {
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = v.ensure_string().map(Some)?,
-                k => bail_parse!(ctx, *v.entry.span(), "unsupported arg key {k}"),
+                k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
         }
         if arg.default.is_some() {
@@ -76,7 +76,7 @@ impl SpecArg {
         for child in node.children() {
             match child.name() {
                 "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),
-                k => bail_parse!(ctx, *child.node.name().span(), "unsupported arg child {k}"),
+                k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
         arg.usage = arg.usage();
@@ -132,10 +132,10 @@ impl From<&SpecArg> for KdlNode {
             node.push(KdlEntry::new_prop("var", true));
         }
         if let Some(min) = arg.var_min {
-            node.push(KdlEntry::new_prop("var_min", min as i64));
+            node.push(KdlEntry::new_prop("var_min", min as i128));
         }
         if let Some(max) = arg.var_max {
-            node.push(KdlEntry::new_prop("var_max", max as i64));
+            node.push(KdlEntry::new_prop("var_max", max as i128));
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));

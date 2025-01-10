@@ -152,7 +152,7 @@ impl Spec {
                     let (other, _) = Self::parse_file(&file)?;
                     schema.merge(other);
                 }
-                k => bail_parse!(ctx, *node.node.name().span(), "unsupported spec key {k}"),
+                k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
             }
         }
         schema.cmd.name = if schema.bin.is_empty() {
@@ -314,12 +314,12 @@ impl Display for Spec {
         }
         if let Some(about_md) = &self.about_md {
             let mut node = KdlNode::new("about_md");
-            node.push(KdlEntry::new(KdlValue::RawString(about_md.clone())));
+            node.push(KdlEntry::new(KdlValue::String(about_md.clone())));
             nodes.push(node);
         }
         if let Some(long_about) = &self.about_long {
             let mut node = KdlNode::new("long_about");
-            node.push(KdlEntry::new(KdlValue::RawString(long_about.clone())));
+            node.push(KdlEntry::new(KdlValue::String(long_about.clone())));
             nodes.push(node);
         }
         if let Some(disable_help) = self.disable_help {
@@ -355,6 +355,7 @@ impl Display for Spec {
         if !self.config.is_empty() {
             nodes.push((&self.config).into());
         }
+        doc.autoformat_config(&kdl::FormatConfigBuilder::new().build());
         write!(f, "{}", doc)
     }
 }
@@ -406,7 +407,7 @@ mod tests {
 name "Usage CLI"
 bin "usage"
 arg "arg1"
-flag "-f --force" global=true
+flag "-f --force" global=#true
 cmd "config" {
   cmd "set" {
     arg "key" help="Key to set"
@@ -417,29 +418,29 @@ complete "file" run="ls"
         "#,
         )
         .unwrap();
-        assert_snapshot!(spec, @r###"
+        assert_snapshot!(spec, @r#"
         name "Usage CLI"
-        bin "usage"
-        flag "-f --force" global=true
-        arg "<arg1>"
-        complete "file" run="ls"
-        cmd "config" {
-            cmd "set" {
-                arg "<key>" help="Key to set"
-                arg "<value>"
+        bin usage
+        flag "-f --force" global=#true
+        arg <arg1>
+        complete file run=ls
+        cmd config {
+            cmd set {
+                arg <key> help="Key to set"
+                arg <value>
             }
         }
-        "###);
+        "#);
     }
 
     #[test]
     #[cfg(feature = "clap")]
     fn test_clap() {
         let cmd = clap::Command::new("test");
-        assert_snapshot!(Spec::from(&cmd), @r###"
-        name "test"
-        bin "test"
+        assert_snapshot!(Spec::from(&cmd), @r#"
+        name test
+        bin test
         usage "Usage: test"
-        "###);
+        "#);
     }
 }
