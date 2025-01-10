@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.0](https://github.com/jdx/usage/compare/v1.7.4..v2.0.0) - 2025-01-10
+
+### 🚀 Features
+
+- **breaking** kdl 2.0 by [@jdx](https://github.com/jdx) in [#218](https://github.com/jdx/usage/pull/218)
+
+### 🐛 Bug Fixes
+
+- **(fish)** remove deprecated completion option by [@jdx](https://github.com/jdx) in [#217](https://github.com/jdx/usage/pull/217)
+- make compatible with ancient bash by [@jdx](https://github.com/jdx) in [9e76a17](https://github.com/jdx/usage/commit/9e76a17e433fde50d15c3250aef693f378c17efc)
+
+### 📚 Documentation
+
+- add source_code_link_template example by [@jdx](https://github.com/jdx) in [cb1f7b4](https://github.com/jdx/usage/commit/cb1f7b4b0bacd66b0928b291d3e58fc3c93d18a3)
+
+### 🔍 Other Changes
+
+- Update LICENSE by [@jdx](https://github.com/jdx) in [e27b7d9](https://github.com/jdx/usage/commit/e27b7d9cbbbe096a844dde9ace93bfebd35e2e63)
+- remove unused custom homebrew tap by [@jdx](https://github.com/jdx) in [d5d734f](https://github.com/jdx/usage/commit/d5d734f970605bb8090ac216887650516f1edd4c)
+- upgraded itertools by [@jdx](https://github.com/jdx) in [b3cb03a](https://github.com/jdx/usage/commit/b3cb03a5319e22672ff1e87500b861f7af47b157)
+- fix git-cliff config by [@jdx](https://github.com/jdx) in [9f293ae](https://github.com/jdx/usage/commit/9f293ae19541bb2c3ba927523e008e88e8fbdfab)
+
+### 📦️ Dependency Updates
+
+- update dependency @withfig/autocomplete to v2.690.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#214](https://github.com/jdx/usage/pull/214)
+
 ## [1.7.4](https://github.com/jdx/usage/compare/v1.7.3..v1.7.4) - 2024-12-21
 
 ### 🔍 Other Changes
