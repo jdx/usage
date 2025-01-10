@@ -2,7 +2,7 @@ use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
-use miette7::bail;
+use miette::bail;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use strum::EnumTryAs;
@@ -30,7 +30,7 @@ pub enum ParseValue {
     MultiString(Vec<String>),
 }
 
-pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette7::Error> {
+pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let mut out = parse_partial(spec, input)?;
     trace!("{out:?}");
     for arg in out.cmd.args.iter().skip(out.args.len()) {
@@ -61,7 +61,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette7::Erro
     Ok(out)
 }
 
-pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette7::Error> {
+pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();

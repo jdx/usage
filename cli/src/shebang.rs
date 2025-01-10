@@ -2,13 +2,13 @@ use std::fs;
 use std::os::unix::prelude::*;
 use std::path::{Path, PathBuf};
 
-use miette7::IntoDiagnostic;
+use miette::IntoDiagnostic;
 
 use usage::Spec;
 
 use crate::{env, hash};
 
-pub fn execute(script: &Path, args: &[String]) -> miette7::Result<()> {
+pub fn execute(script: &Path, args: &[String]) -> miette::Result<()> {
     let (_schema, body) = Spec::parse_file(script)?;
     // let cmd: Command = (&schema).into();
     // let m = cmd.get_matches_from(args[1..].to_vec());
@@ -52,7 +52,7 @@ pub fn execute(script: &Path, args: &[String]) -> miette7::Result<()> {
 //     String::from_utf8(out.stdout).into_diagnostic()
 // }
 
-fn create_script(script: &Path, body: &str) -> miette7::Result<PathBuf> {
+fn create_script(script: &Path, body: &str) -> miette::Result<PathBuf> {
     let tmp_filename = script.file_name().unwrap().to_str().unwrap();
     let tmp_filename = tmp_filename
         .to_ascii_lowercase()

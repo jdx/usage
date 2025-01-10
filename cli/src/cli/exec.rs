@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use clap::Args;
-use miette7::IntoDiagnostic;
+use miette::IntoDiagnostic;
 
 use usage::Spec;
 
@@ -20,7 +20,7 @@ pub struct Exec {
 }
 
 impl Exec {
-    pub fn run(&mut self) -> miette7::Result<()> {
+    pub fn run(&mut self) -> miette::Result<()> {
         let parent = self
             .bin
             .parent()

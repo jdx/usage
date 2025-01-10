@@ -6,7 +6,7 @@ use std::process::Command;
 
 use clap::Args;
 use itertools::Itertools;
-use miette7::IntoDiagnostic;
+use miette::IntoDiagnostic;
 use once_cell::sync::Lazy;
 use xx::process::check_status;
 use xx::{regex, XXError, XXResult};
@@ -38,7 +38,7 @@ pub struct CompleteWord {
 }
 
 impl CompleteWord {
-    pub fn run(&self) -> miette7::Result<()> {
+    pub fn run(&self) -> miette::Result<()> {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
         let choices = self.complete_word(&spec)?;
         let shell = self.shell.as_deref().unwrap_or_default();
@@ -59,7 +59,7 @@ impl CompleteWord {
         Ok(())
     }
 
-    fn complete_word(&self, spec: &Spec) -> miette7::Result<Vec<(String, String)>> {
+    fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self.words.get(cword).cloned().unwrap_or_default();
         let words: Vec<_> = self.words.iter().take(cword).cloned().collect();
@@ -188,7 +188,7 @@ impl CompleteWord {
         cmd: &SpecCommand,
         arg: &SpecArg,
         ctoken: &str,
-    ) -> miette7::Result<Vec<(String, String)>> {
+    ) -> miette::Result<Vec<(String, String)>> {
         static EMPTY_COMPL: Lazy<SpecComplete> = Lazy::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");

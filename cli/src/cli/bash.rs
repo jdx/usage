@@ -4,7 +4,7 @@ use std::process::Stdio;
 
 use clap::Args;
 use itertools::Itertools;
-use miette7::IntoDiagnostic;
+use miette::IntoDiagnostic;
 
 use usage::Spec;
 
@@ -32,7 +32,7 @@ pub struct Bash {
 }
 
 impl Bash {
-    pub fn run(&mut self) -> miette7::Result<()> {
+    pub fn run(&mut self) -> miette::Result<()> {
         let (spec, _script) = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
@@ -72,7 +72,7 @@ impl Bash {
         Ok(())
     }
 
-    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette7::Result<()> {
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
         let parsed = usage::parse::parse_partial(spec, args)?;
         println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())
