@@ -22,5 +22,9 @@ _usage() {
     return 0
 }
 
-shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _usage usage
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _usage usage
+else
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -F _usage usage
+fi
 # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh

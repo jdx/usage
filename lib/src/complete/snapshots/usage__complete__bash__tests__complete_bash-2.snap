@@ -1,6 +1,6 @@
 ---
 source: lib/src/complete/bash.rs
-expression: "complete_bash(&CompleteOptions\n{\n    shell: \"bash\".to_string(), bin: \"mycli\".to_string(), cache_key:\n    Some(\"1.2.3\".to_string()), spec: None, usage_cmd:\n    Some(\"mycli complete --usage\".to_string()), include_bash_completion_lib:\n    false,\n})"
+expression: "complete_bash(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"bash\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: Some(\"1.2.3\".to_string()), spec: None,\n    usage_cmd: Some(\"mycli complete --usage\".to_string()),\n    include_bash_completion_lib: false,\n})"
 snapshot_kind: text
 ---
 _mycli() {
@@ -27,5 +27,9 @@ _mycli() {
     return 0
 }
 
-shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _mycli mycli
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -o nosort -F _mycli mycli
+else
+    shopt -u hostcomplete && complete -o nospace -o bashdefault -F _mycli mycli
+fi
 # vim: noet ci pi sts=0 sw=4 ts=4 ft=sh

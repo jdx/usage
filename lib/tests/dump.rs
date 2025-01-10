@@ -14,16 +14,16 @@ macro_rules! tests_same {
 }
 
 tests_same! {
-    negate: r#"flag "--force" negate="--no-force""#,
+    negate: r#"flag --force negate=--no-force"#,
 
-    flag_choices: r#"flag "--shell" {
-    arg "<shell>" {
-        choices "bash" "fish" "zsh"
+    flag_choices: r#"flag --shell {
+    arg <shell> {
+        choices bash fish zsh
     }
 }"#,
 
-    arg_choices: r#"arg "<shell>" {
-    choices "bash" "fish" "zsh"
+    arg_choices: r#"arg <shell> {
+    choices bash fish zsh
 }"#,
 
     double_dash: r#"arg "<-- shell...>""#,

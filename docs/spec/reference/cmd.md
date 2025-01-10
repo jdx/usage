@@ -4,11 +4,11 @@
 # aliases
 cmd "config" help="Manage the CLI config" {
   alias "cfg" "cf" "cg"  # aliases for the command
-  alias "conf" hide=true # hide alias from docs and completions
+  alias "conf" hide=#true # hide alias from docs and completions
 }
 
-cmd "config" hide=true # hide command from docs and completions
-cmd "config" subcommand_required=true # subcommand is not optional
+cmd "config" hide=#true # hide command from docs and completions
+cmd "config" subcommand_required=#true # subcommand is not optional
 
 # these are shown under -h
 cmd "config" before_help="shown before the command"
@@ -44,14 +44,18 @@ cmd "list" {
 
 ## Mounting dynamic commands
 
-A usage spec can define a command to run which emits extra usage spec which will be merged into the cmd.
-For example, assume a CLI named `mycli` has a command `run` which executes a set of tasks, those tasks
-are themselves commands which have their own sets of args/flags dynamically generated. To support this,
+A usage spec can define a command to run which emits extra usage spec which will be merged into the
+cmd.
+For example, assume a CLI named `mycli` has a command `run` which executes a set of tasks, those
+tasks
+are themselves commands which have their own sets of args/flags dynamically generated. To support
+this,
 create a hidden command like `mycli mount-usage-tasks` which emits usage spec for the tasks. Then,
-create a `mount` on the `run` command. Here is the static usage spec for the `mycli` CLI as described:
+create a `mount` on the `run` command. Here is the static usage spec for the `mycli` CLI as
+described:
 
 ```sh
-cmd "mount-usage-tasks" hide=true
+cmd "mount-usage-tasks" hide=#true
 cmd "run" {
 	mount run="mycli mount-usage-tasks"
 }

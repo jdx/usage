@@ -16,7 +16,7 @@ impl SpecChoices {
         node.ensure_arg_len(1..)?;
         config.choices = node
             .args()
-            .map(|e| e.ensure_string().map(String::from))
+            .map(|e| e.ensure_string())
             .collect::<Result<_, _>>()?;
         Ok(config)
     }

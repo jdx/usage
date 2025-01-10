@@ -68,7 +68,7 @@ fn complete_word_kitchen_sink() {
 #[test]
 fn complete_word_choices() {
     assert_cmd("mise.usage.kdl", &["--", "env", "--shell", ""])
-        .stdout("bash\nfish\nnu\nxonsh\nzsh\n");
+        .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
 }
 
 #[test]

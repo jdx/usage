@@ -18,7 +18,7 @@ impl SpecMount {
         for (k, v) in node.props() {
             match k {
                 "run" => mount.run = v.ensure_string()?,
-                k => bail_parse!(ctx, *v.entry.span(), "unsupported mount key {k}"),
+                k => bail_parse!(ctx, v.entry.span(), "unsupported mount key {k}"),
             }
         }
         for child in node.children() {
@@ -26,7 +26,7 @@ impl SpecMount {
                 "run" => mount.run = child.arg(0)?.ensure_string()?,
                 k => bail_parse!(
                     ctx,
-                    *child.node.name().span(),
+                    child.node.name().span(),
                     "unsupported mount value key {k}"
                 ),
             }
