@@ -36,7 +36,7 @@ impl SpecConfig {
                     }
                     config.props.insert(key, prop);
                 }
-                k => bail_parse!(ctx, *node.node.name().span(), "unsupported config key {k}"),
+                k => bail_parse!(ctx, node.node.name().span(), "unsupported config key {k}"),
             }
         }
         Ok(config)
@@ -125,7 +125,7 @@ mod tests {
             &Default::default(),
             r#"
 config {
-    prop "color" default=true env="COLOR" help="Enable color output"
+    prop "color" default=#true env="COLOR" help="Enable color output"
     prop "user" default="admin" env="USER" help="User to run as"
     prop "jobs" default=4 env="JOBS" help="Number of jobs to run"
     prop "timeout" default=1.5 env="TIMEOUT" help="Timeout in seconds" \
@@ -135,13 +135,13 @@ config {
         )
         .unwrap();
 
-        assert_snapshot!(spec, @r###"
+        assert_snapshot!(spec, @r##"
         config {
-            prop "color" default="true" env="COLOR" help="Enable color output"
-            prop "jobs" default="4" env="JOBS" help="Number of jobs to run"
-            prop "timeout" default="1.5" env="TIMEOUT" help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
-            prop "user" default="\"admin\"" env="USER" help="User to run as"
+            prop color default="#true" env=COLOR help="Enable color output"
+            prop jobs default="4" env=JOBS help="Number of jobs to run"
+            prop timeout default="1.5" env=TIMEOUT help="Timeout in seconds" long_help="Timeout in seconds, can be fractional"
+            prop user default=admin env=USER help="User to run as"
         }
-        "###);
+        "##);
     }
 }

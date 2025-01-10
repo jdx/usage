@@ -1,17 +1,17 @@
 cmd "plugins" {
-  cmd "install" {
-    arg "plugin"
-    arg "version"
-    flag "-g --global"
-    flag "-d --dir <dir>"
-  }
-  cmd "install_desc" {
-    arg "plugin_desc"
-    arg "version"
-    flag "-g --global"
-    flag "-d --dir <dir>"
-  }
+    cmd "install" {
+        arg "plugin"
+        arg "version"
+        flag "-g --global"
+        flag "-d --dir <dir>"
+    }
+    cmd "install_desc" {
+        arg "plugin_desc"
+        arg "version"
+        flag "-g --global"
+        flag "-d --dir <dir>"
+    }
 }
 
 complete "plugin" run="echo \"plugin-1\nplugin-2\nplugin-3\""
-complete "plugin_desc" descriptions=true run="echo \"plugin-1:desc\nplugin-2:desc\nplugin-3:desc\""
+complete "plugin_desc" descriptions=#true run="echo \"plugin-1:desc\nplugin-2:desc\nplugin-3:desc\""

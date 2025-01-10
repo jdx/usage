@@ -55,9 +55,9 @@ fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 
 ## Shell Escaping
 
-### `var=true`
+### `var=#true`
 
-When using `var=true`, the value will be a single string (because that's all env vars can do)
+When using `var=#true`, the value will be a single string (because that's all env vars can do)
 delimited
 by spaces. If an arg itself has a space, then it will have quotes around it. This logic is handled
 by [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html). For now,

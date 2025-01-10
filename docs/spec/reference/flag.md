@@ -6,15 +6,15 @@ flag "--user" { # another way to define the same flag
   alias "-u"
   arg "<user>"
 }
-flag "--user" { alias "-u" hide=true } # hide alias from docs and completions
+flag "--user" { alias "-u" hide=#true } # hide alias from docs and completions
 
-flag "-f --force" global=true           # global can be set on any subcommand
+flag "-f --force" global=#true           # global can be set on any subcommand
 flag "--file <file>" default="file.txt" # default value for flag
-flag "-v --verbose" count=true          # instead of true/false $usage_verbose is # of times
+flag "-v --verbose" count=#true          # instead of true/false $usage_verbose is # of times
                                         # flag was used (e.g. -vvv = 3)
 
-flag "--color" negate="--no-color" default=true  # $usage_color=true by default
-                                                 # --no-color will set $usage_color=false
+flag "--color" negate="--no-color" default=#true  # $usage_color=#true by default
+                                                 # --no-color will set $usage_color=#false
 
 flag "--color" env="MYCLI_COLOR" # flag can be backed by an env var
 flag "--color" config="ui.color" # flag can be backed by a config file

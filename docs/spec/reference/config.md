@@ -24,16 +24,16 @@ config {
     file "~/.config/mycli.json"
 
     // local
-    file ".config/mycli.toml" findup=true
-    file ".config/mycli.json" findup=true
-    file ".mycli.dist.toml" findup=true
-    file ".mycli.dist.json" findup=true
-    file ".mycli.toml" findup=true
-    file ".mycli.json" findup=true
-    file ".myclirc" findup=true format="ini"
+    file ".config/mycli.toml" findup=#true
+    file ".config/mycli.json" findup=#true
+    file ".mycli.dist.toml" findup=#true
+    file ".mycli.dist.json" findup=#true
+    file ".mycli.toml" findup=#true
+    file ".mycli.json" findup=#true
+    file ".myclirc" findup=#true format="ini"
 
     // e.g.: .mycli.dev.toml, .mycli.prod.toml
-    file ".mycli.$MYCLI_ENV.toml" findup=true
+    file ".mycli.$MYCLI_ENV.toml" findup=#true
 
     default "user" "admin"
     default "work_dir" "/tmp"
@@ -48,6 +48,6 @@ config {
 Config keys can be aliased to other keys. This is useful for backwards compatibility.
 
 ```kdl
-config_file ".mycli.toml" findup=true
+config_file ".mycli.toml" findup=#true
 config_alias "user" "username"
 ```

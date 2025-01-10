@@ -26,18 +26,18 @@ impl SpecComplete {
             match k {
                 "run" => {
                     if config.type_.is_some() {
-                        bail_parse!(ctx, *v.entry.span(), "can set run or type, not both")
+                        bail_parse!(ctx, v.entry.span(), "can set run or type, not both")
                     }
                     config.run = Some(v.ensure_string()?.to_string())
                 }
                 "descriptions" => config.descriptions = v.ensure_bool()?,
                 "type" => {
                     if config.run.is_some() {
-                        bail_parse!(ctx, *v.entry.span(), "can set run or type, not both")
+                        bail_parse!(ctx, v.entry.span(), "can set run or type, not both")
                     }
                     config.type_ = Some(v.ensure_string()?.to_string())
                 }
-                k => bail_parse!(ctx, *v.entry.span(), "unsupported complete key {k}"),
+                k => bail_parse!(ctx, v.entry.span(), "unsupported complete key {k}"),
             }
         }
         Ok(config)
