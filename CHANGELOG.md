@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.1](https://github.com/jdx/usage/compare/v2.0.0..v2.0.1) - 2025-01-10
+
+### 🐛 Bug Fixes
+
+- add v1-fallback for kdl by [@jdx](https://github.com/jdx) in [9516e15](https://github.com/jdx/usage/commit/9516e15d53c0769a1227ec4ab37e0622b4e7bead)
+
+### 🔍 Other Changes
+
+- fix publish script by [@jdx](https://github.com/jdx) in [7c72bc3](https://github.com/jdx/usage/commit/7c72bc3450fe0e731331be18354244b5a19223d5)
+- configure render:fig task by [@jdx](https://github.com/jdx) in [f744199](https://github.com/jdx/usage/commit/f744199b53de9272cf62ab6c760c9da1239fa626)
+- fix fig syntax rendering by [@jdx](https://github.com/jdx) in [2b2d301](https://github.com/jdx/usage/commit/2b2d30104280c64854b78d829547a5d3fa8694df)
+
 ## [2.0.0](https://github.com/jdx/usage/compare/v1.7.4..v2.0.0) - 2025-01-10
 
 ### 🚀 Features
