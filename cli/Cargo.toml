@@ -31,7 +31,7 @@ env_logger = "0.11"
 exec = "0.3"
 indexmap = "2"
 itertools = "0.14"
-kdl = { version = "6", features = ["v1-fallback"] }
+kdl = "6"
 log = "0.4"
 miette7 = { version = "7", features = ["fancy"], package = "miette" }
 once_cell = "1"
