@@ -7,4 +7,9 @@ if ! command -v usage &> /dev/null
 end
 
 set _usage_spec_usage (usage --usage-spec | string collect)
-complete -xc usage -a '(usage complete-word --shell fish -s "$_usage_spec_usage" -- (commandline -cop) (commandline -t))'
+set -l tokens
+if commandline -x >/dev/null 2>&1
+    complete -xc usage -a '(usage complete-word --shell fish -s "$_usage_spec_usage" -- (commandline -xpc) (commandline -t))'
+else
+    complete -xc usage -a '(usage complete-word --shell fish -s "$_usage_spec_usage" -- (commandline -opc) (commandline -t))'
+end
