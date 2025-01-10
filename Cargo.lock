@@ -279,7 +279,7 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "clap_usage"
-version = "1.0.0"
+version = "2.0.3"
 dependencies = [
  "clap",
  "insta",
