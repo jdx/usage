@@ -16,7 +16,7 @@ license = "MIT"
 [workspace.dependencies]
 clap_usage = { path = "./clap_usage", version = "2.0.3" }
 usage-cli = { path = "./cli" }
-usage-lib = { path = "./lib", version = "2.0.3", features = ["clap"] }
+usage-lib = { path = "./lib", version = "2.0.4", features = ["clap"] }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
