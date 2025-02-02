@@ -1,6 +1,6 @@
 name usage-cli
 bin usage
-version "2.0.3"
+version "2.0.4"
 about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
