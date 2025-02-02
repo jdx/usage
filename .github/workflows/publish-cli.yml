@@ -25,13 +25,13 @@ jobs:
           - target: universal-apple-darwin
             os: macos-latest
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-20.04
           - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-20.04
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-20.04
           - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-20.04
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
           token: ${{ secrets.GH_BOT_TOKEN }}
           formula: usage
   bump-aur:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +89,7 @@ jobs:
       - run: mise run bump-aur usage
       - run: mise run bump-aur usage-bin
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
