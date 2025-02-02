@@ -42,6 +42,13 @@ backend = "aqua:cli/cli"
 version = "3.3.3"
 backend = "npm:prettier"
 
+[tools.pnpm]
+version = "10.1.0"
+backend = "aqua:pnpm/pnpm"
+
+[tools.pnpm.checksums]
+pnpm-macos-arm64 = "sha256:14f75fc65ba387553898470bac86ce35465f1ce06095d82354012ab4e66bcd9d"
+
 [tools.shellcheck]
 version = "0.10.0"
 backend = "aqua:koalaman/shellcheck"

@@ -12,6 +12,7 @@ gh = "latest"
 "cargo:git-cliff" = "latest"
 "npm:prettier" = "latest"
 shellcheck = "latest"
+pnpm = "latest"
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]
