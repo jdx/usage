@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,4 +26,3 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise r autofix
       - uses: autofix-ci/action@v1.3.1
-        if: "!startsWith(github.ref_name, 'renovate/')"
