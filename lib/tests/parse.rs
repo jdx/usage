@@ -192,6 +192,13 @@ multi_arg_spaces:
     args=r#"a "b c""#,
     expected=r#"{"usage_vars": "a 'b c'"}"#,
 
+multi_flag:
+    spec=r#"
+    flag "-v --vars <vars>" var=#true
+    "#,
+    args=r#"--vars a --vars "b c""#,
+    expected=r#"{"usage_vars": "a 'b c'"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
