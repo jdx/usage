@@ -22,7 +22,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: test
-          save-if: ${{ github.ref_name == 'main' }}
       - uses: jdx/mise-action@v2
       - run: mise r build
       - run: mise r test
