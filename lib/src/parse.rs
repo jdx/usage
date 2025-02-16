@@ -184,15 +184,12 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = out.available_flags.get(&format!("-{}", short)) {
-                let mut next = format!("-{}", &w[2..]);
+                if w.len() > 2 {
+                    input.push_front(w[2..].to_string());
+                }
                 if f.arg.is_some() {
                     out.flag_awaiting_value = Some(f.clone());
-                    next = w[2..].to_string();
-                }
-                if !next.is_empty() && next != "-" {
-                    input.push_front(next);
-                }
-                if f.var {
+                } else if f.var {
                     let arr = out
                         .flags
                         .entry(f.clone())
@@ -299,7 +296,7 @@ impl ParseOutput {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),
                 ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
-                ParseValue::MultiString(s) => s.join(" "),
+                ParseValue::MultiString(s) => shell_words::join(s),
             };
             env.insert(key, val);
         }
