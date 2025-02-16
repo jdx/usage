@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.5](https://github.com/jdx/usage/compare/v2.0.4..v2.0.5) - 2025-02-16
+
+### 🐛 Bug Fixes
+
+- 2 bugs with flags and var=#true by [@jdx](https://github.com/jdx) in [#235](https://github.com/jdx/usage/pull/235)
+
+### 🔍 Other Changes
+
+- added coverage workflow by [@jdx](https://github.com/jdx) in [#237](https://github.com/jdx/usage/pull/237)
+
 ## [2.0.4](https://github.com/jdx/usage/compare/v2.0.3..v2.0.4) - 2025-02-02
 
 ### 🔍 Other Changes
