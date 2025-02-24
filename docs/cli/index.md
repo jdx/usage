@@ -25,3 +25,11 @@ cargo binstall usage-cli
 ```sh
 brew install usage
 ```
+
+### Arch Linux
+
+usage is available in [Extra](https://archlinux.org/packages/extra/x86_64/usage/)
+
+```sh
+pacmac -S usage
+```
