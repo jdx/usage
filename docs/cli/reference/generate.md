@@ -2,7 +2,7 @@
 
 - **Usage**: `usage generate <SUBCOMMAND>`
 - **Aliases**: `g`
-- **Source code**: [`cli/src/cli/generate/mod.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/mod.rs)
+- **Source code**: [`cli/src/cli/generate.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate.rs)
 
 ## Subcommands
 
