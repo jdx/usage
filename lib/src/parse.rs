@@ -22,7 +22,7 @@ pub struct ParseOutput {
     pub errors: Vec<UsageErr>,
 }
 
-#[derive(Debug, EnumTryAs)]
+#[derive(Debug, EnumTryAs, Clone)]
 pub enum ParseValue {
     Bool(bool),
     String(String),
