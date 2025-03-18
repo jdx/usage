@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.6](https://github.com/jdx/usage/compare/v2.0.5..v2.0.6) - 2025-03-18
+
+### 🐛 Bug Fixes
+
+- **(lib)** make ParseValue cloneable by [@risu729](https://github.com/risu729) in [#252](https://github.com/jdx/usage/pull/252)
+
+### 📚 Documentation
+
+- add arch instructions by [@jdx](https://github.com/jdx) in [b8f8387](https://github.com/jdx/usage/commit/b8f83872ae342c6a9e8ab82287cb545b58aebcfa)
+
+### 🔍 Other Changes
+
+- renovate skip autofix by [@jdx](https://github.com/jdx) in [#238](https://github.com/jdx/usage/pull/238)
+- remove aur by [@jdx](https://github.com/jdx) in [2b711d8](https://github.com/jdx/usage/commit/2b711d8bdfd8c297b0e43ec4cb5289051bb1a144)
+- added workflow_dispatch to release-plz by [@jdx](https://github.com/jdx) in [cef737c](https://github.com/jdx/usage/commit/cef737c6f42bf981d19b8b26c757bcfd83bc247e)
+
+### New Contributors
+
+- @risu729 made their first contribution in [#252](https://github.com/jdx/usage/pull/252)
+
 ## [2.0.5](https://github.com/jdx/usage/compare/v2.0.4..v2.0.5) - 2025-02-16
 
 ### 🐛 Bug Fixes
