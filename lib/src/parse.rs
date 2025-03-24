@@ -18,7 +18,7 @@ pub struct ParseOutput {
     pub args: IndexMap<SpecArg, ParseValue>,
     pub flags: IndexMap<SpecFlag, ParseValue>,
     pub available_flags: BTreeMap<String, SpecFlag>,
-    pub flag_awaiting_value: Option<SpecFlag>,
+    pub flag_awaiting_value: Vec<SpecFlag>,
     pub errors: Vec<UsageErr>,
 }
 
@@ -90,7 +90,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         args: IndexMap::new(),
         flags: IndexMap::new(),
         available_flags: gather_flags(&spec.cmd),
-        flag_awaiting_value: None,
+        flag_awaiting_value: vec![],
         errors: vec![],
     };
 
@@ -110,40 +110,10 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
 
     let mut next_arg = out.cmd.args.first();
     let mut enable_flags = true;
+    let mut grouped_flag = false;
 
     while !input.is_empty() {
-        let w = input.pop_front().unwrap();
-
-        if let Some(flag) = out.flag_awaiting_value {
-            out.flag_awaiting_value = None;
-            let arg = flag.arg.as_ref().unwrap();
-            if flag.var {
-                let arr = out
-                    .flags
-                    .entry(flag)
-                    .or_insert_with(|| ParseValue::MultiString(vec![]))
-                    .try_as_multi_string_mut()
-                    .unwrap();
-                arr.push(w);
-            } else {
-                if let Some(choices) = &arg.choices {
-                    if !choices.choices.contains(&w) {
-                        if is_help_arg(spec, &w) {
-                            out.errors
-                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                            return Ok(out);
-                        }
-                        bail!(
-                            "Invalid choice for option {}: {w}, expected one of {}",
-                            flag.name,
-                            choices.choices.join(", ")
-                        );
-                    }
-                }
-                out.flags.insert(flag, ParseValue::String(w));
-            }
-            continue;
-        }
+        let mut w = input.pop_front().unwrap();
 
         if w == "--" {
             enable_flags = false;
@@ -152,13 +122,14 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
 
         // long flags
         if enable_flags && w.starts_with("--") {
+            grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
             if !val.is_empty() {
                 input.push_front(val.to_string());
             }
             if let Some(f) = out.available_flags.get(word) {
                 if f.arg.is_some() {
-                    out.flag_awaiting_value = Some(f.clone());
+                    out.flag_awaiting_value.push(f.clone());
                 } else if f.var {
                     let arr = out
                         .flags
@@ -185,10 +156,11 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = out.available_flags.get(&format!("-{}", short)) {
                 if w.len() > 2 {
-                    input.push_front(w[2..].to_string());
+                    input.push_front(format!("-{}", &w[2..]));
+                    grouped_flag = true;
                 }
                 if f.arg.is_some() {
-                    out.flag_awaiting_value = Some(f.clone());
+                    out.flag_awaiting_value.push(f.clone());
                 } else if f.var {
                     let arr = out
                         .flags
@@ -208,6 +180,43 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 return Ok(out);
             }
+            if grouped_flag {
+                grouped_flag = false;
+                w.remove(0);
+            }
+        }
+
+        if !out.flag_awaiting_value.is_empty() {
+            while let Some(flag) = out.flag_awaiting_value.pop() {
+                let arg = flag.arg.as_ref().unwrap();
+                if flag.var {
+                    let arr = out
+                        .flags
+                        .entry(flag)
+                        .or_insert_with(|| ParseValue::MultiString(vec![]))
+                        .try_as_multi_string_mut()
+                        .unwrap();
+                    arr.push(w);
+                } else {
+                    if let Some(choices) = &arg.choices {
+                        if !choices.choices.contains(&w) {
+                            if is_help_arg(spec, &w) {
+                                out.errors
+                                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                                return Ok(out);
+                            }
+                            bail!(
+                                "Invalid choice for option {}: {w}, expected one of {}",
+                                flag.name,
+                                choices.choices.join(", ")
+                            );
+                        }
+                    }
+                    out.flags.insert(flag, ParseValue::String(w));
+                }
+                w = "".to_string();
+            }
+            continue;
         }
 
         if let Some(arg) = next_arg {

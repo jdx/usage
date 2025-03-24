@@ -40,10 +40,37 @@ flag_short_next:
     args="-sbash",
     expected=r#"{"usage_s": "bash"}"#,
 
+flag_chained_short_next:
+    spec=r#"flag "-s <shell>"; flag "-b <bin>"; flag "-x""#,
+    args="-xsbash",
+    expected=r#"{"usage_b": "ash", "usage_s": "", "usage_x": "true"}"#,
+
+flag_chained_short_next_choices:
+    spec=r#"flag "-b"; flag "-x"; flag "-s <shell>" {
+    choices "bash" "fish" "zsh"
+}"#,
+    args="-xsbzsh",
+    expected=r#"{"usage_b": "true", "usage_s": "zsh", "usage_x": "true"}"#,
+
+flag_chained_short_next_one_arg:
+    spec=r#"flag "-s <shell>"; flag "-b"; flag "-x""#,
+    args="-xsbash",
+    expected=r#"{"usage_b": "true", "usage_s": "ash", "usage_x": "true"}"#,
+
 flag_short_space:
     spec=r#"flag "-s <shell>""#,
     args="-s bash",
     expected=r#"{"usage_s": "bash"}"#,
+
+flag_chained_short_space:
+    spec=r#"flag "-s <shell>"; flag "-b <bin>"; flag "-x""#,
+    args="-xs bash",
+    expected=r#"{"usage_s": "bash", "usage_x": "true"}"#,
+
+flag_chained_short_space_one_arg:
+    spec=r#"flag "-s <shell>"; flag "-b"; flag "-x""#,
+    args="-xsb bash",
+    expected=r#"{"usage_b": "true", "usage_s": "bash", "usage_x": "true"}"#,
 
 flag_choices_ok:
     spec=r#"flag "--shell <shell>" {

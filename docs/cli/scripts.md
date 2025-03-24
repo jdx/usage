@@ -53,6 +53,41 @@ const user = usage_user ?? "world";
 fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 ```
 
+## Short Flag Chaining
+
+Short flag chaining allows you to combine multiple single-character flags into a single argument.
+This can make command-line usage more concise and easier to type.
+
+For example, consider the following script:
+
+```bash
+#!/usr/bin/env -S usage bash
+#USAGE flag "-a" help="Option A"
+#USAGE flag "-b" help="Option B"
+#USAGE flag "-c" help="Option C"
+
+if [ "$usage_a" = "true" ]; then
+  echo "Option A is set"
+fi
+if [ "$usage_b" = "true" ]; then
+  echo "Option B is set"
+fi
+if [ "$usage_c" = "true" ]; then
+  echo "Option C is set"
+fi
+```
+
+Assuming this script was located at `./mycli`, it could be used like this:
+
+```bash
+$ ./mycli -abc
+Option A is set
+Option B is set
+Option C is set
+```
+
+In this example, the `-a`, `-b`, and `-c` flags are combined into a single `-abc` argument, enabling all three options at once.
+
 ## Shell Escaping
 
 ### `var=#true`
