@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.0.7](https://github.com/jdx/usage/compare/v2.0.6..v2.0.7) - 2025-03-24
+
+### 🐛 Bug Fixes
+
+- implement short flag chaining and update flag handling logic by [@aroemen](https://github.com/aroemen) in [#258](https://github.com/jdx/usage/pull/258)
+
+### 🔍 Other Changes
+
+- Fix some typos in completions.md by [@torarvid](https://github.com/torarvid) in [#253](https://github.com/jdx/usage/pull/253)
+- updated deps by [@jdx](https://github.com/jdx) in [7a498e6](https://github.com/jdx/usage/commit/7a498e60e90420af8bec0e97ddbc9f69fdbcd8d5)
+
+### 📦️ Dependency Updates
+
+- update apple-actions/import-codesign-certs action to v4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#256](https://github.com/jdx/usage/pull/256)
+- update dependency vitepress to v1.6.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#255](https://github.com/jdx/usage/pull/255)
+
+### New Contributors
+
+- @aroemen made their first contribution in [#258](https://github.com/jdx/usage/pull/258)
+- @torarvid made their first contribution in [#253](https://github.com/jdx/usage/pull/253)
+
 ## [2.0.6](https://github.com/jdx/usage/compare/v2.0.5..v2.0.6) - 2025-03-18
 
 ### 🐛 Bug Fixes
