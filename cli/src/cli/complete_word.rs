@@ -86,8 +86,7 @@ impl CompleteWord {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
-        } else if let Some(flag) = parsed.flag_awaiting_value.first() {
-            dbg!(&flag);
+        } else if let Some(flag) = parsed.flag_awaiting_value.get(0) {
             self.complete_arg(&ctx, spec, &parsed.cmd, flag.arg.as_ref().unwrap(), &ctoken)?
         } else {
             let mut choices = vec![];
