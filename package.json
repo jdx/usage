@@ -19,7 +19,7 @@
   "devDependencies": {
     "@fig/eslint-config-autocomplete": "^2.0.0",
     "@tsconfig/node18": "^18.2.4",
-    "@withfig/autocomplete": "^2.692.1",
+    "@withfig/autocomplete": "^2.692.2",
     "@withfig/autocomplete-tools": "^2.11.0",
     "@withfig/autocomplete-types": "^1.31.0",
     "eslint": "^8.57.1",
