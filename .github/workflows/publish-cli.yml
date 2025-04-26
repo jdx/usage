@@ -24,14 +24,19 @@ jobs:
         include:
           - target: universal-apple-darwin
             os: macos-latest
+            build-tool: cargo
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-20.04
+            os: ubuntu-latest
+            build-tool: cross
           - target: x86_64-unknown-linux-musl
-            os: ubuntu-20.04
+            os: ubuntu-latest
+            build-tool: cargo
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-20.04
+            os: ubuntu-latest
+            build-tool: cross
           - target: aarch64-unknown-linux-musl
-            os: ubuntu-20.04
+            os: ubuntu-latest
+            build-tool: cargo
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -46,11 +51,17 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTS_P12 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTS_P12_PASS }}
+      - name: Install cross-compilation tools
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        if: matrix.build-tool == 'cross'
+        with:
+          target: ${{ matrix.target }}
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: usage
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.target }}
+          build-tool: ${{ matrix.build-tool }}
           manifest-path: cli/Cargo.toml
           codesign: "Developer ID Application: Jeffrey Dickey (4993Y37DX6)"
           codesign_prefix: dev.jdx.
@@ -69,7 +80,7 @@ jobs:
           token: ${{ secrets.GH_BOT_TOKEN }}
           formula: usage
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: [build-and-publish]
     steps:
       - uses: actions/checkout@v4
