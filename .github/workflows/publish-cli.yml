@@ -47,7 +47,7 @@ jobs:
         with:
           experimental: true
       - if: matrix.os == 'macos-latest'
-        uses: apple-actions/import-codesign-certs@v4
+        uses: apple-actions/import-codesign-certs@v5
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTS_P12 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTS_P12_PASS }}
