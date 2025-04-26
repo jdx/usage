@@ -1,12 +1,12 @@
 # `usage complete-word`
 
-- **Usage**: `usage complete-word [FLAGS] [WORDS]...`
+- **Usage**: `usage complete-word [FLAGS] [WORDS]…`
 - **Aliases**: `cw`
 - **Source code**: [`cli/src/cli/complete-word.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/complete-word.rs)
 
 ## Arguments
 
-### `[WORDS]...`
+### `[WORDS]…`
 
 user's input from the command line
 

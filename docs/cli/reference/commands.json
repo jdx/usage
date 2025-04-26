@@ -7,7 +7,7 @@
     "subcommands": {
       "bash": {
         "full_cmd": ["bash"],
-        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]...",
+        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]…",
         "subcommands": {},
         "args": [
           {
@@ -19,7 +19,7 @@
           },
           {
             "name": "ARGS",
-            "usage": "[ARGS]...",
+            "usage": "[ARGS]…",
             "help": "arguments to pass to script",
             "help_first_line": "arguments to pass to script",
             "required": false,
@@ -61,12 +61,12 @@
       },
       "complete-word": {
         "full_cmd": ["complete-word"],
-        "usage": "complete-word [FLAGS] [WORDS]...",
+        "usage": "complete-word [FLAGS] [WORDS]…",
         "subcommands": {},
         "args": [
           {
             "name": "WORDS",
-            "usage": "[WORDS]...",
+            "usage": "[WORDS]…",
             "help": "user's input from the command line",
             "help_first_line": "user's input from the command line",
             "required": false,
@@ -178,7 +178,7 @@
           },
           {
             "name": "ARGS",
-            "usage": "[ARGS]...",
+            "usage": "[ARGS]…",
             "help": "arguments to pass to script",
             "help_first_line": "arguments to pass to script",
             "required": false,

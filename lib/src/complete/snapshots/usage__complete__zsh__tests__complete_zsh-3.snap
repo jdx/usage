@@ -36,7 +36,7 @@ arg "[arg2]" help="arg2 description" required=#false default="default value" {
     choices choice1 choice2 choice3
 }
 arg <arg3> help="arg3 description" help_long="arg3 long description"
-arg <argrest>... var=#true
+arg <argrest>… var=#true
 arg "[with-default]" required=#false default="default value"
 complete plugin run="echo \"plugin-1\nplugin-2\nplugin-3\""
 cmd plugin {

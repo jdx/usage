@@ -1,53 +1,50 @@
 [tools.actionlint]
-version = "1.7.4"
+version = "1.7.7"
 backend = "aqua:rhysd/actionlint"
 
 [tools.actionlint.checksums]
-"actionlint_1.7.4_darwin_arm64.tar.gz" = "sha256:cbd193bb490f598d77e179261d7b76dfebd049dddede5803ba21cbf6a469aeee"
+"actionlint_1.7.7_darwin_arm64.tar.gz" = "sha256:2693315b9093aeacb4ebd91a993fea54fc215057bf0da2659056b4bc033873db"
 
 [tools.cargo-binstall]
-version = "1.10.8"
+version = "1.12.3"
 backend = "aqua:cargo-bins/cargo-binstall"
 
 [tools.cargo-binstall.checksums]
-"cargo-binstall-aarch64-apple-darwin.zip" = "sha256:23a27d534c98fed95e88c320fd7de154f851af7bce9100eed15e72fee316804c"
-cargo-binstall-macos-aarch64 = "sha256:c30a499060745f0c4435a446253fc676838cff0a18d2dd555fcf10399176b1bf"
-"cargo-binstall-x86_64-unknown-linux-musl.tgz" = "sha256:d5fa990d527a637176128df63456ef70f91062e9126dbacef6a341bdd5ce0b50"
+"cargo-binstall-aarch64-apple-darwin.zip" = "sha256:88467030db096ceddf97405750fe9e67cf25106da241db7a60900c58f192206f"
 
 [tools."cargo:cargo-edit"]
-version = "0.13.0"
+version = "0.13.2"
 backend = "cargo:cargo-edit"
 
 [tools."cargo:cargo-insta"]
-version = "1.41.1"
+version = "1.43.0"
 backend = "cargo:cargo-insta"
 
 [tools."cargo:cargo-release"]
-version = "0.25.12"
+version = "0.25.18"
 backend = "cargo:cargo-release"
 
 [tools."cargo:git-cliff"]
-version = "2.6.1"
+version = "2.8.0"
 backend = "cargo:git-cliff"
 
 [tools.gh]
-version = "2.60.1"
+version = "2.71.2"
 backend = "aqua:cli/cli"
 
 [tools.gh.checksums]
-"gh_2.60.1_linux_amd64.tar.gz" = "sha256:dfcd9926de38a797e88e604c3111ecf9ddf13c524706712b2b0d2e2fc4a6ed7f"
-"gh_2.60.1_macOS_arm64.zip" = "sha256:1930a3db9a2d1c420e476d06f3d4a8f02db8472d2630a1099968c3b82f231f1f"
+"gh_2.71.2_macOS_arm64.zip" = "sha256:95e4d3bf841ef8448f6ac828d89de3d49bd994f063f0d1566becbe1aa8c98a81"
 
 [tools."npm:prettier"]
-version = "3.3.3"
+version = "3.5.3"
 backend = "npm:prettier"
 
 [tools.pnpm]
-version = "10.1.0"
+version = "10.9.0"
 backend = "aqua:pnpm/pnpm"
 
 [tools.pnpm.checksums]
-pnpm-macos-arm64 = "sha256:14f75fc65ba387553898470bac86ce35465f1ce06095d82354012ab4e66bcd9d"
+pnpm-macos-arm64 = "sha256:d6a0114bd409c7da1c8d3b4842c74793171388deecc42068c87e940da00dbec2"
 
 [tools.shellcheck]
 version = "0.10.0"

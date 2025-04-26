@@ -100,7 +100,7 @@ impl SpecArg {
             format!("[{}]", name)
         };
         if self.var {
-            name = format!("{}...", name);
+            name = format!("{}…", name);
         }
         name
     }
@@ -158,7 +158,11 @@ impl From<&str> for SpecArg {
             required: true,
             ..Default::default()
         };
-        if let Some(name) = arg.name.strip_suffix("...") {
+        if let Some(name) = arg
+            .name
+            .strip_suffix("...")
+            .or_else(|| arg.name.strip_suffix("…"))
+        {
             arg.var = true;
             arg.name = name.to_string();
         }
