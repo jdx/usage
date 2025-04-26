@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0](https://github.com/jdx/usage/compare/v2.0.7..v2.1.0) - 2025-04-26
+
+### 🚀 Features
+
+- use ellipsis character by [@jdx](https://github.com/jdx) in [#269](https://github.com/jdx/usage/pull/269)
+
+### 🔍 Other Changes
+
+- upgrade ubuntu by [@jdx](https://github.com/jdx) in [3f71633](https://github.com/jdx/usage/commit/3f71633bd7be4c337e3584bed20d35c7355cb5e7)
+
+### 📦️ Dependency Updates
+
+- update apple-actions/import-codesign-certs action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#262](https://github.com/jdx/usage/pull/262)
+
 ## [2.0.7](https://github.com/jdx/usage/compare/v2.0.6..v2.0.7) - 2025-03-24
 
 ### 🐛 Bug Fixes
@@ -344,6 +358,10 @@
 ### 📦️ Dependency Updates
 
 - update dependency vitepress to v1.4.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#145](https://github.com/jdx/usage/pull/145)
+
+### New Contributors
+
+- @miguelmig made their first contribution in [#154](https://github.com/jdx/usage/pull/154)
 
 ## [1.0.1](https://github.com/jdx/usage/compare/v1.0.0..v1.0.1) - 2024-10-31
 
@@ -758,6 +776,10 @@
 
 - update rust crate heck to v0.5.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#30](https://github.com/jdx/usage/pull/30)
 - update dependency vitepress to v1.0.0-rc.45 by [@renovate[bot]](https://github.com/renovate[bot]) in [b4b8054](https://github.com/jdx/usage/commit/b4b8054d74d9df6826e2c44b051ec4823b646c0b)
+
+### New Contributors
+
+- @mise-en-dev made their first contribution in [#39](https://github.com/jdx/usage/pull/39)
 
 ## [0.1.9](https://github.com/jdx/usage/compare/v0.1.8..v0.1.9) - 2024-02-13
 
