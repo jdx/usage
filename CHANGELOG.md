@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/jdx/usage/compare/v2.1.0..v2.1.1) - 2025-04-26
+
+### 🔍 Other Changes
+
+- dry run releases by [@jdx](https://github.com/jdx) in [67cd3d6](https://github.com/jdx/usage/commit/67cd3d615b60ea7c3a0f0e2d63e0932b99c7b62a)
+- fix releases by [@jdx](https://github.com/jdx) in [#272](https://github.com/jdx/usage/pull/272)
+
 ## [2.1.0](https://github.com/jdx/usage/compare/v2.0.7..v2.1.0) - 2025-04-26
 
 ### 🚀 Features
