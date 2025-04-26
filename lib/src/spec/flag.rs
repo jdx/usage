@@ -125,7 +125,7 @@ impl SpecFlag {
         }
         let mut out = parts.join(" ");
         if self.var {
-            out = format!("{}...", out);
+            out = format!("{}…", out);
         }
         if let Some(arg) = &self.arg {
             out = format!("{} {}", out, arg.usage());
@@ -193,7 +193,7 @@ impl FromStr for SpecFlag {
     type Err = UsageErr;
     fn from_str(input: &str) -> Result<Self> {
         let mut flag = Self::default();
-        let input = input.replace("...", " ... ");
+        let input = input.replace("...", "…").replace("…", " … ");
         for part in input.split_whitespace() {
             if let Some(name) = part.strip_suffix(':') {
                 flag.name = name.to_string();
@@ -208,7 +208,7 @@ impl FromStr for SpecFlag {
                     ));
                 }
                 flag.short.push(short.chars().next().unwrap());
-            } else if part == "..." {
+            } else if part == "…" {
                 if let Some(arg) = &mut flag.arg {
                     arg.var = true;
                 } else {
@@ -380,12 +380,12 @@ mod tests {
         assert_snapshot!("-f".parse::<SpecFlag>().unwrap(), @"-f");
         assert_snapshot!("--flag".parse::<SpecFlag>().unwrap(), @"--flag");
         assert_snapshot!("-f --flag".parse::<SpecFlag>().unwrap(), @"-f --flag");
-        assert_snapshot!("-f --flag...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
-        assert_snapshot!("-f --flag ...".parse::<SpecFlag>().unwrap(), @"-f --flag...");
+        assert_snapshot!("-f --flag…".parse::<SpecFlag>().unwrap(), @"-f --flag…");
+        assert_snapshot!("-f --flag …".parse::<SpecFlag>().unwrap(), @"-f --flag…");
         assert_snapshot!("--flag <arg>".parse::<SpecFlag>().unwrap(), @"--flag <arg>");
         assert_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
-        assert_snapshot!("-f --flag... <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag... <arg>");
-        assert_snapshot!("-f --flag <arg>...".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>...");
+        assert_snapshot!("-f --flag… <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag… <arg>");
+        assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
     }

@@ -27,7 +27,7 @@ Shorthand for `mise task run <TASK>`.
 
 Change directory before running command
 
-### `-E --env... <ENV>`
+### `-E --env… <ENV>`
 
 Set the environment for loading `mise.<ENV>.toml`
 
@@ -51,7 +51,7 @@ Suppress non-error messages
 
 Suppress all task output and mise non-error messages
 
-### `-v --verbose...`
+### `-v --verbose…`
 
 Show extra output (use -vv for even more)
 
@@ -260,14 +260,14 @@ Examples:
 
 ## `mise asdf`
 
-- **Usage**: `mise asdf [ARGS]...`
+- **Usage**: `mise asdf [ARGS]…`
 - **Source code**: [`src/cli/asdf.rs`](https://github.com/jdx/mise/blob/main/src/cli/asdf.rs)
 
 [internal] simulates asdf for plugins that call "asdf" internally
 
 ### Arguments
 
-#### `[ARGS]...`
+#### `[ARGS]…`
 
 all arguments
 
@@ -305,14 +305,14 @@ Examples:
 
 ## `mise bin-paths`
 
-- **Usage**: `mise bin-paths [TOOL@VERSION]...`
+- **Usage**: `mise bin-paths [TOOL@VERSION]…`
 - **Source code**: [`src/cli/bin_paths.rs`](https://github.com/jdx/mise/blob/main/src/cli/bin_paths.rs)
 
 List all the active runtime bin paths
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to look up
 e.g.: ruby@3
@@ -328,7 +328,7 @@ Run `mise cache` with no args to view the current cache directory.
 
 ## `mise cache clear`
 
-- **Usage**: `mise cache clear [PLUGIN]...`
+- **Usage**: `mise cache clear [PLUGIN]…`
 - **Aliases**: `c`
 - **Source code**: [`src/cli/cache/clear.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/clear.rs)
 
@@ -336,13 +336,13 @@ Deletes all cache files in mise
 
 ### Arguments
 
-#### `[PLUGIN]...`
+#### `[PLUGIN]…`
 
 Plugin(s) to clear cache for e.g.: node, python
 
 ## `mise cache prune`
 
-- **Usage**: `mise cache prune [--dry-run] [-v --verbose...] [PLUGIN]...`
+- **Usage**: `mise cache prune [--dry-run] [-v --verbose…] [PLUGIN]…`
 - **Aliases**: `p`
 - **Source code**: [`src/cli/cache/prune.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/prune.rs)
 
@@ -353,7 +353,7 @@ Change this with the MISE_CACHE_PRUNE_AGE environment variable.
 
 ### Arguments
 
-#### `[PLUGIN]...`
+#### `[PLUGIN]…`
 
 Plugin(s) to clear cache for e.g.: node, python
 
@@ -363,7 +363,7 @@ Plugin(s) to clear cache for e.g.: node, python
 
 Just show what would be pruned
 
-#### `-v --verbose...`
+#### `-v --verbose…`
 
 Show pruned files
 
@@ -711,7 +711,7 @@ Examples:
 
 ## `mise env`
 
-- **Usage**: `mise env [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise env [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `e`
 - **Source code**: [`src/cli/env.rs`](https://github.com/jdx/mise/blob/main/src/cli/env.rs)
 
@@ -722,7 +722,7 @@ use this if you have `mise activate` in your shell rc file.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to use
 
@@ -763,7 +763,7 @@ Examples:
 
 ## `mise exec`
 
-- **Usage**: `mise exec [FLAGS] [TOOL@VERSION]... [-- COMMAND]...`
+- **Usage**: `mise exec [FLAGS] [TOOL@VERSION]… [-- COMMAND]…`
 - **Aliases**: `x`
 - **Source code**: [`src/cli/exec.rs`](https://github.com/jdx/mise/blob/main/src/cli/exec.rs)
 
@@ -779,11 +779,11 @@ The "--" separates runtimes from the commands to pass along to the subprocess.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to start e.g.: node@20 python@3.10
 
-#### `[-- COMMAND]...`
+#### `[-- COMMAND]…`
 
 Command string to execute (same as --command)
 
@@ -1035,7 +1035,7 @@ Examples:
 
 ## `mise global`
 
-- **Usage**: `mise global [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise global [FLAGS] [TOOL@VERSION]…`
 - **Source code**: [`src/cli/global.rs`](https://github.com/jdx/mise/blob/main/src/cli/global.rs)
 
 Sets/gets the global tool version(s)
@@ -1051,7 +1051,7 @@ Use `mise local` to set a tool version locally in the current directory.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to add to .tool-versions
 e.g.: node@20
@@ -1071,7 +1071,7 @@ Save fuzzy version to `~/.tool-versions`
 e.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions
 this is the default behavior unless MISE_ASDF_COMPAT=1
 
-#### `--remove... <PLUGIN>`
+#### `--remove… <PLUGIN>`
 
 Remove the plugin(s) from ~/.tool-versions
 
@@ -1173,7 +1173,7 @@ List directories that would be removed without actually removing them
 
 ## `mise install`
 
-- **Usage**: `mise install [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise install [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `i`
 - **Source code**: [`src/cli/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/install.rs)
 
@@ -1189,7 +1189,7 @@ Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to install e.g.: node@20
 
@@ -1208,7 +1208,7 @@ Number of jobs to run in parallel
 
 Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 
-#### `-v --verbose...`
+#### `-v --verbose…`
 
 Show installation output
 
@@ -1315,7 +1315,7 @@ Examples:
 
 ## `mise local`
 
-- **Usage**: `mise local [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise local [FLAGS] [TOOL@VERSION]…`
 - **Source code**: [`src/cli/local.rs`](https://github.com/jdx/mise/blob/main/src/cli/local.rs)
 
 Sets/gets tool version in local .tool-versions or mise.toml
@@ -1327,7 +1327,7 @@ is set. A future v2 release of mise will default to using `mise.toml`.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to add to .tool-versions/mise.toml
 e.g.: node@20
@@ -1350,7 +1350,7 @@ e.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions
 
 Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1
 
-#### `--remove... <PLUGIN>`
+#### `--remove… <PLUGIN>`
 
 Remove the plugin(s) from .tool-versions
 
@@ -1379,7 +1379,7 @@ Examples:
 
 ## `mise ls`
 
-- **Usage**: `mise ls [FLAGS] [INSTALLED_TOOL]...`
+- **Usage**: `mise ls [FLAGS] [INSTALLED_TOOL]…`
 - **Aliases**: `list`
 - **Source code**: [`src/cli/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/ls.rs)
 
@@ -1393,7 +1393,7 @@ It's a useful command to get the current state of your tools.
 
 ### Arguments
 
-#### `[INSTALLED_TOOL]...`
+#### `[INSTALLED_TOOL]…`
 
 Only show tool versions from [TOOL]
 
@@ -1503,7 +1503,7 @@ Examples:
 
 ## `mise outdated`
 
-- **Usage**: `mise outdated [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise outdated [FLAGS] [TOOL@VERSION]…`
 - **Source code**: [`src/cli/outdated.rs`](https://github.com/jdx/mise/blob/main/src/cli/outdated.rs)
 
 Shows outdated tool versions
@@ -1512,7 +1512,7 @@ See `mise upgrade` to upgrade these versions.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to show outdated versions for
 e.g.: node@20 python@3.10
@@ -1615,7 +1615,7 @@ Install all missing plugins
 This will only install plugins that have matching shorthands.
 i.e.: they don't need the full git repo url
 
-#### `-v --verbose...`
+#### `-v --verbose…`
 
 Show installation output
 
@@ -1724,7 +1724,7 @@ Only show the name of each plugin by default it will show a "*" next to installe
 
 ## `mise plugins uninstall`
 
-- **Usage**: `mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]...`
+- **Usage**: `mise plugins uninstall [-p --purge] [-a --all] [PLUGIN]…`
 - **Aliases**: `remove`, `rm`
 - **Source code**: [`src/cli/plugins/uninstall.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/uninstall.rs)
 
@@ -1732,7 +1732,7 @@ Removes a plugin
 
 ### Arguments
 
-#### `[PLUGIN]...`
+#### `[PLUGIN]…`
 
 Plugin(s) to remove
 
@@ -1752,7 +1752,7 @@ Examples:
 
 ## `mise plugins update`
 
-- **Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]...`
+- **Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]…`
 - **Aliases**: `up`, `upgrade`
 - **Source code**: [`src/cli/plugins/update.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/update.rs)
 
@@ -1762,7 +1762,7 @@ note: this updates the plugin itself, not the runtime versions
 
 ### Arguments
 
-#### `[PLUGIN]...`
+#### `[PLUGIN]…`
 
 Plugin(s) to update
 
@@ -1781,7 +1781,7 @@ Examples:
 
 ## `mise prune`
 
-- **Usage**: `mise prune [FLAGS] [INSTALLED_TOOL]...`
+- **Usage**: `mise prune [FLAGS] [INSTALLED_TOOL]…`
 - **Source code**: [`src/cli/prune.rs`](https://github.com/jdx/mise/blob/main/src/cli/prune.rs)
 
 Delete unused versions of tools
@@ -1793,7 +1793,7 @@ as will versions only referenced on the command line `mise exec <PLUGIN>@<VERSIO
 
 ### Arguments
 
-#### `[INSTALLED_TOOL]...`
+#### `[INSTALLED_TOOL]…`
 
 Prune only these tools
 
@@ -1948,7 +1948,7 @@ Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
 Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
 Or it can be overridden with the `shell` property on a task.
 
-#### `-t --tool... <TOOL@VERSION>`
+#### `-t --tool… <TOOL@VERSION>`
 
 Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
 
@@ -2043,7 +2043,7 @@ Skip confirmation prompt
 
 ## `mise set`
 
-- **Usage**: `mise set [--file <FILE>] [-g --global] [ENV_VAR]...`
+- **Usage**: `mise set [--file <FILE>] [-g --global] [ENV_VAR]…`
 - **Source code**: [`src/cli/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/set.rs)
 
 Set environment variables in mise.toml
@@ -2052,7 +2052,7 @@ By default, this command modifies `mise.toml` in the current directory.
 
 ### Arguments
 
-#### `[ENV_VAR]...`
+#### `[ENV_VAR]…`
 
 Environment variable(s) to set
 e.g.: NODE_ENV=production
@@ -2307,7 +2307,7 @@ Examples:
 
 ## `mise shell`
 
-- **Usage**: `mise shell [FLAGS] <TOOL@VERSION>...`
+- **Usage**: `mise shell [FLAGS] <TOOL@VERSION>…`
 - **Aliases**: `sh`
 - **Source code**: [`src/cli/shell.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell.rs)
 
@@ -2320,7 +2320,7 @@ such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by 
 
 ### Arguments
 
-#### `<TOOL@VERSION>...`
+#### `<TOOL@VERSION>…`
 
 Tool(s) to use
 
@@ -2493,7 +2493,7 @@ Examples:
 
 ## `mise tasks add`
 
-- **Usage**: `mise tasks add [FLAGS] <TASK> [-- RUN]...`
+- **Usage**: `mise tasks add [FLAGS] <TASK> [-- RUN]…`
 - **Source code**: [`src/cli/tasks/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/add.rs)
 
 Create a new task
@@ -2504,7 +2504,7 @@ Create a new task
 
 Tasks name to add
 
-#### `[-- RUN]...`
+#### `[-- RUN]…`
 
 ### Flags
 
@@ -2512,15 +2512,15 @@ Tasks name to add
 
 Description of the task
 
-#### `-a --alias... <ALIAS>`
+#### `-a --alias… <ALIAS>`
 
 Other names for the task
 
-#### `--depends-post... <DEPENDS_POST>`
+#### `--depends-post… <DEPENDS_POST>`
 
 Dependencies to run after the task runs
 
-#### `-w --wait-for... <WAIT_FOR>`
+#### `-w --wait-for… <WAIT_FOR>`
 
 Wait for these tasks to complete if they are to run
 
@@ -2536,11 +2536,11 @@ Hide the task from `mise task` and completions
 
 Directly connect stdin/stdout/stderr
 
-#### `-s --sources... <SOURCES>`
+#### `-s --sources… <SOURCES>`
 
 Glob patterns of files this task uses as input
 
-#### `--outputs... <OUTPUTS>`
+#### `--outputs… <OUTPUTS>`
 
 Glob patterns of files this task creates, to skip if they are not modified
 
@@ -2556,7 +2556,7 @@ Do not print the command before running
 
 Do not print the command or its output
 
-#### `-d --depends... <DEPENDS>`
+#### `-d --depends… <DEPENDS>`
 
 Add dependencies to the task
 
@@ -2574,14 +2574,14 @@ Examples:
 
 ## `mise tasks deps`
 
-- **Usage**: `mise tasks deps [--hidden] [--dot] [TASKS]...`
+- **Usage**: `mise tasks deps [--hidden] [--dot] [TASKS]…`
 - **Source code**: [`src/cli/tasks/deps.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/deps.rs)
 
 Display a tree visualization of a dependency graph
 
 ### Arguments
 
-#### `[TASKS]...`
+#### `[TASKS]…`
 
 Tasks to show dependencies for
 Can specify multiple tasks by separating with spaces
@@ -2738,7 +2738,7 @@ Examples:
 
 ## `mise tasks run`
 
-- **Usage**: `mise tasks run [FLAGS] [TASK] [ARGS]...`
+- **Usage**: `mise tasks run [FLAGS] [TASK] [ARGS]…`
 - **Aliases**: `r`
 - **Source code**: [`src/cli/tasks/run.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/run.rs)
 
@@ -2778,7 +2778,7 @@ e.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2
 
 **Default:** `default`
 
-#### `[ARGS]...`
+#### `[ARGS]…`
 
 Arguments to pass to the tasks. Use ":::" to separate tasks
 
@@ -2808,7 +2808,7 @@ Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
 Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
 Or it can be overridden with the `shell` property on a task.
 
-#### `-t --tool... <TOOL@VERSION>`
+#### `-t --tool… <TOOL@VERSION>`
 
 Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
 
@@ -3007,7 +3007,7 @@ Examples:
 
 ## `mise uninstall`
 
-- **Usage**: `mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]...`
+- **Usage**: `mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]…`
 - **Source code**: [`src/cli/uninstall.rs`](https://github.com/jdx/mise/blob/main/src/cli/uninstall.rs)
 
 Removes installed tool versions
@@ -3016,7 +3016,7 @@ This only removes the installed version, it does not modify mise.toml.
 
 ### Arguments
 
-#### `[INSTALLED_TOOL@VERSION]...`
+#### `[INSTALLED_TOOL@VERSION]…`
 
 Tool(s) to remove
 
@@ -3043,7 +3043,7 @@ Examples:
 
 ## `mise unset`
 
-- **Usage**: `mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]...`
+- **Usage**: `mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]…`
 - **Source code**: [`src/cli/unset.rs`](https://github.com/jdx/mise/blob/main/src/cli/unset.rs)
 
 Remove environment variable(s) from the config file.
@@ -3052,7 +3052,7 @@ By default, this command modifies `mise.toml` in the current directory.
 
 ### Arguments
 
-#### `[ENV_KEY]...`
+#### `[ENV_KEY]…`
 
 Environment variable(s) to remove
 e.g.: NODE_ENV
@@ -3077,7 +3077,7 @@ Examples:
 
 ## `mise unuse`
 
-- **Usage**: `mise unuse [--no-prune] [--global] <INSTALLED_TOOL@VERSION>...`
+- **Usage**: `mise unuse [--no-prune] [--global] <INSTALLED_TOOL@VERSION>…`
 - **Aliases**: `rm`, `remove`
 - **Source code**: [`src/cli/unuse.rs`](https://github.com/jdx/mise/blob/main/src/cli/unuse.rs)
 
@@ -3087,7 +3087,7 @@ Will also prune the installed version if no other configurations are using it.
 
 ### Arguments
 
-#### `<INSTALLED_TOOL@VERSION>...`
+#### `<INSTALLED_TOOL@VERSION>…`
 
 Tool(s) to remove
 
@@ -3108,7 +3108,7 @@ Examples:
 
 ## `mise upgrade`
 
-- **Usage**: `mise upgrade [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise upgrade [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `up`
 - **Source code**: [`src/cli/upgrade.rs`](https://github.com/jdx/mise/blob/main/src/cli/upgrade.rs)
 
@@ -3122,7 +3122,7 @@ This will update mise.lock if it is enabled, see https://mise.jdx.dev/configurat
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to upgrade
 e.g.: node@20 python@3.10
@@ -3191,7 +3191,7 @@ See https://usage.jdx.dev for more information on this specification.
 
 ## `mise use`
 
-- **Usage**: `mise use [FLAGS] [TOOL@VERSION]...`
+- **Usage**: `mise use [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `u`
 - **Source code**: [`src/cli/use.rs`](https://github.com/jdx/mise/blob/main/src/cli/use.rs)
 
@@ -3210,7 +3210,7 @@ Use the `--global` flag to use the global config file instead.
 
 ### Arguments
 
-#### `[TOOL@VERSION]...`
+#### `[TOOL@VERSION]…`
 
 Tool(s) to add to config file
 
@@ -3251,7 +3251,7 @@ Number of jobs to run in parallel
 
 Directly pipe stdin/stdout/stderr from plugin to user Sets `--jobs=1`
 
-#### `--remove... <PLUGIN>`
+#### `--remove… <PLUGIN>`
 
 Remove the plugin(s) from config file
 
@@ -3310,7 +3310,7 @@ Examples:
 
 ## `mise watch`
 
-- **Usage**: `mise watch [FLAGS] [TASK] [ARGS]...`
+- **Usage**: `mise watch [FLAGS] [TASK] [ARGS]…`
 - **Aliases**: `w`
 - **Source code**: [`src/cli/watch.rs`](https://github.com/jdx/mise/blob/main/src/cli/watch.rs)
 
@@ -3327,13 +3327,13 @@ Tasks to run
 Can specify multiple tasks by separating with `:::`
 e.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`
 
-#### `[ARGS]...`
+#### `[ARGS]…`
 
 Task and arguments to run
 
 ### Flags
 
-#### `-w --watch... <PATH>`
+#### `-w --watch… <PATH>`
 
 Watch a specific file or directory
 
@@ -3347,7 +3347,7 @@ This option can be specified multiple times to watch multiple files or directori
 
 The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
 
-#### `-W --watch-non-recursive... <PATH>`
+#### `-W --watch-non-recursive… <PATH>`
 
 Watch a specific directory, non-recursively
 
@@ -3431,7 +3431,7 @@ The default is 10 seconds. Set to 0 to immediately force-kill the command.
 
 This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
 
-#### `--map-signal... <SIGNAL:SIGNAL>`
+#### `--map-signal… <SIGNAL:SIGNAL>`
 
 Translate signals from the OS to signals to send to the command
 
@@ -3717,7 +3717,7 @@ This is a convenience option for using Watchexec as a file watcher, without runn
 
 This option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.
 
-#### `-E --env... <KEY=VALUE>`
+#### `-E --env… <KEY=VALUE>`
 
 Add env vars to the command
 
@@ -3791,19 +3791,19 @@ Set the working directory
 
 By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
 
-#### `-e --exts... <EXTENSIONS>`
+#### `-e --exts… <EXTENSIONS>`
 
 Filename extensions to filter to
 
 This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
 
-#### `-f --filter... <PATTERN>`
+#### `-f --filter… <PATTERN>`
 
 Filename patterns to filter to
 
 Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
 
-#### `--filter-file... <PATH>`
+#### `--filter-file… <PATH>`
 
 Files to load filters from
 
@@ -3811,7 +3811,7 @@ Provide a path to a file containing filters, one per line. Empty lines and lines
 
 This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
 
-#### `-J --filter-prog... <EXPRESSION>`
+#### `-J --filter-prog… <EXPRESSION>`
 
 [experimental] Filter programs.
 
@@ -3859,13 +3859,13 @@ Ignore files that start with shebangs:
 
 'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | read(2) == "#!") | not'
 
-#### `-i --ignore... <PATTERN>`
+#### `-i --ignore… <PATTERN>`
 
 Filename patterns to filter out
 
 Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
 
-#### `--ignore-file... <PATH>`
+#### `--ignore-file… <PATH>`
 
 Files to load ignores from
 
@@ -3873,7 +3873,7 @@ Provide a path to a file containing ignores, one per line. Empty lines and lines
 
 This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
 
-#### `--fs-events... <EVENTS>`
+#### `--fs-events… <EVENTS>`
 
 Filesystem events to filter to
 

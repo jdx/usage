@@ -52,7 +52,7 @@ mod tests {
 
         arg3 long description
 
-        ### `<argrest>...`
+        ### `<argrest>…`
 
         ### `[with-default]`
 
