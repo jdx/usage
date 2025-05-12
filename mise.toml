@@ -1,19 +1,18 @@
 [env]
 CARGO_TERM_COLOR = 'always'
-_.path           = ["./target/debug"]
+_.path = ["./target/debug"]
 
 [tools]
-actionlint            = "latest"
-cargo-binstall        = "1"
-gh                    = "latest"
-"cargo:cargo-edit"    = "latest"
-"cargo:cargo-insta"   = "latest"
+actionlint = "latest"
+cargo-binstall = "1"
+gh = "latest"
+"cargo:cargo-edit" = "latest"
+"cargo:cargo-insta" = "latest"
 "cargo:cargo-release" = "latest"
-"cargo:git-cliff"     = "latest"
-shellcheck            = "latest"
-pnpm                  = "latest"
-node                  = "latest"
-"npm:prettier"        = "latest"
+"cargo:git-cliff" = "latest"
+"npm:prettier" = "latest"
+shellcheck = "latest"
+pnpm = "latest"
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]
@@ -21,38 +20,38 @@ depends = ["render", "lint-fix", "snapshots"]
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
 outputs = ['target/debug/rtx']
-run     = 'cargo build --all'
+run = 'cargo build --all'
 
 [tasks.cli]
-alias   = ['x']
+alias = ['x']
 depends = ['build']
-run     = 'usage'
-raw     = true
+run = 'usage'
+raw = true
 
 [tasks.complete-word]
-alias   = ['cw']
+alias = ['cw']
 depends = ['build']
-run     = 'usage cw'
-raw     = true
+run = 'usage cw'
+raw = true
 
 [tasks.run-example]
 depends = ['build']
-run     = './examples/example.sh'
-raw     = true
+run = './examples/example.sh'
+raw = true
 
 [tasks.complete_fish]
 depends = ['build']
-run     = 'usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
-raw     = true
+run = 'usage g completion fish -f examples/example.sh > ~/.config/fish/completions/ex.fish'
+raw = true
 
 [tasks."docs:dev"]
 alias = "docs"
-dir   = 'docs'
-run   = 'npm run docs:dev'
+dir = 'docs'
+run = 'npm run docs:dev'
 
 [tasks.test]
 alias = 't'
-run   = 'cargo test --all --all-features'
+run = 'cargo test --all --all-features'
 
 [tasks.lint]
 depends = ['lint:*']
