@@ -18,7 +18,6 @@ use usage::Spec;
 #[clap(disable_help_flag = true, verbatim_doc_comment)]
 pub struct Shell {
     script: PathBuf,
-
     /// arguments to pass to script
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
