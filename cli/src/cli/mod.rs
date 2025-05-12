@@ -2,10 +2,10 @@ use crate::usage_spec;
 use clap::{Parser, Subcommand};
 use miette::Result;
 
-mod bash;
 mod complete_word;
 mod exec;
 mod generate;
+mod shell;
 
 #[derive(Parser)]
 #[clap(author, version, about)]
@@ -23,10 +23,15 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    Bash(bash::Bash),
     CompleteWord(complete_word::CompleteWord),
     Exec(exec::Exec),
     Generate(generate::Generate),
+    #[clap(about = "Use bash to execute the script")]
+    Bash(shell::Shell),
+    #[clap(about = "use fish to execute the script")]
+    Fish(shell::Shell),
+    #[clap(about = "use zsh to execute the script")]
+    Zsh(shell::Shell),
 }
 
 impl Cli {
@@ -36,7 +41,9 @@ impl Cli {
             return usage_spec::generate();
         }
         match cli.command {
-            Command::Bash(mut cmd) => cmd.run(),
+            Command::Bash(mut cmd) => cmd.run("bash"),
+            Command::Fish(mut cmd) => cmd.run("fish"),
+            Command::Zsh(mut cmd) => cmd.run("zsh"),
             Command::Generate(cmd) => cmd.run(),
             Command::Exec(mut cmd) => cmd.run(),
             Command::CompleteWord(cmd) => cmd.run(),
