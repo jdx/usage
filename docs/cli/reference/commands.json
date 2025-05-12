@@ -5,60 +5,6 @@
     "full_cmd": [],
     "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
     "subcommands": {
-      "bash": {
-        "full_cmd": ["bash"],
-        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]…",
-        "subcommands": {},
-        "args": [
-          {
-            "name": "SCRIPT",
-            "usage": "<SCRIPT>",
-            "required": true,
-            "double_dash": "Optional",
-            "hide": false
-          },
-          {
-            "name": "ARGS",
-            "usage": "[ARGS]…",
-            "help": "arguments to pass to script",
-            "help_first_line": "arguments to pass to script",
-            "required": false,
-            "double_dash": "Optional",
-            "var": true,
-            "hide": false
-          }
-        ],
-        "flags": [
-          {
-            "name": "h",
-            "usage": "-h",
-            "help": "show help",
-            "help_first_line": "show help",
-            "short": ["h"],
-            "long": [],
-            "hide": false,
-            "global": false
-          },
-          {
-            "name": "help",
-            "usage": "--help",
-            "help": "show help",
-            "help_first_line": "show help",
-            "short": [],
-            "long": ["help"],
-            "hide": false,
-            "global": false
-          }
-        ],
-        "mounts": [],
-        "hide": false,
-        "help": "Executes a bash script",
-        "help_long": "Executes a bash script\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
-        "name": "bash",
-        "aliases": [],
-        "hidden_aliases": [],
-        "examples": []
-      },
       "complete-word": {
         "full_cmd": ["complete-word"],
         "usage": "complete-word [FLAGS] [WORDS]…",
@@ -544,6 +490,168 @@
         "subcommand_required": true,
         "name": "generate",
         "aliases": ["g"],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "bash": {
+        "full_cmd": ["bash"],
+        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "arguments to pass to script",
+            "help_first_line": "arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Use bash to execute the script",
+        "help_long": "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "bash",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "fish": {
+        "full_cmd": ["fish"],
+        "usage": "fish [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "arguments to pass to script",
+            "help_first_line": "arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "use fish to execute the script",
+        "help_long": "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "fish",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "zsh": {
+        "full_cmd": ["zsh"],
+        "usage": "zsh [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "arguments to pass to script",
+            "help_first_line": "arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "show help",
+            "help_first_line": "show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "use zsh to execute the script",
+        "help_long": "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "zsh",
+        "aliases": [],
         "hidden_aliases": [],
         "examples": []
       }

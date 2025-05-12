@@ -47,7 +47,7 @@ impl Shell {
         let parsed = usage::parse::parse(&spec, &args)?;
         debug!("{parsed:?}");
 
-        let mut cmd = std::process::Command::new(&shell);
+        let mut cmd = std::process::Command::new(shell);
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
