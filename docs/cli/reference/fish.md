@@ -1,7 +1,7 @@
-# `usage bash`
+# `usage fish`
 
-- **Usage**: `usage bash [-h] [--help] <SCRIPT> [ARGS]…`
-- **Source code**: [`cli/src/cli/bash.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/bash.rs)
+- **Usage**: `usage fish [-h] [--help] <SCRIPT> [ARGS]…`
+- **Source code**: [`cli/src/cli/fish.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/fish.rs)
 
 Executes a shell script with the specified shell
 

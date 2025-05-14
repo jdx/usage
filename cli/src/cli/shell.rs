@@ -8,7 +8,7 @@ use miette::IntoDiagnostic;
 
 use usage::Spec;
 
-/// Executes a bash script
+/// Executes a shell script with the specified shell
 ///
 /// Typically, this will be called by a script's shebang
 ///
@@ -16,7 +16,7 @@ use usage::Spec;
 /// to properly escape and quote values with spaces in them.
 #[derive(Debug, Args)]
 #[clap(disable_help_flag = true, verbatim_doc_comment)]
-pub struct Bash {
+pub struct Shell {
     script: PathBuf,
     /// arguments to pass to script
     #[clap(allow_hyphen_values = true)]
@@ -31,8 +31,8 @@ pub struct Bash {
     help: bool,
 }
 
-impl Bash {
-    pub fn run(&mut self) -> miette::Result<()> {
+impl Shell {
+    pub fn run(&mut self, shell: &str) -> miette::Result<()> {
         let (spec, _script) = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
@@ -47,7 +47,7 @@ impl Bash {
         let parsed = usage::parse::parse(&spec, &args)?;
         debug!("{parsed:?}");
 
-        let mut cmd = std::process::Command::new("bash");
+        let mut cmd = std::process::Command::new(shell);
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
