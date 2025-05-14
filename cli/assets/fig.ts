@@ -87,33 +87,6 @@ const completionSpec: Fig.Spec = {
   name: "usage",
   subcommands: [
     {
-      name: "bash",
-      description: "Executes a bash script",
-      options: [
-        {
-          name: "-h",
-          description: "Show help",
-          isRepeatable: false,
-        },
-        {
-          name: "--help",
-          description: "Show help",
-          isRepeatable: false,
-        },
-      ],
-      args: [
-        {
-          name: "script",
-        },
-        {
-          name: "args",
-          description: "Arguments to pass to script",
-          isOptional: true,
-          isVariadic: true,
-        },
-      ],
-    },
-    {
       name: ["complete-word", "cw"],
       options: [
         {
@@ -323,6 +296,87 @@ const completionSpec: Fig.Spec = {
               },
             },
           ],
+        },
+      ],
+    },
+    {
+      name: "bash",
+      description: "Use bash to execute the script",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
+    },
+    {
+      name: "fish",
+      description: "use fish to execute the script",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
+    },
+    {
+      name: "zsh",
+      description: "use zsh to execute the script",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
         },
       ],
     },
