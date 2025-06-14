@@ -31,5 +31,5 @@ brew install usage
 usage is available in [Extra](https://archlinux.org/packages/extra/x86_64/usage/)
 
 ```sh
-pacmac -S usage
+pacman -S usage
 ```
