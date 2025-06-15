@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.2.0](https://github.com/jdx/usage/compare/v2.1.1..v2.2.0) - 2025-06-15
+
+### 🚀 Features
+
+- Generalize bash command to support bash/zsh/fish by [@NorthIsUp](https://github.com/NorthIsUp) in [#280](https://github.com/jdx/usage/pull/280)
+
+### 🐛 Bug Fixes
+
+- update wrong name package manager by [@axemanofic](https://github.com/axemanofic) in [#287](https://github.com/jdx/usage/pull/287)
+
+### 🔍 Other Changes
+
+- add semantic-pr-lint by [@jdx](https://github.com/jdx) in [#281](https://github.com/jdx/usage/pull/281)
+
+### 📦️ Dependency Updates
+
+- update pnpm/action-setup action to v4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#278](https://github.com/jdx/usage/pull/278)
+
+### New Contributors
+
+- @axemanofic made their first contribution in [#287](https://github.com/jdx/usage/pull/287)
+- @NorthIsUp made their first contribution in [#280](https://github.com/jdx/usage/pull/280)
+
 ## [2.1.1](https://github.com/jdx/usage/compare/v2.1.0..v2.1.1) - 2025-04-26
 
 ### 🔍 Other Changes
