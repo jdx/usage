@@ -23,7 +23,7 @@ port:Port number
 
 ":" can be escaped with a backslash.
 
-## Templates
+## Templates
 
 The run can be customized with [tera](https://keats.github.io/tera/) templates. The following values are available:
 
