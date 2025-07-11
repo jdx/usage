@@ -25,4 +25,4 @@ jobs:
           save-if: false
       - uses: jdx/mise-action@v2
       - run: mise r autofix
-      - uses: autofix-ci/action@v1.3.1
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
