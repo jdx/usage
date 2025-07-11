@@ -27,7 +27,7 @@ impl Exec {
             .map(|p| p.to_path_buf())
             .unwrap_or_default();
         let bin_name = self.bin.file_name().unwrap().to_str().unwrap();
-        let dotted_spec_path = parent.join(format!(".{}.usage.kdl", bin_name));
+        let dotted_spec_path = parent.join(format!(".{bin_name}.usage.kdl"));
         let spec = if dotted_spec_path.exists() {
             let (spec, _) = Spec::parse_file(&dotted_spec_path)?;
             spec

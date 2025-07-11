@@ -148,9 +148,9 @@ impl MarkdownRenderer {
         for line in md.lines() {
             if let Some(line) = line.strip_prefix("    ") {
                 if in_code_block {
-                    new_md.push_str(&format!("{}\n", line));
+                    new_md.push_str(&format!("{line}\n"));
                 } else {
-                    new_md.push_str(&format!("```\n{}\n", line));
+                    new_md.push_str(&format!("```\n{line}\n"));
                     in_code_block = true;
                 }
             } else {
@@ -158,7 +158,7 @@ impl MarkdownRenderer {
                     new_md.push_str("```\n");
                     in_code_block = false;
                 }
-                new_md.push_str(&format!("{}\n", line));
+                new_md.push_str(&format!("{line}\n"));
             }
         }
         if in_code_block {

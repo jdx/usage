@@ -138,7 +138,7 @@ impl CompleteWord {
                 let mut flags = f
                     .long
                     .iter()
-                    .map(|l| (format!("--{}", l), f.help.clone().unwrap_or_default()))
+                    .map(|l| (format!("--{l}"), f.help.clone().unwrap_or_default()))
                     .collect::<Vec<_>>();
                 if let Some(negate) = &f.negate {
                     flags.push((negate.clone(), String::new()))

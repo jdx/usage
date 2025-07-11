@@ -95,12 +95,12 @@ impl SpecArg {
             self.name.clone()
         };
         let mut name = if self.required {
-            format!("<{}>", name)
+            format!("<{name}>")
         } else {
-            format!("[{}]", name)
+            format!("[{name}]")
         };
         if self.var {
-            name = format!("{}…", name);
+            name = format!("{name}…");
         }
         name
     }

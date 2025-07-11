@@ -214,13 +214,11 @@ fn check_usage_version(version: &str) {
         Some(v) => {
             if cur < v {
                 warn!(
-                    "This usage spec requires at least version {}, but you are using version {} of usage",
-                    version,
-                    cur
+                    "This usage spec requires at least version {version}, but you are using version {cur} of usage"
                 );
             }
         }
-        _ => warn!("Invalid version: {}", version),
+        _ => warn!("Invalid version: {version}"),
     }
 }
 
@@ -241,7 +239,7 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
         .filter(|l| !l.starts_with('#'))
         .collect::<Vec<_>>()
         .join("\n");
-    let body = format!("#!{}", body);
+    let body = format!("#!{body}");
     Ok((schema, body))
 }
 
@@ -356,7 +354,7 @@ impl Display for Spec {
             nodes.push((&self.config).into());
         }
         doc.autoformat_config(&kdl::FormatConfigBuilder::new().build());
-        write!(f, "{}", doc)
+        write!(f, "{doc}")
     }
 }
 

@@ -73,8 +73,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 let mut flags = f
                     .long
                     .iter()
-                    .map(|l| (format!("--{}", l), f.clone()))
-                    .chain(f.short.iter().map(|s| (format!("-{}", s), f.clone())))
+                    .map(|l| (format!("--{l}"), f.clone()))
+                    .chain(f.short.iter().map(|s| (format!("-{s}"), f.clone())))
                     .collect::<Vec<_>>();
                 if let Some(negate) = &f.negate {
                     flags.push((negate.clone(), f.clone()));
@@ -154,7 +154,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         // short flags
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
-            if let Some(f) = out.available_flags.get(&format!("-{}", short)) {
+            if let Some(f) = out.available_flags.get(&format!("-{short}")) {
                 if w.len() > 2 {
                     input.push_front(format!("-{}", &w[2..]));
                     grouped_flag = true;
@@ -320,8 +320,8 @@ impl ParseOutput {
 impl Display for ParseValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseValue::Bool(b) => write!(f, "{}", b),
-            ParseValue::String(s) => write!(f, "{}", s),
+            ParseValue::Bool(b) => write!(f, "{b}"),
+            ParseValue::String(s) => write!(f, "{s}"),
             ParseValue::MultiBool(b) => write!(f, "{}", b.iter().join(" ")),
             ParseValue::MultiString(s) => write!(f, "{}", shell_words::join(s)),
         }

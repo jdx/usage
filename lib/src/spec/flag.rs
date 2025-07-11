@@ -118,14 +118,14 @@ impl SpecFlag {
             parts.push(format!("{}:", self.name));
         }
         if let Some(short) = self.short.first() {
-            parts.push(format!("-{}", short));
+            parts.push(format!("-{short}"));
         }
         if let Some(long) = self.long.first() {
-            parts.push(format!("--{}", long));
+            parts.push(format!("--{long}"));
         }
         let mut out = parts.join(" ");
         if self.var {
-            out = format!("{}…", out);
+            out = format!("{out}…");
         }
         if let Some(arg) = &self.arg {
             out = format!("{} {}", out, arg.usage());
