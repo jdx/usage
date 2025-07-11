@@ -276,7 +276,11 @@ impl CompleteWord {
             .into_iter()
             .flatten()
             .filter_map(Result::ok)
-            .filter(|de| de.file_name().to_string_lossy().starts_with(&prefix))
+            .filter(|de| {
+                let name = de.file_name();
+                let name = name.to_string_lossy();
+                !name.starts_with('.') && name.starts_with(&prefix)
+            })
             .map(|de| de.path())
             .filter(|p| filter(p))
             .map(|p| {
