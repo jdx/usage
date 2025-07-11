@@ -78,10 +78,10 @@ impl CompleteWord {
 
         let parsed = usage::parse::parse_partial(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
-        let choices = if ctoken == "-" {
+        let mut choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
-            shorts.into_iter().chain(longs).collect()
+            shorts.into_iter().chain(longs).collect::<Vec<_>>()
         } else if ctoken.starts_with("--") {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
@@ -98,6 +98,12 @@ impl CompleteWord {
             }
             choices
         };
+        // Fallback to file completions if nothing is known about this argument and it's not a flag
+        if choices.is_empty() && !ctoken.starts_with('-') {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let files = self.complete_path(&cwd, &ctoken, |_| true);
+            choices = files.into_iter().map(|n| (n, String::new())).collect();
+        }
         trace!("choices: {}", choices.iter().map(|(c, _)| c).join(", "));
         Ok(choices)
     }

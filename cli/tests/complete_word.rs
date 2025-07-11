@@ -105,6 +105,28 @@ fn complete_word_mounted() {
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
+#[test]
+fn complete_word_fallback_to_files() {
+    // Use a minimal spec with no args or subcommands, so any argument is unknown
+    let mut cmd = Command::cargo_bin("usage").unwrap();
+    cmd.args([
+        "cw",
+        "--shell",
+        "zsh",
+        "-f",
+        "../examples/basic.usage.kdl",
+        "mycli",
+        "plugins",
+        "install",
+        "foo",
+        "",
+    ]);
+    // Assert for files always present in the project root
+    cmd.assert()
+        .success()
+        .stdout(contains("Cargo.toml").and(contains("src")));
+}
+
 fn cmd(example: &str, shell: &str) -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();
     cmd.args([
