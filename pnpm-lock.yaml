@@ -20,7 +20,7 @@ importers:
         version: 18.2.4
       '@withfig/autocomplete':
         specifier: ^2.692.2
-        version: 2.692.2
+        version: 2.692.3
       '@withfig/autocomplete-tools':
         specifier: ^2.11.0
         version: 2.11.0
@@ -989,8 +989,8 @@ packages:
   '@withfig/autocomplete-types@1.31.0':
     resolution: {integrity: sha512-TSZDo5jvEaeIHqmHY6Wkd3gBqVbxcHQVdkF6N1J8CXRBuQZpjUVci15/HPNYe0nKLvsomBWIRsTP3m1zr9pv3A==}
 
-  '@withfig/autocomplete@2.692.2':
-    resolution: {integrity: sha512-EoM1YpLSjIahUbz38M2IykvrWcbtC+5L0m2+uIISwRGQLTmw6lBh4SjLA11LD8aoQQJPAcK8+2QvrL1qRH0Mhg==}
+  '@withfig/autocomplete@2.692.3':
+    resolution: {integrity: sha512-zxN7K8W+qWGc2ejWksd92xwAyCZ0faHvnk3c7jUoWkkk5e5iQf3/4mOLheFvYLoUWR5a36571VJ1DdyxmAWJZA==}
     engines: {node: '>=20', pnpm: '>=9'}
 
   '@withfig/eslint-plugin-fig-linter@1.4.1':
@@ -1635,8 +1635,8 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
-  strip-json-comments@5.0.1:
-    resolution: {integrity: sha512-0fk9zBqO67Nq5M/m45qHCJxylV/DhBlIOVExqgOMiCCrzrhU6tCibRXNqE3jwJLftzE9SNuZtYbpzcO+i9FiKw==}
+  strip-json-comments@5.0.2:
+    resolution: {integrity: sha512-4X2FR3UwhNUE9G49aIsJW5hRRR3GXGTBTZRMfv568O60ojM8HcWjV/VxAxCDW3SUND33O6ZY66ZuRcdkj73q2g==}
     engines: {node: '>=14.16'}
 
   superjson@2.2.2:
@@ -1780,9 +1780,9 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  yaml@2.7.1:
-    resolution: {integrity: sha512-10ULxpnOCQXxJvBgxsn9ptjq6uviG/htZKk9veJGhlqn3w/DxQ631zFF+nlQXLwmImeS5amR2dl2U8sg6U9jsQ==}
-    engines: {node: '>= 14'}
+  yaml@2.8.0:
+    resolution: {integrity: sha512-4lLa/EcQCB0cJkyts+FpIRx5G/llPxfP6VQU5KByHEhLxY3IJCH0f0Hy1MHI8sClTvsIb8qwRJ6R/ZdlDJ/leQ==}
+    engines: {node: '>= 14.6'}
     hasBin: true
 
   yocto-queue@0.1.0:
@@ -2586,13 +2586,13 @@ snapshots:
 
   '@withfig/autocomplete-types@1.31.0': {}
 
-  '@withfig/autocomplete@2.692.2':
+  '@withfig/autocomplete@2.692.3':
     dependencies:
       '@fig/autocomplete-generators': 2.4.0
       '@fig/autocomplete-helpers': 1.0.7
       semver: 7.7.2
-      strip-json-comments: 5.0.1
-      yaml: 2.7.1
+      strip-json-comments: 5.0.2
+      yaml: 2.8.0
 
   '@withfig/eslint-plugin-fig-linter@1.4.1': {}
 
@@ -3322,7 +3322,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  strip-json-comments@5.0.1: {}
+  strip-json-comments@5.0.2: {}
 
   superjson@2.2.2:
     dependencies:
@@ -3479,7 +3479,7 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  yaml@2.7.1: {}
+  yaml@2.8.0: {}
 
   yocto-queue@0.1.0: {}
 
