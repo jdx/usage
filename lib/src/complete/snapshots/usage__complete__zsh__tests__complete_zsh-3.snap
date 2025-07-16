@@ -1,7 +1,6 @@
 ---
 source: lib/src/complete/zsh.rs
 expression: "complete_zsh(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"zsh\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false,\n})"
-snapshot_kind: text
 ---
 #compdef mycli
 local curcontext="$curcontext"
@@ -10,7 +9,7 @@ _mycli() {
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
-  if ! command -v usage &> /dev/null; then
+  if ! command usage &> /dev/null; then
       echo >&2
       echo "Error: usage CLI not found. This is required for completions to work in mycli." >&2
       echo "See https://usage.jdx.dev for more information." >&2
@@ -53,7 +52,7 @@ cmd plugin {
 }
 __USAGE_EOF__
 
-  _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
+  _arguments "*: :(($(command usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
   return 0
 }
 
