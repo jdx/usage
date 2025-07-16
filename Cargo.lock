@@ -1344,15 +1344,15 @@ checksum = "989e6739f80c4ad5b13e0fd7fe89531180375b18520cc8c82080e4dc4035b84f"
 
 [[package]]
 name = "rustix"
-version = "1.0.7"
+version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c71e83d6afe7ff64890ec6b71d6a69bb8a610ab78ce364b3352876bb4c801266"
+checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
 dependencies = [
  "bitflags",
  "errno 0.3.13",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1823,7 +1823,7 @@ checksum = "4a1a07cc7db3810833284e8d372ccdc6da29741639ecc70c9ec107df0fa6154c"
 
 [[package]]
 name = "usage-cli"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "clap",
  "ctor",
