@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.2](https://github.com/jdx/usage/compare/v2.2.1..v2.2.2) - 2025-07-16
+
+### 📚 Documentation
+
+- fix revert for git-cliff by [@jdx](https://github.com/jdx) in [#302](https://github.com/jdx/usage/pull/302)
+
+### ◀️ Revert
+
+- Revert "fix(completions): ignore aliases and functions named usage" by [@jdx](https://github.com/jdx) in [#301](https://github.com/jdx/usage/pull/301)
+
 ## [2.2.1](https://github.com/jdx/usage/compare/v2.2.0..v2.2.1) - 2025-07-16
 
 ### 🐛 Bug Fixes
@@ -134,6 +144,11 @@
 
 - add v1-fallback for kdl by [@jdx](https://github.com/jdx) in [9516e15](https://github.com/jdx/usage/commit/9516e15d53c0769a1227ec4ab37e0622b4e7bead)
 
+### ◀️ Revert
+
+- Revert "fix: add v1-fallback for kdl" by [@jdx](https://github.com/jdx) in [ef98628](https://github.com/jdx/usage/commit/ef98628658cb3adcc3284aa341b70329743fa3da)
+- Revert "chore: attempt to fix kdl v1-fallback" by [@jdx](https://github.com/jdx) in [c440c2a](https://github.com/jdx/usage/commit/c440c2a4fb843da0670b72f0b6c233602d7c9066)
+
 ### 🔍 Other Changes
 
 - fix publish script by [@jdx](https://github.com/jdx) in [7c72bc3](https://github.com/jdx/usage/commit/7c72bc3450fe0e731331be18354244b5a19223d5)
@@ -141,8 +156,6 @@
 - fix fig syntax rendering by [@jdx](https://github.com/jdx) in [2b2d301](https://github.com/jdx/usage/commit/2b2d30104280c64854b78d829547a5d3fa8694df)
 - attempt to fix kdl v1-fallback by [@jdx](https://github.com/jdx) in [8c0a2c6](https://github.com/jdx/usage/commit/8c0a2c698e51f382888dfa2bc170bb9035df1173)
 - bump by [@jdx](https://github.com/jdx) in [bdc1dfb](https://github.com/jdx/usage/commit/bdc1dfb2c6f12466cad102f1a7b06f30b32ef05e)
-- Revert "fix: add v1-fallback for kdl" by [@jdx](https://github.com/jdx) in [ef98628](https://github.com/jdx/usage/commit/ef98628658cb3adcc3284aa341b70329743fa3da)
-- Revert "chore: attempt to fix kdl v1-fallback" by [@jdx](https://github.com/jdx) in [c440c2a](https://github.com/jdx/usage/commit/c440c2a4fb843da0670b72f0b6c233602d7c9066)
 - bump by [@jdx](https://github.com/jdx) in [6a468df](https://github.com/jdx/usage/commit/6a468df654ce2e7a9fad1de52a279be74268fbbf)
 
 ## [2.0.0](https://github.com/jdx/usage/compare/v1.7.4..v2.0.0) - 2025-01-10
