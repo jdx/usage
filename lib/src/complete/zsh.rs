@@ -38,7 +38,7 @@ _{bin_snake}() {{
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
-  if ! command -v {usage_bin} &> /dev/null; then
+  if ! command {usage_bin} &> /dev/null; then
       echo >&2
       echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
       echo "See https://usage.jdx.dev for more information." >&2
@@ -74,7 +74,7 @@ __USAGE_EOF__"#,
 
     out.push(format!(
         r#"
-  _arguments "*: :(($({usage_bin} complete-word --shell zsh -s "$spec" -- "${{words[@]}}" )))"
+  _arguments "*: :(($(command {usage_bin} complete-word --shell zsh -s "$spec" -- "${{words[@]}}" )))"
   return 0
 }}
 
