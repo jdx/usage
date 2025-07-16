@@ -38,7 +38,7 @@ _{bin_snake}() {{
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
-  if ! command {usage_bin} &> /dev/null; then
+  if ! type -P {usage_bin} &> /dev/null; then
       echo >&2
       echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
       echo "See https://usage.jdx.dev for more information." >&2
