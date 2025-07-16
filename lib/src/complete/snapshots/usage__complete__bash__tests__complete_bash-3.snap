@@ -1,9 +1,10 @@
 ---
 source: lib/src/complete/bash.rs
 expression: "complete_bash(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"bash\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false,\n})"
+snapshot_kind: text
 ---
 _mycli() {
-    if ! command usage &> /dev/null; then
+    if ! command -v usage &> /dev/null; then
         echo >&2
         echo "Error: usage CLI not found. This is required for completions to work in mycli." >&2
         echo "See https://usage.jdx.dev for more information." >&2
@@ -50,7 +51,7 @@ __USAGE_EOF__
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     # shellcheck disable=SC2207
-	_comp_compgen -- -W "$(command usage complete-word --shell bash -s "${_usage_spec_mycli}" --cword="$cword" -- "${words[@]}")"
+	_comp_compgen -- -W "$(usage complete-word --shell bash -s "${_usage_spec_mycli}" --cword="$cword" -- "${words[@]}")"
 	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
