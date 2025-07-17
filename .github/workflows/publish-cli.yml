@@ -82,6 +82,7 @@ jobs:
           CARGO_PROFILE_RELEASE_LTO: true
   bump-homebrew-formula:
     runs-on: macos-latest
+    needs: [release]
     timeout-minutes: 10
     continue-on-error: true
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
