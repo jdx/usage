@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.3](https://github.com/jdx/usage/compare/v2.2.2..v2.2.3) - 2025-07-18
+
+### 🐛 Bug Fixes
+
+- **(brew)** bump formula after the release by [@muzimuzhi](https://github.com/muzimuzhi) in [#305](https://github.com/jdx/usage/pull/305)
+
+### 📦️ Dependency Updates
+
+- pin dependencies by [@renovate[bot]](https://github.com/renovate[bot]) in [#307](https://github.com/jdx/usage/pull/307)
+
+### New Contributors
+
+- @muzimuzhi made their first contribution in [#305](https://github.com/jdx/usage/pull/305)
+
 ## [2.2.2](https://github.com/jdx/usage/compare/v2.2.1..v2.2.2) - 2025-07-16
 
 ### 📚 Documentation
