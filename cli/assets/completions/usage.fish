@@ -1,5 +1,5 @@
 # if "usage" is not installed show an error
-if ! type -P usage &> /dev/null
+if ! type -p usage &> /dev/null
     echo >&2
     echo "Error: usage CLI not found. This is required for completions to work in usage." >&2
     echo "See https://usage.jdx.dev for more information." >&2

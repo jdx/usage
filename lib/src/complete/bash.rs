@@ -17,7 +17,7 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     };
     out.push(format!(
         r#"_{bin_snake}() {{
-    if ! type -P {usage_bin} &> /dev/null; then
+    if ! type -p {usage_bin} &> /dev/null; then
         echo >&2
         echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
         echo "See https://usage.jdx.dev for more information." >&2

@@ -3,7 +3,7 @@ source: lib/src/complete/fish.rs
 expression: "complete_fish(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"fish\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false,\n})"
 ---
 # if "usage" is not installed show an error
-if ! type -P usage &> /dev/null
+if ! type -p usage &> /dev/null
     echo >&2
     echo "Error: usage CLI not found. This is required for completions to work in mycli." >&2
     echo "See https://usage.jdx.dev for more information." >&2
