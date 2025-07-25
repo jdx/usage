@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: recursive
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2
+      - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2
       - name: Create draft release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
@@ -59,7 +59,7 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2
+      - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2
         with:
           experimental: true
       - if: matrix.os == 'macos-latest'
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: recursive
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2
+      - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2
       - run: gh release edit ${{ github.ref_name }} --draft=false
         if: ${{ github.event_name != 'workflow_dispatch' }}
   bump-homebrew-formula:
