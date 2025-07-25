@@ -31,7 +31,7 @@ jobs:
         with:
           shared-key: test
           save-if: false
-      - uses: jdx/mise-action@bfb9fa0b029db830a8c570757cee683df207a6c5 # v2
+      - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2
         with:
           experimental: true
       - run: mise trust --all
