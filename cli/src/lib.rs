@@ -11,7 +11,6 @@ use cli::Cli;
 
 mod cli;
 pub mod env;
-mod errors;
 mod hash;
 mod shebang;
 mod usage_spec;

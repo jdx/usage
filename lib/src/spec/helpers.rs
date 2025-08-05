@@ -36,23 +36,23 @@ impl<'a> NodeHelper<'a> {
         }
         Ok(self)
     }
-    pub(crate) fn get(&self, key: &str) -> Option<ParseEntry> {
+    pub(crate) fn get(&self, key: &str) -> Option<ParseEntry<'_>> {
         self.node.entry(key).map(|e| ParseEntry::new(self.ctx, e))
     }
-    pub(crate) fn arg(&self, i: usize) -> Result<ParseEntry, UsageErr> {
+    pub(crate) fn arg(&self, i: usize) -> Result<ParseEntry<'_>, UsageErr> {
         if let Some(entry) = self.args().nth(i) {
             return Ok(entry);
         }
         bail_parse!(self.ctx, self.span(), "missing argument")
     }
-    pub(crate) fn args(&self) -> impl Iterator<Item = ParseEntry> + '_ {
+    pub(crate) fn args(&self) -> impl Iterator<Item = ParseEntry<'_>> + '_ {
         self.node
             .entries()
             .iter()
             .filter(|e| e.name().is_none())
             .map(|e| ParseEntry::new(self.ctx, e))
     }
-    pub(crate) fn props(&self) -> IndexMap<&str, ParseEntry> {
+    pub(crate) fn props(&self) -> IndexMap<&str, ParseEntry<'_>> {
         self.node
             .entries()
             .iter()
