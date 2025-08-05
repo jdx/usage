@@ -12,6 +12,7 @@ pub struct CompleteOptions {
     pub spec: Option<Spec>,
     pub usage_cmd: Option<String>,
     pub include_bash_completion_lib: bool,
+    pub source_file: Option<String>,
 }
 
 pub fn complete(options: &CompleteOptions) -> String {

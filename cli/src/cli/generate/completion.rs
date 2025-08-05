@@ -58,6 +58,7 @@ impl Completion {
             spec,
             usage_cmd: self.usage_cmd.clone(),
             include_bash_completion_lib: self.include_bash_completion_lib,
+            source_file: self.file.as_ref().map(|f| f.to_string_lossy().to_string()),
         };
 
         println!("{}", usage::complete::complete(&opts).trim());
