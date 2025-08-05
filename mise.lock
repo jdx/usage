@@ -2,16 +2,9 @@
 version = "1.7.7"
 backend = "aqua:rhysd/actionlint"
 
-[tools.actionlint.checksums]
-"actionlint_1.7.7_darwin_arm64.tar.gz" = "sha256:2693315b9093aeacb4ebd91a993fea54fc215057bf0da2659056b4bc033873db"
-
 [tools.cargo-binstall]
 version = "1.12.3"
 backend = "aqua:cargo-bins/cargo-binstall"
-
-[tools.cargo-binstall.checksums]
-"cargo-binstall-aarch64-apple-darwin.zip" = "sha256:88467030db096ceddf97405750fe9e67cf25106da241db7a60900c58f192206f"
-"cargo-binstall-x86_64-unknown-linux-musl.tgz" = "blake3:aa9ddfd157319d66f32f01afcf9488215ae3244fe00f5f397fd69c3a59f2df4d"
 
 [tools."cargo:cargo-edit"]
 version = "0.13.2"
@@ -33,10 +26,6 @@ backend = "cargo:git-cliff"
 version = "2.71.2"
 backend = "aqua:cli/cli"
 
-[tools.gh.checksums]
-"gh_2.71.2_linux_amd64.tar.gz" = "sha256:6e52767d7ab14f6849c38b9da1daade4c674f3fde75e0434ede33d921bb75d35"
-"gh_2.71.2_macOS_arm64.zip" = "sha256:95e4d3bf841ef8448f6ac828d89de3d49bd994f063f0d1566becbe1aa8c98a81"
-
 [tools."npm:prettier"]
 version = "3.5.3"
 backend = "npm:prettier"
@@ -45,13 +34,6 @@ backend = "npm:prettier"
 version = "10.9.0"
 backend = "aqua:pnpm/pnpm"
 
-[tools.pnpm.checksums]
-pnpm-linux-x64 = "blake3:41663d271830dd89537c0b553e14eec97232d22093082179030c4e2a416581b5"
-pnpm-macos-arm64 = "sha256:d6a0114bd409c7da1c8d3b4842c74793171388deecc42068c87e940da00dbec2"
-
 [tools.shellcheck]
 version = "0.10.0"
 backend = "aqua:koalaman/shellcheck"
-
-[tools.shellcheck.checksums]
-shellcheck-macos-aarch64 = "sha256:b9e420df8c78ec7d261d66277d5767cbd4cf6da4e4a9f8b02ea4811cd4cc1109"
