@@ -17,7 +17,7 @@ _usage() {
   typeset -A opt_args
   local curcontext="$curcontext" spec cache_policy
 
-  if ! command -v usage &> /dev/null; then
+  if ! type -p usage &> /dev/null; then
       echo >&2
       echo "Error: usage CLI not found. This is required for completions to work in usage." >&2
       echo "See https://usage.jdx.dev for more information." >&2
@@ -36,7 +36,7 @@ _usage() {
     _store_cache _usage_spec_usage spec
   fi
 
-  _arguments "*: :(($(usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
+  _arguments "*: :(($(command usage complete-word --shell zsh -s "$spec" -- "${words[@]}" )))"
   return 0
 }
 
