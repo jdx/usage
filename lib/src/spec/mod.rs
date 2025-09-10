@@ -1,3 +1,4 @@
+use regex::Regex;
 pub mod arg;
 pub mod choices;
 pub mod cmd;
@@ -8,6 +9,7 @@ mod data_types;
 pub mod flag;
 pub mod helpers;
 pub mod mount;
+use once_cell::sync::Lazy;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
@@ -224,19 +226,22 @@ fn check_usage_version(version: &str) {
     }
 }
 
-fn is_usage_comment(line: &str) -> bool {
-    line.starts_with("#USAGE")
-        || line.starts_with("# USAGE")
-        || line.starts_with("//USAGE")
-        || line.starts_with("// USAGE")
+fn usage_re() -> &'static regex::Regex {
+    // Shared regex for usage comment detection and prefix stripping
+    static USAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^\s*(#|//)\s*usage:?").unwrap());
+    &USAGE_RE
 }
 
-fn strip_usage_prefix(s: &str) -> &str {
-    s.strip_prefix("#USAGE")
-        .or_else(|| s.strip_prefix("# USAGE"))
-        .or_else(|| s.strip_prefix("//USAGE"))
-        .or_else(|| s.strip_prefix("// USAGE"))
-        .unwrap_or(s)
+pub fn is_usage_comment(line: &str) -> bool {
+    usage_re().is_match(line)
+}
+
+pub fn strip_usage_prefix(s: &str) -> &str {
+    if let Some(mat) = usage_re().find(s) {
+        s[mat.end()..].trim_start()
+    } else {
+        s
+    }
 }
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
