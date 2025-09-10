@@ -224,13 +224,24 @@ fn check_usage_version(version: &str) {
     }
 }
 
+fn is_usage_comment(line: &str) -> bool {
+    line.starts_with("#USAGE")
+        || line.starts_with("# USAGE")
+        || line.starts_with("//USAGE")
+        || line.starts_with("// USAGE")
+}
+
+fn strip_usage_prefix(s: &str) -> &str {
+    s.strip_prefix("#USAGE")
+        .or_else(|| s.strip_prefix("# USAGE"))
+        .or_else(|| s.strip_prefix("//USAGE"))
+        .or_else(|| s.strip_prefix("// USAGE"))
+        .unwrap_or(s)
+}
+
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
-    if full.starts_with("#!")
-        && full
-            .lines()
-            .any(|l| l.starts_with("#USAGE") || l.starts_with("//USAGE"))
-    {
+    if full.starts_with("#!") && full.lines().any(is_usage_comment) {
         return Ok((extract_usage_from_comments(&full), full));
     }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
@@ -249,11 +260,9 @@ fn extract_usage_from_comments(full: &str) -> String {
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
-        if line.starts_with("#USAGE") || line.starts_with("//USAGE") {
+        if is_usage_comment(line) {
             found = true;
-            let line = line
-                .strip_prefix("#USAGE")
-                .unwrap_or_else(|| line.strip_prefix("//USAGE").unwrap());
+            let line = strip_usage_prefix(line);
             usage.push(line.trim());
         } else if found {
             // if there is a gap, stop reading
