@@ -226,9 +226,11 @@ fn check_usage_version(version: &str) {
     }
 }
 
+const USAGE_PATTERN: &str = r"(?i)^\s*(#|//)\s*usage:?";
+
 fn usage_re() -> &'static regex::Regex {
     // Shared regex for usage comment detection and prefix stripping
-    static USAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^\s*(#|//)\s*usage:?").unwrap());
+    static USAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(USAGE_PATTERN).unwrap());
     &USAGE_RE
 }
 
