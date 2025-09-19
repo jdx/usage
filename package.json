@@ -10,7 +10,7 @@
     "lint-fig:fix": "eslint '**/*.ts' --fix && npx prettier --write '**/*.ts' --parser typescript"
   },
   "dependencies": {
-    "vitepress": "1.6.3"
+    "vitepress": "1.6.4"
   },
   "prettier": {
     "trailingComma": "es5",
