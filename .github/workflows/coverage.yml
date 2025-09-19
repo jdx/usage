@@ -16,7 +16,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - uses: jdx/mise-action@13abe502c30c1559a5c37dff303831bab82c9402 # v2
       - run: rustup update stable
       - run: rustup component add llvm-tools-preview --toolchain stable-x86_64-unknown-linux-gnu
