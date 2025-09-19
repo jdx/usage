@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       vitepress:
-        specifier: 1.6.3
-        version: 1.6.3(@algolia/client-search@5.33.0)(postcss@8.5.6)(search-insights@2.15.0)(typescript@5.8.3)
+        specifier: 1.6.4
+        version: 1.6.4(@algolia/client-search@5.33.0)(postcss@8.5.6)(search-insights@2.15.0)(typescript@5.8.3)
     devDependencies:
       '@fig/eslint-config-autocomplete':
         specifier: ^2.0.0
@@ -1733,8 +1733,8 @@ packages:
       terser:
         optional: true
 
-  vitepress@1.6.3:
-    resolution: {integrity: sha512-fCkfdOk8yRZT8GD9BFqusW3+GggWYZ/rYncOfmgcDtP3ualNHCAg+Robxp2/6xfH1WwPHtGpPwv7mbA3qomtBw==}
+  vitepress@1.6.4:
+    resolution: {integrity: sha512-+2ym1/+0VVrbhNyRoFFesVvBvHAVMZMK0rw60E3X/5349M1GuVdKeazuksqopEdvkKwKGs21Q729jX81/bkBJg==}
     hasBin: true
     peerDependencies:
       markdown-it-mathjax3: ^4
@@ -3388,7 +3388,7 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  vitepress@1.6.3(@algolia/client-search@5.33.0)(postcss@8.5.6)(search-insights@2.15.0)(typescript@5.8.3):
+  vitepress@1.6.4(@algolia/client-search@5.33.0)(postcss@8.5.6)(search-insights@2.15.0)(typescript@5.8.3):
     dependencies:
       '@docsearch/css': 3.8.2
       '@docsearch/js': 3.8.2(@algolia/client-search@5.33.0)(search-insights@2.15.0)
