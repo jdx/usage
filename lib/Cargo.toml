@@ -44,7 +44,7 @@ default = ["docs"]
 docs = ["tera"]
 
 [dev-dependencies]
-ctor = "0.4"
+ctor = "0.5"
 insta = "1"
 pretty_assertions = "1"
 shell-words = "1"
