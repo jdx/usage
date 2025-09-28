@@ -37,9 +37,8 @@ _usage() {
   fi
 
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
-  if [[ ! -f "$spec_file" ]]; then
-    echo "$spec" > "$spec_file"
-  fi
+  # Always update spec file when not cached
+  echo "$spec" > "$spec_file"
   _arguments "*: :(($(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}" )))"
   return 0
 }

@@ -11,9 +11,8 @@ end
 set _usage_spec_usage (usage --usage-spec | string collect)
 set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
 set -l spec_file "$tmpdir/usage__usage_spec_usage.spec"
-if not test -f "$spec_file"
-    echo $_usage_spec_usage > "$spec_file"
-end
+# Always update spec file when not cached
+echo $_usage_spec_usage > "$spec_file"
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
