@@ -80,12 +80,20 @@ __USAGE_EOF__"#,
         ));
     }
 
+    // When there's no cache key, always write the file to ensure it's up-to-date
+    let file_write_check = if opts.cache_key.is_some() {
+        r#"if [[ ! -f "$spec_file" ]]; then
+    echo "$spec" > "$spec_file"
+  fi"#
+    } else {
+        r#"# Always update spec file when not cached
+  echo "$spec" > "$spec_file""#
+    };
+
     out.push(format!(
         r#"
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
-  if [[ ! -f "$spec_file" ]]; then
-    echo "$spec" > "$spec_file"
-  fi
+  {file_write_check}
   _arguments "*: :(($(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}" )))"
   return 0
 }}

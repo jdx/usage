@@ -53,11 +53,18 @@ set {spec_variable} '{spec_escaped}'"#
         ));
     }
 
+    // When there's no cache key, always write the file to ensure it's up-to-date
+    let file_write_check = if opts.cache_key.is_some() {
+        "if not test -f \"$spec_file\""
+    } else {
+        "# Always update spec file when not cached\nif true"
+    };
+
     out.push(format!(
         r#"
 set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
 set -l spec_file "$tmpdir/usage_{spec_variable}.spec"
-if not test -f "$spec_file"
+{file_write_check}
     echo ${spec_variable} > "$spec_file"
 end
 
