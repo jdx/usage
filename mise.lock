@@ -1,39 +1,54 @@
-[tools.actionlint]
+[[tools.actionlint]]
 version = "1.7.7"
 backend = "aqua:rhysd/actionlint"
 
-[tools.cargo-binstall]
+[[tools.cargo-binstall]]
 version = "1.12.3"
 backend = "aqua:cargo-bins/cargo-binstall"
 
-[tools."cargo:cargo-edit"]
+[tools.cargo-binstall.platforms.macos-arm64]
+checksum = "blake3:8acd3579060891f60e85b65edd30c49769a1eff3554e9ca291b53c7158df9a73"
+size = 5801964
+url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.12.3/cargo-binstall-aarch64-apple-darwin.zip"
+
+[[tools."cargo:cargo-edit"]]
 version = "0.13.2"
 backend = "cargo:cargo-edit"
 
-[tools."cargo:cargo-insta"]
+[[tools."cargo:cargo-insta"]]
 version = "1.43.0"
 backend = "cargo:cargo-insta"
 
-[tools."cargo:cargo-release"]
+[[tools."cargo:cargo-release"]]
 version = "0.25.18"
 backend = "cargo:cargo-release"
 
-[tools."cargo:git-cliff"]
+[[tools."cargo:git-cliff"]]
 version = "2.8.0"
 backend = "cargo:git-cliff"
 
-[tools.gh]
+[[tools.gh]]
 version = "2.71.2"
 backend = "aqua:cli/cli"
 
-[tools."npm:prettier"]
+[tools.gh.platforms.macos-arm64]
+checksum = "sha256:95e4d3bf841ef8448f6ac828d89de3d49bd994f063f0d1566becbe1aa8c98a81"
+size = 13235253
+url = "https://github.com/cli/cli/releases/download/v2.71.2/gh_2.71.2_macOS_arm64.zip"
+
+[[tools."npm:prettier"]]
 version = "3.5.3"
 backend = "npm:prettier"
 
-[tools.pnpm]
+[[tools.pnpm]]
 version = "10.9.0"
 backend = "aqua:pnpm/pnpm"
 
-[tools.shellcheck]
+[tools.pnpm.platforms.macos-arm64]
+checksum = "blake3:2234badc351eb2128be8224d9d0a489ab17841317119a9ede0cc59319cddb501"
+size = 64168208
+url = "https://github.com/pnpm/pnpm/releases/download/v10.9.0/pnpm-macos-arm64"
+
+[[tools.shellcheck]]
 version = "0.10.0"
 backend = "aqua:koalaman/shellcheck"
