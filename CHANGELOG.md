@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.3.0](https://github.com/jdx/usage/compare/v2.2.2..v2.3.0) - 2025-09-28
+
+### 🚀 Features
+
+- add @generated comments to all generators by [@jdx](https://github.com/jdx) in [#310](https://github.com/jdx/usage/pull/310)
+
+### 🐛 Bug Fixes
+
+- **(brew)** bump formula after the release by [@muzimuzhi](https://github.com/muzimuzhi) in [#305](https://github.com/jdx/usage/pull/305)
+- **(completions)** ignore aliases and functions named usage (2nd attempt) by [@risu729](https://github.com/risu729) in [#304](https://github.com/jdx/usage/pull/304)
+- use temp files to avoid 'argument list too long' error in shell completions by [@jdx](https://github.com/jdx) in [#329](https://github.com/jdx/usage/pull/329)
+
+### 🔍 Other Changes
+
+- ignore renovate new bot name by [@risu729](https://github.com/risu729) in [#324](https://github.com/jdx/usage/pull/324)
+
+### 📦️ Dependency Updates
+
+- pin dependencies by [@renovate[bot]](https://github.com/renovate[bot]) in [#307](https://github.com/jdx/usage/pull/307)
+- update rust crate serde_json to v1.0.141 by [@renovate[bot]](https://github.com/renovate[bot]) in [#309](https://github.com/jdx/usage/pull/309)
+- update jdx/mise-action digest to 13abe50 by [@renovate[bot]](https://github.com/renovate[bot]) in [#308](https://github.com/jdx/usage/pull/308)
+- update actions/checkout digest to 08eba0b by [@renovate[bot]](https://github.com/renovate[bot]) in [#316](https://github.com/jdx/usage/pull/316)
+- update amannn/action-semantic-pull-request digest to e32d7e6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#317](https://github.com/jdx/usage/pull/317)
+- update jdx/mise-action digest to c37c932 by [@renovate[bot]](https://github.com/renovate[bot]) in [#312](https://github.com/jdx/usage/pull/312)
+- update apple-actions/import-codesign-certs digest to 95e84a1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#318](https://github.com/jdx/usage/pull/318)
+- update dependency vitepress to v1.6.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#319](https://github.com/jdx/usage/pull/319)
+- update codecov/codecov-action digest to 5a10915 by [@renovate[bot]](https://github.com/renovate[bot]) in [#326](https://github.com/jdx/usage/pull/326)
+- update rust crate ctor to 0.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#327](https://github.com/jdx/usage/pull/327)
+
+### New Contributors
+
+- @muzimuzhi made their first contribution in [#305](https://github.com/jdx/usage/pull/305)
+
 ## [2.2.2](https://github.com/jdx/usage/compare/v2.2.1..v2.2.2) - 2025-07-16
 
 ### 📚 Documentation
