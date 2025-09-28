@@ -13,7 +13,6 @@ _usage() {
 
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
-    # Use a content-addressable temp file to avoid "argument list too long" error
     local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
     if [[ ! -f "$spec_file" ]]; then
         echo "${_usage_spec_usage}" > "$spec_file"
