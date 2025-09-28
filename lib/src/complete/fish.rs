@@ -30,7 +30,7 @@ end"#
     ];
 
     if let Some(spec) = &opts.spec {
-        let spec_escaped = spec.to_string().replace("'", r"\\'");
+        let spec_escaped = spec.to_string().replace("'", r"\'");
         out.push(format!(
             r#"
 set {spec_variable} '{spec_escaped}'"#
