@@ -1,7 +1,7 @@
-use std::fs;
-use std::process::Command;
 use std::env;
+use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Build the usage binary and return its path
 fn build_usage_binary() -> PathBuf {
@@ -16,7 +16,10 @@ fn build_usage_binary() -> PathBuf {
         .expect("Failed to build usage binary");
 
     if !output.status.success() {
-        panic!("Failed to build usage binary: {}", String::from_utf8_lossy(&output.stderr));
+        panic!(
+            "Failed to build usage binary: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     // Return the absolute path to the built binary
@@ -77,7 +80,8 @@ cmd "sub" help="Subcommand" {
     // 2. Sets up the spec variable
     // 3. Sources the completion
     // 4. Tests the actual completion mechanism
-    let test_script = format!(r#"
+    let test_script = format!(
+        r#"
 # Add usage binary to PATH
 set -gx PATH {} $PATH
 
@@ -159,20 +163,32 @@ echo "COMPLETION_TEST_DONE"
     println!("Fish test stderr:\n{}", stderr);
 
     // Verify the tests passed
-    assert!(stdout.contains("LOAD_SUCCESS"),
-            "Completion script should load without errors. Stderr: {}", stderr);
-    assert!(!stderr.contains("a value is required for"),
-            "Should not have 'value required' error that indicates variable expansion issue");
-    assert!(!stderr.contains("argument list too long"),
-            "Should not have argument list too long error");
-    assert!(!stderr.contains("syntax error"),
-            "Should not have fish syntax errors");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Completion script should load without errors. Stderr: {}",
+        stderr
+    );
+    assert!(
+        !stderr.contains("a value is required for"),
+        "Should not have 'value required' error that indicates variable expansion issue"
+    );
+    assert!(
+        !stderr.contains("argument list too long"),
+        "Should not have argument list too long error"
+    );
+    assert!(
+        !stderr.contains("syntax error"),
+        "Should not have fish syntax errors"
+    );
 
     // Verify completion mechanism works
     if stdout.contains("GOT_COMPLETIONS") {
         // We got completions from usage complete-word
-        assert!(stdout.contains("COMPLETION_SUB_FOUND") || stdout.contains("COMPLETION_VERBOSE_FOUND"),
-                "Should find expected completions (sub or verbose). Output: {}", stdout);
+        assert!(
+            stdout.contains("COMPLETION_SUB_FOUND") || stdout.contains("COMPLETION_VERBOSE_FOUND"),
+            "Should find expected completions (sub or verbose). Output: {}",
+            stdout
+        );
     }
 
     // Cleanup
@@ -224,7 +240,8 @@ cmd "sub" help="Subcommand" {
     fs::write(&spec_file, &spec).unwrap();
 
     // Create a bash test script
-    let test_script = format!(r#"
+    let test_script = format!(
+        r#"
 #!/bin/bash
 # Don't exit on error for the completion calls
 set +e
@@ -346,15 +363,22 @@ echo "COMPLETION_TEST_DONE"
     println!("Bash test stdout:\n{}", stdout);
     println!("Bash test stderr:\n{}", stderr);
 
-    assert!(stdout.contains("LOAD_SUCCESS"),
-            "Completion script should load. Stderr: {}", stderr);
-    assert!(!stderr.contains("argument list too long"),
-            "Should not have argument list too long error");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Completion script should load. Stderr: {}",
+        stderr
+    );
+    assert!(
+        !stderr.contains("argument list too long"),
+        "Should not have argument list too long error"
+    );
 
     // Verify completion mechanism works
     // Note: Bash may also include file completions from the temp directory
-    assert!(stdout.contains("SPEC_FILE_EXISTS"),
-            "Should find the spec file");
+    assert!(
+        stdout.contains("SPEC_FILE_EXISTS"),
+        "Should find the spec file"
+    );
 
     // The test shows NO_COMPLETIONS because COMPREPLY might be empty after filtering
     // But the completion function itself works (no errors)
@@ -400,7 +424,8 @@ flag "-v --verbose" help="Verbose output"
     fs::write(&comp_file, completion_script.as_ref()).unwrap();
 
     // Create a zsh test script
-    let test_script = format!(r#"
+    let test_script = format!(
+        r#"
 #!/bin/zsh
 # Initialize completion system
 autoload -U compinit
@@ -458,12 +483,16 @@ echo "COMPLETION_TEST_DONE"
     println!("Zsh test stdout:\n{}", stdout);
     println!("Zsh test stderr:\n{}", stderr);
 
-    assert!(stdout.contains("LOAD_SUCCESS"),
-            "Completion script should load. Stderr: {}", stderr);
-    assert!(!stderr.contains("argument list too long"),
-            "Should not have argument list too long error");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Completion script should load. Stderr: {}",
+        stderr
+    );
+    assert!(
+        !stderr.contains("argument list too long"),
+        "Should not have argument list too long error"
+    );
 
     // Cleanup
     let _ = fs::remove_dir_all(&temp_dir);
 }
-

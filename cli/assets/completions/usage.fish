@@ -17,7 +17,7 @@ end
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc usage -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
+    complete -xc usage -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -t))"
 else
-    complete -xc usage -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
+    complete -xc usage -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -t))"
 end
