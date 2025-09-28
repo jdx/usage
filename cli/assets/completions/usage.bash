@@ -13,8 +13,13 @@ _usage() {
 
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
+    # Use a content-addressable temp file to avoid "argument list too long" error
+    local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
+    if [[ ! -f "$spec_file" ]]; then
+        echo "${_usage_spec_usage}" > "$spec_file"
+    fi
     # shellcheck disable=SC2207
-	_comp_compgen -- -W "$(command usage complete-word --shell bash -s "${_usage_spec_usage}" --cword="$cword" -- "${words[@]}")"
+	_comp_compgen -- -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}")"
 	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then

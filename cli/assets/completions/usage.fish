@@ -9,9 +9,15 @@ if ! type -p usage &> /dev/null
 end
 
 set _usage_spec_usage (usage --usage-spec | string collect)
+# Use a content-addressable temp file to avoid "argument list too long" error
+set -l spec_file "${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
+if not test -f "$spec_file"
+    echo "$_usage_spec_usage" > "$spec_file"
+end
+
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc usage -a '(command usage complete-word --shell fish -s "$_usage_spec_usage" -- (commandline -xpc) (commandline -t))'
+    complete -xc usage -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
 else
-    complete -xc usage -a '(command usage complete-word --shell fish -s "$_usage_spec_usage" -- (commandline -opc) (commandline -t))'
+    complete -xc usage -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
 end
