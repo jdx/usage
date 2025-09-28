@@ -55,11 +55,17 @@ set {spec_variable} '{spec_escaped}'"#
 
     out.push(format!(
         r#"
+# Use a content-addressable temp file to avoid "argument list too long" error
+set -l spec_file "${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
+if not test -f "$spec_file"
+    echo "${spec_variable}" > "$spec_file"
+end
+
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -xpc) (commandline -t))'
+    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
 else
-    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -s "${spec_variable}" -- (commandline -opc) (commandline -t))'
+    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
 end
 "#
     ).trim().to_string());

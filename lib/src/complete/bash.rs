@@ -53,8 +53,13 @@ __USAGE_EOF__"#,
         r#"
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
+    # Use a content-addressable temp file to avoid "argument list too long" error
+    local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
+    if [[ ! -f "$spec_file" ]]; then
+        echo "${{{spec_variable}}}" > "$spec_file"
+    fi
     # shellcheck disable=SC2207
-	_comp_compgen -- -W "$(command {usage_bin} complete-word --shell bash -s "${{{spec_variable}}}" --cword="$cword" -- "${{words[@]}}")"
+	_comp_compgen -- -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}")"
 	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then

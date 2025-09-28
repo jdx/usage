@@ -13,9 +13,15 @@ if ! type -p usage &> /dev/null
 end
 
 set _usage_spec_mycli (mycli complete --usage | string collect)
+# Use a content-addressable temp file to avoid "argument list too long" error
+set -l spec_file "${TMPDIR:-/tmp}/usage__usage_spec_mycli.spec"
+if not test -f "$spec_file"
+    echo "$_usage_spec_mycli" > "$spec_file"
+end
+
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc mycli -a '(command usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -xpc) (commandline -t))'
+    complete -xc mycli -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
 else
-    complete -xc mycli -a '(command usage complete-word --shell fish -s "$_usage_spec_mycli" -- (commandline -opc) (commandline -t))'
+    complete -xc mycli -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
 end
