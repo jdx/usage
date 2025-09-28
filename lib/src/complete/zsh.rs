@@ -44,7 +44,7 @@ _usage_{bin_snake}_cache_policy() {{
         r#"
 _{bin_snake}() {{
   typeset -A opt_args
-  local curcontext="$curcontext" spec cache_policy
+  local curcontext="$curcontext" cache_policy
 
   if ! type -p {usage_bin} &> /dev/null; then
       echo >&2
@@ -54,40 +54,35 @@ _{bin_snake}() {{
   fi"#,
     ));
 
-    if let Some(usage_cmd) = &opts.usage_cmd {
-        out.push(format!(
-            r#"
-  zstyle -s ":completion:${{curcontext}}:" cache-policy cache_policy
-  if [[ -z $cache_policy ]]; then
-    zstyle ":completion:${{curcontext}}:" cache-policy _usage_{bin_snake}_cache_policy
-  fi
-
-  if ( [[ -z "${{{spec_variable}:-}}" ]] || _cache_invalid {spec_variable} ) \
-      && ! _retrieve_cache {spec_variable};
-  then
-    spec="$({usage_cmd})"
-    _store_cache {spec_variable} spec
+    // Build logic to write spec directly to file without storing in shell variables
+    let file_write_logic = if let Some(usage_cmd) = &opts.usage_cmd {
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if [[ ! -f "$spec_file" ]]; then
+    {usage_cmd} > "$spec_file"
   fi"#
-        ));
-    }
-
-    if let Some(spec) = &opts.spec {
-        out.push(format!(
-            r#"read -r -d '' spec <<'__USAGE_EOF__'
+            )
+        } else {
+            format!(r#"{usage_cmd} > "$spec_file""#)
+        }
+    } else if let Some(spec) = &opts.spec {
+        let heredoc = format!(
+            r#"cat > "$spec_file" <<'__USAGE_EOF__'
 {spec}
 __USAGE_EOF__"#,
             spec = spec.to_string().trim()
-        ));
-    }
-
-    // When there's no cache key, always write the file to ensure it's up-to-date
-    let file_write_logic = if opts.cache_key.is_some() {
-        r#"if [[ ! -f "$spec_file" ]]; then
-    echo "$spec" > "$spec_file"
-  fi"#
+        );
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if [[ ! -f "$spec_file" ]]; then
+  {heredoc}
+fi"#
+            )
+        } else {
+            heredoc.to_string()
+        }
     } else {
-        r#"# Always update spec file when not cached
-  echo "$spec" > "$spec_file""#
+        String::new()
     };
 
     out.push(format!(

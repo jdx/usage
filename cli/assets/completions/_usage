@@ -15,7 +15,7 @@ _usage_usage_cache_policy() {
 
 _usage() {
   typeset -A opt_args
-  local curcontext="$curcontext" spec cache_policy
+  local curcontext="$curcontext" cache_policy
 
   if ! type -p usage &> /dev/null; then
       echo >&2
@@ -24,21 +24,8 @@ _usage() {
       return 1
   fi
 
-  zstyle -s ":completion:${curcontext}:" cache-policy cache_policy
-  if [[ -z $cache_policy ]]; then
-    zstyle ":completion:${curcontext}:" cache-policy _usage_usage_cache_policy
-  fi
-
-  if ( [[ -z "${_usage_spec_usage:-}" ]] || _cache_invalid _usage_spec_usage ) \
-      && ! _retrieve_cache _usage_spec_usage;
-  then
-    spec="$(usage --usage-spec)"
-    _store_cache _usage_spec_usage spec
-  fi
-
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
-  # Always update spec file when not cached
-  echo "$spec" > "$spec_file"
+  usage --usage-spec > "$spec_file"
   _arguments "*: :(($(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}" )))"
   return 0
 }

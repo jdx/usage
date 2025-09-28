@@ -7,12 +7,9 @@ if ! type -p usage &> /dev/null
     echo "See https://usage.jdx.dev for more information." >&2
     return 1
 end
-
-set _usage_spec_usage (usage --usage-spec | string collect)
 set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
 set -l spec_file "$tmpdir/usage__usage_spec_usage.spec"
-# Always update spec file when not cached
-echo $_usage_spec_usage > "$spec_file"
+usage --usage-spec | string collect > "$spec_file"
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
