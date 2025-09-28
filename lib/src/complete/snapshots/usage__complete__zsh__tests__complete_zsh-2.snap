@@ -19,7 +19,7 @@ _usage_mycli_cache_policy() {
 
 _mycli() {
   typeset -A opt_args
-  local curcontext="$curcontext" spec cache_policy
+  local curcontext="$curcontext" cache_policy
 
   if ! type -p usage &> /dev/null; then
       echo >&2
@@ -28,21 +28,9 @@ _mycli() {
       return 1
   fi
 
-  zstyle -s ":completion:${curcontext}:" cache-policy cache_policy
-  if [[ -z $cache_policy ]]; then
-    zstyle ":completion:${curcontext}:" cache-policy _usage_mycli_cache_policy
-  fi
-
-  if ( [[ -z "${_usage_spec_mycli_1_2_3:-}" ]] || _cache_invalid _usage_spec_mycli_1_2_3 ) \
-      && ! _retrieve_cache _usage_spec_mycli_1_2_3;
-  then
-    spec="$(mycli complete --usage)"
-    _store_cache _usage_spec_mycli_1_2_3 spec
-  fi
-
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli_1_2_3.spec"
   if [[ ! -f "$spec_file" ]]; then
-    echo "$spec" > "$spec_file"
+    mycli complete --usage > "$spec_file"
   fi
   _arguments "*: :(($(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}" )))"
   return 0

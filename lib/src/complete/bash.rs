@@ -30,37 +30,35 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
         return 1
     fi"#));
 
-    if let Some(usage_cmd) = &opts.usage_cmd {
-        out.push(format!(
-            r#"
-    if [[ -z ${{{spec_variable}:-}} ]]; then
-        {spec_variable}="$({usage_cmd})"
+    // Build logic to write spec directly to file without storing in shell variables
+    let file_write_logic = if let Some(usage_cmd) = &opts.usage_cmd {
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if [[ ! -f "$spec_file" ]]; then
+        {usage_cmd} > "$spec_file"
     fi"#
-        ));
-    }
-
-    if let Some(spec) = &opts.spec {
-        out.push(format!(
-            r#"
-    read -r -d '' {spec_variable} <<'__USAGE_EOF__'
+            )
+        } else {
+            format!(r#"{usage_cmd} > "$spec_file""#)
+        }
+    } else if let Some(spec) = &opts.spec {
+        let heredoc = format!(
+            r#"cat > "$spec_file" <<'__USAGE_EOF__'
 {spec}
 __USAGE_EOF__"#,
             spec = spec.to_string().trim()
-        ));
-    }
-
-    // When there's no cache key, always write the file to ensure it's up-to-date
-    let file_write_logic = if opts.cache_key.is_some() {
-        format!(
-            r#"if [[ ! -f "$spec_file" ]]; then
-        echo "${{{spec_variable}}}" > "$spec_file"
-    fi"#
-        )
+        );
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if [[ ! -f "$spec_file" ]]; then
+    {heredoc}
+fi"#
+            )
+        } else {
+            heredoc.to_string()
+        }
     } else {
-        format!(
-            r#"# Always update spec file when not cached
-    echo "${{{spec_variable}}}" > "$spec_file""#
-        )
+        String::new()
     };
 
     out.push(format!(

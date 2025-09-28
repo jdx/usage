@@ -29,42 +29,37 @@ end"#
         ),
     ];
 
-    if let Some(usage_cmd) = &opts.usage_cmd {
-        if opts.cache_key.is_some() {
-            out.push(format!(
-                r#"
-if ! set -q {spec_variable}
-  set -g {spec_variable} ({usage_cmd} | string collect)
-end"#
-            ));
-        } else {
-            out.push(format!(
-                r#"
-set {spec_variable} ({usage_cmd} | string collect)"#
-            ));
-        }
-    }
-
     if let Some(spec) = &opts.spec {
-        let spec_escaped = spec.to_string().replace("'", r"\'");
+        let spec_escaped = spec.to_string().replace("'", r"\\'");
         out.push(format!(
             r#"
 set {spec_variable} '{spec_escaped}'"#
         ));
     }
 
-    // When there's no cache key, always write the file to ensure it's up-to-date
-    let file_write_logic = if opts.cache_key.is_some() {
-        format!(
-            r#"if not test -f "$spec_file"
+    // Build logic to write spec directly to file without storing in shell variables
+    let file_write_logic = if let Some(usage_cmd) = &opts.usage_cmd {
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if not test -f "$spec_file"
+    {usage_cmd} | string collect > "$spec_file"
+end"#
+            )
+        } else {
+            format!(r#"{usage_cmd} | string collect > "$spec_file""#)
+        }
+    } else if let Some(_spec) = &opts.spec {
+        if opts.cache_key.is_some() {
+            format!(
+                r#"if not test -f "$spec_file"
     echo ${spec_variable} > "$spec_file"
 end"#
-        )
+            )
+        } else {
+            format!(r#"echo ${spec_variable} > "$spec_file""#)
+        }
     } else {
-        format!(
-            r#"# Always update spec file when not cached
-echo ${spec_variable} > "$spec_file""#
-        )
+        String::new()
     };
 
     out.push(format!(
