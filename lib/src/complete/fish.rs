@@ -55,7 +55,6 @@ set {spec_variable} '{spec_escaped}'"#
 
     out.push(format!(
         r#"
-# Use a content-addressable temp file to avoid "argument list too long" error
 set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
 set -l spec_file "$tmpdir/usage_{spec_variable}.spec"
 if not test -f "$spec_file"

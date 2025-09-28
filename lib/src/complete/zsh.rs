@@ -82,7 +82,6 @@ __USAGE_EOF__"#,
 
     out.push(format!(
         r#"
-  # Use a content-addressable temp file to avoid "argument list too long" error
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
   if [[ ! -f "$spec_file" ]]; then
     echo "$spec" > "$spec_file"

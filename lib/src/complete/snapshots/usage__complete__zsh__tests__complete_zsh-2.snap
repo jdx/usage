@@ -40,7 +40,6 @@ _mycli() {
     _store_cache _usage_spec_mycli_1_2_3 spec
   fi
 
-  # Use a content-addressable temp file to avoid "argument list too long" error
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli_1_2_3.spec"
   if [[ ! -f "$spec_file" ]]; then
     echo "$spec" > "$spec_file"
