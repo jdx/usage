@@ -81,7 +81,7 @@ __USAGE_EOF__"#,
     }
 
     // When there's no cache key, always write the file to ensure it's up-to-date
-    let file_write_check = if opts.cache_key.is_some() {
+    let file_write_logic = if opts.cache_key.is_some() {
         r#"if [[ ! -f "$spec_file" ]]; then
     echo "$spec" > "$spec_file"
   fi"#
@@ -93,7 +93,7 @@ __USAGE_EOF__"#,
     out.push(format!(
         r#"
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
-  {file_write_check}
+  {file_write_logic}
   _arguments "*: :(($(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}" )))"
   return 0
 }}

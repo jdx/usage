@@ -50,7 +50,7 @@ __USAGE_EOF__"#,
     }
 
     // When there's no cache key, always write the file to ensure it's up-to-date
-    let file_write_check = if opts.cache_key.is_some() {
+    let file_write_logic = if opts.cache_key.is_some() {
         format!(
             r#"if [[ ! -f "$spec_file" ]]; then
         echo "${{{spec_variable}}}" > "$spec_file"
@@ -59,8 +59,7 @@ __USAGE_EOF__"#,
     } else {
         format!(
             r#"# Always update spec file when not cached
-    echo "${{{spec_variable}}}" > "$spec_file""#,
-            spec_variable = spec_variable
+    echo "${{{spec_variable}}}" > "$spec_file""#
         )
     };
 
@@ -69,7 +68,7 @@ __USAGE_EOF__"#,
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
-    {file_write_check}
+    {file_write_logic}
     # shellcheck disable=SC2207
 	_comp_compgen -- -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}")"
 	_comp_ltrim_colon_completions "$cur"
