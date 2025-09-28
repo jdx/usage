@@ -163,8 +163,14 @@ echo "COMPLETION_TEST_DONE"
     println!("Fish test stderr:\n{}", stderr);
 
     // Simple assertions - just verify it loads and runs
-    assert!(stdout.contains("LOAD_SUCCESS"), "Should load completion script");
-    assert!(stdout.contains("COMPLETION_TEST_DONE"), "Should complete test");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Should load completion script"
+    );
+    assert!(
+        stdout.contains("COMPLETION_TEST_DONE"),
+        "Should complete test"
+    );
 
     // Cleanup
     let _ = fs::remove_dir_all(&temp_dir);
@@ -339,8 +345,14 @@ echo "COMPLETION_TEST_DONE"
     println!("Bash test stderr:\n{}", stderr);
 
     // Simple assertions - just verify it loads and runs
-    assert!(stdout.contains("LOAD_SUCCESS"), "Should load completion script");
-    assert!(stdout.contains("COMPLETION_TEST_DONE"), "Should complete test");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Should load completion script"
+    );
+    assert!(
+        stdout.contains("COMPLETION_TEST_DONE"),
+        "Should complete test"
+    );
 
     // Cleanup
     let _ = fs::remove_dir_all(&temp_dir);
@@ -390,7 +402,8 @@ cmd "sub" help="Subcommand" {
     fs::write(&comp_file, completion_script.as_ref()).unwrap();
 
     // Create a zsh test script using zpty to test actual completions
-    let test_script = format!(r#"
+    let test_script = format!(
+        r#"
 #!/bin/zsh
 
 # Add usage binary to PATH
@@ -470,7 +483,7 @@ echo "COMPLETION_TEST_DONE"
 
     // Execute the test with a timeout
     let result = Command::new("timeout")
-        .arg("5")  // 5 second timeout
+        .arg("5") // 5 second timeout
         .arg("zsh")
         .arg(script_file.to_str().unwrap())
         .output()
@@ -483,8 +496,14 @@ echo "COMPLETION_TEST_DONE"
     println!("Zsh test stderr:\n{}", stderr);
 
     // Simple assertion - just verify it loads and runs
-    assert!(stdout.contains("LOAD_SUCCESS"), "Should load completion script");
-    assert!(stdout.contains("COMPLETION_TEST_DONE"), "Should complete test");
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Should load completion script"
+    );
+    assert!(
+        stdout.contains("COMPLETION_TEST_DONE"),
+        "Should complete test"
+    );
 
     // Cleanup
     let _ = fs::remove_dir_all(&temp_dir);
