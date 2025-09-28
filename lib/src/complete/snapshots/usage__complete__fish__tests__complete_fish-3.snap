@@ -50,9 +50,7 @@ cmd plugin {
 set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
 set -l spec_file "$tmpdir/usage__usage_spec_mycli.spec"
 # Always update spec file when not cached
-if true
-    echo $_usage_spec_mycli > "$spec_file"
-end
+echo $_usage_spec_mycli > "$spec_file"
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
