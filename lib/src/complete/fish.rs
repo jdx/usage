@@ -63,9 +63,9 @@ end
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
+    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -t))"
 else
-    complete -xc {bin} -a '(command {usage_bin} complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
+    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -t))"
 end
 "#
     ).trim().to_string());

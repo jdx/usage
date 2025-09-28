@@ -23,7 +23,7 @@ end
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
-    complete -xc mycli -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -xpc) (commandline -t))'
+    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -t))"
 else
-    complete -xc mycli -a '(command usage complete-word --shell fish -f "$spec_file" -- (commandline -opc) (commandline -t))'
+    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -t))"
 end
