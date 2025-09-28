@@ -10,9 +10,10 @@ end
 
 set _usage_spec_usage (usage --usage-spec | string collect)
 # Use a content-addressable temp file to avoid "argument list too long" error
-set -l spec_file "${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
+set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
+set -l spec_file "$tmpdir/usage__usage_spec_usage.spec"
 if not test -f "$spec_file"
-    echo "$_usage_spec_usage" > "$spec_file"
+    echo $_usage_spec_usage > "$spec_file"
 end
 
 set -l tokens
