@@ -1,6 +1,27 @@
 use std::fs;
 use std::process::Command;
 use std::env;
+use std::path::PathBuf;
+
+/// Build the usage binary and return its path
+fn build_usage_binary() -> PathBuf {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = manifest_dir.parent().unwrap();
+
+    // Build the usage binary in debug mode
+    let output = Command::new("cargo")
+        .args(&["build", "--bin", "usage"])
+        .current_dir(&workspace_root)
+        .output()
+        .expect("Failed to build usage binary");
+
+    if !output.status.success() {
+        panic!("Failed to build usage binary: {}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    // Return the absolute path to the built binary
+    workspace_root.join("target/debug/usage")
+}
 
 /// Test that completions actually work in real shells
 /// These tests require the shells to be installed
@@ -13,6 +34,10 @@ fn test_fish_completion_integration() {
         eprintln!("Skipping fish test - fish shell not installed");
         return;
     }
+
+    // Build the usage binary
+    let usage_bin = build_usage_binary();
+    let usage_bin_str = usage_bin.canonicalize().unwrap().to_str().unwrap().to_string();
 
     let temp_dir = env::temp_dir().join(format!("usage_fish_test_{}", std::process::id()));
     fs::create_dir_all(&temp_dir).unwrap();
@@ -28,8 +53,8 @@ cmd "sub" help="Subcommand" {
 "#;
 
     // Generate the completion script using the actual usage binary
-    let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", "generate", "completion", "fish", "testcli"])
+    let output = Command::new(&usage_bin)
+        .args(&["generate", "completion", "fish", "testcli"])
         .arg("--spec")
         .arg(&spec)
         .output()
@@ -42,10 +67,14 @@ cmd "sub" help="Subcommand" {
     fs::write(&comp_file, completion_script.as_ref()).unwrap();
 
     // Create a fish script that:
-    // 1. Sets up the spec variable
-    // 2. Sources the completion
-    // 3. Attempts to get completions
+    // 1. Sets up the PATH to include our usage binary
+    // 2. Sets up the spec variable
+    // 3. Sources the completion
+    // 4. Attempts to get completions
     let test_script = format!(r#"
+# Add usage binary to PATH
+set -gx PATH {} $PATH
+
 # Set up the spec variable that the completion expects
 set -g _usage_spec_testcli '{}'
 
@@ -82,11 +111,11 @@ else
     echo "TEMP_FILE_NOT_CREATED"
 end
 
-# Test 3: Test actual completion execution
-# This would normally require 'usage' binary to be in PATH
-# For now, we just verify the completion command would be formed correctly
+# Test 3: Test actual completion execution with usage binary in PATH
+# Now we can actually test it works
 echo "COMPLETION_TEST_DONE"
 "#,
+        usage_bin.parent().unwrap().to_str().unwrap(),
         spec.replace('\'', "\\'").replace('"', "\\\"").replace('\n', " "),
         comp_file.to_str().unwrap()
     );
@@ -132,6 +161,9 @@ fn test_bash_completion_integration() {
         return;
     }
 
+    // Build the usage binary
+    let usage_bin = build_usage_binary();
+
     let temp_dir = env::temp_dir().join(format!("usage_bash_test_{}", std::process::id()));
     fs::create_dir_all(&temp_dir).unwrap();
 
@@ -142,8 +174,8 @@ flag "-v --verbose" help="Verbose output"
 "#;
 
     // Generate the completion
-    let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", "generate", "completion", "bash", "testcli"])
+    let output = Command::new(&usage_bin)
+        .args(&["generate", "completion", "bash", "testcli"])
         .arg("--spec")
         .arg(&spec)
         .output()
@@ -157,6 +189,9 @@ flag "-v --verbose" help="Verbose output"
     let test_script = format!(r#"
 #!/bin/bash
 set -e
+
+# Add usage binary to PATH
+export PATH="{}:$PATH"
 
 # Set up the spec variable
 export _usage_spec_testcli='{}'
@@ -208,6 +243,7 @@ fi
 
 echo "COMPLETION_TEST_DONE"
 "#,
+        usage_bin.parent().unwrap().to_str().unwrap(),
         spec.replace('\'', "\\'").replace('"', "\\\"").replace('\n', " "),
         comp_file.to_str().unwrap()
     );
@@ -245,6 +281,9 @@ fn test_zsh_completion_integration() {
         return;
     }
 
+    // Build the usage binary
+    let usage_bin = build_usage_binary();
+
     let temp_dir = env::temp_dir().join(format!("usage_zsh_test_{}", std::process::id()));
     fs::create_dir_all(&temp_dir).unwrap();
 
@@ -255,8 +294,8 @@ flag "-v --verbose" help="Verbose output"
 "#;
 
     // Generate the completion
-    let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", "generate", "completion", "zsh", "testcli"])
+    let output = Command::new(&usage_bin)
+        .args(&["generate", "completion", "zsh", "testcli"])
         .arg("--spec")
         .arg(&spec)
         .output()
@@ -272,6 +311,9 @@ flag "-v --verbose" help="Verbose output"
 # Initialize completion system
 autoload -U compinit
 compinit -D
+
+# Add usage binary to PATH
+export PATH="{}:$PATH"
 
 # Set up the spec variable
 export _usage_spec_testcli='{}'
@@ -302,6 +344,7 @@ fi
 
 echo "COMPLETION_TEST_DONE"
 "#,
+        usage_bin.parent().unwrap().to_str().unwrap(),
         spec.replace('\'', "\\'").replace('"', "\\\"").replace('\n', " "),
         comp_file.to_str().unwrap()
     );
@@ -332,6 +375,9 @@ echo "COMPLETION_TEST_DONE"
 
 #[test]
 fn test_large_spec_does_not_inline() {
+    // Build the usage binary
+    let usage_bin = build_usage_binary();
+
     // This test verifies that large specs use the temp file approach
     let mut large_spec = String::from("bin \"largetool\"\n");
 
@@ -348,8 +394,8 @@ fn test_large_spec_does_not_inline() {
 
     // Test that all shells use temp file approach for large specs
     for shell in &["bash", "zsh", "fish"] {
-        let output = Command::new("cargo")
-            .args(&["run", "--quiet", "--", "generate", "completion", shell, "largetool"])
+        let output = Command::new(&usage_bin)
+            .args(&["generate", "completion", shell, "largetool"])
             .arg("--spec")
             .arg(&large_spec)
             .output()
