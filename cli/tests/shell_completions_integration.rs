@@ -71,22 +71,27 @@ cmd "sub" help="Subcommand" {
     let comp_file = temp_dir.join("testcli.fish");
     fs::write(&comp_file, completion_script.as_ref()).unwrap();
 
-    // Also write the spec directly to the expected location
+    // Also write the spec directly to the expected location in usage format
+    // Convert from KDL to usage format
+    let usage_spec = r#"name testcli
+bin testcli
+flag "-v --verbose" help="Verbose output"
+arg <file> help="Input file"
+cmd sub help=Subcommand {
+    arg <item> help=Item
+}
+"#;
     let spec_file = temp_dir.join("usage__usage_spec_testcli.spec");
-    fs::write(&spec_file, &spec).unwrap();
+    fs::write(&spec_file, usage_spec).unwrap();
 
     // Create a fish script that:
     // 1. Sets up the PATH to include our usage binary
-    // 2. Sets up the spec variable
-    // 3. Sources the completion
-    // 4. Tests the actual completion mechanism
+    // 2. Sources the completion
+    // 3. Tests the actual completion mechanism
     let test_script = format!(
         r#"
 # Add usage binary to PATH
 set -gx PATH {} $PATH
-
-# Set up the spec variable that the completion expects
-set -g _usage_spec_testcli '{}'
 
 # Source the completion file
 source {}
@@ -142,7 +147,6 @@ end
 echo "COMPLETION_TEST_DONE"
 "#,
         usage_bin.parent().unwrap().to_str().unwrap(),
-        spec.replace('\'', "\\'").replace('"', "\\\""),
         comp_file.to_str().unwrap(),
         temp_dir.to_str().unwrap()
     );
@@ -216,9 +220,17 @@ cmd "sub" help="Subcommand" {
     let comp_file = temp_dir.join("testcli.bash");
     fs::write(&comp_file, completion_script.as_ref()).unwrap();
 
-    // Also write the spec directly to the expected location
+    // Also write the spec directly to the expected location in usage format
+    let usage_spec = r#"name testcli
+bin testcli
+flag "-v --verbose" help="Verbose output"
+arg <file> help="Input file"
+cmd sub help=Subcommand {
+    arg <item> help=Item
+}
+"#;
     let spec_file = temp_dir.join("usage__usage_spec_testcli.spec");
-    fs::write(&spec_file, &spec).unwrap();
+    fs::write(&spec_file, usage_spec).unwrap();
 
     // Create a bash test script
     let test_script = format!(
@@ -385,9 +397,17 @@ cmd "sub" help="Subcommand" {
     let spec_kdl_file = temp_dir.join("testcli.kdl");
     fs::write(&spec_kdl_file, &spec).unwrap();
 
-    // Also write the spec directly to the expected location
+    // Also write the spec directly to the expected location in usage format
+    let usage_spec = r#"name testcli
+bin testcli
+flag "-v --verbose" help="Verbose output"
+arg <file> help="Input file"
+cmd sub help=Subcommand {
+    arg <item> help=Item
+}
+"#;
     let spec_file = temp_dir.join("usage__usage_spec_testcli.spec");
-    fs::write(&spec_file, &spec).unwrap();
+    fs::write(&spec_file, usage_spec).unwrap();
 
     // Generate the completion
     let output = Command::new(&usage_bin)
