@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.1](https://github.com/jdx/usage/compare/v2.3.0..v2.3.1) - 2025-09-28
+
+### 🐛 Bug Fixes
+
+- issues with very large specs by [@jdx](https://github.com/jdx) in [#330](https://github.com/jdx/usage/pull/330)
+
 ## [2.3.0](https://github.com/jdx/usage/compare/v2.2.2..v2.3.0) - 2025-09-28
 
 ### 🚀 Features
