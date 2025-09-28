@@ -13,8 +13,11 @@ _usage() {
 
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
+    local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
+    # Always update spec file when not cached
+    echo "${_usage_spec_usage}" > "$spec_file"
     # shellcheck disable=SC2207
-	_comp_compgen -- -W "$(command usage complete-word --shell bash -s "${_usage_spec_usage}" --cword="$cword" -- "${words[@]}")"
+	_comp_compgen -- -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}")"
 	_comp_ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
