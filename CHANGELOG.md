@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.2](https://github.com/jdx/usage/compare/v2.3.1..v2.3.2) - 2025-09-29
+
+### 🐛 Bug Fixes
+
+- **(zsh)** compdef ordering by [@jdx](https://github.com/jdx) in [#335](https://github.com/jdx/usage/pull/335)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#332](https://github.com/jdx/usage/pull/332)
+
 ## [2.3.1](https://github.com/jdx/usage/compare/v2.3.0..v2.3.1) - 2025-09-28
 
 ### 🐛 Bug Fixes
