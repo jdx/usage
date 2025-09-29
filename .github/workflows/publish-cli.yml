@@ -31,7 +31,7 @@ jobs:
         run: |
           gh release create --draft ${{ github.ref_name }} \
             --title "${{ github.ref_name }}" \
-            --notes "$(git cliff --tag ${{ github.ref_name }} --strip all --unreleased)"
+            --notes "$(git cliff --latest --strip all)"
   build-and-publish:
     needs: [create-release]
     strategy:
