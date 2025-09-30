@@ -42,6 +42,8 @@ pub struct SpecFlag {
     pub default: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<String>,
 }
 
 impl SpecFlag {
@@ -67,6 +69,7 @@ impl SpecFlag {
                 "count" => flag.count = v.ensure_bool()?,
                 "default" => flag.default = v.ensure_string().map(Some)?,
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
+                "env" => flag.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
         }
@@ -93,6 +96,7 @@ impl SpecFlag {
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
+                "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
                 "choices" => {
                     if let Some(arg) = &mut flag.arg {
                         arg.choices = Some(SpecChoices::parse(ctx, &child)?);
@@ -177,6 +181,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(negate) = &flag.negate {
             node.push(KdlEntry::new_prop("negate", negate.clone()));
+        }
+        if let Some(env) = &flag.env {
+            node.push(KdlEntry::new_prop("env", env.clone()));
         }
         if let Some(deprecated) = &flag.deprecated {
             node.push(KdlEntry::new_prop("deprecated", deprecated.clone()));
@@ -297,6 +304,7 @@ impl From<&clap::Arg> for SpecFlag {
             default,
             deprecated: None,
             negate: None,
+            env: None,
         }
     }
 }
@@ -373,6 +381,7 @@ fn get_name_from_short_and_long(short: &[char], long: &[String]) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Spec;
     use insta::assert_snapshot;
 
     #[test]
@@ -388,5 +397,55 @@ mod tests {
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+    }
+
+    #[test]
+    fn test_flag_with_env() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--color" env="MYCLI_COLOR" help="Enable color output"
+flag "--verbose" env="MYCLI_VERBOSE"
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        flag --color help="Enable color output" env=MYCLI_COLOR
+        flag --verbose env=MYCLI_VERBOSE
+        "#);
+
+        let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert_eq!(color_flag.env, Some("MYCLI_COLOR".to_string()));
+
+        let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert_eq!(verbose_flag.env, Some("MYCLI_VERBOSE".to_string()));
+    }
+
+    #[test]
+    fn test_flag_with_env_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--color" help="Enable color output" {
+    env "MYCLI_COLOR"
+}
+flag "--verbose" {
+    env "MYCLI_VERBOSE"
+}
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        flag --color help="Enable color output" env=MYCLI_COLOR
+        flag --verbose env=MYCLI_VERBOSE
+        "#);
+
+        let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert_eq!(color_flag.env, Some("MYCLI_COLOR".to_string()));
+
+        let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert_eq!(verbose_flag.env, Some("MYCLI_VERBOSE".to_string()));
     }
 }

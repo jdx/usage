@@ -32,5 +32,6 @@ Flags:
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- if flag.help %}  {{ flag.help }}{%- endif %}
 {%- if flag.arg.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if flag.env %} [env: {{ flag.env }}]{%- endif %}
 {%- endfor %}
 {%- endif -%}

@@ -69,6 +69,7 @@ pub struct SpecFlag {
     pub arg: Option<SpecArg>,
     pub default: Option<String>,
     pub negate: Option<String>,
+    pub env: Option<String>,
     pub rendered: bool,
 }
 
@@ -176,6 +177,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             arg: flag.arg.as_ref().map(SpecArg::from),
             default: flag.default.clone(),
             negate: flag.negate.clone(),
+            env: flag.env.clone(),
             rendered: false,
         }
     }
