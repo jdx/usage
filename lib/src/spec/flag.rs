@@ -96,6 +96,7 @@ impl SpecFlag {
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
+                "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
                 "choices" => {
                     if let Some(arg) = &mut flag.arg {
                         arg.choices = Some(SpecChoices::parse(ctx, &child)?);
@@ -405,6 +406,33 @@ mod tests {
             r#"
 flag "--color" env="MYCLI_COLOR" help="Enable color output"
 flag "--verbose" env="MYCLI_VERBOSE"
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        flag --color help="Enable color output" env=MYCLI_COLOR
+        flag --verbose env=MYCLI_VERBOSE
+        "#);
+
+        let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert_eq!(color_flag.env, Some("MYCLI_COLOR".to_string()));
+
+        let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert_eq!(verbose_flag.env, Some("MYCLI_VERBOSE".to_string()));
+    }
+
+    #[test]
+    fn test_flag_with_env_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--color" help="Enable color output" {
+    env "MYCLI_COLOR"
+}
+flag "--verbose" {
+    env "MYCLI_VERBOSE"
+}
             "#,
         )
         .unwrap();
