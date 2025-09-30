@@ -48,5 +48,8 @@ Flags:
 {%- if flag.arg.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
+{%- if flag.env %}
+    [env: {{ flag.env }}]
+{%- endif %}
 {%- endfor %}
 {%- endif -%}
