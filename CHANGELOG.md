@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.0](https://github.com/jdx/usage/compare/v2.3.2..v2.4.0) - 2025-10-10
+
+### 🚀 Features
+
+- add env attribute support for flags by [@jdx](https://github.com/jdx) in [#336](https://github.com/jdx/usage/pull/336)
+
+### 📦️ Dependency Updates
+
+- update pnpm/action-setup digest to 41ff726 by [@renovate[bot]](https://github.com/renovate[bot]) in [#339](https://github.com/jdx/usage/pull/339)
+- update dependency semver to v7.7.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#340](https://github.com/jdx/usage/pull/340)
+
 ## [2.3.2](https://github.com/jdx/usage/compare/v2.3.1..v2.3.2) - 2025-09-29
 
 ### 🐛 Bug Fixes
