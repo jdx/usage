@@ -9,7 +9,7 @@ use predicates::str::contains;
 #[test]
 fn complete_word_completer() {
     assert_cmd("basic.usage.kdl", &["plugins", "install", "pl"])
-        .stdout("plugin-1\nplugin-2\nplugin-3\n");
+        .stdout("'plugin-1'\n'plugin-2'\n'plugin-3'\n");
     assert_cmd("basic.usage.kdl", &["plugins", "install_desc", "pl"]).stdout(
         r#"'plugin-1'\:'desc'
 'plugin-2'\:'desc'
@@ -20,24 +20,25 @@ fn complete_word_completer() {
 
 #[test]
 fn complete_word_subcommands() {
-    assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("install"));
+    assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("'install'"));
 }
 
 #[test]
 fn complete_word_cword() {
     assert_cmd("basic.usage.kdl", &["--cword=3", "plugins", "install"])
-        .stdout(contains("plugin-2"));
+        .stdout(contains("'plugin-2'"));
 }
 
 #[test]
 fn complete_word_long_flag() {
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"]).stdout("--dir\n--global\n");
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--g"]).stdout("--global\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"])
+        .stdout("'--dir'\n'--global'\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--g"]).stdout("'--global'\n");
     assert_cmd(
         "basic.usage.kdl",
         &["--", "plugins", "install", "--global", "pl"],
     )
-    .stdout(contains("plugin-2"));
+    .stdout(contains("'plugin-2'"));
 }
 
 #[test]
@@ -46,29 +47,29 @@ fn complete_word_long_flag_val() {
         "basic.usage.kdl",
         &["--", "plugins", "install", "--dir", ""],
     )
-    .stdout(contains("src").and(contains("tests")));
+    .stdout(contains("'src'").and(contains("'tests'")));
 }
 
 #[test]
 fn complete_word_short_flag() {
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-"])
-        .stdout("-d\n-g\n--dir\n--global\n");
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g"]).stdout("-g\n");
+        .stdout("'-d'\n'-g'\n'--dir'\n'--global'\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g"]).stdout("'-g'\n");
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g", "pl"])
-        .stdout(contains("plugin-2"));
+        .stdout(contains("'plugin-2'"));
 }
 
 #[test]
 fn complete_word_kitchen_sink() {
     assert_cmd("kitchen-sink.usage.kdl", &["--", "install", "--"])
-        .stdout("--dir\n--force\n--global\n--no-force\n");
-    assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("bash\nzsh\nfish\n");
+        .stdout("'--dir'\n'--force'\n'--global'\n'--no-force'\n");
+    assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("'bash'\n'zsh'\n'fish'\n");
 }
 
 #[test]
 fn complete_word_choices() {
     assert_cmd("mise.usage.kdl", &["--", "env", "--shell", ""])
-        .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
+        .stdout("'bash'\n'elvish'\n'fish'\n'nu'\n'xonsh'\n'zsh'\n'pwsh'\n");
 }
 
 #[test]
@@ -83,7 +84,7 @@ fn complete_word_shebang() {
 
 #[test]
 fn complete_word_arg_completer() {
-    assert_cmd("example.sh", &["--", "v"]).stdout("val-1\nval-2\nval-3\n");
+    assert_cmd("example.sh", &["--", "v"]).stdout("'val-1'\n'val-2'\n'val-3'\n");
 }
 
 #[test]
@@ -100,9 +101,9 @@ fn complete_word_mounted() {
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     env::set_var("PATH", env::join_paths(path).unwrap());
     assert_cmd("mounted.sh", &["--", "-"])
-        .stdout("\'--mount\'\\:\'Display kdl spec for mounted tasks\'\n");
-    assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
-    assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
+        .stdout("'--mount'\\:'Display kdl spec for mounted tasks'\n");
+    assert_cmd("mounted.sh", &["--", ""]).stdout("'exec-task'\n");
+    assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("'task-a'\n'task-b'\n");
 }
 
 #[test]
@@ -124,7 +125,7 @@ fn complete_word_fallback_to_files() {
     // Assert for files always present in the project root
     cmd.assert()
         .success()
-        .stdout(contains("Cargo.toml").and(contains("src")));
+        .stdout(contains("'Cargo.toml'").and(contains("'src'")));
 }
 
 fn cmd(example: &str, shell: &str) -> Command {
