@@ -23,6 +23,6 @@
     "@withfig/autocomplete-tools": "^2.11.0",
     "@withfig/autocomplete-types": "^1.31.0",
     "eslint": "^8.57.1",
-    "semver": "^7.7.2"
+    "semver": "^7.7.3"
   }
 }
