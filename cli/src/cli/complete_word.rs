@@ -44,15 +44,25 @@ impl CompleteWord {
         let shell = self.shell.as_deref().unwrap_or_default();
         let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
         for (c, description) in choices {
-            match (any_descriptions, shell) {
-                (true, "bash") => println!("{c}"),
-                (true, "fish") => println!("{c}\t{description}"),
-                (true, "zsh") => {
-                    let c = c.replace(":", "\\\\:");
-                    let description = description.replace("'", "'\\''");
-                    println!("'{c}'\\:'{description}'")
+            match shell {
+                "bash" => println!("{c}"),
+                "fish" => {
+                    if any_descriptions {
+                        println!("{c}\t{description}")
+                    } else {
+                        println!("{c}")
+                    }
                 }
-                _ => println!("{c}"),
+                "zsh" => {
+                    let c = c.replace(":", "\\\\:");
+                    if any_descriptions {
+                        let description = description.replace("'", "'\\''");
+                        println!("'{c}'\\:'{description}'")
+                    } else {
+                        println!("'{c}'")
+                    }
+                }
+                _ => unimplemented!("unsupported shell: {}", shell),
             }
         }
 
