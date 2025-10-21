@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.4.0](https://github.com/jdx/usage/compare/v2.3.2..v2.4.0) - 2025-10-21
+
+### 🚀 Features
+
+- add env attribute support for flags by [@jdx](https://github.com/jdx) in [#336](https://github.com/jdx/usage/pull/336)
+- add env attribute support for args by [@jdx](https://github.com/jdx) in [#346](https://github.com/jdx/usage/pull/346)
+
+### 🐛 Bug Fixes
+
+- handle colons in zsh completions without description by [@MeanderingProgrammer](https://github.com/MeanderingProgrammer) in [#341](https://github.com/jdx/usage/pull/341)
+
+### 📦️ Dependency Updates
+
+- update pnpm/action-setup digest to 41ff726 by [@renovate[bot]](https://github.com/renovate[bot]) in [#339](https://github.com/jdx/usage/pull/339)
+- update dependency semver to v7.7.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#340](https://github.com/jdx/usage/pull/340)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#342](https://github.com/jdx/usage/pull/342)
+- update rust crate clap to v4.5.49 by [@renovate[bot]](https://github.com/renovate[bot]) in [#343](https://github.com/jdx/usage/pull/343)
+- update rust crate regex to v1.12.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#344](https://github.com/jdx/usage/pull/344)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#345](https://github.com/jdx/usage/pull/345)
+
+### New Contributors
+
+- @MeanderingProgrammer made their first contribution in [#341](https://github.com/jdx/usage/pull/341)
+
 ## [2.3.2](https://github.com/jdx/usage/compare/v2.3.1..v2.3.2) - 2025-09-29
 
 ### 🐛 Bug Fixes
