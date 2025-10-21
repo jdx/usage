@@ -32,6 +32,9 @@ Arguments:
 {%- if arg.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
+{%- if arg.env %}
+    [env: {{ arg.env }}]
+{%- endif %}
 {%- endfor %}
 {%- endif %}
 

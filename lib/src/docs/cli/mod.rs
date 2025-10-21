@@ -74,4 +74,38 @@ flag "--debug" help="Debug mode"
             Debug mode
         ");
     }
+
+    #[test]
+    fn test_render_help_with_arg_env() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+arg "<input>" env="MY_INPUT" help="Input file"
+arg "<output>" env="MY_OUTPUT" help="Output file"
+arg "<extra>" help="Extra arg without env"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli <ARGS>…
+
+        Arguments:
+          <input>  Input file [env: MY_INPUT]
+          <output>  Output file [env: MY_OUTPUT]
+          <extra>  Extra arg without env
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli <ARGS>…
+
+        Arguments:
+          <input>
+            Input file
+            [env: MY_INPUT]
+          <output>
+            Output file
+            [env: MY_OUTPUT]
+          <extra>
+            Extra arg without env
+        ");
+    }
 }

@@ -49,6 +49,8 @@ pub struct SpecArg {
     pub default: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<String>,
 }
 
 impl SpecArg {
@@ -67,6 +69,7 @@ impl SpecArg {
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = v.ensure_string().map(Some)?,
+                "env" => arg.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
         }
@@ -76,6 +79,7 @@ impl SpecArg {
         for child in node.children() {
             match child.name() {
                 "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),
+                "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
@@ -142,6 +146,9 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(default) = &arg.default {
             node.push(KdlEntry::new_prop("default", default.clone()));
+        }
+        if let Some(env) = &arg.env {
+            node.push(KdlEntry::new_prop("env", env.clone()));
         }
         if let Some(choices) = &arg.choices {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -245,6 +252,7 @@ impl From<&clap::Arg> for SpecArg {
                 )
             },
             choices: None,
+            env: None,
         };
         if !choices.is_empty() {
             arg.choices = Some(SpecChoices { choices });
@@ -268,5 +276,61 @@ impl Eq for SpecArg {}
 impl Hash for SpecArg {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Spec;
+    use insta::assert_snapshot;
+
+    #[test]
+    fn test_arg_with_env() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+arg "<input>" env="MY_INPUT" help="Input file"
+arg "<output>" env="MY_OUTPUT"
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        arg <input> help="Input file" env=MY_INPUT
+        arg <output> env=MY_OUTPUT
+        "#);
+
+        let input_arg = spec.cmd.args.iter().find(|a| a.name == "input").unwrap();
+        assert_eq!(input_arg.env, Some("MY_INPUT".to_string()));
+
+        let output_arg = spec.cmd.args.iter().find(|a| a.name == "output").unwrap();
+        assert_eq!(output_arg.env, Some("MY_OUTPUT".to_string()));
+    }
+
+    #[test]
+    fn test_arg_with_env_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+arg "<input>" help="Input file" {
+    env "MY_INPUT"
+}
+arg "<output>" {
+    env "MY_OUTPUT"
+}
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        arg <input> help="Input file" env=MY_INPUT
+        arg <output> env=MY_OUTPUT
+        "#);
+
+        let input_arg = spec.cmd.args.iter().find(|a| a.name == "input").unwrap();
+        assert_eq!(input_arg.env, Some("MY_INPUT".to_string()));
+
+        let output_arg = spec.cmd.args.iter().find(|a| a.name == "output").unwrap();
+        assert_eq!(output_arg.env, Some("MY_OUTPUT".to_string()));
     }
 }

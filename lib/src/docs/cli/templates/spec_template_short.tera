@@ -21,6 +21,7 @@ Arguments:
   {{ arg.usage | trim }}
 {%- if arg.help %}  {{ arg.help }}{%- endif %}
 {%- if arg.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if arg.env %} [env: {{ arg.env }}]{%- endif %}
 {%- endfor %}
 {%- endif %}
 
