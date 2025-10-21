@@ -18,8 +18,8 @@ use crate::cli::generate;
 #[derive(Debug, Args)]
 #[clap(visible_alias = "cw")]
 pub struct CompleteWord {
-    #[clap(long, value_parser = ["bash", "fish", "zsh"])]
-    shell: Option<String>,
+    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "zsh"])]
+    shell: String,
 
     /// user's input from the command line
     words: Vec<String>,
@@ -41,7 +41,7 @@ impl CompleteWord {
     pub fn run(&self) -> miette::Result<()> {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
         let choices = self.complete_word(&spec)?;
-        let shell = self.shell.as_deref().unwrap_or_default();
+        let shell = self.shell.as_ref();
         let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
         for (c, description) in choices {
             match shell {

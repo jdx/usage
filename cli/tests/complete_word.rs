@@ -128,19 +128,23 @@ fn complete_word_fallback_to_files() {
         .stdout(contains("'Cargo.toml'").and(contains("'src'")));
 }
 
-fn cmd(example: &str, shell: &str) -> Command {
+#[test]
+fn complete_word_subcommands_without_shell() {
+    let mut cmd = cmd("basic.usage.kdl", None);
+    cmd.args(["plugins", "install"]);
+    cmd.assert().success().stdout(contains("install"));
+}
+
+fn cmd(example: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::cargo_bin("usage").unwrap();
-    cmd.args([
-        "cw",
-        "--shell",
-        shell,
-        "-f",
-        &format!("../examples/{example}"),
-        "mycli",
-    ]);
+    cmd.args(["cw"]);
+    if let Some(shell) = shell {
+        cmd.args(["--shell", shell]);
+    }
+    cmd.args(["-f", &format!("../examples/{example}"), "mycli"]);
     cmd
 }
 
 fn assert_cmd(example: &str, args: &[&str]) -> Assert {
-    cmd(example, "zsh").args(args).assert().success()
+    cmd(example, Some("zsh")).args(args).assert().success()
 }
