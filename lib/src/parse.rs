@@ -38,8 +38,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
     for arg in out.cmd.args.iter().skip(out.args.len()) {
         if let Some(env_var) = arg.env.as_ref() {
             if let Ok(env_value) = std::env::var(env_var) {
-                out.args
-                    .insert(arg.clone(), ParseValue::String(env_value));
+                out.args.insert(arg.clone(), ParseValue::String(env_value));
                 continue;
             }
         }
@@ -62,8 +61,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                 } else {
                     // For boolean flags, check if env value is truthy
                     let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
-                    out.flags
-                        .insert(flag.clone(), ParseValue::Bool(is_true));
+                    out.flags.insert(flag.clone(), ParseValue::Bool(is_true));
                 }
                 continue;
             }
