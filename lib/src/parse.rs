@@ -33,15 +33,40 @@ pub enum ParseValue {
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let mut out = parse_partial(spec, input)?;
     trace!("{out:?}");
+
+    // Apply env vars and defaults for args
     for arg in out.cmd.args.iter().skip(out.args.len()) {
+        if let Some(env_var) = arg.env.as_ref() {
+            if let Ok(env_value) = std::env::var(env_var) {
+                out.args
+                    .insert(arg.clone(), ParseValue::String(env_value));
+                continue;
+            }
+        }
         if let Some(default) = arg.default.as_ref() {
             out.args
                 .insert(arg.clone(), ParseValue::String(default.clone()));
         }
     }
+
+    // Apply env vars and defaults for flags
     for flag in out.available_flags.values() {
         if out.flags.contains_key(flag) {
             continue;
+        }
+        if let Some(env_var) = flag.env.as_ref() {
+            if let Ok(env_value) = std::env::var(env_var) {
+                if flag.arg.is_some() {
+                    out.flags
+                        .insert(flag.clone(), ParseValue::String(env_value));
+                } else {
+                    // For boolean flags, check if env value is truthy
+                    let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
+                    out.flags
+                        .insert(flag.clone(), ParseValue::Bool(is_true));
+                }
+                continue;
+            }
         }
         if let Some(default) = flag.default.as_ref() {
             out.flags
@@ -261,7 +286,15 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
         if arg.required && arg.default.is_none() {
-            out.errors.push(UsageErr::MissingArg(arg.name.clone()));
+            // Check if there's an env var available
+            let has_env = arg
+                .env
+                .as_ref()
+                .map(|e| std::env::var(e).is_ok())
+                .unwrap_or(false);
+            if !has_env {
+                out.errors.push(UsageErr::MissingArg(arg.name.clone()));
+            }
         }
     }
 
@@ -270,7 +303,12 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             continue;
         }
         let has_default = flag.default.is_some() || flag.arg.iter().any(|a| a.default.is_some());
-        if flag.required && !has_default {
+        let has_env = flag
+            .env
+            .as_ref()
+            .map(|e| std::env::var(e).is_ok())
+            .unwrap_or(false);
+        if flag.required && !has_default && !has_env {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
     }
@@ -431,5 +469,141 @@ mod tests {
         assert_eq!(env.len(), 2);
         assert_eq!(env.get("usage_flag"), Some(&"true".to_string()));
         assert_eq!(env.get("usage_force"), Some(&"false".to_string()));
+    }
+
+    #[test]
+    fn test_arg_env_var() {
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "input".to_string(),
+            env: Some("TEST_ARG_INPUT".to_string()),
+            required: true,
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Set env var
+        std::env::set_var("TEST_ARG_INPUT", "test_file.txt");
+
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let arg = parsed.args.keys().next().unwrap();
+        assert_eq!(arg.name, "input");
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "test_file.txt");
+
+        // Clean up
+        std::env::remove_var("TEST_ARG_INPUT");
+    }
+
+    #[test]
+    fn test_flag_env_var_with_arg() {
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.flags = vec![SpecFlag {
+            name: "output".to_string(),
+            long: vec!["output".to_string()],
+            env: Some("TEST_FLAG_OUTPUT".to_string()),
+            arg: Some(SpecArg {
+                name: "file".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Set env var
+        std::env::set_var("TEST_FLAG_OUTPUT", "output.txt");
+
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let flag = parsed.flags.keys().next().unwrap();
+        assert_eq!(flag.name, "output");
+        let value = parsed.flags.values().next().unwrap();
+        assert_eq!(value.to_string(), "output.txt");
+
+        // Clean up
+        std::env::remove_var("TEST_FLAG_OUTPUT");
+    }
+
+    #[test]
+    fn test_flag_env_var_boolean() {
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.flags = vec![SpecFlag {
+            name: "verbose".to_string(),
+            long: vec!["verbose".to_string()],
+            env: Some("TEST_FLAG_VERBOSE".to_string()),
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Set env var to true
+        std::env::set_var("TEST_FLAG_VERBOSE", "true");
+
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let flag = parsed.flags.keys().next().unwrap();
+        assert_eq!(flag.name, "verbose");
+        let value = parsed.flags.values().next().unwrap();
+        assert_eq!(value.to_string(), "true");
+
+        // Clean up
+        std::env::remove_var("TEST_FLAG_VERBOSE");
+    }
+
+    #[test]
+    fn test_env_var_precedence() {
+        // CLI args should take precedence over env vars
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "input".to_string(),
+            env: Some("TEST_PRECEDENCE_INPUT".to_string()),
+            required: true,
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Set env var
+        std::env::set_var("TEST_PRECEDENCE_INPUT", "env_file.txt");
+
+        let input = vec!["test".to_string(), "cli_file.txt".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        // CLI arg should take precedence
+        assert_eq!(value.to_string(), "cli_file.txt");
+
+        // Clean up
+        std::env::remove_var("TEST_PRECEDENCE_INPUT");
     }
 }

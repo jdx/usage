@@ -97,6 +97,7 @@ pub struct SpecArg {
     pub hide: bool,
     pub default: Option<String>,
     pub choices: Option<SpecChoices>,
+    pub env: Option<String>,
     pub rendered: bool,
 }
 
@@ -211,6 +212,7 @@ impl From<&crate::SpecArg> for SpecArg {
             hide: arg.hide,
             default: arg.default.clone(),
             choices: arg.choices.clone(),
+            env: arg.env.clone(),
             rendered: false,
         }
     }

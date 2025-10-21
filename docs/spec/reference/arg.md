@@ -5,6 +5,7 @@ arg "<file>"                             # positional arg, completed as a filena
 arg "<dir>"                              # positional arg, completed as a directory
 arg "[file]"                             # optional positional arg
 arg "<file>" default="file.txt"          # default value for arg
+arg "<file>" env="MY_FILE"               # arg can be backed by an env var
 arg "<file>" parse="mycli parse-file {}" # parse arg value with external command
 
 arg "[file]" var=#true # multiple args can be passed (e.g. mycli file1 file2 file3) (0 or more)
