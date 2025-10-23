@@ -412,7 +412,7 @@ cmd "config" {
     arg "value"
   }
 }
-complete "file" run="ls"
+complete "file" run="ls" descriptions=#true
         "#,
         )
         .unwrap();
@@ -421,7 +421,7 @@ complete "file" run="ls"
         bin usage
         flag "-f --force" global=#true
         arg <arg1>
-        complete file run=ls
+        complete file run=ls descriptions=#true
         cmd config {
             cmd set {
                 arg <key> help="Key to set"
