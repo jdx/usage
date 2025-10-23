@@ -55,7 +55,7 @@ impl From<&SpecComplete> for KdlNode {
             node.push(KdlEntry::new_prop("type", type_.clone()));
         }
         if complete.descriptions {
-            node.push(KdlEntry::new_prop("descriptions", "true".to_string()));
+            node.push(KdlEntry::new_prop("descriptions", true));
         }
         node
     }
