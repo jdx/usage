@@ -46,7 +46,7 @@ xx = "2"
 
 [dev-dependencies]
 assert_cmd = { version = "2", features = ["color-auto"] }
-ctor = "0.5"
+ctor = "0.6"
 predicates = "3"
 
 [package.metadata.binstall]
