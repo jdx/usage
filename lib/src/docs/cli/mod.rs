@@ -82,6 +82,7 @@ bin "testcli"
 arg "<input>" env="MY_INPUT" help="Input file"
 arg "<output>" env="MY_OUTPUT" help="Output file"
 arg "<extra>" help="Extra arg without env"
+arg "[default]" help="Arg with default value" default="default value"
         "# }
         .unwrap();
 
@@ -92,6 +93,7 @@ arg "<extra>" help="Extra arg without env"
           <input>  Input file [env: MY_INPUT]
           <output>  Output file [env: MY_OUTPUT]
           <extra>  Extra arg without env
+          [default]  Arg with default value (default: default value)
         ");
 
         assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
@@ -106,6 +108,9 @@ arg "<extra>" help="Extra arg without env"
             [env: MY_OUTPUT]
           <extra>
             Extra arg without env
+          [default]
+            Arg with default value
+            (default: default value)
         ");
     }
 }
