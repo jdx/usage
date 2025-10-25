@@ -107,6 +107,29 @@ fn complete_word_mounted() {
 }
 
 #[test]
+fn complete_word_mounted_with_global_flags() {
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Without --dir flag, should get default tasks
+    assert_cmd("mounted-global-flags.sh", &["--", "run", ""])
+        .stdout("'task-a'\\:'Task from default dir'\n'task-b'\\:'Task from default dir'\n");
+
+    // With --dir=dir2 flag, should get dir2 tasks
+    assert_cmd("mounted-global-flags.sh", &["--", "--dir", "dir2", "run", ""])
+        .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+}
+
+#[test]
 fn complete_word_fallback_to_files() {
     // Use a minimal spec with no args or subcommands, so any argument is unknown
     let mut cmd = Command::cargo_bin("usage").unwrap();
