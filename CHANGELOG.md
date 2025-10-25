@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.5.0](https://github.com/jdx/usage/compare/v2.4.0..v2.5.0) - 2025-10-25
+
+### 🚀 Features
+
+- Print default values if specified by [@iamkroot](https://github.com/iamkroot) in [#350](https://github.com/jdx/usage/pull/350)
+
+### 🐛 Bug Fixes
+
+- add fallback for shell by [@MeanderingProgrammer](https://github.com/MeanderingProgrammer) in [#347](https://github.com/jdx/usage/pull/347)
+- complete descriptions serialized as string instead of bool by [@iamkroot](https://github.com/iamkroot) in [#349](https://github.com/jdx/usage/pull/349)
+
+### 🔍 Other Changes
+
+- mise up by [@jdx](https://github.com/jdx) in [#353](https://github.com/jdx/usage/pull/353)
+
+### 📦️ Dependency Updates
+
+- update rust crate serde_with to v3.15.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#351](https://github.com/jdx/usage/pull/351)
+- update rust crate ctor to 0.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#352](https://github.com/jdx/usage/pull/352)
+
+### New Contributors
+
+- @iamkroot made their first contribution in [#350](https://github.com/jdx/usage/pull/350)
+
 ## [2.4.0](https://github.com/jdx/usage/compare/v2.3.2..v2.4.0) - 2025-10-21
 
 ### 🚀 Features
