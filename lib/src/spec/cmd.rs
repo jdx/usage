@@ -371,8 +371,15 @@ impl SpecCommand {
                         shell_words::join(tokens)
                     }
                     Err(_) => {
-                        // If parsing fails, fall back to simple approach
-                        format!("{} {}", global_flag_args.join(" "), mount.run)
+                        // If parsing fails, use simple whitespace split
+                        // Extract first word (command name), insert flags after it
+                        let parts: Vec<&str> = mount.run.splitn(2, ' ').collect();
+                        if parts.len() == 2 {
+                            format!("{} {} {}", parts[0], global_flag_args.join(" "), parts[1])
+                        } else {
+                            // No space, just append flags after command
+                            format!("{} {}", mount.run, global_flag_args.join(" "))
+                        }
                     }
                 }
             };
