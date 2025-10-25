@@ -159,11 +159,13 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                     idx += 1;
 
                     // Only consume next word if flag takes an argument AND value isn't embedded
-                    if f.arg.is_some() && !word.contains('=') {
-                        if idx < input.len() && !input[idx].starts_with('-') {
-                            prefix_words.push(input[idx].clone());
-                            idx += 1;
-                        }
+                    if f.arg.is_some()
+                        && !word.contains('=')
+                        && idx < input.len()
+                        && !input[idx].starts_with('-')
+                    {
+                        prefix_words.push(input[idx].clone());
+                        idx += 1;
                     }
                 } else {
                     // Non-global flag before subcommand, stop looking
