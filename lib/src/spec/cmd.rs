@@ -360,28 +360,15 @@ impl SpecCommand {
             } else {
                 // Parse the mount command into tokens, insert global flags after the first token
                 // e.g., "mise tasks ls" becomes "mise --cd dir2 tasks ls"
-                // Handles quoted arguments correctly: bash -c "mise tasks ls" stays correct
-                match shell_words::split(&mount.run) {
-                    Ok(mut tokens) => {
-                        if !tokens.is_empty() {
-                            // Insert global flags after the first token (the command name)
-                            tokens.splice(1..1, global_flag_args.iter().cloned());
-                        }
-                        // Join tokens back into a properly quoted command string
-                        shell_words::join(tokens)
-                    }
-                    Err(_) => {
-                        // If parsing fails, use simple whitespace split
-                        // Extract first word (command name), insert flags after it
-                        let parts: Vec<&str> = mount.run.splitn(2, ' ').collect();
-                        if parts.len() == 2 {
-                            format!("{} {} {}", parts[0], global_flag_args.join(" "), parts[1])
-                        } else {
-                            // No space, just append flags after command
-                            format!("{} {}", mount.run, global_flag_args.join(" "))
-                        }
-                    }
+                // Handles quoted arguments correctly: "cmd 'arg with spaces'" stays correct
+                let mut tokens = shell_words::split(&mount.run)
+                    .expect("mount command should be valid shell syntax");
+                if !tokens.is_empty() {
+                    // Insert global flags after the first token (the command name)
+                    tokens.splice(1..1, global_flag_args.iter().cloned());
                 }
+                // Join tokens back into a properly quoted command string
+                shell_words::join(tokens)
             };
             let output = sh(&cmd)?;
             let spec: Spec = output.parse()?;

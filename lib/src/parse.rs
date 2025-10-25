@@ -118,14 +118,14 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     };
 
     // Find subcommands, skipping over any flags/args that appear before them
-    // Collect prefix words to pass to mount commands for proper context
+    // Collect global flags to pass to mount commands for proper context
     let mut prefix_words: Vec<String> = vec![];
     let mut idx = 0;
 
     while idx < input.len() {
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             let mut subcommand = subcommand.clone();
-            // Pass prefix words (everything before this subcommand) to mount
+            // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&prefix_words)?;
             out.available_flags.retain(|_, f| f.global);
             out.available_flags.extend(gather_flags(&subcommand));
@@ -136,13 +136,42 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             prefix_words.clear();
             idx = 0; // Reset to look for nested subcommands
         } else if input[idx].starts_with('-') {
-            // Looks like a flag, collect it and keep searching
-            prefix_words.push(input[idx].clone());
-            idx += 1;
-            // If next word doesn't look like a flag, it might be this flag's argument
-            if idx < input.len() && !input[idx].starts_with('-') {
-                prefix_words.push(input[idx].clone());
-                idx += 1;
+            // Check if this is a known flag and if it's global
+            let word = &input[idx];
+
+            // For short flags, look up -X format; for long flags, strip =value
+            let flag_key = if word.starts_with("--") {
+                // Long flag: split at = if present
+                word.split_once('=').map(|(k, _)| k).unwrap_or(word)
+            } else {
+                // Short flag: use -X format (first two chars)
+                if word.len() >= 2 {
+                    &word[0..2]
+                } else {
+                    word
+                }
+            };
+
+            if let Some(f) = out.available_flags.get(flag_key) {
+                // Only collect global flags for mount execution
+                if f.global {
+                    prefix_words.push(input[idx].clone());
+                    idx += 1;
+
+                    // Only consume next word if flag takes an argument AND value isn't embedded
+                    if f.arg.is_some() && !word.contains('=') {
+                        if idx < input.len() && !input[idx].starts_with('-') {
+                            prefix_words.push(input[idx].clone());
+                            idx += 1;
+                        }
+                    }
+                } else {
+                    // Non-global flag before subcommand, stop looking
+                    break;
+                }
+            } else {
+                // Unknown flag, stop looking for subcommands
+                break;
             }
         } else {
             // Not a flag or subcommand, stop looking for subcommands

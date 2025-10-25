@@ -133,6 +133,53 @@ fn complete_word_mounted_with_global_flags() {
 }
 
 #[test]
+fn complete_word_boolean_flags_dont_consume_subcommands() {
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Boolean flag --verbose before subcommand 'run' should not consume 'run'
+    assert_cmd("test-boolean-flags.sh", &["--", "--verbose", "run", ""])
+        .stdout("'task-verbose'\\:'Task with verbose'\n");
+
+    // Multiple boolean flags before subcommand
+    assert_cmd(
+        "test-boolean-flags.sh",
+        &["--", "--verbose", "--debug", "run", ""],
+    )
+    .stdout("'task-verbose-debug'\\:'Task with verbose and debug'\n");
+}
+
+#[test]
+fn complete_word_non_global_flags_stop_search() {
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Non-global flag --local should stop subcommand search
+    // The parser will fail to recognize 'run' as a subcommand and error
+    let mut cmd = cmd("test-boolean-flags.sh", Some("zsh"));
+    cmd.args(["--", "--local", "run", ""]);
+    cmd.assert().failure().stderr(contains("unexpected word"));
+}
+
+#[test]
 fn complete_word_fallback_to_files() {
     // Use a minimal spec with no args or subcommands, so any argument is unknown
     let mut cmd = Command::cargo_bin("usage").unwrap();
