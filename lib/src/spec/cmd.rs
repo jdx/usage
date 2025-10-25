@@ -358,14 +358,22 @@ impl SpecCommand {
             let cmd = if global_flag_args.is_empty() {
                 mount.run.clone()
             } else {
-                // Insert global flags after the command name
+                // Parse the mount command into tokens, insert global flags after the first token
                 // e.g., "mise tasks ls" becomes "mise --cd dir2 tasks ls"
-                let parts: Vec<&str> = mount.run.splitn(2, ' ').collect();
-                if parts.len() == 2 {
-                    format!("{} {} {}", parts[0], global_flag_args.join(" "), parts[1])
-                } else {
-                    // No space in command, just append global flags
-                    format!("{} {}", mount.run, global_flag_args.join(" "))
+                // Handles quoted arguments correctly: bash -c "mise tasks ls" stays correct
+                match shell_words::split(&mount.run) {
+                    Ok(mut tokens) => {
+                        if !tokens.is_empty() {
+                            // Insert global flags after the first token (the command name)
+                            tokens.splice(1..1, global_flag_args.iter().cloned());
+                        }
+                        // Join tokens back into a properly quoted command string
+                        shell_words::join(tokens)
+                    }
+                    Err(_) => {
+                        // If parsing fails, fall back to simple approach
+                        format!("{} {}", global_flag_args.join(" "), mount.run)
+                    }
                 }
             };
             let output = sh(&cmd)?;
