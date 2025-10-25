@@ -125,8 +125,11 @@ fn complete_word_mounted_with_global_flags() {
         .stdout("'task-a'\\:'Task from default dir'\n'task-b'\\:'Task from default dir'\n");
 
     // With --dir=dir2 flag, should get dir2 tasks
-    assert_cmd("mounted-global-flags.sh", &["--", "--dir", "dir2", "run", ""])
-        .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+    assert_cmd(
+        "mounted-global-flags.sh",
+        &["--", "--dir", "dir2", "run", ""],
+    )
+    .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
 }
 
 #[test]
