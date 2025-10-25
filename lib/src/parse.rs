@@ -117,62 +117,37 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         errors: vec![],
     };
 
-    // Track global flags for mount execution
-    let mut global_flag_args: Vec<String> = vec![];
+    // Find subcommands, skipping over any flags/args that appear before them
+    // Collect prefix words to pass to mount commands for proper context
+    let mut prefix_words: Vec<String> = vec![];
+    let mut idx = 0;
 
-    while !input.is_empty() {
-        let word = input[0].clone();
-
-        // Check if this is a subcommand
-        if let Some(subcommand) = out.cmd.find_subcommand(&word) {
+    while idx < input.len() {
+        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             let mut subcommand = subcommand.clone();
-            subcommand.mount(&global_flag_args)?;
+            // Pass prefix words (everything before this subcommand) to mount
+            subcommand.mount(&prefix_words)?;
             out.available_flags.retain(|_, f| f.global);
             out.available_flags.extend(gather_flags(&subcommand));
-            input.pop_front();
+            // Remove subcommand from input
+            input.remove(idx);
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
-            continue;
-        }
-
-        // Check if this is a global flag
-        if word.starts_with("--") {
-            let (flag_name, _) = word.split_once('=').unwrap_or((&word, ""));
-            if let Some(flag) = out.available_flags.get(flag_name) {
-                if flag.global {
-                    // Consume the flag
-                    let flag_word = input.pop_front().unwrap();
-                    global_flag_args.push(flag_word);
-
-                    // If the flag takes an argument and it wasn't provided with =, consume the next word
-                    if flag.arg.is_some() && !word.contains('=') && !input.is_empty() {
-                        let arg_value = input.pop_front().unwrap();
-                        global_flag_args.push(arg_value);
-                    }
-                    continue;
-                }
+            prefix_words.clear();
+            idx = 0; // Reset to look for nested subcommands
+        } else if input[idx].starts_with('-') {
+            // Looks like a flag, collect it and keep searching
+            prefix_words.push(input[idx].clone());
+            idx += 1;
+            // If next word doesn't look like a flag, it might be this flag's argument
+            if idx < input.len() && !input[idx].starts_with('-') {
+                prefix_words.push(input[idx].clone());
+                idx += 1;
             }
-        } else if word.starts_with('-') && word.len() > 1 {
-            // Check short flags
-            let short = word.chars().nth(1).unwrap();
-            if let Some(flag) = out.available_flags.get(&format!("-{short}")) {
-                if flag.global {
-                    // Consume the flag
-                    let flag_word = input.pop_front().unwrap();
-                    global_flag_args.push(flag_word);
-
-                    // If the flag takes an argument, consume the next word
-                    if flag.arg.is_some() && !input.is_empty() {
-                        let arg_value = input.pop_front().unwrap();
-                        global_flag_args.push(arg_value);
-                    }
-                    continue;
-                }
-            }
+        } else {
+            // Not a flag or subcommand, stop looking for subcommands
+            break;
         }
-
-        // Not a subcommand or global flag, break
-        break;
     }
 
     let mut next_arg = out.cmd.args.first();
