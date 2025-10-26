@@ -353,9 +353,24 @@ impl SpecCommand {
         self.subcommands.get(name)
     }
 
-    pub(crate) fn mount(&mut self) -> Result<(), UsageErr> {
+    pub(crate) fn mount(&mut self, global_flag_args: &[String]) -> Result<(), UsageErr> {
         for mount in self.mounts.iter().cloned().collect_vec() {
-            let output = sh(&mount.run)?;
+            let cmd = if global_flag_args.is_empty() {
+                mount.run.clone()
+            } else {
+                // Parse the mount command into tokens, insert global flags after the first token
+                // e.g., "mise tasks ls" becomes "mise --cd dir2 tasks ls"
+                // Handles quoted arguments correctly: "cmd 'arg with spaces'" stays correct
+                let mut tokens = shell_words::split(&mount.run)
+                    .expect("mount command should be valid shell syntax");
+                if !tokens.is_empty() {
+                    // Insert global flags after the first token (the command name)
+                    tokens.splice(1..1, global_flag_args.iter().cloned());
+                }
+                // Join tokens back into a properly quoted command string
+                shell_words::join(tokens)
+            };
+            let output = sh(&cmd)?;
             let spec: Spec = output.parse()?;
             self.merge(spec.cmd);
         }
