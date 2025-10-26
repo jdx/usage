@@ -34,10 +34,16 @@ fn test_empty_defaults_example() {
         .stdout(contains("${var:-fallback}  = 'fallback'"))
         .stdout(contains("${var-fallback}   = ''"))
         // Verify error tests pass
-        .stdout(contains("✓ Error thrown (expected, because value is empty string)"))
-        .stdout(contains("✓ No error (expected, because var IS set even though empty)"))
+        .stdout(contains(
+            "✓ Error thrown (expected, because value is empty string)",
+        ))
+        .stdout(contains(
+            "✓ No error (expected, because var IS set even though empty)",
+        ))
         // Verify summary is shown
         .stdout(contains("=== Summary ==="))
-        .stdout(contains("default=\"\"      → Variable IS SET to empty string"))
+        .stdout(contains(
+            "default=\"\"      → Variable IS SET to empty string",
+        ))
         .stdout(contains("No default (opt) → Variable is UNSET"));
 }
