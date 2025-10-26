@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.1](https://github.com/jdx/usage/compare/v2.5.0..v2.5.1) - 2025-10-26
+
+### 🐛 Bug Fixes
+
+- pass global flags to mount commands during completion by [@jdx](https://github.com/jdx) in [#354](https://github.com/jdx/usage/pull/354)
+
+### 🧪 Testing
+
+- add comprehensive test for default="" behavior by [@jdx](https://github.com/jdx) in [#357](https://github.com/jdx/usage/pull/357)
+
+### 🔍 Other Changes
+
+- disable homebrew formula by [@jdx](https://github.com/jdx) in [#355](https://github.com/jdx/usage/pull/355)
+
 ## [2.5.0](https://github.com/jdx/usage/compare/v2.4.0..v2.5.0) - 2025-10-25
 
 ### 🚀 Features
