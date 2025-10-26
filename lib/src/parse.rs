@@ -12,6 +12,20 @@ use crate::docs;
 use crate::error::UsageErr;
 use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
 
+/// Extract the flag key from a flag word for lookup in available_flags map
+/// Handles both long flags (--flag, --flag=value) and short flags (-f)
+fn get_flag_key(word: &str) -> &str {
+    if word.starts_with("--") {
+        // Long flag: strip =value if present
+        word.split_once('=').map(|(k, _)| k).unwrap_or(word)
+    } else if word.len() >= 2 {
+        // Short flag: first two chars (-X)
+        &word[0..2]
+    } else {
+        word
+    }
+}
+
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
@@ -117,8 +131,18 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         errors: vec![],
     };
 
-    // Find subcommands, skipping over any flags/args that appear before them
-    // Collect global flags to pass to mount commands for proper context
+    // Phase 1: Scan for subcommands and collect global flags
+    //
+    // This phase identifies subcommands early because they may have mount points
+    // that need to be executed with the global flags that appeared before them.
+    //
+    // Example: "usage --verbose run task"
+    //   -> finds "run" subcommand, passes ["--verbose"] to its mount command
+    //   -> then finds "task" as a subcommand of "run" (if it exists)
+    //
+    // We only collect global flags because:
+    // - Non-global flags are specific to the current command, not subcommands
+    // - Global flags affect all commands and should be passed to mount points
     let mut prefix_words: Vec<String> = vec![];
     let mut idx = 0;
 
@@ -134,23 +158,12 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
             prefix_words.clear();
-            idx = 0; // Reset to look for nested subcommands
+            // Continue from current position (don't reset to 0)
+            // After remove(), idx now points to the next element
         } else if input[idx].starts_with('-') {
             // Check if this is a known flag and if it's global
             let word = &input[idx];
-
-            // For short flags, look up -X format; for long flags, strip =value
-            let flag_key = if word.starts_with("--") {
-                // Long flag: split at = if present
-                word.split_once('=').map(|(k, _)| k).unwrap_or(word)
-            } else {
-                // Short flag: use -X format (first two chars)
-                if word.len() >= 2 {
-                    &word[0..2]
-                } else {
-                    word
-                }
-            };
+            let flag_key = get_flag_key(word);
 
             if let Some(f) = out.available_flags.get(flag_key) {
                 // Only collect global flags for mount execution
@@ -159,6 +172,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                     idx += 1;
 
                     // Only consume next word if flag takes an argument AND value isn't embedded
+                    // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
                     if f.arg.is_some()
                         && !word.contains('=')
                         && idx < input.len()
@@ -168,19 +182,27 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                         idx += 1;
                     }
                 } else {
-                    // Non-global flag before subcommand, stop looking
+                    // Non-global flag encountered - stop subcommand search
+                    // This prevents incorrect parsing like: "cmd --local-flag run"
+                    // where "run" might be mistaken for a subcommand
                     break;
                 }
             } else {
-                // Unknown flag, stop looking for subcommands
+                // Unknown flag - stop looking for subcommands
+                // Let the main parsing phase handle the error
                 break;
             }
         } else {
-            // Not a flag or subcommand, stop looking for subcommands
+            // Found a word that's not a flag or subcommand
+            // This could be a positional argument, so stop subcommand search
             break;
         }
     }
 
+    // Phase 2: Main argument and flag parsing
+    //
+    // Now that we've identified all subcommands and executed their mounts,
+    // we can parse the remaining arguments, flags, and their values.
     let mut next_arg = out.cmd.args.first();
     let mut enable_flags = true;
     let mut grouped_flag = false;

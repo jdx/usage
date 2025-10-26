@@ -1,7 +1,19 @@
 #!/usr/bin/env -S usage bash
 # shellcheck disable=SC2154
+#
+# Test fixture for global flag handling with mount points
+#
+# This script demonstrates that global flags (--dir/-d) are correctly
+# passed through to mount commands, allowing mounted subcommands to
+# access the same global context as the parent command.
+#
+# Example usage:
+#   mounted-global-flags.sh run               # Uses default dir
+#   mounted-global-flags.sh --dir=dir2 run    # Uses dir2
+#   mounted-global-flags.sh -d dir2 run       # Same, using short flag
+#
 #USAGE bin "ex"
-#USAGE flag "--dir <dir>" help="Working directory" global=#true
+#USAGE flag "-d --dir <dir>" help="Working directory" global=#true
 #USAGE flag "--mount" help="Display kdl spec for mounted tasks"
 #USAGE cmd "run" {
 #USAGE   mount run="mounted-global-flags.sh --mount"
