@@ -1,5 +1,4 @@
 #!/usr/bin/env -S usage bash
-# shellcheck disable=SC2154
 #
 # Test fixture for global flag handling with mount points
 #
@@ -19,6 +18,10 @@
 #USAGE   mount run="mounted-global-flags.sh --mount"
 #USAGE }
 set -eo pipefail
+
+# Declare variables set by usage to avoid SC2154
+: "${usage_mount:=}"
+: "${usage_dir:=}"
 
 if [ "${usage_mount:-}" = "true" ]; then
 	# Check if --dir flag was passed through to mount

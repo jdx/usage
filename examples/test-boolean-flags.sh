@@ -1,5 +1,4 @@
 #!/usr/bin/env -S usage bash
-# shellcheck disable=SC2154
 #
 # Test fixture for boolean flag handling with subcommands
 #
@@ -24,6 +23,11 @@
 #USAGE   mount run="test-boolean-flags.sh --mount"
 #USAGE }
 set -eo pipefail
+
+# Declare variables set by usage to avoid SC2154
+: "${usage_mount:=}"
+: "${usage_verbose:=}"
+: "${usage_debug:=}"
 
 if [ "${usage_mount:-}" = "true" ]; then
 	# Check if global flags were passed through
