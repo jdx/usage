@@ -67,7 +67,13 @@ impl SpecFlag {
                 }
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
-                "default" => flag.default = v.ensure_string().map(Some)?,
+                "default" => {
+                    // Support both string and boolean defaults
+                    flag.default = match v.value.as_bool() {
+                        Some(b) => Some(b.to_string()),
+                        None => v.ensure_string().map(Some)?,
+                    }
+                }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
                 "env" => flag.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
@@ -95,7 +101,14 @@ impl SpecFlag {
                 }
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
-                "default" => flag.default = child.arg(0)?.ensure_string().map(Some)?,
+                "default" => {
+                    // Support both string and boolean defaults
+                    let arg = child.arg(0)?;
+                    flag.default = match arg.value.as_bool() {
+                        Some(b) => Some(b.to_string()),
+                        None => arg.ensure_string().map(Some)?,
+                    }
+                }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
                 "choices" => {
                     if let Some(arg) = &mut flag.arg {
@@ -447,5 +460,53 @@ flag "--verbose" {
 
         let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
         assert_eq!(verbose_flag.env, Some("MYCLI_VERBOSE".to_string()));
+    }
+
+    #[test]
+    fn test_flag_with_boolean_defaults() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--color" default=#true
+flag "--verbose" default=#false
+flag "--debug" default="true"
+flag "--quiet" default="false"
+            "#,
+        )
+        .unwrap();
+
+        let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert_eq!(color_flag.default, Some("true".to_string()));
+
+        let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert_eq!(verbose_flag.default, Some("false".to_string()));
+
+        let debug_flag = spec.cmd.flags.iter().find(|f| f.name == "debug").unwrap();
+        assert_eq!(debug_flag.default, Some("true".to_string()));
+
+        let quiet_flag = spec.cmd.flags.iter().find(|f| f.name == "quiet").unwrap();
+        assert_eq!(quiet_flag.default, Some("false".to_string()));
+    }
+
+    #[test]
+    fn test_flag_with_boolean_defaults_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--color" {
+    default #true
+}
+flag "--verbose" {
+    default #false
+}
+            "#,
+        )
+        .unwrap();
+
+        let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert_eq!(color_flag.default, Some("true".to_string()));
+
+        let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert_eq!(verbose_flag.default, Some("false".to_string()));
     }
 }
