@@ -1,4 +1,5 @@
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -32,9 +33,28 @@ pub fn execute(script: &Path, args: &[String]) -> miette::Result<()> {
     //     )
     // }
     let output_path = create_script(script, &body)?;
-    let mut cmd = exec::Command::new(output_path);
-    let err = cmd.args(&args[1..]).exec();
-    Err(err).into_diagnostic()?
+    #[cfg(unix)]
+    {
+        let mut cmd = exec::Command::new(output_path);
+        let err = cmd.args(&args[1..]).exec();
+        Err(err).into_diagnostic()?
+    }
+    #[cfg(not(unix))]
+    {
+        use std::process::{Command, Stdio};
+
+        let mut cmd = Command::new(output_path);
+        cmd.args(&args[1..]);
+        cmd.stdin(Stdio::inherit());
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+
+        let status = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+        if !status.success() {
+            std::process::exit(status.code().unwrap_or(1));
+        }
+        Ok(())
+    }
 }
 
 // fn get_schema(script: &Path) -> Result<String> {
@@ -65,10 +85,13 @@ fn create_script(script: &Path, body: &str) -> miette::Result<PathBuf> {
     if !output_path.exists() {
         fs::create_dir_all(&*env::CACHE_DIR).into_diagnostic()?;
         fs::write(&output_path, body).into_diagnostic()?;
-        // make executable
-        let mut perms = fs::metadata(&output_path).into_diagnostic()?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&output_path, perms).into_diagnostic()?;
+        // make executable (Unix only)
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&output_path).into_diagnostic()?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&output_path, perms).into_diagnostic()?;
+        }
     }
     Ok(output_path)
 }

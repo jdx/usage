@@ -28,7 +28,6 @@ path = "src/lib.rs"
 clap = { version = "4", features = ["derive", "string", "env"] }
 clap_usage = { workspace = true }
 env_logger = "0.11"
-exec = "0.3"
 indexmap = "2"
 itertools = "0.14"
 kdl = "6"
@@ -43,6 +42,9 @@ tera = "1"
 thiserror = "2"
 usage-lib = { workspace = true, features = ["clap", "docs"] }
 xx = "2"
+
+[target.'cfg(unix)'.dependencies]
+exec = "0.3"
 
 [dev-dependencies]
 assert_cmd = { version = "2", features = ["color-auto"] }
