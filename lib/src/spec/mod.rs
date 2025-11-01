@@ -1,3 +1,4 @@
+use regex::Regex;
 pub mod arg;
 pub mod choices;
 pub mod cmd;
@@ -8,6 +9,7 @@ mod data_types;
 pub mod flag;
 pub mod helpers;
 pub mod mount;
+use once_cell::sync::Lazy;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
@@ -222,13 +224,29 @@ fn check_usage_version(version: &str) {
     }
 }
 
+const USAGE_PATTERN: &str = r"(?i)^\s*(#|//)\s*usage:?";
+
+fn usage_re() -> &'static regex::Regex {
+    // Shared regex for usage comment detection and prefix stripping
+    static USAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(USAGE_PATTERN).unwrap());
+    &USAGE_RE
+}
+
+pub fn is_usage_comment(line: &str) -> bool {
+    usage_re().is_match(line)
+}
+
+pub fn strip_usage_prefix(s: &str) -> &str {
+    if let Some(mat) = usage_re().find(s) {
+        s[mat.end()..].trim_start()
+    } else {
+        s
+    }
+}
+
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
-    if full.starts_with("#!")
-        && full
-            .lines()
-            .any(|l| l.starts_with("#USAGE") || l.starts_with("//USAGE"))
-    {
+    if full.starts_with("#!") && full.lines().any(is_usage_comment) {
         return Ok((extract_usage_from_comments(&full), full));
     }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
@@ -247,11 +265,9 @@ fn extract_usage_from_comments(full: &str) -> String {
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
-        if line.starts_with("#USAGE") || line.starts_with("//USAGE") {
+        if is_usage_comment(line) {
             found = true;
-            let line = line
-                .strip_prefix("#USAGE")
-                .unwrap_or_else(|| line.strip_prefix("//USAGE").unwrap());
+            let line = strip_usage_prefix(line);
             usage.push(line.trim());
         } else if found {
             // if there is a gap, stop reading
