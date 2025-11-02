@@ -148,7 +148,11 @@ impl ManpageRenderer {
 
         // ARGUMENTS section (if not root or has notable args)
         if !cmd.args.is_empty()
-            && (!is_root || cmd.args.iter().any(|a| a.help.is_some() || a.help_long.is_some()))
+            && (!is_root
+                || cmd
+                    .args
+                    .iter()
+                    .any(|a| a.help.is_some() || a.help_long.is_some()))
         {
             if is_root {
                 roff.control("SH", ["ARGUMENTS"]);
