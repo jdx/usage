@@ -226,7 +226,7 @@ Updates mise itself.
 Set environment variables in mise.toml
 .TP
 \fBsettings\fR
-Manage settings
+Show current settings
 .TP
 \fBshell\fR
 Sets a tool version for the current session.

@@ -147,7 +147,9 @@ impl ManpageRenderer {
         }
 
         // ARGUMENTS section (if not root or has notable args)
-        if !cmd.args.is_empty() && (!is_root || cmd.args.iter().any(|a| a.help.is_some())) {
+        if !cmd.args.is_empty()
+            && (!is_root || cmd.args.iter().any(|a| a.help.is_some() || a.help_long.is_some()))
+        {
             if is_root {
                 roff.control("SH", ["ARGUMENTS"]);
             }
@@ -254,7 +256,8 @@ impl ManpageRenderer {
         roff.control("TP", [] as [&str; 0]);
         roff.text([bold(name)]);
 
-        if let Some(help) = &cmd.help {
+        // Prefer help_long, fall back to help
+        if let Some(help) = &cmd.help_long.as_ref().or(cmd.help.as_ref()) {
             // Take just the first line for the summary
             let first_line = help.lines().next().unwrap_or("");
             roff.text([roman(first_line)]);
@@ -339,5 +342,65 @@ mod tests {
         assert!(output.contains(".SH COMMANDS"));
         assert!(output.contains("clone"));
         assert!(output.contains("commit"));
+    }
+
+    #[test]
+    fn test_arguments_with_only_long_help() {
+        let spec: Spec = r#"
+            name "mycli"
+            bin "mycli"
+            about "A CLI tool"
+
+            arg "<input>" help_long="This is a long help text for the input argument"
+        "#
+        .parse()
+        .unwrap();
+
+        let renderer = ManpageRenderer::new(spec);
+        let output = renderer.render().unwrap();
+
+        // Should include ARGUMENTS section even though only help_long is present
+        assert!(output.contains(".SH ARGUMENTS"));
+        assert!(output.contains("<input>"));
+        assert!(output.contains("long help text"));
+    }
+
+    #[test]
+    fn test_subcommand_with_only_long_help() {
+        let spec: Spec = r#"
+            name "mycli"
+            bin "mycli"
+            about "A CLI tool"
+
+            cmd "deploy" help_long="This is a detailed deployment command description that should appear in the summary"
+        "#
+        .parse()
+        .unwrap();
+
+        let renderer = ManpageRenderer::new(spec);
+        let output = renderer.render().unwrap();
+
+        // Should use help_long for subcommand summary
+        assert!(output.contains("deploy"));
+        assert!(output.contains("detailed deployment command"));
+    }
+
+    #[test]
+    fn test_subcommand_prefers_long_over_short_help() {
+        let spec: Spec = r#"
+            name "mycli"
+            bin "mycli"
+            about "A CLI tool"
+
+            cmd "test" help="Short help" help_long="Long detailed help that should be preferred"
+        "#
+        .parse()
+        .unwrap();
+
+        let renderer = ManpageRenderer::new(spec);
+        let output = renderer.render().unwrap();
+
+        // Should prefer help_long over help
+        assert!(output.contains("Long detailed help"));
     }
 }
