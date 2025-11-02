@@ -1,0 +1,36 @@
+.TH USAGE-CLI 1
+.SH NAME
+usage\-cli \- CLI for working with usage\-based CLIs
+.SH SYNOPSIS
+\fBusage\fR [OPTIONS] [<COMPLETIONS>] [COMMAND]
+.SH DESCRIPTION
+CLI for working with usage\-based CLIs
+.PP
+.SH OPTIONS
+.TP
+\fB\-\-usage\-spec\fR
+Outputs a `usage.kdl` spec for this CLI itself
+.SH ARGUMENTS
+.TP
+\fB<COMPLETIONS>\fR
+Outputs completions for the specified shell for completing the `usage` CLI itself
+.SH COMMANDS
+.TP
+\fBcomplete\-word\fR
+.RS
+\fIAliases: \fRcw
+.RE
+.TP
+\fBgenerate\fR
+.RS
+\fIAliases: \fRg
+.RE
+.TP
+\fBbash\fR
+Executes a shell script with the specified shell
+.TP
+\fBfish\fR
+Executes a shell script with the specified shell
+.TP
+\fBzsh\fR
+Executes a shell script with the specified shell

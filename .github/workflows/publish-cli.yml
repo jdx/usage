@@ -74,6 +74,7 @@ jobs:
           target: ${{ matrix.target }}
           build-tool: ${{ matrix.build-tool }}
           manifest-path: cli/Cargo.toml
+          include: cli/assets/usage.1
           codesign: "Developer ID Application: Jeffrey Dickey (4993Y37DX6)"
           codesign_prefix: dev.jdx.
           dry-run: ${{ github.event_name == 'workflow_dispatch' }}
