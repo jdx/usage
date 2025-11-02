@@ -1,0 +1,13 @@
+---
+source: cli/tests/manpage.rs
+expression: stdout
+---
+.TH BASIC.USAGE.KDL 7
+.SH NAME
+basic.usage.kdl \- No description available
+.SH SYNOPSIS
+\fBbasic.usage.kdl\fR [COMMAND]
+.SH DESCRIPTION
+.SH COMMANDS
+.TP
+\fBplugins\fR

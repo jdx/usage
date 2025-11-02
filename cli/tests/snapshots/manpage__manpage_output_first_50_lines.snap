@@ -1,0 +1,54 @@
+---
+source: cli/tests/manpage.rs
+expression: "first_lines.join(\"\\n\")"
+---
+.TH MISE 1
+.SH NAME
+mise \- The front\-end to your dev env
+.SH SYNOPSIS
+\fBmise\fR [OPTIONS] [<TASK>] [<TASK_ARGS>] ... [<TASK_ARGS_LAST>] ... [COMMAND]
+.SH DESCRIPTION
+mise is a tool for managing runtime versions. https://github.com/jdx/mise
+.PP
+It's a replacement for tools like nvm, nodenv, rbenv, rvm, chruby, pyenv, etc.
+that works for any language. It's also great for managing linters/tools like
+jq and shellcheck.
+.PP
+It is inspired by asdf and uses asdf's plugin ecosystem under the hood:
+https://asdf\-vm.com/
+.PP
+.SH OPTIONS
+.TP
+\fB\-C, \-\-cd\fR \fI<DIR>\fR
+Change directory before running command
+.TP
+\fB\-c, \-\-continue\-on\-error\fR
+Continue running tasks even if one fails
+.TP
+\fB\-n, \-\-dry\-run\fR
+Dry run, don't actually do anything
+.TP
+\fB\-E, \-\-env\fR \fI<ENV>\fR
+Set the environment for loading `mise.<ENV>.toml`
+.TP
+\fB\-f, \-\-force\fR
+Force the operation
+.TP
+\fB\-i, \-\-interleave\fR
+Set the log output verbosity
+.TP
+\fB\-j, \-\-jobs\fR \fI<JOBS>\fR
+How many jobs to run in parallel [default: 8]
+.TP
+\fB\-p, \-\-prefix\fR
+.TP
+\fB\-\-output\fR \fI<OUTPUT>\fR
+.TP
+\fB\-P, \-\-profile\fR \fI<PROFILE>\fR
+Set the profile (environment)
+.TP
+\fB\-s, \-\-shell\fR \fI<SHELL>\fR
+.TP
+\fB\-t, \-\-tool\fR \fI<TOOL@VERSION>\fR
+Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
+.TP

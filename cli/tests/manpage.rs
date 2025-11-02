@@ -1,5 +1,4 @@
 use assert_cmd::prelude::*;
-use predicates::str::contains;
 use std::process::Command;
 
 fn usage_cmd() -> Command {
@@ -27,15 +26,11 @@ fn test_generate_basic_manpage() {
         &example_path("basic.usage.kdl"),
     ]);
 
-    let assert = cmd.assert().success();
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
 
-    // Check for standard man page sections
-    assert
-        .stdout(contains(".TH"))
-        .stdout(contains(".SH NAME"))
-        .stdout(contains(".SH SYNOPSIS"))
-        .stdout(contains(".SH DESCRIPTION"))
-        .stdout(contains(".SH COMMANDS"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    insta::assert_snapshot!(stdout);
 }
 
 #[test]
@@ -50,28 +45,29 @@ fn test_generate_manpage_with_section() {
         "7",
     ]);
 
-    let assert = cmd.assert().success();
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
 
-    // Check that section 7 is specified (the name comes from filename since spec has no name)
-    assert.stdout(contains(" 7"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    insta::assert_snapshot!(stdout);
 }
 
 #[test]
 fn test_generate_manpage_with_flags() {
+    // This test uses mise.usage.kdl which actually has flags
     let mut cmd = usage_cmd();
     cmd.args([
         "generate",
         "manpage",
         "-f",
-        &example_path("basic.usage.kdl"),
+        &example_path("mise.usage.kdl"),
     ]);
 
-    let assert = cmd.assert().success();
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
 
-    // Check for commands section (basic.usage.kdl has subcommands, not top-level flags)
-    assert
-        .stdout(contains(".SH COMMANDS"))
-        .stdout(contains("plugins"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    insta::assert_snapshot!(stdout);
 }
 
 #[test]
@@ -107,18 +103,22 @@ fn test_generate_manpage_output_to_file() {
 }
 
 #[test]
-fn test_manpage_with_complex_spec() {
+fn test_manpage_output_first_50_lines() {
+    // Test first 50 lines of mise manpage to avoid huge snapshot
     let mut cmd = usage_cmd();
-    cmd.args(["generate", "manpage", "-f", &example_path("mise.usage.kdl")]);
+    cmd.args([
+        "generate",
+        "manpage",
+        "-f",
+        &example_path("mise.usage.kdl"),
+    ]);
 
-    let assert = cmd.assert().success();
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
 
-    // Check for comprehensive sections
-    assert
-        .stdout(contains(".SH NAME"))
-        .stdout(contains(".SH SYNOPSIS"))
-        .stdout(contains(".SH DESCRIPTION"))
-        .stdout(contains(".SH OPTIONS"));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let first_lines: Vec<&str> = stdout.lines().take(50).collect();
+    insta::assert_snapshot!(first_lines.join("\n"));
 }
 
 #[test]

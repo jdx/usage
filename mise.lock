@@ -8,13 +8,13 @@ size = 2056182
 url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_darwin_arm64.tar.gz"
 
 [[tools.cargo-binstall]]
-version = "1.15.8"
+version = "1.15.10"
 backend = "aqua:cargo-bins/cargo-binstall"
 
 [tools.cargo-binstall.platforms.macos-arm64]
-checksum = "sha256:dfebdc40c67e84b756835d6ea13e72c85272e6862af5a8f49aac55107c0ee1c3"
-size = 6015134
-url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.15.8/cargo-binstall-aarch64-apple-darwin.zip"
+checksum = "sha256:9aa40aca226028c4ec45637f060815d8899fb4e49fb6e97947280c83d34a82d8"
+size = 5958077
+url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.15.10/cargo-binstall-aarch64-apple-darwin.zip"
 
 [[tools."cargo:cargo-edit"]]
 version = "0.13.7"
@@ -46,13 +46,13 @@ version = "3.6.2"
 backend = "npm:prettier"
 
 [[tools.pnpm]]
-version = "10.19.0"
+version = "10.20.0"
 backend = "aqua:pnpm/pnpm"
 
 [tools.pnpm.platforms.macos-arm64]
-checksum = "sha256:41fc22ab28eab1031df380e68b37f98a465a39de81b4830c7411be20df0c6f5f"
-size = 62588240
-url = "https://github.com/pnpm/pnpm/releases/download/v10.19.0/pnpm-macos-arm64"
+checksum = "sha256:6ce67b7b237b349fbb27a1f52fe0b3d6d754679fec2b31c9db98e134599f1371"
+size = 62592784
+url = "https://github.com/pnpm/pnpm/releases/download/v10.20.0/pnpm-macos-arm64"
 
 [[tools.shellcheck]]
 version = "0.11.0"

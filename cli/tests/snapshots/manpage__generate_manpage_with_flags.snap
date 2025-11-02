@@ -1,0 +1,292 @@
+---
+source: cli/tests/manpage.rs
+expression: stdout
+---
+.TH MISE 1
+.SH NAME
+mise \- The front\-end to your dev env
+.SH SYNOPSIS
+\fBmise\fR [OPTIONS] [<TASK>] [<TASK_ARGS>] ... [<TASK_ARGS_LAST>] ... [COMMAND]
+.SH DESCRIPTION
+mise is a tool for managing runtime versions. https://github.com/jdx/mise
+.PP
+It's a replacement for tools like nvm, nodenv, rbenv, rvm, chruby, pyenv, etc.
+that works for any language. It's also great for managing linters/tools like
+jq and shellcheck.
+.PP
+It is inspired by asdf and uses asdf's plugin ecosystem under the hood:
+https://asdf\-vm.com/
+.PP
+.SH OPTIONS
+.TP
+\fB\-C, \-\-cd\fR \fI<DIR>\fR
+Change directory before running command
+.TP
+\fB\-c, \-\-continue\-on\-error\fR
+Continue running tasks even if one fails
+.TP
+\fB\-n, \-\-dry\-run\fR
+Dry run, don't actually do anything
+.TP
+\fB\-E, \-\-env\fR \fI<ENV>\fR
+Set the environment for loading `mise.<ENV>.toml`
+.TP
+\fB\-f, \-\-force\fR
+Force the operation
+.TP
+\fB\-i, \-\-interleave\fR
+Set the log output verbosity
+.TP
+\fB\-j, \-\-jobs\fR \fI<JOBS>\fR
+How many jobs to run in parallel [default: 8]
+.TP
+\fB\-p, \-\-prefix\fR
+.TP
+\fB\-\-output\fR \fI<OUTPUT>\fR
+.TP
+\fB\-P, \-\-profile\fR \fI<PROFILE>\fR
+Set the profile (environment)
+.TP
+\fB\-s, \-\-shell\fR \fI<SHELL>\fR
+.TP
+\fB\-t, \-\-tool\fR \fI<TOOL@VERSION>\fR
+Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
+.TP
+\fB\-\-raw\fR
+Read/write directly to stdin/stdout/stderr instead of by line
+.TP
+\fB\-\-timings\fR
+Shows elapsed time after each task completes
+
+Default to always show with `MISE_TASK_TIMINGS=1`
+.TP
+\fB\-\-no\-config\fR
+Do not load any config files
+
+Can also use `MISE_NO_CONFIG=1`
+.TP
+\fB\-\-no\-timings\fR
+Hides elapsed time after each task completes
+
+Default to always hide with `MISE_TASK_TIMINGS=0`
+.TP
+\fB\-V, \-\-version\fR
+.TP
+\fB\-y, \-\-yes\fR
+Answer yes to all confirmation prompts
+.TP
+\fB\-\-debug\fR
+Sets log level to debug
+.TP
+\fB\-\-log\-level\fR \fI<LEVEL>\fR
+.TP
+\fB\-q, \-\-quiet\fR
+Suppress non\-error messages
+.TP
+\fB\-\-silent\fR
+Suppress all task output and mise non\-error messages
+.TP
+\fB\-\-trace\fR
+Sets log level to trace
+.TP
+\fB\-v, \-\-verbose\fR
+Show extra output (use \-vv for even more)
+.SH ARGUMENTS
+.TP
+\fB<TASK>\fR
+Task to run.
+
+Shorthand for `mise task run <TASK>`.
+.TP
+\fB<TASK_ARGS>\fR
+Task arguments
+.SH COMMANDS
+.TP
+\fBactivate\fR
+Initializes mise in the current shell session
+.TP
+\fBalias\fR
+Manage aliases
+.RS
+\fIAliases: \fRa
+.RE
+.TP
+\fBbackends\fR
+Manage backends
+.RS
+\fIAliases: \fRb
+.RE
+.TP
+\fBbin\-paths\fR
+List all the active runtime bin paths
+.TP
+\fBcache\fR
+Manage the mise cache
+.TP
+\fBcompletion\fR
+Generate shell completions
+.TP
+\fBconfig\fR
+Manage config files
+.RS
+\fIAliases: \fRcfg
+.RE
+.TP
+\fBdeactivate\fR
+Disable mise for current shell session
+.TP
+\fBdoctor\fR
+Check mise installation for possible problems
+.RS
+\fIAliases: \fRdr
+.RE
+.TP
+\fBen\fR
+[experimental] starts a new shell with the mise environment built from the current configuration
+.TP
+\fBenv\fR
+Exports env vars to activate mise a single time
+.RS
+\fIAliases: \fRe
+.RE
+.TP
+\fBexec\fR
+Execute a command with tool(s) set
+.RS
+\fIAliases: \fRx
+.RE
+.TP
+\fBfmt\fR
+Formats mise.toml
+.TP
+\fBgenerate\fR
+[experimental] Generate files for various tools/services
+.RS
+\fIAliases: \fRgen
+.RE
+.TP
+\fBimplode\fR
+Removes mise CLI and all related data
+.TP
+\fBinstall\fR
+Install a tool version
+.RS
+\fIAliases: \fRi
+.RE
+.TP
+\fBinstall\-into\fR
+Install a tool version to a specific path
+.TP
+\fBlatest\fR
+Gets the latest available version for a plugin
+.TP
+\fBlink\fR
+Symlinks a tool version into mise
+.RS
+\fIAliases: \fRln
+.RE
+.TP
+\fBls\fR
+List installed and active tool versions
+.RS
+\fIAliases: \fRlist
+.RE
+.TP
+\fBls\-remote\fR
+List runtime versions available for install.
+.TP
+\fBoutdated\fR
+Shows outdated tool versions
+.TP
+\fBplugins\fR
+Manage plugins
+.RS
+\fIAliases: \fRp
+.RE
+.TP
+\fBprune\fR
+Delete unused versions of tools
+.TP
+\fBregistry\fR
+List available tools to install
+.TP
+\fBreshim\fR
+Creates new shims based on bin paths from currently installed tools.
+.TP
+\fBrun\fR
+Run task(s)
+.RS
+\fIAliases: \fRr
+.RE
+.TP
+\fBself\-update\fR
+Updates mise itself.
+.TP
+\fBset\fR
+Set environment variables in mise.toml
+.TP
+\fBsettings\fR
+Manage settings
+.TP
+\fBshell\fR
+Sets a tool version for the current session.
+.RS
+\fIAliases: \fRsh
+.RE
+.TP
+\fBsync\fR
+Synchronize tools from other version managers with mise
+.TP
+\fBtasks\fR
+Manage tasks
+.RS
+\fIAliases: \fRt
+.RE
+.TP
+\fBtool\fR
+Gets information about a tool
+.TP
+\fBtrust\fR
+Marks a config file as trusted
+.TP
+\fBuninstall\fR
+Removes installed tool versions
+.TP
+\fBunset\fR
+Remove environment variable(s) from the config file.
+.TP
+\fBunuse\fR
+Removes installed tool versions from mise.toml
+.RS
+\fIAliases: \fRrm, remove
+.RE
+.TP
+\fBupgrade\fR
+Upgrades outdated tools
+.RS
+\fIAliases: \fRup
+.RE
+.TP
+\fBuse\fR
+Installs a tool and adds the version to mise.toml.
+.RS
+\fIAliases: \fRu
+.RE
+.TP
+\fBversion\fR
+Display the version of mise
+.RS
+\fIAliases: \fRv
+.RE
+.TP
+\fBwatch\fR
+Run task(s) and watch for changes to rerun it
+.RS
+\fIAliases: \fRw
+.RE
+.TP
+\fBwhere\fR
+Display the installation path for a tool
+.TP
+\fBwhich\fR
+Shows the path that a tool's bin points to.
