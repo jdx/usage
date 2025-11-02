@@ -6,23 +6,24 @@ about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
-cmd complete-word {
+cmd complete-word help="Generate shell completion candidates for a partial command line" {
     alias cw
+    long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments."
     flag --shell {
         arg <SHELL> {
             choices bash fish zsh
         }
     }
-    flag "-f --file" help="usage spec file or script with usage shebang" {
+    flag "-f --file" help="Usage spec file or script with usage shebang" {
         arg <FILE>
     }
-    flag "-s --spec" help="raw string spec input" {
+    flag "-s --spec" help="Raw string spec input" {
         arg <SPEC>
     }
-    flag --cword help="current word index" {
+    flag --cword help="Current word index" {
         arg <CWORD>
     }
-    arg "[WORDS]…" help="user's input from the command line" required=#false var=#true
+    arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
 }
 cmd exec hide=#true {
     alias x
@@ -30,9 +31,9 @@ cmd exec hide=#true {
     arg <BIN> help="path to script to execute"
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
 }
-cmd generate subcommand_required=#true {
+cmd generate subcommand_required=#true help="Generate completions, documentation, and other artifacts from usage specs" {
     alias g
-    cmd completion {
+    cmd completion help="Generate shell completion scripts for bash, fish, or zsh" {
         alias c
         alias complete completions hide=#true
         flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
@@ -51,19 +52,19 @@ cmd generate subcommand_required=#true {
         flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
             long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
-        arg <SHELL> {
+        arg <SHELL> help="Shell to generate completions for" {
             choices bash fish zsh
         }
-        arg <BIN> help="The CLI which we're generates completions for"
+        arg <BIN> help="The CLI which we're generating completions for"
     }
-    cmd fig {
+    cmd fig help="Generate Fig completion spec for Amazon Q / Fig" {
         flag "-f --file" help="A usage spec taken in as a file" {
             arg <FILE>
         }
-        flag --spec help="raw string spec input" {
+        flag --spec help="Raw string spec input" {
             arg <SPEC>
         }
-        flag --out-file help="File on where to save the generated Fig spec" {
+        flag --out-file help="File path where the generated Fig spec will be saved" {
             arg <OUT_FILE>
         }
     }
@@ -88,7 +89,7 @@ cmd generate subcommand_required=#true {
             arg <OUT_FILE>
         }
     }
-    cmd markdown {
+    cmd markdown help="Generate markdown documentation from usage specs" {
         alias md
         flag "-f --file" help="A usage spec taken in as a file" required=#true {
             arg <FILE>
@@ -98,35 +99,35 @@ cmd generate subcommand_required=#true {
             arg <URL_PREFIX>
         }
         flag --html-encode help="Escape HTML in markdown"
-        flag --replace-pre-with-code-fences
-        flag --out-dir help="Output markdown files to this directory" {
+        flag --replace-pre-with-code-fences help="Replace <pre> tags with markdown code fences"
+        flag --out-dir help="Output markdown files to this directory (required when using --multi)" {
             arg <OUT_DIR>
         }
-        flag --out-file {
+        flag --out-file help="Output file path for single-file markdown generation" {
             arg <OUT_FILE>
         }
     }
 }
-cmd bash help="Use bash to execute the script" {
-    long_help "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="show help"
-    flag --help help="show help"
+cmd bash help="Execute a shell script using bash" {
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="Show help"
+    flag --help help="Show help"
     arg <SCRIPT>
-    arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
+    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
-cmd fish help="use fish to execute the script" {
-    long_help "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="show help"
-    flag --help help="show help"
+cmd fish help="Execute a shell script using fish" {
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="Show help"
+    flag --help help="Show help"
     arg <SCRIPT>
-    arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
+    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
-cmd zsh help="use zsh to execute the script" {
-    long_help "Executes a shell script with the specified shell\n\nTypically, this will be called by a script's shebang\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="show help"
-    flag --help help="show help"
+cmd zsh help="Execute a shell script using zsh" {
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="Show help"
+    flag --help help="Show help"
     arg <SCRIPT>
-    arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
+    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
 
 source_code_link_template "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs"

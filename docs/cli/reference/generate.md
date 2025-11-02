@@ -6,6 +6,8 @@
 - **Aliases**: `g`
 - **Source code**: [`cli/src/cli/generate.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate.rs)
 
+Generate completions, documentation, and other artifacts from usage specs
+
 ## Subcommands
 
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)

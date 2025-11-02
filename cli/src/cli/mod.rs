@@ -26,11 +26,11 @@ enum Command {
     CompleteWord(complete_word::CompleteWord),
     Exec(exec::Exec),
     Generate(generate::Generate),
-    #[clap(about = "Use bash to execute the script")]
+    #[clap(about = "Execute a shell script using bash")]
     Bash(shell::Shell),
-    #[clap(about = "use fish to execute the script")]
+    #[clap(about = "Execute a shell script using fish")]
     Fish(shell::Shell),
-    #[clap(about = "use zsh to execute the script")]
+    #[clap(about = "Execute a shell script using zsh")]
     Zsh(shell::Shell),
 }
 

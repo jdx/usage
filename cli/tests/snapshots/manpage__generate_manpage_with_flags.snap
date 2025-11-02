@@ -111,10 +111,37 @@ Manage aliases
 \fIAliases: \fRa
 .RE
 .TP
+\fBalias get\fR
+Show an alias for a plugin
+.TP
+\fBalias ls\fR
+List aliases
+.RS
+\fIAliases: \fRlist
+.RE
+.TP
+\fBalias set\fR
+Add/update an alias for a plugin
+.RS
+\fIAliases: \fRadd, create
+.RE
+.TP
+\fBalias unset\fR
+Clears an alias for a plugin
+.RS
+\fIAliases: \fRrm, remove, delete, del
+.RE
+.TP
 \fBbackends\fR
 Manage backends
 .RS
 \fIAliases: \fRb
+.RE
+.TP
+\fBbackends ls\fR
+List built\-in backends
+.RS
+\fIAliases: \fRlist
 .RE
 .TP
 \fBbin\-paths\fR
@@ -122,6 +149,18 @@ List all the active runtime bin paths
 .TP
 \fBcache\fR
 Manage the mise cache
+.TP
+\fBcache clear\fR
+Deletes all cache files in mise
+.RS
+\fIAliases: \fRc
+.RE
+.TP
+\fBcache prune\fR
+Removes stale mise cache files
+.RS
+\fIAliases: \fRp
+.RE
 .TP
 \fBcompletion\fR
 Generate shell completions
@@ -132,6 +171,24 @@ Manage config files
 \fIAliases: \fRcfg
 .RE
 .TP
+\fBconfig generate\fR
+[experimental] Generate a mise.toml file
+.RS
+\fIAliases: \fRg
+.RE
+.TP
+\fBconfig get\fR
+Display the value of a setting in a mise.toml file
+.TP
+\fBconfig ls\fR
+List config files currently in use
+.RS
+\fIAliases: \fRlist
+.RE
+.TP
+\fBconfig set\fR
+Set the value of a setting in a mise.toml file
+.TP
 \fBdeactivate\fR
 Disable mise for current shell session
 .TP
@@ -140,6 +197,9 @@ Check mise installation for possible problems
 .RS
 \fIAliases: \fRdr
 .RE
+.TP
+\fBdoctor path\fR
+Print the current PATH entries mise is providing
 .TP
 \fBen\fR
 [experimental] starts a new shell with the mise environment built from the current configuration
@@ -164,6 +224,30 @@ Formats mise.toml
 .RS
 \fIAliases: \fRgen
 .RE
+.TP
+\fBgenerate bootstrap\fR
+[experimental] Generate a script to download+execute mise
+.TP
+\fBgenerate config\fR
+[experimental] Generate a mise.toml file
+.RS
+\fIAliases: \fRg
+.RE
+.TP
+\fBgenerate git\-pre\-commit\fR
+[experimental] Generate a git pre\-commit hook
+.RS
+\fIAliases: \fRpre\-commit
+.RE
+.TP
+\fBgenerate github\-action\fR
+[experimental] Generate a GitHub Action workflow file
+.TP
+\fBgenerate task\-docs\fR
+Generate documentation for tasks in a project
+.TP
+\fBgenerate task\-stubs\fR
+[experimental] Generates shims to run mise tasks
 .TP
 \fBimplode\fR
 Removes mise CLI and all related data
@@ -204,6 +288,42 @@ Manage plugins
 \fIAliases: \fRp
 .RE
 .TP
+\fBplugins install\fR
+Install a plugin
+.RS
+\fIAliases: \fRi, a, add
+.RE
+.TP
+\fBplugins link\fR
+Symlinks a plugin into mise
+.RS
+\fIAliases: \fRln
+.RE
+.TP
+\fBplugins ls\fR
+List installed plugins
+.RS
+\fIAliases: \fRlist
+.RE
+.TP
+\fBplugins ls\-remote\fR
+
+.RS
+\fIAliases: \fRlist\-remote, list\-all
+.RE
+.TP
+\fBplugins uninstall\fR
+Removes a plugin
+.RS
+\fIAliases: \fRremove, rm
+.RE
+.TP
+\fBplugins update\fR
+Updates a plugin to the latest version
+.RS
+\fIAliases: \fRup, upgrade
+.RE
+.TP
 \fBprune\fR
 Delete unused versions of tools
 .TP
@@ -228,6 +348,30 @@ Set environment variables in mise.toml
 \fBsettings\fR
 Show current settings
 .TP
+\fBsettings add\fR
+Adds a setting to the configuration file
+.TP
+\fBsettings get\fR
+Show a current setting
+.TP
+\fBsettings ls\fR
+Show current settings
+.RS
+\fIAliases: \fRlist
+.RE
+.TP
+\fBsettings set\fR
+Add/update a setting
+.RS
+\fIAliases: \fRcreate
+.RE
+.TP
+\fBsettings unset\fR
+Clears a setting
+.RS
+\fIAliases: \fRrm, remove, delete, del
+.RE
+.TP
 \fBshell\fR
 Sets a tool version for the current session.
 .RS
@@ -237,10 +381,40 @@ Sets a tool version for the current session.
 \fBsync\fR
 Synchronize tools from other version managers with mise
 .TP
+\fBsync node\fR
+Symlinks all tool versions from an external tool into mise
+.TP
+\fBsync python\fR
+Symlinks all tool versions from an external tool into mise
+.TP
+\fBsync ruby\fR
+Symlinks all ruby tool versions from an external tool into mise
+.TP
 \fBtasks\fR
 Manage tasks
 .RS
 \fIAliases: \fRt
+.RE
+.TP
+\fBtasks add\fR
+Create a new task
+.TP
+\fBtasks deps\fR
+Display a tree visualization of a dependency graph
+.TP
+\fBtasks edit\fR
+Edit a tasks with $EDITOR
+.TP
+\fBtasks info\fR
+Get information about a task
+.TP
+\fBtasks ls\fR
+List available tasks to execute
+.TP
+\fBtasks run\fR
+Run task(s)
+.RS
+\fIAliases: \fRr
 .RE
 .TP
 \fBtool\fR

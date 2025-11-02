@@ -36,6 +36,7 @@ mod description_format {
     }
 }
 
+/// Generate Fig completion spec for Amazon Q / Fig
 #[derive(Args)]
 #[clap()]
 pub struct Fig {
@@ -43,11 +44,11 @@ pub struct Fig {
     #[clap(short, long)]
     file: Option<PathBuf>,
 
-    /// raw string spec input
+    /// Raw string spec input
     #[clap(long, required_unless_present = "file", overrides_with = "file")]
     spec: Option<String>,
 
-    /// File on where to save the generated Fig spec
+    /// File path where the generated Fig spec will be saved
     #[clap(long, value_hint = clap::ValueHint::FilePath)]
     out_file: Option<PathBuf>,
 }

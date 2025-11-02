@@ -8,9 +8,9 @@ use miette::IntoDiagnostic;
 
 use usage::Spec;
 
-/// Executes a shell script with the specified shell
+/// Execute a shell script with the specified shell
 ///
-/// Typically, this will be called by a script's shebang
+/// Typically, this will be called by a script's shebang.
 ///
 /// If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
 /// to properly escape and quote values with spaces in them.
@@ -18,15 +18,15 @@ use usage::Spec;
 #[clap(disable_help_flag = true, verbatim_doc_comment)]
 pub struct Shell {
     script: PathBuf,
-    /// arguments to pass to script
+    /// Arguments to pass to script
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
 
-    /// show help
+    /// Show help
     #[clap(short)]
     h: bool,
 
-    /// show help
+    /// Show help
     #[clap(long)]
     help: bool,
 }

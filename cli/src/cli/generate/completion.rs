@@ -3,13 +3,15 @@ use std::path::PathBuf;
 use usage::complete::CompleteOptions;
 use usage::Spec;
 
+/// Generate shell completion scripts for bash, fish, or zsh
 #[derive(Args)]
 #[clap(visible_alias = "c", aliases = ["complete", "completions"])]
 pub struct Completion {
+    /// Shell to generate completions for
     #[clap(value_parser = ["bash", "fish", "zsh"])]
     shell: String,
 
-    /// The CLI which we're generates completions for
+    /// The CLI which we're generating completions for
     bin: String,
 
     /// A cache key to use for storing the results of calling the CLI with --usage-cmd

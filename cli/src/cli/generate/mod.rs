@@ -9,6 +9,7 @@ mod json;
 mod manpage;
 mod markdown;
 
+/// Generate completions, documentation, and other artifacts from usage specs
 #[derive(clap::Args)]
 #[clap(visible_alias = "g")]
 pub struct Generate {

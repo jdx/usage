@@ -6,6 +6,8 @@
 - **Aliases**: `md`
 - **Source code**: [`cli/src/cli/generate/markdown.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/markdown.rs)
 
+Generate markdown documentation from usage specs
+
 ## Flags
 
 ### `-f --file <FILE>`
@@ -26,8 +28,12 @@ Escape HTML in markdown
 
 ### `--replace-pre-with-code-fences`
 
+Replace <pre> tags with markdown code fences
+
 ### `--out-dir <OUT_DIR>`
 
-Output markdown files to this directory
+Output markdown files to this directory (required when using --multi)
 
 ### `--out-file <OUT_FILE>`
+
+Output file path for single-file markdown generation

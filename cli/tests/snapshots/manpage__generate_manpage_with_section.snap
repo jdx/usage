@@ -11,3 +11,7 @@ basic.usage.kdl \- No description available
 .SH COMMANDS
 .TP
 \fBplugins\fR
+.TP
+\fBplugins install\fR
+.TP
+\fBplugins install_desc\fR

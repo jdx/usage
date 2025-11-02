@@ -4,6 +4,7 @@ use clap::Args;
 use usage::docs::markdown::MarkdownRenderer;
 use usage::Spec;
 
+/// Generate markdown documentation from usage specs
 #[derive(Args)]
 #[clap(visible_alias = "md")]
 pub struct Markdown {
@@ -25,13 +26,15 @@ pub struct Markdown {
     #[clap(long)]
     html_encode: bool,
 
+    /// Replace <pre> tags with markdown code fences
     #[clap(long)]
     replace_pre_with_code_fences: bool,
 
-    /// Output markdown files to this directory
+    /// Output markdown files to this directory (required when using --multi)
     #[clap(long, value_hint = clap::ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
 
+    /// Output file path for single-file markdown generation
     #[clap(long, value_hint = clap::ValueHint::FilePath, required_unless_present = "multi")]
     out_file: Option<PathBuf>,
 }
