@@ -33,10 +33,7 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
         "ljust",
         |value: &tera::Value, args: &std::collections::HashMap<String, tera::Value>| {
             let value = value.as_str().unwrap_or("");
-            let width = args
-                .get("width")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as usize;
+            let width = args.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let result = format!("{:<width$}", value, width = width);
             Ok(result.into())
         },

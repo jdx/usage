@@ -146,10 +146,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 let mut spec_arg = SpecArg::from(arg);
 
                 // Get help text (prefer help_long over help)
-                let help_text = spec_arg
-                    .help_long
-                    .as_deref()
-                    .or(spec_arg.help.as_deref());
+                let help_text = spec_arg.help_long.as_deref().or(spec_arg.help.as_deref());
 
                 if let Some(help) = help_text {
                     let (rendered, is_multiline) =
@@ -172,10 +169,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 let mut spec_flag = SpecFlag::from(flag);
 
                 // Get help text (prefer help_long over help)
-                let help_text = spec_flag
-                    .help_long
-                    .as_deref()
-                    .or(spec_flag.help.as_deref());
+                let help_text = spec_flag.help_long.as_deref().or(spec_flag.help.as_deref());
 
                 if let Some(help) = help_text {
                     let (rendered, is_multiline) =

@@ -10,7 +10,7 @@ pub fn get_terminal_width() -> usize {
 
 /// Calculate maximum usage string width across items
 pub fn max_usage_width<'a>(items: impl Iterator<Item = &'a str>) -> usize {
-    items.map(|s| visible_width(s)).max().unwrap_or(0)
+    items.map(visible_width).max().unwrap_or(0)
 }
 
 /// Calculate visible width of a string (ignoring ANSI codes)
