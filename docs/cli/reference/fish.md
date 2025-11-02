@@ -5,9 +5,9 @@
 - **Usage**: `usage fish [-h] [--help] <SCRIPT> [ARGS]…`
 - **Source code**: [`cli/src/cli/fish.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/fish.rs)
 
-Executes a shell script with the specified shell
+Execute a shell script with the specified shell
 
-Typically, this will be called by a script's shebang
+Typically, this will be called by a script's shebang.
 
 If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
 to properly escape and quote values with spaces in them.
@@ -18,14 +18,14 @@ to properly escape and quote values with spaces in them.
 
 ### `[ARGS]…`
 
-arguments to pass to script
+Arguments to pass to script
 
 ## Flags
 
 ### `-h`
 
-show help
+Show help
 
 ### `--help`
 
-show help
+Show help

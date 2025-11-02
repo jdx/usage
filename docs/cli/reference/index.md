@@ -27,6 +27,7 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)
 - [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
 - [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
+- [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
 - [`usage bash [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/bash.md)
 - [`usage fish [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/fish.md)

@@ -5,6 +5,8 @@
 - **Usage**: `usage generate fig [FLAGS]`
 - **Source code**: [`cli/src/cli/generate/fig.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/fig.rs)
 
+Generate Fig completion spec for Amazon Q / Fig
+
 ## Flags
 
 ### `-f --file <FILE>`
@@ -13,8 +15,8 @@ A usage spec taken in as a file
 
 ### `--spec <SPEC>`
 
-raw string spec input
+Raw string spec input
 
 ### `--out-file <OUT_FILE>`
 
-File on where to save the generated Fig spec
+File path where the generated Fig spec will be saved

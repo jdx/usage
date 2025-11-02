@@ -15,24 +15,28 @@ use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
 use crate::cli::generate;
 
+/// Generate shell completion candidates for a partial command line
+///
+/// This is used internally by shell completion scripts to provide
+/// intelligent completions for commands, flags, and arguments.
 #[derive(Debug, Args)]
 #[clap(visible_alias = "cw")]
 pub struct CompleteWord {
     #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "zsh"])]
     shell: String,
 
-    /// user's input from the command line
+    /// User's input from the command line
     words: Vec<String>,
 
-    /// usage spec file or script with usage shebang
+    /// Usage spec file or script with usage shebang
     #[clap(short, long)]
     file: Option<PathBuf>,
 
-    /// raw string spec input
+    /// Raw string spec input
     #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
     spec: Option<String>,
 
-    /// current word index
+    /// Current word index
     #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
 }

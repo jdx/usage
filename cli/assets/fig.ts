@@ -89,6 +89,8 @@ const completionSpec: Fig.Spec = {
   subcommands: [
     {
       name: ["complete-word", "cw"],
+      description:
+        "Generate shell completion candidates for a partial command line",
       options: [
         {
           name: "--shell",
@@ -133,9 +135,13 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: ["generate", "g"],
+      description:
+        "Generate completions, documentation, and other artifacts from usage specs",
       subcommands: [
         {
           name: ["completion", "c"],
+          description:
+            "Generate shell completion scripts for bash, fish, or zsh",
           options: [
             {
               name: "--cache-key",
@@ -183,16 +189,18 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "shell",
+              description: "Shell to generate completions for",
               suggestions: ["bash", "fish", "zsh"],
             },
             {
               name: "bin",
-              description: "The CLI which we're generates completions for",
+              description: "The CLI which we're generating completions for",
             },
           ],
         },
         {
           name: "fig",
+          description: "Generate Fig completion spec for Amazon Q / Fig",
           options: [
             {
               name: ["-f", "--file"],
@@ -213,7 +221,8 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--out-file",
-              description: "File on where to save the generated Fig spec",
+              description:
+                "File path where the generated Fig spec will be saved",
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -246,7 +255,39 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
+          name: ["manpage", "man"],
+          options: [
+            {
+              name: ["-f", "--file"],
+              description: "A usage spec taken in as a file",
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: ["-s", "--section"],
+              description: "Manual section number (default: 1)",
+              isRepeatable: false,
+              args: {
+                name: "section",
+              },
+            },
+            {
+              name: ["-o", "--out-file"],
+              description: "Output file path (defaults to stdout)",
+              isRepeatable: false,
+              args: {
+                name: "out_file",
+                template: "filepaths",
+              },
+            },
+          ],
+        },
+        {
           name: ["markdown", "md"],
+          description: "Generate markdown documentation from usage specs",
           options: [
             {
               name: ["-f", "--file"],
@@ -277,11 +318,13 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--replace-pre-with-code-fences",
+              description: "Replace <pre> tags with markdown code fences",
               isRepeatable: false,
             },
             {
               name: "--out-dir",
-              description: "Output markdown files to this directory",
+              description:
+                "Output markdown files to this directory (required when using --multi)",
               isRepeatable: false,
               args: {
                 name: "out_dir",
@@ -290,6 +333,8 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--out-file",
+              description:
+                "Output file path for single-file markdown generation",
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -302,7 +347,7 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "bash",
-      description: "Use bash to execute the script",
+      description: "Execute a shell script using bash",
       options: [
         {
           name: "-h",
@@ -329,7 +374,7 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "fish",
-      description: "use fish to execute the script",
+      description: "Execute a shell script using fish",
       options: [
         {
           name: "-h",
@@ -356,7 +401,7 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "zsh",
-      description: "use zsh to execute the script",
+      description: "Execute a shell script using zsh",
       options: [
         {
           name: "-h",

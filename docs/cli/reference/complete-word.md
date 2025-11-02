@@ -6,11 +6,15 @@
 - **Aliases**: `cw`
 - **Source code**: [`cli/src/cli/complete-word.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/complete-word.rs)
 
+Generate shell completion candidates for a partial command line
+
+This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+
 ## Arguments
 
 ### `[WORDS]…`
 
-user's input from the command line
+User's input from the command line
 
 ## Flags
 
@@ -24,12 +28,12 @@ user's input from the command line
 
 ### `-f --file <FILE>`
 
-usage spec file or script with usage shebang
+Usage spec file or script with usage shebang
 
 ### `-s --spec <SPEC>`
 
-raw string spec input
+Raw string spec input
 
 ### `--cword <CWORD>`
 
-current word index
+Current word index

@@ -6,8 +6,10 @@ use usage::Spec;
 mod completion;
 mod fig;
 mod json;
+mod manpage;
 mod markdown;
 
+/// Generate completions, documentation, and other artifacts from usage specs
 #[derive(clap::Args)]
 #[clap(visible_alias = "g")]
 pub struct Generate {
@@ -20,6 +22,7 @@ pub enum Command {
     Completion(completion::Completion),
     Fig(fig::Fig),
     Json(json::Json),
+    Manpage(manpage::Manpage),
     Markdown(markdown::Markdown),
 }
 
@@ -29,6 +32,7 @@ impl Generate {
             Command::Completion(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),
             Command::Json(cmd) => cmd.run(),
+            Command::Manpage(cmd) => cmd.run(),
             Command::Markdown(cmd) => cmd.run(),
         }
     }

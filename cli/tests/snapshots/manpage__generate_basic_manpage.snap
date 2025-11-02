@@ -1,0 +1,35 @@
+---
+source: cli/tests/manpage.rs
+expression: stdout
+---
+.TH BASIC.USAGE.KDL 1
+.SH NAME
+basic.usage.kdl \- No description available
+.SH SYNOPSIS
+\fBbasic.usage.kdl\fR [COMMAND]
+.SH DESCRIPTION
+.SH COMMANDS
+.TP
+\fBplugins\fR
+.TP
+\fBplugins install\fR
+.TP
+\fBplugins install_desc\fR
+.SH "BASIC.USAGE.KDL PLUGINS INSTALL"
+\fBUsage:\fR basic.usage.kdl plugins install [OPTIONS] <plugin> <version>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-g, \-\-global\fR
+.TP
+\fB\-d, \-\-dir\fR \fI<dir>\fR
+.SH "BASIC.USAGE.KDL PLUGINS INSTALL_DESC"
+\fBUsage:\fR basic.usage.kdl plugins install_desc [OPTIONS] <plugin_desc> <version>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-g, \-\-global\fR
+.TP
+\fB\-d, \-\-dir\fR \fI<dir>\fR
