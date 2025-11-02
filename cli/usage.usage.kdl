@@ -75,6 +75,19 @@ cmd generate subcommand_required=#true {
             arg <SPEC>
         }
     }
+    cmd manpage {
+        alias man
+        flag "-f --file" help="A usage spec taken in as a file" required=#true {
+            arg <FILE>
+        }
+        flag "-s --section" help="Manual section number (default: 1)" {
+            long_help "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands"
+            arg <SECTION>
+        }
+        flag "-o --out-file" help="Output file path (defaults to stdout)" {
+            arg <OUT_FILE>
+        }
+    }
     cmd markdown {
         alias md
         flag "-f --file" help="A usage spec taken in as a file" required=#true {

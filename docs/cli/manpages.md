@@ -33,6 +33,7 @@ $ usage generate manpage -f ./myconfig.usage.kdl --section 5 -o myconfig.5
 ```
 
 Common manual sections:
+
 - **1**: User commands (default)
 - **5**: File formats and conventions
 - **7**: Miscellaneous (including macro packages and conventions)

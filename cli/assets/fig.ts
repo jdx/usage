@@ -246,6 +246,37 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
+          name: ["manpage", "man"],
+          options: [
+            {
+              name: ["-f", "--file"],
+              description: "A usage spec taken in as a file",
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: ["-s", "--section"],
+              description: "Manual section number (default: 1)",
+              isRepeatable: false,
+              args: {
+                name: "section",
+              },
+            },
+            {
+              name: ["-o", "--out-file"],
+              description: "Output file path (defaults to stdout)",
+              isRepeatable: false,
+              args: {
+                name: "out_file",
+                template: "filepaths",
+              },
+            },
+          ],
+        },
+        {
           name: ["markdown", "md"],
           options: [
             {

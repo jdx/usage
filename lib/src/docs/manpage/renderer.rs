@@ -37,7 +37,10 @@ impl ManpageRenderer {
 
         // TH (Title Header) - program name, section, date, source, manual
         let section_str = self.section.to_string();
-        roff.control("TH", [self.spec.name.to_uppercase().as_str(), section_str.as_str()]);
+        roff.control(
+            "TH",
+            [self.spec.name.to_uppercase().as_str(), section_str.as_str()],
+        );
 
         // NAME section
         self.render_name(&mut roff);
@@ -67,7 +70,7 @@ impl ManpageRenderer {
             .about
             .as_deref()
             .unwrap_or("No description available");
-        roff.text([roman(&format!("{} - {}", self.spec.name, description))]);
+        roff.text([roman(format!("{} - {}", self.spec.name, description))]);
     }
 
     fn render_synopsis(&self, roff: &mut Roff) {
@@ -120,7 +123,13 @@ impl ManpageRenderer {
             }
         }
 
-        if let Some(help) = &self.spec.cmd.help_long.as_ref().or(self.spec.cmd.help.as_ref()) {
+        if let Some(help) = &self
+            .spec
+            .cmd
+            .help_long
+            .as_ref()
+            .or(self.spec.cmd.help.as_ref())
+        {
             for paragraph in help.split("\n\n") {
                 roff.text([roman(paragraph.trim())]);
                 roff.control("PP", [] as [&str; 0]);
@@ -193,7 +202,11 @@ impl ManpageRenderer {
         let flag_usage = flag_parts.join(", ");
 
         if let Some(arg) = &flag.arg {
-            roff.text([bold(&flag_usage), roman(" "), italic(&format!("<{}>", arg.name))]);
+            roff.text([
+                bold(&flag_usage),
+                roman(" "),
+                italic(format!("<{}>", arg.name)),
+            ]);
         } else {
             roff.text([bold(&flag_usage)]);
         }
@@ -224,7 +237,7 @@ impl ManpageRenderer {
         }
 
         roff.control("TP", [] as [&str; 0]);
-        roff.text([bold(&format!("<{}>", arg.name))]);
+        roff.text([bold(format!("<{}>", arg.name))]);
 
         if let Some(help) = &arg.help_long.as_ref().or(arg.help.as_ref()) {
             roff.text([roman(help.as_str())]);

@@ -109,12 +109,7 @@ fn test_generate_manpage_output_to_file() {
 #[test]
 fn test_manpage_with_complex_spec() {
     let mut cmd = usage_cmd();
-    cmd.args([
-        "generate",
-        "manpage",
-        "-f",
-        &example_path("mise.usage.kdl"),
-    ]);
+    cmd.args(["generate", "manpage", "-f", &example_path("mise.usage.kdl")]);
 
     let assert = cmd.assert().success();
 
@@ -130,12 +125,7 @@ fn test_manpage_with_complex_spec() {
 fn test_manpage_alias() {
     // Test that 'man' works as an alias for 'manpage'
     let mut cmd = usage_cmd();
-    cmd.args([
-        "generate",
-        "man",
-        "-f",
-        &example_path("basic.usage.kdl"),
-    ]);
+    cmd.args(["generate", "man", "-f", &example_path("basic.usage.kdl")]);
 
     cmd.assert().success();
 }

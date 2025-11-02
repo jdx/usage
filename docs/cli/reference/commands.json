@@ -373,6 +373,73 @@
             "hidden_aliases": [],
             "examples": []
           },
+          "manpage": {
+            "full_cmd": ["generate", "manpage"],
+            "usage": "generate manpage <FLAGS>",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file",
+                "help_first_line": "A usage spec taken in as a file",
+                "short": ["f"],
+                "long": ["file"],
+                "required": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "section",
+                "usage": "-s --section <SECTION>",
+                "help": "Manual section number (default: 1)",
+                "help_long": "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands",
+                "help_first_line": "Manual section number (default: 1)",
+                "short": ["s"],
+                "long": ["section"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SECTION",
+                  "usage": "<SECTION>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "out-file",
+                "usage": "-o --out-file <OUT_FILE>",
+                "help": "Output file path (defaults to stdout)",
+                "help_first_line": "Output file path (defaults to stdout)",
+                "short": ["o"],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "name": "manpage",
+            "aliases": ["man"],
+            "hidden_aliases": [],
+            "examples": []
+          },
           "markdown": {
             "full_cmd": ["generate", "markdown"],
             "usage": "generate markdown <FLAGS>",
