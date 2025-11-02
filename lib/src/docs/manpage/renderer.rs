@@ -54,6 +54,9 @@ impl ManpageRenderer {
         // Render the main command
         self.render_command(&mut roff, &self.spec.cmd, true);
 
+        // Render detailed sections for each subcommand
+        self.render_subcommand_details(&mut roff, &self.spec.cmd, &self.spec.bin);
+
         // AUTHOR section (if present)
         if let Some(author) = &self.spec.author {
             roff.control("SH", ["AUTHOR"]);
@@ -268,6 +271,70 @@ impl ManpageRenderer {
 
             // Recursively render nested subcommands
             self.render_all_subcommands(roff, subcmd, &full_name);
+        }
+    }
+
+    fn render_subcommand_details(&self, roff: &mut Roff, cmd: &SpecCommand, prefix: &str) {
+        for (name, subcmd) in &cmd.subcommands {
+            if subcmd.hide {
+                continue;
+            }
+
+            let full_name = if prefix.is_empty() {
+                name.to_string()
+            } else {
+                format!("{} {}", prefix, name)
+            };
+
+            // Only render detailed section if the subcommand has flags or args with help
+            let has_flags = !subcmd.flags.is_empty();
+            let has_documented_args = subcmd
+                .args
+                .iter()
+                .any(|a| a.help.is_some() || a.help_long.is_some());
+
+            if has_flags || has_documented_args {
+                // Section header for this subcommand
+                roff.control("SH", [full_name.to_uppercase().as_str()]);
+
+                // Description
+                if let Some(help) = &subcmd.help_long.as_ref().or(subcmd.help.as_ref()) {
+                    roff.text([roman(help.as_str())]);
+                    roff.control("PP", [] as [&str; 0]);
+                }
+
+                // Synopsis
+                let synopsis = self.build_synopsis(subcmd, &full_name);
+                roff.text([
+                    bold("Usage:"),
+                    roman(" "),
+                    roman(&full_name),
+                    roman(" "),
+                    roman(&synopsis),
+                ]);
+                roff.control("PP", [] as [&str; 0]);
+
+                // Render flags if any
+                if !subcmd.flags.is_empty() {
+                    roff.text([bold("Options:")]);
+                    roff.control("PP", [] as [&str; 0]);
+                    for flag in &subcmd.flags {
+                        self.render_flag(roff, flag);
+                    }
+                }
+
+                // Render args if any with help
+                if has_documented_args {
+                    roff.text([bold("Arguments:")]);
+                    roff.control("PP", [] as [&str; 0]);
+                    for arg in &subcmd.args {
+                        self.render_arg(roff, arg);
+                    }
+                }
+            }
+
+            // Recursively render nested subcommands
+            self.render_subcommand_details(roff, subcmd, &full_name);
         }
     }
 

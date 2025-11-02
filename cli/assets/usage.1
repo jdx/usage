@@ -59,3 +59,204 @@ Execute a shell script with the specified shell
 .TP
 \fBzsh\fR
 Execute a shell script with the specified shell
+.SH "USAGE COMPLETE-WORD"
+Generate shell completion candidates for a partial command line
+
+This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+.PP
+\fBUsage:\fR usage complete\-word [OPTIONS] [<WORDS>] ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-shell\fR \fI<SHELL>\fR
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+Usage spec file or script with usage shebang
+.TP
+\fB\-s, \-\-spec\fR \fI<SPEC>\fR
+Raw string spec input
+.TP
+\fB\-\-cword\fR \fI<CWORD>\fR
+Current word index
+\fBArguments:\fR
+.PP
+.TP
+\fB<WORDS>\fR
+User's input from the command line
+.SH "USAGE GENERATE COMPLETION"
+Generate shell completion scripts for bash, fish, or zsh
+.PP
+\fBUsage:\fR usage generate completion [OPTIONS] <SHELL> <BIN>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-cache\-key\fR \fI<CACHE_KEY>\fR
+A cache key to use for storing the results of calling the CLI with \-\-usage\-cmd
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A .usage.kdl spec file to use for generating completions
+.TP
+\fB\-\-usage\-bin\fR \fI<USAGE_BIN>\fR
+Override the bin used for calling back to usage\-cli
+
+You may need to set this if you have a different bin named "usage"
+.TP
+\fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
+A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
+.TP
+\fB\-\-include\-bash\-completion\-lib\fR
+Include https://github.com/scop/bash\-completion
+
+This is required for usage completions to work in bash, but the user may already provide it
+\fBArguments:\fR
+.PP
+.TP
+\fB<SHELL>\fR
+Shell to generate completions for
+.TP
+\fB<BIN>\fR
+The CLI which we're generating completions for
+.SH "USAGE GENERATE FIG"
+Generate Fig completion spec for Amazon Q / Fig
+.PP
+\fBUsage:\fR usage generate fig [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file
+.TP
+\fB\-\-spec\fR \fI<SPEC>\fR
+Raw string spec input
+.TP
+\fB\-\-out\-file\fR \fI<OUT_FILE>\fR
+File path where the generated Fig spec will be saved
+.SH "USAGE GENERATE JSON"
+Outputs a usage spec in json format
+.PP
+\fBUsage:\fR usage generate json [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file
+.TP
+\fB\-\-spec\fR \fI<SPEC>\fR
+raw string spec input
+.SH "USAGE GENERATE MANPAGE"
+\fBUsage:\fR usage generate manpage [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file
+.TP
+\fB\-s, \-\-section\fR \fI<SECTION>\fR
+Manual section number (default: 1)
+
+Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8: System administration commands
+.TP
+\fB\-o, \-\-out\-file\fR \fI<OUT_FILE>\fR
+Output file path (defaults to stdout)
+.SH "USAGE GENERATE MARKDOWN"
+Generate markdown documentation from usage specs
+.PP
+\fBUsage:\fR usage generate markdown [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file
+.TP
+\fB\-m, \-\-multi\fR
+Render each subcommand as a separate markdown file
+.TP
+\fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
+Prefix to add to all URLs
+.TP
+\fB\-\-html\-encode\fR
+Escape HTML in markdown
+.TP
+\fB\-\-replace\-pre\-with\-code\-fences\fR
+Replace <pre> tags with markdown code fences
+.TP
+\fB\-\-out\-dir\fR \fI<OUT_DIR>\fR
+Output markdown files to this directory (required when using \-\-multi)
+.TP
+\fB\-\-out\-file\fR \fI<OUT_FILE>\fR
+Output file path for single\-file markdown generation
+.SH "USAGE BASH"
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+.PP
+\fBUsage:\fR usage bash [OPTIONS] <SCRIPT> [<ARGS>] ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h\fR
+Show help
+.TP
+\fB\-\-help\fR
+Show help
+\fBArguments:\fR
+.PP
+.TP
+\fB<ARGS>\fR
+Arguments to pass to script
+.SH "USAGE FISH"
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+.PP
+\fBUsage:\fR usage fish [OPTIONS] <SCRIPT> [<ARGS>] ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h\fR
+Show help
+.TP
+\fB\-\-help\fR
+Show help
+\fBArguments:\fR
+.PP
+.TP
+\fB<ARGS>\fR
+Arguments to pass to script
+.SH "USAGE ZSH"
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+.PP
+\fBUsage:\fR usage zsh [OPTIONS] <SCRIPT> [<ARGS>] ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h\fR
+Show help
+.TP
+\fB\-\-help\fR
+Show help
+\fBArguments:\fR
+.PP
+.TP
+\fB<ARGS>\fR
+Arguments to pass to script
