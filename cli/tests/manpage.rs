@@ -56,12 +56,7 @@ fn test_generate_manpage_with_section() {
 fn test_generate_manpage_with_flags() {
     // This test uses mise.usage.kdl which actually has flags
     let mut cmd = usage_cmd();
-    cmd.args([
-        "generate",
-        "manpage",
-        "-f",
-        &example_path("mise.usage.kdl"),
-    ]);
+    cmd.args(["generate", "manpage", "-f", &example_path("mise.usage.kdl")]);
 
     let output = cmd.output().unwrap();
     assert!(output.status.success());
@@ -106,12 +101,7 @@ fn test_generate_manpage_output_to_file() {
 fn test_manpage_output_first_50_lines() {
     // Test first 50 lines of mise manpage to avoid huge snapshot
     let mut cmd = usage_cmd();
-    cmd.args([
-        "generate",
-        "manpage",
-        "-f",
-        &example_path("mise.usage.kdl"),
-    ]);
+    cmd.args(["generate", "manpage", "-f", &example_path("mise.usage.kdl")]);
 
     let output = cmd.output().unwrap();
     assert!(output.status.success());
