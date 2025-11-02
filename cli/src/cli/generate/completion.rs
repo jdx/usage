@@ -14,13 +14,19 @@ pub struct Completion {
     /// The CLI which we're generating completions for
     bin: String,
 
+    /// A .usage.kdl spec file to use for generating completions
+    #[clap(short, long)]
+    file: Option<PathBuf>,
+
     /// A cache key to use for storing the results of calling the CLI with --usage-cmd
     #[clap(long, requires = "usage_cmd")]
     cache_key: Option<String>,
 
-    /// A .usage.kdl spec file to use for generating completions
-    #[clap(short, long)]
-    file: Option<PathBuf>,
+    /// Include https://github.com/scop/bash-completion
+    ///
+    /// This is required for usage completions to work in bash, but the user may already provide it
+    #[clap(long, verbatim_doc_comment)]
+    include_bash_completion_lib: bool,
 
     /// Override the bin used for calling back to usage-cli
     ///
@@ -33,12 +39,6 @@ pub struct Completion {
     /// Defaults to "$bin --usage"
     #[clap(long, required_unless_present = "file")]
     usage_cmd: Option<String>,
-
-    /// Include https://github.com/scop/bash-completion
-    ///
-    /// This is required for usage completions to work in bash, but the user may already provide it
-    #[clap(long, verbatim_doc_comment)]
-    include_bash_completion_lib: bool,
 }
 
 impl Completion {

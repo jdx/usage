@@ -18,17 +18,9 @@ pub struct Markdown {
     #[clap(short, long, requires = "out_dir", conflicts_with = "out_file")]
     multi: bool,
 
-    /// Prefix to add to all URLs
-    #[clap(long)]
-    url_prefix: Option<String>,
-
     /// Escape HTML in markdown
     #[clap(long)]
     html_encode: bool,
-
-    /// Replace <pre> tags with markdown code fences
-    #[clap(long)]
-    replace_pre_with_code_fences: bool,
 
     /// Output markdown files to this directory (required when using --multi)
     #[clap(long, value_hint = clap::ValueHint::DirPath)]
@@ -37,6 +29,14 @@ pub struct Markdown {
     /// Output file path for single-file markdown generation
     #[clap(long, value_hint = clap::ValueHint::FilePath, required_unless_present = "multi")]
     out_file: Option<PathBuf>,
+
+    /// Replace <pre> tags with markdown code fences
+    #[clap(long)]
+    replace_pre_with_code_fences: bool,
+
+    /// Prefix to add to all URLs
+    #[clap(long)]
+    url_prefix: Option<String>,
 }
 
 impl Markdown {

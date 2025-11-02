@@ -18,17 +18,9 @@ A usage spec taken in as a file
 
 Render each subcommand as a separate markdown file
 
-### `--url-prefix <URL_PREFIX>`
-
-Prefix to add to all URLs
-
 ### `--html-encode`
 
 Escape HTML in markdown
-
-### `--replace-pre-with-code-fences`
-
-Replace <pre> tags with markdown code fences
 
 ### `--out-dir <OUT_DIR>`
 
@@ -37,3 +29,11 @@ Output markdown files to this directory (required when using --multi)
 ### `--out-file <OUT_FILE>`
 
 Output file path for single-file markdown generation
+
+### `--replace-pre-with-code-fences`
+
+Replace <pre> tags with markdown code fences
+
+### `--url-prefix <URL_PREFIX>`
+
+Prefix to add to all URLs

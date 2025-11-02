@@ -88,18 +88,37 @@ const completionSpec: Fig.Spec = {
   name: "usage",
   subcommands: [
     {
+      name: "bash",
+      description: "Execute a shell script using bash",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
+    },
+    {
       name: ["complete-word", "cw"],
       description:
         "Generate shell completion candidates for a partial command line",
       options: [
-        {
-          name: "--shell",
-          isRepeatable: false,
-          args: {
-            name: "shell",
-            suggestions: ["bash", "fish", "zsh"],
-          },
-        },
         {
           name: ["-f", "--file"],
           description: "Usage spec file or script with usage shebang",
@@ -125,6 +144,14 @@ const completionSpec: Fig.Spec = {
             name: "cword",
           },
         },
+        {
+          name: "--shell",
+          isRepeatable: false,
+          args: {
+            name: "shell",
+            suggestions: ["bash", "fish", "zsh"],
+          },
+        },
       ],
       args: {
         name: "words",
@@ -132,6 +159,33 @@ const completionSpec: Fig.Spec = {
         isOptional: true,
         isVariadic: true,
       },
+    },
+    {
+      name: "fish",
+      description: "Execute a shell script using fish",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
     },
     {
       name: ["generate", "g"],
@@ -144,6 +198,16 @@ const completionSpec: Fig.Spec = {
             "Generate shell completion scripts for bash, fish, or zsh",
           options: [
             {
+              name: ["-f", "--file"],
+              description:
+                "A .usage.kdl spec file to use for generating completions",
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
               name: "--cache-key",
               description:
                 "A cache key to use for storing the results of calling the CLI with --usage-cmd",
@@ -153,14 +217,9 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
-              name: ["-f", "--file"],
-              description:
-                "A .usage.kdl spec file to use for generating completions",
+              name: "--include-bash-completion-lib",
+              description: "Include https://github.com/scop/bash-completion",
               isRepeatable: false,
-              args: {
-                name: "file",
-                template: "filepaths",
-              },
             },
             {
               name: "--usage-bin",
@@ -179,11 +238,6 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "usage_cmd",
               },
-            },
-            {
-              name: "--include-bash-completion-lib",
-              description: "Include https://github.com/scop/bash-completion",
-              isRepeatable: false,
             },
           ],
           args: [
@@ -212,14 +266,6 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
-              name: "--spec",
-              description: "Raw string spec input",
-              isRepeatable: false,
-              args: {
-                name: "spec",
-              },
-            },
-            {
               name: "--out-file",
               description:
                 "File path where the generated Fig spec will be saved",
@@ -227,6 +273,14 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "out_file",
                 template: "filepaths",
+              },
+            },
+            {
+              name: "--spec",
+              description: "Raw string spec input",
+              isRepeatable: false,
+              args: {
+                name: "spec",
               },
             },
           ],
@@ -267,20 +321,20 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
-              name: ["-s", "--section"],
-              description: "Manual section number (default: 1)",
-              isRepeatable: false,
-              args: {
-                name: "section",
-              },
-            },
-            {
               name: ["-o", "--out-file"],
               description: "Output file path (defaults to stdout)",
               isRepeatable: false,
               args: {
                 name: "out_file",
                 template: "filepaths",
+              },
+            },
+            {
+              name: ["-s", "--section"],
+              description: "Manual section number (default: 1)",
+              isRepeatable: false,
+              args: {
+                name: "section",
               },
             },
           ],
@@ -304,21 +358,8 @@ const completionSpec: Fig.Spec = {
               isRepeatable: false,
             },
             {
-              name: "--url-prefix",
-              description: "Prefix to add to all URLs",
-              isRepeatable: false,
-              args: {
-                name: "url_prefix",
-              },
-            },
-            {
               name: "--html-encode",
               description: "Escape HTML in markdown",
-              isRepeatable: false,
-            },
-            {
-              name: "--replace-pre-with-code-fences",
-              description: "Replace <pre> tags with markdown code fences",
               isRepeatable: false,
             },
             {
@@ -341,61 +382,20 @@ const completionSpec: Fig.Spec = {
                 template: "filepaths",
               },
             },
+            {
+              name: "--replace-pre-with-code-fences",
+              description: "Replace <pre> tags with markdown code fences",
+              isRepeatable: false,
+            },
+            {
+              name: "--url-prefix",
+              description: "Prefix to add to all URLs",
+              isRepeatable: false,
+              args: {
+                name: "url_prefix",
+              },
+            },
           ],
-        },
-      ],
-    },
-    {
-      name: "bash",
-      description: "Execute a shell script using bash",
-      options: [
-        {
-          name: "-h",
-          description: "Show help",
-          isRepeatable: false,
-        },
-        {
-          name: "--help",
-          description: "Show help",
-          isRepeatable: false,
-        },
-      ],
-      args: [
-        {
-          name: "script",
-        },
-        {
-          name: "args",
-          description: "Arguments to pass to script",
-          isOptional: true,
-          isVariadic: true,
-        },
-      ],
-    },
-    {
-      name: "fish",
-      description: "Execute a shell script using fish",
-      options: [
-        {
-          name: "-h",
-          description: "Show help",
-          isRepeatable: false,
-        },
-        {
-          name: "--help",
-          description: "Show help",
-          isRepeatable: false,
-        },
-      ],
-      args: [
-        {
-          name: "script",
-        },
-        {
-          name: "args",
-          description: "Arguments to pass to script",
-          isOptional: true,
-          isVariadic: true,
         },
       ],
     },

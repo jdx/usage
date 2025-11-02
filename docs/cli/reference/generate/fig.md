@@ -13,10 +13,10 @@ Generate Fig completion spec for Amazon Q / Fig
 
 A usage spec taken in as a file
 
-### `--spec <SPEC>`
-
-Raw string spec input
-
 ### `--out-file <OUT_FILE>`
 
 File path where the generated Fig spec will be saved
+
+### `--spec <SPEC>`
+
+Raw string spec input

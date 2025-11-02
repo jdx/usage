@@ -10,10 +10,10 @@ use usage::Spec;
 #[derive(Debug, Args)]
 #[clap(visible_alias = "x", hide = true)]
 pub struct Exec {
-    /// command to execute after parsing usage spec
-    command: String,
     /// path to script to execute
     bin: PathBuf,
+    /// command to execute after parsing usage spec
+    command: String,
     /// arguments to pass to script
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,

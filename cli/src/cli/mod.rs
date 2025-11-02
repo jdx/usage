@@ -13,23 +13,23 @@ pub struct Cli {
     #[clap(subcommand)]
     command: Command,
 
+    /// Outputs completions for the specified shell for completing the `usage` CLI itself
+    completions: Option<String>,
+
     /// Outputs a `usage.kdl` spec for this CLI itself
     #[clap(long)]
     usage_spec: bool,
-
-    /// Outputs completions for the specified shell for completing the `usage` CLI itself
-    completions: Option<String>,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    CompleteWord(complete_word::CompleteWord),
-    Exec(exec::Exec),
-    Generate(generate::Generate),
     #[clap(about = "Execute a shell script using bash")]
     Bash(shell::Shell),
+    CompleteWord(complete_word::CompleteWord),
+    Exec(exec::Exec),
     #[clap(about = "Execute a shell script using fish")]
     Fish(shell::Shell),
+    Generate(generate::Generate),
     #[clap(about = "Execute a shell script using zsh")]
     Zsh(shell::Shell),
 }
