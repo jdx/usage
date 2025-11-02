@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.6.0](https://github.com/jdx/usage/compare/v2.5.2..v2.6.0) - 2025-11-02
+
+### 🚀 Features
+
+- implement inline help layout with automatic text wrapping by [@jdx](https://github.com/jdx) in [#365](https://github.com/jdx/usage/pull/365)
+- add manpage generation support by [@jdx](https://github.com/jdx) in [#369](https://github.com/jdx/usage/pull/369)
+
+### 🐛 Bug Fixes
+
+- resolve clippy warnings in test files by [@jdx](https://github.com/jdx) in [#367](https://github.com/jdx/usage/pull/367)
+- prevent empty help_rendered from causing inline-empty layout by [@jdx](https://github.com/jdx) in [#368](https://github.com/jdx/usage/pull/368)
+
 ## [2.5.2](https://github.com/jdx/usage/compare/v2.5.1..v2.5.2) - 2025-10-31
 
 ### 🐛 Bug Fixes
