@@ -34,8 +34,8 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
 }
 cmd exec hide=#true {
     alias x
-    arg <BIN> help="path to script to execute"
     arg <COMMAND> help="command to execute after parsing usage spec"
+    arg <BIN> help="path to script to execute"
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
 }
 cmd fish help="Execute a shell script using fish" {

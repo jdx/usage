@@ -161,19 +161,19 @@
         "subcommands": {},
         "args": [
           {
-            "name": "BIN",
-            "usage": "<BIN>",
-            "help": "path to script to execute",
-            "help_first_line": "path to script to execute",
+            "name": "COMMAND",
+            "usage": "<COMMAND>",
+            "help": "command to execute after parsing usage spec",
+            "help_first_line": "command to execute after parsing usage spec",
             "required": true,
             "double_dash": "Optional",
             "hide": false
           },
           {
-            "name": "COMMAND",
-            "usage": "<COMMAND>",
-            "help": "command to execute after parsing usage spec",
-            "help_first_line": "command to execute after parsing usage spec",
+            "name": "BIN",
+            "usage": "<BIN>",
+            "help": "path to script to execute",
+            "help_first_line": "path to script to execute",
             "required": true,
             "double_dash": "Optional",
             "hide": false
