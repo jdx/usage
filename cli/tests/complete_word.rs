@@ -1,4 +1,5 @@
 use assert_cmd::assert::Assert;
+use assert_cmd::cargo;
 use std::env;
 use std::process::Command;
 
@@ -225,7 +226,7 @@ fn complete_word_mixed_global_flags() {
 #[test]
 fn complete_word_fallback_to_files() {
     // Use a minimal spec with no args or subcommands, so any argument is unknown
-    let mut cmd = Command::cargo_bin("usage").unwrap();
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args([
         "cw",
         "--shell",
@@ -252,7 +253,7 @@ fn complete_word_subcommands_without_shell() {
 }
 
 fn cmd(example: &str, shell: Option<&str>) -> Command {
-    let mut cmd = Command::cargo_bin("usage").unwrap();
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
     if let Some(shell) = shell {
         cmd.args(["--shell", shell]);
