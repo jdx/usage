@@ -162,15 +162,11 @@ impl ManpageRenderer {
             }
         }
 
-        // SUBCOMMANDS section
-        if !cmd.subcommands.is_empty() {
+        // SUBCOMMANDS section - show all subcommands recursively
+        let all_subcommands = cmd.all_subcommands();
+        if !all_subcommands.is_empty() {
             roff.control("SH", ["COMMANDS"]);
-            for (name, subcmd) in &cmd.subcommands {
-                if subcmd.hide {
-                    continue;
-                }
-                self.render_subcommand_summary(roff, name, subcmd);
-            }
+            self.render_all_subcommands(roff, &self.spec.cmd, "");
         }
 
         // EXAMPLES section
@@ -253,6 +249,25 @@ impl ManpageRenderer {
             roff.control("RS", [] as [&str; 0]);
             roff.text([italic("Default: "), roman(default.as_str())]);
             roff.control("RE", [] as [&str; 0]);
+        }
+    }
+
+    fn render_all_subcommands(&self, roff: &mut Roff, cmd: &SpecCommand, prefix: &str) {
+        for (name, subcmd) in &cmd.subcommands {
+            if subcmd.hide {
+                continue;
+            }
+
+            let full_name = if prefix.is_empty() {
+                name.to_string()
+            } else {
+                format!("{} {}", prefix, name)
+            };
+
+            self.render_subcommand_summary(roff, &full_name, subcmd);
+
+            // Recursively render nested subcommands
+            self.render_all_subcommands(roff, subcmd, &full_name);
         }
     }
 
