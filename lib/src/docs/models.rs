@@ -151,8 +151,11 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 if let Some(help) = help_text {
                     let (rendered, is_multiline) =
                         render_help_text(help, terminal_width, args_usage_col_width);
-                    spec_arg.help_rendered = Some(rendered);
-                    spec_arg.help_is_multiline = is_multiline;
+                    // Only set help_rendered if we have content (empty string signals block layout)
+                    if !rendered.is_empty() {
+                        spec_arg.help_rendered = Some(rendered);
+                        spec_arg.help_is_multiline = is_multiline;
+                    }
                 }
 
                 spec_arg.usage_col_width = args_usage_col_width;
@@ -174,8 +177,11 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 if let Some(help) = help_text {
                     let (rendered, is_multiline) =
                         render_help_text(help, terminal_width, flags_usage_col_width);
-                    spec_flag.help_rendered = Some(rendered);
-                    spec_flag.help_is_multiline = is_multiline;
+                    // Only set help_rendered if we have content (empty string signals block layout)
+                    if !rendered.is_empty() {
+                        spec_flag.help_rendered = Some(rendered);
+                        spec_flag.help_is_multiline = is_multiline;
+                    }
                 }
 
                 spec_flag.usage_col_width = flags_usage_col_width;
