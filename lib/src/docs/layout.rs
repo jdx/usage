@@ -1,5 +1,3 @@
-/// Layout calculation for help text rendering in CLI output
-
 /// Calculate terminal width from environment or use default
 pub fn get_terminal_width() -> usize {
     std::env::var("COLUMNS")
