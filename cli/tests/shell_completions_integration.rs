@@ -10,8 +10,8 @@ fn build_usage_binary() -> PathBuf {
 
     // Build the usage binary in debug mode
     let output = Command::new("cargo")
-        .args(&["build", "--bin", "usage"])
-        .current_dir(&workspace_root)
+        .args(["build", "--bin", "usage"])
+        .current_dir(workspace_root)
         .output()
         .expect("Failed to build usage binary");
 
@@ -55,11 +55,11 @@ cmd "sub" help="Subcommand" {
 
     // Write spec to a file first (fish completion generator needs a file)
     let spec_kdl_file = temp_dir.join("testcli.kdl");
-    fs::write(&spec_kdl_file, &spec).unwrap();
+    fs::write(&spec_kdl_file, spec).unwrap();
 
     // Generate the completion script using the actual usage binary
     let output = Command::new(&usage_bin)
-        .args(&["generate", "completion", "fish", "testcli"])
+        .args(["generate", "completion", "fish", "testcli"])
         .arg("-f")
         .arg(spec_kdl_file.to_str().unwrap())
         .output()
@@ -205,11 +205,11 @@ cmd "sub" help="Subcommand" {
 
     // Write spec to a file first (bash completion generator needs a file)
     let spec_kdl_file = temp_dir.join("testcli.kdl");
-    fs::write(&spec_kdl_file, &spec).unwrap();
+    fs::write(&spec_kdl_file, spec).unwrap();
 
     // Generate the completion with bash-completion library included
     let output = Command::new(&usage_bin)
-        .args(&["generate", "completion", "bash", "testcli"])
+        .args(["generate", "completion", "bash", "testcli"])
         .arg("-f")
         .arg(spec_kdl_file.to_str().unwrap())
         .arg("--include-bash-completion-lib")
@@ -395,7 +395,7 @@ cmd "sub" help="Subcommand" {
 
     // Write spec to a file first (zsh completion generator needs a file)
     let spec_kdl_file = temp_dir.join("testcli.kdl");
-    fs::write(&spec_kdl_file, &spec).unwrap();
+    fs::write(&spec_kdl_file, spec).unwrap();
 
     // Also write the spec directly to the expected location in usage format
     let usage_spec = r#"name testcli
@@ -411,7 +411,7 @@ cmd sub help=Subcommand {
 
     // Generate the completion
     let output = Command::new(&usage_bin)
-        .args(&["generate", "completion", "zsh", "testcli"])
+        .args(["generate", "completion", "zsh", "testcli"])
         .arg("-f")
         .arg(spec_kdl_file.to_str().unwrap())
         .output()
