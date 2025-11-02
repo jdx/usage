@@ -71,6 +71,10 @@ pub struct SpecFlag {
     pub negate: Option<String>,
     pub env: Option<String>,
     pub rendered: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_rendered: Option<String>,
+    pub help_is_multiline: bool,
+    pub usage_col_width: usize,
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -99,6 +103,10 @@ pub struct SpecArg {
     pub choices: Option<SpecChoices>,
     pub env: Option<String>,
     pub rendered: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_rendered: Option<String>,
+    pub help_is_multiline: bool,
+    pub usage_col_width: usize,
 }
 
 impl From<crate::Spec> for Spec {
@@ -125,6 +133,56 @@ impl From<crate::Spec> for Spec {
 
 impl From<&crate::SpecCommand> for SpecCommand {
     fn from(cmd: &crate::SpecCommand) -> Self {
+        use crate::docs::layout::{get_terminal_width, max_usage_width, render_help_text};
+
+        let terminal_width = get_terminal_width();
+
+        // Calculate layout for args
+        let args_usage_col_width = max_usage_width(cmd.args.iter().map(|a| a.usage.as_str()));
+        let args: Vec<SpecArg> = cmd
+            .args
+            .iter()
+            .map(|arg| {
+                let mut spec_arg = SpecArg::from(arg);
+
+                // Get help text (prefer help_long over help)
+                let help_text = spec_arg.help_long.as_deref().or(spec_arg.help.as_deref());
+
+                if let Some(help) = help_text {
+                    let (rendered, is_multiline) =
+                        render_help_text(help, terminal_width, args_usage_col_width);
+                    spec_arg.help_rendered = Some(rendered);
+                    spec_arg.help_is_multiline = is_multiline;
+                }
+
+                spec_arg.usage_col_width = args_usage_col_width;
+                spec_arg
+            })
+            .collect();
+
+        // Calculate layout for flags
+        let flags_usage_col_width = max_usage_width(cmd.flags.iter().map(|f| f.usage.as_str()));
+        let flags: Vec<SpecFlag> = cmd
+            .flags
+            .iter()
+            .map(|flag| {
+                let mut spec_flag = SpecFlag::from(flag);
+
+                // Get help text (prefer help_long over help)
+                let help_text = spec_flag.help_long.as_deref().or(spec_flag.help.as_deref());
+
+                if let Some(help) = help_text {
+                    let (rendered, is_multiline) =
+                        render_help_text(help, terminal_width, flags_usage_col_width);
+                    spec_flag.help_rendered = Some(rendered);
+                    spec_flag.help_is_multiline = is_multiline;
+                }
+
+                spec_flag.usage_col_width = flags_usage_col_width;
+                spec_flag
+            })
+            .collect();
+
         Self {
             full_cmd: cmd.full_cmd.clone(),
             usage: cmd.usage.clone(),
@@ -133,8 +191,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 .iter()
                 .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
                 .collect(),
-            args: cmd.args.iter().map(SpecArg::from).collect(),
-            flags: cmd.flags.iter().map(SpecFlag::from).collect(),
+            args,
+            flags,
             // mounts: cmd.mounts.iter().map(SpecMount::from).collect(),
             deprecated: cmd.deprecated.clone(),
             hide: cmd.hide,
@@ -180,6 +238,9 @@ impl From<&crate::SpecFlag> for SpecFlag {
             negate: flag.negate.clone(),
             env: flag.env.clone(),
             rendered: false,
+            help_rendered: None,
+            help_is_multiline: false,
+            usage_col_width: 0,
         }
     }
 }
@@ -214,6 +275,9 @@ impl From<&crate::SpecArg> for SpecArg {
             choices: arg.choices.clone(),
             env: arg.env.clone(),
             rendered: false,
+            help_rendered: None,
+            help_is_multiline: false,
+            usage_col_width: 0,
         }
     }
 }

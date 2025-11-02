@@ -24,10 +24,17 @@ Commands:
 
 Arguments:
 {%- for arg in cmd.args %}
+{%- if arg.help_rendered %}
+  {{ arg.usage | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
+{%- if arg.help_is_multiline %}
+
+{%- endif %}
+{%- else %}
   {{ arg.usage | trim }}
 {%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
 {%- if help %}
     {{ help | indent(width=2) }}
+{%- endif %}
 {%- endif %}
 {%- if arg.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
@@ -45,11 +52,18 @@ Arguments:
 
 Flags:
 {%- for flag in cmd.flags %}
+{%- if flag.help_rendered %}
+  {{ flag.usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
+{%- if flag.help_is_multiline %}
+
+{%- endif %}
+{%- else %}
   {{ flag.usage | trim }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}
     {{ help | indent(width=2) }}
+{%- endif %}
 {%- endif %}
 {%- if flag.arg.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]

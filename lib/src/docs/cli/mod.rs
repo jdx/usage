@@ -3,9 +3,13 @@ use once_cell::sync::Lazy;
 use tera::Tera;
 
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
+    // Convert to docs models to get layout calculations
+    let docs_spec = crate::docs::models::Spec::from(spec.clone());
+    let docs_cmd = crate::docs::models::SpecCommand::from(cmd);
+
     let mut ctx = tera::Context::new();
-    ctx.insert("spec", spec);
-    ctx.insert("cmd", cmd);
+    ctx.insert("spec", &docs_spec);
+    ctx.insert("cmd", &docs_cmd);
     ctx.insert("long", &long);
     let template = if long {
         "spec_template_long.tera"
@@ -24,14 +28,16 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
         ("spec_template_long.tera", include_str!("templates/spec_template_long.tera")),
     ]).unwrap();
 
-    // tera.register_filter(
-    //     "repeat",
-    //     move |value: &tera::Value, args: &HashMap<String, tera::Value>| {
-    //         let value = value.as_str().unwrap();
-    //         let count = args.get("count").unwrap().as_u64().unwrap();
-    //         Ok(value.repeat(count as usize).into())
-    //     },
-    // );
+    // Register ljust filter for left-justifying text with padding
+    tera.register_filter(
+        "ljust",
+        |value: &tera::Value, args: &std::collections::HashMap<String, tera::Value>| {
+            let value = value.as_str().unwrap_or("");
+            let width = args.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            let result = format!("{:<width$}", value, width = width);
+            Ok(result.into())
+        },
+    );
 
     tera
 });
@@ -64,14 +70,11 @@ flag "--debug" help="Debug mode"
         Usage: testcli [FLAGS]
 
         Flags:
-          --color
-            Enable color output
+          --color    Enable color output
             [env: MYCLI_COLOR]
-          --verbose
-            Verbose output
+          --verbose  Verbose output
             [env: MYCLI_VERBOSE]
-          --debug
-            Debug mode
+          --debug    Debug mode
         ");
     }
 
@@ -100,16 +103,12 @@ arg "[default]" help="Arg with default value" default="default value"
         Usage: testcli <ARGS>…
 
         Arguments:
-          <input>
-            Input file
+          <input>    Input file
             [env: MY_INPUT]
-          <output>
-            Output file
+          <output>   Output file
             [env: MY_OUTPUT]
-          <extra>
-            Extra arg without env
-          [default]
-            Arg with default value
+          <extra>    Extra arg without env
+          [default]  Arg with default value
             (default: default value)
         ");
     }
