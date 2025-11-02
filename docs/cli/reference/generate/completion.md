@@ -26,13 +26,19 @@ The CLI which we're generating completions for
 
 ## Flags
 
+### `-f --file <FILE>`
+
+A .usage.kdl spec file to use for generating completions
+
 ### `--cache-key <CACHE_KEY>`
 
 A cache key to use for storing the results of calling the CLI with --usage-cmd
 
-### `-f --file <FILE>`
+### `--include-bash-completion-lib`
 
-A .usage.kdl spec file to use for generating completions
+Include https://github.com/scop/bash-completion
+
+This is required for usage completions to work in bash, but the user may already provide it
 
 ### `--usage-bin <USAGE_BIN>`
 
@@ -43,9 +49,3 @@ You may need to set this if you have a different bin named "usage"
 ### `--usage-cmd <USAGE_CMD>`
 
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
-
-### `--include-bash-completion-lib`
-
-Include https://github.com/scop/bash-completion
-
-This is required for usage completions to work in bash, but the user may already provide it

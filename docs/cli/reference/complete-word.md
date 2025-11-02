@@ -18,14 +18,6 @@ User's input from the command line
 
 ## Flags
 
-### `--shell <SHELL>`
-
-**Choices:**
-
-- `bash`
-- `fish`
-- `zsh`
-
 ### `-f --file <FILE>`
 
 Usage spec file or script with usage shebang
@@ -37,3 +29,11 @@ Raw string spec input
 ### `--cword <CWORD>`
 
 Current word index
+
+### `--shell <SHELL>`
+
+**Choices:**
+
+- `bash`
+- `fish`
+- `zsh`

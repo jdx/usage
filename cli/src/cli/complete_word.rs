@@ -22,9 +22,6 @@ use crate::cli::generate;
 #[derive(Debug, Args)]
 #[clap(visible_alias = "cw")]
 pub struct CompleteWord {
-    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "zsh"])]
-    shell: String,
-
     /// User's input from the command line
     words: Vec<String>,
 
@@ -39,6 +36,9 @@ pub struct CompleteWord {
     /// Current word index
     #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
+
+    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "zsh"])]
+    shell: String,
 }
 
 impl CompleteWord {

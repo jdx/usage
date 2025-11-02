@@ -11,6 +11,10 @@ pub struct Manpage {
     #[clap(short, long)]
     file: PathBuf,
 
+    /// Output file path (defaults to stdout)
+    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    out_file: Option<PathBuf>,
+
     /// Manual section number (default: 1)
     ///
     /// Common sections:
@@ -20,10 +24,6 @@ pub struct Manpage {
     /// - 8: System administration commands
     #[clap(short, long, default_value = "1")]
     section: u8,
-
-    /// Output file path (defaults to stdout)
-    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
-    out_file: Option<PathBuf>,
 }
 
 impl Manpage {

@@ -12,12 +12,12 @@
 
 A usage spec taken in as a file
 
+### `-o --out-file <OUT_FILE>`
+
+Output file path (defaults to stdout)
+
 ### `-s --section <SECTION>`
 
 Manual section number (default: 1)
 
 Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
-
-### `-o --out-file <OUT_FILE>`
-
-Output file path (defaults to stdout)

@@ -44,13 +44,13 @@ pub struct Fig {
     #[clap(short, long)]
     file: Option<PathBuf>,
 
-    /// Raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
-    spec: Option<String>,
-
     /// File path where the generated Fig spec will be saved
     #[clap(long, value_hint = clap::ValueHint::FilePath)]
     out_file: Option<PathBuf>,
+
+    /// Raw string spec input
+    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    spec: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]

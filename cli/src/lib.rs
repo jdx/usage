@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use miette::Result;
 
-use cli::Cli;
+pub use cli::Cli;
 
 mod cli;
 pub mod env;

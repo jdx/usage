@@ -236,6 +236,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap-sort"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0a9044f48eb97bf8a1041f040f4f9cde4ef996c0aaf7c2cc6f1f7cbc285482e"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_builder"
 version = "4.5.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1770,6 +1779,7 @@ version = "2.6.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "clap-sort",
  "clap_usage",
  "ctor",
  "env_logger",

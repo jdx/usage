@@ -6,14 +6,16 @@ about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
+cmd bash help="Execute a shell script using bash" {
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="Show help"
+    flag --help help="Show help"
+    arg <SCRIPT>
+    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
+}
 cmd complete-word help="Generate shell completion candidates for a partial command line" {
     alias cw
     long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments."
-    flag --shell {
-        arg <SHELL> {
-            choices bash fish zsh
-        }
-    }
     flag "-f --file" help="Usage spec file or script with usage shebang" {
         arg <FILE>
     }
@@ -23,6 +25,11 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     flag --cword help="Current word index" {
         arg <CWORD>
     }
+    flag --shell {
+        arg <SHELL> {
+            choices bash fish zsh
+        }
+    }
     arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
 }
 cmd exec hide=#true {
@@ -31,16 +38,26 @@ cmd exec hide=#true {
     arg <BIN> help="path to script to execute"
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
 }
+cmd fish help="Execute a shell script using fish" {
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    flag -h help="Show help"
+    flag --help help="Show help"
+    arg <SCRIPT>
+    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
+}
 cmd generate subcommand_required=#true help="Generate completions, documentation, and other artifacts from usage specs" {
     alias g
     cmd completion help="Generate shell completion scripts for bash, fish, or zsh" {
         alias c
         alias complete completions hide=#true
+        flag "-f --file" help="A .usage.kdl spec file to use for generating completions" {
+            arg <FILE>
+        }
         flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
             arg <CACHE_KEY>
         }
-        flag "-f --file" help="A .usage.kdl spec file to use for generating completions" {
-            arg <FILE>
+        flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
+            long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
         flag --usage-bin help="Override the bin used for calling back to usage-cli" {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
@@ -48,9 +65,6 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         }
         flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
             arg <USAGE_CMD>
-        }
-        flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
-            long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
         arg <SHELL> help="Shell to generate completions for" {
             choices bash fish zsh
@@ -61,11 +75,11 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag "-f --file" help="A usage spec taken in as a file" {
             arg <FILE>
         }
-        flag --spec help="Raw string spec input" {
-            arg <SPEC>
-        }
         flag --out-file help="File path where the generated Fig spec will be saved" {
             arg <OUT_FILE>
+        }
+        flag --spec help="Raw string spec input" {
+            arg <SPEC>
         }
     }
     cmd json help="Outputs a usage spec in json format" {
@@ -81,12 +95,12 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag "-f --file" help="A usage spec taken in as a file" required=#true {
             arg <FILE>
         }
+        flag "-o --out-file" help="Output file path (defaults to stdout)" {
+            arg <OUT_FILE>
+        }
         flag "-s --section" help="Manual section number (default: 1)" {
             long_help "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands"
             arg <SECTION>
-        }
-        flag "-o --out-file" help="Output file path (defaults to stdout)" {
-            arg <OUT_FILE>
         }
     }
     cmd markdown help="Generate markdown documentation from usage specs" {
@@ -95,32 +109,18 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <FILE>
         }
         flag "-m --multi" help="Render each subcommand as a separate markdown file"
-        flag --url-prefix help="Prefix to add to all URLs" {
-            arg <URL_PREFIX>
-        }
         flag --html-encode help="Escape HTML in markdown"
-        flag --replace-pre-with-code-fences help="Replace <pre> tags with markdown code fences"
         flag --out-dir help="Output markdown files to this directory (required when using --multi)" {
             arg <OUT_DIR>
         }
         flag --out-file help="Output file path for single-file markdown generation" {
             arg <OUT_FILE>
         }
+        flag --replace-pre-with-code-fences help="Replace <pre> tags with markdown code fences"
+        flag --url-prefix help="Prefix to add to all URLs" {
+            arg <URL_PREFIX>
+        }
     }
-}
-cmd bash help="Execute a shell script using bash" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
-    arg <SCRIPT>
-    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
-}
-cmd fish help="Execute a shell script using fish" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
-    arg <SCRIPT>
-    arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
 cmd zsh help="Execute a shell script using zsh" {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."

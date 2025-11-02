@@ -5,6 +5,60 @@
     "full_cmd": [],
     "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
     "subcommands": {
+      "bash": {
+        "full_cmd": ["bash"],
+        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "Arguments to pass to script",
+            "help_first_line": "Arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Execute a shell script using bash",
+        "help_long": "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "bash",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "complete-word": {
         "full_cmd": ["complete-word"],
         "usage": "complete-word [FLAGS] [WORDS]…",
@@ -22,24 +76,6 @@
           }
         ],
         "flags": [
-          {
-            "name": "shell",
-            "usage": "--shell <SHELL>",
-            "short": [],
-            "long": ["shell"],
-            "hide": false,
-            "global": false,
-            "arg": {
-              "name": "SHELL",
-              "usage": "<SHELL>",
-              "required": true,
-              "double_dash": "Optional",
-              "hide": false,
-              "choices": {
-                "choices": ["bash", "fish", "zsh"]
-              }
-            }
-          },
           {
             "name": "file",
             "usage": "-f --file <FILE>",
@@ -89,6 +125,24 @@
               "required": true,
               "double_dash": "Optional",
               "hide": false
+            }
+          },
+          {
+            "name": "shell",
+            "usage": "--shell <SHELL>",
+            "short": [],
+            "long": ["shell"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "SHELL",
+              "usage": "<SHELL>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false,
+              "choices": {
+                "choices": ["bash", "fish", "zsh"]
+              }
             }
           }
         ],
@@ -143,6 +197,60 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "fish": {
+        "full_cmd": ["fish"],
+        "usage": "fish [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "Arguments to pass to script",
+            "help_first_line": "Arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Execute a shell script using fish",
+        "help_long": "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "fish",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "generate": {
         "full_cmd": ["generate"],
         "usage": "generate <SUBCOMMAND>",
@@ -176,6 +284,23 @@
             ],
             "flags": [
               {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A .usage.kdl spec file to use for generating completions",
+                "help_first_line": "A .usage.kdl spec file to use for generating completions",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
                 "name": "cache-key",
                 "usage": "--cache-key <CACHE_KEY>",
                 "help": "A cache key to use for storing the results of calling the CLI with --usage-cmd",
@@ -193,21 +318,15 @@
                 }
               },
               {
-                "name": "file",
-                "usage": "-f --file <FILE>",
-                "help": "A .usage.kdl spec file to use for generating completions",
-                "help_first_line": "A .usage.kdl spec file to use for generating completions",
-                "short": ["f"],
-                "long": ["file"],
+                "name": "include-bash-completion-lib",
+                "usage": "--include-bash-completion-lib",
+                "help": "Include https://github.com/scop/bash-completion",
+                "help_long": "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it",
+                "help_first_line": "Include https://github.com/scop/bash-completion",
+                "short": [],
+                "long": ["include-bash-completion-lib"],
                 "hide": false,
-                "global": false,
-                "arg": {
-                  "name": "FILE",
-                  "usage": "<FILE>",
-                  "required": true,
-                  "double_dash": "Optional",
-                  "hide": false
-                }
+                "global": false
               },
               {
                 "name": "usage-bin",
@@ -243,17 +362,6 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
-              },
-              {
-                "name": "include-bash-completion-lib",
-                "usage": "--include-bash-completion-lib",
-                "help": "Include https://github.com/scop/bash-completion",
-                "help_long": "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it",
-                "help_first_line": "Include https://github.com/scop/bash-completion",
-                "short": [],
-                "long": ["include-bash-completion-lib"],
-                "hide": false,
-                "global": false
               }
             ],
             "mounts": [],
@@ -288,23 +396,6 @@
                 }
               },
               {
-                "name": "spec",
-                "usage": "--spec <SPEC>",
-                "help": "Raw string spec input",
-                "help_first_line": "Raw string spec input",
-                "short": [],
-                "long": ["spec"],
-                "hide": false,
-                "global": false,
-                "arg": {
-                  "name": "SPEC",
-                  "usage": "<SPEC>",
-                  "required": true,
-                  "double_dash": "Optional",
-                  "hide": false
-                }
-              },
-              {
                 "name": "out-file",
                 "usage": "--out-file <OUT_FILE>",
                 "help": "File path where the generated Fig spec will be saved",
@@ -316,6 +407,23 @@
                 "arg": {
                   "name": "OUT_FILE",
                   "usage": "<OUT_FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "Raw string spec input",
+                "help_first_line": "Raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
@@ -404,6 +512,23 @@
                 }
               },
               {
+                "name": "out-file",
+                "usage": "-o --out-file <OUT_FILE>",
+                "help": "Output file path (defaults to stdout)",
+                "help_first_line": "Output file path (defaults to stdout)",
+                "short": ["o"],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
                 "name": "section",
                 "usage": "-s --section <SECTION>",
                 "help": "Manual section number (default: 1)",
@@ -416,23 +541,6 @@
                 "arg": {
                   "name": "SECTION",
                   "usage": "<SECTION>",
-                  "required": true,
-                  "double_dash": "Optional",
-                  "hide": false
-                }
-              },
-              {
-                "name": "out-file",
-                "usage": "-o --out-file <OUT_FILE>",
-                "help": "Output file path (defaults to stdout)",
-                "help_first_line": "Output file path (defaults to stdout)",
-                "short": ["o"],
-                "long": ["out-file"],
-                "hide": false,
-                "global": false,
-                "arg": {
-                  "name": "OUT_FILE",
-                  "usage": "<OUT_FILE>",
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
@@ -481,39 +589,12 @@
                 "global": false
               },
               {
-                "name": "url-prefix",
-                "usage": "--url-prefix <URL_PREFIX>",
-                "help": "Prefix to add to all URLs",
-                "help_first_line": "Prefix to add to all URLs",
-                "short": [],
-                "long": ["url-prefix"],
-                "hide": false,
-                "global": false,
-                "arg": {
-                  "name": "URL_PREFIX",
-                  "usage": "<URL_PREFIX>",
-                  "required": true,
-                  "double_dash": "Optional",
-                  "hide": false
-                }
-              },
-              {
                 "name": "html-encode",
                 "usage": "--html-encode",
                 "help": "Escape HTML in markdown",
                 "help_first_line": "Escape HTML in markdown",
                 "short": [],
                 "long": ["html-encode"],
-                "hide": false,
-                "global": false
-              },
-              {
-                "name": "replace-pre-with-code-fences",
-                "usage": "--replace-pre-with-code-fences",
-                "help": "Replace <pre> tags with markdown code fences",
-                "help_first_line": "Replace <pre> tags with markdown code fences",
-                "short": [],
-                "long": ["replace-pre-with-code-fences"],
                 "hide": false,
                 "global": false
               },
@@ -550,6 +631,33 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "replace-pre-with-code-fences",
+                "usage": "--replace-pre-with-code-fences",
+                "help": "Replace <pre> tags with markdown code fences",
+                "help_first_line": "Replace <pre> tags with markdown code fences",
+                "short": [],
+                "long": ["replace-pre-with-code-fences"],
+                "hide": false,
+                "global": false
+              },
+              {
+                "name": "url-prefix",
+                "usage": "--url-prefix <URL_PREFIX>",
+                "help": "Prefix to add to all URLs",
+                "help_first_line": "Prefix to add to all URLs",
+                "short": [],
+                "long": ["url-prefix"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "URL_PREFIX",
+                  "usage": "<URL_PREFIX>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
               }
             ],
             "mounts": [],
@@ -569,114 +677,6 @@
         "help": "Generate completions, documentation, and other artifacts from usage specs",
         "name": "generate",
         "aliases": ["g"],
-        "hidden_aliases": [],
-        "examples": []
-      },
-      "bash": {
-        "full_cmd": ["bash"],
-        "usage": "bash [-h] [--help] <SCRIPT> [ARGS]…",
-        "subcommands": {},
-        "args": [
-          {
-            "name": "SCRIPT",
-            "usage": "<SCRIPT>",
-            "required": true,
-            "double_dash": "Optional",
-            "hide": false
-          },
-          {
-            "name": "ARGS",
-            "usage": "[ARGS]…",
-            "help": "Arguments to pass to script",
-            "help_first_line": "Arguments to pass to script",
-            "required": false,
-            "double_dash": "Optional",
-            "var": true,
-            "hide": false
-          }
-        ],
-        "flags": [
-          {
-            "name": "h",
-            "usage": "-h",
-            "help": "Show help",
-            "help_first_line": "Show help",
-            "short": ["h"],
-            "long": [],
-            "hide": false,
-            "global": false
-          },
-          {
-            "name": "help",
-            "usage": "--help",
-            "help": "Show help",
-            "help_first_line": "Show help",
-            "short": [],
-            "long": ["help"],
-            "hide": false,
-            "global": false
-          }
-        ],
-        "mounts": [],
-        "hide": false,
-        "help": "Execute a shell script using bash",
-        "help_long": "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
-        "name": "bash",
-        "aliases": [],
-        "hidden_aliases": [],
-        "examples": []
-      },
-      "fish": {
-        "full_cmd": ["fish"],
-        "usage": "fish [-h] [--help] <SCRIPT> [ARGS]…",
-        "subcommands": {},
-        "args": [
-          {
-            "name": "SCRIPT",
-            "usage": "<SCRIPT>",
-            "required": true,
-            "double_dash": "Optional",
-            "hide": false
-          },
-          {
-            "name": "ARGS",
-            "usage": "[ARGS]…",
-            "help": "Arguments to pass to script",
-            "help_first_line": "Arguments to pass to script",
-            "required": false,
-            "double_dash": "Optional",
-            "var": true,
-            "hide": false
-          }
-        ],
-        "flags": [
-          {
-            "name": "h",
-            "usage": "-h",
-            "help": "Show help",
-            "help_first_line": "Show help",
-            "short": ["h"],
-            "long": [],
-            "hide": false,
-            "global": false
-          },
-          {
-            "name": "help",
-            "usage": "--help",
-            "help": "Show help",
-            "help_first_line": "Show help",
-            "short": [],
-            "long": ["help"],
-            "hide": false,
-            "global": false
-          }
-        ],
-        "mounts": [],
-        "hide": false,
-        "help": "Execute a shell script using fish",
-        "help_long": "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
-        "name": "fish",
-        "aliases": [],
         "hidden_aliases": [],
         "examples": []
       },
