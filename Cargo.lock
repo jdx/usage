@@ -237,9 +237,9 @@ dependencies = [
 
 [[package]]
 name = "clap-sort"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32111fddff2f0d73cdb3fa07453b7dd4bfff9de5a620bf69ebb12e6777831454"
+checksum = "3c9f374a541bd277ba6f4ccd08d955024ba09fda8dfc69ca1a750799ebed97a9"
 dependencies = [
  "clap",
 ]
