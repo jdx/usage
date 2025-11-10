@@ -441,4 +441,107 @@ complete "file" run="ls" descriptions=#true
         usage "Usage: test"
         "#);
     }
+
+    #[test]
+    fn test_extract_usage_from_comments_original_hash() {
+        let input = r#"#!/bin/bash
+#USAGE bin "test"
+#USAGE flag "--foo" help="test"
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_original_double_slash() {
+        let input = r#"#!/usr/bin/env node
+//USAGE bin "test"
+//USAGE flag "--foo" help="test"
+console.log("hello");
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_bracket_with_space() {
+        let input = r#"#!/bin/bash
+# [USAGE] bin "test"
+# [USAGE] flag "--foo" help="test"
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_bracket_no_space() {
+        let input = r#"#!/bin/bash
+#[USAGE] bin "test"
+#[USAGE] flag "--foo" help="test"
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_double_slash_bracket_with_space() {
+        let input = r#"#!/usr/bin/env node
+// [USAGE] bin "test"
+// [USAGE] flag "--foo" help="test"
+console.log("hello");
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_double_slash_bracket_no_space() {
+        let input = r#"#!/usr/bin/env node
+//[USAGE] bin "test"
+//[USAGE] flag "--foo" help="test"
+console.log("hello");
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_stops_at_gap() {
+        let input = r#"#!/bin/bash
+#USAGE bin "test"
+#USAGE flag "--foo" help="test"
+
+#USAGE flag "--bar" help="should not be included"
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "bin \"test\"\nflag \"--foo\" help=\"test\"");
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_with_content_after_marker() {
+        let input = r#"#!/bin/bash
+# [USAGE] bin "test"
+# [USAGE] flag "--verbose" help="verbose mode"
+# [USAGE] arg "input" help="input file"
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(
+            result,
+            "bin \"test\"\nflag \"--verbose\" help=\"verbose mode\"\narg \"input\" help=\"input file\""
+        );
+    }
+
+    #[test]
+    fn test_extract_usage_from_comments_empty() {
+        let input = r#"#!/bin/bash
+echo "hello"
+"#;
+        let result = extract_usage_from_comments(input);
+        assert_eq!(result, "");
+    }
 }
