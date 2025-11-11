@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.7.0](https://github.com/jdx/usage/compare/v2.6.0..v2.7.0) - 2025-11-11
+
+### 🚀 Features
+
+- support bracketed header syntax by [@okuuva](https://github.com/okuuva) in [#377](https://github.com/jdx/usage/pull/377)
+
+### 🔍 Other Changes
+
+- integrate clap-sort to enforce alphabetical subcommand ordering by [@jdx](https://github.com/jdx) in [#370](https://github.com/jdx/usage/pull/370)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#372](https://github.com/jdx/usage/pull/372)
+- update rust crate clap-sort to v1.0.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#373](https://github.com/jdx/usage/pull/373)
+- update rust crate ctor to v0.6.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#374](https://github.com/jdx/usage/pull/374)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#375](https://github.com/jdx/usage/pull/375)
+
+### New Contributors
+
+- @okuuva made their first contribution in [#377](https://github.com/jdx/usage/pull/377)
+
 ## [2.6.0](https://github.com/jdx/usage/compare/v2.5.2..v2.6.0) - 2025-11-02
 
 ### 🚀 Features
