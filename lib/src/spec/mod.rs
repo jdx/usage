@@ -554,6 +554,82 @@ flag "--verbose" help="verbose mode"
 arg "input" help="input file"
             "#,
 
+        test_extract_usage_from_comments_double_colon_original:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_with_space:
+            r#"
+:: [USAGE] bin "test"
+:: [USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_no_space:
+            r#"
+::[USAGE] bin "test"
+::[USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_stops_at_gap:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--foo" help="test"
+
+::USAGE flag "--bar" help="should not be included"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_with_content_after_marker:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--verbose" help="verbose mode"
+::USAGE arg "input" help="input file"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--verbose" help="verbose mode"
+arg "input" help="input file"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_with_space_multiple_lines:
+            r#"
+:: [USAGE] bin "myapp"
+:: [USAGE] flag "--config <file>" help="config file"
+:: [USAGE] flag "--verbose" help="verbose output"
+:: [USAGE] arg "input" help="input file"
+:: [USAGE] arg "[output]" help="output file" required=#false
+echo "done"
+            "#,
+            r#"
+bin "myapp"
+flag "--config <file>" help="config file"
+flag "--verbose" help="verbose output"
+arg "input" help="input file"
+arg "[output]" help="output file" required=#false
+            "#,
+
         test_extract_usage_from_comments_empty:
             r#"
 #!/bin/bash
@@ -638,6 +714,54 @@ echo "hello"
 #!/bin/bash
 # [usage] bin "test"
 # [usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_lowercase:
+            r#"
+::usage bin "test"
+::usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_mixed_case:
+            r#"
+::Usage bin "test"
+::Usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_space_before_usage:
+            r#"
+:: USAGE bin "test"
+:: USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_lowercase:
+            r#"
+::[usage] bin "test"
+::[usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_mixed_case:
+            r#"
+::[Usage] bin "test"
+::[Usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_space_lowercase:
+            r#"
+:: [usage] bin "test"
+:: [usage] flag "--foo" help="test"
 echo "hello"
             "#,
             "",
