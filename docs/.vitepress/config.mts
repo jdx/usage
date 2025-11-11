@@ -1,5 +1,6 @@
 import { defineConfig } from "vitepress";
 import spec from "../cli/reference/commands.json";
+import kdlGrammar from "./grammars/kdl.tmLanguage.json";
 
 function getCommands(cmd): string[][] {
   const commands = [];
@@ -20,9 +21,9 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
   markdown: {
-    // languages: [
-    //   "kdl"
-    // ]
+    shikiSetup: async (shiki) => {
+      await shiki.loadLanguage(kdlGrammar as any);
+    }
   },
   sitemap: {
     hostname: "https://usage.jdx.dev"

@@ -116,7 +116,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --out-file help="Output file path for single-file markdown generation" {
             arg <OUT_FILE>
         }
-        flag --replace-pre-with-code-fences help="Replace <pre> tags with markdown code fences"
+        flag --replace-pre-with-code-fences help="Replace `<pre>` tags with markdown code fences"
         flag --url-prefix help="Prefix to add to all URLs" {
             arg <URL_PREFIX>
         }

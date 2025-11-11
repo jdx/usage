@@ -384,7 +384,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--replace-pre-with-code-fences",
-              description: "Replace <pre> tags with markdown code fences",
+              description: "Replace `<pre>` tags with markdown code fences",
               isRepeatable: false,
             },
             {

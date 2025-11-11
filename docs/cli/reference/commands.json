@@ -635,8 +635,8 @@
               {
                 "name": "replace-pre-with-code-fences",
                 "usage": "--replace-pre-with-code-fences",
-                "help": "Replace <pre> tags with markdown code fences",
-                "help_first_line": "Replace <pre> tags with markdown code fences",
+                "help": "Replace `<pre>` tags with markdown code fences",
+                "help_first_line": "Replace `<pre>` tags with markdown code fences",
                 "short": [],
                 "long": ["replace-pre-with-code-fences"],
                 "hide": false,
