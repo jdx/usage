@@ -560,5 +560,86 @@ arg "input" help="input file"
 echo "hello"
             "#,
             "",
+
+        test_extract_usage_from_comments_lowercase_usage:
+            r#"
+#!/bin/bash
+#usage bin "test"
+#usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_mixed_case_usage:
+            r#"
+#!/bin/bash
+#Usage bin "test"
+#Usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_space_before_usage:
+            r#"
+#!/bin/bash
+# USAGE bin "test"
+# USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_lowercase:
+            r#"
+#!/usr/bin/env node
+//usage bin "test"
+//usage flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_mixed_case:
+            r#"
+#!/usr/bin/env node
+//Usage bin "test"
+//Usage flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_space_before_usage:
+            r#"
+#!/usr/bin/env node
+// USAGE bin "test"
+// USAGE flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_lowercase:
+            r#"
+#!/bin/bash
+#[usage] bin "test"
+#[usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_mixed_case:
+            r#"
+#!/bin/bash
+#[Usage] bin "test"
+#[Usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_space_lowercase:
+            r#"
+#!/bin/bash
+# [usage] bin "test"
+# [usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
     }
 }
