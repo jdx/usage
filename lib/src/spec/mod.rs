@@ -224,12 +224,11 @@ fn check_usage_version(version: &str) {
 
 fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
     let full = file::read_to_string(file)?;
-    if full.starts_with("#!")
-        && full
-            .lines()
-            .any(|l| l.starts_with("#USAGE") || l.starts_with("//USAGE"))
-    {
-        return Ok((extract_usage_from_comments(&full), full));
+    if full.starts_with("#!") {
+        let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])");
+        if full.lines().any(|l| usage_regex.is_match(l)) {
+            return Ok((extract_usage_from_comments(&full), full));
+        }
     }
     let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
     let (schema, body) = schema.split_once("\n#!").unwrap_or((schema, ""));
@@ -244,15 +243,14 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
 }
 
 fn extract_usage_from_comments(full: &str) -> String {
+    let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$");
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
-        if line.starts_with("#USAGE") || line.starts_with("//USAGE") {
+        if let Some(captures) = usage_regex.captures(line) {
             found = true;
-            let line = line
-                .strip_prefix("#USAGE")
-                .unwrap_or_else(|| line.strip_prefix("//USAGE").unwrap());
-            usage.push(line.trim());
+            let content = captures.get(1).map_or("", |m| m.as_str());
+            usage.push(content.trim());
         } else if found {
             // if there is a gap, stop reading
             break;
@@ -440,5 +438,332 @@ complete "file" run="ls" descriptions=#true
         bin test
         usage "Usage: test"
         "#);
+    }
+
+    macro_rules! extract_usage_tests {
+        ($($name:ident: $input:expr, $expected:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let result = extract_usage_from_comments($input);
+                let expected = $expected.trim_start_matches('\n').trim_end();
+                assert_eq!(result, expected);
+            }
+        )*
+        }
+    }
+
+    extract_usage_tests! {
+        test_extract_usage_from_comments_original_hash:
+            r#"
+#!/bin/bash
+#USAGE bin "test"
+#USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_original_double_slash:
+            r#"
+#!/usr/bin/env node
+//USAGE bin "test"
+//USAGE flag "--foo" help="test"
+console.log("hello");
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_bracket_with_space:
+            r#"
+#!/bin/bash
+# [USAGE] bin "test"
+# [USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_bracket_no_space:
+            r#"
+#!/bin/bash
+#[USAGE] bin "test"
+#[USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_slash_bracket_with_space:
+            r#"
+#!/usr/bin/env node
+// [USAGE] bin "test"
+// [USAGE] flag "--foo" help="test"
+console.log("hello");
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_slash_bracket_no_space:
+            r#"
+#!/usr/bin/env node
+//[USAGE] bin "test"
+//[USAGE] flag "--foo" help="test"
+console.log("hello");
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_stops_at_gap:
+            r#"
+#!/bin/bash
+#USAGE bin "test"
+#USAGE flag "--foo" help="test"
+
+#USAGE flag "--bar" help="should not be included"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_with_content_after_marker:
+            r#"
+#!/bin/bash
+# [USAGE] bin "test"
+# [USAGE] flag "--verbose" help="verbose mode"
+# [USAGE] arg "input" help="input file"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--verbose" help="verbose mode"
+arg "input" help="input file"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_original:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_with_space:
+            r#"
+:: [USAGE] bin "test"
+:: [USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_no_space:
+            r#"
+::[USAGE] bin "test"
+::[USAGE] flag "--foo" help="test"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_stops_at_gap:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--foo" help="test"
+
+::USAGE flag "--bar" help="should not be included"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--foo" help="test"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_with_content_after_marker:
+            r#"
+::USAGE bin "test"
+::USAGE flag "--verbose" help="verbose mode"
+::USAGE arg "input" help="input file"
+echo "hello"
+            "#,
+            r#"
+bin "test"
+flag "--verbose" help="verbose mode"
+arg "input" help="input file"
+            "#,
+
+        test_extract_usage_from_comments_double_colon_bracket_with_space_multiple_lines:
+            r#"
+:: [USAGE] bin "myapp"
+:: [USAGE] flag "--config <file>" help="config file"
+:: [USAGE] flag "--verbose" help="verbose output"
+:: [USAGE] arg "input" help="input file"
+:: [USAGE] arg "[output]" help="output file" required=#false
+echo "done"
+            "#,
+            r#"
+bin "myapp"
+flag "--config <file>" help="config file"
+flag "--verbose" help="verbose output"
+arg "input" help="input file"
+arg "[output]" help="output file" required=#false
+            "#,
+
+        test_extract_usage_from_comments_empty:
+            r#"
+#!/bin/bash
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_lowercase_usage:
+            r#"
+#!/bin/bash
+#usage bin "test"
+#usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_mixed_case_usage:
+            r#"
+#!/bin/bash
+#Usage bin "test"
+#Usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_space_before_usage:
+            r#"
+#!/bin/bash
+# USAGE bin "test"
+# USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_lowercase:
+            r#"
+#!/usr/bin/env node
+//usage bin "test"
+//usage flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_mixed_case:
+            r#"
+#!/usr/bin/env node
+//Usage bin "test"
+//Usage flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_slash_space_before_usage:
+            r#"
+#!/usr/bin/env node
+// USAGE bin "test"
+// USAGE flag "--foo" help="test"
+console.log("hello");
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_lowercase:
+            r#"
+#!/bin/bash
+#[usage] bin "test"
+#[usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_mixed_case:
+            r#"
+#!/bin/bash
+#[Usage] bin "test"
+#[Usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_bracket_space_lowercase:
+            r#"
+#!/bin/bash
+# [usage] bin "test"
+# [usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_lowercase:
+            r#"
+::usage bin "test"
+::usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_mixed_case:
+            r#"
+::Usage bin "test"
+::Usage flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_space_before_usage:
+            r#"
+:: USAGE bin "test"
+:: USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_lowercase:
+            r#"
+::[usage] bin "test"
+::[usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_mixed_case:
+            r#"
+::[Usage] bin "test"
+::[Usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
+
+        test_extract_usage_from_comments_double_colon_bracket_space_lowercase:
+            r#"
+:: [usage] bin "test"
+:: [usage] flag "--foo" help="test"
+echo "hello"
+            "#,
+            "",
     }
 }

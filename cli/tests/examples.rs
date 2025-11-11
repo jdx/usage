@@ -1,3 +1,4 @@
+use assert_cmd::cargo;
 use assert_cmd::prelude::*;
 use predicates::str::contains;
 use std::{env, process::Command};
@@ -46,4 +47,62 @@ fn test_empty_defaults_example() {
             "default=\"\"      → Variable IS SET to empty string",
         ))
         .stdout(contains("No default (opt) → Variable is UNSET"));
+}
+
+/// Test that the new # [USAGE] syntax works correctly
+#[test]
+fn test_new_usage_syntax_with_space() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args(["bash", "../examples/test-new-usage-syntax.sh", "--help"]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("Usage: test-new-syntax"))
+        .stdout(contains("--foo"))
+        .stdout(contains("Flag value"))
+        .stdout(contains("--bar <bar>"))
+        .stdout(contains("Option value"))
+        .stdout(contains("baz"))
+        .stdout(contains("Positional value"));
+}
+
+/// Test that the #[USAGE] syntax (no space) works correctly
+#[test]
+fn test_new_usage_syntax_no_space() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "bash",
+        "../examples/test-usage-bracket-no-space.sh",
+        "--help",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("Usage: test-bracket-no-space"))
+        .stdout(contains("--verbose"))
+        .stdout(contains("Verbose output"))
+        .stdout(contains("--output <file>"))
+        .stdout(contains("Output file"))
+        .stdout(contains("input"))
+        .stdout(contains("Input file"));
+}
+
+/// Test that the new syntax actually parses and executes correctly
+#[test]
+fn test_new_usage_syntax_execution() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "bash",
+        "../examples/test-new-usage-syntax.sh",
+        "--foo",
+        "--bar",
+        "test123",
+        "myvalue",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("foo: true"))
+        .stdout(contains("bar: test123"))
+        .stdout(contains("baz: myvalue"));
 }
