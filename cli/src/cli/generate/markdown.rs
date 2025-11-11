@@ -30,7 +30,7 @@ pub struct Markdown {
     #[clap(long, value_hint = clap::ValueHint::FilePath, required_unless_present = "multi")]
     out_file: Option<PathBuf>,
 
-    /// Replace <pre> tags with markdown code fences
+    /// Replace `<pre>` tags with markdown code fences
     #[clap(long)]
     replace_pre_with_code_fences: bool,
 
