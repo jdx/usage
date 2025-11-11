@@ -32,7 +32,7 @@ Output file path for single-file markdown generation
 
 ### `--replace-pre-with-code-fences`
 
-Replace `<pre>` tags with markdown code fences
+Replace <pre> tags with markdown code fences
 
 ### `--url-prefix <URL_PREFIX>`
 
