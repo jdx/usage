@@ -175,7 +175,11 @@ impl ManpageRenderer {
         // EXAMPLES section
         if !cmd.examples.is_empty() {
             roff.control("SH", ["EXAMPLES"]);
-            for example in &cmd.examples {
+            for (i, example) in cmd.examples.iter().enumerate() {
+                // Add spacing between examples (but not before the first one)
+                if i > 0 {
+                    roff.control("PP", [] as [&str; 0]);
+                }
                 if let Some(header) = &example.header {
                     roff.text([bold(header)]);
                 }
@@ -186,7 +190,6 @@ impl ManpageRenderer {
                 roff.control("RS", ["4"]);
                 roff.text([roman(example.code.as_str())]);
                 roff.control("RE", [] as [&str; 0]);
-                roff.control("PP", [] as [&str; 0]);
             }
         }
     }
@@ -337,7 +340,11 @@ impl ManpageRenderer {
                 if has_examples {
                     roff.text([bold("Examples:")]);
                     roff.control("PP", [] as [&str; 0]);
-                    for example in &subcmd.examples {
+                    for (i, example) in subcmd.examples.iter().enumerate() {
+                        // Add spacing between examples (but not before the first one)
+                        if i > 0 {
+                            roff.control("PP", [] as [&str; 0]);
+                        }
                         if let Some(header) = &example.header {
                             roff.text([bold(header)]);
                         }
@@ -348,7 +355,6 @@ impl ManpageRenderer {
                         roff.control("RS", ["4"]);
                         roff.text([roman(example.code.as_str())]);
                         roff.control("RE", [] as [&str; 0]);
-                        roff.control("PP", [] as [&str; 0]);
                     }
                 }
             }

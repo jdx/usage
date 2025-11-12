@@ -48,7 +48,6 @@ Force deploy to staging, skipping checks
 .RS 4
 demo deploy \-e staging \-\-force
 .RE
-.PP
 .SH "DEMO CONFIG SET"
 Set a configuration value
 .PP
@@ -75,4 +74,3 @@ Enable debug mode
 .RS 4
 demo config set debug true
 .RE
-.PP
