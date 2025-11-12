@@ -104,6 +104,23 @@ impl SpecExample {
     }
 }
 
+impl From<&SpecExample> for KdlNode {
+    fn from(example: &SpecExample) -> KdlNode {
+        let mut node = KdlNode::new("example");
+        node.push(KdlEntry::new(example.code.clone()));
+        if let Some(header) = &example.header {
+            node.push(KdlEntry::new_prop("header", header.clone()));
+        }
+        if let Some(help) = &example.help {
+            node.push(KdlEntry::new_prop("help", help.clone()));
+        }
+        if !example.lang.is_empty() {
+            node.push(KdlEntry::new_prop("lang", example.lang.clone()));
+        }
+        node
+    }
+}
+
 impl SpecCommand {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         node.ensure_arg_len(1..=1)?;

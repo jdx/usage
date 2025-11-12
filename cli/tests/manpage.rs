@@ -184,3 +184,55 @@ fn test_generate_manpage_with_examples() {
     // Use insta snapshot for full output
     insta::assert_snapshot!(stdout);
 }
+
+#[test]
+fn test_generate_manpage_with_spec_examples() {
+    let mut cmd = usage_cmd();
+    cmd.args([
+        "generate",
+        "manpage",
+        "-f",
+        &example_path("spec-with-examples.usage.kdl"),
+    ]);
+
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+
+    // Verify EXAMPLES section header is present (should be .SH EXAMPLES)
+    assert!(
+        stdout.contains(".SH EXAMPLES"),
+        "Should contain EXAMPLES section header"
+    );
+
+    // Verify spec-level example headers (bold text)
+    assert!(
+        stdout.contains("\\fBGetting help\\fR"),
+        "Should contain spec-level example header"
+    );
+    assert!(
+        stdout.contains("\\fBCheck version\\fR"),
+        "Should contain spec-level example header"
+    );
+
+    // Verify spec-level example help text
+    assert!(
+        stdout.contains("Display help information for the demo command"),
+        "Should contain spec-level example help"
+    );
+    assert!(
+        stdout.contains("Show the installed version of demo"),
+        "Should contain spec-level example help"
+    );
+
+    // Verify spec-level example code is indented (.RS 4)
+    assert!(
+        stdout.contains(".RS 4\ndemo \\-\\-help"),
+        "Should contain indented spec-level example code"
+    );
+    assert!(
+        stdout.contains(".RS 4\ndemo \\-\\-version"),
+        "Should contain indented spec-level example code"
+    );
+}

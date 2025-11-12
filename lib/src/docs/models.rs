@@ -19,6 +19,7 @@ pub struct Spec {
     pub about_md: Option<String>,
     pub disable_help: Option<bool>,
     pub min_usage_version: Option<String>,
+    pub examples: Vec<SpecExample>,
     pub rendered: bool,
 }
 
@@ -126,6 +127,7 @@ impl From<crate::Spec> for Spec {
             author: spec.author,
             disable_help: spec.disable_help,
             min_usage_version: spec.min_usage_version,
+            examples: spec.examples.iter().map(SpecExample::from).collect(),
             rendered: false,
         }
     }
@@ -296,6 +298,9 @@ impl Spec {
         self.rendered = true;
         if let Some(h) = &mut self.about_md {
             *h = renderer.replace_code_fences(h.to_string());
+        }
+        for example in &mut self.examples {
+            example.render_md(renderer);
         }
         self.cmd.render_md(renderer);
     }

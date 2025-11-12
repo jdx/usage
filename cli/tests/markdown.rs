@@ -94,6 +94,72 @@ fn test_generate_markdown_with_examples() {
 }
 
 #[test]
+fn test_generate_markdown_with_spec_examples() {
+    let temp_dir = std::env::temp_dir();
+    let out_file = temp_dir.join("test-markdown-spec-examples.md");
+
+    // Clean up any existing file
+    let _ = std::fs::remove_file(&out_file);
+
+    let mut cmd = usage_cmd();
+    cmd.args([
+        "generate",
+        "markdown",
+        "-f",
+        &example_path("spec-with-examples.usage.kdl"),
+        "--out-file",
+        out_file.to_str().unwrap(),
+    ]);
+
+    cmd.assert().success();
+
+    // Verify file was created
+    assert!(out_file.exists());
+
+    // Verify content includes spec-level examples
+    let content = fs::read_to_string(&out_file).unwrap();
+
+    // Check for spec-level Examples section
+    assert!(
+        content.contains("## Examples"),
+        "Should contain spec-level Examples section"
+    );
+
+    // Check for spec-level example headers
+    assert!(
+        content.contains("**Getting help**"),
+        "Should contain spec-level example header"
+    );
+    assert!(
+        content.contains("**Check version**"),
+        "Should contain spec-level example header"
+    );
+
+    // Check for spec-level example help text
+    assert!(
+        content.contains("Display help information for the demo command"),
+        "Should contain spec-level example help"
+    );
+    assert!(
+        content.contains("Show the installed version of demo"),
+        "Should contain spec-level example help"
+    );
+
+    // Check for spec-level example code blocks
+    assert!(
+        content.contains("```\ndemo --help\n```"),
+        "Should contain spec-level example code block"
+    );
+    assert!(
+        content.contains("```\ndemo --version\n```"),
+        "Should contain spec-level example code block"
+    );
+
+    // Clean up
+    std::fs::remove_file(&out_file).unwrap();
+}
+
+#[test]
 fn test_generate_markdown_basic() {
     let temp_dir = std::env::temp_dir();
     let out_file = temp_dir.join("test-markdown-basic.md");

@@ -1,0 +1,14 @@
+name "demo"
+bin "demo"
+version "1.0.0"
+about "Demo CLI with spec-level examples"
+
+example "demo --help" header="Getting help" help="Display help information for the demo command"
+example "demo --version" header="Check version" help="Show the installed version of demo"
+
+cmd "deploy" help="Deploy your application" {
+    flag "-e --environment <env>" help="Target environment" {
+        choices "dev" "staging" "prod"
+    }
+    flag "-f --force" help="Force deployment"
+}

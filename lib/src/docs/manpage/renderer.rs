@@ -57,6 +57,27 @@ impl ManpageRenderer {
         // Render detailed sections for each subcommand
         self.render_subcommand_details(&mut roff, &self.spec.cmd, &self.spec.bin);
 
+        // EXAMPLES section (spec-level)
+        if !self.spec.examples.is_empty() {
+            roff.control("SH", ["EXAMPLES"]);
+            for (i, example) in self.spec.examples.iter().enumerate() {
+                // Add spacing between examples (but not before the first one)
+                if i > 0 {
+                    roff.control("PP", [] as [&str; 0]);
+                }
+                if let Some(header) = &example.header {
+                    roff.text([bold(header)]);
+                }
+                if let Some(help) = &example.help {
+                    roff.text([roman(help.as_str())]);
+                }
+                roff.control("PP", [] as [&str; 0]);
+                roff.control("RS", ["4"]);
+                roff.text([roman(example.code.as_str())]);
+                roff.control("RE", [] as [&str; 0]);
+            }
+        }
+
         // AUTHOR section (if present)
         if let Some(author) = &self.spec.author {
             roff.control("SH", ["AUTHOR"]);
