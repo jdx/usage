@@ -11,6 +11,26 @@
 {{ about }}
 {% endif %}
 
+{%- if spec.examples %}
+
+{{ "#" | repeat(count=header_level) }}# Examples
+
+{%- for example in spec.examples %}
+{%- if example.header %}
+
+**{{ example.header }}**
+{%- endif %}
+{%- if example.help %}
+
+{{ example.help }}
+{%- endif %}
+
+```{{ example.lang }}
+{{ example.code }}
+```
+{%- endfor %}
+{%- endif %}
+
 {%- include "cmd_template.md.tera" %}
 {%- set header_level = header_level + 1 %}
 

@@ -20,7 +20,7 @@ use std::str::FromStr;
 use xx::file;
 
 use crate::error::UsageErr;
-use crate::spec::cmd::SpecCommand;
+use crate::spec::cmd::{SpecCommand, SpecExample};
 use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
@@ -51,6 +51,8 @@ pub struct Spec {
     pub disable_help: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_usage_version: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub examples: Vec<SpecExample>,
 }
 
 impl Spec {
@@ -91,6 +93,7 @@ impl Spec {
             && self.cmd.is_empty()
             && self.config.is_empty()
             && self.complete.is_empty()
+            && self.examples.is_empty()
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
@@ -135,6 +138,19 @@ impl Spec {
                     let v = node.arg(0)?.ensure_string()?;
                     check_usage_version(&v);
                     schema.min_usage_version = Some(v);
+                }
+                "example" => {
+                    let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
+                    let mut example = SpecExample::new(code.trim().to_string());
+                    for (k, v) in node.props() {
+                        match k {
+                            "header" => example.header = Some(v.ensure_string()?),
+                            "help" => example.help = Some(v.ensure_string()?),
+                            "lang" => example.lang = v.ensure_string()?,
+                            k => bail_parse!(ctx, v.entry.span(), "unsupported example key {k}"),
+                        }
+                    }
+                    schema.examples.push(example);
                 }
                 "include" => {
                     let file = node
@@ -203,6 +219,9 @@ impl Spec {
         }
         if other.min_usage_version.is_some() {
             self.min_usage_version = other.min_usage_version;
+        }
+        if !other.examples.is_empty() {
+            self.examples.extend(other.examples);
         }
         self.cmd.merge(other.cmd);
     }
@@ -343,6 +362,9 @@ impl Display for Spec {
         }
         for arg in self.cmd.args.iter() {
             nodes.push(arg.into());
+        }
+        for example in self.examples.iter() {
+            nodes.push(example.into());
         }
         for complete in self.complete.values() {
             nodes.push(complete.into());
@@ -770,5 +792,52 @@ echo "hello"
 echo "hello"
             "#,
             "",
+    }
+
+    #[test]
+    fn test_spec_with_examples() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+name "demo"
+bin "demo"
+example "demo --help" header="Getting help" help="Display help information"
+example "demo --version" header="Check version"
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(spec.examples.len(), 2);
+
+        assert_eq!(spec.examples[0].code, "demo --help");
+        assert_eq!(spec.examples[0].header, Some("Getting help".to_string()));
+        assert_eq!(
+            spec.examples[0].help,
+            Some("Display help information".to_string())
+        );
+
+        assert_eq!(spec.examples[1].code, "demo --version");
+        assert_eq!(spec.examples[1].header, Some("Check version".to_string()));
+        assert_eq!(spec.examples[1].help, None);
+    }
+
+    #[test]
+    fn test_spec_examples_display() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+name "demo"
+bin "demo"
+example "demo --help" header="Getting help" help="Show help"
+example "demo --version"
+        "#,
+        )
+        .unwrap();
+
+        let output = format!("{}", spec);
+        assert!(
+            output.contains("example \"demo --help\" header=\"Getting help\" help=\"Show help\"")
+        );
+        assert!(output.contains("example \"demo --version\""));
     }
 }
