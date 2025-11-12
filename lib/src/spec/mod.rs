@@ -806,7 +806,10 @@ example "demo --version" header="Check version"
 
         assert_eq!(spec.examples[0].code, "demo --help");
         assert_eq!(spec.examples[0].header, Some("Getting help".to_string()));
-        assert_eq!(spec.examples[0].help, Some("Display help information".to_string()));
+        assert_eq!(
+            spec.examples[0].help,
+            Some("Display help information".to_string())
+        );
 
         assert_eq!(spec.examples[1].code, "demo --version");
         assert_eq!(spec.examples[1].header, Some("Check version".to_string()));
@@ -827,7 +830,9 @@ example "demo --version"
         .unwrap();
 
         let output = format!("{}", spec);
-        assert!(output.contains("example \"demo --help\" header=\"Getting help\" help=\"Show help\""));
+        assert!(
+            output.contains("example \"demo --help\" header=\"Getting help\" help=\"Show help\"")
+        );
         assert!(output.contains("example \"demo --version\""));
     }
 }
