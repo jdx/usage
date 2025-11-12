@@ -44,23 +44,50 @@ fn test_generate_markdown_with_examples() {
     let content = fs::read_to_string(&out_file).unwrap();
 
     // Check for Examples section headers
-    assert!(content.contains("### Examples"), "Should contain Examples section");
+    assert!(
+        content.contains("### Examples"),
+        "Should contain Examples section"
+    );
 
     // Check for example headers
-    assert!(content.contains("**Basic deployment**"), "Should contain example header");
-    assert!(content.contains("**Force deployment**"), "Should contain example header");
+    assert!(
+        content.contains("**Basic deployment**"),
+        "Should contain example header"
+    );
+    assert!(
+        content.contains("**Force deployment**"),
+        "Should contain example header"
+    );
 
     // Check for example help text
-    assert!(content.contains("Deploy to production environment"), "Should contain example help");
-    assert!(content.contains("Force deploy to staging, skipping checks"), "Should contain example help");
+    assert!(
+        content.contains("Deploy to production environment"),
+        "Should contain example help"
+    );
+    assert!(
+        content.contains("Force deploy to staging, skipping checks"),
+        "Should contain example help"
+    );
 
     // Check for example code blocks
-    assert!(content.contains("```\ndemo deploy -e prod\n```"), "Should contain example code block");
-    assert!(content.contains("```\ndemo deploy -e staging --force\n```"), "Should contain example code block");
+    assert!(
+        content.contains("```\ndemo deploy -e prod\n```"),
+        "Should contain example code block"
+    );
+    assert!(
+        content.contains("```\ndemo deploy -e staging --force\n```"),
+        "Should contain example code block"
+    );
 
     // Check for nested subcommand examples
-    assert!(content.contains("demo config set timeout 30"), "Should contain nested subcommand example");
-    assert!(content.contains("demo config set debug true"), "Should contain nested subcommand example");
+    assert!(
+        content.contains("demo config set timeout 30"),
+        "Should contain nested subcommand example"
+    );
+    assert!(
+        content.contains("demo config set debug true"),
+        "Should contain nested subcommand example"
+    );
 
     // Clean up
     std::fs::remove_file(&out_file).unwrap();
