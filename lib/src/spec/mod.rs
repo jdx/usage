@@ -244,6 +244,7 @@ fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
 
 fn extract_usage_from_comments(full: &str) -> String {
     let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$");
+    let blank_comment_regex = xx::regex!(r"^(?:#|//|::)\s*$");
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
@@ -252,7 +253,11 @@ fn extract_usage_from_comments(full: &str) -> String {
             let content = captures.get(1).map_or("", |m| m.as_str());
             usage.push(content.trim());
         } else if found {
-            // if there is a gap, stop reading
+            // Allow blank comment lines to continue parsing
+            if blank_comment_regex.is_match(line) {
+                continue;
+            }
+            // if there is a non-blank non-USAGE line, stop reading
             break;
         }
     }
