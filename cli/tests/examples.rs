@@ -106,3 +106,51 @@ fn test_new_usage_syntax_execution() {
         .stdout(contains("bar: test123"))
         .stdout(contains("baz: myvalue"));
 }
+
+/// Test that blank comment lines in USAGE blocks don't stop parsing
+#[test]
+fn test_blank_comment_lines_in_usage() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args(["bash", "../examples/test-blank-comment-lines.sh", "--help"]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("Usage: test-blank-lines"))
+        .stdout(contains("workspace"))
+        .stdout(contains("Workspace name"))
+        .stdout(contains("-r --region <region>"))
+        .stdout(contains("AWS region"))
+        .stdout(contains("-t --tail"))
+        .stdout(contains("Follow logs in real-time"));
+}
+
+/// Test that blank comment lines don't prevent flag parsing
+#[test]
+fn test_blank_comment_lines_execution() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "bash",
+        "../examples/test-blank-comment-lines.sh",
+        "my-workspace",
+        "--tail",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("workspace: my-workspace"))
+        .stdout(contains("region: us-west-2"))
+        .stdout(contains("tail: true"));
+}
+
+/// Test defaults work with blank comment lines
+#[test]
+fn test_blank_comment_lines_defaults() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args(["bash", "../examples/test-blank-comment-lines.sh"]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("workspace: default-ws"))
+        .stdout(contains("region: us-west-2"))
+        .stdout(contains("tail: \n"));
+}
