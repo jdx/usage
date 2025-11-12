@@ -119,3 +119,68 @@ fn test_manpage_alias() {
 
     cmd.assert().success();
 }
+
+#[test]
+fn test_generate_manpage_with_examples() {
+    let mut cmd = usage_cmd();
+    cmd.args([
+        "generate",
+        "manpage",
+        "-f",
+        &example_path("with-examples.usage.kdl"),
+    ]);
+
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+
+    // Verify EXAMPLES sections are present for subcommands
+    assert!(
+        stdout.contains("\\fBExamples:\\fR"),
+        "Should contain Examples section"
+    );
+
+    // Verify example headers (bold text)
+    assert!(
+        stdout.contains("\\fBBasic deployment\\fR"),
+        "Should contain example header"
+    );
+    assert!(
+        stdout.contains("\\fBForce deployment\\fR"),
+        "Should contain example header"
+    );
+
+    // Verify example help text
+    assert!(
+        stdout.contains("Deploy to production environment"),
+        "Should contain example help"
+    );
+    assert!(
+        stdout.contains("Force deploy to staging, skipping checks"),
+        "Should contain example help"
+    );
+
+    // Verify example code is indented (.RS 4)
+    assert!(
+        stdout.contains(".RS 4\ndemo deploy \\-e prod"),
+        "Should contain indented example code"
+    );
+    assert!(
+        stdout.contains(".RS 4\ndemo deploy \\-e staging \\-\\-force"),
+        "Should contain indented example code"
+    );
+
+    // Verify nested subcommand examples
+    assert!(
+        stdout.contains("demo config set timeout 30"),
+        "Should contain nested subcommand example"
+    );
+    assert!(
+        stdout.contains("demo config set debug true"),
+        "Should contain nested subcommand example"
+    );
+
+    // Use insta snapshot for full output
+    insta::assert_snapshot!(stdout);
+}

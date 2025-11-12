@@ -64,6 +64,26 @@
 {%- endfor %}
 {%- endif %}
 
+{%- if cmd.examples %}
+
+{{ "#" | repeat(count=header_level) }}# Examples
+
+{%- for example in cmd.examples %}
+{%- if example.header %}
+
+**{{ example.header }}**
+{%- endif %}
+{%- if example.help %}
+
+{{ example.help }}
+{%- endif %}
+
+```{{ example.lang }}
+{{ example.code }}
+```
+{%- endfor %}
+{%- endif %}
+
 {%- if multi %}
 {%- for name, cmd in cmd.subcommands %}
 {%- if not cmd.hide or cmd.hide == false %}
