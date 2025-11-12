@@ -1,10 +1,25 @@
 # Changelog
 
+## [2.8.0](https://github.com/jdx/usage/compare/v2.7.0..v2.8.0) - 2025-11-12
+
+### 🚀 Features
+
+- add examples section to markdown and manpage generation by [@jdx](https://github.com/jdx) in [#380](https://github.com/jdx/usage/pull/380)
+- add examples support to spec-level by [@jdx](https://github.com/jdx) in [#382](https://github.com/jdx/usage/pull/382)
+
+### 🐛 Bug Fixes
+
+- allow blank comment lines in #USAGE blocks by [@jdx](https://github.com/jdx) in [#381](https://github.com/jdx/usage/pull/381)
+
 ## [2.7.0](https://github.com/jdx/usage/compare/v2.6.0..v2.7.0) - 2025-11-11
 
 ### 🚀 Features
 
 - support bracketed header syntax by [@okuuva](https://github.com/okuuva) in [#377](https://github.com/jdx/usage/pull/377)
+
+### 📚 Documentation
+
+- Fix VitePress build error in markdown documentation by [@jdx](https://github.com/jdx) in [#378](https://github.com/jdx/usage/pull/378)
 
 ### 🔍 Other Changes
 
