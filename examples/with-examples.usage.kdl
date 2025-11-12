@@ -1,0 +1,23 @@
+name "demo"
+bin "demo"
+about "A demo CLI with examples"
+
+cmd "deploy" help="Deploy your application" {
+    flag "-e --environment <env>" help="Target environment" {
+        choices "dev" "staging" "prod"
+    }
+    flag "-f --force" help="Force deployment"
+
+    example "demo deploy -e prod" header="Basic deployment" help="Deploy to production environment"
+    example "demo deploy -e staging --force" header="Force deployment" help="Force deploy to staging, skipping checks"
+}
+
+cmd "config" help="Manage configuration" {
+    cmd "set" help="Set a configuration value" {
+        arg "<key>" help="Configuration key"
+        arg "<value>" help="Configuration value"
+
+        example "demo config set timeout 30" help="Set the timeout to 30 seconds"
+        example "demo config set debug true" help="Enable debug mode"
+    }
+}

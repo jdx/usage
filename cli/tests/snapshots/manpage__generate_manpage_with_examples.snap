@@ -1,0 +1,78 @@
+---
+source: cli/tests/manpage.rs
+expression: stdout
+---
+.TH DEMO 1
+.SH NAME
+demo \- A demo CLI with examples
+.SH SYNOPSIS
+\fBdemo\fR [COMMAND]
+.SH DESCRIPTION
+A demo CLI with examples
+.PP
+.SH COMMANDS
+.TP
+\fBdeploy\fR
+Deploy your application
+.TP
+\fBconfig\fR
+Manage configuration
+.TP
+\fBconfig set\fR
+Set a configuration value
+.SH "DEMO DEPLOY"
+Deploy your application
+.PP
+\fBUsage:\fR demo deploy [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-e, \-\-environment\fR \fI<env>\fR
+Target environment
+.TP
+\fB\-f, \-\-force\fR
+Force deployment
+\fBExamples:\fR
+.PP
+\fBBasic deployment\fR
+Deploy to production environment
+.PP
+.RS 4
+demo deploy \-e prod
+.RE
+.PP
+\fBForce deployment\fR
+Force deploy to staging, skipping checks
+.PP
+.RS 4
+demo deploy \-e staging \-\-force
+.RE
+.PP
+.SH "DEMO CONFIG SET"
+Set a configuration value
+.PP
+\fBUsage:\fR demo config set <key> <value>
+.PP
+\fBArguments:\fR
+.PP
+.TP
+\fB<key>\fR
+Configuration key
+.TP
+\fB<value>\fR
+Configuration value
+\fBExamples:\fR
+.PP
+Set the timeout to 30 seconds
+.PP
+.RS 4
+demo config set timeout 30
+.RE
+.PP
+Enable debug mode
+.PP
+.RS 4
+demo config set debug true
+.RE
+.PP

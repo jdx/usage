@@ -286,14 +286,15 @@ impl ManpageRenderer {
                 format!("{} {}", prefix, name)
             };
 
-            // Only render detailed section if the subcommand has flags or args with help
+            // Only render detailed section if the subcommand has flags, args with help, or examples
             let has_flags = !subcmd.flags.is_empty();
             let has_documented_args = subcmd
                 .args
                 .iter()
                 .any(|a| a.help.is_some() || a.help_long.is_some());
+            let has_examples = !subcmd.examples.is_empty();
 
-            if has_flags || has_documented_args {
+            if has_flags || has_documented_args || has_examples {
                 // Section header for this subcommand
                 roff.control("SH", [full_name.to_uppercase().as_str()]);
 
@@ -329,6 +330,25 @@ impl ManpageRenderer {
                     roff.control("PP", [] as [&str; 0]);
                     for arg in &subcmd.args {
                         self.render_arg(roff, arg);
+                    }
+                }
+
+                // Render examples if any
+                if has_examples {
+                    roff.text([bold("Examples:")]);
+                    roff.control("PP", [] as [&str; 0]);
+                    for example in &subcmd.examples {
+                        if let Some(header) = &example.header {
+                            roff.text([bold(header)]);
+                        }
+                        if let Some(help) = &example.help {
+                            roff.text([roman(help.as_str())]);
+                        }
+                        roff.control("PP", [] as [&str; 0]);
+                        roff.control("RS", ["4"]);
+                        roff.text([roman(example.code.as_str())]);
+                        roff.control("RE", [] as [&str; 0]);
+                        roff.control("PP", [] as [&str; 0]);
                     }
                 }
             }
