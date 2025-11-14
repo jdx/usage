@@ -226,6 +226,20 @@ multi_flag:
     args=r#"--vars a --vars "b c""#,
     expected=r#"{"usage_vars": "a 'b c'"}"#,
 
+ count_flag_short:
+    spec=r#"
+    flag "-v --verbose" count=#true
+    "#,
+    args="-vvv",
+    expected=r#"{"usage_verbose": "3"}"#,
+
+ count_flag_mixed:
+    spec=r#"
+    flag "-v --verbose" count=#true
+    "#,
+    args="-v --verbose",
+    expected=r#"{"usage_verbose": "2"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true

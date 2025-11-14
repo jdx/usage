@@ -225,7 +225,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             if let Some(f) = out.available_flags.get(word) {
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(f.clone());
-                } else if f.var {
+                } else if f.count {
                     let arr = out
                         .flags
                         .entry(f.clone())
@@ -256,7 +256,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 }
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(f.clone());
-                } else if f.var {
+                } else if f.count {
                     let arr = out
                         .flags
                         .entry(f.clone())
