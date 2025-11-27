@@ -81,10 +81,15 @@ impl MarkdownRenderer {
             "escape_md",
             move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
                 let value = value.as_str().unwrap();
+                let mut in_code_block = false;
                 let value = value
                     .lines()
                     .map(|line| {
-                        if !html_encode || line.starts_with("    ") {
+                        if !html_encode || line.starts_with("    ") || in_code_block {
+                            return line.to_string();
+                        }
+                        if line.trim_start().starts_with("```") {
+                            in_code_block = !in_code_block;
                             return line.to_string();
                         }
                         // replace '<' with '&lt;' but not inside code blocks
