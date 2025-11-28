@@ -370,7 +370,7 @@ fn escape_md(value: &str) -> String {
         }
     }
 
-    if !value.ends_with('\n') && !output.is_empty() {
+    if !output.is_empty() {
         output.pop();
     }
     output
@@ -537,7 +537,7 @@ mod tests {
                 "    chunk1 <\n      \n      chunk2 <",
             ),
             // 113
-            ("Foo <\n    bar <\n", "Foo &lt;\n    bar &lt;\n"),
+            ("Foo <\n    bar <", "Foo &lt;\n    bar &lt;"),
             // 114
             ("    foo <\nbar <", "    foo <\nbar &lt;"),
             // 115
@@ -548,7 +548,7 @@ mod tests {
             // 116
             ("        foo <\n    bar <", "        foo <\n    bar <"),
             // 117
-            ("\n    \n    foo <\n    \n", "\n    \n    foo <\n    \n"),
+            ("\n    \n    foo <\n    ", "\n    \n    foo <\n    "),
             // 118
             ("    foo <  ", "    foo <  "),
         ];
