@@ -157,15 +157,13 @@ impl MarkdownRenderer {
 }
 
 fn escape_md(value: &str) -> String {
-    let mut segments = Vec::new();
+    let mut segments = vec![];
     let mut current_segment = String::new();
     let mut is_current_block = false;
 
-    let mut in_fence = false;
-    let mut fence_char = ' ';
-    let mut fence_len = 0;
-    let mut fence_quote_level = 0;
-    let mut list_stack: Vec<(usize, usize)> = Vec::new(); // (quote_level, content_indent)
+    // (fence_char, fence_len, fence_quote_level)
+    let mut current_fence: Option<(char, usize, usize)> = None;
+    let mut list_stack: Vec<(usize, usize)> = vec![]; // (quote_level, content_indent)
     let list_re = xx::regex!(r"^([-*+]|\d{1,9}[.)])(\s+|$)");
     let ordered_list_start_1_re = xx::regex!(r"^1[.)](\s+|$)");
 
@@ -174,11 +172,11 @@ fn escape_md(value: &str) -> String {
 
     for line in value.lines() {
         // Handle Fenced Code Blocks
-        if in_fence {
+        if let Some((fence_char, fence_len, fence_quote_level)) = current_fence {
             let (content, level) = strip_quotes_lim(line, fence_quote_level);
             if level < fence_quote_level {
                 // Fence implicitly closed by end of block quote
-                in_fence = false;
+                current_fence = None;
             } else {
                 // Check for fence end
                 let indent = content.chars().take_while(|c| *c == ' ').count();
@@ -186,7 +184,7 @@ fn escape_md(value: &str) -> String {
                 if indent < 4 && trimmed.starts_with(fence_char) {
                     let count = trimmed.chars().take_while(|c| *c == fence_char).count();
                     if count >= fence_len && trimmed[count..].trim().is_empty() {
-                        in_fence = false;
+                        current_fence = None;
                         if !is_current_block && !current_segment.is_empty() {
                             segments.push((false, std::mem::take(&mut current_segment)));
                         }
@@ -224,10 +222,7 @@ fn escape_md(value: &str) -> String {
                     if count >= 3 {
                         let info_string = &trimmed[count..];
                         if !(first_char == '`' && info_string.contains('`')) {
-                            in_fence = true;
-                            fence_char = first_char;
-                            fence_len = count;
-                            fence_quote_level = level;
+                            current_fence = Some((first_char, count, level));
 
                             if !is_current_block && !current_segment.is_empty() {
                                 segments.push((false, std::mem::take(&mut current_segment)));
