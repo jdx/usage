@@ -119,10 +119,7 @@ impl SpecFlag {
                     } else {
                         // Multiple values from children: default { "xyz"; "bar" }
                         // In KDL, these are child nodes where the string is the node name
-                        flag.default = children
-                            .iter()
-                            .map(|c| c.name().to_string())
-                            .collect();
+                        flag.default = children.iter().map(|c| c.name().to_string()).collect();
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
@@ -230,7 +227,9 @@ impl From<&SpecFlag> for KdlNode {
                     .children_mut()
                     .get_or_insert_with(KdlDocument::new);
                 for val in &flag.default {
-                    default_children.nodes_mut().push(KdlNode::new(val.as_str()));
+                    default_children
+                        .nodes_mut()
+                        .push(KdlNode::new(val.as_str()));
                 }
                 children.nodes_mut().push(default_node);
             }

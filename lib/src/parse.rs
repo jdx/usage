@@ -414,7 +414,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         if out.flags.contains_key(flag) {
             continue;
         }
-        let has_default = !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
+        let has_default =
+            !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
         let has_env = flag
             .env
             .as_ref()

@@ -89,10 +89,7 @@ impl SpecArg {
                     } else {
                         // Multiple values from children: default { "xyz"; "bar" }
                         // In KDL, these are child nodes where the string is the node name
-                        arg.default = children
-                            .iter()
-                            .map(|c| c.name().to_string())
-                            .collect();
+                        arg.default = children.iter().map(|c| c.name().to_string()).collect();
                     }
                 }
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
@@ -172,7 +169,9 @@ impl From<&SpecArg> for KdlNode {
                     .children_mut()
                     .get_or_insert_with(KdlDocument::new);
                 for val in &arg.default {
-                    default_children.nodes_mut().push(KdlNode::new(val.as_str()));
+                    default_children
+                        .nodes_mut()
+                        .push(KdlNode::new(val.as_str()));
                 }
                 children.nodes_mut().push(default_node);
             }
