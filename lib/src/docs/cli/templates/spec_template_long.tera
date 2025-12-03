@@ -43,7 +43,7 @@ Arguments:
     [env: {{ arg.env }}]
 {%- endif %}
 {%- if arg.default %}
-    (default: {{ arg.default }})
+    (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
 {%- endif %}

@@ -1,0 +1,13 @@
+{"run_id":"1764795988-706812379","line":92,"new":{"module_name":"usage__docs__cli__tests","snapshot_name":"render_help_with_arg_env","metadata":{"source":"lib/src/docs/cli/mod.rs","assertion_line":92,"expression":"render_help(&spec, &spec.cmd, false)"},"snapshot":"Usage: testcli <ARGS>…\n\nArguments:\n  <input>  Input file [env: MY_INPUT]\n  <output>  Output file [env: MY_OUTPUT]\n  <extra>  Extra arg without env\n  [default]  Arg with default value (default: [default value])"},"old":{"module_name":"usage__docs__cli__tests","metadata":{},"snapshot":"Usage: testcli <ARGS>…\n\nArguments:\n  <input>  Input file [env: MY_INPUT]\n  <output>  Output file [env: MY_OUTPUT]\n  <extra>  Extra arg without env\n  [default]  Arg with default value (default: default value)"}}
+{"run_id":"1764796038-39794559","line":92,"new":null,"old":null}
+{"run_id":"1764796038-39794559","line":60,"new":null,"old":null}
+{"run_id":"1764796038-39794559","line":102,"new":null,"old":null}
+{"run_id":"1764796038-39794559","line":69,"new":null,"old":null}
+{"run_id":"1764796049-97078857","line":60,"new":null,"old":null}
+{"run_id":"1764796049-97078857","line":92,"new":null,"old":null}
+{"run_id":"1764796049-97078857","line":69,"new":null,"old":null}
+{"run_id":"1764796049-97078857","line":102,"new":null,"old":null}
+{"run_id":"1764796061-428060567","line":92,"new":null,"old":null}
+{"run_id":"1764796061-428060567","line":60,"new":null,"old":null}
+{"run_id":"1764796061-428060567","line":69,"new":null,"old":null}
+{"run_id":"1764796061-428060567","line":102,"new":null,"old":null}

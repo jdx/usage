@@ -38,8 +38,8 @@ pub struct SpecFlag {
     pub count: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arg: Option<SpecArg>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub default: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,17 +69,18 @@ impl SpecFlag {
                 "count" => flag.count = v.ensure_bool()?,
                 "default" => {
                     // Support both string and boolean defaults
-                    flag.default = match v.value.as_bool() {
-                        Some(b) => Some(b.to_string()),
-                        None => v.ensure_string().map(Some)?,
-                    }
+                    let default_value = match v.value.as_bool() {
+                        Some(b) => b.to_string(),
+                        None => v.ensure_string()?,
+                    };
+                    flag.default = vec![default_value];
                 }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
                 "env" => flag.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
         }
-        if flag.default.is_some() {
+        if !flag.default.is_empty() {
             flag.required = false;
         }
         for child in node.children() {
@@ -102,11 +103,26 @@ impl SpecFlag {
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "default" => {
-                    // Support both string and boolean defaults
-                    let arg = child.arg(0)?;
-                    flag.default = match arg.value.as_bool() {
-                        Some(b) => Some(b.to_string()),
-                        None => arg.ensure_string().map(Some)?,
+                    // Support both single value and multiple values
+                    // default "bar"            -> vec!["bar"]
+                    // default #true            -> vec!["true"]
+                    // default { "xyz"; "bar" } -> vec!["xyz", "bar"]
+                    let children = child.children();
+                    if children.is_empty() {
+                        // Single value: default "bar" or default #true
+                        let arg = child.arg(0)?;
+                        let default_value = match arg.value.as_bool() {
+                            Some(b) => b.to_string(),
+                            None => arg.ensure_string()?,
+                        };
+                        flag.default = vec![default_value];
+                    } else {
+                        // Multiple values from children: default { "xyz"; "bar" }
+                        // In KDL, these are child nodes where the string is the node name
+                        flag.default = children
+                            .iter()
+                            .map(|c| c.name().to_string())
+                            .collect();
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
@@ -201,6 +217,24 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(deprecated) = &flag.deprecated {
             node.push(KdlEntry::new_prop("deprecated", deprecated.clone()));
         }
+        // Serialize default values
+        if !flag.default.is_empty() {
+            if flag.default.len() == 1 {
+                // Single value: use property default="bar"
+                node.push(KdlEntry::new_prop("default", flag.default[0].clone()));
+            } else {
+                // Multiple values: use child node default { "xyz"; "bar" }
+                let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+                let mut default_node = KdlNode::new("default");
+                let default_children = default_node
+                    .children_mut()
+                    .get_or_insert_with(KdlDocument::new);
+                for val in &flag.default {
+                    default_children.nodes_mut().push(KdlNode::new(val.as_str()));
+                }
+                children.nodes_mut().push(default_node);
+            }
+        }
         if let Some(arg) = &flag.arg {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(arg.into());
@@ -266,10 +300,11 @@ impl From<&clap::Arg> for SpecFlag {
             c.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         );
-        let default = c
+        let default: Vec<String> = c
             .get_default_values()
-            .first()
-            .map(|s| s.to_string_lossy().to_string());
+            .iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
         let short = c.get_short_and_visible_aliases().unwrap_or_default();
         let long = c
             .get_long_and_visible_aliases()
@@ -476,16 +511,16 @@ flag "--quiet" default="false"
         .unwrap();
 
         let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
-        assert_eq!(color_flag.default, Some("true".to_string()));
+        assert_eq!(color_flag.default, vec!["true".to_string()]);
 
         let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
-        assert_eq!(verbose_flag.default, Some("false".to_string()));
+        assert_eq!(verbose_flag.default, vec!["false".to_string()]);
 
         let debug_flag = spec.cmd.flags.iter().find(|f| f.name == "debug").unwrap();
-        assert_eq!(debug_flag.default, Some("true".to_string()));
+        assert_eq!(debug_flag.default, vec!["true".to_string()]);
 
         let quiet_flag = spec.cmd.flags.iter().find(|f| f.name == "quiet").unwrap();
-        assert_eq!(quiet_flag.default, Some("false".to_string()));
+        assert_eq!(quiet_flag.default, vec!["false".to_string()]);
     }
 
     #[test]
@@ -504,9 +539,97 @@ flag "--verbose" {
         .unwrap();
 
         let color_flag = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
-        assert_eq!(color_flag.default, Some("true".to_string()));
+        assert_eq!(color_flag.default, vec!["true".to_string()]);
 
         let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
-        assert_eq!(verbose_flag.default, Some("false".to_string()));
+        assert_eq!(verbose_flag.default, vec!["false".to_string()]);
+    }
+
+    #[test]
+    fn test_flag_with_single_default() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--foo <foo>" var=#true default="bar"
+            "#,
+        )
+        .unwrap();
+
+        let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
+        assert_eq!(flag.var, true);
+        assert_eq!(flag.default, vec!["bar".to_string()]);
+    }
+
+    #[test]
+    fn test_flag_with_multiple_defaults_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--foo <foo>" var=#true {
+    default {
+        "xyz"
+        "bar"
+    }
+}
+            "#,
+        )
+        .unwrap();
+
+        let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
+        assert_eq!(flag.var, true);
+        assert_eq!(flag.default, vec!["xyz".to_string(), "bar".to_string()]);
+    }
+
+    #[test]
+    fn test_flag_with_single_default_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--foo <foo>" var=#true {
+    default "bar"
+}
+            "#,
+        )
+        .unwrap();
+
+        let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
+        assert_eq!(flag.var, true);
+        assert_eq!(flag.default, vec!["bar".to_string()]);
+    }
+
+    #[test]
+    fn test_flag_default_serialization_single() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--foo <foo>" default="bar"
+            "#,
+        )
+        .unwrap();
+
+        // When serialized, single default should use property format
+        let output = spec.to_string();
+        assert!(output.contains("default=bar") || output.contains(r#"default="bar""#));
+    }
+
+    #[test]
+    fn test_flag_default_serialization_multiple() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--foo <foo>" var=#true {
+    default {
+        "xyz"
+        "bar"
+    }
+}
+            "#,
+        )
+        .unwrap();
+
+        // When serialized, multiple defaults should use child node format
+        let output = spec.to_string();
+        // The output should contain a default block with children
+        assert!(output.contains("default {"));
     }
 }

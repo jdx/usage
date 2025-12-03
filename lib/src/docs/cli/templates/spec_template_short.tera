@@ -22,7 +22,7 @@ Arguments:
 {%- if arg.help %}  {{ arg.help }}{%- endif %}
 {%- if arg.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if arg.env %} [env: {{ arg.env }}]{%- endif %}
-{%- if arg.default %} (default: {{ arg.default }}){%- endif %}
+{%- if arg.default %} (default: {{ arg.default | join(sep=", ") }}){%- endif %}
 {%- endfor %}
 {%- endif %}
 

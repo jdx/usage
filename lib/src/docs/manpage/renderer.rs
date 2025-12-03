@@ -246,9 +246,10 @@ impl ManpageRenderer {
         }
 
         // Default value
-        if let Some(default) = &flag.default {
+        if !flag.default.is_empty() {
             roff.control("RS", [] as [&str; 0]);
-            roff.text([italic("Default: "), roman(default.as_str())]);
+            let default_str = flag.default.join(", ");
+            roff.text([italic("Default: "), roman(default_str.as_str())]);
             roff.control("RE", [] as [&str; 0]);
         }
 
@@ -272,9 +273,10 @@ impl ManpageRenderer {
             roff.text([roman(help.as_str())]);
         }
 
-        if let Some(default) = &arg.default {
+        if !arg.default.is_empty() {
             roff.control("RS", [] as [&str; 0]);
-            roff.text([italic("Default: "), roman(default.as_str())]);
+            let default_str = arg.default.join(", ");
+            roff.text([italic("Default: "), roman(default_str.as_str())]);
             roff.control("RE", [] as [&str; 0]);
         }
     }

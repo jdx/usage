@@ -1,5 +1,6 @@
 ---
 source: lib/src/complete/zsh.rs
+assertion_line: 137
 expression: "complete_zsh(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"zsh\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false, source_file: None,\n})"
 ---
 #compdef mycli
@@ -27,7 +28,7 @@ flag --flag2 help="flag2 description" {
     long_help "flag2 long description\n\nincludes a code block:\n\n    $ echo hello world\n    hello world\n\n    more code\n\nExamples:\n\n    # run with no arguments to use the interactive selector\n    $ mise use\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n\nsome docs\n\n    $ echo hello world\n    hello world"
 }
 flag --flag3 help="flag3 description" negate=--no-flag3
-flag --with-default
+flag --with-default default="default value"
 flag --shell {
     arg <shell> {
         choices bash zsh fish
