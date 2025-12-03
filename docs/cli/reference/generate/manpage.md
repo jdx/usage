@@ -21,3 +21,5 @@ Output file path (defaults to stdout)
 Manual section number (default: 1)
 
 Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
+
+**Default:** `1`

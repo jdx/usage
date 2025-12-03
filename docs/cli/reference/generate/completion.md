@@ -46,6 +46,8 @@ Override the bin used for calling back to usage-cli
 
 You may need to set this if you have a different bin named "usage"
 
+**Default:** `usage`
+
 ### `--usage-cmd <USAGE_CMD>`
 
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"

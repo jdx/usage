@@ -37,3 +37,5 @@ Current word index
 - `bash`
 - `fish`
 - `zsh`
+
+**Default:** `bash`

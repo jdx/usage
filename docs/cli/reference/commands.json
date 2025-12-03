@@ -143,7 +143,8 @@
               "choices": {
                 "choices": ["bash", "fish", "zsh"]
               }
-            }
+            },
+            "default": ["bash"]
           }
         ],
         "mounts": [],
@@ -344,7 +345,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "default": ["usage"]
               },
               {
                 "name": "usage-cmd",
@@ -544,7 +546,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "default": ["1"]
               }
             ],
             "mounts": [],
