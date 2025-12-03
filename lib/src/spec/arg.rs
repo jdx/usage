@@ -1,5 +1,3 @@
-#[cfg(feature = "clap")]
-use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 use std::fmt::Display;
@@ -45,8 +43,8 @@ pub struct SpecArg {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
     pub hide: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub default: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,18 +66,32 @@ impl SpecArg {
                 "hide" => arg.hide = v.ensure_bool()?,
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
-                "default" => arg.default = v.ensure_string().map(Some)?,
+                "default" => arg.default = vec![v.ensure_string()?],
                 "env" => arg.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
         }
-        if arg.default.is_some() {
+        if !arg.default.is_empty() {
             arg.required = false;
         }
         for child in node.children() {
             match child.name() {
                 "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),
                 "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
+                "default" => {
+                    // Support both single value and multiple values
+                    // default "bar"            -> vec!["bar"]
+                    // default { "xyz"; "bar" } -> vec!["xyz", "bar"]
+                    let children = child.children();
+                    if children.is_empty() {
+                        // Single value: default "bar"
+                        arg.default = vec![child.arg(0)?.ensure_string()?];
+                    } else {
+                        // Multiple values from children: default { "xyz"; "bar" }
+                        // In KDL, these are child nodes where the string is the node name
+                        arg.default = children.iter().map(|c| c.name().to_string()).collect();
+                    }
+                }
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
@@ -144,8 +156,25 @@ impl From<&SpecArg> for KdlNode {
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
         }
-        if let Some(default) = &arg.default {
-            node.push(KdlEntry::new_prop("default", default.clone()));
+        // Serialize default values
+        if !arg.default.is_empty() {
+            if arg.default.len() == 1 {
+                // Single value: use property default="bar"
+                node.push(KdlEntry::new_prop("default", arg.default[0].clone()));
+            } else {
+                // Multiple values: use child node default { "xyz"; "bar" }
+                let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+                let mut default_node = KdlNode::new("default");
+                let default_children = default_node
+                    .children_mut()
+                    .get_or_insert_with(KdlDocument::new);
+                for val in &arg.default {
+                    default_children
+                        .nodes_mut()
+                        .push(KdlNode::new(val.as_str()));
+                }
+                children.nodes_mut().push(default_node);
+            }
         }
         if let Some(env) = &arg.env {
             node.push(KdlEntry::new_prop("env", env.clone()));
@@ -241,16 +270,11 @@ impl From<&clap::Arg> for SpecArg {
             var_max: None,
             var_min: None,
             hide,
-            default: if arg.get_default_values().is_empty() {
-                None
-            } else {
-                Some(
-                    arg.get_default_values()
-                        .iter()
-                        .map(|v| v.to_string_lossy().to_string())
-                        .join("|"),
-                )
-            },
+            default: arg
+                .get_default_values()
+                .iter()
+                .map(|v| v.to_string_lossy().to_string())
+                .collect(),
             choices: None,
             env: None,
         };

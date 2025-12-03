@@ -56,9 +56,17 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                 continue;
             }
         }
-        if let Some(default) = arg.default.as_ref() {
-            out.args
-                .insert(arg.clone(), ParseValue::String(default.clone()));
+        if !arg.default.is_empty() {
+            // Consider var when deciding the type of default return value
+            if arg.var {
+                // For var=true, always return a vec (MultiString)
+                out.args
+                    .insert(arg.clone(), ParseValue::MultiString(arg.default.clone()));
+            } else {
+                // For var=false, return the first default value as String
+                out.args
+                    .insert(arg.clone(), ParseValue::String(arg.default[0].clone()));
+            }
         }
     }
 
@@ -80,13 +88,47 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                 continue;
             }
         }
-        if let Some(default) = flag.default.as_ref() {
-            out.flags
-                .insert(flag.clone(), ParseValue::String(default.clone()));
+        // Apply flag default
+        if !flag.default.is_empty() {
+            // Consider var when deciding the type of default return value
+            if flag.var {
+                // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
+                if flag.arg.is_some() {
+                    out.flags
+                        .insert(flag.clone(), ParseValue::MultiString(flag.default.clone()));
+                } else {
+                    // For boolean flags with var=true, convert default strings to bools
+                    let bools: Vec<bool> = flag
+                        .default
+                        .iter()
+                        .map(|s| matches!(s.as_str(), "1" | "true" | "True" | "TRUE"))
+                        .collect();
+                    out.flags.insert(flag.clone(), ParseValue::MultiBool(bools));
+                }
+            } else {
+                // For var=false, return the first default value
+                if flag.arg.is_some() {
+                    out.flags
+                        .insert(flag.clone(), ParseValue::String(flag.default[0].clone()));
+                } else {
+                    // For boolean flags, convert default string to bool
+                    let is_true =
+                        matches!(flag.default[0].as_str(), "1" | "true" | "True" | "TRUE");
+                    out.flags.insert(flag.clone(), ParseValue::Bool(is_true));
+                }
+            }
         }
-        if let Some(Some(default)) = flag.arg.as_ref().map(|a| &a.default) {
-            out.flags
-                .insert(flag.clone(), ParseValue::String(default.clone()));
+        // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
+        if let Some(arg) = flag.arg.as_ref() {
+            if !out.flags.contains_key(flag) && !arg.default.is_empty() {
+                if flag.var {
+                    out.flags
+                        .insert(flag.clone(), ParseValue::MultiString(arg.default.clone()));
+                } else {
+                    out.flags
+                        .insert(flag.clone(), ParseValue::String(arg.default[0].clone()));
+                }
+            }
         }
     }
     if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
@@ -355,7 +397,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     }
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
-        if arg.required && arg.default.is_none() {
+        if arg.required && arg.default.is_empty() {
             // Check if there's an env var available
             let has_env = arg
                 .env
@@ -372,7 +414,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         if out.flags.contains_key(flag) {
             continue;
         }
-        let has_default = flag.default.is_some() || flag.arg.iter().any(|a| a.default.is_some());
+        let has_default =
+            !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
         let has_env = flag
             .env
             .as_ref()
@@ -675,5 +718,229 @@ mod tests {
 
         // Clean up
         std::env::remove_var("TEST_PRECEDENCE_INPUT");
+    }
+
+    #[test]
+    fn test_flag_var_true_with_single_default() {
+        // When var=true and default="bar", the default should be MultiString(["bar"])
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.flags = vec![SpecFlag {
+            name: "foo".to_string(),
+            long: vec!["foo".to_string()],
+            var: true,
+            arg: Some(SpecArg {
+                name: "foo".to_string(),
+                ..Default::default()
+            }),
+            default: vec!["bar".to_string()],
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the flag
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let flag = parsed.flags.keys().next().unwrap();
+        assert_eq!(flag.name, "foo");
+        let value = parsed.flags.values().next().unwrap();
+        // Should be MultiString, not String
+        match value {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v.len(), 1);
+                assert_eq!(v[0], "bar");
+            }
+            _ => panic!("Expected MultiString, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_flag_var_true_with_multiple_defaults() {
+        // When var=true and multiple defaults, should return MultiString(["xyz", "bar"])
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.flags = vec![SpecFlag {
+            name: "foo".to_string(),
+            long: vec!["foo".to_string()],
+            var: true,
+            arg: Some(SpecArg {
+                name: "foo".to_string(),
+                ..Default::default()
+            }),
+            default: vec!["xyz".to_string(), "bar".to_string()],
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the flag
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let value = parsed.flags.values().next().unwrap();
+        // Should be MultiString with both values
+        match value {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v.len(), 2);
+                assert_eq!(v[0], "xyz");
+                assert_eq!(v[1], "bar");
+            }
+            _ => panic!("Expected MultiString, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_flag_var_false_with_default_remains_string() {
+        // When var=false (default), the default should still be String("bar")
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.flags = vec![SpecFlag {
+            name: "foo".to_string(),
+            long: vec!["foo".to_string()],
+            var: false, // Default behavior
+            arg: Some(SpecArg {
+                name: "foo".to_string(),
+                ..Default::default()
+            }),
+            default: vec!["bar".to_string()],
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the flag
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let value = parsed.flags.values().next().unwrap();
+        // Should be String, not MultiString
+        match value {
+            ParseValue::String(s) => {
+                assert_eq!(s, "bar");
+            }
+            _ => panic!("Expected String, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_arg_var_true_with_single_default() {
+        // When arg has var=true and default="bar", the default should be MultiString(["bar"])
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "files".to_string(),
+            var: true,
+            default: vec!["default.txt".to_string()],
+            required: false,
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the arg
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        // Should be MultiString, not String
+        match value {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v.len(), 1);
+                assert_eq!(v[0], "default.txt");
+            }
+            _ => panic!("Expected MultiString, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_arg_var_true_with_multiple_defaults() {
+        // When arg has var=true and multiple defaults
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "files".to_string(),
+            var: true,
+            default: vec!["file1.txt".to_string(), "file2.txt".to_string()],
+            required: false,
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the arg
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        // Should be MultiString with both values
+        match value {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v.len(), 2);
+                assert_eq!(v[0], "file1.txt");
+                assert_eq!(v[1], "file2.txt");
+            }
+            _ => panic!("Expected MultiString, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_arg_var_false_with_default_remains_string() {
+        // When arg has var=false (default), the default should still be String
+        let mut cmd = SpecCommand::default();
+        cmd.name = "test".to_string();
+        cmd.args = vec![SpecArg {
+            name: "file".to_string(),
+            var: false,
+            default: vec!["default.txt".to_string()],
+            required: false,
+            ..Default::default()
+        }];
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // User doesn't provide the arg
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        // Should be String, not MultiString
+        match value {
+            ParseValue::String(s) => {
+                assert_eq!(s, "default.txt");
+            }
+            _ => panic!("Expected String, got {:?}", value),
+        }
     }
 }

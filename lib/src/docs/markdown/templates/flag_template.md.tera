@@ -9,9 +9,9 @@
 - `{{ choice }}`
 {%- endfor %}
 {%- endif %}
-{%- if flag.default %}
+{%- if flag.default | length > 0 %}
 
-**Default:** `{{ flag.default }}`
+**Default:** {% for d in flag.default %}`{{ d }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {%- endif %}
 {%- if flag.env %}
 

@@ -25,7 +25,7 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     flag --cword help="Current word index" {
         arg <CWORD>
     }
-    flag --shell {
+    flag --shell default=bash {
         arg <SHELL> {
             choices bash fish zsh
         }
@@ -59,7 +59,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
             long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
-        flag --usage-bin help="Override the bin used for calling back to usage-cli" {
+        flag --usage-bin help="Override the bin used for calling back to usage-cli" default=usage {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
             arg <USAGE_BIN>
         }
@@ -98,7 +98,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag "-o --out-file" help="Output file path (defaults to stdout)" {
             arg <OUT_FILE>
         }
-        flag "-s --section" help="Manual section number (default: 1)" {
+        flag "-s --section" help="Manual section number (default: 1)" default="1" {
             long_help "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands"
             arg <SECTION>
         }

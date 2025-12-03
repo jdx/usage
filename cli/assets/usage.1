@@ -102,6 +102,9 @@ Raw string spec input
 Current word index
 .TP
 \fB\-\-shell\fR \fI<SHELL>\fR
+.RS
+\fIDefault: \fRbash
+.RE
 \fBArguments:\fR
 .PP
 .TP
@@ -153,6 +156,9 @@ This is required for usage completions to work in bash, but the user may already
 Override the bin used for calling back to usage\-cli
 
 You may need to set this if you have a different bin named "usage"
+.RS
+\fIDefault: \fRusage
+.RE
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
 A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
@@ -209,6 +215,9 @@ Output file path (defaults to stdout)
 Manual section number (default: 1)
 
 Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8: System administration commands
+.RS
+\fIDefault: \fR1
+.RE
 .SH "USAGE GENERATE MARKDOWN"
 Generate markdown documentation from usage specs
 .PP
