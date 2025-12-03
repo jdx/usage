@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.9.0](https://github.com/jdx/usage/compare/v2.8.0..v2.9.0) - 2025-12-03
+
+### 🚀 Features
+
+- Support `Vec<String>` for default values of variadic flags by [@iamkroot](https://github.com/iamkroot) in [#388](https://github.com/jdx/usage/pull/388)
+
+### 🐛 Bug Fixes
+
+- treat count flags as repeatable by [@frederikb](https://github.com/frederikb) in [#383](https://github.com/jdx/usage/pull/383)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#385](https://github.com/jdx/usage/pull/385)
+
+### New Contributors
+
+- @frederikb made their first contribution in [#383](https://github.com/jdx/usage/pull/383)
+
 ## [2.8.0](https://github.com/jdx/usage/compare/v2.7.0..v2.8.0) - 2025-11-12
 
 ### 🚀 Features
