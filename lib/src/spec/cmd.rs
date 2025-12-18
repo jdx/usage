@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 
 use crate::error::UsageErr;
 use crate::sh::sh;
+use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
@@ -122,6 +123,11 @@ impl From<&SpecExample> for KdlNode {
 }
 
 impl SpecCommand {
+    /// Create a new builder for SpecCommand
+    pub fn builder() -> SpecCommandBuilder {
+        SpecCommandBuilder::new()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         node.ensure_arg_len(1..=1)?;
         let mut cmd = Self {

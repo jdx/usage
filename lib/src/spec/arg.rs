@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 
 use crate::error::UsageErr;
+use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
@@ -52,6 +53,11 @@ pub struct SpecArg {
 }
 
 impl SpecArg {
+    /// Create a new builder for SpecArg
+    pub fn builder() -> SpecArgBuilder {
+        SpecArgBuilder::new()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut arg: SpecArg = node.arg(0)?.ensure_string()?.parse()?;
         for (k, v) in node.props() {

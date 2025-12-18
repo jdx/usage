@@ -4,6 +4,7 @@ extern crate log;
 
 pub use crate::parse::parse;
 pub use crate::spec::arg::SpecArg;
+pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 pub use crate::spec::choices::SpecChoices;
 pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
@@ -13,6 +14,8 @@ pub use crate::spec::Spec;
 
 #[macro_use]
 pub mod error;
+#[macro_use]
+pub mod macros;
 pub mod complete;
 pub mod spec;
 pub use error::Result;

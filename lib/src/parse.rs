@@ -426,6 +426,61 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         }
     }
 
+    // Validate var_min/var_max constraints for variadic args
+    for (arg, value) in &out.args {
+        if arg.var {
+            if let ParseValue::MultiString(values) = value {
+                if let Some(min) = arg.var_min {
+                    if values.len() < min {
+                        out.errors.push(UsageErr::VarArgTooFew {
+                            name: arg.name.clone(),
+                            min,
+                            got: values.len(),
+                        });
+                    }
+                }
+                if let Some(max) = arg.var_max {
+                    if values.len() > max {
+                        out.errors.push(UsageErr::VarArgTooMany {
+                            name: arg.name.clone(),
+                            max,
+                            got: values.len(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Validate var_min/var_max constraints for variadic flags
+    for (flag, value) in &out.flags {
+        if flag.var {
+            let count = match value {
+                ParseValue::MultiString(values) => values.len(),
+                ParseValue::MultiBool(values) => values.len(),
+                _ => continue,
+            };
+            if let Some(min) = flag.var_min {
+                if count < min {
+                    out.errors.push(UsageErr::VarFlagTooFew {
+                        name: flag.name.clone(),
+                        min,
+                        got: count,
+                    });
+                }
+            }
+            if let Some(max) = flag.var_max {
+                if count > max {
+                    out.errors.push(UsageErr::VarFlagTooMany {
+                        name: flag.name.clone(),
+                        max,
+                        got: count,
+                    });
+                }
+            }
+        }
+    }
+
     Ok(out)
 }
 
