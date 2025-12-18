@@ -577,7 +577,7 @@ flag "--foo <foo>" var=#true default="bar"
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["bar".to_string()]);
     }
 
@@ -597,7 +597,7 @@ flag "--foo <foo>" var=#true {
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["xyz".to_string(), "bar".to_string()]);
     }
 
@@ -614,7 +614,7 @@ flag "--foo <foo>" var=#true {
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["bar".to_string()]);
     }
 

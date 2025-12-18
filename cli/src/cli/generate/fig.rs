@@ -362,8 +362,8 @@ impl Fig {
         let mut result = format!("const completionSpec: Fig.Spec = {j}");
 
         let generators = main_command.get_generators();
-        generators.iter().cloned().for_each(|g| {
-            let template_str = g.clone().template_str;
+        generators.iter().for_each(|g| {
+            let template_str = g.template_str.clone();
             let generator_call_text = g.get_generator_text();
             result = result.replace(
                 format!("\"{template_str}\"").as_str(),
