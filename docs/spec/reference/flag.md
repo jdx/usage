@@ -14,6 +14,8 @@ flag "-v --verbose" count=#true          # instead of true/false $usage_verbose 
                                         # flag was used (e.g. -vvv = 3)
 
 flag "--include <pattern>" var=#true            # flag can be passed multiple times
+flag "--include <pattern>..."                   # shorthand for var=#true on the arg
+flag "--include..." "<pattern>"                 # shorthand for var=#true on the flag itself
 flag "--include <pattern>" var=#true var_min=1  # at least 1 value required
 flag "--include <pattern>" var=#true var_max=5  # up to 5 values allowed
 
