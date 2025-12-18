@@ -10,6 +10,7 @@ arg "<file>" parse="mycli parse-file {}" # parse arg value with external command
 
 arg "[file]" var=#true # multiple args can be passed (e.g. mycli file1 file2 file3) (0 or more)
 arg "<file>" var=#true # multiple args can be passed (e.g. mycli file1 file2 file3) (1 or more)
+arg "<file>..."        # shorthand for var=#true (trailing ellipsis)
 arg "<file>" var=#true var_min=3 # at least 3 args must be passed
 arg "<file>" var=#true var_max=3 # up to 3 args can be passed
 

@@ -200,6 +200,7 @@ impl From<&str> for SpecArg {
             required: true,
             ..Default::default()
         };
+        // Handle trailing ellipsis: "foo..." or "foo…" or "<foo>..." or "[foo]..."
         if let Some(name) = arg
             .name
             .strip_suffix("...")
@@ -362,5 +363,32 @@ arg "<output>" {
 
         let output_arg = spec.cmd.args.iter().find(|a| a.name == "output").unwrap();
         assert_eq!(output_arg.env, Some("MY_OUTPUT".to_string()));
+    }
+
+    #[test]
+    fn test_arg_variadic_syntax() {
+        use crate::SpecArg;
+
+        // Trailing ellipsis with required brackets
+        let arg: SpecArg = "<files>...".into();
+        assert_eq!(arg.name, "files");
+        assert!(arg.var);
+        assert!(arg.required);
+
+        // Trailing ellipsis with optional brackets
+        let arg: SpecArg = "[files]...".into();
+        assert_eq!(arg.name, "files");
+        assert!(arg.var);
+        assert!(!arg.required);
+
+        // Unicode ellipsis
+        let arg: SpecArg = "<files>…".into();
+        assert_eq!(arg.name, "files");
+        assert!(arg.var);
+
+        let arg: SpecArg = "[files]…".into();
+        assert_eq!(arg.name, "files");
+        assert!(arg.var);
+        assert!(!arg.required);
     }
 }
