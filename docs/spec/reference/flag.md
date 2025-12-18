@@ -13,6 +13,10 @@ flag "--file <file>" default="file.txt" # default value for flag
 flag "-v --verbose" count=#true          # instead of true/false $usage_verbose is # of times
                                         # flag was used (e.g. -vvv = 3)
 
+flag "--include <pattern>" var=#true            # flag can be passed multiple times
+flag "--include <pattern>" var=#true var_min=1  # at least 1 value required
+flag "--include <pattern>" var=#true var_max=5  # up to 5 values allowed
+
 flag "--color" negate="--no-color" default=#true  # $usage_color=#true by default
                                                  # --no-color will set $usage_color=#false
 
