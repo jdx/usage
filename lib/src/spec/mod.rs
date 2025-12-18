@@ -1,4 +1,5 @@
 pub mod arg;
+pub mod builder;
 pub mod choices;
 pub mod cmd;
 pub mod complete;

@@ -426,6 +426,61 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         }
     }
 
+    // Validate var_min/var_max constraints for variadic args
+    for (arg, value) in &out.args {
+        if arg.var {
+            if let ParseValue::MultiString(values) = value {
+                if let Some(min) = arg.var_min {
+                    if values.len() < min {
+                        out.errors.push(UsageErr::VarArgTooFew {
+                            name: arg.name.clone(),
+                            min,
+                            got: values.len(),
+                        });
+                    }
+                }
+                if let Some(max) = arg.var_max {
+                    if values.len() > max {
+                        out.errors.push(UsageErr::VarArgTooMany {
+                            name: arg.name.clone(),
+                            max,
+                            got: values.len(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Validate var_min/var_max constraints for variadic flags
+    for (flag, value) in &out.flags {
+        if flag.var {
+            let count = match value {
+                ParseValue::MultiString(values) => values.len(),
+                ParseValue::MultiBool(values) => values.len(),
+                _ => continue,
+            };
+            if let Some(min) = flag.var_min {
+                if count < min {
+                    out.errors.push(UsageErr::VarFlagTooFew {
+                        name: flag.name.clone(),
+                        min,
+                        got: count,
+                    });
+                }
+            }
+            if let Some(max) = flag.var_max {
+                if count > max {
+                    out.errors.push(UsageErr::VarFlagTooMany {
+                        name: flag.name.clone(),
+                        max,
+                        got: count,
+                    });
+                }
+            }
+        }
+    }
+
     Ok(out)
 }
 
@@ -519,17 +574,11 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "arg".to_string(),
-            ..Default::default()
-        }];
-        cmd.flags = vec![SpecFlag {
-            name: "flag".to_string(),
-            long: vec!["flag".to_string()],
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("arg").build())
+            .flag(SpecFlag::builder().long("flag").build())
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -547,25 +596,17 @@ mod tests {
 
     #[test]
     fn test_as_env() {
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "arg".to_string(),
-            ..Default::default()
-        }];
-        cmd.flags = vec![
-            SpecFlag {
-                name: "flag".to_string(),
-                long: vec!["flag".to_string()],
-                ..Default::default()
-            },
-            SpecFlag {
-                name: "force".to_string(),
-                long: vec!["force".to_string()],
-                negate: Some("--no-force".to_string()),
-                ..Default::default()
-            },
-        ];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("arg").build())
+            .flag(SpecFlag::builder().long("flag").build())
+            .flag(
+                SpecFlag::builder()
+                    .long("force")
+                    .negate("--no-force")
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -586,14 +627,16 @@ mod tests {
 
     #[test]
     fn test_arg_env_var() {
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "input".to_string(),
-            env: Some("TEST_ARG_INPUT".to_string()),
-            required: true,
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("input")
+                    .env("TEST_ARG_INPUT")
+                    .required(true)
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -619,18 +662,16 @@ mod tests {
 
     #[test]
     fn test_flag_env_var_with_arg() {
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.flags = vec![SpecFlag {
-            name: "output".to_string(),
-            long: vec!["output".to_string()],
-            env: Some("TEST_FLAG_OUTPUT".to_string()),
-            arg: Some(SpecArg {
-                name: "file".to_string(),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("output")
+                    .env("TEST_FLAG_OUTPUT")
+                    .arg(SpecArg::builder().name("file").build())
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -656,14 +697,15 @@ mod tests {
 
     #[test]
     fn test_flag_env_var_boolean() {
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.flags = vec![SpecFlag {
-            name: "verbose".to_string(),
-            long: vec!["verbose".to_string()],
-            env: Some("TEST_FLAG_VERBOSE".to_string()),
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("verbose")
+                    .env("TEST_FLAG_VERBOSE")
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -690,14 +732,16 @@ mod tests {
     #[test]
     fn test_env_var_precedence() {
         // CLI args should take precedence over env vars
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "input".to_string(),
-            env: Some("TEST_PRECEDENCE_INPUT".to_string()),
-            required: true,
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("input")
+                    .env("TEST_PRECEDENCE_INPUT")
+                    .required(true)
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -723,19 +767,17 @@ mod tests {
     #[test]
     fn test_flag_var_true_with_single_default() {
         // When var=true and default="bar", the default should be MultiString(["bar"])
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.flags = vec![SpecFlag {
-            name: "foo".to_string(),
-            long: vec!["foo".to_string()],
-            var: true,
-            arg: Some(SpecArg {
-                name: "foo".to_string(),
-                ..Default::default()
-            }),
-            default: vec!["bar".to_string()],
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("foo")
+                    .var(true)
+                    .arg(SpecArg::builder().name("foo").build())
+                    .default_value("bar")
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -764,19 +806,17 @@ mod tests {
     #[test]
     fn test_flag_var_true_with_multiple_defaults() {
         // When var=true and multiple defaults, should return MultiString(["xyz", "bar"])
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.flags = vec![SpecFlag {
-            name: "foo".to_string(),
-            long: vec!["foo".to_string()],
-            var: true,
-            arg: Some(SpecArg {
-                name: "foo".to_string(),
-                ..Default::default()
-            }),
-            default: vec!["xyz".to_string(), "bar".to_string()],
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("foo")
+                    .var(true)
+                    .arg(SpecArg::builder().name("foo").build())
+                    .default_values(["xyz", "bar"])
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -804,19 +844,17 @@ mod tests {
     #[test]
     fn test_flag_var_false_with_default_remains_string() {
         // When var=false (default), the default should still be String("bar")
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.flags = vec![SpecFlag {
-            name: "foo".to_string(),
-            long: vec!["foo".to_string()],
-            var: false, // Default behavior
-            arg: Some(SpecArg {
-                name: "foo".to_string(),
-                ..Default::default()
-            }),
-            default: vec!["bar".to_string()],
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("foo")
+                    .var(false) // Default behavior
+                    .arg(SpecArg::builder().name("foo").build())
+                    .default_value("bar")
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -842,15 +880,17 @@ mod tests {
     #[test]
     fn test_arg_var_true_with_single_default() {
         // When arg has var=true and default="bar", the default should be MultiString(["bar"])
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "files".to_string(),
-            var: true,
-            default: vec!["default.txt".to_string()],
-            required: false,
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("files")
+                    .var(true)
+                    .default_value("default.txt")
+                    .required(false)
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -877,15 +917,17 @@ mod tests {
     #[test]
     fn test_arg_var_true_with_multiple_defaults() {
         // When arg has var=true and multiple defaults
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "files".to_string(),
-            var: true,
-            default: vec!["file1.txt".to_string(), "file2.txt".to_string()],
-            required: false,
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("files")
+                    .var(true)
+                    .default_values(["file1.txt", "file2.txt"])
+                    .required(false)
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),
@@ -913,15 +955,17 @@ mod tests {
     #[test]
     fn test_arg_var_false_with_default_remains_string() {
         // When arg has var=false (default), the default should still be String
-        let mut cmd = SpecCommand::default();
-        cmd.name = "test".to_string();
-        cmd.args = vec![SpecArg {
-            name: "file".to_string(),
-            var: false,
-            default: vec!["default.txt".to_string()],
-            required: false,
-            ..Default::default()
-        }];
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("file")
+                    .var(false)
+                    .default_value("default.txt")
+                    .required(false)
+                    .build(),
+            )
+            .build();
         let spec = Spec {
             name: "test".to_string(),
             bin: "test".to_string(),

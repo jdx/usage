@@ -46,6 +46,34 @@ pub enum UsageErr {
     #[error(transparent)]
     #[diagnostic(transparent)]
     XXError(#[from] xx::error::XXError),
+
+    #[error("Variadic argument <{name}> requires at least {min} value(s), got {got}")]
+    VarArgTooFew {
+        name: String,
+        min: usize,
+        got: usize,
+    },
+
+    #[error("Variadic argument <{name}> accepts at most {max} value(s), got {got}")]
+    VarArgTooMany {
+        name: String,
+        max: usize,
+        got: usize,
+    },
+
+    #[error("Variadic flag --{name} requires at least {min} value(s), got {got}")]
+    VarFlagTooFew {
+        name: String,
+        min: usize,
+        got: usize,
+    },
+
+    #[error("Variadic flag --{name} accepts at most {max} value(s), got {got}")]
+    VarFlagTooMany {
+        name: String,
+        max: usize,
+        got: usize,
+    },
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 

@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
+use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
@@ -32,6 +33,10 @@ pub struct SpecFlag {
     pub deprecated: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub var_min: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub var_max: Option<usize>,
     pub hide: bool,
     pub global: bool,
     #[serde(skip_serializing_if = "is_false")]
@@ -47,6 +52,11 @@ pub struct SpecFlag {
 }
 
 impl SpecFlag {
+    /// Create a new builder for SpecFlag
+    pub fn builder() -> SpecFlagBuilder {
+        SpecFlagBuilder::new()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         for (k, v) in node.props() {
@@ -57,6 +67,8 @@ impl SpecFlag {
                 "help_md" => flag.help_md = Some(v.ensure_string()?),
                 "required" => flag.required = v.ensure_bool()?,
                 "var" => flag.var = v.ensure_bool()?,
+                "var_min" => flag.var_min = v.ensure_usize().map(Some)?,
+                "var_max" => flag.var_max = v.ensure_usize().map(Some)?,
                 "hide" => flag.hide = v.ensure_bool()?,
                 "deprecated" => {
                     flag.deprecated = match v.value.as_bool() {
@@ -92,6 +104,8 @@ impl SpecFlag {
                 "help_md" => flag.help_md = Some(child.arg(0)?.ensure_string()?),
                 "required" => flag.required = child.arg(0)?.ensure_bool()?,
                 "var" => flag.var = child.arg(0)?.ensure_bool()?,
+                "var_min" => flag.var_min = child.arg(0)?.ensure_usize().map(Some)?,
+                "var_max" => flag.var_max = child.arg(0)?.ensure_usize().map(Some)?,
                 "hide" => flag.hide = child.arg(0)?.ensure_bool()?,
                 "deprecated" => {
                     flag.deprecated = match child.arg(0)?.ensure_bool() {
@@ -195,6 +209,12 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.var {
             node.push(KdlEntry::new_prop("var", true));
+        }
+        if let Some(var_min) = flag.var_min {
+            node.push(KdlEntry::new_prop("var_min", var_min as i128));
+        }
+        if let Some(var_max) = flag.var_max {
+            node.push(KdlEntry::new_prop("var_max", var_max as i128));
         }
         if flag.hide {
             node.push(KdlEntry::new_prop("hide", true));
@@ -344,6 +364,8 @@ impl From<&clap::Arg> for SpecFlag {
             help_md: None,
             help_first_line,
             var,
+            var_min: None,
+            var_max: None,
             hide,
             global: c.is_global_set(),
             arg,
@@ -555,7 +577,7 @@ flag "--foo <foo>" var=#true default="bar"
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["bar".to_string()]);
     }
 
@@ -575,7 +597,7 @@ flag "--foo <foo>" var=#true {
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["xyz".to_string(), "bar".to_string()]);
     }
 
@@ -592,7 +614,7 @@ flag "--foo <foo>" var=#true {
         .unwrap();
 
         let flag = spec.cmd.flags.iter().find(|f| f.name == "foo").unwrap();
-        assert_eq!(flag.var, true);
+        assert!(flag.var);
         assert_eq!(flag.default, vec!["bar".to_string()]);
     }
 
