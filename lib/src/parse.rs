@@ -600,7 +600,12 @@ mod tests {
             .name("test")
             .arg(SpecArg::builder().name("arg").build())
             .flag(SpecFlag::builder().long("flag").build())
-            .flag(SpecFlag::builder().long("force").negate("--no-force").build())
+            .flag(
+                SpecFlag::builder()
+                    .long("force")
+                    .negate("--no-force")
+                    .build(),
+            )
             .build();
         let spec = Spec {
             name: "test".to_string(),
@@ -624,7 +629,13 @@ mod tests {
     fn test_arg_env_var() {
         let cmd = SpecCommand::builder()
             .name("test")
-            .arg(SpecArg::builder().name("input").env("TEST_ARG_INPUT").required(true).build())
+            .arg(
+                SpecArg::builder()
+                    .name("input")
+                    .env("TEST_ARG_INPUT")
+                    .required(true)
+                    .build(),
+            )
             .build();
         let spec = Spec {
             name: "test".to_string(),
