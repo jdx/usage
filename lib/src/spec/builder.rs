@@ -449,14 +449,8 @@ mod tests {
             .build();
 
         assert_eq!(flag.short, vec!['v', 'V']);
-        assert_eq!(
-            flag.long,
-            vec!["verbose".to_string(), "loud".to_string()]
-        );
-        assert_eq!(
-            flag.default,
-            vec!["info".to_string(), "warn".to_string()]
-        );
+        assert_eq!(flag.long, vec!["verbose".to_string(), "loud".to_string()]);
+        assert_eq!(flag.default, vec!["info".to_string(), "warn".to_string()]);
         assert!(!flag.required); // Should be false due to defaults
     }
 
@@ -476,10 +470,7 @@ mod tests {
 
     #[test]
     fn test_flag_builder_name_derivation() {
-        let flag = SpecFlagBuilder::new()
-            .short('v')
-            .long("verbose")
-            .build();
+        let flag = SpecFlagBuilder::new().short('v').long("verbose").build();
 
         // Name should be derived from long flag
         assert_eq!(flag.name, "verbose");
@@ -526,10 +517,7 @@ mod tests {
             .default_values(["a.txt", "b.txt"])
             .build();
 
-        assert_eq!(
-            arg.default,
-            vec!["a.txt".to_string(), "b.txt".to_string()]
-        );
+        assert_eq!(arg.default, vec!["a.txt".to_string(), "b.txt".to_string()]);
         assert!(!arg.required);
     }
 
@@ -562,15 +550,9 @@ mod tests {
 
     #[test]
     fn test_command_builder_with_flags_and_args() {
-        let flag = SpecFlagBuilder::new()
-            .short('f')
-            .long("force")
-            .build();
+        let flag = SpecFlagBuilder::new().short('f').long("force").build();
 
-        let arg = SpecArgBuilder::new()
-            .name("package")
-            .required(true)
-            .build();
+        let arg = SpecArgBuilder::new().name("package").required(true).build();
 
         let cmd = SpecCommandBuilder::new()
             .name("install")
