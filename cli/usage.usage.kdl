@@ -32,7 +32,7 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     }
     arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
 }
-cmd exec hide=#true {
+cmd exec help="Execute a script, parsing args and exposing them as environment variables" {
     alias x
     arg <COMMAND> help="command to execute after parsing usage spec"
     arg <BIN> help="path to script to execute"

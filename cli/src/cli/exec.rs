@@ -8,7 +8,10 @@ use miette::IntoDiagnostic;
 use usage::Spec;
 
 #[derive(Debug, Args)]
-#[clap(visible_alias = "x", hide = true)]
+#[clap(
+    visible_alias = "x",
+    about = "Execute a script, parsing args and exposing them as environment variables"
+)]
 pub struct Exec {
     /// command to execute after parsing usage spec
     command: String,
