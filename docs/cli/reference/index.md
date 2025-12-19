@@ -24,6 +24,7 @@ Outputs a `usage.kdl` spec for this CLI itself
 
 - [`usage bash [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/bash.md)
 - [`usage complete-word [FLAGS] [WORDS]…`](/cli/reference/complete-word.md)
+- [`usage exec <ARGS>…`](/cli/reference/exec.md)
 - [`usage fish [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/fish.md)
 - [`usage generate <SUBCOMMAND>`](/cli/reference/generate.md)
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)

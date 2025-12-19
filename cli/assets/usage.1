@@ -25,6 +25,12 @@ Generate shell completion candidates for a partial command line
 \fIAliases: \fRcw
 .RE
 .TP
+\fBexec\fR
+Execute a script, parsing args and exposing them as environment variables
+.RS
+\fIAliases: \fRx
+.RE
+.TP
 \fBfish\fR
 Execute a shell script with the specified shell
 .TP
@@ -110,6 +116,22 @@ Current word index
 .TP
 \fB<WORDS>\fR
 User's input from the command line
+.SH "USAGE EXEC"
+Execute a script, parsing args and exposing them as environment variables
+.PP
+\fBUsage:\fR usage exec <COMMAND> <BIN> [<ARGS>] ...
+.PP
+\fBArguments:\fR
+.PP
+.TP
+\fB<COMMAND>\fR
+command to execute after parsing usage spec
+.TP
+\fB<BIN>\fR
+path to script to execute
+.TP
+\fB<ARGS>\fR
+arguments to pass to script
 .SH "USAGE FISH"
 Execute a shell script with the specified shell
 

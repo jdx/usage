@@ -36,7 +36,7 @@ Hello, alice
 For languages that use `//` for comments, like JavaScript, you can use `//USAGE` comments:
 
 ```js
-#!/usr/bin/env -S usage node
+#!/usr/bin/env -S usage exec node
 //USAGE flag "-f --force" help="Overwrite existing <file>"
 //USAGE flag "-u --user <user>" help="User to run as"
 //USAGE arg "<file>" help="The file to write" default="file.txt"

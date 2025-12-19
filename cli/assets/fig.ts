@@ -161,6 +161,27 @@ const completionSpec: Fig.Spec = {
       },
     },
     {
+      name: ["exec", "x"],
+      description:
+        "Execute a script, parsing args and exposing them as environment variables",
+      args: [
+        {
+          name: "command",
+          description: "Command to execute after parsing usage spec",
+        },
+        {
+          name: "bin",
+          description: "Path to script to execute",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
+    },
+    {
       name: "fish",
       description: "Execute a shell script using fish",
       options: [
