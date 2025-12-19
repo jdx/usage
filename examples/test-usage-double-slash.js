@@ -1,6 +1,6 @@
-#!/usr/bin/env -S usage node
+#!/usr/bin/env -S usage exec node
 //
-// Test script for new USAGE syntax with // comments
+// Test non-shell script for new USAGE syntax with // comments
 //
 // [USAGE] bin "test-double-slash"
 // [USAGE] flag "--debug" help="Debug mode"
