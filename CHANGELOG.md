@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.10.0](https://github.com/jdx/usage/compare/v2.9.0..v2.10.0) - 2025-12-19
+
+### 🚀 Features
+
+- add variadic argument improvements and builder API by [@jdx](https://github.com/jdx) in [#401](https://github.com/jdx/usage/pull/401)
+
+### 🐛 Bug Fixes
+
+- unhide exec command and fix docs shebang for non-shell scripts by [@jdx](https://github.com/jdx) in [#402](https://github.com/jdx/usage/pull/402)
+
+### 📦️ Dependency Updates
+
+- update actions/checkout digest to 34e1148 by [@renovate[bot]](https://github.com/renovate[bot]) in [#389](https://github.com/jdx/usage/pull/389)
+- update swatinem/rust-cache digest to 779680d by [@renovate[bot]](https://github.com/renovate[bot]) in [#390](https://github.com/jdx/usage/pull/390)
+- update rust crate ctor to v0.6.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#392](https://github.com/jdx/usage/pull/392)
+- update actions/checkout action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#393](https://github.com/jdx/usage/pull/393)
+- update actions/setup-node action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#394](https://github.com/jdx/usage/pull/394)
+- update actions/upload-pages-artifact action to v4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#395](https://github.com/jdx/usage/pull/395)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#396](https://github.com/jdx/usage/pull/396)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#397](https://github.com/jdx/usage/pull/397)
+- update codecov/codecov-action digest to 671740a by [@renovate[bot]](https://github.com/renovate[bot]) in [#398](https://github.com/jdx/usage/pull/398)
+- update rust crate shell-words to v1.1.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#399](https://github.com/jdx/usage/pull/399)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#400](https://github.com/jdx/usage/pull/400)
+
 ## [2.9.0](https://github.com/jdx/usage/compare/v2.8.0..v2.9.0) - 2025-12-03
 
 ### 🚀 Features
