@@ -126,7 +126,7 @@ fn test_usage_double_slash_execution() {
         .stdout(contains("command: mycmd"));
 }
 
-/// Test that the //Usage syntax (no space) works correctly for non-shell script
+/// Test that the old //USAGE syntax (no space, no brackets) works correctly for non-shell script
 #[test]
 fn test_usage_double_slash_execution_old() {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
