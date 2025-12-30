@@ -2,7 +2,7 @@
 
 # `usage exec`
 
-- **Usage**: `usage exec <ARGS>…`
+- **Usage**: `usage exec [-h] [--help] <ARGS>…`
 - **Aliases**: `x`
 - **Source code**: [`cli/src/cli/exec.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/exec.rs)
 
@@ -21,3 +21,13 @@ path to script to execute
 ### `[ARGS]…`
 
 arguments to pass to script
+
+## Flags
+
+### `-h`
+
+Show help
+
+### `--help`
+
+Show help

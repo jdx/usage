@@ -9,6 +9,7 @@ use usage::Spec;
 
 #[derive(Debug, Args)]
 #[clap(
+    disable_help_flag = true,
     visible_alias = "x",
     about = "Execute a script, parsing args and exposing them as environment variables"
 )]
@@ -20,6 +21,14 @@ pub struct Exec {
     /// arguments to pass to script
     #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
+
+    /// Show help
+    #[clap(short)]
+    h: bool,
+
+    /// Show help
+    #[clap(long)]
+    help: bool,
 }
 
 impl Exec {
@@ -41,6 +50,14 @@ impl Exec {
         };
         let mut args = self.args.clone();
         args.insert(0, self.command.clone());
+
+        if self.h {
+            return self.help(&spec, &args, false);
+        }
+        if self.help {
+            return self.help(&spec, &args, true);
+        }
+
         let parsed = usage::parse::parse(&spec, &args)?;
 
         let mut cmd = std::process::Command::new(&self.command);
@@ -62,6 +79,12 @@ impl Exec {
             std::process::exit(result.code().unwrap_or(1));
         }
 
+        Ok(())
+    }
+
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
+        let parsed = usage::parse::parse_partial(spec, args)?;
+        println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())
     }
 }

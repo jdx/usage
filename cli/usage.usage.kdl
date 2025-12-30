@@ -34,6 +34,8 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
 }
 cmd exec help="Execute a script, parsing args and exposing them as environment variables" {
     alias x
+    flag -h help="Show help"
+    flag --help help="Show help"
     arg <COMMAND> help="command to execute after parsing usage spec"
     arg <BIN> help="path to script to execute"
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
