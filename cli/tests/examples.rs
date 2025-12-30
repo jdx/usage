@@ -154,3 +154,20 @@ fn test_blank_comment_lines_defaults() {
         .stdout(contains("region: us-west-2"))
         .stdout(contains("tail: \n"));
 }
+
+/// Test that exec command properly handles --help flag for non-shell scripts
+#[test]
+fn test_exec_help() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args(["exec", "python3", "../examples/test-exec-help.py", "--help"]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("Usage: test-exec-help"))
+        .stdout(contains("-f --force"))
+        .stdout(contains("Force the operation"))
+        .stdout(contains("-v --verbose"))
+        .stdout(contains("Enable verbose output"))
+        .stdout(contains("<file>"))
+        .stdout(contains("File to process"));
+}
