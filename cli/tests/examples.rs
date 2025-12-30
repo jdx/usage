@@ -107,6 +107,44 @@ fn test_new_usage_syntax_execution() {
         .stdout(contains("baz: myvalue"));
 }
 
+/// Test that the new // [USAGE] syntax works correctly for non-shell script
+#[test]
+fn test_usage_double_slash_execution() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "exec",
+        "node",
+        "../examples/test-usage-double-slash.js",
+        "--debug",
+        "mycmd",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("debug: true"))
+        .stdout(contains("port: 3000"))
+        .stdout(contains("command: mycmd"));
+}
+
+/// Test that the old //USAGE syntax (no space, no brackets) works correctly for non-shell script
+#[test]
+fn test_usage_double_slash_execution_old() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "exec",
+        "node",
+        "../examples/test-usage-double-slash-old.js",
+        "--debug",
+        "mycmd",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("debug: true"))
+        .stdout(contains("port: 3000"))
+        .stdout(contains("command: mycmd"));
+}
+
 /// Test that blank comment lines in USAGE blocks don't stop parsing
 #[test]
 fn test_blank_comment_lines_in_usage() {
