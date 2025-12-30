@@ -158,7 +158,7 @@
       },
       "exec": {
         "full_cmd": ["exec"],
-        "usage": "exec <ARGS>…",
+        "usage": "exec [-h] [--help] <ARGS>…",
         "subcommands": {},
         "args": [
           {
@@ -190,7 +190,28 @@
             "hide": false
           }
         ],
-        "flags": [],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
         "mounts": [],
         "hide": false,
         "help": "Execute a script, parsing args and exposing them as environment variables",

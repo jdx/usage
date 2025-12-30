@@ -164,6 +164,18 @@ const completionSpec: Fig.Spec = {
       name: ["exec", "x"],
       description:
         "Execute a script, parsing args and exposing them as environment variables",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
       args: [
         {
           name: "command",
