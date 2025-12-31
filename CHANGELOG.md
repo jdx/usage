@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.11.0](https://github.com/jdx/usage/compare/v2.10.0..v2.11.0) - 2025-12-31
+
+### 🚀 Features
+
+- add default_subcommand and restart_token for naked task completions by [@jdx](https://github.com/jdx) in [#410](https://github.com/jdx/usage/pull/410)
+
+### 🐛 Bug Fixes
+
+- handle --help flag in exec command for non-shell scripts by [@jdx](https://github.com/jdx) in [#409](https://github.com/jdx/usage/pull/409)
+
+### 🧪 Testing
+
+- add non-shell script tests by [@muzimuzhi](https://github.com/muzimuzhi) in [#406](https://github.com/jdx/usage/pull/406)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#403](https://github.com/jdx/usage/pull/403)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#407](https://github.com/jdx/usage/pull/407)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#408](https://github.com/jdx/usage/pull/408)
+
 ## [2.10.0](https://github.com/jdx/usage/compare/v2.9.0..v2.10.0) - 2025-12-19
 
 ### 🚀 Features
