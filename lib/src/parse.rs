@@ -272,9 +272,11 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
         if let Some(ref restart_token) = out.cmd.restart_token {
             if w == *restart_token {
-                // Reset argument parsing state
+                // Reset argument parsing state for a fresh command invocation
                 out.args.clear();
                 next_arg = out.cmd.args.first();
+                out.flag_awaiting_value.clear(); // Clear any pending flag values
+                enable_flags = true; // Reset -- separator effect
                 // Keep flags and continue parsing
                 continue;
             }
@@ -1150,5 +1152,90 @@ mod tests {
         assert_eq!(parsed.args.len(), 1);
         let value = parsed.args.values().next().unwrap();
         assert_eq!(value.to_string(), "task3");
+    }
+
+    #[test]
+    fn test_restart_token_clears_flag_awaiting_value() {
+        // Test that restart_token clears pending flag values
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .flag(
+                SpecFlag::builder()
+                    .name("jobs")
+                    .long("jobs")
+                    .arg(SpecArg::builder().name("count").build())
+                    .build(),
+            )
+            .restart_token(":::".to_string())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run task1 --jobs ::: task2" - task2 should be an arg, not a flag value
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "task1".to_string(),
+            "--jobs".to_string(),
+            ":::".to_string(),
+            "task2".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // task2 should be parsed as the task arg, not as --jobs value
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "task2");
+        // --jobs should not have a value
+        assert!(parsed.flag_awaiting_value.is_empty());
+    }
+
+    #[test]
+    fn test_restart_token_resets_double_dash() {
+        // Test that restart_token resets the -- separator effect
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .arg(SpecArg::builder().name("extra_args").var(true).build())
+            .flag(SpecFlag::builder().name("verbose").long("verbose").build())
+            .restart_token(":::".to_string())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run task1 -- extra ::: --verbose task2" - --verbose should be a flag after :::
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "task1".to_string(),
+            "--".to_string(),
+            "extra".to_string(),
+            ":::".to_string(),
+            "--verbose".to_string(),
+            "task2".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // --verbose should be parsed as a flag (not an arg) after the restart
+        assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
+        // task2 should be the arg after restart
+        let task_arg = parsed.args.keys().find(|a| a.name == "task").unwrap();
+        let value = parsed.args.get(task_arg).unwrap();
+        assert_eq!(value.to_string(), "task2");
     }
 }

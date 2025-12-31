@@ -105,7 +105,15 @@ impl CompleteWord {
             .as_ref()
             .is_some_and(|rt| prev_token == Some(rt.as_str()));
 
-        let mut choices = if ctoken == "-" {
+        let mut choices = if after_restart_token {
+            // After a restart_token, complete from the first arg of the current command
+            // This must be checked before flag_awaiting_value since restart resets flag state
+            let mut choices = vec![];
+            if let Some(arg) = parsed.cmd.args.first() {
+                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
+            }
+            choices
+        } else if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
             shorts.into_iter().chain(longs).collect::<Vec<_>>()
@@ -115,13 +123,6 @@ impl CompleteWord {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
             self.complete_arg(&ctx, spec, &parsed.cmd, flag.arg.as_ref().unwrap(), &ctoken)?
-        } else if after_restart_token {
-            // After a restart_token, complete from the first arg of the current command
-            let mut choices = vec![];
-            if let Some(arg) = parsed.cmd.args.first() {
-                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
-            }
-            choices
         } else {
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
