@@ -277,7 +277,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                 next_arg = out.cmd.args.first();
                 out.flag_awaiting_value.clear(); // Clear any pending flag values
                 enable_flags = true; // Reset -- separator effect
-                // Keep flags and continue parsing
+                                     // Keep flags and continue parsing
                 continue;
             }
         }
