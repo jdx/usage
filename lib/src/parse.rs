@@ -236,6 +236,22 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             }
         } else {
             // Found a word that's not a flag or subcommand
+            // Check if we should use the default_subcommand
+            if let Some(default_name) = &spec.default_subcommand {
+                if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
+                    let mut subcommand = subcommand.clone();
+                    // Pass prefix words (global flags before this) to mount
+                    subcommand.mount(&prefix_words)?;
+                    out.available_flags.retain(|_, f| f.global);
+                    out.available_flags.extend(gather_flags(&subcommand));
+                    out.cmds.push(subcommand.clone());
+                    out.cmd = subcommand.clone();
+                    prefix_words.clear();
+                    // Don't remove the current word - it's an argument to the default subcommand
+                    // Don't increment idx - let Phase 2 handle this word as a positional arg
+                    break;
+                }
+            }
             // This could be a positional argument, so stop subcommand search
             break;
         }
@@ -251,6 +267,18 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
 
     while !input.is_empty() {
         let mut w = input.pop_front().unwrap();
+
+        // Check for restart_token - resets argument parsing for multiple command invocations
+        // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
+        if let Some(ref restart_token) = out.cmd.restart_token {
+            if w == *restart_token {
+                // Reset argument parsing state
+                out.args.clear();
+                next_arg = out.cmd.args.first();
+                // Keep flags and continue parsing
+                continue;
+            }
+        }
 
         if w == "--" {
             enable_flags = false;
@@ -986,5 +1014,141 @@ mod tests {
             }
             _ => panic!("Expected String, got {:?}", value),
         }
+    }
+
+    #[test]
+    fn test_default_subcommand() {
+        // Test that default_subcommand routes to the specified subcommand
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            default_subcommand: Some("run".to_string()),
+            ..Default::default()
+        };
+
+        // "test mytask" should be parsed as if it were "test run mytask"
+        let input = vec!["test".to_string(), "mytask".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // Should have two commands: root and "run"
+        assert_eq!(parsed.cmds.len(), 2);
+        assert_eq!(parsed.cmds[1].name, "run");
+
+        // Should have parsed the task argument
+        assert_eq!(parsed.args.len(), 1);
+        let arg = parsed.args.keys().next().unwrap();
+        assert_eq!(arg.name, "task");
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "mytask");
+    }
+
+    #[test]
+    fn test_default_subcommand_explicit_still_works() {
+        // Test that explicit subcommand takes precedence
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .build();
+        let other_cmd = SpecCommand::builder()
+            .name("other")
+            .arg(SpecArg::builder().name("other_arg").build())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        cmd.subcommands.insert("other".to_string(), other_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            default_subcommand: Some("run".to_string()),
+            ..Default::default()
+        };
+
+        // "test other foo" should use "other" subcommand, not default
+        let input = vec!["test".to_string(), "other".to_string(), "foo".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // Should have used "other" subcommand
+        assert_eq!(parsed.cmds.len(), 2);
+        assert_eq!(parsed.cmds[1].name, "other");
+    }
+
+    #[test]
+    fn test_restart_token() {
+        // Test that restart_token resets argument parsing
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .restart_token(":::".to_string())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run task1 ::: task2" - should end up with task2 as the arg
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "task1".to_string(),
+            ":::".to_string(),
+            "task2".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // After restart, args were cleared and task2 was parsed
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "task2");
+    }
+
+    #[test]
+    fn test_restart_token_multiple() {
+        // Test multiple restart tokens
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .restart_token(":::".to_string())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run task1 ::: task2 ::: task3" - should end up with task3 as the arg
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "task1".to_string(),
+            ":::".to_string(),
+            "task2".to_string(),
+            ":::".to_string(),
+            "task3".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // After multiple restarts, args were cleared and task3 was parsed
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "task3");
     }
 }

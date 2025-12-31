@@ -414,6 +414,13 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set restart token for resetting argument parsing
+    /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
+    pub fn restart_token(mut self, token: impl Into<String>) -> Self {
+        self.inner.restart_token = Some(token.into());
+        self
+    }
+
     /// Build the final SpecCommand
     pub fn build(mut self) -> SpecCommand {
         self.inner.usage = self.inner.usage();
