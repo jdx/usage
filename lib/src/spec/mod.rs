@@ -54,6 +54,10 @@ pub struct Spec {
     pub min_usage_version: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<SpecExample>,
+    /// Default subcommand to use when first non-flag argument is not a known subcommand.
+    /// This enables "naked" command syntax like `mise foo` instead of `mise run foo`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_subcommand: Option<String>,
 }
 
 impl Spec {
@@ -140,6 +144,9 @@ impl Spec {
                     check_usage_version(&v);
                     schema.min_usage_version = Some(v);
                 }
+                "default_subcommand" => {
+                    schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -223,6 +230,9 @@ impl Spec {
         }
         if !other.examples.is_empty() {
             self.examples.extend(other.examples);
+        }
+        if other.default_subcommand.is_some() {
+            self.default_subcommand = other.default_subcommand;
         }
         self.cmd.merge(other.cmd);
     }
@@ -351,6 +361,11 @@ impl Display for Spec {
         if let Some(min_usage_version) = &self.min_usage_version {
             let mut node = KdlNode::new("min_usage_version");
             node.push(KdlEntry::new(min_usage_version.clone()));
+            nodes.push(node);
+        }
+        if let Some(default_subcommand) = &self.default_subcommand {
+            let mut node = KdlNode::new("default_subcommand");
+            node.push(KdlEntry::new(default_subcommand.clone()));
             nodes.push(node);
         }
         if !self.usage.is_empty() {

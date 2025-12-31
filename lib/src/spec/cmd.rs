@@ -27,6 +27,10 @@ pub struct SpecCommand {
     pub hide: bool,
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
+    /// Token that resets argument parsing, allowing multiple command invocations.
+    /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restart_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,6 +73,7 @@ impl Default for SpecCommand {
             deprecated: None,
             hide: false,
             subcommand_required: false,
+            restart_token: None,
             help: None,
             help_long: None,
             help_md: None,
@@ -154,6 +159,7 @@ impl SpecCommand {
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "restart_token" => cmd.restart_token = Some(v.ensure_string()?),
                 "deprecated" => {
                     cmd.deprecated = match v.value.as_bool() {
                         Some(true) => Some("deprecated".to_string()),
@@ -226,6 +232,9 @@ impl SpecCommand {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
+                "restart_token" => {
+                    cmd.restart_token = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
                 "deprecated" => {
                     cmd.deprecated = match child.arg(0)?.value.as_bool() {
                         Some(true) => Some("deprecated".to_string()),
@@ -341,6 +350,9 @@ impl SpecCommand {
         }
         self.hide = other.hide;
         self.subcommand_required = other.subcommand_required;
+        if other.restart_token.is_some() {
+            self.restart_token = other.restart_token;
+        }
         for (name, cmd) in other.subcommands {
             self.subcommands.insert(name, cmd);
         }
@@ -411,6 +423,10 @@ impl From<&SpecCommand> for KdlNode {
         if cmd.subcommand_required {
             node.entries_mut()
                 .push(KdlEntry::new_prop("subcommand_required", true));
+        }
+        if let Some(restart_token) = &cmd.restart_token {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("restart_token", restart_token.clone()));
         }
         if !cmd.aliases.is_empty() {
             let mut aliases = KdlNode::new("alias");

@@ -92,6 +92,19 @@ impl CompleteWord {
 
         let parsed = usage::parse::parse_partial(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
+
+        // Check if previous token was a restart_token - if so, complete from first arg
+        let prev_token = if cword > 0 {
+            self.words.get(cword - 1).map(|s| s.as_str())
+        } else {
+            None
+        };
+        let after_restart_token = parsed
+            .cmd
+            .restart_token
+            .as_ref()
+            .is_some_and(|rt| prev_token == Some(rt.as_str()));
+
         let mut choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
@@ -100,6 +113,15 @@ impl CompleteWord {
             self.complete_long_flag_names(&parsed.available_flags, &ctoken)
         } else if ctoken.starts_with('-') {
             self.complete_short_flag_names(&parsed.available_flags, &ctoken)
+        } else if after_restart_token {
+            // After a restart_token, complete from the first arg of the current command
+            // This must be checked after flag checks (to allow --flag after :::)
+            // but before flag_awaiting_value (since restart clears pending flag values)
+            let mut choices = vec![];
+            if let Some(arg) = parsed.cmd.args.first() {
+                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
+            }
+            choices
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
             self.complete_arg(&ctx, spec, &parsed.cmd, flag.arg.as_ref().unwrap(), &ctoken)?
         } else {
@@ -109,6 +131,23 @@ impl CompleteWord {
             }
             if !parsed.cmd.subcommands.is_empty() {
                 choices.extend(self.complete_subcommands(&parsed.cmd, &ctoken));
+            }
+            // If at root command with default_subcommand, also include completions from it
+            if parsed.cmd.name == spec.cmd.name {
+                if let Some(default_name) = &spec.default_subcommand {
+                    if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
+                        // Include completions from default subcommand's first arg
+                        if let Some(arg) = default_cmd.args.first() {
+                            choices.extend(self.complete_arg(
+                                &ctx,
+                                spec,
+                                default_cmd,
+                                arg,
+                                &ctoken,
+                            )?);
+                        }
+                    }
+                }
             }
             choices
         };
