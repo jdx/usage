@@ -1837,7 +1837,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-cli"
-version = "2.11.0"
+version = "2.11.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1866,7 +1866,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "2.11.0"
+version = "2.11.1"
 dependencies = [
  "clap",
  "ctor",
@@ -2391,6 +2391,6 @@ dependencies = [
 
 [[package]]
 name = "zmij"
-version = "1.0.5"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3280a1b827474fcd5dbef4b35a674deb52ba5c312363aef9135317df179d81b"
+checksum = "de9211a9f64b825911bdf0240f58b7a8dac217fe260fc61f080a07f61372fbd5"
