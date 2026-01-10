@@ -76,32 +76,20 @@ impl MarkdownRenderer {
     pub(crate) fn render(&self, template_name: &str) -> Result<String, UsageErr> {
         let mut tera = TERA.clone();
 
-        let html_encode = self.html_encode;
-        tera.register_filter(
-            "escape_md",
-            move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
-                let value = value.as_str().unwrap();
-                let value = value
-                    .lines()
-                    .map(|line| {
-                        if !html_encode || line.starts_with("    ") {
-                            return line.to_string();
-                        }
-                        // replace '<' with '&lt;' but not inside code blocks
-                        xx::regex!(r"(`[^`]*`)|(<)")
-                            .replace_all(line, |caps: &regex::Captures| {
-                                if caps.get(1).is_some() {
-                                    caps.get(1).unwrap().as_str().to_string()
-                                } else {
-                                    "&lt;".to_string()
-                                }
-                            })
-                            .to_string()
-                    })
-                    .join("\n");
-                Ok(value.into())
-            },
-        );
+        if self.html_encode {
+            tera.register_filter(
+                "escape_md",
+                move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
+                    let value = value.as_str().unwrap();
+                    Ok(escape_md(value).into())
+                },
+            );
+        } else {
+            tera.register_filter(
+                "escape_md",
+                move |value: &tera::Value, _: &HashMap<String, tera::Value>| Ok(value.clone()),
+            );
+        }
         let path_re =
             regex!(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/");
         tera.register_function("source_code_link", |args: &HashMap<String, tera::Value>| {
@@ -165,5 +153,541 @@ impl MarkdownRenderer {
             new_md.push_str("```\n");
         }
         new_md.replace("```\n\n```\n", "\n")
+    }
+}
+
+fn escape_md(value: &str) -> String {
+    let mut segments = vec![];
+    let mut current_segment = String::new();
+    let mut is_current_block = false;
+
+    // (fence_char, fence_len, fence_quote_level)
+    let mut current_fence: Option<(char, usize, usize)> = None;
+    let mut list_stack: Vec<(usize, usize)> = vec![]; // (quote_level, content_indent)
+    let list_re = xx::regex!(r"^([-*+]|\d{1,9}[.)])(\s+|$)");
+    let ordered_list_start_1_re = xx::regex!(r"^1[.)](\s+|$)");
+
+    // Track if we are effectively in a paragraph (to decide if indented code can start)
+    let mut in_paragraph = false;
+
+    for line in value.lines() {
+        // Handle Fenced Code Blocks
+        if let Some((fence_char, fence_len, fence_quote_level)) = current_fence {
+            let (content, level) = strip_quotes_lim(line, fence_quote_level);
+            if level < fence_quote_level {
+                // Fence implicitly closed by end of block quote
+                current_fence = None;
+            } else {
+                // Check for fence end
+                let indent = content.chars().take_while(|c| *c == ' ').count();
+                let trimmed = &content[indent..];
+                if indent < 4 && trimmed.starts_with(fence_char) {
+                    let count = trimmed.chars().take_while(|c| *c == fence_char).count();
+                    if count >= fence_len && trimmed[count..].trim().is_empty() {
+                        current_fence = None;
+                        if !is_current_block && !current_segment.is_empty() {
+                            segments.push((false, std::mem::take(&mut current_segment)));
+                        }
+                        if !is_current_block {
+                            is_current_block = true;
+                        }
+                        current_segment.push_str(line);
+                        current_segment.push('\n');
+                        in_paragraph = false;
+                        continue;
+                    }
+                }
+                if !is_current_block && !current_segment.is_empty() {
+                    segments.push((false, std::mem::take(&mut current_segment)));
+                }
+                is_current_block = true;
+                current_segment.push_str(line);
+                current_segment.push('\n');
+                // Inside fence, lines don't affect outer paragraph state
+                continue;
+            }
+        }
+
+        // Normal Processing
+        let (content, level) = strip_quotes_lim(line, usize::MAX);
+        let indent = content.chars().take_while(|c| *c == ' ').count();
+        let trimmed = &content[indent..];
+        let is_blank = trimmed.is_empty();
+
+        // Check for fence start
+        if indent < 4 {
+            if let Some(first_char) = trimmed.chars().next() {
+                if first_char == '`' || first_char == '~' {
+                    let count = trimmed.chars().take_while(|c| *c == first_char).count();
+                    if count >= 3 {
+                        let info_string = &trimmed[count..];
+                        if !(first_char == '`' && info_string.contains('`')) {
+                            current_fence = Some((first_char, count, level));
+
+                            if !is_current_block && !current_segment.is_empty() {
+                                segments.push((false, std::mem::take(&mut current_segment)));
+                            }
+                            is_current_block = true;
+                            current_segment.push_str(line);
+                            current_segment.push('\n');
+                            in_paragraph = false;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for list marker
+        if let Some(caps) = list_re.captures(trimmed) {
+            let is_ordered = caps
+                .get(1)
+                .unwrap()
+                .as_str()
+                .chars()
+                .next()
+                .unwrap()
+                .is_numeric();
+            let can_interrupt = !is_ordered || ordered_list_start_1_re.is_match(trimmed);
+
+            if can_interrupt || !in_paragraph {
+                let m_len = caps.get(1).unwrap().len();
+                let s_len = caps.get(2).unwrap().len();
+                let content_indent = indent + m_len + s_len;
+
+                while let Some(&(lvl, top)) = list_stack.last() {
+                    if level < lvl || (level == lvl && indent < top) {
+                        list_stack.pop();
+                    } else {
+                        break;
+                    }
+                }
+                list_stack.push((level, content_indent));
+
+                if is_current_block && !current_segment.is_empty() {
+                    segments.push((true, std::mem::take(&mut current_segment)));
+                }
+                is_current_block = false;
+                current_segment.push_str(line);
+                current_segment.push('\n');
+                in_paragraph = true;
+                continue;
+            }
+        }
+
+        // Manual Block Detection
+        let mut is_block = false;
+
+        // ATX Heading
+        if indent < 4 && trimmed.starts_with('#') {
+            let after_hash = trimmed.trim_start_matches('#');
+            if !trimmed.starts_with("#######")
+                && (after_hash.is_empty() || after_hash.starts_with(' '))
+            {
+                is_block = true;
+            }
+        }
+
+        // Block Quote
+        if !is_block && indent < 4 && trimmed.starts_with('>') {
+            is_block = true;
+        }
+
+        // Setext Heading Underline
+        if !is_block && indent < 4 && (trimmed.starts_with('-') || trimmed.starts_with('=')) {
+            let c = trimmed.chars().next().unwrap();
+            if trimmed.chars().all(|x| x == c || x == ' ') {
+                is_block = true;
+            }
+        }
+
+        // Thematic Break
+        if !is_block && indent < 4 {
+            if let Some(c) = trimmed.chars().next() {
+                if c == '-' || c == '*' || c == '_' {
+                    // Count non-space chars
+                    let count = trimmed.chars().filter(|&x| x == c).count();
+                    let other = trimmed.chars().any(|x| x != c && x != ' ');
+                    if count >= 3 && !other {
+                        is_block = true;
+                    }
+                }
+            }
+        }
+
+        if is_block {
+            if is_current_block && !current_segment.is_empty() {
+                segments.push((true, std::mem::take(&mut current_segment)));
+            }
+            is_current_block = false;
+            current_segment.push_str(line);
+            current_segment.push('\n');
+            in_paragraph = false;
+            continue;
+        }
+
+        // Check for indented code block
+        let active_list_item = list_stack.iter().rfind(|&&(lvl, _)| lvl == level);
+        let threshold = active_list_item.map(|&(_, indent)| indent).unwrap_or(0) + 4;
+
+        if indent >= threshold && !is_blank && !in_paragraph {
+            if !is_current_block && !current_segment.is_empty() {
+                segments.push((false, std::mem::take(&mut current_segment)));
+            }
+            is_current_block = true;
+            current_segment.push_str(line);
+            current_segment.push('\n');
+            continue;
+        }
+
+        // Regular text line
+        if is_current_block && !current_segment.is_empty() {
+            segments.push((true, std::mem::take(&mut current_segment)));
+        }
+        is_current_block = false;
+        current_segment.push_str(line);
+        current_segment.push('\n');
+
+        in_paragraph = !is_blank;
+    }
+
+    // Push final segment
+    if !current_segment.is_empty() {
+        segments.push((is_current_block, current_segment));
+    }
+
+    let mut output = String::with_capacity(value.len());
+    for (is_block, text) in segments {
+        if is_block {
+            output.push_str(&text);
+        } else {
+            output.push_str(&process_inline(&text));
+        }
+    }
+
+    if !output.is_empty() {
+        output.pop();
+    }
+    output
+}
+
+fn strip_quotes_lim(line: &str, limit: usize) -> (&str, usize) {
+    let mut remainder = line;
+    let mut level = 0;
+    while level < limit {
+        let indent = remainder.chars().take_while(|c| *c == ' ').count();
+        if indent > 3 {
+            break;
+        }
+        let after_indent = &remainder[indent..];
+        if let Some(stripped) = after_indent.strip_prefix('>') {
+            let mut advance = indent + 1;
+            if stripped.starts_with(' ') {
+                advance += 1;
+            }
+            remainder = &remainder[advance..];
+            level += 1;
+        } else {
+            break;
+        }
+    }
+    (remainder, level)
+}
+
+fn process_inline(text: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    let mut chars = text.char_indices().peekable();
+    let mut in_code_span = false;
+
+    while let Some((_i, c)) = chars.next() {
+        if c == '`' {
+            let mut len = 1;
+            while let Some(&(_, next_c)) = chars.peek() {
+                if next_c == '`' {
+                    len += 1;
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+
+            if !in_code_span {
+                let mut remaining_chars = chars.clone();
+                let mut found_closer = false;
+
+                while let Some((_, rc)) = remaining_chars.next() {
+                    if rc == '`' {
+                        let mut r_len = 1;
+                        while let Some(&(_, next_rc)) = remaining_chars.peek() {
+                            if next_rc == '`' {
+                                r_len += 1;
+                                remaining_chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        if r_len == len {
+                            found_closer = true;
+                            break;
+                        }
+                    }
+                }
+
+                if found_closer {
+                    in_code_span = true;
+                    for _ in 0..len {
+                        output.push('`');
+                    }
+
+                    loop {
+                        if let Some(&(_, pc)) = chars.peek() {
+                            if pc == '`' {
+                                let lookahead = chars.clone();
+                                let mut run_len = 0;
+                                for (_, lc) in lookahead {
+                                    if lc == '`' {
+                                        run_len += 1;
+                                    } else {
+                                        break;
+                                    }
+                                }
+
+                                if run_len == len {
+                                    for _ in 0..run_len {
+                                        output.push('`');
+                                        chars.next();
+                                    }
+                                    in_code_span = false;
+                                    break;
+                                } else {
+                                    for _ in 0..run_len {
+                                        output.push('`');
+                                        chars.next();
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+
+                        if let Some((_, char_in_span)) = chars.next() {
+                            output.push(char_in_span);
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    for _ in 0..len {
+                        output.push('`');
+                    }
+                }
+            } else {
+                for _ in 0..len {
+                    output.push('`');
+                }
+            }
+        } else if c == '<' {
+            if !in_code_span {
+                output.push_str("&lt;");
+            } else {
+                output.push('<');
+            }
+        } else {
+            output.push(c);
+        }
+    }
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    // https://spec.commonmark.org/0.31.2/#indented-code-blocks
+    #[test]
+    fn test_indented_code_blocks() {
+        let cases = vec![
+            // 107
+            (
+                "    a simple <\n      indented code < block",
+                "    a simple <\n      indented code < block",
+            ),
+            // 108
+            ("  - foo <\n\n    bar <", "  - foo &lt;\n\n    bar &lt;"),
+            // 109
+            ("1.  foo <\n\n    - bar <", "1.  foo &lt;\n\n    - bar &lt;"),
+            // 110
+            (
+                "    <a/>\n    *hi*\n\n    - one",
+                "    <a/>\n    *hi*\n\n    - one",
+            ),
+            // 111
+            (
+                "    chunk1 <\n\n    chunk2 <\n  \n \n \n    chunk3 <",
+                "    chunk1 <\n\n    chunk2 <\n  \n \n \n    chunk3 <",
+            ),
+            // 112
+            (
+                "    chunk1 <\n      \n      chunk2 <",
+                "    chunk1 <\n      \n      chunk2 <",
+            ),
+            // 113
+            ("Foo <\n    bar <", "Foo &lt;\n    bar &lt;"),
+            // 114
+            ("    foo <\nbar <", "    foo <\nbar &lt;"),
+            // 115
+            (
+                "# Heading <\n    foo <\nHeading <\n------\n    foo <\n----",
+                "# Heading &lt;\n    foo <\nHeading &lt;\n------\n    foo <\n----",
+            ),
+            // 116
+            ("        foo <\n    bar <", "        foo <\n    bar <"),
+            // 117
+            ("\n    \n    foo <\n    ", "\n    \n    foo <\n    "),
+            // 118
+            ("    foo <  ", "    foo <  "),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                escape_md(input),
+                expected,
+                "Failed on input:\n---\n{}\n---",
+                input
+            );
+        }
+    }
+
+    // https://spec.commonmark.org/0.31.2/#fenced-code-blocks
+    #[test]
+    fn test_fenced_code_blocks() {
+        let cases = vec![
+            // 119
+            ("```\n<\n >\n```", "```\n<\n >\n```"),
+            // 120
+            ("~~~\n<\n >\n~~~", "~~~\n<\n >\n~~~"),
+            // 121
+            ("``\nfoo <\n``", "``\nfoo <\n``"),
+            // 122
+            ("```\naaa <\n~~~\n```", "```\naaa <\n~~~\n```"),
+            // 123
+            ("~~~\naaa <\n```<\n~~~", "~~~\naaa <\n```<\n~~~"),
+            // 124
+            ("````\naaa <\n```<\n``````", "````\naaa <\n```<\n``````"),
+            // 125
+            ("~~~~\naaa <\n~~~<\n~~~~", "~~~~\naaa <\n~~~<\n~~~~"),
+            // 126
+            ("```\n<", "```\n<"),
+            // 127
+            ("`````\n\n```\naaa <", "`````\n\n```\naaa <"),
+            // 128
+            ("> ```\n> aaa <\n\nbbb <", "> ```\n> aaa <\n\nbbb &lt;"),
+            // 131
+            (" ```\n aaa <\naaa <\n```", " ```\n aaa <\naaa <\n```"),
+            // 132
+            (
+                "  ```\naaa <\n  aaa <\naaa <\n  ```",
+                "  ```\naaa <\n  aaa <\naaa <\n  ```",
+            ),
+            // 133
+            (
+                "   ```\n   aaa <\n    aaa <\n  aaa <\n   ```",
+                "   ```\n   aaa <\n    aaa <\n  aaa <\n   ```",
+            ),
+            // 134
+            ("    ```\n    aaa <\n    ```", "    ```\n    aaa <\n    ```"),
+            // 135
+            ("```\naaa <\n  ```", "```\naaa <\n  ```"),
+            // 136
+            ("   ```\naaa <\n  ```", "   ```\naaa <\n  ```"),
+            // 137
+            ("```\naaa <\n    ```\n<", "```\naaa <\n    ```\n<"),
+            // 138
+            ("``` ```\naaa <", "``` ```\naaa &lt;"),
+            // 139
+            ("~~~~~~\naaa <\n~~~ ~~", "~~~~~~\naaa <\n~~~ ~~"),
+            // 140
+            (
+                "foo <\n```\nbar <\n```\nbaz <",
+                "foo &lt;\n```\nbar <\n```\nbaz &lt;",
+            ),
+            // 141
+            (
+                "foo <\n---\n~~~\nbar <\n~~~\n# baz <",
+                "foo &lt;\n---\n~~~\nbar <\n~~~\n# baz &lt;",
+            ),
+            // 142
+            (
+                "```ruby\ndef foo(x) <\n  return 3\nend\n```",
+                "```ruby\ndef foo(x) <\n  return 3\nend\n```",
+            ),
+            // 143
+            (
+                "~~~~    ruby startline=3 $%@#$\ndef foo(x) <\n  return 3\nend\n~~~~~~~",
+                "~~~~    ruby startline=3 $%@#$\ndef foo(x) <\n  return 3\nend\n~~~~~~~",
+            ),
+            // 144
+            ("````;\n<\n````", "````;\n<\n````"),
+            // 145
+            ("``` aa ```\nfoo <", "``` aa ```\nfoo &lt;"),
+            // 146
+            ("~~~ aa ``` ~~~\nfoo <\n~~~", "~~~ aa ``` ~~~\nfoo <\n~~~"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                escape_md(input),
+                expected,
+                "Failed on input:\n---\n{}\n---",
+                input
+            );
+        }
+    }
+
+    // https://spec.commonmark.org/0.31.2/#code-spans
+    #[test]
+    fn test_code_spans() {
+        let cases = vec![
+            // 328
+            ("`foo <`", "`foo <`"),
+            ("`foo` <", "`foo` &lt;"),
+            // 329
+            ("`` foo ` bar < ``", "`` foo ` bar < ``"),
+            // 330
+            ("` ``<`` `", "` ``<`` `"),
+            // 336
+            ("``\nfoo <\nbar <\n``", "``\nfoo <\nbar <\n``"),
+            // 338
+            (r"`foo\`bar <`", r"`foo\`bar &lt;`"),
+            // 339
+            ("``foo`bar <``", "``foo`bar <``"),
+            // 341
+            ("*foo`*<`", "*foo`*<`"),
+            // 342
+            ("[not a `link <](/foo`)", "[not a `link <](/foo`)"),
+            // 343
+            (r#"`<a href=\"``\">`"#, r#"`<a href=\"``\">`"#),
+            // 344
+            (r#"<a href=\"``\">`"#, r#"&lt;a href=\"``\">`"#),
+            // 345
+            ("`<https://foo.bar.`baz>`", "`<https://foo.bar.`baz>`"),
+            // 346
+            ("<https://foo.bar.`baz>`", "&lt;https://foo.bar.`baz>`"),
+            // 347
+            ("```foo<``", "```foo&lt;``"),
+            // 348
+            ("`foo <", "`foo &lt;"),
+            // 349
+            ("`foo<``bar<``", "`foo&lt;``bar<``"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                escape_md(input),
+                expected,
+                "Failed on input:\n---\n{}\n---",
+                input
+            );
+        }
     }
 }
