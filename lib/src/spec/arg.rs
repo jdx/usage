@@ -21,6 +21,8 @@ pub enum SpecDoubleDashChoices {
     Optional,
     /// Require "--" to be passed
     Required,
+    /// Preserve "--" tokens as values (only for variadic args)
+    Preserve,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -144,7 +146,9 @@ impl From<&SpecArg> for KdlNode {
         if !arg.required {
             node.push(KdlEntry::new_prop("required", false));
         }
-        if arg.double_dash == SpecDoubleDashChoices::Automatic {
+        if arg.double_dash == SpecDoubleDashChoices::Automatic
+            || arg.double_dash == SpecDoubleDashChoices::Preserve
+        {
             node.push(KdlEntry::new_prop(
                 "double_dash",
                 arg.double_dash.to_string(),

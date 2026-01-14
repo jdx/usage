@@ -30,7 +30,7 @@
 //!     .build();
 //! ```
 
-use crate::{SpecArg, SpecCommand, SpecFlag};
+use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecCommand, SpecFlag};
 
 /// Builder for SpecFlag
 #[derive(Debug, Default, Clone)]
@@ -290,6 +290,12 @@ impl SpecArgBuilder {
     /// Set environment variable name
     pub fn env(mut self, env: impl Into<String>) -> Self {
         self.inner.env = Some(env.into());
+        self
+    }
+
+    /// Set the double-dash behavior
+    pub fn double_dash(mut self, behavior: SpecDoubleDashChoices) -> Self {
+        self.inner.double_dash = behavior;
         self
     }
 

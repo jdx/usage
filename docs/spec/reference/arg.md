@@ -24,4 +24,5 @@ arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 arg "<file>" double_dash="required" # arg must be passed after a double dash (e.g. mycli -- file.txt)
 arg "<file>" double_dash="optional" # arg may be passed after a double dash (e.g. mycli -- file.txt or mycli file.txt)
 arg "<file>..." double_dash="automatic" # once arg is passed, behave as if a double dash was passed (e.g. mycli file.txt --filewithdash)
+arg "<args>..." double_dash="preserve" # preserve double dashes as args (e.g. mycli arg1 -- arg2 -- arg3)
 ```

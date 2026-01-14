@@ -10,6 +10,7 @@ use strum::EnumTryAs;
 #[cfg(feature = "docs")]
 use crate::docs;
 use crate::error::UsageErr;
+use crate::spec::arg::SpecDoubleDashChoices;
 use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
 
 /// Extract the flag key from a flag word for lookup in available_flags map
@@ -283,8 +284,21 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         }
 
         if w == "--" {
+            // Always disable flag parsing after seeing a "--" token
             enable_flags = false;
-            continue;
+
+            // Only preserve the double dash token if we're collecting values for a variadic arg
+            // in double_dash == `preserve` mode
+            let should_preserve = next_arg
+                .map(|arg| arg.var && arg.double_dash == SpecDoubleDashChoices::Preserve)
+                .unwrap_or(false);
+
+            if should_preserve {
+                // Fall through to arg parsing
+            } else {
+                // Default behavior, skip the token
+                continue;
+            }
         }
 
         // long flags
@@ -1237,5 +1251,163 @@ mod tests {
         let task_arg = parsed.args.keys().find(|a| a.name == "task").unwrap();
         let value = parsed.args.get(task_arg).unwrap();
         assert_eq!(value.to_string(), "task2");
+    }
+
+    #[test]
+    fn test_double_dashes_without_preserve() {
+        // Test that variadic args WITHOUT `preserve` skip "--" tokens (default behavior)
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("args").var(true).build())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run arg1 -- arg2 -- arg3" - all double dashes should be skipped
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "arg1".to_string(),
+            "--".to_string(),
+            "arg2".to_string(),
+            "--".to_string(),
+            "arg3".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        let args_arg = parsed.args.keys().find(|a| a.name == "args").unwrap();
+        let value = parsed.args.get(args_arg).unwrap();
+        assert_eq!(value.to_string(), "arg1 arg2 arg3");
+    }
+
+    #[test]
+    fn test_double_dashes_with_preserve() {
+        // Test that variadic args WITH `preserve` keep all double dashes
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(
+                SpecArg::builder()
+                    .name("args")
+                    .var(true)
+                    .double_dash(SpecDoubleDashChoices::Preserve)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run arg1 -- arg2 -- arg3" - all double dashes should be preserved
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "arg1".to_string(),
+            "--".to_string(),
+            "arg2".to_string(),
+            "--".to_string(),
+            "arg3".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        let args_arg = parsed.args.keys().find(|a| a.name == "args").unwrap();
+        let value = parsed.args.get(args_arg).unwrap();
+        assert_eq!(value.to_string(), "arg1 -- arg2 -- arg3");
+    }
+
+    #[test]
+    fn test_double_dashes_with_preserve_only_dashes() {
+        // Test that variadic args WITH `preserve` keep all double dashes even
+        // if the values are just double dashes
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(
+                SpecArg::builder()
+                    .name("args")
+                    .var(true)
+                    .double_dash(SpecDoubleDashChoices::Preserve)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // "test run -- --" - all double dashes should be preserved
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "--".to_string(),
+            "--".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        let args_arg = parsed.args.keys().find(|a| a.name == "args").unwrap();
+        let value = parsed.args.get(args_arg).unwrap();
+        assert_eq!(value.to_string(), "-- --");
+    }
+
+    #[test]
+    fn test_double_dashes_with_preserve_multiple_args() {
+        // Test with multiple args where only the second has has `preserve`
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .arg(
+                SpecArg::builder()
+                    .name("extra_args")
+                    .var(true)
+                    .double_dash(SpecDoubleDashChoices::Preserve)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // The first arg "task1" is captured normally
+        // Then extra_args with `preserve` captures everything, including the "--" tokens
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "task1".to_string(),
+            "--".to_string(),
+            "arg1".to_string(),
+            "--".to_string(),
+            "--foo".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        let task_arg = parsed.args.keys().find(|a| a.name == "task").unwrap();
+        let task_value = parsed.args.get(task_arg).unwrap();
+        assert_eq!(task_value.to_string(), "task1");
+
+        let extra_arg = parsed.args.keys().find(|a| a.name == "extra_args").unwrap();
+        let extra_value = parsed.args.get(extra_arg).unwrap();
+        assert_eq!(extra_value.to_string(), "-- arg1 -- --foo");
     }
 }
