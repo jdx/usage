@@ -793,7 +793,7 @@
   "config": {
     "props": {}
   },
-  "version": "2.11.0",
+  "version": "2.12.0",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
