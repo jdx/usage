@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.12.0](https://github.com/jdx/usage/compare/v2.11.0..v2.12.0) - 2026-01-14
+
+### 🚀 Features
+
+- Allowing preserving double dashes for variadic args by [@alcroito](https://github.com/alcroito) in [#417](https://github.com/jdx/usage/pull/417)
+
+### 📦️ Dependency Updates
+
+- replace dependency @tsconfig/node18 with @tsconfig/node20 by [@renovate[bot]](https://github.com/renovate[bot]) in [#411](https://github.com/jdx/usage/pull/411)
+- update amannn/action-semantic-pull-request action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#412](https://github.com/jdx/usage/pull/412)
+- replace dependency @tsconfig/node20 with @tsconfig/node22 by [@renovate[bot]](https://github.com/renovate[bot]) in [#415](https://github.com/jdx/usage/pull/415)
+- update rust crate clap to v4.5.54 by [@renovate[bot]](https://github.com/renovate[bot]) in [#416](https://github.com/jdx/usage/pull/416)
+
+### New Contributors
+
+- @alcroito made their first contribution in [#417](https://github.com/jdx/usage/pull/417)
+
 ## [2.11.0](https://github.com/jdx/usage/compare/v2.10.0..v2.11.0) - 2025-12-31
 
 ### 🚀 Features
