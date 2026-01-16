@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/jdx/usage/compare/v2.12.0..v2.12.1) - 2026-01-16
+
+### 📦️ Dependency Updates
+
+- update actions/setup-node digest to 6044e13 by [@renovate[bot]](https://github.com/renovate[bot]) in [#419](https://github.com/jdx/usage/pull/419)
+- replace dependency @tsconfig/node22 with @tsconfig/node24 by [@renovate[bot]](https://github.com/renovate[bot]) in [#418](https://github.com/jdx/usage/pull/418)
+
 ## [2.12.0](https://github.com/jdx/usage/compare/v2.11.0..v2.12.0) - 2026-01-14
 
 ### 🚀 Features
