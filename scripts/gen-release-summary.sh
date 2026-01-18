@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Generate editorialized release notes using Claude Code
+# Generate concise changelog entry using Claude Code
 # Usage: ./scripts/gen-release-summary.sh <version> [prev_version]
 
 version="${1:-}"
@@ -30,27 +30,23 @@ prompt=$(
 	printf '%s\n' "$changelog"
 	printf '\n'
 	cat <<'INSTRUCTIONS'
-Rewrite this into user-friendly release notes. The format should be:
+Write a brief changelog entry:
 
-1. Start with 1-2 paragraphs summarizing the most important changes
-2. Then organize into sections using ### headers (e.g., "### Highlights", "### Bug Fixes")
-3. Write in clear, user-focused language (not developer commit messages)
-4. Explain WHY changes matter to users, not just what changed
-5. Group related changes together logically
-6. Skip minor/internal changes that don't affect users
-7. Include contributor attribution where appropriate (@username)
-8. Include links to PRs (e.g., [#123](https://github.com/jdx/usage/pull/123)) for significant changes
-9. Where applicable, link to relevant documentation at https://usage.jdx.dev/
+1. One short paragraph (2-3 sentences) summarizing the release
+2. Categorized bullet points (### Features, ### Bug Fixes, etc.)
+3. One line per change, no explanations
+4. Skip minor/internal changes
+5. Include PR links for significant changes
+6. Include contributor usernames (@username)
+7. Link to relevant documentation at https://usage.jdx.dev/ where applicable
 
-IMPORTANT: Use only ### for section headers. NEVER use "## [" as this pattern is reserved for version headers and will corrupt changelog processing.
+IMPORTANT: Use only ### for section headers. NEVER use "## [" as this pattern is reserved for version headers.
 
-Keep the tone professional but approachable. Focus on what users care about.
-
-Output ONLY the editorialized release notes, no preamble.
+Output ONLY the brief changelog, no preamble.
 INSTRUCTIONS
 )
 
-# Use Claude Code to editorialize the release notes
+# Use Claude Code to generate the changelog entry
 # Sandboxed: only read-only tools allowed (no Bash, Edit, Write)
 output=$(
 	printf '%s' "$prompt" | claude -p \
