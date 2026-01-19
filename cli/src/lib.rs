@@ -3,16 +3,12 @@ extern crate log;
 extern crate miette;
 extern crate xx;
 
-use std::path::PathBuf;
-
 use miette::Result;
 
 pub use cli::Cli;
 
 mod cli;
 pub mod env;
-mod hash;
-mod shebang;
 mod usage_spec;
 
 #[cfg(test)]
@@ -34,11 +30,6 @@ pub fn run(args: &[String]) -> Result<()> {
             return usage_spec::generate();
         } else if script == "--completions" && args.len() > 2 {
             return usage_spec::complete(args.get(2).unwrap());
-        } else if script.starts_with("./") || script.starts_with('/') {
-            let script: PathBuf = script.into();
-            if script.starts_with("./") && script.exists() {
-                return shebang::execute(&script, args);
-            }
         }
     }
     let result = Cli::run(args);

@@ -61,8 +61,8 @@ pub struct Spec {
 }
 
 impl Spec {
-    pub fn parse_file(file: &Path) -> Result<(Spec, String), UsageErr> {
-        let (spec, body) = split_script(file)?;
+    pub fn parse_file(file: &Path) -> Result<Spec, UsageErr> {
+        let spec = split_script(file)?;
         let ctx = ParsingContext::new(file, &spec);
         let mut schema = Self::parse(&ctx, &spec)?;
         if schema.bin.is_empty() {
@@ -75,7 +75,7 @@ impl Spec {
         if schema.name.is_empty() {
             schema.name.clone_from(&schema.bin);
         }
-        Ok((schema, body))
+        Ok(schema)
     }
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
         let raw = extract_usage_from_comments(&file::read_to_string(file)?);
@@ -181,7 +181,7 @@ impl Spec {
                         false => file.to_path_buf(),
                     };
                     info!("include: {}", file.display());
-                    let (other, _) = Self::parse_file(&file)?;
+                    let other = Self::parse_file(&file)?;
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
@@ -260,24 +260,17 @@ fn check_usage_version(version: &str) {
     }
 }
 
-fn split_script(file: &Path) -> Result<(String, String), UsageErr> {
+fn split_script(file: &Path) -> Result<String, UsageErr> {
     let full = file::read_to_string(file)?;
+    // If file has a shebang and USAGE comments, extract the spec from comments
     if full.starts_with("#!") {
         let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])");
         if full.lines().any(|l| usage_regex.is_match(l)) {
-            return Ok((extract_usage_from_comments(&full), full));
+            return Ok(extract_usage_from_comments(&full));
         }
     }
-    let schema = full.strip_prefix("#!/usr/bin/env usage\n").unwrap_or(&full);
-    let (schema, body) = schema.split_once("\n#!").unwrap_or((schema, ""));
-    let schema = schema
-        .trim()
-        .lines()
-        .filter(|l| !l.starts_with('#'))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let body = format!("#!{body}");
-    Ok((schema, body))
+    // Otherwise treat the whole file as a KDL spec (e.g., .usage.kdl files)
+    Ok(full)
 }
 
 fn extract_usage_from_comments(full: &str) -> String {
