@@ -3,6 +3,7 @@ use std::env;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use clap::Args;
 use itertools::Itertools;
@@ -185,7 +186,7 @@ impl CompleteWord {
 
     fn complete_long_flag_names(
         &self,
-        flags: &BTreeMap<String, SpecFlag>,
+        flags: &BTreeMap<String, Arc<SpecFlag>>,
         ctoken: &str,
     ) -> Vec<(String, String)> {
         debug!("complete_long_flag_names: {ctoken}");
@@ -213,7 +214,7 @@ impl CompleteWord {
 
     fn complete_short_flag_names(
         &self,
-        flags: &BTreeMap<String, SpecFlag>,
+        flags: &BTreeMap<String, Arc<SpecFlag>>,
         ctoken: &str,
     ) -> Vec<(String, String)> {
         debug!("complete_short_flag_names: {ctoken}");
