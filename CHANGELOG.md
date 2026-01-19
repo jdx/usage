@@ -1,5 +1,41 @@
 # Changelog
 
+## [2.13.0](https://github.com/jdx/usage/compare/v2.12.0..v2.13.0) - 2026-01-19
+
+### 🚀 Features
+
+- **(release)** add LLM-generated prose summary to release notes by [@jdx](https://github.com/jdx) in [#421](https://github.com/jdx/usage/pull/421)
+- add LLM-generated release notes for GitHub releases by [@jdx](https://github.com/jdx) in [#423](https://github.com/jdx/usage/pull/423)
+- add spec lint command by [@jdx](https://github.com/jdx) in [#430](https://github.com/jdx/usage/pull/430)
+
+### 🐛 Bug Fixes
+
+- replace unsafe path unwrap chains with proper error handling by [@jdx](https://github.com/jdx) in [#424](https://github.com/jdx/usage/pull/424)
+- pass positional args through to executed scripts by [@jdx](https://github.com/jdx) in [#425](https://github.com/jdx/usage/pull/425)
+- replace unimplemented!() with proper errors for unsupported shells by [@jdx](https://github.com/jdx) in [#432](https://github.com/jdx/usage/pull/432)
+- update claude CLI model and add bypassPermissions by [@jdx](https://github.com/jdx) in [#435](https://github.com/jdx/usage/pull/435)
+
+### 🚜 Refactor
+
+- remove unused double-shebang support by [@jdx](https://github.com/jdx) in [#426](https://github.com/jdx/usage/pull/426)
+- replace once_cell with std::sync::LazyLock by [@jdx](https://github.com/jdx) in [#428](https://github.com/jdx/usage/pull/428)
+- improve code quality with safety and lint fixes by [@jdx](https://github.com/jdx) in [#427](https://github.com/jdx/usage/pull/427)
+
+### ⚡ Performance
+
+- use Arc for flag/arg keys in ParseOutput to reduce cloning by [@jdx](https://github.com/jdx) in [#422](https://github.com/jdx/usage/pull/422)
+
+### 🔍 Other Changes
+
+- update insta snapshots to newer format by [@jdx](https://github.com/jdx) in [#429](https://github.com/jdx/usage/pull/429)
+- fix legacy inline snapshot format warnings by [@jdx](https://github.com/jdx) in [#433](https://github.com/jdx/usage/pull/433)
+- replace TODO with doc comment for subcommand_lookup by [@jdx](https://github.com/jdx) in [#434](https://github.com/jdx/usage/pull/434)
+
+### 📦️ Dependency Updates
+
+- update actions/setup-node digest to 6044e13 by [@renovate[bot]](https://github.com/renovate[bot]) in [#419](https://github.com/jdx/usage/pull/419)
+- replace dependency @tsconfig/node22 with @tsconfig/node24 by [@renovate[bot]](https://github.com/renovate[bot]) in [#418](https://github.com/jdx/usage/pull/418)
+
 ## [2.12.0](https://github.com/jdx/usage/compare/v2.11.0..v2.12.0) - 2026-01-14
 
 ### 🚀 Features
