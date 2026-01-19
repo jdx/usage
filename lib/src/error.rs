@@ -77,6 +77,9 @@ pub enum UsageErr {
 
     #[error("Invalid file path: {0}")]
     InvalidPath(String),
+
+    #[error("Unsupported shell: {0}")]
+    UnsupportedShell(String),
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 
