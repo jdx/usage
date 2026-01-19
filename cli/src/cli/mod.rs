@@ -32,8 +32,8 @@ enum Command {
     Fish(shell::Shell),
     Generate(generate::Generate),
     Lint(lint::Lint),
-    #[clap(about = "Execute a shell script using PowerShell")]
-    Powershell(shell::Shell),
+    #[clap(name = "powershell", about = "Execute a shell script using PowerShell")]
+    PowerShell(shell::Shell),
     #[clap(about = "Execute a shell script using zsh")]
     Zsh(shell::Shell),
 }
@@ -47,7 +47,7 @@ impl Cli {
         match cli.command {
             Command::Bash(mut cmd) => cmd.run("bash"),
             Command::Fish(mut cmd) => cmd.run("fish"),
-            Command::Powershell(mut cmd) => cmd.run("pwsh"),
+            Command::PowerShell(mut cmd) => cmd.run("pwsh"),
             Command::Zsh(mut cmd) => cmd.run("zsh"),
             Command::Generate(cmd) => cmd.run(),
             Command::Exec(mut cmd) => cmd.run(),
