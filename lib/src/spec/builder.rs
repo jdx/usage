@@ -30,7 +30,8 @@
 //!     .build();
 //! ```
 
-use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecCommand, SpecFlag};
+use crate::spec::cmd::SpecExample;
+use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
 /// Builder for SpecFlag
 #[derive(Debug, Default, Clone)]
@@ -300,6 +301,18 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Set choices for this argument
+    pub fn choices<I, S>(mut self, choices: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner.choices = Some(SpecChoices {
+            choices: choices.into_iter().map(Into::into).collect(),
+        });
+        self
+    }
+
     /// Build the final SpecArg
     #[must_use]
     pub fn build(mut self) -> SpecArg {
@@ -426,6 +439,76 @@ impl SpecCommandBuilder {
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     pub fn restart_token(mut self, token: impl Into<String>) -> Self {
         self.inner.restart_token = Some(token.into());
+        self
+    }
+
+    /// Add a subcommand (can be called multiple times)
+    pub fn subcommand(mut self, cmd: SpecCommand) -> Self {
+        self.inner.subcommands.insert(cmd.name.clone(), cmd);
+        self
+    }
+
+    /// Add multiple subcommands at once
+    pub fn subcommands(mut self, cmds: impl IntoIterator<Item = SpecCommand>) -> Self {
+        for cmd in cmds {
+            self.inner.subcommands.insert(cmd.name.clone(), cmd);
+        }
+        self
+    }
+
+    /// Set before_help text (displayed before the help message)
+    pub fn before_help(mut self, text: impl Into<String>) -> Self {
+        self.inner.before_help = Some(text.into());
+        self
+    }
+
+    /// Set before_help_long text
+    pub fn before_help_long(mut self, text: impl Into<String>) -> Self {
+        self.inner.before_help_long = Some(text.into());
+        self
+    }
+
+    /// Set before_help markdown text
+    pub fn before_help_md(mut self, text: impl Into<String>) -> Self {
+        self.inner.before_help_md = Some(text.into());
+        self
+    }
+
+    /// Set after_help text (displayed after the help message)
+    pub fn after_help(mut self, text: impl Into<String>) -> Self {
+        self.inner.after_help = Some(text.into());
+        self
+    }
+
+    /// Set after_help_long text
+    pub fn after_help_long(mut self, text: impl Into<String>) -> Self {
+        self.inner.after_help_long = Some(text.into());
+        self
+    }
+
+    /// Set after_help markdown text
+    pub fn after_help_md(mut self, text: impl Into<String>) -> Self {
+        self.inner.after_help_md = Some(text.into());
+        self
+    }
+
+    /// Add an example (can be called multiple times)
+    pub fn example(mut self, code: impl Into<String>) -> Self {
+        self.inner.examples.push(SpecExample::new(code.into()));
+        self
+    }
+
+    /// Add an example with header and help text
+    pub fn example_with_help(
+        mut self,
+        code: impl Into<String>,
+        header: impl Into<String>,
+        help: impl Into<String>,
+    ) -> Self {
+        let mut example = SpecExample::new(code.into());
+        example.header = Some(header.into());
+        example.help = Some(help.into());
+        self.inner.examples.push(example);
         self
     }
 
@@ -580,5 +663,73 @@ mod tests {
         assert_eq!(cmd.flags[0].name, "force");
         assert_eq!(cmd.args.len(), 1);
         assert_eq!(cmd.args[0].name, "package");
+    }
+
+    #[test]
+    fn test_arg_builder_choices() {
+        let arg = SpecArgBuilder::new()
+            .name("format")
+            .choices(["json", "yaml", "toml"])
+            .build();
+
+        assert!(arg.choices.is_some());
+        let choices = arg.choices.unwrap();
+        assert_eq!(
+            choices.choices,
+            vec!["json".to_string(), "yaml".to_string(), "toml".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_command_builder_subcommands() {
+        let sub1 = SpecCommandBuilder::new().name("sub1").build();
+        let sub2 = SpecCommandBuilder::new().name("sub2").build();
+
+        let cmd = SpecCommandBuilder::new()
+            .name("main")
+            .subcommand(sub1)
+            .subcommand(sub2)
+            .build();
+
+        assert_eq!(cmd.subcommands.len(), 2);
+        assert!(cmd.subcommands.contains_key("sub1"));
+        assert!(cmd.subcommands.contains_key("sub2"));
+    }
+
+    #[test]
+    fn test_command_builder_before_after_help() {
+        let cmd = SpecCommandBuilder::new()
+            .name("test")
+            .before_help("Before help text")
+            .before_help_long("Before help long text")
+            .after_help("After help text")
+            .after_help_long("After help long text")
+            .build();
+
+        assert_eq!(cmd.before_help, Some("Before help text".to_string()));
+        assert_eq!(
+            cmd.before_help_long,
+            Some("Before help long text".to_string())
+        );
+        assert_eq!(cmd.after_help, Some("After help text".to_string()));
+        assert_eq!(
+            cmd.after_help_long,
+            Some("After help long text".to_string())
+        );
+    }
+
+    #[test]
+    fn test_command_builder_examples() {
+        let cmd = SpecCommandBuilder::new()
+            .name("test")
+            .example("mycli run")
+            .example_with_help("mycli build", "Build example", "Build the project")
+            .build();
+
+        assert_eq!(cmd.examples.len(), 2);
+        assert_eq!(cmd.examples[0].code, "mycli run");
+        assert_eq!(cmd.examples[1].code, "mycli build");
+        assert_eq!(cmd.examples[1].header, Some("Build example".to_string()));
+        assert_eq!(cmd.examples[1].help, Some("Build the project".to_string()));
     }
 }
