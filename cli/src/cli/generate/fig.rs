@@ -21,9 +21,17 @@ mod description_format {
     where
         S: Serializer,
     {
-        let s: &str = description.as_ref().unwrap();
+        let s: &str = match description.as_ref() {
+            Some(s) => s,
+            None => return serializer.serialize_str(""),
+        };
+        if s.is_empty() {
+            return serializer.serialize_str("");
+        }
         let mut v: Vec<char> = s.chars().collect();
-        v[0] = v[0].to_uppercase().next().unwrap();
+        if let Some(first_upper) = v[0].to_uppercase().next() {
+            v[0] = first_upper;
+        }
         serializer.serialize_str(v.iter().collect::<String>().as_str())
     }
 
@@ -242,9 +250,7 @@ impl FigOption {
     pub fn get_generators(&self) -> Vec<FigGenerator> {
         self.args
             .iter()
-            .filter(|&a| a.generators.is_some())
-            .cloned()
-            .map(|a| a.generators.unwrap())
+            .filter_map(|a| a.generators.clone())
             .collect()
     }
 
@@ -354,11 +360,13 @@ impl Fig {
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
-        let mut main_command = FigCommand::parse_from_spec(&spec.cmd).unwrap();
+        let mut main_command = FigCommand::parse_from_spec(&spec.cmd)
+            .ok_or_else(|| miette::miette!("Failed to parse command spec (command may be hidden)"))?;
         let args = main_command.get_args();
         let completes = spec.complete;
         Fig::fill_args_complete(args, completes);
-        let j = serde_json::to_string_pretty(&main_command).unwrap();
+        let j = serde_json::to_string_pretty(&main_command)
+            .map_err(|e| miette::miette!("Failed to serialize Fig spec: {}", e))?;
         let mut result = format!("const completionSpec: Fig.Spec = {j}");
 
         let generators = main_command.get_generators();
@@ -375,10 +383,8 @@ impl Fig {
         main_command
             .get_commands()
             .iter()
-            .filter(|&cmd| cmd.generate_spec.is_some())
-            .cloned()
-            .for_each(|cmd| {
-                let call_template_str = cmd.generate_spec.unwrap();
+            .filter_map(|cmd| cmd.generate_spec.as_ref().map(|spec| (cmd, spec)))
+            .for_each(|(_, call_template_str)| {
                 let args = call_template_str.replace("$", "");
                 let replace_str = call_template_str.replace("\"", "\\\"");
                 result = result.replace(
@@ -418,17 +424,12 @@ impl Fig {
     }
 
     fn fill_args_complete(args: Vec<&mut FigArg>, completes: IndexMap<String, SpecComplete>) {
-        let completable_args = args
-            .into_iter()
-            .map(|a| {
-                let completekv = completes.get_key_value(&a.name);
-                completekv.map(|(_, v)| (a, v.clone()))
+        args.into_iter()
+            .filter_map(|a| {
+                completes.get(&a.name).map(|v| (a, v.clone()))
             })
-            .filter(Option::is_some);
-
-        completable_args.for_each(|a| {
-            let x = a.unwrap();
-            x.0.update_from_complete(x.1)
-        });
+            .for_each(|(arg, complete)| {
+                arg.update_from_complete(complete)
+            });
     }
 }
