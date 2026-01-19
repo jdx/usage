@@ -138,122 +138,8 @@
 .usage-hero-tagline {
   font-size: 1.5rem;
   color: var(--vp-c-text-2);
-  margin: 0 0 2.5rem;
+  margin: 0 0 1.5rem;
   font-weight: 400;
-}
-
-/* Stat Cards */
-.usage-hero-stats {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: flex-start;
-  margin-bottom: 2.5rem;
-  flex-wrap: wrap;
-}
-
-.usage-hero-stat {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1.25rem 1.75rem;
-  min-width: 140px;
-  animation: fadeIn 0.6s ease-out backwards;
-  cursor: help;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.usage-hero-stat:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--usage-green);
-}
-
-.usage-hero-stat:hover .usage-hero-stat-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* Custom Tooltip Card */
-.usage-hero-stat-tooltip {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  background: rgba(30, 30, 30, 0.95);
-  border: 1px solid var(--usage-green);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  min-width: 220px;
-  max-width: 280px;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.2s ease;
-  z-index: 100;
-  margin-top: 0.75rem;
-  text-align: left;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-.usage-hero-stat-tooltip::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 8px solid transparent;
-  border-bottom-color: var(--usage-green);
-  border-top: none;
-}
-
-.usage-hero-stat-tooltip strong {
-  display: block;
-  color: var(--usage-green);
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-
-.usage-hero-stat-tooltip p {
-  font-size: 0.85rem;
-  color: var(--vp-c-text-2);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.usage-hero-stat-tooltip ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.usage-hero-stat-tooltip li {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--usage-green-light);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-family: var(--vp-font-family-mono);
-}
-
-.usage-hero-stat:nth-child(1) { animation-delay: 0.1s; }
-.usage-hero-stat:nth-child(2) { animation-delay: 0.2s; }
-.usage-hero-stat:nth-child(3) { animation-delay: 0.3s; }
-
-.usage-hero-stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--usage-green);
-  margin-bottom: 0.25rem;
-}
-
-.usage-hero-stat-label {
-  font-size: 0.875rem;
-  color: var(--vp-c-text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 /* Action Buttons */
@@ -301,9 +187,9 @@
 /* Feature Buttons */
 .usage-hero-features {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 2rem;
+  margin-bottom: 2rem;
 }
 
 .usage-hero-feature {
@@ -351,10 +237,6 @@
     text-align: center;
   }
 
-  .usage-hero-stats {
-    justify-content: center;
-  }
-
   .usage-hero-actions {
     justify-content: center;
   }
@@ -380,18 +262,5 @@
 
   .usage-hero-tagline {
     font-size: 1.25rem;
-  }
-
-  .usage-hero-stats {
-    gap: 1rem;
-  }
-
-  .usage-hero-stat {
-    padding: 1rem 1.25rem;
-    min-width: 120px;
-  }
-
-  .usage-hero-stat-value {
-    font-size: 1.5rem;
   }
 }
