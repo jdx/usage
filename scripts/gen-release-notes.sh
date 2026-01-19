@@ -35,16 +35,20 @@ prompt=$(
 	printf '%s\n' "$changelog"
 	printf '\n'
 	cat <<'INSTRUCTIONS'
-Write user-friendly release notes:
+Write user-friendly release notes in markdown:
 
-1. Start with 1-2 paragraphs summarizing key changes
-2. Organize into ### sections (Highlights, Bug Fixes, etc.)
-3. Explain WHY changes matter to users
-4. Include PR links and documentation links (https://usage.jdx.dev/)
-5. Include contributor usernames (@username)
-6. Skip internal changes
+1. First line: `# ` followed by a pithy, descriptive title (not just the version). Examples:
+   - "# PowerShell Support & Bug Fixes"
+   - "# Performance Improvements"
+   - "# New Completion Features"
+2. Then 1-2 paragraphs summarizing key changes
+3. Organize into ## sections (Highlights, Bug Fixes, etc.) as needed
+4. Explain WHY changes matter to users
+5. Include PR links and documentation links (https://usage.jdx.dev/)
+6. Include contributor usernames (@username)
+7. Skip internal/trivial changes
 
-Output ONLY the release notes, no preamble.
+Output markdown only, starting with the # title line.
 INSTRUCTIONS
 )
 
@@ -82,4 +86,17 @@ if [[ -z $output ]]; then
 	exit 1
 fi
 
-echo "$output"
+# Parse title from first line (# Title) and body from rest
+first_line=$(echo "$output" | head -n1)
+if [[ $first_line == "# "* ]]; then
+	title="${first_line#\# }"
+	body=$(echo "$output" | tail -n +2)
+else
+	echo "Warning: First line not a title, using version" >&2
+	title="$version"
+	body="$output"
+fi
+
+# Output format: first line is title, rest is body
+echo "$title"
+echo "$body"
