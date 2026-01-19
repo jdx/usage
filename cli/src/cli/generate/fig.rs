@@ -360,8 +360,9 @@ impl Fig {
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
-        let mut main_command = FigCommand::parse_from_spec(&spec.cmd)
-            .ok_or_else(|| miette::miette!("Failed to parse command spec (command may be hidden)"))?;
+        let mut main_command = FigCommand::parse_from_spec(&spec.cmd).ok_or_else(|| {
+            miette::miette!("Failed to parse command spec (command may be hidden)")
+        })?;
         let args = main_command.get_args();
         let completes = spec.complete;
         Fig::fill_args_complete(args, completes);
@@ -425,11 +426,7 @@ impl Fig {
 
     fn fill_args_complete(args: Vec<&mut FigArg>, completes: IndexMap<String, SpecComplete>) {
         args.into_iter()
-            .filter_map(|a| {
-                completes.get(&a.name).map(|v| (a, v.clone()))
-            })
-            .for_each(|(arg, complete)| {
-                arg.update_from_complete(complete)
-            });
+            .filter_map(|a| completes.get(&a.name).map(|v| (a, v.clone())))
+            .for_each(|(arg, complete)| arg.update_from_complete(complete));
     }
 }
