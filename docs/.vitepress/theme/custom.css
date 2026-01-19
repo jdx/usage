@@ -298,6 +298,47 @@
   transform: scale(1.05);
 }
 
+/* Feature Buttons */
+.usage-hero-features {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}
+
+.usage-hero-feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--vp-c-text-1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.usage-hero-feature:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--usage-green);
+  transform: translateY(-2px);
+}
+
+.usage-hero-feature-icon {
+  font-size: 1.1rem;
+}
+
+.usage-hero-feature-text {
+  color: var(--vp-c-text-2);
+}
+
+.usage-hero-feature:hover .usage-hero-feature-text {
+  color: var(--vp-c-text-1);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .usage-hero-content {
@@ -315,6 +356,10 @@
   }
 
   .usage-hero-actions {
+    justify-content: center;
+  }
+
+  .usage-hero-features {
     justify-content: center;
   }
 }
@@ -349,15 +394,4 @@
   .usage-hero-stat-value {
     font-size: 1.5rem;
   }
-}
-
-/* Features Section Enhancement */
-.VPFeatures .VPFeature {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.2s ease;
-}
-
-.VPFeatures .VPFeature:hover {
-  border-color: var(--usage-green);
-  transform: translateY(-2px);
 }

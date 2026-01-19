@@ -67,6 +67,26 @@
             CLI Reference
           </a>
         </div>
+
+        <!-- Feature Buttons -->
+        <div class="usage-hero-features">
+          <a href="/cli/completions" class="usage-hero-feature">
+            <span class="usage-hero-feature-icon">🐚</span>
+            <span class="usage-hero-feature-text">Shell Completions</span>
+          </a>
+          <a href="/cli/markdown" class="usage-hero-feature">
+            <span class="usage-hero-feature-icon">📖</span>
+            <span class="usage-hero-feature-text">Documentation</span>
+          </a>
+          <a href="/cli/scripts" class="usage-hero-feature">
+            <span class="usage-hero-feature-icon">📜</span>
+            <span class="usage-hero-feature-text">Scripts</span>
+          </a>
+          <a href="/spec/" class="usage-hero-feature">
+            <span class="usage-hero-feature-icon">🎯</span>
+            <span class="usage-hero-feature-text">KDL Specification</span>
+          </a>
+        </div>
       </div>
 
       <!-- Right Column: Logo -->
