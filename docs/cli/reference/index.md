@@ -33,4 +33,5 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
 - [`usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`](/cli/reference/lint.md)
+- [`usage powershell [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/powershell.md)
 - [`usage zsh [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/zsh.md)

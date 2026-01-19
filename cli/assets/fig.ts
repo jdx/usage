@@ -149,7 +149,7 @@ const completionSpec: Fig.Spec = {
           isRepeatable: false,
           args: {
             name: "shell",
-            suggestions: ["bash", "fish", "zsh"],
+            suggestions: ["bash", "fish", "powershell", "zsh"],
           },
         },
       ],
@@ -228,7 +228,7 @@ const completionSpec: Fig.Spec = {
         {
           name: ["completion", "c"],
           description:
-            "Generate shell completion scripts for bash, fish, or zsh",
+            "Generate shell completion scripts for bash, fish, powershell, or zsh",
           options: [
             {
               name: ["-f", "--file"],
@@ -277,7 +277,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "shell",
               description: "Shell to generate completions for",
-              suggestions: ["bash", "fish", "zsh"],
+              suggestions: ["bash", "fish", "powershell", "zsh"],
             },
             {
               name: "bin",
@@ -456,6 +456,33 @@ const completionSpec: Fig.Spec = {
         description: "A usage spec file to lint",
         template: "filepaths",
       },
+    },
+    {
+      name: "powershell",
+      description: "Execute a shell script using PowerShell",
+      options: [
+        {
+          name: "-h",
+          description: "Show help",
+          isRepeatable: false,
+        },
+        {
+          name: "--help",
+          description: "Show help",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "script",
+        },
+        {
+          name: "args",
+          description: "Arguments to pass to script",
+          isOptional: true,
+          isVariadic: true,
+        },
+      ],
     },
     {
       name: "zsh",
