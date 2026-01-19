@@ -6,6 +6,9 @@ hero:
   name: "Usage"
   #text: "Specification for CLIs"
   tagline: A specification for CLIs
+  image:
+    src: /logo.png
+    alt: Usage
   actions:
     - theme: alt
       text: Usage Specification
