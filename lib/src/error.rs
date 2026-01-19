@@ -3,8 +3,15 @@ use thiserror::Error;
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum UsageErr {
-    #[error("Invalid flag: {0}")]
-    InvalidFlag(String, #[label] SourceSpan, #[source_code] String),
+    #[error("Invalid flag `{token}`: {reason}")]
+    InvalidFlag {
+        token: String,
+        reason: String,
+        #[label("{reason}")]
+        span: SourceSpan,
+        #[source_code]
+        input: String,
+    },
 
     #[error("Missing required flag: --{0} <{0}>")]
     MissingFlag(String),
