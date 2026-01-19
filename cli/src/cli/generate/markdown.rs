@@ -52,7 +52,7 @@ impl Markdown {
             )?;
             Ok(())
         };
-        let (spec, _) = Spec::parse_file(&self.file)?;
+        let spec = Spec::parse_file(&self.file)?;
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);

@@ -33,7 +33,7 @@ pub struct Shell {
 
 impl Shell {
     pub fn run(&mut self, shell: &str) -> miette::Result<()> {
-        let (spec, _script) = Spec::parse_file(&self.script)?;
+        let spec = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
 
