@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use clap::Args;
+use itertools::Itertools;
 use miette::IntoDiagnostic;
 
 use usage::Spec;
@@ -72,7 +73,10 @@ impl Exec {
             .bin
             .to_str()
             .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
-        cmd.arg(bin_path);
+        let args = std::iter::once(bin_path.to_string())
+            .chain(self.args.clone())
+            .collect_vec();
+        cmd.args(&args);
 
         for (key, val) in &parsed.as_env() {
             cmd.env(key, val);
