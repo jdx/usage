@@ -27,15 +27,15 @@
 
       <!-- Stat Cards -->
       <div class="usage-hero-stats">
-        <div class="usage-hero-stat">
+        <div class="usage-hero-stat" title="bash, zsh, fish, PowerShell, nushell">
           <div class="usage-hero-stat-value">5+</div>
           <div class="usage-hero-stat-label">Shells</div>
         </div>
-        <div class="usage-hero-stat">
-          <div class="usage-hero-stat-value">3</div>
-          <div class="usage-hero-stat-label">Doc Formats</div>
+        <div class="usage-hero-stat" title="Human-readable CLI specification format">
+          <div class="usage-hero-stat-value">KDL</div>
+          <div class="usage-hero-stat-label">Powered</div>
         </div>
-        <div class="usage-hero-stat">
+        <div class="usage-hero-stat" title="Use with bash scripts or any CLI tool">
           <div class="usage-hero-stat-value">Any</div>
           <div class="usage-hero-stat-label">Language</div>
         </div>

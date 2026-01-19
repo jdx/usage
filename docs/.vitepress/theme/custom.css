@@ -141,6 +141,14 @@
   padding: 1.25rem 1.75rem;
   min-width: 140px;
   animation: fadeIn 0.6s ease-out backwards;
+  cursor: help;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.usage-hero-stat:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--usage-green);
 }
 
 .usage-hero-stat:nth-child(1) { animation-delay: 0.1s; }
