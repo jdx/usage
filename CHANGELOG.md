@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.13.1](https://github.com/jdx/usage/compare/v2.13.0..v2.13.1) - 2026-01-19
+
+### 🐛 Bug Fixes
+
+- use correct PowerShell casing in enum variant by [@jdx](https://github.com/jdx) in [#438](https://github.com/jdx/usage/pull/438)
+
 ## [2.13.0](https://github.com/jdx/usage/compare/v2.12.0..v2.13.0) - 2026-01-19
 
 ### 🚀 Features
@@ -7,6 +13,7 @@
 - **(release)** add LLM-generated prose summary to release notes by [@jdx](https://github.com/jdx) in [#421](https://github.com/jdx/usage/pull/421)
 - add LLM-generated release notes for GitHub releases by [@jdx](https://github.com/jdx) in [#423](https://github.com/jdx/usage/pull/423)
 - add spec lint command by [@jdx](https://github.com/jdx) in [#430](https://github.com/jdx/usage/pull/430)
+- add PowerShell completion support by [@jdx](https://github.com/jdx) in [#431](https://github.com/jdx/usage/pull/431)
 
 ### 🐛 Bug Fixes
 
