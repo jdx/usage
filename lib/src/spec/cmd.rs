@@ -14,45 +14,86 @@ use itertools::Itertools;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
+/// A CLI command or subcommand specification.
+///
+/// Commands define the structure of a CLI, including their flags, arguments,
+/// and nested subcommands. The root command represents the main CLI entry point.
+///
+/// # Example
+///
+/// ```
+/// use usage::{SpecCommand, SpecFlag, SpecArg};
+///
+/// let cmd = SpecCommand::builder()
+///     .name("install")
+///     .help("Install a package")
+///     .alias("i")
+///     .flag(SpecFlag::builder().short('f').long("force").build())
+///     .arg(SpecArg::builder().name("package").required(true).build())
+///     .build();
+/// ```
 #[derive(Debug, Serialize, Clone)]
 pub struct SpecCommand {
+    /// Full command path from root (e.g., ["git", "remote", "add"])
     pub full_cmd: Vec<String>,
+    /// Generated usage string
     pub usage: String,
+    /// Nested subcommands indexed by name
     pub subcommands: IndexMap<String, SpecCommand>,
+    /// Positional arguments for this command
     pub args: Vec<SpecArg>,
+    /// Flags/options for this command
     pub flags: Vec<SpecFlag>,
+    /// Mounted external specs
     pub mounts: Vec<SpecMount>,
+    /// Deprecation message if this command is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    /// Whether to hide this command from help output
     pub hide: bool,
+    /// Whether a subcommand must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restart_token: Option<String>,
+    /// Short help text shown in command listings
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    /// Extended help text shown with --help
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// Command name (e.g., "install")
     pub name: String,
+    /// Alternative names for this command
     pub aliases: Vec<String>,
+    /// Hidden alternative names (not shown in help)
     pub hidden_aliases: Vec<String>,
+    /// Text displayed before the help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help: Option<String>,
+    /// Extended text displayed before help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help_long: Option<String>,
+    /// Markdown text displayed before help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help_md: Option<String>,
+    /// Text displayed after the help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help: Option<String>,
+    /// Extended text displayed after help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_long: Option<String>,
+    /// Markdown text displayed after help content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_md: Option<String>,
+    /// Usage examples for this command
     pub examples: Vec<SpecExample>,
+    /// Custom completers for arguments
     #[serde(skip_serializing_if = "IndexMap::is_empty")]
     pub complete: IndexMap<String, SpecComplete>,
 

@@ -13,40 +13,76 @@ use crate::spec::helpers::NodeHelper;
 use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices};
 
+/// A CLI flag/option specification.
+///
+/// Flags are optional arguments that start with `-` (short) or `--` (long).
+/// They can be boolean switches or accept values.
+///
+/// # Example
+///
+/// ```
+/// use usage::SpecFlag;
+///
+/// let flag = SpecFlag::builder()
+///     .short('v')
+///     .long("verbose")
+///     .help("Enable verbose output")
+///     .build();
+/// ```
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
+    /// Internal name for the flag (derived from long/short if not set)
     pub name: String,
+    /// Generated usage string (e.g., "-v, --verbose")
     pub usage: String,
+    /// Short help text shown in command listings
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    /// Extended help text shown with --help
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
+    /// Short flag characters (e.g., 'v' for -v)
     pub short: Vec<char>,
+    /// Long flag names (e.g., "verbose" for --verbose)
     pub long: Vec<String>,
+    /// Whether this flag must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
+    /// Deprecation message if this flag is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    /// Whether this flag can be specified multiple times
     #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
+    /// Minimum number of times this flag must appear (for var flags)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_min: Option<usize>,
+    /// Maximum number of times this flag can appear (for var flags)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
+    /// Whether to hide this flag from help output
     pub hide: bool,
+    /// Whether this flag is available to all subcommands
     pub global: bool,
+    /// Whether this is a count flag (e.g., -vvv counts as 3)
     #[serde(skip_serializing_if = "is_false")]
     pub count: bool,
+    /// Argument specification if this flag takes a value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arg: Option<SpecArg>,
+    /// Default value(s) if the flag is not provided
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub default: Vec<String>,
+    /// Negation prefix (e.g., "no-" for --no-verbose)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
+    /// Environment variable that can set this flag's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
 }
