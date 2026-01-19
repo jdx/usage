@@ -5,6 +5,7 @@ use miette::Result;
 mod complete_word;
 mod exec;
 mod generate;
+mod lint;
 mod shell;
 
 #[derive(Parser)]
@@ -30,6 +31,7 @@ enum Command {
     #[clap(about = "Execute a shell script using fish")]
     Fish(shell::Shell),
     Generate(generate::Generate),
+    Lint(lint::Lint),
     #[clap(about = "Execute a shell script using zsh")]
     Zsh(shell::Shell),
 }
@@ -47,6 +49,7 @@ impl Cli {
             Command::Generate(cmd) => cmd.run(),
             Command::Exec(mut cmd) => cmd.run(),
             Command::CompleteWord(cmd) => cmd.run(),
+            Command::Lint(cmd) => cmd.run(),
         }
     }
 }
