@@ -528,3 +528,143 @@ echo "COMPLETION_TEST_DONE"
     // Cleanup
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_powershell_completion_integration() {
+    // NO skip - CI must have pwsh installed
+    // Build the usage binary
+    let usage_bin = build_usage_binary();
+
+    let temp_dir = env::temp_dir().join(format!("usage_pwsh_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+bin "testcli"
+arg "<file>" help="Input file"
+flag "-v --verbose" help="Verbose output"
+cmd "sub" help="Subcommand" {
+    arg "<item>" help="Item"
+}
+"#;
+
+    // Write spec to a file
+    let spec_kdl_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_kdl_file, spec).unwrap();
+
+    // Generate the completion script using the actual usage binary
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "powershell", "testcli"])
+        .arg("-f")
+        .arg(spec_kdl_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate powershell completion");
+
+    let completion_script = String::from_utf8_lossy(&output.stdout);
+
+    // Write completion to a file
+    let comp_file = temp_dir.join("testcli.ps1");
+    fs::write(&comp_file, completion_script.as_ref()).unwrap();
+
+    // Also write the spec directly to the expected location
+    let usage_spec = r#"name testcli
+bin testcli
+flag "-v --verbose" help="Verbose output"
+arg <file> help="Input file"
+cmd sub help=Subcommand {
+    arg <item> help=Item
+}
+"#;
+    let spec_file = temp_dir.join("usage__usage_spec_testcli.kdl");
+    fs::write(&spec_file, usage_spec).unwrap();
+
+    // Create a PowerShell test script
+    let test_script = format!(
+        r#"
+$ErrorActionPreference = "Stop"
+
+# Add usage binary to PATH
+$env:PATH = "{};$env:PATH"
+$env:TEMP = "{}"
+
+# Source the completion file
+. {}
+
+Write-Host "LOAD_SUCCESS"
+
+# Test 1: Check if spec file exists
+$specFile = "{}"
+if (Test-Path $specFile) {{
+    Write-Host "SPEC_FILE_EXISTS"
+}} else {{
+    Write-Host "SPEC_FILE_NOT_FOUND"
+}}
+
+# Test 2: Call usage complete-word directly (this is what the completion script calls)
+$completionOutput = & usage complete-word --shell powershell -f "$specFile" -- testcli "" 2>$null
+
+if ($completionOutput) {{
+    Write-Host "GOT_COMPLETIONS"
+
+    # Check for expected completion items
+    $outputStr = $completionOutput -join "`n"
+    if ($outputStr -match "sub") {{
+        Write-Host "COMPLETION_SUB_FOUND"
+    }}
+    if ($outputStr -match "verbose") {{
+        Write-Host "COMPLETION_VERBOSE_FOUND"
+    }}
+
+    # Test partial completion
+    $partialOutput = & usage complete-word --shell powershell -f "$specFile" -- testcli "s" 2>$null
+    $partialStr = $partialOutput -join "`n"
+    if ($partialStr -match "sub") {{
+        Write-Host "PARTIAL_COMPLETION_WORKS"
+    }}
+}} else {{
+    Write-Host "NO_COMPLETIONS"
+}}
+
+# Test 3: Test flag completion
+$flagOutput = & usage complete-word --shell powershell -f "$specFile" -- testcli "-" 2>$null
+$flagStr = $flagOutput -join "`n"
+if ($flagStr -match "verbose" -or $flagStr -match "-v") {{
+    Write-Host "FLAG_COMPLETION_WORKS"
+}}
+
+Write-Host "COMPLETION_TEST_DONE"
+"#,
+        usage_bin.parent().unwrap().to_str().unwrap(),
+        temp_dir.to_str().unwrap(),
+        comp_file.to_str().unwrap(),
+        spec_file.to_str().unwrap()
+    );
+
+    let script_file = temp_dir.join("test.ps1");
+    fs::write(&script_file, &test_script).unwrap();
+
+    // Execute the test in PowerShell
+    let result = Command::new("pwsh")
+        .args(["-NoProfile", "-NonInteractive", "-File"])
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run pwsh - PowerShell Core must be installed for this test");
+
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    println!("PowerShell test stdout:\n{}", stdout);
+    println!("PowerShell test stderr:\n{}", stderr);
+
+    // Assertions - verify it loads and runs
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "Should load completion script"
+    );
+    assert!(
+        stdout.contains("COMPLETION_TEST_DONE"),
+        "Should complete test"
+    );
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&temp_dir);
+}
