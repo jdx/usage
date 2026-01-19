@@ -1,6 +1,5 @@
 ---
 source: lib/src/complete/zsh.rs
-assertion_line: 137
 expression: "complete_zsh(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string(), shell: \"zsh\".to_string(), bin:\n    \"mycli\".to_string(), cache_key: None, spec:\n    Some(SPEC_KITCHEN_SINK.clone()), usage_cmd: None,\n    include_bash_completion_lib: false, source_file: None,\n})"
 ---
 #compdef mycli
