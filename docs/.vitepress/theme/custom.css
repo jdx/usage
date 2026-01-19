@@ -186,25 +186,29 @@
 
 /* Feature Buttons */
 .usage-hero-features {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  flex-wrap: wrap;
   margin-bottom: 2rem;
+  max-width: 480px;
 }
 
 .usage-hero-feature {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1rem;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
   background: rgba(255, 255, 255, 0.05);
   color: var(--vp-c-text-1);
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
 }
 
 .usage-hero-feature:hover {
@@ -213,16 +217,69 @@
   transform: translateY(-2px);
 }
 
+.usage-hero-feature:hover .usage-hero-feature-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
 .usage-hero-feature-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .usage-hero-feature-text {
   color: var(--vp-c-text-2);
+  white-space: nowrap;
 }
 
 .usage-hero-feature:hover .usage-hero-feature-text {
   color: var(--vp-c-text-1);
+}
+
+/* Feature Tooltip */
+.usage-hero-feature-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid var(--usage-green);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  min-width: 220px;
+  max-width: 280px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 100;
+  margin-top: 0.75rem;
+  text-align: left;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.usage-hero-feature-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-bottom-color: var(--usage-green);
+  border-top: none;
+}
+
+.usage-hero-feature-tooltip strong {
+  display: block;
+  color: var(--usage-green);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.usage-hero-feature-tooltip p {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* Responsive */
@@ -243,6 +300,8 @@
 
   .usage-hero-features {
     justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
@@ -262,5 +321,10 @@
 
   .usage-hero-tagline {
     font-size: 1.25rem;
+  }
+
+  .usage-hero-features {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 320px;
   }
 }

@@ -24,27 +24,51 @@
         <div class="usage-hero-features">
           <a href="/cli/completions" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">🐚</span>
-            <span class="usage-hero-feature-text">Shell Completions</span>
+            <span class="usage-hero-feature-text">Completions</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>Shell Completions</strong>
+              <p>Generate tab completions for bash, zsh, fish, PowerShell, and nushell from a single spec.</p>
+            </div>
           </a>
           <a href="/cli/markdown" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">📖</span>
             <span class="usage-hero-feature-text">Documentation</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>Auto-Generated Docs</strong>
+              <p>Create --help output, markdown docs, and manpages that stay in sync automatically.</p>
+            </div>
           </a>
           <a href="/cli/scripts" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">📜</span>
             <span class="usage-hero-feature-text">Scripts</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>Bash Scripts</strong>
+              <p>Write bash scripts with modern arg parsing, validation, and completions built-in.</p>
+            </div>
           </a>
           <a href="/spec/" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">🎯</span>
-            <span class="usage-hero-feature-text">KDL Specification</span>
+            <span class="usage-hero-feature-text">KDL Spec</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>KDL Specification</strong>
+              <p>Define your CLI once in human-readable KDL format. One spec powers everything.</p>
+            </div>
           </a>
           <a href="/cli/completions" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">🖥️</span>
             <span class="usage-hero-feature-text">5+ Shells</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>Multi-Shell Support</strong>
+              <p>Works with bash, zsh, fish, PowerShell, and nushell out of the box.</p>
+            </div>
           </a>
           <a href="/spec/integrations" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">🌐</span>
             <span class="usage-hero-feature-text">Any Language</span>
+            <div class="usage-hero-feature-tooltip">
+              <strong>Language Agnostic</strong>
+              <p>Use with bash scripts or integrate with CLIs written in any language via the usage CLI.</p>
+            </div>
           </a>
         </div>
 
