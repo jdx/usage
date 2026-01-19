@@ -123,3 +123,133 @@ impl ParseEntry<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kdl::KdlDocument;
+    use std::path::Path;
+
+    fn parse_node(input: &str) -> (ParsingContext, KdlDocument) {
+        let ctx = ParsingContext::new(Path::new("test.kdl"), input);
+        let doc: KdlDocument = input.parse().unwrap();
+        (ctx, doc)
+    }
+
+    #[test]
+    fn test_node_helper_name() {
+        let (ctx, doc) = parse_node("test_node \"arg1\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+        assert_eq!(helper.name(), "test_node");
+    }
+
+    #[test]
+    fn test_node_helper_arg() {
+        let (ctx, doc) = parse_node("node \"first\" \"second\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert_eq!(helper.arg(0).unwrap().ensure_string().unwrap(), "first");
+        assert_eq!(helper.arg(1).unwrap().ensure_string().unwrap(), "second");
+    }
+
+    #[test]
+    fn test_node_helper_args_count() {
+        let (ctx, doc) = parse_node("node \"a\" \"b\" \"c\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert_eq!(helper.args().count(), 3);
+    }
+
+    #[test]
+    fn test_node_helper_props() {
+        let (ctx, doc) = parse_node("node key1=\"value1\" key2=\"value2\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        let props = helper.props();
+        assert_eq!(props.len(), 2);
+        assert_eq!(props["key1"].ensure_string().unwrap(), "value1");
+        assert_eq!(props["key2"].ensure_string().unwrap(), "value2");
+    }
+
+    #[test]
+    fn test_node_helper_get() {
+        let (ctx, doc) = parse_node("node name=\"test\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert!(helper.get("name").is_some());
+        assert!(helper.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_node_helper_children() {
+        let (ctx, doc) = parse_node("parent { child1; child2 }");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        let children = helper.children();
+        assert_eq!(children.len(), 2);
+        assert_eq!(children[0].name(), "child1");
+        assert_eq!(children[1].name(), "child2");
+    }
+
+    #[test]
+    fn test_node_helper_ensure_arg_len_valid() {
+        let (ctx, doc) = parse_node("node \"a\" \"b\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert!(helper.ensure_arg_len(2..=2).is_ok());
+        assert!(helper.ensure_arg_len(1..=3).is_ok());
+        assert!(helper.ensure_arg_len(0..).is_ok());
+    }
+
+    #[test]
+    fn test_node_helper_ensure_arg_len_invalid() {
+        let (ctx, doc) = parse_node("node \"a\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert!(helper.ensure_arg_len(2..=2).is_err());
+    }
+
+    #[test]
+    fn test_parse_entry_ensure_usize() {
+        let (ctx, doc) = parse_node("node 42");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert_eq!(helper.arg(0).unwrap().ensure_usize().unwrap(), 42);
+    }
+
+    #[test]
+    fn test_parse_entry_ensure_bool() {
+        let (ctx, doc) = parse_node("node #true");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert!(helper.arg(0).unwrap().ensure_bool().unwrap());
+    }
+
+    #[test]
+    fn test_parse_entry_ensure_string() {
+        let (ctx, doc) = parse_node("node \"hello\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert_eq!(helper.arg(0).unwrap().ensure_string().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_parse_entry_type_mismatch() {
+        let (ctx, doc) = parse_node("node \"not_a_number\"");
+        let node = doc.nodes().first().unwrap();
+        let helper = NodeHelper::new(&ctx, node);
+
+        assert!(helper.arg(0).unwrap().ensure_usize().is_err());
+    }
+}
