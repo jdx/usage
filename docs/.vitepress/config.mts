@@ -16,7 +16,7 @@ const commands = getCommands(spec.cmd);
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "Usage",
+  title: "--usage",
   description: "Schema for CLIs",
   appearance: "force-dark",
   lastUpdated: true,

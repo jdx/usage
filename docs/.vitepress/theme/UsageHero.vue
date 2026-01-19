@@ -15,7 +15,7 @@
       <!-- Left Column: Text -->
       <div class="usage-hero-text">
         <!-- Title -->
-        <h1 class="usage-hero-title">Usage</h1>
+        <h1 class="usage-hero-title">--usage</h1>
 
         <!-- Tagline -->
         <p class="usage-hero-tagline">A specification for CLIs</p>
