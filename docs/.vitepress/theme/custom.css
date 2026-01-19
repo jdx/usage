@@ -215,6 +215,7 @@
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--usage-green);
   transform: translateY(-2px);
+  z-index: 10;
 }
 
 .usage-hero-feature:hover .usage-hero-feature-tooltip {
