@@ -2,6 +2,7 @@ use crate::Spec;
 
 mod bash;
 mod fish;
+mod powershell;
 mod zsh;
 
 pub struct CompleteOptions {
@@ -19,6 +20,7 @@ pub fn complete(options: &CompleteOptions) -> String {
     match options.shell.as_str() {
         "bash" => bash::complete_bash(options),
         "fish" => fish::complete_fish(options),
+        "powershell" => powershell::complete_powershell(options),
         "zsh" => zsh::complete_zsh(options),
         _ => unimplemented!("unsupported shell: {}", options.shell),
     }

@@ -141,7 +141,7 @@
               "double_dash": "Optional",
               "hide": false,
               "choices": {
-                "choices": ["bash", "fish", "zsh"]
+                "choices": ["bash", "fish", "powershell", "zsh"]
               }
             },
             "default": ["bash"]
@@ -292,7 +292,7 @@
                 "double_dash": "Optional",
                 "hide": false,
                 "choices": {
-                  "choices": ["bash", "fish", "zsh"]
+                  "choices": ["bash", "fish", "powershell", "zsh"]
                 }
               },
               {
@@ -390,7 +390,7 @@
             ],
             "mounts": [],
             "hide": false,
-            "help": "Generate shell completion scripts for bash, fish, or zsh",
+            "help": "Generate shell completion scripts for bash, fish, powershell, or zsh",
             "name": "completion",
             "aliases": ["c"],
             "hidden_aliases": ["complete", "completions"],
@@ -757,6 +757,60 @@
         "hide": false,
         "help": "Lint a usage spec file for common issues",
         "name": "lint",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
+      "powershell": {
+        "full_cmd": ["powershell"],
+        "usage": "powershell [-h] [--help] <SCRIPT> [ARGS]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "SCRIPT",
+            "usage": "<SCRIPT>",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "ARGS",
+            "usage": "[ARGS]…",
+            "help": "Arguments to pass to script",
+            "help_first_line": "Arguments to pass to script",
+            "required": false,
+            "double_dash": "Optional",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "h",
+            "usage": "-h",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": ["h"],
+            "long": [],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "--help",
+            "help": "Show help",
+            "help_first_line": "Show help",
+            "short": [],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Execute a shell script using PowerShell",
+        "help_long": "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them.",
+        "name": "powershell",
         "aliases": [],
         "hidden_aliases": [],
         "examples": []

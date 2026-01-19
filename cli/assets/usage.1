@@ -41,7 +41,7 @@ Generate completions, documentation, and other artifacts from usage specs
 .RE
 .TP
 \fBgenerate completion\fR
-Generate shell completion scripts for bash, fish, or zsh
+Generate shell completion scripts for bash, fish, powershell, or zsh
 .RS
 \fIAliases: \fRc
 .RE
@@ -65,6 +65,9 @@ Generate markdown documentation from usage specs
 .TP
 \fBlint\fR
 Lint a usage spec file for common issues
+.TP
+\fBpowershell\fR
+Execute a shell script with the specified shell
 .TP
 \fBzsh\fR
 Execute a shell script with the specified shell
@@ -167,7 +170,7 @@ Show help
 \fB<ARGS>\fR
 Arguments to pass to script
 .SH "USAGE GENERATE COMPLETION"
-Generate shell completion scripts for bash, fish, or zsh
+Generate shell completion scripts for bash, fish, powershell, or zsh
 .PP
 \fBUsage:\fR usage generate completion [OPTIONS] <SHELL> <BIN>
 .PP
@@ -300,6 +303,29 @@ Treat warnings as errors
 .TP
 \fB<FILE>\fR
 A usage spec file to lint
+.SH "USAGE POWERSHELL"
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+.PP
+\fBUsage:\fR usage powershell [OPTIONS] <SCRIPT> [<ARGS>] ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h\fR
+Show help
+.TP
+\fB\-\-help\fR
+Show help
+\fBArguments:\fR
+.PP
+.TP
+\fB<ARGS>\fR
+Arguments to pass to script
 .SH "USAGE ZSH"
 Execute a shell script with the specified shell
 

@@ -38,7 +38,7 @@ pub struct CompleteWord {
     #[clap(long, allow_hyphen_values = true)]
     cword: Option<usize>,
 
-    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "zsh"])]
+    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "powershell", "zsh"])]
     shell: String,
 }
 
@@ -51,7 +51,7 @@ impl CompleteWord {
         for (c, description) in choices {
             match shell {
                 "bash" => println!("{c}"),
-                "fish" => {
+                "fish" | "powershell" => {
                     if any_descriptions {
                         println!("{c}\t{description}")
                     } else {
