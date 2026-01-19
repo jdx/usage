@@ -277,10 +277,7 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
             issues.push(LintIssue {
                 severity: Severity::Warning,
                 code: "variadic-arg-not-last".to_string(),
-                message: format!(
-                    "Variadic argument '{}' is not the last argument",
-                    arg.name
-                ),
+                message: format!("Variadic argument '{}' is not the last argument", arg.name),
                 location: Some(format!("cmd {}", cmd_path)),
             });
         }
