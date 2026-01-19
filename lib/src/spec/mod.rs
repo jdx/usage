@@ -61,7 +61,13 @@ pub struct Spec {
 }
 
 impl Spec {
-    /// Parse a spec from a file (either a .usage.kdl file or a script with embedded spec).
+    /// Parse a spec from a file.
+    ///
+    /// Automatically detects whether the file is:
+    /// - A `.kdl` or `.usage.kdl` file containing a raw spec
+    /// - A script file with embedded `# USAGE:` comments
+    ///
+    /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_file(file: &Path) -> Result<Spec, UsageErr> {
         let spec = split_script(file)?;
@@ -79,7 +85,10 @@ impl Spec {
         }
         Ok(schema)
     }
-    /// Parse a spec from a script file's USAGE comments.
+    /// Parse a spec from a script file's embedded USAGE comments.
+    ///
+    /// Extracts the spec from comment lines starting with `# USAGE:` or `// USAGE:`.
+    /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
         let raw = extract_usage_from_comments(&file::read_to_string(file)?);
