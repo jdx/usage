@@ -210,50 +210,45 @@ impl Spec {
     }
 
     pub fn merge(&mut self, other: Spec) {
-        if !other.name.is_empty() {
-            self.name = other.name;
+        macro_rules! merge_str {
+            ($field:ident) => {
+                if !other.$field.is_empty() {
+                    self.$field = other.$field;
+                }
+            };
         }
-        if !other.bin.is_empty() {
-            self.bin = other.bin;
+        macro_rules! merge_opt {
+            ($field:ident) => {
+                if other.$field.is_some() {
+                    self.$field = other.$field;
+                }
+            };
         }
-        if !other.usage.is_empty() {
-            self.usage = other.usage;
+        macro_rules! merge_extend {
+            ($field:ident) => {
+                if !other.$field.is_empty() {
+                    self.$field.extend(other.$field);
+                }
+            };
         }
-        if other.about.is_some() {
-            self.about = other.about;
-        }
-        if other.source_code_link_template.is_some() {
-            self.source_code_link_template = other.source_code_link_template;
-        }
-        if other.version.is_some() {
-            self.version = other.version;
-        }
-        if other.author.is_some() {
-            self.author = other.author;
-        }
-        if other.about_long.is_some() {
-            self.about_long = other.about_long;
-        }
-        if other.about_md.is_some() {
-            self.about_md = other.about_md;
-        }
+
+        merge_str!(name);
+        merge_str!(bin);
+        merge_str!(usage);
+        merge_opt!(about);
+        merge_opt!(source_code_link_template);
+        merge_opt!(version);
+        merge_opt!(author);
+        merge_opt!(about_long);
+        merge_opt!(about_md);
+        merge_opt!(disable_help);
+        merge_opt!(min_usage_version);
+        merge_opt!(default_subcommand);
+        merge_extend!(complete);
+        merge_extend!(examples);
+
         if !other.config.is_empty() {
             self.config.merge(&other.config);
-        }
-        if !other.complete.is_empty() {
-            self.complete.extend(other.complete);
-        }
-        if other.disable_help.is_some() {
-            self.disable_help = other.disable_help;
-        }
-        if other.min_usage_version.is_some() {
-            self.min_usage_version = other.min_usage_version;
-        }
-        if !other.examples.is_empty() {
-            self.examples.extend(other.examples);
-        }
-        if other.default_subcommand.is_some() {
-            self.default_subcommand = other.default_subcommand;
         }
         self.cmd.merge(other.cmd);
     }
