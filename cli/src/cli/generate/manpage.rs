@@ -28,7 +28,7 @@ pub struct Manpage {
 
 impl Manpage {
     pub fn run(&self) -> miette::Result<()> {
-        let (spec, _) = Spec::parse_file(&self.file)?;
+        let spec = Spec::parse_file(&self.file)?;
         let renderer = ManpageRenderer::new(spec).with_section(self.section);
         let manpage = renderer.render()?;
 

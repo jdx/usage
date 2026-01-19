@@ -46,12 +46,9 @@ impl Exec {
             .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
         let dotted_spec_path = parent.join(format!(".{bin_name}.usage.kdl"));
         let spec = if dotted_spec_path.exists() {
-            let (spec, _) = Spec::parse_file(&dotted_spec_path)?;
-            spec
+            Spec::parse_file(&dotted_spec_path)?
         } else {
-            let (spec, _script) = Spec::parse_file(&self.bin)?;
-            // TODO: handle _script properly
-            spec
+            Spec::parse_file(&self.bin)?
         };
         let mut args = self.args.clone();
         args.insert(0, self.command.clone());

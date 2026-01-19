@@ -44,9 +44,9 @@ pub struct Completion {
 impl Completion {
     pub fn run(&self) -> miette::Result<()> {
         // TODO: refactor this
-        let (spec, _) = match &self.file {
+        let spec = match &self.file {
             Some(file) => Spec::parse_file(file)?,
-            None => (Spec::default(), "".to_string()),
+            None => Spec::default(),
         };
         let spec = match self.file.is_some() {
             true => Some(spec),
