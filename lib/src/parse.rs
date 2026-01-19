@@ -5,6 +5,7 @@ use log::trace;
 use miette::bail;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
+use std::sync::Arc;
 use strum::EnumTryAs;
 
 #[cfg(feature = "docs")]
@@ -30,10 +31,10 @@ fn get_flag_key(word: &str) -> &str {
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
-    pub args: IndexMap<SpecArg, ParseValue>,
-    pub flags: IndexMap<SpecFlag, ParseValue>,
-    pub available_flags: BTreeMap<String, SpecFlag>,
-    pub flag_awaiting_value: Vec<SpecFlag>,
+    pub args: IndexMap<Arc<SpecArg>, ParseValue>,
+    pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
+    pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
+    pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
 }
 
@@ -53,7 +54,8 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
     for arg in out.cmd.args.iter().skip(out.args.len()) {
         if let Some(env_var) = arg.env.as_ref() {
             if let Ok(env_value) = std::env::var(env_var) {
-                out.args.insert(arg.clone(), ParseValue::String(env_value));
+                out.args
+                    .insert(Arc::new(arg.clone()), ParseValue::String(env_value));
                 continue;
             }
         }
@@ -61,12 +63,16 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
             // Consider var when deciding the type of default return value
             if arg.var {
                 // For var=true, always return a vec (MultiString)
-                out.args
-                    .insert(arg.clone(), ParseValue::MultiString(arg.default.clone()));
+                out.args.insert(
+                    Arc::new(arg.clone()),
+                    ParseValue::MultiString(arg.default.clone()),
+                );
             } else {
                 // For var=false, return the first default value as String
-                out.args
-                    .insert(arg.clone(), ParseValue::String(arg.default[0].clone()));
+                out.args.insert(
+                    Arc::new(arg.clone()),
+                    ParseValue::String(arg.default[0].clone()),
+                );
             }
         }
     }
@@ -80,11 +86,12 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
             if let Ok(env_value) = std::env::var(env_var) {
                 if flag.arg.is_some() {
                     out.flags
-                        .insert(flag.clone(), ParseValue::String(env_value));
+                        .insert(Arc::clone(flag), ParseValue::String(env_value));
                 } else {
                     // For boolean flags, check if env value is truthy
                     let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
-                    out.flags.insert(flag.clone(), ParseValue::Bool(is_true));
+                    out.flags
+                        .insert(Arc::clone(flag), ParseValue::Bool(is_true));
                 }
                 continue;
             }
@@ -95,8 +102,10 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
             if flag.var {
                 // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
                 if flag.arg.is_some() {
-                    out.flags
-                        .insert(flag.clone(), ParseValue::MultiString(flag.default.clone()));
+                    out.flags.insert(
+                        Arc::clone(flag),
+                        ParseValue::MultiString(flag.default.clone()),
+                    );
                 } else {
                     // For boolean flags with var=true, convert default strings to bools
                     let bools: Vec<bool> = flag
@@ -104,18 +113,22 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
                         .iter()
                         .map(|s| matches!(s.as_str(), "1" | "true" | "True" | "TRUE"))
                         .collect();
-                    out.flags.insert(flag.clone(), ParseValue::MultiBool(bools));
+                    out.flags
+                        .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
                 }
             } else {
                 // For var=false, return the first default value
                 if flag.arg.is_some() {
-                    out.flags
-                        .insert(flag.clone(), ParseValue::String(flag.default[0].clone()));
+                    out.flags.insert(
+                        Arc::clone(flag),
+                        ParseValue::String(flag.default[0].clone()),
+                    );
                 } else {
                     // For boolean flags, convert default string to bool
                     let is_true =
                         matches!(flag.default[0].as_str(), "1" | "true" | "True" | "TRUE");
-                    out.flags.insert(flag.clone(), ParseValue::Bool(is_true));
+                    out.flags
+                        .insert(Arc::clone(flag), ParseValue::Bool(is_true));
                 }
             }
         }
@@ -123,11 +136,13 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
         if let Some(arg) = flag.arg.as_ref() {
             if !out.flags.contains_key(flag) && !arg.default.is_empty() {
                 if flag.var {
-                    out.flags
-                        .insert(flag.clone(), ParseValue::MultiString(arg.default.clone()));
+                    out.flags.insert(
+                        Arc::clone(flag),
+                        ParseValue::MultiString(arg.default.clone()),
+                    );
                 } else {
                     out.flags
-                        .insert(flag.clone(), ParseValue::String(arg.default[0].clone()));
+                        .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
                 }
             }
         }
@@ -150,14 +165,15 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         cmd.flags
             .iter()
             .flat_map(|f| {
+                let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
                 let mut flags = f
                     .long
                     .iter()
-                    .map(|l| (format!("--{l}"), f.clone()))
-                    .chain(f.short.iter().map(|s| (format!("-{s}"), f.clone())))
+                    .map(|l| (format!("--{l}"), Arc::clone(&f)))
+                    .chain(f.short.iter().map(|s| (format!("-{s}"), Arc::clone(&f))))
                     .collect::<Vec<_>>();
                 if let Some(negate) = &f.negate {
-                    flags.push((negate.clone(), f.clone()));
+                    flags.push((negate.clone(), Arc::clone(&f)));
                 }
                 flags
             })
@@ -310,18 +326,19 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             }
             if let Some(f) = out.available_flags.get(word) {
                 if f.arg.is_some() {
-                    out.flag_awaiting_value.push(f.clone());
+                    out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
                     let arr = out
                         .flags
-                        .entry(f.clone())
+                        .entry(Arc::clone(f))
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
                         .unwrap();
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
-                    out.flags.insert(f.clone(), ParseValue::Bool(w != negate));
+                    out.flags
+                        .insert(Arc::clone(f), ParseValue::Bool(w != negate));
                 }
                 continue;
             }
@@ -341,18 +358,19 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                     grouped_flag = true;
                 }
                 if f.arg.is_some() {
-                    out.flag_awaiting_value.push(f.clone());
+                    out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
                     let arr = out
                         .flags
-                        .entry(f.clone())
+                        .entry(Arc::clone(f))
                         .or_insert_with(|| ParseValue::MultiBool(vec![]))
                         .try_as_multi_bool_mut()
                         .unwrap();
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
-                    out.flags.insert(f.clone(), ParseValue::Bool(w != negate));
+                    out.flags
+                        .insert(Arc::clone(f), ParseValue::Bool(w != negate));
                 }
                 continue;
             }
@@ -404,7 +422,7 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
             if arg.var {
                 let arr = out
                     .args
-                    .entry(arg.clone())
+                    .entry(Arc::new(arg.clone()))
                     .or_insert_with(|| ParseValue::MultiString(vec![]))
                     .try_as_multi_string_mut()
                     .unwrap();
@@ -427,7 +445,8 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
                         );
                     }
                 }
-                out.args.insert(arg.clone(), ParseValue::String(w));
+                out.args
+                    .insert(Arc::new(arg.clone()), ParseValue::String(w));
                 next_arg = out.cmd.args.get(out.args.len());
             }
             continue;
