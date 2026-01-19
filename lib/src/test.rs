@@ -1,5 +1,5 @@
 use crate::Spec;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[macro_export]
 macro_rules! spec {
@@ -8,7 +8,7 @@ macro_rules! spec {
     };
 }
 
-pub static SPEC_KITCHEN_SINK: Lazy<Spec> = Lazy::new(|| {
+pub static SPEC_KITCHEN_SINK: LazyLock<Spec> = LazyLock::new(|| {
     spec! {r##"
 bin "mycli"
 source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
