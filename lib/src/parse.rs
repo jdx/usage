@@ -46,6 +46,10 @@ pub enum ParseValue {
     MultiString(Vec<String>),
 }
 
+/// Parse command-line arguments according to a spec.
+///
+/// Returns the parsed arguments and flags, with defaults and env vars applied.
+#[must_use = "parsing result should be used"]
 pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     let mut out = parse_partial(spec, input)?;
     trace!("{out:?}");
@@ -156,6 +160,10 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
     Ok(out)
 }
 
+/// Parse command-line arguments without applying defaults.
+///
+/// Use this for help text generation or when you need the raw parsed values.
+#[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
