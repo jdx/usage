@@ -298,7 +298,7 @@ macro_rules! __spec_cmd_attr {
     };
 }
 
-/// Create a Vec<String> from string literals.
+/// Create a `Vec<String>` from string literals.
 ///
 /// # Examples
 ///
@@ -315,7 +315,7 @@ macro_rules! defaults {
     };
 }
 
-/// Create a Vec<char> for short flags.
+/// Create a `Vec<char>` for short flags.
 ///
 /// # Examples
 ///
@@ -332,7 +332,7 @@ macro_rules! shorts {
     };
 }
 
-/// Create a Vec<String> for long flags.
+/// Create a `Vec<String>` for long flags.
 ///
 /// # Examples
 ///
@@ -349,7 +349,7 @@ macro_rules! longs {
     };
 }
 
-/// Create a Vec<String> for command aliases.
+/// Create a `Vec<String>` for command aliases.
 ///
 /// # Examples
 ///
