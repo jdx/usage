@@ -705,6 +705,62 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "lint": {
+        "full_cmd": ["lint"],
+        "usage": "lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "FILE",
+            "usage": "<FILE>",
+            "help": "A usage spec file to lint",
+            "help_first_line": "A usage spec file to lint",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "format",
+            "usage": "-f --format <FORMAT>",
+            "help": "Output format",
+            "help_first_line": "Output format",
+            "short": ["f"],
+            "long": ["format"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FORMAT",
+              "usage": "<FORMAT>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false,
+              "choices": {
+                "choices": ["text", "json"]
+              }
+            },
+            "default": ["text"]
+          },
+          {
+            "name": "warnings-as-errors",
+            "usage": "-W --warnings-as-errors",
+            "help": "Treat warnings as errors",
+            "help_first_line": "Treat warnings as errors",
+            "short": ["W"],
+            "long": ["warnings-as-errors"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "hide": false,
+        "help": "Lint a usage spec file for common issues",
+        "name": "lint",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "zsh": {
         "full_cmd": ["zsh"],
         "usage": "zsh [-h] [--help] <SCRIPT> [ARGS]…",

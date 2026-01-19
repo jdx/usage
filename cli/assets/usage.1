@@ -63,6 +63,9 @@ Generate markdown documentation from usage specs
 \fIAliases: \fRmd
 .RE
 .TP
+\fBlint\fR
+Lint a usage spec file for common issues
+.TP
 \fBzsh\fR
 Execute a shell script with the specified shell
 .SH "USAGE BASH"
@@ -276,6 +279,27 @@ Replace `<pre>` tags with markdown code fences
 .TP
 \fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
 Prefix to add to all URLs
+.SH "USAGE LINT"
+Lint a usage spec file for common issues
+.PP
+\fBUsage:\fR usage lint [OPTIONS] <FILE>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-format\fR \fI<FORMAT>\fR
+Output format
+.RS
+\fIDefault: \fRtext
+.RE
+.TP
+\fB\-W, \-\-warnings\-as\-errors\fR
+Treat warnings as errors
+\fBArguments:\fR
+.PP
+.TP
+\fB<FILE>\fR
+A usage spec file to lint
 .SH "USAGE ZSH"
 Execute a shell script with the specified shell
 

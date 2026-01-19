@@ -433,6 +433,31 @@ const completionSpec: Fig.Spec = {
       ],
     },
     {
+      name: "lint",
+      description: "Lint a usage spec file for common issues",
+      options: [
+        {
+          name: ["-f", "--format"],
+          description: "Output format",
+          isRepeatable: false,
+          args: {
+            name: "format",
+            suggestions: ["text", "json"],
+          },
+        },
+        {
+          name: ["-W", "--warnings-as-errors"],
+          description: "Treat warnings as errors",
+          isRepeatable: false,
+        },
+      ],
+      args: {
+        name: "file",
+        description: "A usage spec file to lint",
+        template: "filepaths",
+      },
+    },
+    {
       name: "zsh",
       description: "Execute a shell script using zsh",
       options: [
