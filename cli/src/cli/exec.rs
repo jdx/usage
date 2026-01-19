@@ -38,7 +38,11 @@ impl Exec {
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_default();
-        let bin_name = self.bin.file_name().unwrap().to_str().unwrap();
+        let bin_name = self
+            .bin
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
         let dotted_spec_path = parent.join(format!(".{bin_name}.usage.kdl"));
         let spec = if dotted_spec_path.exists() {
             let (spec, _) = Spec::parse_file(&dotted_spec_path)?;
@@ -64,10 +68,11 @@ impl Exec {
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
-        // TODO: set positional args
-
-        let args = vec![self.bin.to_str().unwrap().to_string()];
-        cmd.args(&args);
+        let bin_path = self
+            .bin
+            .to_str()
+            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
+        cmd.arg(bin_path);
 
         for (key, val) in &parsed.as_env() {
             cmd.env(key, val);

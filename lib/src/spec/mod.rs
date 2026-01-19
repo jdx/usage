@@ -66,7 +66,11 @@ impl Spec {
         let ctx = ParsingContext::new(file, &spec);
         let mut schema = Self::parse(&ctx, &spec)?;
         if schema.bin.is_empty() {
-            schema.bin = file.file_name().unwrap().to_str().unwrap().to_string();
+            schema.bin = file
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| UsageErr::InvalidPath(file.display().to_string()))?
+                .to_string();
         }
         if schema.name.is_empty() {
             schema.name.clone_from(&schema.bin);
@@ -78,7 +82,11 @@ impl Spec {
         let ctx = ParsingContext::new(file, &raw);
         let mut spec = Self::parse(&ctx, &raw)?;
         if spec.bin.is_empty() {
-            spec.bin = file.file_name().unwrap().to_str().unwrap().to_string();
+            spec.bin = file
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| UsageErr::InvalidPath(file.display().to_string()))?
+                .to_string();
         }
         if spec.name.is_empty() {
             spec.name.clone_from(&spec.bin);

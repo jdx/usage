@@ -51,10 +51,11 @@ impl Shell {
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
-        // TODO: set positional args
-
-        let args = vec![self.script.to_str().unwrap().to_string()]
-            .into_iter()
+        let script_path = self
+            .script
+            .to_str()
+            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.script.display()))?;
+        let args = std::iter::once(script_path.to_string())
             .chain(self.args.clone())
             .collect_vec();
         cmd.args(&args);
