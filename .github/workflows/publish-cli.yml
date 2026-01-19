@@ -35,18 +35,27 @@ jobs:
         run: |
           TAG_NAME="${{ github.ref_name }}"
           PREV_TAG="$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")"
+          RELEASE_TITLE="$TAG_NAME"
           # Generate rich release notes using LLM
           if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-            ./scripts/gen-release-notes.sh "$TAG_NAME" "$PREV_TAG" >/tmp/release-notes.txt || {
+            if ./scripts/gen-release-notes.sh "$TAG_NAME" "$PREV_TAG" >/tmp/release-notes-full.txt; then
+              # First line is pithy title, rest is body
+              PITHY_TITLE="$(head -n1 /tmp/release-notes-full.txt)"
+              # Only concatenate if we got a real title (not just the version fallback)
+              if [[ -n "$PITHY_TITLE" && "$PITHY_TITLE" != "$TAG_NAME" ]]; then
+                RELEASE_TITLE="$TAG_NAME: $PITHY_TITLE"
+              fi
+              tail -n +2 /tmp/release-notes-full.txt >/tmp/release-notes.txt
+            else
               echo "LLM generation failed, falling back to CHANGELOG.md"
               awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
-            }
+            fi
           else
             echo "ANTHROPIC_API_KEY not set, using CHANGELOG.md"
             awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
           fi
           gh release create --draft ${{ github.ref_name }} \
-            --title "${{ github.ref_name }}" \
+            --title "$RELEASE_TITLE" \
             --notes-file /tmp/release-notes.txt
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
