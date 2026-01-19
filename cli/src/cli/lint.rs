@@ -180,6 +180,16 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
         });
     }
 
+    // Check for subcommand_required with no subcommands
+    if cmd.subcommand_required && cmd.subcommands.is_empty() {
+        issues.push(LintIssue {
+            severity: Severity::Error,
+            code: "subcommand-required-no-subcommands".to_string(),
+            message: "Command has subcommand_required=true but no subcommands defined".to_string(),
+            location: Some(format!("cmd {}", cmd_path)),
+        });
+    }
+
     // Check for duplicate flag names
     let mut seen_flags: std::collections::HashMap<String, &SpecFlag> =
         std::collections::HashMap::new();
@@ -261,6 +271,18 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
         }
     }
 
+    // Check for variadic arg not at the end
+    for (i, arg) in cmd.args.iter().enumerate() {
+        if arg.var && i < cmd.args.len() - 1 {
+            issues.push(LintIssue {
+                severity: Severity::Warning,
+                code: "variadic-arg-not-last".to_string(),
+                message: format!("Variadic argument '{}' is not the last argument", arg.name),
+                location: Some(format!("cmd {}", cmd_path)),
+            });
+        }
+    }
+
     // Recursively lint subcommands
     let new_path: Vec<&str> = path
         .iter()
@@ -313,6 +335,19 @@ fn lint_flag(flag: &SpecFlag, cmd_path: &str, issues: &mut Vec<LintIssue>) {
                 location: Some(format!("cmd {} flag {}", cmd_path, flag.name)),
             });
         }
+    }
+
+    // Check for count flag with arg (conflicting semantics)
+    if flag.count && flag.arg.is_some() {
+        issues.push(LintIssue {
+            severity: Severity::Error,
+            code: "count-flag-with-arg".to_string(),
+            message: format!(
+                "Flag '{}' is a count flag but also has an argument",
+                flag.name
+            ),
+            location: Some(format!("cmd {} flag {}", cmd_path, flag.name)),
+        });
     }
 }
 
@@ -431,5 +466,70 @@ cmd "sub" help="A subcommand" {
         let issues = lint_spec(&spec);
         // Should only have info-level issues (missing-cmd-help for root)
         assert!(issues.iter().all(|i| i.severity == Severity::Info));
+    }
+
+    #[test]
+    fn test_lint_subcommand_required_no_subcommands() {
+        let spec: Spec = r#"
+name "test"
+cmd "sub" subcommand_required=#true help="a subcommand with no subcommands"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec);
+        assert!(issues
+            .iter()
+            .any(|i| i.code == "subcommand-required-no-subcommands"));
+    }
+
+    #[test]
+    fn test_lint_variadic_arg_not_last() {
+        let spec: Spec = r#"
+name "test"
+arg "<files>…" help="files" var=#true
+arg "<output>" help="output"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec);
+        assert!(issues.iter().any(|i| i.code == "variadic-arg-not-last"));
+    }
+
+    #[test]
+    fn test_lint_count_flag_with_arg() {
+        let spec: Spec = r#"
+name "test"
+flag "-v --verbose" count=#true {
+    arg "<level>"
+}
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec);
+        assert!(issues.iter().any(|i| i.code == "count-flag-with-arg"));
+    }
+
+    #[test]
+    fn test_lint_invalid_default_subcommand_shows_valid() {
+        let spec: Spec = r#"
+name "test"
+default_subcommand "nonexistent"
+cmd "install" help="install"
+cmd "update" help="update"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec);
+        let issue = issues
+            .iter()
+            .find(|i| i.code == "invalid-default-subcommand")
+            .unwrap();
+        assert!(issue.message.contains("valid subcommands:"));
+        assert!(issue.message.contains("install"));
+        assert!(issue.message.contains("update"));
     }
 }
