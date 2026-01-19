@@ -25,31 +25,62 @@ pub enum SpecDoubleDashChoices {
     Preserve,
 }
 
+/// A positional argument specification.
+///
+/// Arguments are positional values passed to a command without a flag prefix.
+/// They can be required or optional, and can accept multiple values (variadic).
+///
+/// # Example
+///
+/// ```
+/// use usage::SpecArg;
+///
+/// let arg = SpecArg::builder()
+///     .name("file")
+///     .required(true)
+///     .help("Input file to process")
+///     .build();
+/// ```
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
+    /// Name of the argument (used in help text)
     pub name: String,
+    /// Generated usage string (e.g., "<file>" or "[file]")
     pub usage: String,
+    /// Short help text shown in command listings
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+    /// Extended help text shown with --help
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_long: Option<String>,
+    /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
+    /// Whether this argument must be provided
     pub required: bool,
+    /// How to handle the "--" separator
     pub double_dash: SpecDoubleDashChoices,
+    /// Whether this argument accepts multiple values
     #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
+    /// Minimum number of values for variadic arguments
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_min: Option<usize>,
+    /// Maximum number of values for variadic arguments
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
+    /// Whether to hide this argument from help output
     pub hide: bool,
+    /// Default value(s) if the argument is not provided
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub default: Vec<String>,
+    /// Valid choices for this argument
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
+    /// Environment variable that can provide this argument's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
 }
