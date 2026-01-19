@@ -54,14 +54,3 @@ impl Display for SpecMount {
         write!(f, "{}", self.usage())
     }
 }
-// impl PartialEq for SpecMount {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.run == other.run
-//     }
-// }
-// impl Eq for SpecMount {}
-// impl Hash for SpecMount {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//         self.run.hash(state);
-//     }
-// }
