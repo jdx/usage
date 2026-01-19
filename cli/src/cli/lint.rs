@@ -57,7 +57,11 @@ impl std::fmt::Display for LintIssue {
             .as_ref()
             .map(|l| format!(" at {}", l))
             .unwrap_or_default();
-        write!(f, "{} [{}]{}: {}", self.severity, self.code, loc, self.message)
+        write!(
+            f,
+            "{} [{}]{}: {}",
+            self.severity, self.code, loc, self.message
+        )
     }
 }
 
@@ -87,9 +91,18 @@ impl Lint {
             return;
         }
 
-        let errors = issues.iter().filter(|i| i.severity == Severity::Error).count();
-        let warnings = issues.iter().filter(|i| i.severity == Severity::Warning).count();
-        let infos = issues.iter().filter(|i| i.severity == Severity::Info).count();
+        let errors = issues
+            .iter()
+            .filter(|i| i.severity == Severity::Error)
+            .count();
+        let warnings = issues
+            .iter()
+            .filter(|i| i.severity == Severity::Warning)
+            .count();
+        let infos = issues
+            .iter()
+            .filter(|i| i.severity == Severity::Info)
+            .count();
 
         for issue in issues {
             println!("{}", issue);
@@ -129,10 +142,7 @@ pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
             issues.push(LintIssue {
                 severity: Severity::Error,
                 code: "invalid-default-subcommand".to_string(),
-                message: format!(
-                    "default_subcommand '{}' does not exist",
-                    default_subcmd
-                ),
+                message: format!("default_subcommand '{}' does not exist", default_subcmd),
                 location: None,
             });
         }
@@ -162,7 +172,8 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
     }
 
     // Check for duplicate flag names
-    let mut seen_flags: std::collections::HashMap<String, &SpecFlag> = std::collections::HashMap::new();
+    let mut seen_flags: std::collections::HashMap<String, &SpecFlag> =
+        std::collections::HashMap::new();
     for flag in &cmd.flags {
         for long in &flag.long {
             let key = format!("--{}", long);
@@ -210,10 +221,7 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
             issues.push(LintIssue {
                 severity: Severity::Error,
                 code: "duplicate-arg".to_string(),
-                message: format!(
-                    "Argument '{}' is defined multiple times",
-                    existing.name
-                ),
+                message: format!("Argument '{}' is defined multiple times", existing.name),
                 location: Some(format!("cmd {}", cmd_path)),
             });
         } else {
@@ -245,7 +253,11 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
     }
 
     // Recursively lint subcommands
-    let new_path: Vec<&str> = path.iter().copied().chain(std::iter::once(cmd.name.as_str())).collect();
+    let new_path: Vec<&str> = path
+        .iter()
+        .copied()
+        .chain(std::iter::once(cmd.name.as_str()))
+        .collect();
     for subcmd in cmd.subcommands.values() {
         lint_command(subcmd, &new_path, issues);
     }
@@ -288,10 +300,7 @@ fn lint_flag(flag: &SpecFlag, cmd_path: &str, issues: &mut Vec<LintIssue>) {
             issues.push(LintIssue {
                 severity: Severity::Warning,
                 code: "inconsistent-naming".to_string(),
-                message: format!(
-                    "Flag '--{}' mixes underscores and hyphens",
-                    long
-                ),
+                message: format!("Flag '--{}' mixes underscores and hyphens", long),
                 location: Some(format!("cmd {} flag {}", cmd_path, flag.name)),
             });
         }
@@ -314,10 +323,7 @@ fn lint_arg(arg: &SpecArg, cmd_path: &str, issues: &mut Vec<LintIssue>) {
         issues.push(LintIssue {
             severity: Severity::Warning,
             code: "inconsistent-naming".to_string(),
-            message: format!(
-                "Argument '{}' mixes underscores and hyphens",
-                arg.name
-            ),
+            message: format!("Argument '{}' mixes underscores and hyphens", arg.name),
             location: Some(format!("cmd {} arg {}", cmd_path, arg.name)),
         });
     }
@@ -380,7 +386,9 @@ cmd "real" help="a real command"
         .unwrap();
 
         let issues = lint_spec(&spec);
-        assert!(issues.iter().any(|i| i.code == "invalid-default-subcommand"));
+        assert!(issues
+            .iter()
+            .any(|i| i.code == "invalid-default-subcommand"));
     }
 
     #[test]
