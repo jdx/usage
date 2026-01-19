@@ -57,4 +57,10 @@ output=$(
 		--allowedTools "Read,Grep,Glob"
 )
 
+# Validate we got non-empty output
+if [[ -z $output ]]; then
+	echo "Error: Claude returned empty output" >&2
+	exit 1
+fi
+
 echo "$output"

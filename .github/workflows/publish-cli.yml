@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
       - name: Install Claude Code CLI
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
