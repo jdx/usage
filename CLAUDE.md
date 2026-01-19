@@ -56,6 +56,7 @@ The spec model represents a CLI definition parsed from KDL:
 - `SpecMount` - Mount another spec at a subcommand path
 
 Specs can be:
+
 1. Parsed from `.usage.kdl` files
 2. Extracted from embedded `# USAGE:` comments in scripts
 3. Generated from clap Command definitions
@@ -63,6 +64,7 @@ Specs can be:
 ### Shell Completion Generation (`lib/src/complete/`)
 
 Each shell has its own module generating completion scripts:
+
 - `bash.rs` - Uses `complete` builtin
 - `zsh.rs` - Uses `compdef`
 - `fish.rs` - Uses `complete` command
@@ -73,6 +75,7 @@ Completions call back to `usage complete-word` at runtime for dynamic completion
 ### Argument Parsing (`lib/src/parse.rs`)
 
 The `parse()` function parses command-line arguments against a spec, returning:
+
 - Matched command path
 - Parsed args and flags with values
 - Env var and default fallbacks applied
@@ -80,6 +83,7 @@ The `parse()` function parses command-line arguments against a spec, returning:
 ### Documentation Generation (`lib/src/docs/`)
 
 Generates from specs:
+
 - Markdown documentation (`markdown/`)
 - Man pages (`manpage/`)
 - CLI help text (`cli/`)
@@ -89,6 +93,7 @@ Uses Tera templates for markdown rendering.
 ## KDL Spec Format
 
 Specs use KDL syntax. Key nodes:
+
 ```kdl
 name "mycli"
 bin "mycli"
