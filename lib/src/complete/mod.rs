@@ -1,3 +1,4 @@
+use crate::error::UsageErr;
 use crate::Spec;
 
 mod bash;
@@ -16,12 +17,12 @@ pub struct CompleteOptions {
     pub source_file: Option<String>,
 }
 
-pub fn complete(options: &CompleteOptions) -> String {
+pub fn complete(options: &CompleteOptions) -> Result<String, UsageErr> {
     match options.shell.as_str() {
-        "bash" => bash::complete_bash(options),
-        "fish" => fish::complete_fish(options),
-        "powershell" => powershell::complete_powershell(options),
-        "zsh" => zsh::complete_zsh(options),
-        _ => unimplemented!("unsupported shell: {}", options.shell),
+        "bash" => Ok(bash::complete_bash(options)),
+        "fish" => Ok(fish::complete_fish(options)),
+        "powershell" => Ok(powershell::complete_powershell(options)),
+        "zsh" => Ok(zsh::complete_zsh(options)),
+        _ => Err(UsageErr::UnsupportedShell(options.shell.clone())),
     }
 }

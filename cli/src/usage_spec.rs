@@ -15,7 +15,7 @@ pub(crate) fn complete(shell: &str) -> Result<()> {
         "bash" => print!("{}", include_str!("../assets/completions/usage.bash")),
         "fish" => print!("{}", include_str!("../assets/completions/usage.fish")),
         "zsh" => print!("{}", include_str!("../assets/completions/_usage")),
-        _ => unimplemented!("unsupported shell: {}", shell),
+        _ => miette::bail!("unsupported shell: {}", shell),
     };
 
     Ok(())

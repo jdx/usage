@@ -63,7 +63,7 @@ impl Completion {
             source_file: self.file.as_ref().map(|f| f.to_string_lossy().to_string()),
         };
 
-        println!("{}", usage::complete::complete(&opts).trim());
+        println!("{}", usage::complete::complete(&opts)?.trim());
         Ok(())
     }
 }
