@@ -18,6 +18,7 @@ const commands = getCommands(spec.cmd);
 export default defineConfig({
   title: "Usage",
   description: "Schema for CLIs",
+  appearance: "force-dark",
   lastUpdated: true,
   cleanUrls: true,
   markdown: {
