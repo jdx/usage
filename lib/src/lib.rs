@@ -13,6 +13,7 @@ pub use crate::spec::mount::SpecMount;
 pub use crate::spec::Spec;
 
 #[macro_use]
+#[allow(unused_assignments)] // Fields in struct variants are read by derive macros
 pub mod error;
 #[macro_use]
 pub mod macros;
