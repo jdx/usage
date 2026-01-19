@@ -74,6 +74,9 @@ pub enum UsageErr {
         max: usize,
         got: usize,
     },
+
+    #[error("Invalid file path: {0}")]
+    InvalidPath(String),
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 
