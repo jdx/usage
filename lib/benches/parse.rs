@@ -29,7 +29,14 @@ fn build_large_spec() -> Spec {
     let mut subcommands = indexmap::IndexMap::new();
 
     for cmd_name in [
-        "install", "uninstall", "update", "list", "search", "info", "run", "exec",
+        "install",
+        "uninstall",
+        "update",
+        "list",
+        "search",
+        "info",
+        "run",
+        "exec",
     ] {
         let mut cmd = SpecCommand::builder()
             .name(cmd_name)
