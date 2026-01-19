@@ -61,6 +61,8 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// Parse a spec from a file (either a .usage.kdl file or a script with embedded spec).
+    #[must_use = "parsing result should be used"]
     pub fn parse_file(file: &Path) -> Result<Spec, UsageErr> {
         let spec = split_script(file)?;
         let ctx = ParsingContext::new(file, &spec);
@@ -77,6 +79,8 @@ impl Spec {
         }
         Ok(schema)
     }
+    /// Parse a spec from a script file's USAGE comments.
+    #[must_use = "parsing result should be used"]
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
         let raw = extract_usage_from_comments(&file::read_to_string(file)?);
         let ctx = ParsingContext::new(file, &raw);
@@ -177,7 +181,16 @@ impl Spec {
                         .ok_or_else(|| ctx.build_err("missing file".into(), node.span()))?;
                     let file = Path::new(&file);
                     let file = match file.is_relative() {
-                        true => ctx.file.parent().unwrap().join(file),
+                        true => ctx
+                            .file
+                            .parent()
+                            .ok_or_else(|| {
+                                ctx.build_err(
+                                    format!("cannot get parent of {}", ctx.file.display()),
+                                    node.span(),
+                                )
+                            })?
+                            .join(file),
                         false => file.to_path_buf(),
                     };
                     info!("include: {}", file.display());

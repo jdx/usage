@@ -185,6 +185,7 @@ impl SpecFlagBuilder {
     }
 
     /// Build the final SpecFlag
+    #[must_use]
     pub fn build(mut self) -> SpecFlag {
         self.inner.usage = self.inner.usage();
         if self.inner.name.is_empty() {
@@ -300,6 +301,7 @@ impl SpecArgBuilder {
     }
 
     /// Build the final SpecArg
+    #[must_use]
     pub fn build(mut self) -> SpecArg {
         self.inner.usage = self.inner.usage();
         self.inner
@@ -428,6 +430,7 @@ impl SpecCommandBuilder {
     }
 
     /// Build the final SpecCommand
+    #[must_use]
     pub fn build(mut self) -> SpecCommand {
         self.inner.usage = self.inner.usage();
         self.inner
