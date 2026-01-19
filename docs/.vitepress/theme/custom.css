@@ -1,4 +1,12 @@
 /* Usage Docs Custom Theme */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+/* Navbar Title */
+.VPNavBarTitle .title {
+  font-family: 'VT323', monospace;
+  font-size: 1.5rem;
+  color: var(--usage-green) !important;
+}
 
 /* Color Palette - based on logo green */
 :root {
@@ -123,15 +131,15 @@
 
 /* Title */
 .usage-hero-title {
-  font-size: 4rem;
-  font-weight: 700;
+  font-family: 'VT323', monospace;
+  font-size: 5.5rem;
+  font-weight: 400;
   margin: 0 0 0.5rem;
   padding: 0.2em 0;
-  background: linear-gradient(135deg, var(--usage-green-light), var(--usage-green));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1.2;
+  color: var(--usage-green);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 30px var(--usage-green-glow);
 }
 
 /* Tagline */
@@ -317,7 +325,7 @@
   }
 
   .usage-hero-title {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
   }
 
   .usage-hero-tagline {
