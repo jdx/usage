@@ -25,13 +25,31 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      - name: Install Claude Code CLI
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: npm install -g @anthropic-ai/claude-code
       - name: Create draft release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
+          TAG_NAME="${{ github.ref_name }}"
+          PREV_TAG="$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")"
+          # Generate rich release notes using LLM
+          if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+            ./scripts/gen-release-notes.sh "$TAG_NAME" "$PREV_TAG" >/tmp/release-notes.txt || {
+              echo "LLM generation failed, falling back to CHANGELOG.md"
+              awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
+            }
+          else
+            echo "ANTHROPIC_API_KEY not set, using CHANGELOG.md"
+            awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
+          fi
           gh release create --draft ${{ github.ref_name }} \
             --title "${{ github.ref_name }}" \
-            --notes "$(git cliff --latest --strip all)"
+            --notes-file /tmp/release-notes.txt
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   build-and-publish:
     needs: [create-release]
     strategy:
