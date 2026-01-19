@@ -309,14 +309,14 @@ fn extract_usage_from_comments(full: &str) -> String {
 }
 
 fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
-    let ancestors = ancestors.to_vec();
     for subcmd in cmd.subcommands.values_mut() {
         subcmd.full_cmd = ancestors
-            .clone()
-            .into_iter()
+            .iter()
+            .cloned()
             .chain(once(subcmd.name.clone()))
             .collect();
-        set_subcommand_ancestors(subcmd, &subcmd.full_cmd.clone());
+        let child_ancestors = subcmd.full_cmd.clone();
+        set_subcommand_ancestors(subcmd, &child_ancestors);
     }
     if cmd.usage.is_empty() {
         cmd.usage = cmd.usage();
