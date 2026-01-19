@@ -67,7 +67,7 @@ impl CompleteWord {
                         println!("'{c}'")
                     }
                 }
-                _ => unimplemented!("unsupported shell: {}", shell),
+                _ => miette::bail!("unsupported shell: {}", shell),
             }
         }
 
