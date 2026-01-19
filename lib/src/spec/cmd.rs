@@ -56,7 +56,7 @@ pub struct SpecCommand {
     #[serde(skip_serializing_if = "IndexMap::is_empty")]
     pub complete: IndexMap<String, SpecComplete>,
 
-    // TODO: make this non-public
+    /// Cache for subcommand name lookups (including aliases)
     #[serde(skip)]
     subcommand_lookup: OnceLock<HashMap<String, String>>,
 }
