@@ -22,6 +22,9 @@ mod tests {
     fn test_render_markdown_arg() {
         let spec = spec! { r#"arg "arg1" help="arg1 description""# }.unwrap();
         let ctx = MarkdownRenderer::new(spec.clone());
-        assert_snapshot!(ctx.render_arg(&spec.cmd.args[0]).unwrap(), @"arg1 description");
+        assert_snapshot!(ctx.render_arg(&spec.cmd.args[0]).unwrap(), @r"
+
+
+arg1 description");
     }
 }
