@@ -16,9 +16,7 @@ Register-ArgumentCompleter -Native -CommandName 'mycli' -ScriptBlock {
     $tmpDir = if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
     $specFile = Join-Path $tmpDir "usage__usage_spec_mycli.kdl"
 
-    if (-not (Test-Path $specFile)) {
-        mycli complete --usage | Out-File -FilePath $specFile -Encoding utf8
-    }
+    mycli complete --usage | Out-File -FilePath $specFile -Encoding utf8
 
     $words = $commandAst.CommandElements | ForEach-Object { $_.ToString() }
     if ($words.Count -lt 1) {

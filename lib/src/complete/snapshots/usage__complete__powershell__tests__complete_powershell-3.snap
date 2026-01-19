@@ -16,8 +16,7 @@ Register-ArgumentCompleter -Native -CommandName 'mycli' -ScriptBlock {
     $tmpDir = if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
     $specFile = Join-Path $tmpDir "usage__usage_spec_mycli.kdl"
 
-    if (-not (Test-Path $specFile)) {
-        'name mycli
+    'name mycli
 bin mycli
 source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
 flag --flag1 help="flag1 description"
@@ -52,7 +51,6 @@ cmd plugin {
     }
 }
 ' | Out-File -FilePath $specFile -Encoding utf8
-    }
 
     $words = $commandAst.CommandElements | ForEach-Object { $_.ToString() }
     if ($words.Count -lt 1) {
