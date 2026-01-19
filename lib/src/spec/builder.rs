@@ -712,7 +712,10 @@ mod tests {
             Some("Before help long text".to_string())
         );
         assert_eq!(cmd.after_help, Some("After help text".to_string()));
-        assert_eq!(cmd.after_help_long, Some("After help long text".to_string()));
+        assert_eq!(
+            cmd.after_help_long,
+            Some("After help long text".to_string())
+        );
     }
 
     #[test]
