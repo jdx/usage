@@ -45,10 +45,15 @@ default = ["docs"]
 docs = ["tera", "roff"]
 
 [dev-dependencies]
+criterion = "0.5"
 ctor = "0.6"
 insta = "1"
 pretty_assertions = "1"
 shell-words = "1"
+
+[[bench]]
+name = "parse"
+harness = false
 
 [package.metadata.release]
 shared-version = true
