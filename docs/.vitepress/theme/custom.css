@@ -13,12 +13,13 @@
   position: relative;
   padding: 4rem 1.5rem 6rem;
   text-align: center;
-  overflow: hidden;
+  overflow: visible;
   min-height: 70vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  margin-bottom: 4rem;
 }
 
 /* Animated Background Orbs */
