@@ -274,11 +274,13 @@ impl FromStr for SpecFlag {
                 flag.long.push(long.to_string());
             } else if let Some(short) = part.strip_prefix('-') {
                 if short.len() != 1 {
-                    return Err(InvalidFlag(
-                        short.to_string(),
-                        (0, input.len()).into(),
-                        input.to_string(),
-                    ));
+                    return Err(InvalidFlag {
+                        token: format!("-{short}"),
+                        reason: "short flags must be a single character (use -- for long flags)"
+                            .to_string(),
+                        span: (0, input.len()).into(),
+                        input: input.to_string(),
+                    });
                 }
                 flag.short.push(short.chars().next().unwrap());
             } else if part == "…" {
@@ -292,11 +294,12 @@ impl FromStr for SpecFlag {
             {
                 flag.arg = Some(part.to_string().parse()?);
             } else {
-                return Err(InvalidFlag(
-                    part.to_string(),
-                    (0, input.len()).into(),
-                    input.to_string(),
-                ));
+                return Err(InvalidFlag {
+                    token: part.to_string(),
+                    reason: "unexpected token (expected -x, --long, <arg>, or [arg])".to_string(),
+                    span: (0, input.len()).into(),
+                    input: input.to_string(),
+                });
             }
         }
         if flag.name.is_empty() {

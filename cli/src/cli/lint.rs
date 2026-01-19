@@ -139,10 +139,19 @@ pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
     // Check default_subcommand reference
     if let Some(default_subcmd) = &spec.default_subcommand {
         if !spec.cmd.subcommands.contains_key(default_subcmd) {
+            let valid: Vec<&str> = spec.cmd.subcommands.keys().map(|s| s.as_str()).collect();
+            let valid_list = if valid.is_empty() {
+                "no subcommands defined".to_string()
+            } else {
+                format!("valid subcommands: {}", valid.join(", "))
+            };
             issues.push(LintIssue {
                 severity: Severity::Error,
                 code: "invalid-default-subcommand".to_string(),
-                message: format!("default_subcommand '{}' does not exist", default_subcmd),
+                message: format!(
+                    "default_subcommand '{}' does not exist ({})",
+                    default_subcmd, valid_list
+                ),
                 location: None,
             });
         }
