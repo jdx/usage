@@ -1,8 +1,8 @@
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use tera::Tera;
 
-pub(crate) static TERA: Lazy<Tera> = Lazy::new(|| {
+pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
 
     #[rustfmt::skip]

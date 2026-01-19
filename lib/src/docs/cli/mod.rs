@@ -1,5 +1,5 @@
 use crate::{Spec, SpecCommand};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use tera::Tera;
 
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
@@ -19,7 +19,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
 }
 
-static TERA: Lazy<Tera> = Lazy::new(|| {
+static TERA: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
 
     #[rustfmt::skip]

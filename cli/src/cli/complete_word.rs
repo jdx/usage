@@ -8,7 +8,7 @@ use std::sync::Arc;
 use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use xx::process::check_status;
 use xx::{regex, XXError, XXResult};
 
@@ -249,7 +249,7 @@ impl CompleteWord {
         arg: &SpecArg,
         ctoken: &str,
     ) -> miette::Result<Vec<(String, String)>> {
-        static EMPTY_COMPL: Lazy<SpecComplete> = Lazy::new(SpecComplete::default);
+        static EMPTY_COMPL: LazyLock<SpecComplete> = LazyLock::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");
         let name = arg.name.to_lowercase();
