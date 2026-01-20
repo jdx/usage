@@ -252,6 +252,28 @@ fn complete_word_subcommands_without_shell() {
     cmd.assert().success().stdout(contains("install"));
 }
 
+#[test]
+fn complete_word_escaped_colons_in_completions() {
+    // When completions contain colons, they are escaped as \: in the name:description format.
+    // Prefix matching should work against the unescaped names.
+
+    // Typing "test:" should match "test:unit" and "test:integration" (unescaped)
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test:"])
+        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n");
+
+    // Typing "test" should also match (prefix of the unescaped name)
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test"])
+        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n");
+
+    // Typing "build" should only match "build"
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "build"])
+        .stdout("'build'\\:'Build the project'\n");
+
+    // Empty input should match all completions
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", ""])
+        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n'build'\\:'Build the project'\n");
+}
+
 fn cmd(example: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
