@@ -531,7 +531,12 @@ echo "COMPLETION_TEST_DONE"
 
 #[test]
 fn test_powershell_completion_integration() {
-    // NO skip - CI must have pwsh installed
+    // Skip if pwsh is not installed
+    if Command::new("pwsh").arg("--version").output().is_err() {
+        eprintln!("Skipping pwsh test - PowerShell Core not installed");
+        return;
+    }
+
     // Build the usage binary
     let usage_bin = build_usage_binary();
 
