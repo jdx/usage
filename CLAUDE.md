@@ -2,6 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Conventional Commits
+
+All commit messages and PR titles MUST follow conventional commit format:
+
+**Format:** `<type>(<scope>): <description>`
+
+**Types:**
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `refactor:` - Code refactoring
+- `docs:` - Documentation changes
+- `style:` - Code style/formatting (no logic changes)
+- `perf:` - Performance improvements
+- `test:` - Testing changes
+- `chore:` - Maintenance tasks, releases, dependency updates
+- `security:` - Security-related changes
+
+**Scopes:**
+- For shell-specific changes: `bash`, `zsh`, `fish`, `powershell`
+- For subsystem changes: `spec`, `parse`, `complete`, `docs`, `manpage`, `lib`, `cli`, `deps`
+
+**Description Style:**
+- Use lowercase after the colon
+- Use imperative mood ("add feature" not "added feature")
+- Keep it concise but descriptive
+
+**Examples:**
+- `fix(zsh): handle spaces in completion values`
+- `feat(powershell): add completion support`
+- `feat(spec): add mount node for nested specs`
+- `docs: update KDL spec format examples`
+- `chore: release 2.0.0`
+
 ## Project Overview
 
 Usage is a spec and CLI for defining CLI tools using KDL format. It generates shell completions, markdown docs, and man pages from a single spec file. Think OpenAPI/Swagger for CLIs.
