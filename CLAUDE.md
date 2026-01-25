@@ -9,6 +9,7 @@ All commit messages and PR titles MUST follow conventional commit format:
 **Format:** `<type>(<scope>): <description>`
 
 **Types:**
+
 - `feat:` - New features
 - `fix:` - Bug fixes
 - `refactor:` - Code refactoring
@@ -20,15 +21,18 @@ All commit messages and PR titles MUST follow conventional commit format:
 - `security:` - Security-related changes
 
 **Scopes:**
+
 - For shell-specific changes: `bash`, `zsh`, `fish`, `powershell`
 - For subsystem changes: `spec`, `parse`, `complete`, `docs`, `manpage`, `lib`, `cli`, `deps`
 
 **Description Style:**
+
 - Use lowercase after the colon
 - Use imperative mood ("add feature" not "added feature")
 - Keep it concise but descriptive
 
 **Examples:**
+
 - `fix(zsh): handle spaces in completion values`
 - `feat(powershell): add completion support`
 - `feat(spec): add mount node for nested specs`
