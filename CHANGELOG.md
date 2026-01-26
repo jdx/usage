@@ -1,5 +1,55 @@
 # Changelog
 
+## [2.14.0](https://github.com/jdx/usage/compare/v2.13.1..v2.14.0) - 2026-01-26
+
+### 🚀 Features
+
+- **(lint)** add more lint checks by [@jdx](https://github.com/jdx) in [#446](https://github.com/jdx/usage/pull/446)
+- add logo to docs site by [@jdx](https://github.com/jdx) in [#442](https://github.com/jdx/usage/pull/442)
+- add VT323 retro terminal font and --usage branding by [@jdx](https://github.com/jdx) in [#443](https://github.com/jdx/usage/pull/443)
+- add missing builder methods by [@jdx](https://github.com/jdx) in [#444](https://github.com/jdx/usage/pull/444)
+
+### 🐛 Bug Fixes
+
+- use pithy LLM-generated title for GitHub releases by [@jdx](https://github.com/jdx) in [#441](https://github.com/jdx/usage/pull/441)
+- replace unwrap calls with proper error handling in fig.rs by [@jdx](https://github.com/jdx) in [#454](https://github.com/jdx/usage/pull/454)
+- improve error messages with more context by [@jdx](https://github.com/jdx) in [#449](https://github.com/jdx/usage/pull/449)
+- skip powershell test if pwsh is not installed by [@jdx](https://github.com/jdx) in [#457](https://github.com/jdx/usage/pull/457)
+- match completion prefix against unescaped names by [@ilyagr](https://github.com/ilyagr) in [#460](https://github.com/jdx/usage/pull/460)
+
+### 🚜 Refactor
+
+- simplify Spec::merge with local macros by [@jdx](https://github.com/jdx) in [#451](https://github.com/jdx/usage/pull/451)
+
+### 📚 Documentation
+
+- add CLAUDE.md for Claude Code guidance by [@jdx](https://github.com/jdx) in [#452](https://github.com/jdx/usage/pull/452)
+- escape generic type parameters in macro doc comments by [@jdx](https://github.com/jdx) in [#453](https://github.com/jdx/usage/pull/453)
+- add rustdoc for public API functions by [@jdx](https://github.com/jdx) in [#450](https://github.com/jdx/usage/pull/450)
+- add documentation to public API structs by [@jdx](https://github.com/jdx) in [#455](https://github.com/jdx/usage/pull/455)
+- add conventional commit guidance to CLAUDE.md by [@jdx](https://github.com/jdx) in [#459](https://github.com/jdx/usage/pull/459)
+
+### ⚡ Performance
+
+- remove unnecessary clone in set_subcommand_ancestors by [@jdx](https://github.com/jdx) in [#448](https://github.com/jdx/usage/pull/448)
+
+### 🧪 Testing
+
+- add test coverage for untested modules by [@jdx](https://github.com/jdx) in [#447](https://github.com/jdx/usage/pull/447)
+
+### 🔍 Other Changes
+
+- remove commented-out trait implementations in mount.rs by [@jdx](https://github.com/jdx) in [#445](https://github.com/jdx/usage/pull/445)
+- make codecov checks informational by [@jdx](https://github.com/jdx) in [#456](https://github.com/jdx/usage/pull/456)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#439](https://github.com/jdx/usage/pull/439)
+
+### New Contributors
+
+- @ilyagr made their first contribution in [#460](https://github.com/jdx/usage/pull/460)
+
 ## [2.13.1](https://github.com/jdx/usage/compare/v2.13.0..v2.13.1) - 2026-01-19
 
 ### 🐛 Bug Fixes
