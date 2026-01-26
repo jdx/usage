@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.15.0](https://github.com/jdx/usage/compare/v2.14.0..v2.15.0) - 2026-01-26
+
+### 🚀 Features
+
+- **(parse)** add Parser builder for custom env var handling by [@jdx](https://github.com/jdx) in [#464](https://github.com/jdx/usage/pull/464)
+
+### 🧪 Testing
+
+- **(cli)** use fish output format for cleaner assertions by [@ilyagr](https://github.com/ilyagr) in [#461](https://github.com/jdx/usage/pull/461)
+
+### 🔍 Other Changes
+
+- add cargo-semver-checks to detect breaking changes by [@jdx](https://github.com/jdx) in [#463](https://github.com/jdx/usage/pull/463)
+
 ## [2.14.0](https://github.com/jdx/usage/compare/v2.13.1..v2.14.0) - 2026-01-26
 
 ### 🚀 Features
