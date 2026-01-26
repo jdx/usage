@@ -258,12 +258,14 @@ fn complete_word_escaped_colons_in_completions() {
     // Prefix matching should work against the unescaped names.
 
     // Typing "test:" should match "test:unit" and "test:integration" (unescaped)
-    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test:"])
-        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n");
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test:"]).stdout(
+        "'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n",
+    );
 
     // Typing "test" should also match (prefix of the unescaped name)
-    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test"])
-        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n");
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test"]).stdout(
+        "'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n",
+    );
 
     // Typing "build" should only match "build"
     assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "build"])
