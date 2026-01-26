@@ -9,6 +9,7 @@ gh = "latest"
 "cargo:cargo-edit" = "latest"
 "cargo:cargo-insta" = "latest"
 "cargo:cargo-release" = "latest"
+"cargo:cargo-semver-checks" = "latest"
 "cargo:git-cliff" = "latest"
 "npm:prettier" = "latest"
 shellcheck = "latest"
@@ -63,6 +64,8 @@ run = "prettier -c ."
 run = 'cargo clippy --all --all-features -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
+[tasks."lint:semver"]
+run = 'cargo semver-checks check-release -p usage-lib'
 
 [tasks.lint-fix]
 run = [
