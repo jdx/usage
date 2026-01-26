@@ -539,9 +539,7 @@ fn parse_partial_with_env(
         if arg.required && arg.default.is_empty() {
             // Check if there's an env var available (custom env map takes precedence)
             let has_env = arg.env.as_ref().is_some_and(|e| {
-                custom_env
-                    .map(|env| env.contains_key(e))
-                    .unwrap_or(false)
+                custom_env.map(|env| env.contains_key(e)).unwrap_or(false)
                     || std::env::var(e).is_ok()
             });
             if !has_env {
@@ -558,10 +556,7 @@ fn parse_partial_with_env(
             !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
         // Check if there's an env var available (custom env map takes precedence)
         let has_env = flag.env.as_ref().is_some_and(|e| {
-            custom_env
-                .map(|env| env.contains_key(e))
-                .unwrap_or(false)
-                || std::env::var(e).is_ok()
+            custom_env.map(|env| env.contains_key(e)).unwrap_or(false) || std::env::var(e).is_ok()
         });
         if flag.required && !has_default && !has_env {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
