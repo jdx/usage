@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
 use miette::bail;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use strum::EnumTryAs;
@@ -46,118 +46,177 @@ pub enum ParseValue {
     MultiString(Vec<String>),
 }
 
-/// Parse command-line arguments according to a spec.
+/// Builder for parsing command-line arguments with custom options.
 ///
-/// Returns the parsed arguments and flags, with defaults and env vars applied.
-#[must_use = "parsing result should be used"]
-pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    let mut out = parse_partial(spec, input)?;
-    trace!("{out:?}");
+/// Use this when you need to customize parsing behavior, such as providing
+/// a custom environment variable map instead of using the process environment.
+///
+/// # Example
+/// ```
+/// use std::collections::HashMap;
+/// use usage::Spec;
+/// use usage::parse::Parser;
+///
+/// let spec: Spec = r#"flag "--name <name>" env="NAME""#.parse().unwrap();
+/// let env: HashMap<String, String> = [("NAME".into(), "john".into())].into();
+///
+/// let result = Parser::new(&spec)
+///     .with_env(env)
+///     .parse(&["cmd".into()])
+///     .unwrap();
+/// ```
+#[non_exhaustive]
+pub struct Parser<'a> {
+    spec: &'a Spec,
+    env: Option<HashMap<String, String>>,
+}
 
-    // Apply env vars and defaults for args
-    for arg in out.cmd.args.iter().skip(out.args.len()) {
-        if let Some(env_var) = arg.env.as_ref() {
-            if let Ok(env_value) = std::env::var(env_var) {
-                out.args
-                    .insert(Arc::new(arg.clone()), ParseValue::String(env_value));
-                continue;
-            }
-        }
-        if !arg.default.is_empty() {
-            // Consider var when deciding the type of default return value
-            if arg.var {
-                // For var=true, always return a vec (MultiString)
-                out.args.insert(
-                    Arc::new(arg.clone()),
-                    ParseValue::MultiString(arg.default.clone()),
-                );
-            } else {
-                // For var=false, return the first default value as String
-                out.args.insert(
-                    Arc::new(arg.clone()),
-                    ParseValue::String(arg.default[0].clone()),
-                );
-            }
-        }
+impl<'a> Parser<'a> {
+    /// Create a new parser for the given spec.
+    pub fn new(spec: &'a Spec) -> Self {
+        Self { spec, env: None }
     }
 
-    // Apply env vars and defaults for flags
-    for flag in out.available_flags.values() {
-        if out.flags.contains_key(flag) {
-            continue;
-        }
-        if let Some(env_var) = flag.env.as_ref() {
-            if let Ok(env_value) = std::env::var(env_var) {
-                if flag.arg.is_some() {
-                    out.flags
-                        .insert(Arc::clone(flag), ParseValue::String(env_value));
-                } else {
-                    // For boolean flags, check if env value is truthy
-                    let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
-                    out.flags
-                        .insert(Arc::clone(flag), ParseValue::Bool(is_true));
-                }
-                continue;
-            }
-        }
-        // Apply flag default
-        if !flag.default.is_empty() {
-            // Consider var when deciding the type of default return value
-            if flag.var {
-                // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
-                if flag.arg.is_some() {
-                    out.flags.insert(
-                        Arc::clone(flag),
-                        ParseValue::MultiString(flag.default.clone()),
-                    );
-                } else {
-                    // For boolean flags with var=true, convert default strings to bools
-                    let bools: Vec<bool> = flag
-                        .default
-                        .iter()
-                        .map(|s| matches!(s.as_str(), "1" | "true" | "True" | "TRUE"))
-                        .collect();
-                    out.flags
-                        .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
-                }
+    /// Use a custom environment variable map instead of the process environment.
+    ///
+    /// This is useful when parsing for tasks in a monorepo where the env vars
+    /// come from a child config file rather than the current process environment.
+    pub fn with_env(mut self, env: HashMap<String, String>) -> Self {
+        self.env = Some(env);
+        self
+    }
+
+    /// Parse the input arguments.
+    ///
+    /// Returns the parsed arguments and flags, with defaults and env vars applied.
+    pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
+        let mut out = parse_partial(self.spec, input)?;
+        trace!("{out:?}");
+
+        let get_env = |key: &str| -> Option<String> {
+            if let Some(ref env_map) = self.env {
+                env_map.get(key).cloned()
             } else {
-                // For var=false, return the first default value
-                if flag.arg.is_some() {
-                    out.flags.insert(
-                        Arc::clone(flag),
-                        ParseValue::String(flag.default[0].clone()),
-                    );
-                } else {
-                    // For boolean flags, convert default string to bool
-                    let is_true =
-                        matches!(flag.default[0].as_str(), "1" | "true" | "True" | "TRUE");
-                    out.flags
-                        .insert(Arc::clone(flag), ParseValue::Bool(is_true));
+                std::env::var(key).ok()
+            }
+        };
+
+        // Apply env vars and defaults for args
+        for arg in out.cmd.args.iter().skip(out.args.len()) {
+            if let Some(env_var) = arg.env.as_ref() {
+                if let Some(env_value) = get_env(env_var) {
+                    out.args
+                        .insert(Arc::new(arg.clone()), ParseValue::String(env_value));
+                    continue;
                 }
             }
-        }
-        // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
-        if let Some(arg) = flag.arg.as_ref() {
-            if !out.flags.contains_key(flag) && !arg.default.is_empty() {
-                if flag.var {
-                    out.flags.insert(
-                        Arc::clone(flag),
+            if !arg.default.is_empty() {
+                // Consider var when deciding the type of default return value
+                if arg.var {
+                    // For var=true, always return a vec (MultiString)
+                    out.args.insert(
+                        Arc::new(arg.clone()),
                         ParseValue::MultiString(arg.default.clone()),
                     );
                 } else {
-                    out.flags
-                        .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
+                    // For var=false, return the first default value as String
+                    out.args.insert(
+                        Arc::new(arg.clone()),
+                        ParseValue::String(arg.default[0].clone()),
+                    );
                 }
             }
         }
+
+        // Apply env vars and defaults for flags
+        for flag in out.available_flags.values() {
+            if out.flags.contains_key(flag) {
+                continue;
+            }
+            if let Some(env_var) = flag.env.as_ref() {
+                if let Some(env_value) = get_env(env_var) {
+                    if flag.arg.is_some() {
+                        out.flags
+                            .insert(Arc::clone(flag), ParseValue::String(env_value));
+                    } else {
+                        // For boolean flags, check if env value is truthy
+                        let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
+                        out.flags
+                            .insert(Arc::clone(flag), ParseValue::Bool(is_true));
+                    }
+                    continue;
+                }
+            }
+            // Apply flag default
+            if !flag.default.is_empty() {
+                // Consider var when deciding the type of default return value
+                if flag.var {
+                    // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
+                    if flag.arg.is_some() {
+                        out.flags.insert(
+                            Arc::clone(flag),
+                            ParseValue::MultiString(flag.default.clone()),
+                        );
+                    } else {
+                        // For boolean flags with var=true, convert default strings to bools
+                        let bools: Vec<bool> = flag
+                            .default
+                            .iter()
+                            .map(|s| matches!(s.as_str(), "1" | "true" | "True" | "TRUE"))
+                            .collect();
+                        out.flags
+                            .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
+                    }
+                } else {
+                    // For var=false, return the first default value
+                    if flag.arg.is_some() {
+                        out.flags.insert(
+                            Arc::clone(flag),
+                            ParseValue::String(flag.default[0].clone()),
+                        );
+                    } else {
+                        // For boolean flags, convert default string to bool
+                        let is_true =
+                            matches!(flag.default[0].as_str(), "1" | "true" | "True" | "TRUE");
+                        out.flags
+                            .insert(Arc::clone(flag), ParseValue::Bool(is_true));
+                    }
+                }
+            }
+            // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
+            if let Some(arg) = flag.arg.as_ref() {
+                if !out.flags.contains_key(flag) && !arg.default.is_empty() {
+                    if flag.var {
+                        out.flags.insert(
+                            Arc::clone(flag),
+                            ParseValue::MultiString(arg.default.clone()),
+                        );
+                    } else {
+                        out.flags
+                            .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
+                    }
+                }
+            }
+        }
+        if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
+            bail!("{err}");
+        }
+        if !out.errors.is_empty() {
+            bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
+        }
+        Ok(out)
     }
-    if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
-        bail!("{err}");
-    }
-    if !out.errors.is_empty() {
-        bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
-    }
-    Ok(out)
+}
+
+/// Parse command-line arguments according to a spec.
+///
+/// Returns the parsed arguments and flags, with defaults and env vars applied.
+/// Uses `std::env::var` for environment variable lookups.
+///
+/// For custom environment variable handling, use [`Parser`] instead.
+#[must_use = "parsing result should be used"]
+pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
+    Parser::new(spec).parse(input)
 }
 
 /// Parse command-line arguments without applying defaults.

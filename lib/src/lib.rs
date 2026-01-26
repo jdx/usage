@@ -2,7 +2,7 @@
 extern crate insta;
 extern crate log;
 
-pub use crate::parse::parse;
+pub use crate::parse::{parse, Parser};
 pub use crate::spec::arg::SpecArg;
 pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 pub use crate::spec::choices::SpecChoices;
