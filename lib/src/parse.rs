@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
     ///
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
-        let mut out = parse_partial(self.spec, input)?;
+        let mut out = parse_partial_with_env(self.spec, input, self.env.as_ref())?;
         trace!("{out:?}");
 
         let get_env = |key: &str| -> Option<String> {
@@ -224,6 +224,15 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
+    parse_partial_with_env(spec, input, None)
+}
+
+/// Internal version of parse_partial that accepts an optional custom env map.
+fn parse_partial_with_env(
+    spec: &Spec,
+    input: &[String],
+    custom_env: Option<&HashMap<String, String>>,
+) -> Result<ParseOutput, miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
@@ -528,12 +537,13 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
 
     for arg in out.cmd.args.iter().skip(out.args.len()) {
         if arg.required && arg.default.is_empty() {
-            // Check if there's an env var available
-            let has_env = arg
-                .env
-                .as_ref()
-                .map(|e| std::env::var(e).is_ok())
-                .unwrap_or(false);
+            // Check if there's an env var available (custom env map takes precedence)
+            let has_env = arg.env.as_ref().is_some_and(|e| {
+                custom_env
+                    .map(|env| env.contains_key(e))
+                    .unwrap_or(false)
+                    || std::env::var(e).is_ok()
+            });
             if !has_env {
                 out.errors.push(UsageErr::MissingArg(arg.name.clone()));
             }
@@ -546,11 +556,13 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
         }
         let has_default =
             !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
-        let has_env = flag
-            .env
-            .as_ref()
-            .map(|e| std::env::var(e).is_ok())
-            .unwrap_or(false);
+        // Check if there's an env var available (custom env map takes precedence)
+        let has_env = flag.env.as_ref().is_some_and(|e| {
+            custom_env
+                .map(|env| env.contains_key(e))
+                .unwrap_or(false)
+                || std::env::var(e).is_ok()
+        });
         if flag.required && !has_default && !has_env {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
@@ -1495,5 +1507,114 @@ mod tests {
         let extra_arg = parsed.args.keys().find(|a| a.name == "extra_args").unwrap();
         let extra_value = parsed.args.get(extra_arg).unwrap();
         assert_eq!(extra_value.to_string(), "-- arg1 -- --foo");
+    }
+
+    #[test]
+    fn test_parser_with_custom_env_for_required_arg() {
+        // Test that Parser::with_env works for required args with env vars
+        // This should NOT fail validation even though the env var is not in std::env
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("name")
+                    .env("NAME")
+                    .required(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Ensure NAME is not in process env
+        std::env::remove_var("NAME");
+
+        // Provide env through custom env map
+        let mut env = HashMap::new();
+        env.insert("NAME".to_string(), "john".to_string());
+
+        let input = vec!["test".to_string()];
+        let result = Parser::new(&spec).with_env(env).parse(&input);
+
+        // Should succeed - custom env map should be used for validation
+        let parsed = result.expect("parse should succeed with custom env");
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "john");
+    }
+
+    #[test]
+    fn test_parser_with_custom_env_for_required_flag() {
+        // Test that Parser::with_env works for required flags with env vars
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("name")
+                    .env("NAME")
+                    .required(true)
+                    .arg(SpecArg::builder().name("name").build())
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Ensure NAME is not in process env
+        std::env::remove_var("NAME");
+
+        // Provide env through custom env map
+        let mut env = HashMap::new();
+        env.insert("NAME".to_string(), "jane".to_string());
+
+        let input = vec!["test".to_string()];
+        let result = Parser::new(&spec).with_env(env).parse(&input);
+
+        // Should succeed - custom env map should be used for validation
+        let parsed = result.expect("parse should succeed with custom env");
+        assert_eq!(parsed.flags.len(), 1);
+        let value = parsed.flags.values().next().unwrap();
+        assert_eq!(value.to_string(), "jane");
+    }
+
+    #[test]
+    fn test_parser_with_custom_env_still_fails_when_missing() {
+        // Test that validation still fails when env var is missing from both maps
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("name")
+                    .env("NAME")
+                    .required(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Ensure NAME is not in process env
+        std::env::remove_var("NAME");
+
+        // Provide a custom env map WITHOUT the required env var
+        let env = HashMap::new();
+
+        let input = vec!["test".to_string()];
+        let result = Parser::new(&spec).with_env(env).parse(&input);
+
+        // Should fail - env var is missing from both custom and process env
+        assert!(result.is_err());
     }
 }
