@@ -10,36 +10,31 @@ use predicates::str::contains;
 #[test]
 fn complete_word_completer() {
     assert_cmd("basic.usage.kdl", &["plugins", "install", "pl"])
-        .stdout("'plugin-1'\n'plugin-2'\n'plugin-3'\n");
-    assert_cmd("basic.usage.kdl", &["plugins", "install_desc", "pl"]).stdout(
-        r#"'plugin-1'\:'desc'
-'plugin-2'\:'desc'
-'plugin-3'\:'desc'
-"#,
-    );
+        .stdout("plugin-1\nplugin-2\nplugin-3\n");
+    assert_cmd("basic.usage.kdl", &["plugins", "install_desc", "pl"])
+        .stdout("plugin-1\tdesc\nplugin-2\tdesc\nplugin-3\tdesc\n");
 }
 
 #[test]
 fn complete_word_subcommands() {
-    assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("'install'"));
+    assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("install"));
 }
 
 #[test]
 fn complete_word_cword() {
     assert_cmd("basic.usage.kdl", &["--cword=3", "plugins", "install"])
-        .stdout(contains("'plugin-2'"));
+        .stdout(contains("plugin-2"));
 }
 
 #[test]
 fn complete_word_long_flag() {
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"])
-        .stdout("'--dir'\n'--global'\n");
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--g"]).stdout("'--global'\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"]).stdout("--dir\n--global\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--g"]).stdout("--global\n");
     assert_cmd(
         "basic.usage.kdl",
         &["--", "plugins", "install", "--global", "pl"],
     )
-    .stdout(contains("'plugin-2'"));
+    .stdout(contains("plugin-2"));
 }
 
 #[test]
@@ -48,44 +43,40 @@ fn complete_word_long_flag_val() {
         "basic.usage.kdl",
         &["--", "plugins", "install", "--dir", ""],
     )
-    .stdout(contains("'src'").and(contains("'tests'")));
+    .stdout(contains("src").and(contains("tests")));
 }
 
 #[test]
 fn complete_word_short_flag() {
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-"])
-        .stdout("'-d'\n'-g'\n'--dir'\n'--global'\n");
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g"]).stdout("'-g'\n");
+        .stdout("-d\n-g\n--dir\n--global\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g"]).stdout("-g\n");
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g", "pl"])
-        .stdout(contains("'plugin-2'"));
+        .stdout(contains("plugin-2"));
 }
 
 #[test]
 fn complete_word_kitchen_sink() {
     assert_cmd("kitchen-sink.usage.kdl", &["--", "install", "--"])
-        .stdout("'--dir'\n'--force'\n'--global'\n'--no-force'\n");
-    assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("'bash'\n'zsh'\n'fish'\n");
+        .stdout("--dir\n--force\n--global\n--no-force\n");
+    assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("bash\nzsh\nfish\n");
 }
 
 #[test]
 fn complete_word_choices() {
     assert_cmd("mise.usage.kdl", &["--", "env", "--shell", ""])
-        .stdout("'bash'\n'elvish'\n'fish'\n'nu'\n'xonsh'\n'zsh'\n'pwsh'\n");
+        .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
 }
 
 #[test]
 fn complete_word_shebang() {
-    assert_cmd("example.sh", &["--", "-"]).stdout(
-        r#"'--bar'\:'Option value'
-'--defaulted'\:'Defaulted value'
-'--foo'\:'Flag value'
-"#,
-    );
+    assert_cmd("example.sh", &["--", "-"])
+        .stdout("--bar\tOption value\n--defaulted\tDefaulted value\n--foo\tFlag value\n");
 }
 
 #[test]
 fn complete_word_arg_completer() {
-    assert_cmd("example.sh", &["--", "v"]).stdout("'val-1'\n'val-2'\n'val-3'\n");
+    assert_cmd("example.sh", &["--", "v"]).stdout("val-1\nval-2\nval-3\n");
 }
 
 #[test]
@@ -101,10 +92,9 @@ fn complete_word_mounted() {
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     env::set_var("PATH", env::join_paths(path).unwrap());
-    assert_cmd("mounted.sh", &["--", "-"])
-        .stdout("'--mount'\\:'Display kdl spec for mounted tasks'\n");
-    assert_cmd("mounted.sh", &["--", ""]).stdout("'exec-task'\n");
-    assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("'task-a'\n'task-b'\n");
+    assert_cmd("mounted.sh", &["--", "-"]).stdout("--mount\tDisplay kdl spec for mounted tasks\n");
+    assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
+    assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
 #[test]
@@ -123,26 +113,26 @@ fn complete_word_mounted_with_global_flags() {
 
     // Without --dir flag, should get default tasks
     assert_cmd("mounted-global-flags.sh", &["--", "run", ""])
-        .stdout("'task-a'\\:'Task from default dir'\n'task-b'\\:'Task from default dir'\n");
+        .stdout("task-a\tTask from default dir\ntask-b\tTask from default dir\n");
 
     // With --dir=dir2 flag, should get dir2 tasks
     assert_cmd(
         "mounted-global-flags.sh",
         &["--", "--dir", "dir2", "run", ""],
     )
-    .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+    .stdout("task-bar\tTask from dir2\ntask-foo\tTask from dir2\n");
 
     // Edge case: embedded value (--dir=dir2) should also work
     assert_cmd("mounted-global-flags.sh", &["--", "--dir=dir2", "run", ""])
-        .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+        .stdout("task-bar\tTask from dir2\ntask-foo\tTask from dir2\n");
 
     // Edge case: multiple flags with embedded values
     assert_cmd("mounted-global-flags.sh", &["--", "--dir=dir2", "run", ""])
-        .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+        .stdout("task-bar\tTask from dir2\ntask-foo\tTask from dir2\n");
 
     // Edge case: short flag (-d) should work the same as long flag
     assert_cmd("mounted-global-flags.sh", &["--", "-d", "dir2", "run", ""])
-        .stdout("'task-bar'\\:'Task from dir2'\n'task-foo'\\:'Task from dir2'\n");
+        .stdout("task-bar\tTask from dir2\ntask-foo\tTask from dir2\n");
 }
 
 #[test]
@@ -161,22 +151,22 @@ fn complete_word_boolean_flags_dont_consume_subcommands() {
 
     // Boolean flag --verbose before subcommand 'run' should not consume 'run'
     assert_cmd("test-boolean-flags.sh", &["--", "--verbose", "run", ""])
-        .stdout("'task-verbose'\\:'Task with verbose'\n");
+        .stdout("task-verbose\tTask with verbose\n");
 
     // Multiple boolean flags before subcommand
     assert_cmd(
         "test-boolean-flags.sh",
         &["--", "--verbose", "--debug", "run", ""],
     )
-    .stdout("'task-verbose-debug'\\:'Task with verbose and debug'\n");
+    .stdout("task-verbose-debug\tTask with verbose and debug\n");
 
     // Edge case: short boolean flags should work
     assert_cmd("test-boolean-flags.sh", &["--", "-v", "run", ""])
-        .stdout("'task-verbose'\\:'Task with verbose'\n");
+        .stdout("task-verbose\tTask with verbose\n");
 
     // Edge case: mixed short and long boolean flags
     assert_cmd("test-boolean-flags.sh", &["--", "-v", "-d", "run", ""])
-        .stdout("'task-verbose-debug'\\:'Task with verbose and debug'\n");
+        .stdout("task-verbose-debug\tTask with verbose and debug\n");
 }
 
 #[test]
@@ -195,7 +185,7 @@ fn complete_word_non_global_flags_stop_search() {
 
     // Non-global flag --local should stop subcommand search
     // The parser will fail to recognize 'run' as a subcommand and error
-    let mut cmd = cmd("test-boolean-flags.sh", Some("zsh"));
+    let mut cmd = cmd("test-boolean-flags.sh", Some("fish"));
     cmd.args(["--", "--local", "run", ""]);
     cmd.assert().failure().stderr(contains("unexpected word"));
 }
@@ -220,7 +210,7 @@ fn complete_word_mixed_global_flags() {
     // Note: This won't actually change the tasks since test-boolean-flags doesn't
     // have a --dir flag, but it tests that the parser handles the combination
     assert_cmd("test-boolean-flags.sh", &["--", "-v", "--debug", "run", ""])
-        .stdout("'task-verbose-debug'\\:'Task with verbose and debug'\n");
+        .stdout("task-verbose-debug\tTask with verbose and debug\n");
 }
 
 #[test]
@@ -230,7 +220,7 @@ fn complete_word_fallback_to_files() {
     cmd.args([
         "cw",
         "--shell",
-        "zsh",
+        "fish",
         "-f",
         "../examples/basic.usage.kdl",
         "mycli",
@@ -242,7 +232,7 @@ fn complete_word_fallback_to_files() {
     // Assert for files always present in the project root
     cmd.assert()
         .success()
-        .stdout(contains("'Cargo.toml'").and(contains("'src'")));
+        .stdout(contains("Cargo.toml").and(contains("src")));
 }
 
 #[test]
@@ -258,22 +248,20 @@ fn complete_word_escaped_colons_in_completions() {
     // Prefix matching should work against the unescaped names.
 
     // Typing "test:" should match "test:unit" and "test:integration" (unescaped)
-    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test:"]).stdout(
-        "'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n",
-    );
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test:"])
+        .stdout("test:unit\tRun unit tests\ntest:integration\tRun integration tests\n");
 
     // Typing "test" should also match (prefix of the unescaped name)
-    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test"]).stdout(
-        "'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n",
-    );
+    assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "test"])
+        .stdout("test:unit\tRun unit tests\ntest:integration\tRun integration tests\n");
 
     // Typing "build" should only match "build"
     assert_cmd("colon-in-completions.usage.kdl", &["--", "run", "build"])
-        .stdout("'build'\\:'Build the project'\n");
+        .stdout("build\tBuild the project\n");
 
     // Empty input should match all completions
     assert_cmd("colon-in-completions.usage.kdl", &["--", "run", ""])
-        .stdout("'test\\\\:unit'\\:'Run unit tests'\n'test\\\\:integration'\\:'Run integration tests'\n'build'\\:'Build the project'\n");
+        .stdout("test:unit\tRun unit tests\ntest:integration\tRun integration tests\nbuild\tBuild the project\n");
 }
 
 fn cmd(example: &str, shell: Option<&str>) -> Command {
@@ -287,5 +275,5 @@ fn cmd(example: &str, shell: Option<&str>) -> Command {
 }
 
 fn assert_cmd(example: &str, args: &[&str]) -> Assert {
-    cmd(example, Some("zsh")).args(args).assert().success()
+    cmd(example, Some("fish")).args(args).assert().success()
 }
