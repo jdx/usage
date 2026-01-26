@@ -45,7 +45,7 @@ Write user-friendly release notes in markdown:
 3. Organize into ## sections (Highlights, Bug Fixes, etc.) as needed
 4. Explain WHY changes matter to users
 5. Include PR links and documentation links (https://usage.jdx.dev/)
-6. Include contributor usernames (@username)
+6. Include contributor usernames (@username). Do not thank @jdx since that is who is writing these notes.
 7. Skip internal/trivial changes
 
 Output markdown only, starting with the # title line.
