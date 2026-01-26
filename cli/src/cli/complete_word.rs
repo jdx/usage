@@ -281,7 +281,6 @@ impl CompleteWord {
             let re = regex!(r"[^\\]:");
             return Ok(stdout
                 .lines()
-                .filter(|l| l.starts_with(ctoken))
                 .map(|l| {
                     if complete.descriptions {
                         match re.find(l).map(|m| l.split_at(m.end() - 1)) {
@@ -298,6 +297,7 @@ impl CompleteWord {
                         (l.trim().to_string(), String::new())
                     }
                 })
+                .filter(|(name, _)| name.starts_with(ctoken))
                 .collect());
         }
 

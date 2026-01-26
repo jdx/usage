@@ -1,0 +1,9 @@
+// Test case for completions containing colons in their names
+// The completer outputs escaped colons (\:) per the usage spec
+
+cmd "run" {
+    arg "task"
+}
+
+// Completer outputs escaped colons in name:description format
+complete "task" descriptions=#true run="echo \"test\\:unit:Run unit tests\ntest\\:integration:Run integration tests\nbuild:Build the project\""
