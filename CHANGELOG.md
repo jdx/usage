@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.15.1](https://github.com/jdx/usage/compare/v2.15.0..v2.15.1) - 2026-01-28
+
+### 🐛 Bug Fixes
+
+- **(parse)** handle nested subcommands after default_subcommand switch by [@jdx](https://github.com/jdx) in [#469](https://github.com/jdx/usage/pull/469)
+- don't thank @jdx in LLM-generated release notes by [@jdx](https://github.com/jdx) in [#465](https://github.com/jdx/usage/pull/465)
+
+### 📚 Documentation
+
+- clarify fix type is for CLI bugs only by [@jdx](https://github.com/jdx) in [#467](https://github.com/jdx/usage/pull/467)
+
 ## [2.15.0](https://github.com/jdx/usage/compare/v2.14.0..v2.15.0) - 2026-01-26
 
 ### 🚀 Features
