@@ -340,9 +340,11 @@ fn parse_partial_with_env(
                     out.cmds.push(subcommand.clone());
                     out.cmd = subcommand.clone();
                     prefix_words.clear();
-                    // Don't remove the current word - it's an argument to the default subcommand
-                    // Don't increment idx - let Phase 2 handle this word as a positional arg
-                    break;
+                    // Continue the loop to check if this word is a subcommand of the
+                    // default subcommand (e.g., a task name added via mount).
+                    // If it's not a subcommand, the next iteration will break and
+                    // Phase 2 will handle it as a positional arg.
+                    continue;
                 }
             }
             // This could be a positional argument, so stop subcommand search
@@ -1189,6 +1191,47 @@ mod tests {
         // Should have used "other" subcommand
         assert_eq!(parsed.cmds.len(), 2);
         assert_eq!(parsed.cmds[1].name, "other");
+    }
+
+    #[test]
+    fn test_default_subcommand_with_nested_subcommands() {
+        // Test that default_subcommand works when the default subcommand has nested subcommands.
+        // This is the mise use case: "mise say" should be parsed as "mise run say"
+        // where "say" is a subcommand of "run" (a task).
+        let say_cmd = SpecCommand::builder()
+            .name("say")
+            .arg(SpecArg::builder().name("name").build())
+            .build();
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("say".to_string(), say_cmd);
+
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            default_subcommand: Some("run".to_string()),
+            ..Default::default()
+        };
+
+        // "test say hello" should be parsed as "test run say hello"
+        let input = vec!["test".to_string(), "say".to_string(), "hello".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // Should have three commands: root, "run", and "say"
+        assert_eq!(parsed.cmds.len(), 3);
+        assert_eq!(parsed.cmds[0].name, "test");
+        assert_eq!(parsed.cmds[1].name, "run");
+        assert_eq!(parsed.cmds[2].name, "say");
+
+        // Should have parsed the "name" argument
+        assert_eq!(parsed.args.len(), 1);
+        let arg = parsed.args.keys().next().unwrap();
+        assert_eq!(arg.name, "name");
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "hello");
     }
 
     #[test]
