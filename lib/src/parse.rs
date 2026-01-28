@@ -280,6 +280,9 @@ fn parse_partial_with_env(
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_words: Vec<String> = vec![];
     let mut idx = 0;
+    // Track whether we've already applied the default_subcommand to prevent
+    // multiple switches (e.g., if default is "run" and there's a task named "run")
+    let mut used_default_subcommand = false;
 
     while idx < input.len() {
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
@@ -329,22 +332,25 @@ fn parse_partial_with_env(
             }
         } else {
             // Found a word that's not a flag or subcommand
-            // Check if we should use the default_subcommand
-            if let Some(default_name) = &spec.default_subcommand {
-                if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
-                    let mut subcommand = subcommand.clone();
-                    // Pass prefix words (global flags before this) to mount
-                    subcommand.mount(&prefix_words)?;
-                    out.available_flags.retain(|_, f| f.global);
-                    out.available_flags.extend(gather_flags(&subcommand));
-                    out.cmds.push(subcommand.clone());
-                    out.cmd = subcommand.clone();
-                    prefix_words.clear();
-                    // Continue the loop to check if this word is a subcommand of the
-                    // default subcommand (e.g., a task name added via mount).
-                    // If it's not a subcommand, the next iteration will break and
-                    // Phase 2 will handle it as a positional arg.
-                    continue;
+            // Check if we should use the default_subcommand (only once)
+            if !used_default_subcommand {
+                if let Some(default_name) = &spec.default_subcommand {
+                    if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
+                        let mut subcommand = subcommand.clone();
+                        // Pass prefix words (global flags before this) to mount
+                        subcommand.mount(&prefix_words)?;
+                        out.available_flags.retain(|_, f| f.global);
+                        out.available_flags.extend(gather_flags(&subcommand));
+                        out.cmds.push(subcommand.clone());
+                        out.cmd = subcommand.clone();
+                        prefix_words.clear();
+                        used_default_subcommand = true;
+                        // Continue the loop to check if this word is a subcommand of the
+                        // default subcommand (e.g., a task name added via mount).
+                        // If it's not a subcommand, the next iteration will break and
+                        // Phase 2 will handle it as a positional arg.
+                        continue;
+                    }
                 }
             }
             // This could be a positional argument, so stop subcommand search
@@ -1232,6 +1238,91 @@ mod tests {
         assert_eq!(arg.name, "name");
         let value = parsed.args.values().next().unwrap();
         assert_eq!(value.to_string(), "hello");
+    }
+
+    #[test]
+    fn test_default_subcommand_same_name_child() {
+        // Test that default_subcommand doesn't cause issues when the default subcommand
+        // has a child with the same name (e.g., "run" has a task named "run").
+        // This verifies we don't switch multiple times or get stuck in a loop.
+        let run_task = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("args").build())
+            .build();
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("run".to_string(), run_task);
+
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            default_subcommand: Some("run".to_string()),
+            ..Default::default()
+        };
+
+        // "test run" explicitly matches the "run" subcommand (not via default_subcommand)
+        let input = vec!["test".to_string(), "run".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // Should have two commands: root and "run"
+        assert_eq!(parsed.cmds.len(), 2);
+        assert_eq!(parsed.cmds[0].name, "test");
+        assert_eq!(parsed.cmds[1].name, "run");
+
+        // "test run run" should descend into the "run" task (child of "run" subcommand)
+        let input = vec![
+            "test".to_string(),
+            "run".to_string(),
+            "run".to_string(),
+            "hello".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.cmds.len(), 3);
+        assert_eq!(parsed.cmds[0].name, "test");
+        assert_eq!(parsed.cmds[1].name, "run");
+        assert_eq!(parsed.cmds[2].name, "run");
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "hello");
+
+        // Key test case: "test other" should switch to default subcommand "run"
+        // and treat "other" as a positional arg (not try to switch again because
+        // "run" also has a "run" child).
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .build();
+        let run_task = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("run".to_string(), run_task);
+
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            default_subcommand: Some("run".to_string()),
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string(), "other".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        // Should have two commands: root and "run" (the default)
+        // We should NOT have switched again to the "run" task child
+        assert_eq!(parsed.cmds.len(), 2);
+        assert_eq!(parsed.cmds[0].name, "test");
+        assert_eq!(parsed.cmds[1].name, "run");
+
+        // "other" should be parsed as a positional arg
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        assert_eq!(value.to_string(), "other");
     }
 
     #[test]
