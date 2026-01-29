@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.16.0](https://github.com/jdx/usage/compare/v2.15.1..v2.16.0) - 2026-01-29
+
+### 🚀 Features
+
+- **(windows)** add Windows binaries and fix completion support by [@jdx](https://github.com/jdx) in [#472](https://github.com/jdx/usage/pull/472)
+
 ## [2.15.1](https://github.com/jdx/usage/compare/v2.15.0..v2.15.1) - 2026-01-28
 
 ### 🐛 Bug Fixes
