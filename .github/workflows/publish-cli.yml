@@ -80,6 +80,12 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             build-tool: cross
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            build-tool: cargo
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            build-tool: cargo
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
