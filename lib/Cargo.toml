@@ -44,7 +44,7 @@ default = ["docs"]
 docs = ["tera", "roff"]
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 ctor = "0.6"
 insta = "1"
 pretty_assertions = "1"
