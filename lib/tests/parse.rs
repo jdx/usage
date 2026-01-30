@@ -210,21 +210,21 @@ multi_arg:
     arg "<vars>" var=#true
     "#,
     args="a b c",
-    expected=r#"{"usage_vars": "a b c"}"#,
+    expected=r#"{"usage_vars": "a b c", "usage_vars_bash": "(a b c)"}"#,
 
 multi_arg_spaces:
     spec=r#"
     arg "<vars>" var=#true
     "#,
     args=r#"a "b c""#,
-    expected=r#"{"usage_vars": "a 'b c'"}"#,
+    expected=r#"{"usage_vars": "a 'b c'", "usage_vars_bash": "(a 'b c')"}"#,
 
 multi_flag:
     spec=r#"
     flag "-v --vars <vars>" var=#true
     "#,
     args=r#"--vars a --vars "b c""#,
-    expected=r#"{"usage_vars": "a 'b c'"}"#,
+    expected=r#"{"usage_vars": "a 'b c'", "usage_vars_bash": "(a 'b c')"}"#,
 
  count_flag_short:
     spec=r#"

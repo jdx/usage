@@ -648,21 +648,44 @@ fn is_help_arg(spec: &Spec, w: &str) -> bool {
 }
 
 impl ParseOutput {
+    /// Convert parsed arguments and flags to environment variables.
+    ///
+    /// For variadic arguments (`var=true`), two variables are created:
+    /// - `usage_<name>`: Shell-escaped string (e.g., `arg1 'arg with space'`)
+    /// - `usage_<name>_bash`: Bash array literal (e.g., `(arg1 'arg with space')`)
+    ///
+    /// The `_bash` variant can be used in bash scripts like:
+    /// ```bash
+    /// eval "files=$usage_files_bash"
+    /// for f in "${files[@]}"; do echo "$f"; done
+    /// ```
     pub fn as_env(&self) -> BTreeMap<String, String> {
         let mut env = BTreeMap::new();
         for (flag, val) in &self.flags {
             let key = format!("usage_{}", flag.name.to_snake_case());
-            let val = match val {
+            let val_str = match val {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),
                 ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
                 ParseValue::MultiString(s) => shell_words::join(s),
             };
-            env.insert(key, val);
+            env.insert(key.clone(), val_str);
+
+            // Add _bash suffix for MultiString (bash array-compatible format)
+            if let ParseValue::MultiString(s) = val {
+                let bash_val = format!("({})", shell_words::join(s));
+                env.insert(format!("{}_bash", key), bash_val);
+            }
         }
         for (arg, val) in &self.args {
             let key = format!("usage_{}", arg.name.to_snake_case());
-            env.insert(key, val.to_string());
+            env.insert(key.clone(), val.to_string());
+
+            // Add _bash suffix for MultiString args (bash array-compatible format)
+            if let ParseValue::MultiString(s) = val {
+                let bash_val = format!("({})", shell_words::join(s));
+                env.insert(format!("{}_bash", key), bash_val);
+            }
         }
         env
     }
@@ -768,6 +791,106 @@ mod tests {
         assert_eq!(env.len(), 2);
         assert_eq!(env.get("usage_flag"), Some(&"true".to_string()));
         assert_eq!(env.get("usage_force"), Some(&"false".to_string()));
+    }
+
+    #[test]
+    fn test_as_env_bash_array_format() {
+        // Test that variadic args get a _bash suffix with array literal format
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("files").var(true).build())
+            .flag(
+                SpecFlag::builder()
+                    .long("opts")
+                    .var(true)
+                    .arg(SpecArg::builder().name("opt").build())
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec![
+            "test".to_string(),
+            "arg1".to_string(),
+            "arg with space".to_string(),
+            "--opts".to_string(),
+            "opt1".to_string(),
+            "--opts".to_string(),
+            "opt with space".to_string(),
+        ];
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+
+        // Check original format for args
+        assert_eq!(
+            env.get("usage_files"),
+            Some(&"arg1 'arg with space'".to_string())
+        );
+        // Check bash array format for args
+        assert_eq!(
+            env.get("usage_files_bash"),
+            Some(&"(arg1 'arg with space')".to_string())
+        );
+
+        // Check original format for flags
+        assert_eq!(
+            env.get("usage_opts"),
+            Some(&"opt1 'opt with space'".to_string())
+        );
+        // Check bash array format for flags
+        assert_eq!(
+            env.get("usage_opts_bash"),
+            Some(&"(opt1 'opt with space')".to_string())
+        );
+    }
+
+    #[test]
+    fn test_as_env_bash_array_single_element() {
+        // Test that single-element variadic args also get _bash suffix
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("files").var(true).build())
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string(), "single".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+
+        assert_eq!(env.get("usage_files"), Some(&"single".to_string()));
+        assert_eq!(env.get("usage_files_bash"), Some(&"(single)".to_string()));
+    }
+
+    #[test]
+    fn test_as_env_no_bash_suffix_for_non_variadic() {
+        // Test that non-variadic args do NOT get a _bash suffix
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("file").build())
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string(), "myfile.txt".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+
+        assert_eq!(env.get("usage_file"), Some(&"myfile.txt".to_string()));
+        assert_eq!(env.get("usage_file_bash"), None);
     }
 
     #[test]
