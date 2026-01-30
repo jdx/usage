@@ -38,6 +38,10 @@ touch "${files[@]}"
 
 This pattern ensures arguments with spaces are handled correctly as separate elements.
 
+> **Note:** `readarray`/`mapfile` are alternatives in bash 4.0+, but macOS ships with
+> bash 3.2 by default which doesn't include them. The `eval` pattern above works
+> with all bash versions.
+
 ```kdl
 arg "<shell>" {
   choices "bash" "zsh" "fish" # <shell> must be one of the choices
