@@ -26,5 +26,5 @@ tests_same! {
     choices bash fish zsh
 }"#,
 
-    double_dash: r#"arg "<-- shell...>""#,
+    double_dash: r#"arg "<-- shell>…" var=#true"#,
 }

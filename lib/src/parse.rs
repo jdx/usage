@@ -1746,4 +1746,107 @@ mod tests {
         // Should fail - env var is missing from both custom and process env
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_variadic_arg_captures_unknown_flags_from_spec_string() {
+        let spec: Spec = r#"
+            flag "-v --verbose" var=#true
+            arg "[database]" default="myapp_dev"
+            arg "[args...]"
+        "#
+        .parse()
+        .unwrap();
+        let input: Vec<String> = vec!["test", "mydb", "--host", "localhost"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(env.get("usage_database").unwrap(), "mydb");
+        assert_eq!(env.get("usage_args").unwrap(), "--host localhost");
+    }
+
+    #[test]
+    fn test_variadic_arg_captures_unknown_flags() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(SpecFlag::builder().short('v').long("verbose").build())
+            .arg(SpecArg::builder().name("database").required(false).build())
+            .arg(
+                SpecArg::builder()
+                    .name("args")
+                    .required(false)
+                    .var(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // Unknown --host flag and its value should be captured by [args...]
+        let input: Vec<String> = vec!["test", "mydb", "--host", "localhost"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.args.len(), 2);
+        let args_val = parsed
+            .args
+            .iter()
+            .find(|(a, _)| a.name == "args")
+            .unwrap()
+            .1;
+        match args_val {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v, &vec!["--host".to_string(), "localhost".to_string()]);
+            }
+            _ => panic!("Expected MultiString, got {:?}", args_val),
+        }
+    }
+
+    #[test]
+    fn test_variadic_arg_captures_unknown_flags_with_double_dash() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(SpecFlag::builder().short('v').long("verbose").build())
+            .arg(SpecArg::builder().name("database").required(false).build())
+            .arg(
+                SpecArg::builder()
+                    .name("args")
+                    .required(false)
+                    .var(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        // With explicit -- separator
+        let input: Vec<String> = vec!["test", "--", "mydb", "--host", "localhost"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.args.len(), 2);
+        let args_val = parsed
+            .args
+            .iter()
+            .find(|(a, _)| a.name == "args")
+            .unwrap()
+            .1;
+        match args_val {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v, &vec!["--host".to_string(), "localhost".to_string()]);
+            }
+            _ => panic!("Expected MultiString, got {:?}", args_val),
+        }
+    }
 }
