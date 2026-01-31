@@ -197,7 +197,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 8rem;
   max-width: 480px;
 }
 
