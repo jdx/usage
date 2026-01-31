@@ -256,6 +256,17 @@ impl From<&str> for SpecArg {
             }
             _ => {}
         }
+        // Also handle ellipsis inside brackets: "[args...]" or "<args...>"
+        if !arg.var {
+            if let Some(name) = arg
+                .name
+                .strip_suffix("...")
+                .or_else(|| arg.name.strip_suffix("…"))
+            {
+                arg.var = true;
+                arg.name = name.to_string();
+            }
+        }
         if let Some(name) = arg.name.strip_prefix("-- ") {
             arg.double_dash = SpecDoubleDashChoices::Required;
             arg.name = name.to_string();
@@ -423,6 +434,23 @@ arg "<output>" {
 
         let arg: SpecArg = "[files]…".into();
         assert_eq!(arg.name, "files");
+        assert!(arg.var);
+        assert!(!arg.required);
+
+        // Ellipsis inside brackets: [args...] and <args...>
+        let arg: SpecArg = "[args...]".into();
+        assert_eq!(arg.name, "args");
+        assert!(arg.var);
+        assert!(!arg.required);
+
+        let arg: SpecArg = "<args...>".into();
+        assert_eq!(arg.name, "args");
+        assert!(arg.var);
+        assert!(arg.required);
+
+        // Unicode ellipsis inside brackets
+        let arg: SpecArg = "[args…]".into();
+        assert_eq!(arg.name, "args");
         assert!(arg.var);
         assert!(!arg.required);
     }

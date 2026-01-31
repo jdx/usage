@@ -240,6 +240,24 @@ multi_flag:
     args="-v --verbose",
     expected=r#"{"usage_verbose": "2"}"#,
 
+variadic_arg_captures_unknown_flags:
+    spec=r#"
+    flag "-v --verbose" var=#true
+    arg "[database]" default="myapp_dev"
+    arg "[args...]"
+    "#,
+    args="mydb --host localhost",
+    expected=r#"{"usage_args": "--host localhost", "usage_database": "mydb"}"#,
+
+variadic_arg_captures_unknown_short_flags:
+    spec=r#"
+    flag "-v --verbose" var=#true
+    arg "[database]" default="myapp_dev"
+    arg "[args...]"
+    "#,
+    args="mydb -x localhost",
+    expected=r#"{"usage_args": "-x localhost", "usage_database": "mydb"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
