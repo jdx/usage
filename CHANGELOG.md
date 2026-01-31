@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.16.1](https://github.com/jdx/usage/compare/v2.16.0..v2.16.1) - 2026-01-31
+
+### 🐛 Bug Fixes
+
+- **(docs)** increase gap between feature grid and action buttons on landing page by [@jdx](https://github.com/jdx) in [#482](https://github.com/jdx/usage/pull/482)
+- **(parse)** handle variadic ellipsis inside brackets like [args...] by [@jdx](https://github.com/jdx) in [#481](https://github.com/jdx/usage/pull/481)
+
+### 📚 Documentation
+
+- add bash array pattern for variadic args by [@jdx](https://github.com/jdx) in [#480](https://github.com/jdx/usage/pull/480)
+
+### 📦️ Dependency Updates
+
+- update rust crate clap to v4.5.56 by [@renovate[bot]](https://github.com/renovate[bot]) in [#474](https://github.com/jdx/usage/pull/474)
+- update apple-actions/import-codesign-certs action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#477](https://github.com/jdx/usage/pull/477)
+- update dependency node to v24 by [@renovate[bot]](https://github.com/renovate[bot]) in [#478](https://github.com/jdx/usage/pull/478)
+- update rust crate criterion to 0.8 by [@renovate[bot]](https://github.com/renovate[bot]) in [#475](https://github.com/jdx/usage/pull/475)
+
 ## [2.16.0](https://github.com/jdx/usage/compare/v2.15.1..v2.16.0) - 2026-01-29
 
 ### 🚀 Features
