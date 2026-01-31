@@ -13,7 +13,32 @@ arg "<file>" var=#true # multiple args can be passed (e.g. mycli file1 file2 fil
 arg "<file>..."        # shorthand for var=#true (trailing ellipsis)
 arg "<file>" var=#true var_min=3 # at least 3 args must be passed
 arg "<file>" var=#true var_max=3 # up to 3 args can be passed
+```
 
+## Using Variadic Args in Bash
+
+When using variadic arguments (`var=#true`), the values are passed as a shell-escaped
+string via the `usage_<name>` environment variable. To properly handle arguments
+containing spaces as a bash array, wrap the variable in parentheses:
+
+```bash
+# Given: usage_files="arg1 'arg with space' arg3"
+
+# Convert to bash array:
+eval "files=($usage_files)"
+
+# Now use as array:
+for f in "${files[@]}"; do
+  echo "Processing: $f"
+done
+
+# Or pass to commands:
+touch "${files[@]}"
+```
+
+This pattern ensures arguments with spaces are handled correctly as separate elements.
+
+```kdl
 arg "<shell>" {
   choices "bash" "zsh" "fish" # <shell> must be one of the choices
 }
