@@ -197,7 +197,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 8rem;
   max-width: 480px;
 }
 
@@ -264,7 +264,6 @@
   margin-top: 0.75rem;
   text-align: left;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
 }
 
 .usage-hero-feature-tooltip::before {
