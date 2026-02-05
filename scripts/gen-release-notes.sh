@@ -37,11 +37,18 @@ prompt=$(
 	cat <<'INSTRUCTIONS'
 Write user-friendly release notes in markdown:
 
-1. First line: `# ` followed by a pithy, descriptive title (not just the version). Examples:
+1. First line: `# ` followed by a pithy, descriptive title (not just the version). For smaller or less impactful releases, keep the title understated and modest. Examples:
    - "# PowerShell Support & Bug Fixes"
    - "# Performance Improvements"
    - "# New Completion Features"
-2. Then 1-2 paragraphs summarizing key changes
+
+TONE CALIBRATION:
+- Match the tone and length to the actual significance of the changes
+- If the release is mostly small bug fixes or minor tweaks, be upfront about that—a sentence or two of summary is fine, don't write multiple paragraphs inflating the importance
+- Reserve enthusiastic, detailed write-ups for releases with genuinely significant features or changes
+- It's okay to say "This is a smaller release focused on bug fixes" when that's the case
+
+2. Then a summary proportional to the significance of the changes
 3. Organize into ## sections (Highlights, Bug Fixes, etc.) as needed
 4. Explain WHY changes matter to users
 5. Include PR links and documentation links (https://usage.jdx.dev/)
