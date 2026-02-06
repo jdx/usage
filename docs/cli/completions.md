@@ -30,6 +30,14 @@ usage g fig -f ./mycli.usage.kdl > ./mycli.fig.ts
 mycli --<TAB>
 ```
 
+nushell:
+
+```bash
+usage g completion nu mycli -f ./mycli.usage.kdl > ~/.config/nushell/autoload/mycli.nu
+source ~/.config/nushell/autoload/mycli.nu
+mycli --<TAB>
+```
+
 ::: info
 Usage CLI is a runtime dependency for the generated completion scripts. Your users
 will need to have `usage` installed in order for the completion scripts to work.
