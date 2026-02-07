@@ -27,7 +27,7 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     }
     flag --shell default=bash {
         arg <SHELL> {
-            choices bash fish powershell zsh
+            choices bash fish nu powershell zsh
         }
     }
     arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
@@ -69,7 +69,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <USAGE_CMD>
         }
         arg <SHELL> help="Shell to generate completions for" {
-            choices bash fish powershell zsh
+            choices bash fish nu powershell zsh
         }
         arg <BIN> help="The CLI which we're generating completions for"
     }

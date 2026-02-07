@@ -18,6 +18,7 @@ Shell to generate completions for
 
 - `bash`
 - `fish`
+- `nu`
 - `powershell`
 - `zsh`
 
