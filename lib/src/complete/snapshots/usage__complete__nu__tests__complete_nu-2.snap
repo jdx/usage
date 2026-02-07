@@ -6,7 +6,6 @@ expression: "complete_nu(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string
 module _mycli_completions {
 def mycli_completer [spans: list<string>] {
         let spec_file = $"($nu.temp-dir)/usage__usage_spec_mycli_1_2_3.spec"
-        
         if not ($spec_file | path exists) {
             mycli complete --usage | collect | save $spec_file
         }

@@ -23,19 +23,14 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
     ];
 
     if let Some(spec) = &opts.spec {
-        let spec_escaped = spec.to_string().replace("'", r"\'");
-        out.push(format!(
-            r#"
-    const {spec_variable} = '{spec_escaped}'"#
-        ));
+        out.push(format!("    const {spec_variable} = r#'{spec}'#"));
     }
 
     // Build logic to write spec directly to file without storing in shell variables
     let file_write_logic = if let Some(usage_cmd) = &opts.usage_cmd {
         if opts.cache_key.is_some() {
             format!(
-                r#"
-        if not ($spec_file | path exists) {{
+                r#"if not ($spec_file | path exists) {{
             {usage_cmd} | collect | save $spec_file
         }}"#
             )
@@ -45,8 +40,7 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
     } else if let Some(_spec) = &opts.spec {
         if opts.cache_key.is_some() {
             format!(
-                r#"
-        if not ($spec_file | path exists) {{
+                r#"if not ($spec_file | path exists) {{
             ${spec_variable} | save $spec_file
         }}"#
             )
@@ -59,8 +53,7 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
 
     out.push(
         format!(
-            r#"
-    def {bin_snake}_completer [spans: list<string>] {{
+            r#"    def {bin_snake}_completer [spans: list<string>] {{
         let spec_file = $"($nu.temp-dir)/usage_{spec_variable}.spec"
         {file_write_logic}
 

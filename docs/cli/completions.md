@@ -32,7 +32,7 @@ mycli --<TAB>
 
 nushell:
 
-```bash
+```nushell
 usage g completion nu mycli -f ./mycli.usage.kdl > ~/.config/nushell/autoload/mycli.nu
 source ~/.config/nushell/autoload/mycli.nu
 mycli --<TAB>
