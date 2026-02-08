@@ -100,6 +100,12 @@ export default defineConfig({
     ["link", { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" }],
     ["link", { rel: "manifest", href: "/site.webmanifest" }],
     ["meta", { name: "theme-color", content: "#22c55e" }],
+    // OpenGraph
+    ["meta", { property: "og:site_name", content: "--usage" }],
+    ["meta", { property: "og:type", content: "website" }],
+    ["meta", { property: "og:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }],
+    ["meta", { name: "twitter:card", content: "summary" }],
+    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }],
     [
       "script",
       { async: "", src: "https://www.googletagmanager.com/gtag/js?id=G-63L7VEB1RB" }
