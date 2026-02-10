@@ -25,6 +25,10 @@ if [[ -z $changelog ]]; then
 	exit 1
 fi
 
+output_file=$(mktemp /tmp/release-notes-XXXXXX.md)
+stderr_file=$(mktemp)
+trap 'rm -f "$stderr_file" "$output_file"' EXIT
+
 # Build prompt safely using printf to avoid command substitution on backticks in changelog
 prompt=$(
 	printf '%s\n' "You are writing release notes for usage version ${version}${prev_version:+ (previous version: ${prev_version})}."
@@ -55,10 +59,10 @@ TONE CALIBRATION:
 6. Include contributor usernames (@username). Do not thank @jdx since that is who is writing these notes.
 7. Skip internal/trivial changes
 
-Write your output to the file: /tmp/release-notes-output.md
-Do not output anything else — just write to the file.
 Output markdown only, starting with the # title line.
 INSTRUCTIONS
+	printf '\n%s\n' "Write your output to the file: ${output_file}"
+	printf '%s\n' "Do not output anything else — just write to the file."
 )
 
 # Use Claude Code to generate the release notes
@@ -68,16 +72,10 @@ echo "Version: $version" >&2
 echo "Previous version: ${prev_version:-none}" >&2
 echo "Changelog length: ${#changelog} chars" >&2
 
-output_file="/tmp/release-notes-output.md"
-rm -f "$output_file"
-
-stderr_file=$(mktemp)
-trap 'rm -f "$stderr_file" "$output_file"' EXIT
-
 if ! printf '%s' "$prompt" | claude -p \
 	--model claude-opus-4-6 \
 	--permission-mode bypassPermissions \
-	--allowedTools "Read,Grep,Glob,Write($output_file)" 2>"$stderr_file"; then
+	--allowedTools "Read,Grep,Glob,Write($output_file)" >/dev/null 2>"$stderr_file"; then
 	echo "Error: Claude CLI failed" >&2
 	if [[ -s $stderr_file ]]; then
 		cat "$stderr_file" >&2
