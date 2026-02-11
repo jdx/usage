@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.16.2](https://github.com/jdx/usage/compare/v2.16.1..v2.16.2) - 2026-02-11
+
+### 🐛 Bug Fixes
+
+- **(lib)** add missing child node support to arg parser by [@jdx](https://github.com/jdx) in [#489](https://github.com/jdx/usage/pull/489)
+- **(release)** write release notes to file instead of capturing stdout by [@jdx](https://github.com/jdx) in [#488](https://github.com/jdx/usage/pull/488)
+
+### 📚 Documentation
+
+- add opengraph meta tags by [@jdx](https://github.com/jdx) in [#486](https://github.com/jdx/usage/pull/486)
+
+### 🔍 Other Changes
+
+- add tone calibration to release notes prompt by [@jdx](https://github.com/jdx) in [#483](https://github.com/jdx/usage/pull/483)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#487](https://github.com/jdx/usage/pull/487)
+
 ## [2.16.1](https://github.com/jdx/usage/compare/v2.16.0..v2.16.1) - 2026-01-31
 
 ### 🐛 Bug Fixes
