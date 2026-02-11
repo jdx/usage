@@ -32,7 +32,6 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
       - name: Create draft release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        continue-on-error: true
         run: |
           TAG_NAME="${{ github.ref_name }}"
           PREV_TAG="$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")"
