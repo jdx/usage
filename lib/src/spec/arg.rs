@@ -131,6 +131,16 @@ impl SpecArg {
                         arg.default = children.iter().map(|c| c.name().to_string()).collect();
                     }
                 }
+                "help" => arg.help = Some(child.arg(0)?.ensure_string()?),
+                "long_help" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
+                "help_long" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
+                "help_md" => arg.help_md = Some(child.arg(0)?.ensure_string()?),
+                "required" => arg.required = child.arg(0)?.ensure_bool()?,
+                "var" => arg.var = child.arg(0)?.ensure_bool()?,
+                "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
+                "var_max" => arg.var_max = child.arg(0)?.ensure_usize().map(Some)?,
+                "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
+                "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
@@ -453,5 +463,59 @@ arg "<output>" {
         assert_eq!(arg.name, "args");
         assert!(arg.var);
         assert!(!arg.required);
+    }
+
+    #[test]
+    fn test_arg_child_nodes() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+arg "<environment>" {
+    help "Deployment environment"
+    choices "dev" "staging" "prod"
+}
+arg "[services]" {
+    help "Services to deploy"
+    var #true
+    var_min 0
+}
+            "#,
+        )
+        .unwrap();
+
+        let env_arg = spec
+            .cmd
+            .args
+            .iter()
+            .find(|a| a.name == "environment")
+            .unwrap();
+        assert_eq!(env_arg.help, Some("Deployment environment".to_string()));
+        assert!(env_arg.choices.is_some());
+
+        let svc_arg = spec.cmd.args.iter().find(|a| a.name == "services").unwrap();
+        assert_eq!(svc_arg.help, Some("Services to deploy".to_string()));
+        assert!(svc_arg.var);
+        assert_eq!(svc_arg.var_min, Some(0));
+    }
+
+    #[test]
+    fn test_arg_long_help_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+arg "<input>" {
+    help "Input file"
+    long_help "Extended help text for input"
+}
+            "#,
+        )
+        .unwrap();
+
+        let input_arg = spec.cmd.args.iter().find(|a| a.name == "input").unwrap();
+        assert_eq!(input_arg.help, Some("Input file".to_string()));
+        assert_eq!(
+            input_arg.help_long,
+            Some("Extended help text for input".to_string())
+        );
     }
 }
