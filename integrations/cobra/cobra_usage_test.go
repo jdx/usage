@@ -248,6 +248,35 @@ func TestLongHelp(t *testing.T) {
 	assertContains(t, got, `long_about "This is a much longer description of the app."`)
 }
 
+func TestRunnableCommandWithSubcommands(t *testing.T) {
+	root := &cobra.Command{Use: "app"}
+	sub := &cobra.Command{
+		Use:   "task",
+		Short: "Run a task",
+		Run:   func(cmd *cobra.Command, args []string) {},
+	}
+	sub.AddCommand(&cobra.Command{Use: "list", Short: "List tasks"})
+	root.AddCommand(sub)
+
+	got := Generate(root)
+
+	// "task" has a Run handler, so subcommand_required should NOT be set on it
+	taskLine := findLine(got, "cmd task")
+	if strings.Contains(taskLine, "subcommand_required") {
+		t.Errorf("runnable command should not have subcommand_required, got: %s", taskLine)
+	}
+}
+
+func TestStringDefaultZero(t *testing.T) {
+	cmd := &cobra.Command{Use: "app"}
+	cmd.Flags().String("port", "0", "Port number")
+
+	got := Generate(cmd)
+
+	// "0" is a valid string default and should be preserved
+	assertContains(t, got, `default="0"`)
+}
+
 // --- helpers ---
 
 func assertContains(t *testing.T, got, want string) {

@@ -7,7 +7,7 @@ type Spec struct {
 	Bin     string        `json:"bin,omitempty"`
 	Version string        `json:"version,omitempty"`
 	About   string        `json:"about,omitempty"`
-	Long    string        `json:"about_long,omitempty"`
+	Long    string        `json:"long_about,omitempty"`
 	Usage   string        `json:"usage,omitempty"`
 	Flags   []SpecFlag    `json:"flags,omitempty"`
 	Args    []SpecArg     `json:"args,omitempty"`

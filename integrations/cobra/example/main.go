@@ -30,6 +30,7 @@ func main() {
 		Use:   "deploy <service>",
 		Short: "Deploy a service",
 		Long:  "Deploy a service to the specified environment. Defaults to staging if --env is not set.",
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Deploying %s\n", args[0])
 		},
@@ -42,6 +43,7 @@ func main() {
 	rollback := &cobra.Command{
 		Use:   "rollback <service> [version]",
 		Short: "Rollback a service to a previous version",
+		Args:  cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Rolling back %s\n", args[0])
 		},
@@ -55,6 +57,7 @@ func main() {
 	configGet := &cobra.Command{
 		Use:   "get <key>",
 		Short: "Get a configuration value",
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Config: %s\n", args[0])
 		},
@@ -62,6 +65,7 @@ func main() {
 	configSet := &cobra.Command{
 		Use:   "set <key> <value>",
 		Short: "Set a configuration value",
+		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Set %s = %s\n", args[0], args[1])
 		},

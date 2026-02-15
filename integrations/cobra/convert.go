@@ -78,7 +78,9 @@ func convertCommand(cmd *cobra.Command) SpecCommand {
 	}
 	if len(subcommands) > 0 {
 		sc.Cmds = subcommands
-		if len(sc.Args) == 0 {
+		// Only require a subcommand if the command itself is not runnable
+		// and has no positional args defined.
+		if len(sc.Args) == 0 && !isRunnable(cmd) {
 			sc.SubcommandRequired = true
 		}
 	}
@@ -161,9 +163,22 @@ func convertFlag(f *pflag.Flag) SpecFlag {
 		sf.Arg = arg
 	}
 
-	// Set default value (skip zero values)
-	if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" && f.DefValue != "[]" {
-		sf.Default = []string{f.DefValue}
+	// Set default value, skipping type-appropriate zero values.
+	if f.DefValue != "" && f.DefValue != "[]" {
+		switch typeName {
+		case "bool":
+			// Skip "false" for bool flags (the natural zero value)
+			if f.DefValue != "false" {
+				sf.Default = []string{f.DefValue}
+			}
+		case "count":
+			// Skip "0" for count flags
+			if f.DefValue != "0" {
+				sf.Default = []string{f.DefValue}
+			}
+		default:
+			sf.Default = []string{f.DefValue}
+		}
 	}
 
 	return sf
@@ -221,12 +236,45 @@ func parseArgToken(token string) *SpecArg {
 }
 
 // isBuiltinCommand returns true for Cobra's auto-generated commands.
+// Uses the command's annotations to detect the built-in help and completion
+// commands rather than matching by name, so user-defined commands with
+// those names are preserved.
 func isBuiltinCommand(cmd *cobra.Command) bool {
+	if cmd.Annotations != nil {
+		if _, ok := cmd.Annotations["cobra_annotation_command_is_help_command"]; ok {
+			return true
+		}
+		if _, ok := cmd.Annotations["cobra_annotation_command_is_completion_command"]; ok {
+			return true
+		}
+	}
+	// Cobra's built-in help command has no Run/RunE set by default and its
+	// name is "help". The built-in completion command similarly has name
+	// "completion". Fall back to name matching only when the command has no
+	// custom Run handler, indicating it is likely the auto-generated one.
 	name := cmd.Name()
-	return name == "help" || name == "completion"
+	if (name == "help" || name == "completion") && !isRunnable(cmd) {
+		return true
+	}
+	return false
 }
 
 // isBuiltinFlag returns true for Cobra's auto-generated flags.
+// Checks whether the flag was added by Cobra itself rather than by user code,
+// using pflag's Annotation field that Cobra sets on its own flags.
 func isBuiltinFlag(f *pflag.Flag) bool {
+	if f.Annotations != nil {
+		if _, ok := f.Annotations["cobra_annotation_bash_completion_one_required_flag"]; ok {
+			// This is a user flag with required annotation, not built-in
+			return false
+		}
+	}
+	// Cobra always adds --help and optionally --version. These are the only
+	// flags we skip. We check by name since Cobra doesn't annotate them.
 	return f.Name == "help" || f.Name == "version"
+}
+
+// isRunnable returns true if the command has a Run or RunE handler.
+func isRunnable(cmd *cobra.Command) bool {
+	return cmd.Run != nil || cmd.RunE != nil
 }
