@@ -196,9 +196,10 @@ func parseArgsFromUse(cmd *cobra.Command) []SpecArg {
 
 	var args []SpecArg
 	for _, token := range parts[1:] {
-		// Skip [flags] or [OPTIONS] placeholders
+		// Skip common Cobra placeholders that are not real positional args
 		lower := strings.ToLower(token)
-		if lower == "[flags]" || lower == "[options]" {
+		switch lower {
+		case "[flags]", "[options]", "[command]", "[subcommand]":
 			continue
 		}
 

@@ -13,10 +13,12 @@ func Generate(cmd *cobra.Command) string {
 	return renderKDL(&spec)
 }
 
-// GenerateJSON converts a Cobra command tree into a usage spec in JSON format.
+// GenerateJSON converts a Cobra command tree into a usage spec in JSON format,
+// matching usage-lib's JSON schema with a root "cmd" object and map-based subcommands.
 func GenerateJSON(cmd *cobra.Command) ([]byte, error) {
 	spec := convertRoot(cmd)
-	return json.MarshalIndent(spec, "", "  ")
+	js := toJSON(&spec)
+	return json.MarshalIndent(js, "", "  ")
 }
 
 // GenerateToFile converts a Cobra command tree and writes the KDL spec to a file.

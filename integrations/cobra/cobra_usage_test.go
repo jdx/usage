@@ -223,6 +223,8 @@ func TestGenerateJSON(t *testing.T) {
 		Short:   "A CLI tool",
 		Version: "2.0.0",
 	}
+	sub := &cobra.Command{Use: "run", Short: "Run something"}
+	cmd.AddCommand(sub)
 
 	data, err := GenerateJSON(cmd)
 	if err != nil {
@@ -233,6 +235,29 @@ func TestGenerateJSON(t *testing.T) {
 	assertContains(t, jsonStr, `"name": "mycli"`)
 	assertContains(t, jsonStr, `"version": "2.0.0"`)
 	assertContains(t, jsonStr, `"about": "A CLI tool"`)
+	// JSON uses root "cmd" object with map-based subcommands
+	assertContains(t, jsonStr, `"cmd"`)
+	assertContains(t, jsonStr, `"subcommands"`)
+	assertContains(t, jsonStr, `"run"`)
+}
+
+func TestGenerateJSONChoices(t *testing.T) {
+	cmd := &cobra.Command{
+		Use:       "deploy <env>",
+		ValidArgs: []string{"dev", "prod"},
+	}
+
+	data, err := GenerateJSON(cmd)
+	if err != nil {
+		t.Fatalf("GenerateJSON failed: %v", err)
+	}
+
+	jsonStr := string(data)
+	// JSON uses "choices" key inside choices object, not "values"
+	assertContains(t, jsonStr, `"choices"`)
+	assertContains(t, jsonStr, `"dev"`)
+	assertContains(t, jsonStr, `"prod"`)
+	assertNotContains(t, jsonStr, `"values"`)
 }
 
 func TestLongHelp(t *testing.T) {
@@ -265,6 +290,17 @@ func TestRunnableCommandWithSubcommands(t *testing.T) {
 	if strings.Contains(taskLine, "subcommand_required") {
 		t.Errorf("runnable command should not have subcommand_required, got: %s", taskLine)
 	}
+}
+
+func TestCommandPlaceholderSkipped(t *testing.T) {
+	root := &cobra.Command{Use: "app [command]"}
+	root.AddCommand(&cobra.Command{Use: "sub", Short: "A sub"})
+
+	got := Generate(root)
+
+	// [command] is a Cobra placeholder, not a real arg
+	assertNotContains(t, got, `arg "[command]"`)
+	assertContains(t, got, `cmd sub`)
 }
 
 func TestStringDefaultZero(t *testing.T) {
