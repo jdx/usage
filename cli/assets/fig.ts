@@ -149,7 +149,7 @@ const completionSpec: Fig.Spec = {
           isRepeatable: false,
           args: {
             name: "shell",
-            suggestions: ["bash", "fish", "powershell", "zsh"],
+            suggestions: ["bash", "fish", "nu", "powershell", "zsh"],
           },
         },
       ],
@@ -277,7 +277,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "shell",
               description: "Shell to generate completions for",
-              suggestions: ["bash", "fish", "powershell", "zsh"],
+              suggestions: ["bash", "fish", "nu", "powershell", "zsh"],
             },
             {
               name: "bin",

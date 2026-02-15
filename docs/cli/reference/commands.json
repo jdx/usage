@@ -141,7 +141,7 @@
               "double_dash": "Optional",
               "hide": false,
               "choices": {
-                "choices": ["bash", "fish", "powershell", "zsh"]
+                "choices": ["bash", "fish", "nu", "powershell", "zsh"]
               }
             },
             "default": ["bash"]
@@ -292,7 +292,7 @@
                 "double_dash": "Optional",
                 "hide": false,
                 "choices": {
-                  "choices": ["bash", "fish", "powershell", "zsh"]
+                  "choices": ["bash", "fish", "nu", "powershell", "zsh"]
                 }
               },
               {
