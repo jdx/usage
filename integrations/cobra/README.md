@@ -56,37 +56,37 @@ mycli --usage-spec | usage generate man -f -
 
 ## API
 
-| Function | Description |
-|---|---|
-| `Generate(cmd) string` | Returns the usage spec as a KDL string |
-| `GenerateJSON(cmd) ([]byte, error)` | Returns the usage spec as JSON |
-| `GenerateToFile(cmd, path) error` | Writes the KDL spec to a file |
-| `GenerateJSONToFile(cmd, path) error` | Writes the JSON spec to a file |
+| Function                              | Description                            |
+| ------------------------------------- | -------------------------------------- |
+| `Generate(cmd) string`                | Returns the usage spec as a KDL string |
+| `GenerateJSON(cmd) ([]byte, error)`   | Returns the usage spec as JSON         |
+| `GenerateToFile(cmd, path) error`     | Writes the KDL spec to a file          |
+| `GenerateJSONToFile(cmd, path) error` | Writes the JSON spec to a file         |
 
 ## Feature Mapping
 
-| Cobra | Usage Spec |
-|---|---|
-| `cmd.Name()` | `name`, `bin` |
-| `cmd.Short` | `about` (root), `help` (subcommand) |
-| `cmd.Long` | `long_about` (root), `long_help` (subcommand) |
-| `cmd.Version` | `version` |
-| `cmd.Aliases` | `alias` |
-| `cmd.Hidden` | `hide=#true` |
-| `cmd.Deprecated` | `deprecated="message"` |
-| `cmd.Use` args (`<required>`, `[optional]`, `...`) | `arg` nodes |
-| `cmd.ValidArgs` | `choices` on first arg |
-| Persistent flags | `global=#true` |
-| `flag.Shorthand` | `-s` in flag name |
-| `flag.Name` | `--long` in flag name |
-| `flag.Usage` | `help="..."` |
-| `flag.Hidden` | `hide=#true` |
-| `flag.Deprecated` | `deprecated="..."` |
-| `flag.DefValue` | `default="value"` |
-| Bool flags | No arg child |
-| Count flags (`CountP`) | `count=#true var=#true` |
-| Other flags | `arg <UPPER_NAME>` child |
-| `MarkFlagRequired` | `required=#true` |
+| Cobra                                              | Usage Spec                                    |
+| -------------------------------------------------- | --------------------------------------------- |
+| `cmd.Name()`                                       | `name`, `bin`                                 |
+| `cmd.Short`                                        | `about` (root), `help` (subcommand)           |
+| `cmd.Long`                                         | `long_about` (root), `long_help` (subcommand) |
+| `cmd.Version`                                      | `version`                                     |
+| `cmd.Aliases`                                      | `alias`                                       |
+| `cmd.Hidden`                                       | `hide=#true`                                  |
+| `cmd.Deprecated`                                   | `deprecated="message"`                        |
+| `cmd.Use` args (`<required>`, `[optional]`, `...`) | `arg` nodes                                   |
+| `cmd.ValidArgs`                                    | `choices` on first arg                        |
+| Persistent flags                                   | `global=#true`                                |
+| `flag.Shorthand`                                   | `-s` in flag name                             |
+| `flag.Name`                                        | `--long` in flag name                         |
+| `flag.Usage`                                       | `help="..."`                                  |
+| `flag.Hidden`                                      | `hide=#true`                                  |
+| `flag.Deprecated`                                  | `deprecated="..."`                            |
+| `flag.DefValue`                                    | `default="value"`                             |
+| Bool flags                                         | No arg child                                  |
+| Count flags (`CountP`)                             | `count=#true var=#true`                       |
+| Other flags                                        | `arg <UPPER_NAME>` child                      |
+| `MarkFlagRequired`                                 | `required=#true`                              |
 
 ## Example
 
