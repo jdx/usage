@@ -2,80 +2,58 @@
 
 Integrations extract CLI definitions from framework internals and output a [usage spec](/spec/) in KDL format. This enables shell completions, markdown docs, and man pages from your existing CLI framework — no manual spec authoring needed.
 
-## Cobra (Go)
+## Available
 
-[`cobra_usage`](https://github.com/jdx/usage/tree/main/integrations/cobra) converts a [Cobra](https://github.com/spf13/cobra) command tree into a usage spec.
+| Framework                               | Language | Package                                   |
+| --------------------------------------- | -------- | ----------------------------------------- |
+| [Cobra](https://github.com/spf13/cobra) | Go       | [`cobra_usage`](/spec/integrations/cobra) |
+| [clap](https://crates.io/crates/clap)   | Rust     | [`clap_usage`](/spec/integrations/clap)   |
 
-### Installation
+## Planned
 
-```bash
-go get github.com/jdx/usage/integrations/cobra
-```
+Contributions welcome! Here are the frameworks we'd like to support next.
 
-### Quick Start
+### High Priority
 
-```go
-import cobra_usage "github.com/jdx/usage/integrations/cobra"
+| Framework                                                   | Language |
+| ----------------------------------------------------------- | -------- |
+| [Commander.js](https://github.com/tj/commander.js)          | Node.js  |
+| [urfave/cli](https://github.com/urfave/cli)                 | Go       |
+| [Typer](https://github.com/fastapi/typer)                   | Python   |
+| [Click](https://github.com/pallets/click)                   | Python   |
+| [argparse](https://docs.python.org/3/library/argparse.html) | Python   |
 
-// Print usage spec as KDL
-fmt.Print(cobra_usage.Generate(rootCmd))
-```
+### Medium Priority
 
-The recommended pattern is to check for a `--usage-spec` flag before `Execute()`:
+| Framework                                                               | Language |
+| ----------------------------------------------------------------------- | -------- |
+| [yargs](https://github.com/yargs/yargs)                                 | Node.js  |
+| [Spectre.Console](https://github.com/spectreconsole/spectre.console)    | C#/.NET  |
+| [Symfony Console](https://github.com/symfony/console)                   | PHP      |
+| [oclif](https://github.com/oclif/oclif)                                 | Node.js  |
+| [picocli](https://github.com/remkop/picocli)                            | Java     |
+| [Thor](https://github.com/rails/thor)                                   | Ruby     |
+| [cxxopts](https://github.com/jarro2783/cxxopts)                         | C++      |
+| [CommandLineParser](https://github.com/commandlineparser/commandline)   | C#/.NET  |
+| [CLI11](https://github.com/CLIUtils/CLI11)                              | C++      |
+| [Laravel Zero](https://github.com/laravel-zero/laravel-zero)            | PHP      |
+| [swift-argument-parser](https://github.com/apple/swift-argument-parser) | Swift    |
+| [System.CommandLine](https://github.com/dotnet/command-line-api)        | C#/.NET  |
 
-```go
-for _, arg := range os.Args[1:] {
-    if arg == "--usage-spec" {
-        fmt.Print(cobra_usage.Generate(rootCmd))
-        return
-    }
-}
-rootCmd.Execute()
-```
+### Lower Priority
 
-Then pipe the output to `usage`:
-
-```bash
-mycli --usage-spec | usage generate completion bash
-mycli --usage-spec | usage generate md --out-file docs.md
-mycli --usage-spec | usage generate manpage --out-file mycli.1
-```
-
-See the [full documentation](https://github.com/jdx/usage/tree/main/integrations/cobra) for the complete API and feature mapping.
-
-## clap (Rust)
-
-[`clap_usage`](https://crates.io/crates/clap_usage) generates a usage spec from a CLI built with [clap](https://crates.io/crates/clap).
-
-### Installation
-
-```toml
-[dependencies]
-clap_usage = "2"
-```
-
-### Quick Start
-
-```rust
-use clap::Command;
-
-let mut cmd = Command::new("mycli")
-    .version("1.0")
-    .arg(clap::Arg::new("input"));
-
-let mut buf = Vec::new();
-clap_usage::generate(&mut cmd, "mycli", &mut buf);
-println!("{}", String::from_utf8(buf).unwrap());
-```
-
-## Community Integrations
-
-We're looking to add integrations for more CLI frameworks. High-priority targets include:
-
-- **Commander.js** (Node.js) — [tj/commander.js](https://github.com/tj/commander.js)
-- **urfave/cli** (Go) — [urfave/cli](https://github.com/urfave/cli)
-- **Typer** (Python) — [fastapi/typer](https://github.com/fastapi/typer)
-- **Click** (Python) — [pallets/click](https://github.com/pallets/click)
-- **argparse** (Python) — stdlib
-
-See the [full tracker](https://github.com/jdx/usage/tree/main/integrations) for the complete list of planned integrations across 16+ languages. Contributions welcome!
+| Framework                                                                          | Language |
+| ---------------------------------------------------------------------------------- | -------- |
+| [Kong](https://github.com/alecthomas/kong)                                         | Go       |
+| [Clikt](https://github.com/ajalt/clikt)                                            | Kotlin   |
+| [JCommander](https://github.com/cbeust/jcommander)                                 | Java     |
+| [argh](https://github.com/google/argh)                                             | Rust     |
+| [zig-clap](https://github.com/Hejsil/zig-clap)                                     | Zig      |
+| [optparse-applicative](https://github.com/pcapriotti/optparse-applicative)         | Haskell  |
+| [kotlinx-cli](https://github.com/Kotlin/kotlinx-cli)                               | Kotlin   |
+| [cligen](https://github.com/c-blake/cligen)                                        | Nim      |
+| [argparse](https://github.com/mpeterv/argparse)                                    | Lua      |
+| [Getopt::Long](https://perldoc.perl.org/Getopt::Long)                              | Perl     |
+| [OptionParser](https://hexdocs.pm/elixir/OptionParser.html)                        | Elixir   |
+| [OptionParser](https://ruby-doc.org/stdlib/libdoc/optparse/rdoc/OptionParser.html) | Ruby     |
+| [getopt](https://man7.org/linux/man-pages/man3/getopt.3.html)                      | C        |

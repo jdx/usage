@@ -72,7 +72,15 @@ export default defineConfig({
               { text: "config", link: "/spec/reference/config" }
             ]
           },
-          { text: "Integrations", link: "/spec/integrations" }
+          {
+            text: "Integrations",
+            link: "/spec/integrations",
+            collapsed: true,
+            items: [
+              { text: "Cobra (Go)", link: "/spec/integrations/cobra" },
+              { text: "clap (Rust)", link: "/spec/integrations/clap" }
+            ]
+          }
         ]
       }
     ],
