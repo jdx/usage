@@ -8,7 +8,7 @@ Integrations that generate usage specs from CLI framework definitions, enabling 
 
 ### High Priority
 
-- [ ] **Cobra** (Go) - [spf13/cobra](https://github.com/spf13/cobra) ~43k stars
+- [x] **Cobra** (Go) - [`cobra_usage`](cobra/) ~43k stars
 - [ ] **Commander.js** (Node.js) - [tj/commander.js](https://github.com/tj/commander.js) ~28k stars
 - [ ] **urfave/cli** (Go) - [urfave/cli](https://github.com/urfave/cli) ~24k stars
 - [ ] **Typer** (Python) - [fastapi/typer](https://github.com/fastapi/typer) ~19k stars
