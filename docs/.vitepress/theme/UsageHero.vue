@@ -64,10 +64,10 @@
           </a>
           <a href="/spec/integrations" class="usage-hero-feature">
             <span class="usage-hero-feature-icon">🌐</span>
-            <span class="usage-hero-feature-text">Any Language</span>
+            <span class="usage-hero-feature-text">Integrations</span>
             <div class="usage-hero-feature-tooltip">
-              <strong>Language Agnostic</strong>
-              <p>Use with bash scripts or integrate with CLIs written in any language via the usage CLI.</p>
+              <strong>Framework Integrations</strong>
+              <p>Generate usage specs from CLI frameworks like clap, with more integrations coming soon.</p>
             </div>
           </a>
         </div>
