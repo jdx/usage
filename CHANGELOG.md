@@ -1,11 +1,42 @@
 # Changelog
 
-## [2.16.2](https://github.com/jdx/usage/compare/v2.16.1..v2.16.2) - 2026-02-11
+## [2.17.0](https://github.com/jdx/usage/compare/v2.16.2..v2.17.0) - 2026-02-16
+
+### 🚀 Features
+
+- add Cobra (Go) integration for generating usage specs by [@jdx](https://github.com/jdx) in [#498](https://github.com/jdx/usage/pull/498)
+- Add support for nushell by [@abusch](https://github.com/abusch) in [#485](https://github.com/jdx/usage/pull/485)
+
+### 🐛 Bug Fixes
+
+- **(docs)** align homepage feature button with integrations page by [@jdx](https://github.com/jdx) in [#496](https://github.com/jdx/usage/pull/496)
+
+### 📚 Documentation
+
+- add integrations directory with framework tracker by [@jdx](https://github.com/jdx) in [#497](https://github.com/jdx/usage/pull/497)
+- add integrations directory with framework tracker by [@jdx](https://github.com/jdx) in [#499](https://github.com/jdx/usage/pull/499)
+
+### 🔍 Other Changes
+
+- mise up by [@muzimuzhi](https://github.com/muzimuzhi) in [#492](https://github.com/jdx/usage/pull/492)
+
+### 📦️ Dependency Updates
+
+- update actions/checkout digest to de0fac2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#494](https://github.com/jdx/usage/pull/494)
+- update taiki-e/upload-rust-binary-action digest to f391289 by [@renovate[bot]](https://github.com/renovate[bot]) in [#495](https://github.com/jdx/usage/pull/495)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#500](https://github.com/jdx/usage/pull/500)
+
+### New Contributors
+
+- @abusch made their first contribution in [#485](https://github.com/jdx/usage/pull/485)
+
+## [2.16.2](https://github.com/jdx/usage/compare/v2.16.1..v2.16.2) - 2026-02-12
 
 ### 🐛 Bug Fixes
 
 - **(lib)** add missing child node support to arg parser by [@jdx](https://github.com/jdx) in [#489](https://github.com/jdx/usage/pull/489)
 - **(release)** write release notes to file instead of capturing stdout by [@jdx](https://github.com/jdx) in [#488](https://github.com/jdx/usage/pull/488)
+- **(release)** make release notes editorialization non-blocking by [@jdx](https://github.com/jdx) in [#490](https://github.com/jdx/usage/pull/490)
 
 ### 📚 Documentation
 
