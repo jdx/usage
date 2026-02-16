@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use usage::complete::CompleteOptions;
 use usage::Spec;
 
-/// Generate shell completion scripts for bash, fish, powershell, or zsh
+/// Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 #[derive(Args)]
 #[clap(visible_alias = "c", aliases = ["complete", "completions"])]
 pub struct Completion {

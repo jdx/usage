@@ -23,7 +23,7 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
     ];
 
     if let Some(spec) = &opts.spec {
-        out.push(format!("    const {spec_variable} = r#'{spec}'#"));
+        out.push(format!("    const {spec_variable} = r##'{spec}'##"));
     }
 
     // Build logic to write spec directly to file without storing in shell variables
@@ -67,7 +67,6 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
 }}
 "#
         )
-        .trim()
         .to_string(),
     );
 
@@ -77,7 +76,7 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
 if (which {usage_bin} | is-empty) {{
     return (error make {{
         msg: "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}.",
-        help: "See https://usage.jdx.dev for more information." 
+        help: "See https://usage.jdx.dev for more information."
     }})
 }}
 use _{bin_snake}_completions *"#
