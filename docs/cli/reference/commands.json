@@ -390,7 +390,7 @@
             ],
             "mounts": [],
             "hide": false,
-            "help": "Generate shell completion scripts for bash, fish, powershell, or zsh",
+            "help": "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
             "name": "completion",
             "aliases": ["c"],
             "hidden_aliases": ["complete", "completions"],

@@ -228,7 +228,7 @@ const completionSpec: Fig.Spec = {
         {
           name: ["completion", "c"],
           description:
-            "Generate shell completion scripts for bash, fish, powershell, or zsh",
+            "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
           options: [
             {
               name: ["-f", "--file"],
