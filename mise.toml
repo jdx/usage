@@ -4,6 +4,7 @@ _.path = ["./target/debug"]
 
 [tools]
 actionlint = "latest"
+communique = "latest"
 cargo-binstall = "1"
 gh = "latest"
 "cargo:cargo-edit" = "latest"
