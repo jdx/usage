@@ -1,0 +1,4 @@
+context = "usage is a CLI argument parser library for Rust that generates shell completions, man pages, and markdown docs from a simple spec format. Think OpenAPI/Swagger for CLIs."
+
+[defaults]
+emoji = false

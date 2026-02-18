@@ -27,35 +27,19 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
-      - name: Install Claude Code CLI
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: npm install -g @anthropic-ai/claude-code
       - name: Create draft release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           TAG_NAME="${{ github.ref_name }}"
-          PREV_TAG="$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")"
-          RELEASE_TITLE="$TAG_NAME"
-          # Generate rich release notes using LLM
-          if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-            OUTPUT_DIR=$(mktemp -d)
-            if mise run gen-release-notes "$TAG_NAME" "$OUTPUT_DIR" "$PREV_TAG"; then
-              PITHY_TITLE="$(cat "$OUTPUT_DIR/title")"
-              if [[ -n "$PITHY_TITLE" && "$PITHY_TITLE" != "$TAG_NAME" ]]; then
-                RELEASE_TITLE="$TAG_NAME: $PITHY_TITLE"
-              fi
-              cp "$OUTPUT_DIR/notes" /tmp/release-notes.txt
-            else
-              echo "LLM generation failed, falling back to CHANGELOG.md"
-              awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
-            fi
-          else
-            echo "ANTHROPIC_API_KEY not set, using CHANGELOG.md"
-            awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
-          fi
-          gh release create --draft ${{ github.ref_name }} \
-            --title "$RELEASE_TITLE" \
+          # Extract first version section from CHANGELOG.md as baseline
+          awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
+          gh release create --draft "$TAG_NAME" \
+            --title "$TAG_NAME" \
             --notes-file /tmp/release-notes.txt
+      - name: Enhance release notes with communique
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        continue-on-error: true
+        run: communique generate "${{ github.ref_name }}" --github-release
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   build-and-publish:
