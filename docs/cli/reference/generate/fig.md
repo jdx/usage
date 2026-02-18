@@ -20,3 +20,7 @@ File path where the generated Fig spec will be saved
 ### `--spec <SPEC>`
 
 Raw string spec input
+
+### `-h --help`
+
+Print help

@@ -2,23 +2,29 @@
 
 # `usage`
 
-**Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
+**Usage**: `usage [FLAGS] <SUBCOMMAND>`
 
 **Version**: 2.16.2
 
-- **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
-
-## Arguments
-
-### `[COMPLETIONS]`
-
-Outputs completions for the specified shell for completing the `usage` CLI itself
+- **Usage**: `usage [FLAGS] <SUBCOMMAND>`
 
 ## Flags
+
+### `--completions <SHELL>`
+
+Outputs completions for the specified shell for completing the `usage` CLI itself
 
 ### `--usage-spec`
 
 Outputs a `usage.kdl` spec for this CLI itself
+
+### `-h --help`
+
+Print help
+
+### `-V --version`
+
+Print version
 
 ## Subcommands
 
@@ -26,12 +32,34 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage complete-word [FLAGS] [WORDS]…`](/cli/reference/complete-word.md)
 - [`usage exec [-h] [--help] <ARGS>…`](/cli/reference/exec.md)
 - [`usage fish [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/fish.md)
-- [`usage generate <SUBCOMMAND>`](/cli/reference/generate.md)
+- [`usage generate [-h --help] <SUBCOMMAND>`](/cli/reference/generate.md)
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)
 - [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
-- [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
+- [`usage generate json [FLAGS]`](/cli/reference/generate/json.md)
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
-- [`usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`](/cli/reference/lint.md)
+- [`usage generate help <SUBCOMMAND>`](/cli/reference/generate/help.md)
+- [`usage generate help completion`](/cli/reference/generate/help/completion.md)
+- [`usage generate help fig`](/cli/reference/generate/help/fig.md)
+- [`usage generate help json`](/cli/reference/generate/help/json.md)
+- [`usage generate help manpage`](/cli/reference/generate/help/manpage.md)
+- [`usage generate help markdown`](/cli/reference/generate/help/markdown.md)
+- [`usage generate help help`](/cli/reference/generate/help/help.md)
+- [`usage lint [FLAGS] <FILE>`](/cli/reference/lint.md)
 - [`usage powershell [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/powershell.md)
 - [`usage zsh [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/zsh.md)
+- [`usage help <SUBCOMMAND>`](/cli/reference/help.md)
+- [`usage help bash`](/cli/reference/help/bash.md)
+- [`usage help complete-word`](/cli/reference/help/complete-word.md)
+- [`usage help exec`](/cli/reference/help/exec.md)
+- [`usage help fish`](/cli/reference/help/fish.md)
+- [`usage help generate <SUBCOMMAND>`](/cli/reference/help/generate.md)
+- [`usage help generate completion`](/cli/reference/help/generate/completion.md)
+- [`usage help generate fig`](/cli/reference/help/generate/fig.md)
+- [`usage help generate json`](/cli/reference/help/generate/json.md)
+- [`usage help generate manpage`](/cli/reference/help/generate/manpage.md)
+- [`usage help generate markdown`](/cli/reference/help/generate/markdown.md)
+- [`usage help lint`](/cli/reference/help/lint.md)
+- [`usage help powershell`](/cli/reference/help/powershell.md)
+- [`usage help zsh`](/cli/reference/help/zsh.md)
+- [`usage help help`](/cli/reference/help/help.md)

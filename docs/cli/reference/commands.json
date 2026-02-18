@@ -3,7 +3,7 @@
   "bin": "usage",
   "cmd": {
     "full_cmd": [],
-    "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
+    "usage": "[FLAGS] <SUBCOMMAND>",
     "subcommands": {
       "bash": {
         "full_cmd": ["bash"],
@@ -145,6 +145,17 @@
               }
             },
             "default": ["bash"]
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help (see more with '--help')",
+            "help_long": "Print help (see a summary with '-h')",
+            "help_first_line": "Print help (see more with '--help')",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false
           }
         ],
         "mounts": [],
@@ -276,7 +287,7 @@
       },
       "generate": {
         "full_cmd": ["generate"],
-        "usage": "generate <SUBCOMMAND>",
+        "usage": "generate [-h --help] <SUBCOMMAND>",
         "subcommands": {
           "completion": {
             "full_cmd": ["generate", "completion"],
@@ -386,6 +397,17 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help (see more with '--help')",
+                "help_long": "Print help (see a summary with '-h')",
+                "help_first_line": "Print help (see more with '--help')",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
@@ -452,6 +474,16 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
@@ -464,7 +496,7 @@
           },
           "json": {
             "full_cmd": ["generate", "json"],
-            "usage": "generate json [-f --file <FILE>] [--spec <SPEC>]",
+            "usage": "generate json [FLAGS]",
             "subcommands": {},
             "args": [],
             "flags": [
@@ -501,6 +533,16 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
@@ -570,6 +612,17 @@
                   "hide": false
                 },
                 "default": ["1"]
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help (see more with '--help')",
+                "help_long": "Print help (see a summary with '-h')",
+                "help_first_line": "Print help (see more with '--help')",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
@@ -683,6 +736,16 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false
               }
             ],
             "mounts": [],
@@ -692,10 +755,119 @@
             "aliases": ["md"],
             "hidden_aliases": [],
             "examples": []
+          },
+          "help": {
+            "full_cmd": ["generate", "help"],
+            "usage": "generate help <SUBCOMMAND>",
+            "subcommands": {
+              "completion": {
+                "full_cmd": ["generate", "help", "completion"],
+                "usage": "generate help completion",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate shell completion scripts for bash, fish, powershell, or zsh",
+                "name": "completion",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "fig": {
+                "full_cmd": ["generate", "help", "fig"],
+                "usage": "generate help fig",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate Fig completion spec for Amazon Q / Fig",
+                "name": "fig",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "json": {
+                "full_cmd": ["generate", "help", "json"],
+                "usage": "generate help json",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Outputs a usage spec in json format",
+                "name": "json",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "manpage": {
+                "full_cmd": ["generate", "help", "manpage"],
+                "usage": "generate help manpage",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "name": "manpage",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "markdown": {
+                "full_cmd": ["generate", "help", "markdown"],
+                "usage": "generate help markdown",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate markdown documentation from usage specs",
+                "name": "markdown",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "help": {
+                "full_cmd": ["generate", "help", "help"],
+                "usage": "generate help help",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Print this message or the help of the given subcommand(s)",
+                "name": "help",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              }
+            },
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Print this message or the help of the given subcommand(s)",
+            "name": "help",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
           }
         },
         "args": [],
-        "flags": [],
+        "flags": [
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false
+          }
+        ],
         "mounts": [],
         "hide": false,
         "subcommand_required": true,
@@ -707,7 +879,7 @@
       },
       "lint": {
         "full_cmd": ["lint"],
-        "usage": "lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>",
+        "usage": "lint [FLAGS] <FILE>",
         "subcommands": {},
         "args": [
           {
@@ -749,6 +921,16 @@
             "help_first_line": "Treat warnings as errors",
             "short": ["W"],
             "long": ["warnings-as-errors"],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
             "hide": false,
             "global": false
           }
@@ -868,20 +1050,238 @@
         "aliases": [],
         "hidden_aliases": [],
         "examples": []
+      },
+      "help": {
+        "full_cmd": ["help"],
+        "usage": "help <SUBCOMMAND>",
+        "subcommands": {
+          "bash": {
+            "full_cmd": ["help", "bash"],
+            "usage": "help bash",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Execute a shell script using bash",
+            "name": "bash",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "complete-word": {
+            "full_cmd": ["help", "complete-word"],
+            "usage": "help complete-word",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Generate shell completion candidates for a partial command line",
+            "name": "complete-word",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "exec": {
+            "full_cmd": ["help", "exec"],
+            "usage": "help exec",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Execute a script, parsing args and exposing them as environment variables",
+            "name": "exec",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "fish": {
+            "full_cmd": ["help", "fish"],
+            "usage": "help fish",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Execute a shell script using fish",
+            "name": "fish",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "generate": {
+            "full_cmd": ["help", "generate"],
+            "usage": "help generate <SUBCOMMAND>",
+            "subcommands": {
+              "completion": {
+                "full_cmd": ["help", "generate", "completion"],
+                "usage": "help generate completion",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate shell completion scripts for bash, fish, powershell, or zsh",
+                "name": "completion",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "fig": {
+                "full_cmd": ["help", "generate", "fig"],
+                "usage": "help generate fig",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate Fig completion spec for Amazon Q / Fig",
+                "name": "fig",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "json": {
+                "full_cmd": ["help", "generate", "json"],
+                "usage": "help generate json",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Outputs a usage spec in json format",
+                "name": "json",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "manpage": {
+                "full_cmd": ["help", "generate", "manpage"],
+                "usage": "help generate manpage",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "name": "manpage",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              },
+              "markdown": {
+                "full_cmd": ["help", "generate", "markdown"],
+                "usage": "help generate markdown",
+                "subcommands": {},
+                "args": [],
+                "flags": [],
+                "mounts": [],
+                "hide": false,
+                "help": "Generate markdown documentation from usage specs",
+                "name": "markdown",
+                "aliases": [],
+                "hidden_aliases": [],
+                "examples": []
+              }
+            },
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Generate completions, documentation, and other artifacts from usage specs",
+            "name": "generate",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "lint": {
+            "full_cmd": ["help", "lint"],
+            "usage": "help lint",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Lint a usage spec file for common issues",
+            "name": "lint",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "powershell": {
+            "full_cmd": ["help", "powershell"],
+            "usage": "help powershell",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Execute a shell script using PowerShell",
+            "name": "powershell",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "zsh": {
+            "full_cmd": ["help", "zsh"],
+            "usage": "help zsh",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Execute a shell script using zsh",
+            "name": "zsh",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
+          "help": {
+            "full_cmd": ["help", "help"],
+            "usage": "help help",
+            "subcommands": {},
+            "args": [],
+            "flags": [],
+            "mounts": [],
+            "hide": false,
+            "help": "Print this message or the help of the given subcommand(s)",
+            "name": "help",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          }
+        },
+        "args": [],
+        "flags": [],
+        "mounts": [],
+        "hide": false,
+        "help": "Print this message or the help of the given subcommand(s)",
+        "name": "help",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
       }
     },
-    "args": [
+    "args": [],
+    "flags": [
       {
-        "name": "COMPLETIONS",
-        "usage": "[COMPLETIONS]",
+        "name": "completions",
+        "usage": "--completions <SHELL>",
         "help": "Outputs completions for the specified shell for completing the `usage` CLI itself",
         "help_first_line": "Outputs completions for the specified shell for completing the `usage` CLI itself",
-        "required": false,
-        "double_dash": "Optional",
-        "hide": false
-      }
-    ],
-    "flags": [
+        "short": [],
+        "long": ["completions"],
+        "hide": false,
+        "global": false,
+        "arg": {
+          "name": "SHELL",
+          "usage": "<SHELL>",
+          "required": true,
+          "double_dash": "Optional",
+          "hide": false
+        }
+      },
       {
         "name": "usage-spec",
         "usage": "--usage-spec",
@@ -889,6 +1289,26 @@
         "help_first_line": "Outputs a `usage.kdl` spec for this CLI itself",
         "short": [],
         "long": ["usage-spec"],
+        "hide": false,
+        "global": false
+      },
+      {
+        "name": "help",
+        "usage": "-h --help",
+        "help": "Print help",
+        "help_first_line": "Print help",
+        "short": ["h"],
+        "long": ["help"],
+        "hide": false,
+        "global": false
+      },
+      {
+        "name": "version",
+        "usage": "-V --version",
+        "help": "Print version",
+        "help_first_line": "Print version",
+        "short": ["V"],
+        "long": ["version"],
         "hide": false,
         "global": false
       }
@@ -904,7 +1324,7 @@
     "props": {}
   },
   "version": "2.16.2",
-  "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
+  "usage": "Usage: usage-cli [OPTIONS] <COMMAND>",
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
   "about": "CLI for working with usage-based CLIs"

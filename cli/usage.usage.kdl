@@ -3,9 +3,13 @@ name usage-cli
 bin usage
 version "2.16.2"
 about "CLI for working with usage-based CLIs"
-usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
+usage "Usage: usage-cli [OPTIONS] <COMMAND>"
+flag --completions help="Outputs completions for the specified shell for completing the `usage` CLI itself" {
+    arg <SHELL>
+}
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
-arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
+flag "-h --help" help="Print help"
+flag "-V --version" help="Print version"
 cmd bash help="Execute a shell script using bash" {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag -h help="Show help"
@@ -30,6 +34,9 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
             choices bash fish powershell zsh
         }
     }
+    flag "-h --help" help="Print help (see more with '--help')" {
+        long_help "Print help (see a summary with '-h')"
+    }
     arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
 }
 cmd exec help="Execute a script, parsing args and exposing them as environment variables" {
@@ -49,6 +56,7 @@ cmd fish help="Execute a shell script using fish" {
 }
 cmd generate subcommand_required=#true help="Generate completions, documentation, and other artifacts from usage specs" {
     alias g
+    flag "-h --help" help="Print help"
     cmd completion help="Generate shell completion scripts for bash, fish, powershell, or zsh" {
         alias c
         alias complete completions hide=#true
@@ -68,6 +76,9 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
             arg <USAGE_CMD>
         }
+        flag "-h --help" help="Print help (see more with '--help')" {
+            long_help "Print help (see a summary with '-h')"
+        }
         arg <SHELL> help="Shell to generate completions for" {
             choices bash fish powershell zsh
         }
@@ -83,6 +94,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --spec help="Raw string spec input" {
             arg <SPEC>
         }
+        flag "-h --help" help="Print help"
     }
     cmd json help="Outputs a usage spec in json format" {
         flag "-f --file" help="A usage spec taken in as a file" {
@@ -91,6 +103,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --spec help="raw string spec input" {
             arg <SPEC>
         }
+        flag "-h --help" help="Print help"
     }
     cmd manpage {
         alias man
@@ -103,6 +116,9 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag "-s --section" help="Manual section number (default: 1)" default="1" {
             long_help "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands"
             arg <SECTION>
+        }
+        flag "-h --help" help="Print help (see more with '--help')" {
+            long_help "Print help (see a summary with '-h')"
         }
     }
     cmd markdown help="Generate markdown documentation from usage specs" {
@@ -122,6 +138,15 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         flag --url-prefix help="Prefix to add to all URLs" {
             arg <URL_PREFIX>
         }
+        flag "-h --help" help="Print help"
+    }
+    cmd help help="Print this message or the help of the given subcommand(s)" {
+        cmd completion help="Generate shell completion scripts for bash, fish, powershell, or zsh"
+        cmd fig help="Generate Fig completion spec for Amazon Q / Fig"
+        cmd json help="Outputs a usage spec in json format"
+        cmd manpage
+        cmd markdown help="Generate markdown documentation from usage specs"
+        cmd help help="Print this message or the help of the given subcommand(s)"
     }
 }
 cmd lint help="Lint a usage spec file for common issues" {
@@ -131,6 +156,7 @@ cmd lint help="Lint a usage spec file for common issues" {
         }
     }
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
+    flag "-h --help" help="Print help"
     arg <FILE> help="A usage spec file to lint"
 }
 cmd powershell help="Execute a shell script using PowerShell" {
@@ -146,6 +172,23 @@ cmd zsh help="Execute a shell script using zsh" {
     flag --help help="Show help"
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
+}
+cmd help help="Print this message or the help of the given subcommand(s)" {
+    cmd bash help="Execute a shell script using bash"
+    cmd complete-word help="Generate shell completion candidates for a partial command line"
+    cmd exec help="Execute a script, parsing args and exposing them as environment variables"
+    cmd fish help="Execute a shell script using fish"
+    cmd generate help="Generate completions, documentation, and other artifacts from usage specs" {
+        cmd completion help="Generate shell completion scripts for bash, fish, powershell, or zsh"
+        cmd fig help="Generate Fig completion spec for Amazon Q / Fig"
+        cmd json help="Outputs a usage spec in json format"
+        cmd manpage
+        cmd markdown help="Generate markdown documentation from usage specs"
+    }
+    cmd lint help="Lint a usage spec file for common issues"
+    cmd powershell help="Execute a shell script using PowerShell"
+    cmd zsh help="Execute a shell script using zsh"
+    cmd help help="Print this message or the help of the given subcommand(s)"
 }
 
 source_code_link_template "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs"

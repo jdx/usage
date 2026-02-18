@@ -52,3 +52,7 @@ You may need to set this if you have a different bin named "usage"
 ### `--usage-cmd <USAGE_CMD>`
 
 A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+
+### `-h --help`
+
+Print help (see a summary with '-h')

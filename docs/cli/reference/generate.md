@@ -2,16 +2,23 @@
 
 # `usage generate`
 
-- **Usage**: `usage generate <SUBCOMMAND>`
+- **Usage**: `usage generate [-h --help] <SUBCOMMAND>`
 - **Aliases**: `g`
 - **Source code**: [`cli/src/cli/generate.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate.rs)
 
 Generate completions, documentation, and other artifacts from usage specs
 
+## Flags
+
+### `-h --help`
+
+Print help
+
 ## Subcommands
 
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)
 - [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
-- [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
+- [`usage generate help <SUBCOMMAND>`](/cli/reference/generate/help.md)
+- [`usage generate json [FLAGS]`](/cli/reference/generate/json.md)
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)

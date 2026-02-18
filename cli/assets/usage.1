@@ -2,18 +2,23 @@
 .SH NAME
 usage\-cli \- CLI for working with usage\-based CLIs
 .SH SYNOPSIS
-\fBusage\fR [OPTIONS] [<COMPLETIONS>] [COMMAND]
+\fBusage\fR [OPTIONS] [COMMAND]
 .SH DESCRIPTION
 CLI for working with usage\-based CLIs
 .PP
 .SH OPTIONS
 .TP
+\fB\-\-completions\fR \fI<SHELL>\fR
+Outputs completions for the specified shell for completing the `usage` CLI itself
+.TP
 \fB\-\-usage\-spec\fR
 Outputs a `usage.kdl` spec for this CLI itself
-.SH ARGUMENTS
 .TP
-\fB<COMPLETIONS>\fR
-Outputs completions for the specified shell for completing the `usage` CLI itself
+\fB\-h, \-\-help\fR
+Print help
+.TP
+\fB\-V, \-\-version\fR
+Print version
 .SH COMMANDS
 .TP
 \fBbash\fR
@@ -63,6 +68,26 @@ Generate markdown documentation from usage specs
 \fIAliases: \fRmd
 .RE
 .TP
+\fBgenerate help\fR
+Print this message or the help of the given subcommand(s)
+.TP
+\fBgenerate help completion\fR
+Generate shell completion scripts for bash, fish, powershell, or zsh
+.TP
+\fBgenerate help fig\fR
+Generate Fig completion spec for Amazon Q / Fig
+.TP
+\fBgenerate help json\fR
+Outputs a usage spec in json format
+.TP
+\fBgenerate help manpage\fR
+.TP
+\fBgenerate help markdown\fR
+Generate markdown documentation from usage specs
+.TP
+\fBgenerate help help\fR
+Print this message or the help of the given subcommand(s)
+.TP
 \fBlint\fR
 Lint a usage spec file for common issues
 .TP
@@ -71,6 +96,50 @@ Execute a shell script with the specified shell
 .TP
 \fBzsh\fR
 Execute a shell script with the specified shell
+.TP
+\fBhelp\fR
+Print this message or the help of the given subcommand(s)
+.TP
+\fBhelp bash\fR
+Execute a shell script using bash
+.TP
+\fBhelp complete\-word\fR
+Generate shell completion candidates for a partial command line
+.TP
+\fBhelp exec\fR
+Execute a script, parsing args and exposing them as environment variables
+.TP
+\fBhelp fish\fR
+Execute a shell script using fish
+.TP
+\fBhelp generate\fR
+Generate completions, documentation, and other artifacts from usage specs
+.TP
+\fBhelp generate completion\fR
+Generate shell completion scripts for bash, fish, powershell, or zsh
+.TP
+\fBhelp generate fig\fR
+Generate Fig completion spec for Amazon Q / Fig
+.TP
+\fBhelp generate json\fR
+Outputs a usage spec in json format
+.TP
+\fBhelp generate manpage\fR
+.TP
+\fBhelp generate markdown\fR
+Generate markdown documentation from usage specs
+.TP
+\fBhelp lint\fR
+Lint a usage spec file for common issues
+.TP
+\fBhelp powershell\fR
+Execute a shell script using PowerShell
+.TP
+\fBhelp zsh\fR
+Execute a shell script using zsh
+.TP
+\fBhelp help\fR
+Print this message or the help of the given subcommand(s)
 .SH "USAGE BASH"
 Execute a shell script with the specified shell
 
@@ -117,6 +186,9 @@ Current word index
 .RS
 \fIDefault: \fRbash
 .RE
+.TP
+\fB\-h, \-\-help\fR
+Print help (see a summary with '\-h')
 \fBArguments:\fR
 .PP
 .TP
@@ -169,6 +241,16 @@ Show help
 .TP
 \fB<ARGS>\fR
 Arguments to pass to script
+.SH "USAGE GENERATE"
+Generate completions, documentation, and other artifacts from usage specs
+.PP
+\fBUsage:\fR usage generate [OPTIONS] <COMMAND>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE COMPLETION"
 Generate shell completion scripts for bash, fish, powershell, or zsh
 .PP
@@ -198,6 +280,9 @@ You may need to set this if you have a different bin named "usage"
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
 A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
+.TP
+\fB\-h, \-\-help\fR
+Print help (see a summary with '\-h')
 \fBArguments:\fR
 .PP
 .TP
@@ -222,6 +307,9 @@ File path where the generated Fig spec will be saved
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE JSON"
 Outputs a usage spec in json format
 .PP
@@ -235,6 +323,9 @@ A usage spec taken in as a file
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE MANPAGE"
 \fBUsage:\fR usage generate manpage [OPTIONS]
 .PP
@@ -254,6 +345,9 @@ Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8
 .RS
 \fIDefault: \fR1
 .RE
+.TP
+\fB\-h, \-\-help\fR
+Print help (see a summary with '\-h')
 .SH "USAGE GENERATE MARKDOWN"
 Generate markdown documentation from usage specs
 .PP
@@ -282,6 +376,9 @@ Replace `<pre>` tags with markdown code fences
 .TP
 \fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
 Prefix to add to all URLs
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE LINT"
 Lint a usage spec file for common issues
 .PP
@@ -298,6 +395,9 @@ Output format
 .TP
 \fB\-W, \-\-warnings\-as\-errors\fR
 Treat warnings as errors
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP

@@ -152,6 +152,11 @@ const completionSpec: Fig.Spec = {
             suggestions: ["bash", "fish", "powershell", "zsh"],
           },
         },
+        {
+          name: ["-h", "--help"],
+          description: "Print help (see more with '--help')",
+          isRepeatable: false,
+        },
       ],
       args: {
         name: "words",
@@ -272,6 +277,11 @@ const completionSpec: Fig.Spec = {
                 name: "usage_cmd",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help (see more with '--help')",
+              isRepeatable: false,
+            },
           ],
           args: [
             {
@@ -316,6 +326,11 @@ const completionSpec: Fig.Spec = {
                 name: "spec",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
         },
         {
@@ -338,6 +353,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "spec",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
             },
           ],
         },
@@ -369,6 +389,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "section",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help (see more with '--help')",
+              isRepeatable: false,
             },
           ],
         },
@@ -428,7 +453,51 @@ const completionSpec: Fig.Spec = {
                 name: "url_prefix",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
+        },
+        {
+          name: "help",
+          description:
+            "Print this message or the help of the given subcommand(s)",
+          subcommands: [
+            {
+              name: "completion",
+              description:
+                "Generate shell completion scripts for bash, fish, powershell, or zsh",
+            },
+            {
+              name: "fig",
+              description: "Generate Fig completion spec for Amazon Q / Fig",
+            },
+            {
+              name: "json",
+              description: "Outputs a usage spec in json format",
+            },
+            {
+              name: "manpage",
+            },
+            {
+              name: "markdown",
+              description: "Generate markdown documentation from usage specs",
+            },
+            {
+              name: "help",
+              description:
+                "Print this message or the help of the given subcommand(s)",
+            },
+          ],
+        },
+      ],
+      options: [
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
         },
       ],
     },
@@ -448,6 +517,11 @@ const completionSpec: Fig.Spec = {
         {
           name: ["-W", "--warnings-as-errors"],
           description: "Treat warnings as errors",
+          isRepeatable: false,
+        },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
           isRepeatable: false,
         },
       ],
@@ -511,20 +585,101 @@ const completionSpec: Fig.Spec = {
         },
       ],
     },
+    {
+      name: "help",
+      description: "Print this message or the help of the given subcommand(s)",
+      subcommands: [
+        {
+          name: "bash",
+          description: "Execute a shell script using bash",
+        },
+        {
+          name: "complete-word",
+          description:
+            "Generate shell completion candidates for a partial command line",
+        },
+        {
+          name: "exec",
+          description:
+            "Execute a script, parsing args and exposing them as environment variables",
+        },
+        {
+          name: "fish",
+          description: "Execute a shell script using fish",
+        },
+        {
+          name: "generate",
+          description:
+            "Generate completions, documentation, and other artifacts from usage specs",
+          subcommands: [
+            {
+              name: "completion",
+              description:
+                "Generate shell completion scripts for bash, fish, powershell, or zsh",
+            },
+            {
+              name: "fig",
+              description: "Generate Fig completion spec for Amazon Q / Fig",
+            },
+            {
+              name: "json",
+              description: "Outputs a usage spec in json format",
+            },
+            {
+              name: "manpage",
+            },
+            {
+              name: "markdown",
+              description: "Generate markdown documentation from usage specs",
+            },
+          ],
+        },
+        {
+          name: "lint",
+          description: "Lint a usage spec file for common issues",
+        },
+        {
+          name: "powershell",
+          description: "Execute a shell script using PowerShell",
+        },
+        {
+          name: "zsh",
+          description: "Execute a shell script using zsh",
+        },
+        {
+          name: "help",
+          description:
+            "Print this message or the help of the given subcommand(s)",
+        },
+      ],
+    },
   ],
   options: [
+    {
+      name: "--completions",
+      description:
+        "Outputs completions for the specified shell for completing the `usage` CLI itself",
+      isRepeatable: false,
+      args: {
+        name: "shell",
+      },
+    },
     {
       name: "--usage-spec",
       description: "Outputs a `usage.kdl` spec for this CLI itself",
       isRepeatable: false,
     },
+    {
+      name: ["-h", "--help"],
+      description: "Print help",
+      isRepeatable: false,
+    },
+    {
+      name: ["-V", "--version"],
+      description: "Print version",
+      isRepeatable: false,
+    },
   ],
-  args: {
-    name: "completions",
-    description:
-      "Outputs completions for the specified shell for completing the `usage` CLI itself",
-    isOptional: true,
-  },
 };
 
 export default completionSpec;

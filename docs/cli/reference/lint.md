@@ -2,7 +2,7 @@
 
 # `usage lint`
 
-- **Usage**: `usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`
+- **Usage**: `usage lint [FLAGS] <FILE>`
 - **Source code**: [`cli/src/cli/lint.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/lint.rs)
 
 Lint a usage spec file for common issues
@@ -29,3 +29,7 @@ Output format
 ### `-W --warnings-as-errors`
 
 Treat warnings as errors
+
+### `-h --help`
+
+Print help

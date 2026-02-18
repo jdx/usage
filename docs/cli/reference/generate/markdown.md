@@ -37,3 +37,7 @@ Replace `<pre>` tags with markdown code fences
 ### `--url-prefix <URL_PREFIX>`
 
 Prefix to add to all URLs
+
+### `-h --help`
+
+Print help

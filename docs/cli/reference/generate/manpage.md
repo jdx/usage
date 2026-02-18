@@ -23,3 +23,7 @@ Manual section number (default: 1)
 Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
 
 **Default:** `1`
+
+### `-h --help`
+
+Print help (see a summary with '-h')
