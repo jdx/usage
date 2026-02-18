@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.2](https://github.com/jdx/usage/compare/v2.17.1..v2.17.2) - 2026-02-18
+
+### 🐛 Bug Fixes
+
+- **(publish)** anchor gh release create to GITHUB_SHA to avoid untagged release by [@jdx](https://github.com/jdx) in [#506](https://github.com/jdx/usage/pull/506)
+
 ## [2.17.1](https://github.com/jdx/usage/compare/v2.17.0..v2.17.1) - 2026-02-18
 
 ### 🔍 Other Changes
