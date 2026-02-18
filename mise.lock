@@ -30,6 +30,10 @@ backend = "cargo:cargo-semver-checks"
 version = "2.12.0"
 backend = "cargo:git-cliff"
 
+[[tools.communique]]
+version = "0.1.7"
+backend = "github:jdx/communique"
+
 [[tools.gh]]
 version = "2.86.0"
 backend = "aqua:cli/cli"
