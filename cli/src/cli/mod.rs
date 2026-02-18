@@ -15,6 +15,7 @@ pub struct Cli {
     command: Command,
 
     /// Outputs completions for the specified shell for completing the `usage` CLI itself
+    #[clap(long, value_name = "SHELL")]
     completions: Option<String>,
 
     /// Outputs a `usage.kdl` spec for this CLI itself
@@ -43,6 +44,9 @@ impl Cli {
         let cli = Self::parse_from(argv);
         if cli.usage_spec {
             return usage_spec::generate();
+        }
+        if let Some(shell) = &cli.completions {
+            return usage_spec::complete(shell);
         }
         match cli.command {
             Command::Bash(mut cmd) => cmd.run("bash"),

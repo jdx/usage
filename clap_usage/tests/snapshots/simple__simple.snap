@@ -10,3 +10,4 @@ flag --file help="some input file" {
     arg <FILE>
 }
 flag --usage
+flag "-h --help" help="Print help"

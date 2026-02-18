@@ -600,7 +600,8 @@ impl From<&clap::Command> for SpecCommand {
 
 #[cfg(feature = "clap")]
 impl From<clap::Command> for Spec {
-    fn from(cmd: clap::Command) -> Self {
+    fn from(mut cmd: clap::Command) -> Self {
+        cmd.build();
         (&cmd).into()
     }
 }

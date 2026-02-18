@@ -358,11 +358,19 @@ impl From<&clap::Arg> for SpecFlag {
             c.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         );
-        let default: Vec<String> = c
-            .get_default_values()
-            .iter()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
+        // Skip defaults for boolean flags (SetTrue/SetFalse) since clap sets them
+        // to "false"/"true" after build(), which is redundant in a usage spec
+        let default: Vec<String> = if matches!(
+            c.get_action(),
+            clap::ArgAction::SetTrue | clap::ArgAction::SetFalse
+        ) {
+            vec![]
+        } else {
+            c.get_default_values()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect()
+        };
         let short = c.get_short_and_visible_aliases().unwrap_or_default();
         let long = c
             .get_long_and_visible_aliases()
