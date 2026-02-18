@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.3](https://github.com/jdx/usage/compare/v2.17.2..v2.17.3) - 2026-02-18
+
+### 🐛 Bug Fixes
+
+- **(publish)** use gh api directly to create release with explicit tag_name by [@jdx](https://github.com/jdx) in [#508](https://github.com/jdx/usage/pull/508)
+
 ## [2.17.2](https://github.com/jdx/usage/compare/v2.17.1..v2.17.2) - 2026-02-18
 
 ### 🐛 Bug Fixes
