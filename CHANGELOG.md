@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.18.0](https://github.com/jdx/usage/compare/v2.17.4..v2.18.0) - 2026-02-18
+
+### 🚀 Features
+
+- **(publish)** extract communique into separate enhance-release job by [@jdx](https://github.com/jdx) in [#513](https://github.com/jdx/usage/pull/513)
+
 ## [2.17.4](https://github.com/jdx/usage/compare/v2.17.3..v2.17.4) - 2026-02-18
 
 ### 🐛 Bug Fixes
