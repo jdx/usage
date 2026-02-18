@@ -33,7 +33,7 @@ jobs:
           TAG_NAME="${{ github.ref_name }}"
           # Extract first version section from CHANGELOG.md as baseline
           awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
-          gh release create --draft "$TAG_NAME" \
+          gh release create --draft --target "$GITHUB_SHA" "$TAG_NAME" \
             --title "$TAG_NAME" \
             --notes-file /tmp/release-notes.txt
       - name: Enhance release notes with communique
