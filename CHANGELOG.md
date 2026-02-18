@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.1](https://github.com/jdx/usage/compare/v2.17.0..v2.17.1) - 2026-02-18
+
+### 🔍 Other Changes
+
+- replace gen-release-notes with communique by [@jdx](https://github.com/jdx) in [#504](https://github.com/jdx/usage/pull/504)
+
 ## [2.17.0](https://github.com/jdx/usage/compare/v2.16.2..v2.17.0) - 2026-02-16
 
 ### 🚀 Features
