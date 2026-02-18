@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.4](https://github.com/jdx/usage/compare/v2.17.3..v2.17.4) - 2026-02-18
+
+### 🐛 Bug Fixes
+
+- **(publish)** retry draft release creation until tag is indexed by [@jdx](https://github.com/jdx) in [#510](https://github.com/jdx/usage/pull/510)
+
 ## [2.17.3](https://github.com/jdx/usage/compare/v2.17.2..v2.17.3) - 2026-02-18
 
 ### 🐛 Bug Fixes

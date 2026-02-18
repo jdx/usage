@@ -903,7 +903,7 @@
   "config": {
     "props": {}
   },
-  "version": "2.17.3",
+  "version": "2.17.4",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
