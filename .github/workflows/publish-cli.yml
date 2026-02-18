@@ -31,19 +31,30 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           TAG_NAME="${{ github.ref_name }}"
-          # Extract first version section from CHANGELOG.md as baseline
           awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
           BODY=$(cat /tmp/release-notes.txt)
-          # Use the API directly so tag_name is set explicitly (gh release create
-          # can produce untagged-* drafts when the tag is very recently pushed)
-          gh api repos/${{ github.repository }}/releases \
-            --method POST \
-            -f tag_name="$TAG_NAME" \
-            -f target_commitish="$GITHUB_SHA" \
-            -f name="$TAG_NAME" \
-            -f body="$BODY" \
-            -F draft=true \
-            --jq '.html_url'
+          # GitHub may not have indexed the tag yet after a push. Draft releases
+          # created before indexing get "untagged-*" placeholder tag names.
+          for attempt in $(seq 1 30); do
+            RESPONSE=$(gh api repos/${{ github.repository }}/releases \
+              --method POST \
+              -f tag_name="$TAG_NAME" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f name="$TAG_NAME" \
+              -f body="$BODY" \
+              -F draft=true)
+            ACTUAL_TAG=$(echo "$RESPONSE" | jq -r '.tag_name')
+            if [ "$ACTUAL_TAG" = "$TAG_NAME" ]; then
+              echo "$RESPONSE" | jq -r '.html_url'
+              exit 0
+            fi
+            RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+            gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" --method DELETE --silent
+            echo "Tag not yet indexed (got $ACTUAL_TAG), retrying in 5s... (attempt $attempt/30)"
+            sleep 5
+          done
+          echo "::error::Failed to create release with correct tag after 30 attempts"
+          exit 1
       - name: Enhance release notes with communique
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         continue-on-error: true
