@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.18.1](https://github.com/jdx/usage/compare/v2.18.0..v2.18.1) - 2026-02-24
+
+### 🐛 Bug Fixes
+
+- **(lib)** validate choices for variadic args and flags by [@jdx](https://github.com/jdx) in [#520](https://github.com/jdx/usage/pull/520)
+
+### 🛡️ Security
+
+- require AI disclosure on GitHub comments by [@jdx](https://github.com/jdx) in [#519](https://github.com/jdx/usage/pull/519)
+
+### 📦️ Dependency Updates
+
+- update autofix-ci/action action to v1.3.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#515](https://github.com/jdx/usage/pull/515)
+- update rust crate clap to v4.5.60 by [@renovate[bot]](https://github.com/renovate[bot]) in [#516](https://github.com/jdx/usage/pull/516)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#518](https://github.com/jdx/usage/pull/518)
+
 ## [2.18.0](https://github.com/jdx/usage/compare/v2.17.4..v2.18.0) - 2026-02-18
 
 ### 🚀 Features
