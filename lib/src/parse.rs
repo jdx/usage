@@ -473,6 +473,20 @@ fn parse_partial_with_env(
             while let Some(flag) = out.flag_awaiting_value.pop() {
                 let arg = flag.arg.as_ref().unwrap();
                 if flag.var {
+                    if let Some(choices) = &arg.choices {
+                        if !choices.choices.contains(&w) {
+                            if is_help_arg(spec, &w) {
+                                out.errors
+                                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                                return Ok(out);
+                            }
+                            bail!(
+                                "Invalid choice for option {}: {w}, expected one of {}",
+                                flag.name,
+                                choices.choices.join(", ")
+                            );
+                        }
+                    }
                     let arr = out
                         .flags
                         .entry(flag)
@@ -504,6 +518,20 @@ fn parse_partial_with_env(
 
         if let Some(arg) = next_arg {
             if arg.var {
+                if let Some(choices) = &arg.choices {
+                    if !choices.choices.contains(&w) {
+                        if is_help_arg(spec, &w) {
+                            out.errors
+                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                            return Ok(out);
+                        }
+                        bail!(
+                            "Invalid choice for arg {}: {w}, expected one of {}",
+                            arg.name,
+                            choices.choices.join(", ")
+                        );
+                    }
+                }
                 let arr = out
                     .args
                     .entry(Arc::new(arg.clone()))
