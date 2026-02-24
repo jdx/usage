@@ -258,6 +258,42 @@ variadic_arg_captures_unknown_short_flags:
     args="mydb -x localhost",
     expected=r#"{"usage_args": "-x localhost", "usage_database": "mydb"}"#,
 
+variadic_arg_choices_ok:
+    spec=r#"
+    arg "<level>" var=#true {
+        choices "debug" "info" "warn" "error"
+    }
+    "#,
+    args="debug info error",
+    expected=r#"{"usage_level": "debug info error"}"#,
+
+variadic_arg_choices_err:
+    spec=r#"
+    arg "<level>" var=#true {
+        choices "debug" "info" "warn" "error"
+    }
+    "#,
+    args="debug invalid error",
+    expected=r#"Invalid choice for arg level: invalid, expected one of debug, info, warn, error"#,
+
+variadic_flag_choices_ok:
+    spec=r#"
+    flag "-l --level <level>" var=#true {
+        choices "debug" "info" "warn" "error"
+    }
+    "#,
+    args="--level debug --level info --level error",
+    expected=r#"{"usage_level": "debug info error"}"#,
+
+variadic_flag_choices_err:
+    spec=r#"
+    flag "-l --level <level>" var=#true {
+        choices "debug" "info" "warn" "error"
+    }
+    "#,
+    args="--level debug --level invalid --level error",
+    expected=r#"Invalid choice for option level: invalid, expected one of debug, info, warn, error"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
