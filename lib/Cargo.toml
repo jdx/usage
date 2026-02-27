@@ -33,7 +33,7 @@ regex = "1"
 roff = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"] }
 shell-words = "1"
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 tera = { version = "1", optional = true }
 thiserror = "2"
 versions = "7"
