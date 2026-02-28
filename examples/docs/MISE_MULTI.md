@@ -133,6 +133,7 @@ Examples:
     $ mise activate fish | source
     $ execx($(mise activate xonsh))
 
+
 ## `mise alias`
 
 - **Usage**: `mise alias [-p --plugin <PLUGIN>] [--no-header] <SUBCOMMAND>`
@@ -175,6 +176,7 @@ Examples:
     $ mise alias get node lts-hydrogen
     20.0.0
 
+
 ## `mise alias ls`
 
 - **Usage**: `mise alias ls [--no-header] [TOOL]`
@@ -207,6 +209,7 @@ Examples:
     $ mise aliases
     node  lts-jod      22
 
+
 ## `mise alias set`
 
 - **Usage**: `mise alias set <ARGS>…`
@@ -235,6 +238,7 @@ Examples:
 
     $ mise alias set node lts-jod 22.0.0
 
+
 ## `mise alias unset`
 
 - **Usage**: `mise alias unset <PLUGIN> <ALIAS>`
@@ -258,6 +262,7 @@ The alias to remove
 Examples:
 
     $ mise alias unset node lts-jod
+
 
 ## `mise asdf`
 
@@ -303,6 +308,7 @@ Examples:
     spm
     ubi
     vfox
+
 
 ## `mise bin-paths`
 
@@ -402,6 +408,7 @@ Examples:
     $ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise
     $ mise completion fish > ~/.config/fish/completions/mise.fish
 
+
 ## `mise config`
 
 - **Usage**: `mise config [--no-header] [-J --json] <SUBCOMMAND>`
@@ -443,6 +450,7 @@ Examples:
     $ mise cf generate > mise.toml
     $ mise cf generate --output=mise.toml
 
+
 ## `mise config get`
 
 - **Usage**: `mise config get [-f --file <FILE>] [KEY]`
@@ -469,6 +477,7 @@ Examples:
     $ mise toml get tools.python
     3.12
 
+
 ## `mise config ls`
 
 - **Usage**: `mise config ls [--no-header] [-J --json]`
@@ -493,6 +502,7 @@ Examples:
     Path                        Tools
     ~/.config/mise/config.toml  pitchfork
     ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-edit, cargo:cargo-insta
+
 
 ## `mise config set`
 
@@ -540,6 +550,7 @@ Examples:
     # Type for `settings` is inferred
     $ mise config set settings.jobs 4
 
+
 ## `mise current`
 
 - **Usage**: `mise current [PLUGIN]`
@@ -572,6 +583,7 @@ Examples:
     $ mise current python
     3.11.0 3.10.0
 
+
 ## `mise deactivate`
 
 - **Usage**: `mise deactivate`
@@ -584,6 +596,7 @@ This can be used to temporarily disable mise in a shell session.
 Examples:
 
     $ mise deactivate
+
 
 ## `mise direnv`
 
@@ -633,6 +646,7 @@ Examples:
     $ echo 'use mise' > .envrc
     $ direnv allow
 
+
 ## `mise doctor`
 
 - **Usage**: `mise doctor [-J --json] <SUBCOMMAND>`
@@ -649,6 +663,7 @@ Examples:
 
     $ mise doctor
     [WARN] plugin node is not installed
+
 
 ## `mise doctor path`
 
@@ -670,6 +685,7 @@ Examples:
     /home/user/.local/share/mise/installs/node/24.0.0/bin
     /home/user/.local/share/mise/installs/rust/1.90.0/bin
     /home/user/.local/share/mise/installs/python/3.10.0/bin
+
 
 ## `mise en`
 
@@ -709,6 +725,7 @@ Examples:
 
     Skip loading zshrc:
     $ mise en -s "zsh -f"
+
 
 ## `mise env`
 
@@ -762,6 +779,7 @@ Examples:
     $ mise env -s fish | source
     $ execx($(mise env -s xonsh))
 
+
 ## `mise exec`
 
 - **Usage**: `mise exec [FLAGS] [TOOL@VERSION]… [-- COMMAND]…`
@@ -814,6 +832,7 @@ Examples:
     # Run a command in a different directory:
     $ mise x -C /path/to/project node@20 -- node ./app.js
 
+
 ## `mise fmt`
 
 - **Usage**: `mise fmt [-a --all]`
@@ -832,6 +851,7 @@ Format all files from the current directory
 Examples:
 
     $ mise fmt
+
 
 ## `mise generate`
 
@@ -876,6 +896,7 @@ Examples:
     $ chmod +x ./bin/mise
     $ ./bin/mise install – automatically downloads mise to .mise if not already installed
 
+
 ## `mise generate config`
 
 - **Usage**: `mise generate config [-t --tool-versions <TOOL_VERSIONS>] [-o --output <OUTPUT>]`
@@ -898,6 +919,7 @@ Examples:
 
     $ mise cf generate > mise.toml
     $ mise cf generate --output=mise.toml
+
 
 ## `mise generate git-pre-commit`
 
@@ -931,6 +953,7 @@ Examples:
     $ mise generate git-pre-commit --write --task=pre-commit
     $ git commit -m "feat: add new feature" # runs `mise run pre-commit`
 
+
 ## `mise generate github-action`
 
 - **Usage**: `mise generate github-action [FLAGS]`
@@ -960,6 +983,7 @@ Examples:
     $ mise generate github-action --write --task=ci
     $ git commit -m "feat: add new feature"
     $ git push # runs `mise run ci` on GitHub
+
 
 ## `mise generate task-docs`
 
@@ -1005,6 +1029,7 @@ Examples:
 
     $ mise generate task-docs
 
+
 ## `mise generate task-stubs`
 
 - **Usage**: `mise generate task-stubs [-m --mise-bin <MISE_BIN>] [-d --dir <DIR>]`
@@ -1033,6 +1058,7 @@ Examples:
     $ mise generate task-stubs
     $ ./bin/test
     running tests
+
 
 ## `mise global`
 
@@ -1092,6 +1118,7 @@ Examples:
     # show the current version of node in ~/.tool-versions
     $ mise global node
     20.0.0
+
 
 ## `mise hook-env`
 
@@ -1222,6 +1249,7 @@ Examples:
     $ mise install node         # install version specified in mise.toml
     $ mise install              # installs everything specified in mise.toml
 
+
 ## `mise install-into`
 
 - **Usage**: `mise install-into <TOOL@VERSION> <PATH>`
@@ -1246,6 +1274,7 @@ Examples:
     # install node@20.0.0 into ./mynode
     $ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v
     20.0.0
+
 
 ## `mise latest`
 
@@ -1275,6 +1304,7 @@ Examples:
 
     $ mise latest node     # get the latest stable version of node
     20.0.0
+
 
 ## `mise link`
 
@@ -1313,6 +1343,7 @@ Examples:
     $ brew install node
     $ mise link node@brew $(brew --prefix node)
     $ mise use node@brew
+
 
 ## `mise local`
 
@@ -1377,6 +1408,7 @@ Examples:
     # show the current version of node in .tool-versions
     $ mise local node
     20.0.0
+
 
 ## `mise ls`
 
@@ -1462,6 +1494,7 @@ Examples:
       "python": [...]
     }
 
+
 ## `mise ls-remote`
 
 - **Usage**: `mise ls-remote [--all] [TOOL@VERSION] [PREFIX]`
@@ -1501,6 +1534,7 @@ Examples:
     $ mise ls-remote node 20
     20.0.0
     20.1.0
+
 
 ## `mise outdated`
 
@@ -1551,6 +1585,7 @@ Examples:
 
     $ mise outdated --json
     {"python": {"requested": "3.11", "current": "3.11.0", "latest": "3.11.1"}, ...}
+
 
 ## `mise plugins`
 
@@ -1635,6 +1670,7 @@ Examples:
     # install the node plugin using a specific ref
     $ mise plugins install node https://github.com/mise-plugins/rtx-nodejs.git#v1.0.0
 
+
 ## `mise plugins link`
 
 - **Usage**: `mise plugins link [-f --force] <NAME> [DIR]`
@@ -1671,6 +1707,7 @@ Examples:
     # infer plugin name as "node"
     $ mise plugins link ./mise-node
 
+
 ## `mise plugins ls`
 
 - **Usage**: `mise plugins ls [-u --urls]`
@@ -1698,6 +1735,7 @@ Examples:
     node    https://github.com/asdf-vm/asdf-nodejs.git
     ruby    https://github.com/asdf-vm/asdf-ruby.git
 
+
 ## `mise plugins ls-remote`
 
 - **Usage**: `mise plugins ls-remote [-u --urls] [--only-names]`
@@ -1712,6 +1750,7 @@ The full list is here: https://github.com/jdx/mise/blob/main/registry.toml
 Examples:
 
     $ mise plugins ls-remote
+
 
 ### Flags
 
@@ -1751,6 +1790,7 @@ Examples:
 
     $ mise uninstall node
 
+
 ## `mise plugins update`
 
 - **Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]…`
@@ -1779,6 +1819,7 @@ Examples:
     $ mise plugins update            # update all plugins
     $ mise plugins update node       # update only node
     $ mise plugins update node#beta  # specify a ref
+
 
 ## `mise prune`
 
@@ -1818,6 +1859,7 @@ Examples:
     rm -rf ~/.local/share/mise/versions/node/20.0.0
     rm -rf ~/.local/share/mise/versions/node/20.0.1
 
+
 ## `mise registry`
 
 - **Usage**: `mise registry [-b --backend <BACKEND>] [--hide-aliased] [NAME]`
@@ -1855,6 +1897,7 @@ Examples:
     $ mise registry poetry
     asdf:mise-plugins/mise-poetry
 
+
 ## `mise reshim`
 
 - **Usage**: `mise reshim [-f --force]`
@@ -1890,6 +1933,7 @@ Examples:
     $ mise reshim
     $ ~/.local/share/mise/shims/node -v
     v20.0.0
+
 
 ## `mise run`
 
@@ -2009,6 +2053,7 @@ Examples:
     # Execute multiple tasks each with their own arguments.
     $ mise tasks cmd1 arg1 arg2 ::: cmd2 arg1 arg2
 
+
 ## `mise self-update`
 
 - **Usage**: `mise self-update [FLAGS] [VERSION]`
@@ -2081,6 +2126,7 @@ Examples:
     key       value       source
     NODE_ENV  production  ~/.config/mise/config.toml
 
+
 ## `mise settings`
 
 - **Usage**: `mise settings [FLAGS] [SETTING] [VALUE] <SUBCOMMAND>`
@@ -2140,6 +2186,7 @@ Examples:
     # set the value of the setting "node.mirror_url" to "https://npm.taobao.org/mirrors/node"
     $ mise settings node.mirror_url https://npm.taobao.org/mirrors/node
 
+
 ## `mise settings add`
 
 - **Usage**: `mise settings add [-l --local] <SETTING> <VALUE>`
@@ -2170,6 +2217,7 @@ Examples:
 
     $ mise settings add disable_hints python_multi
 
+
 ## `mise settings get`
 
 - **Usage**: `mise settings get [-l --local] <SETTING>`
@@ -2198,6 +2246,7 @@ Examples:
 
     $ mise settings get idiomatic_version_file
     true
+
 
 ## `mise settings ls`
 
@@ -2250,6 +2299,7 @@ Examples:
     default_packages_file = "~/.default-python-packages"
     ...
 
+
 ## `mise settings set`
 
 - **Usage**: `mise settings set [-l --local] <SETTING> <VALUE>`
@@ -2280,6 +2330,7 @@ Examples:
 
     $ mise settings idiomatic_version_file=true
 
+
 ## `mise settings unset`
 
 - **Usage**: `mise settings unset [-l --local] <KEY>`
@@ -2305,6 +2356,7 @@ Use the local config file instead of the global one
 Examples:
 
     $ mise settings unset idiomatic_version_file
+
 
 ## `mise shell`
 
@@ -2346,6 +2398,7 @@ Examples:
     $ node -v
     v20.0.0
 
+
 ## `mise sync`
 
 - **Usage**: `mise sync <SUBCOMMAND>`
@@ -2384,6 +2437,7 @@ Examples:
     $ mise sync node --brew
     $ mise use -g node@18 - uses Homebrew-provided node
 
+
 ## `mise sync python`
 
 - **Usage**: `mise sync python [--pyenv] [--uv]`
@@ -2417,6 +2471,7 @@ Examples:
     $ mise x python@3.11.0 -- python -V - uses uv-provided python
     $ uv run -p 3.10.0 -- python -V - uses mise-provided python
 
+
 ## `mise sync ruby`
 
 - **Usage**: `mise sync ruby [--brew]`
@@ -2435,6 +2490,7 @@ Examples:
     $ brew install ruby
     $ mise sync ruby --brew
     $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew
+
 
 ## `mise tasks`
 
@@ -2491,6 +2547,7 @@ Output in JSON format
 Examples:
 
     $ mise tasks ls
+
 
 ## `mise tasks add`
 
@@ -2573,6 +2630,7 @@ Examples:
 
     $ mise task add pre-commit --depends "test" --depends "render" -- echo pre-commit
 
+
 ## `mise tasks deps`
 
 - **Usage**: `mise tasks deps [--hidden] [--dot] [TASKS]…`
@@ -2609,6 +2667,7 @@ Examples:
     # Show dependencies in DOT format
     $ mise tasks deps --dot
 
+
 ## `mise tasks edit`
 
 - **Usage**: `mise tasks edit [-p --path] <TASK>`
@@ -2634,6 +2693,7 @@ Examples:
 
     $ mise tasks edit build
     $ mise tasks edit test
+
 
 ## `mise tasks info`
 
@@ -2681,6 +2741,7 @@ Examples:
       "file": null,
       "usage_spec": {}
     }
+
 
 ## `mise tasks ls`
 
@@ -2736,6 +2797,7 @@ Output in JSON format
 Examples:
 
     $ mise tasks ls
+
 
 ## `mise tasks run`
 
@@ -2869,6 +2931,7 @@ Examples:
     # Execute multiple tasks each with their own arguments.
     $ mise tasks cmd1 arg1 arg2 ::: cmd2 arg1 arg2
 
+
 ## `mise test-tool`
 
 - **Usage**: `mise test-tool [FLAGS] [TOOL]`
@@ -2900,6 +2963,7 @@ Directly pipe stdin/stdout/stderr from plugin to user Sets --jobs=1
 Examples:
 
     $ mise test-tool ripgrep
+
 
 ## `mise tool`
 
@@ -2958,6 +3022,7 @@ Examples:
     Config Source:      ~/.config/mise/mise.toml
     Tool Options:       [none]
 
+
 ## `mise trust`
 
 - **Usage**: `mise trust [FLAGS] [CONFIG_FILE]`
@@ -3006,6 +3071,7 @@ Examples:
     # trusts mise.toml in the current or parent directory
     $ mise trust
 
+
 ## `mise uninstall`
 
 - **Usage**: `mise uninstall [-a --all] [-n --dry-run] [INSTALLED_TOOL@VERSION]…`
@@ -3042,6 +3108,7 @@ Examples:
     # will uninstall all installed versions of node
     $ mise uninstall --all node@18.0.0 # will uninstall all node versions
 
+
 ## `mise unset`
 
 - **Usage**: `mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]…`
@@ -3076,6 +3143,7 @@ Examples:
     # Remove NODE_ENV from the global config
     $ mise unset NODE_ENV -g
 
+
 ## `mise unuse`
 
 - **Usage**: `mise unuse [--no-prune] [--global] <INSTALLED_TOOL@VERSION>…`
@@ -3106,6 +3174,7 @@ Examples:
 
     # will uninstall specific version
     $ mise remove node@18.0.0
+
 
 ## `mise upgrade`
 
@@ -3180,6 +3249,7 @@ Examples:
 
     # Show a multiselect menu to choose which tools to upgrade
     $ mise upgrade --interactive
+
 
 ## `mise usage`
 
@@ -3290,6 +3360,7 @@ Examples:
     # sets .mise.staging.toml (which is used if MISE_ENV=staging)
     $ mise use --env staging node@20
 
+
 ## `mise version`
 
 - **Usage**: `mise version`
@@ -3308,6 +3379,7 @@ Examples:
     $ mise --version
     $ mise -v
     $ mise -V
+
 
 ## `mise watch`
 
@@ -3927,6 +3999,7 @@ Examples:
     $ mise watch serve --watch src --exts rs --restart
     Starts an api server, watching for changes to "*.rs" files in "./src" and kills/restarts the server when they change.
 
+
 ## `mise where`
 
 - **Usage**: `mise where <TOOL@VERSION>`
@@ -3957,6 +4030,7 @@ Examples:
     # Errors if node is not referenced in any .tool-version file
     $ mise where node
     /home/jdx/.local/share/mise/installs/node/20.0.0
+
 
 ## `mise which`
 
@@ -3998,6 +4072,7 @@ Examples:
 
     $ mise which node --version
     20.0.0
+
 
 ## `mise render-help`
 
