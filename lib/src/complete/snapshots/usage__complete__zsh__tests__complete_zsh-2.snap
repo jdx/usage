@@ -29,7 +29,7 @@ _mycli() {
 
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli_1_2_3.spec"
   if [[ ! -f "$spec_file" ]]; then
-    mycli complete --usage > "$spec_file"
+    mycli complete --usage >| "$spec_file"
   fi
   _arguments "*: :(($(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}" )))"
   return 0

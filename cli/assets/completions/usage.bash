@@ -10,7 +10,7 @@ _usage() {
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_usage.spec"
-    usage --usage-spec > "$spec_file"
+    usage --usage-spec >| "$spec_file"
     # shellcheck disable=SC2207
 	_comp_compgen -- -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}")"
 	_comp_ltrim_colon_completions "$cur"

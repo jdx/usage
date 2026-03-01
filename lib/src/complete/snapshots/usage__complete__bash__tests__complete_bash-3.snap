@@ -14,7 +14,7 @@ _mycli() {
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli.spec"
-    cat > "$spec_file" <<'__USAGE_EOF__'
+    cat >| "$spec_file" <<'__USAGE_EOF__'
 name mycli
 bin mycli
 source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"

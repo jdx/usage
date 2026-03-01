@@ -56,15 +56,15 @@ _{bin_snake}() {{
         if opts.cache_key.is_some() {
             format!(
                 r#"if [[ ! -f "$spec_file" ]]; then
-    {usage_cmd} > "$spec_file"
+    {usage_cmd} >| "$spec_file"
   fi"#
             )
         } else {
-            format!(r#"{usage_cmd} > "$spec_file""#)
+            format!(r#"{usage_cmd} >| "$spec_file""#)
         }
     } else if let Some(spec) = &opts.spec {
         let heredoc = format!(
-            r#"cat > "$spec_file" <<'__USAGE_EOF__'
+            r#"cat >| "$spec_file" <<'__USAGE_EOF__'
 {spec}
 __USAGE_EOF__"#,
             spec = spec.to_string().trim()
