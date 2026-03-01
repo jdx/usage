@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.18.2](https://github.com/jdx/usage/compare/v2.18.1..v2.18.2) - 2026-03-01
+
+### 🐛 Bug Fixes
+
+- **(bash,zsh)** use >| to avoid noclobber errors in tab completion by [@nkakouros](https://github.com/nkakouros) in [#524](https://github.com/jdx/usage/pull/524)
+
+### 📦️ Dependency Updates
+
+- update rust crate serde_with to v3.17.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#521](https://github.com/jdx/usage/pull/521)
+- update rust crate strum to 0.28 by [@renovate[bot]](https://github.com/renovate[bot]) in [#522](https://github.com/jdx/usage/pull/522)
+
+### New Contributors
+
+- @nkakouros made their first contribution in [#524](https://github.com/jdx/usage/pull/524)
+
 ## [2.18.1](https://github.com/jdx/usage/compare/v2.18.0..v2.18.1) - 2026-02-24
 
 ### 🐛 Bug Fixes
