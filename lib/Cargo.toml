@@ -30,7 +30,7 @@ kdl = "6"
 log = "0.4"
 miette = "7"
 regex = "1"
-roff = { version = "0.2", optional = true }
+roff = { version = "1.0", optional = true }
 serde = { version = "1", features = ["derive"] }
 shell-words = "1"
 strum = { version = "0.28", features = ["derive"] }
