@@ -4,11 +4,11 @@ Integrations extract CLI definitions from framework internals and output a [usag
 
 ## Available
 
-| Framework                               | Language | Package                                   |
-| --------------------------------------- | -------- | ----------------------------------------- |
-| [Cobra](https://github.com/spf13/cobra) | Go       | [`cobra_usage`](/spec/integrations/cobra) |
-| [clap](https://crates.io/crates/clap)   | Rust     | [`clap_usage`](/spec/integrations/clap)   |
-| [argparse](https://docs.python.org/3/library/argparse.html) | Python | [`argparse-usage`](/spec/integrations/argparse) |
+| Framework                                                   | Language | Package                                         |
+| ----------------------------------------------------------- | -------- | ----------------------------------------------- |
+| [Cobra](https://github.com/spf13/cobra)                     | Go       | [`cobra_usage`](/spec/integrations/cobra)       |
+| [clap](https://crates.io/crates/clap)                       | Rust     | [`clap_usage`](/spec/integrations/clap)         |
+| [argparse](https://docs.python.org/3/library/argparse.html) | Python   | [`argparse-usage`](/spec/integrations/argparse) |
 
 ## Planned
 
@@ -16,12 +16,12 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 
 ### High Priority
 
-| Framework                                                   | Language |
-| ----------------------------------------------------------- | -------- |
-| [Commander.js](https://github.com/tj/commander.js)          | Node.js  |
-| [urfave/cli](https://github.com/urfave/cli)                 | Go       |
-| [Typer](https://github.com/fastapi/typer)                   | Python   |
-| [Click](https://github.com/pallets/click)                   | Python   |
+| Framework                                          | Language |
+| -------------------------------------------------- | -------- |
+| [Commander.js](https://github.com/tj/commander.js) | Node.js  |
+| [urfave/cli](https://github.com/urfave/cli)        | Go       |
+| [Typer](https://github.com/fastapi/typer)          | Python   |
+| [Click](https://github.com/pallets/click)          | Python   |
 
 ### Medium Priority
 

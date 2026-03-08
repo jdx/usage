@@ -39,17 +39,17 @@ python mycli.py --usage-spec | usage generate manpage --out-file mycli.1
 
 ## API
 
-| Function | Description |
-| --- | --- |
+| Function                                                                | Description                            |
+| ----------------------------------------------------------------------- | -------------------------------------- |
 | `generate(parser, name=None, version=None, author=None, bin_name=None)` | Returns the usage spec as a KDL string |
 
 ## Feature Mapping
 
-| argparse | Usage Spec |
-| --- | --- |
-| `action='store_true'` / `'store_false'` | Bool flag (no arg child) |
-| `action='count'` | `count=#true` |
-| `nargs='+'` | Variadic arg with minimum |
-| Positional arguments | `arg` nodes |
-| Subparsers | `cmd` nodes |
-| Parent parsers | Inherited arguments |
+| argparse                                | Usage Spec                |
+| --------------------------------------- | ------------------------- |
+| `action='store_true'` / `'store_false'` | Bool flag (no arg child)  |
+| `action='count'`                        | `count=#true`             |
+| `nargs='+'`                             | Variadic arg with minimum |
+| Positional arguments                    | `arg` nodes               |
+| Subparsers                              | `cmd` nodes               |
+| Parent parsers                          | Inherited arguments       |
