@@ -79,7 +79,7 @@ export default defineConfig({
             items: [
               { text: "Cobra (Go)", link: "/spec/integrations/cobra" },
               { text: "clap (Rust)", link: "/spec/integrations/clap" },
-              { text: "argparse (Python)", link: "/spec/integrations/argparse" }
+              { text: "argparse (Python)", link: "/spec/integrations/argparse" },
             ]
           }
         ]
