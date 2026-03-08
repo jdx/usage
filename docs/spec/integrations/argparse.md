@@ -20,13 +20,26 @@ parser = argparse.ArgumentParser(prog='mycli', description='My CLI tool')
 parser.add_argument('-v', '--verbose', action='count', default=0)
 parser.add_argument('files', nargs='+', help='Files to process')
 
-spec = argparse_usage.generate(
+print(argparse_usage.generate(
     parser,
     name='My CLI',
     version='1.0.0',
     author='Your Name',
-)
-print(spec)
+))
+```
+
+## Integration Pattern
+
+The recommended pattern is to check for a `--usage-spec` flag before parsing arguments:
+
+```python
+import sys
+
+if '--usage-spec' in sys.argv:
+    print(argparse_usage.generate(parser, ...))
+    sys.exit(0)
+
+args = parser.parse_args()
 ```
 
 Then pipe the output to `usage`:
