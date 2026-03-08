@@ -78,7 +78,8 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "Cobra (Go)", link: "/spec/integrations/cobra" },
-              { text: "clap (Rust)", link: "/spec/integrations/clap" }
+              { text: "clap (Rust)", link: "/spec/integrations/clap" },
+              { text: "argparse (Python)", link: "/spec/integrations/argparse" }
             ]
           }
         ]
