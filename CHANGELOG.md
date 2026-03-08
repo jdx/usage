@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.18.3](https://github.com/jdx/usage/compare/v2.18.2..v2.18.3) - 2026-03-08
+
+### 📚 Documentation
+
+- add argparse-usage integration by [@jdx](https://github.com/jdx) in [#531](https://github.com/jdx/usage/pull/531)
+
+### 🛡️ Security
+
+- **(deps)** update dependency eslint to v10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#526](https://github.com/jdx/usage/pull/526)
+
+### 📦️ Dependency Updates
+
+- update actions/setup-node digest to 53b8394 by [@renovate[bot]](https://github.com/renovate[bot]) in [#525](https://github.com/jdx/usage/pull/525)
+- update jdx/mise-action action to v3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#528](https://github.com/jdx/usage/pull/528)
+- update rust crate roff to v1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#529](https://github.com/jdx/usage/pull/529)
+
 ## [2.18.2](https://github.com/jdx/usage/compare/v2.18.1..v2.18.2) - 2026-03-01
 
 ### 🐛 Bug Fixes
