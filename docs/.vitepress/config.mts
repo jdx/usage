@@ -80,6 +80,7 @@ export default defineConfig({
               { text: "Cobra (Go)", link: "/spec/integrations/cobra" },
               { text: "clap (Rust)", link: "/spec/integrations/clap" },
               { text: "argparse (Python)", link: "https://github.com/acidghost/argparse-usage" },
+              { text: "OptionParser (Ruby)", link: "https://github.com/packrat386/option_parser_usage" },
             ]
           }
         ]

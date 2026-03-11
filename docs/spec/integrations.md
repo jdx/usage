@@ -4,11 +4,12 @@ Integrations extract CLI definitions from framework internals and output a [usag
 
 ## Available
 
-| Framework                                                   | Language | Package                                                         |
-| ----------------------------------------------------------- | -------- | --------------------------------------------------------------- |
-| [Cobra](https://github.com/spf13/cobra)                     | Go       | [`cobra_usage`](/spec/integrations/cobra)                       |
-| [clap](https://crates.io/crates/clap)                       | Rust     | [`clap_usage`](/spec/integrations/clap)                         |
-| [argparse](https://docs.python.org/3/library/argparse.html) | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage) |
+| Framework                                                           | Language | Package                                                                    |
+| ------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
+| [Cobra](https://github.com/spf13/cobra)                             | Go       | [`cobra_usage`](/spec/integrations/cobra)                                  |
+| [clap](https://crates.io/crates/clap)                               | Rust     | [`clap_usage`](/spec/integrations/clap)                                    |
+| [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)            |
+| [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage) |
 
 ## Planned
 
@@ -42,18 +43,17 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 
 ### Lower Priority
 
-| Framework                                                                          | Language |
-| ---------------------------------------------------------------------------------- | -------- |
-| [Kong](https://github.com/alecthomas/kong)                                         | Go       |
-| [Clikt](https://github.com/ajalt/clikt)                                            | Kotlin   |
-| [JCommander](https://github.com/cbeust/jcommander)                                 | Java     |
-| [argh](https://github.com/google/argh)                                             | Rust     |
-| [zig-clap](https://github.com/Hejsil/zig-clap)                                     | Zig      |
-| [optparse-applicative](https://github.com/pcapriotti/optparse-applicative)         | Haskell  |
-| [kotlinx-cli](https://github.com/Kotlin/kotlinx-cli)                               | Kotlin   |
-| [cligen](https://github.com/c-blake/cligen)                                        | Nim      |
-| [argparse](https://github.com/mpeterv/argparse)                                    | Lua      |
-| [Getopt::Long](https://perldoc.perl.org/Getopt::Long)                              | Perl     |
-| [OptionParser](https://hexdocs.pm/elixir/OptionParser.html)                        | Elixir   |
-| [OptionParser](https://ruby-doc.org/stdlib/libdoc/optparse/rdoc/OptionParser.html) | Ruby     |
-| [getopt](https://man7.org/linux/man-pages/man3/getopt.3.html)                      | C        |
+| Framework                                                                  | Language |
+| -------------------------------------------------------------------------- | -------- |
+| [Kong](https://github.com/alecthomas/kong)                                 | Go       |
+| [Clikt](https://github.com/ajalt/clikt)                                    | Kotlin   |
+| [JCommander](https://github.com/cbeust/jcommander)                         | Java     |
+| [argh](https://github.com/google/argh)                                     | Rust     |
+| [zig-clap](https://github.com/Hejsil/zig-clap)                             | Zig      |
+| [optparse-applicative](https://github.com/pcapriotti/optparse-applicative) | Haskell  |
+| [kotlinx-cli](https://github.com/Kotlin/kotlinx-cli)                       | Kotlin   |
+| [cligen](https://github.com/c-blake/cligen)                                | Nim      |
+| [argparse](https://github.com/mpeterv/argparse)                            | Lua      |
+| [Getopt::Long](https://perldoc.perl.org/Getopt::Long)                      | Perl     |
+| [OptionParser](https://hexdocs.pm/elixir/OptionParser.html)                | Elixir   |
+| [getopt](https://man7.org/linux/man-pages/man3/getopt.3.html)              | C        |
