@@ -36,10 +36,10 @@ flag "--shell <shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices
 }
 
-flag "--file <file>" long_help="longer help for --help (as oppoosed to -h)"
+flag "--file <file>" long_help="longer help for --help (as opposed to -h)"
 // this is equivalent to the above but preferred when a lot of space is needed
 flag "--file <file>" {
-  long_help r#"longer help for --help (as oppoosed to -h)
+  long_help r#"longer help for --help (as opposed to -h)
    even
    more
    text

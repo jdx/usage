@@ -9,7 +9,7 @@ complete "plugin" run="mycli plugins list"
 
 If you set `descriptions=#true`, you can provide descriptions for the completions:
 
-```sh
+```kdl
 complete "plugin" run="mycli plugins list" descriptions=#true
 ```
 
