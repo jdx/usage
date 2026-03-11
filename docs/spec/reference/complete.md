@@ -1,7 +1,7 @@
 # `complete`
 
-```sh
-# use a custom completion command for all args named "plugin"
+```kdl
+// use a custom completion command for all args named "plugin"
 complete "plugin" run="mycli plugins list"
 ```
 
@@ -33,7 +33,7 @@ The run can be customized with [tera](https://keats.github.io/tera/) templates. 
 
 Example of completing the second argument based on the first:
 
-```sh
+```kdl
 arg "<module>"
 arg "<controller>"
 complete "module" run="ls modules"
@@ -42,7 +42,7 @@ complete "controller" run="ls modules/{{words[PREV]}}/controllers"
 
 Example of using multiple words (one, two, three) for the completions of the forth argument:
 
-```sh
+```kdl
 arg "<one>"
 arg "<two>"
 arg "<three>"
