@@ -313,6 +313,75 @@ func TestStringDefaultZero(t *testing.T) {
 	assertContains(t, got, `default="0"`)
 }
 
+func TestSpecialCharacterEscaping(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "newline in help",
+			input:    "Line one\nLine two",
+			expected: `"Line one\nLine two"`,
+		},
+		{
+			name:     "tab in help",
+			input:    "col1\tcol2",
+			expected: `"col1\tcol2"`,
+		},
+		{
+			name:     "carriage return in help",
+			input:    "text\rmore",
+			expected: `"text\rmore"`,
+		},
+		{
+			name:     "backslash in help",
+			input:    `path\to\file`,
+			expected: `"path\\to\\file"`,
+		},
+		{
+			name:     "double quote in help",
+			input:    `say "hello"`,
+			expected: `"say \"hello\""`,
+		},
+		{
+			name:     "mixed special characters",
+			input:    "line1\nline2\ttab\r\nwindows",
+			expected: `"line1\nline2\ttab\r\nwindows"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := kdlQuoteAlways(tt.input)
+			if got != tt.expected {
+				t.Errorf("kdlQuoteAlways(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNewlineInCommandHelp(t *testing.T) {
+	root := &cobra.Command{
+		Use:   "app",
+		Short: "Short help",
+		Long:  "First line.\nSecond line.\n\nThird paragraph.",
+	}
+
+	got := Generate(root)
+
+	assertContains(t, got, `long_about "First line.\nSecond line.\n\nThird paragraph."`)
+}
+
+func TestSpecialCharsInFlagHelp(t *testing.T) {
+	cmd := &cobra.Command{Use: "app"}
+	cmd.Flags().String("format", "", "Output format:\n  json\n  yaml")
+
+	got := Generate(cmd)
+
+	assertContains(t, got, `help="Output format:\n  json\n  yaml"`)
+}
+
 // --- helpers ---
 
 func assertContains(t *testing.T, got, want string) {
