@@ -49,6 +49,16 @@ pub struct Spec {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub about_md: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before_long_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after_long_help: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_help: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_usage_version: Option<String>,
@@ -147,6 +157,11 @@ impl Spec {
                 "long_about" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_long" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_md" => schema.about_md = Some(node.arg(0)?.ensure_string()?),
+                "license" => schema.license = Some(node.arg(0)?.ensure_string()?),
+                "before_help" => schema.before_help = Some(node.arg(0)?.ensure_string()?),
+                "after_help" => schema.after_help = Some(node.arg(0)?.ensure_string()?),
+                "before_long_help" => schema.before_long_help = Some(node.arg(0)?.ensure_string()?),
+                "after_long_help" => schema.after_long_help = Some(node.arg(0)?.ensure_string()?),
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
                 "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
@@ -250,6 +265,11 @@ impl Spec {
         merge_opt!(author);
         merge_opt!(about_long);
         merge_opt!(about_md);
+        merge_opt!(license);
+        merge_opt!(before_help);
+        merge_opt!(after_help);
+        merge_opt!(before_long_help);
+        merge_opt!(after_long_help);
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
@@ -369,6 +389,31 @@ impl Display for Spec {
         if let Some(long_about) = &self.about_long {
             let mut node = KdlNode::new("long_about");
             node.push(KdlEntry::new(KdlValue::String(long_about.clone())));
+            nodes.push(node);
+        }
+        if let Some(license) = &self.license {
+            let mut node = KdlNode::new("license");
+            node.push(KdlEntry::new(KdlValue::String(license.clone())));
+            nodes.push(node);
+        }
+        if let Some(before_help) = &self.before_help {
+            let mut node = KdlNode::new("before_help");
+            node.push(KdlEntry::new(KdlValue::String(before_help.clone())));
+            nodes.push(node);
+        }
+        if let Some(after_help) = &self.after_help {
+            let mut node = KdlNode::new("after_help");
+            node.push(KdlEntry::new(KdlValue::String(after_help.clone())));
+            nodes.push(node);
+        }
+        if let Some(before_long_help) = &self.before_long_help {
+            let mut node = KdlNode::new("before_long_help");
+            node.push(KdlEntry::new(KdlValue::String(before_long_help.clone())));
+            nodes.push(node);
+        }
+        if let Some(after_long_help) = &self.after_long_help {
+            let mut node = KdlNode::new("after_long_help");
+            node.push(KdlEntry::new(KdlValue::String(after_long_help.clone())));
             nodes.push(node);
         }
         if let Some(disable_help) = self.disable_help {
