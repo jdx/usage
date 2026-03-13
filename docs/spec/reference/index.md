@@ -27,7 +27,7 @@ example "mycli --version"
 // render a link to the source code in markdown docs
 source_code_link_template "https://github.com/me/myproj/blob/main/src/cli/{{path}}.rs"
 
-include "./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
+include file="./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
 ```
 
 ## Source Code Link Template
