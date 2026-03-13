@@ -122,6 +122,10 @@ sort_commits = "oldest"
 # limit the number of commits included in the changelog.
 # limit_commits = 42
 
+[bump]
+# Detect breaking changes from conventional commit `!` marker and footer
+breaking_always_bump_major = true
+
 [remote.github]
 owner = "jdx"
 repo = "usage"
