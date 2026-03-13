@@ -2,7 +2,7 @@
 
 Integrations that generate usage specs from CLI framework definitions, enabling shell completions, docs, and man pages from a single source.
 
-For the full list of available and planned integrations, see the [Integrations documentation](https://usage.jdx.dev/spec/integrations/).
+For the full list of available and planned integrations, see the [Integrations documentation](https://usage.jdx.dev/spec/integrations).
 
 ## How Integrations Work
 
