@@ -28,6 +28,7 @@ use crate::spec::helpers::NodeHelper;
 use crate::{SpecArg, SpecComplete, SpecFlag};
 
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct Spec {
     pub name: String,
     pub bin: String,
