@@ -160,8 +160,12 @@ impl Spec {
                 "license" => schema.license = Some(node.arg(0)?.ensure_string()?),
                 "before_help" => schema.before_help = Some(node.arg(0)?.ensure_string()?),
                 "after_help" => schema.after_help = Some(node.arg(0)?.ensure_string()?),
-                "before_long_help" | "before_help_long" => schema.before_help_long = Some(node.arg(0)?.ensure_string()?),
-                "after_long_help" | "after_help_long" => schema.after_help_long = Some(node.arg(0)?.ensure_string()?),
+                "before_long_help" | "before_help_long" => {
+                    schema.before_help_long = Some(node.arg(0)?.ensure_string()?)
+                }
+                "after_long_help" | "after_help_long" => {
+                    schema.after_help_long = Some(node.arg(0)?.ensure_string()?)
+                }
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
                 "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
