@@ -1,24 +1,24 @@
 # `cmd`
 
-```sh
-# aliases
+```kdl
+// aliases
 cmd "config" help="Manage the CLI config" {
-  alias "cfg" "cf" "cg"  # aliases for the command
-  alias "conf" hide=#true # hide alias from docs and completions
+  alias "cfg" "cf" "cg"  // aliases for the command
+  alias "conf" hide=#true // hide alias from docs and completions
 }
 
-cmd "config" hide=#true # hide command from docs and completions
-cmd "config" subcommand_required=#true # subcommand is not optional
+cmd "config" hide=#true // hide command from docs and completions
+cmd "config" subcommand_required=#true // subcommand is not optional
 
-# these are shown under -h
+// these are shown under -h
 cmd "config" before_help="shown before the command"
 cmd "config" help="short description"
 cmd "config" after_help="shown after the command"
 
-# these are shown under --help
-# all help fields can be either inline params or separate nodes like
-# below for the *_long_help fields. Typically when a lot of space is needed
-# it's cleaner to use separate nodes.
+// these are shown under --help
+// all help fields can be either inline params or separate nodes like
+// below for the *_long_help fields. Typically when a lot of space is needed
+// it's cleaner to use separate nodes.
 cmd "config" {
   before_long_help "shown before the command"
   long_help "longer description"
@@ -54,7 +54,7 @@ create a hidden command like `mycli mount-usage-tasks` which emits usage spec fo
 create a `mount` on the `run` command. Here is the static usage spec for the `mycli` CLI as
 described:
 
-```sh
+```kdl
 cmd "mount-usage-tasks" hide=#true
 cmd "run" {
 	mount run="mycli mount-usage-tasks"
@@ -63,7 +63,7 @@ cmd "run" {
 
 Calling `mycli mount-usage-tasks` would emit something like this:
 
-```sh
+```kdl
 cmd "task1" {
   arg "arg1" help="task1 arg1"
   flag "flag1" help="task1 flag1"

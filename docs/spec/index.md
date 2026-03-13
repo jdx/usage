@@ -18,37 +18,37 @@ Usage specs are written in [kdl](https://kdl.dev/) which is a newer document lan
 combines
 the best of XML and JSON. Here is a basic example CLI definition:
 
-```sh
-# optional metadata
-name "My CLI"        # a friendly name for the CLI
-bin "mycli"          # the name of the binary
-about "some help"    # a short description of the CLI
-version "1.0.0"      # the version of the CLI
-author "nobody"      # the author of the CLI
-license "MIT"        # license the CLI is released under
+```kdl
+// optional metadata
+name "My CLI"        // a friendly name for the CLI
+bin "mycli"          // the name of the binary
+about "some help"    // a short description of the CLI
+version "1.0.0"      // the version of the CLI
+author "nobody"      // the author of the CLI
+license "MIT"        // license the CLI is released under
 
-# a standard flag
+// a standard flag
 flag "-f --force"   help="Always do the thing"
 flag "-v --version" help="Print the CLI version"
 flag "-h --help"    help="Print the CLI help"
 
-# a flag that takes a value
+// a flag that takes a value
 flag "-u --user <user>" help="User to run as"
 
-arg "<dir>"  help="The directory to use" # required positional argument
-arg "[file]" help="The file to read"     # optional positional argument
+arg "<dir>"  help="The directory to use" // required positional argument
+arg "[file]" help="The file to read"     // optional positional argument
 ```
 
 And here is an example CLI with nested subcommands:
 
-```sh
+```kdl
 flag "-v --verbose" "Enable verbose logging" global=#true count=#true
 flag "-q --quiet" "Enable quiet logging" global=#true
 flag "-u --user <user>" help="User to run as"
 
 cmd "update" help="Update the CLI"
 cmd "config" help="Manage the CLI config" {
-  # "set" is an alias for "add"
+  // "set" is an alias for "add"
   cmd "add" "Add/set a config" {
     alias "set"
     arg "<key>" help="The key for the config"
@@ -57,7 +57,7 @@ cmd "config" help="Manage the CLI config" {
   }
   cmd "remove" help="Remove a thing" {
     alias "rm"
-    alias "delete" hide=#true # hide alias from docs and completions
+    alias "delete" hide=#true // hide alias from docs and completions
     arg "<name>" help="The name of the thing"
   }
   cmd "list" help="List all things"
@@ -68,7 +68,7 @@ cmd "help" help="Print the CLI help"
 
 Flags/args can be backed by config files, environment variables, or defaults:
 
-```sh
+```kdl
 config_file ".mycli.toml" findup=#true
 flag "-u --user <user>" help="User to run as" env="MYCLI_USER" config="settings.user" default="admin"
 ```

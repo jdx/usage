@@ -1,33 +1,33 @@
 # Top-level metadata
 
-```sh
-min_usage_version "1.0.0" # the minimum version of usage this CLI supports
-                          # you want this at the top
+```kdl
+min_usage_version "1.0.0" // the minimum version of usage this CLI supports
+                          // you want this at the top
 
-name "My CLI"        # a friendly name for the CLI
-bin "mycli"          # the name of the binary
-version "1.0.0"      # the version of the CLI
-author "nobody"      # the author of the CLI
-license "MIT"        # SPDX license the CLI is released under
+name "My CLI"        // a friendly name for the CLI
+bin "mycli"          // the name of the binary
+version "1.0.0"      // the version of the CLI
+author "nobody"      // the author of the CLI
+license "MIT"        // SPDX license the CLI is released under
 
-# help for -h
+// help for -h
 before_help "before about"
 about "some help"
 after_help "after about"
 
-# help for --help
+// help for --help
 before_long_help "before about"
 long_about "longer help"
 after_long_help "after about"
 
-# examples (shown in markdown and manpage docs)
+// examples (shown in markdown and manpage docs)
 example "mycli --help" header="Getting help" help="Display help information"
 example "mycli --version"
 
-# render a link to the source code in markdown docs
+// render a link to the source code in markdown docs
 source_code_link_template "https://github.com/me/myproj/blob/main/src/cli/{{path}}.rs"
 
-include "./my_overrides.usage.kdl" # include another spec, will be merged and override existing values
+include "./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
 ```
 
 ## Source Code Link Template
@@ -35,7 +35,7 @@ include "./my_overrides.usage.kdl" # include another spec, will be merged and ov
 This is a tera template that can be used to customize the path for markdown documentation. For
 example, in mise I use the following to convert filenames to snake case:
 
-```sh
+```kdl
 source_code_link_template r#"
 {%- set path = path | replace(from='-', to='_') -%}
 {%- if cmd.subcommands | length > 0 -%}
@@ -54,7 +54,7 @@ Examples can be added at both the spec-level (top-level) and command-level to de
 
 Top-level examples showcase general usage of your CLI:
 
-```sh
+```kdl
 name "demo"
 bin "demo"
 
@@ -66,7 +66,7 @@ example "demo --version" header="Check version" help="Show the installed version
 
 Commands can also have their own examples (see [cmd reference](./cmd.md)):
 
-```sh
+```kdl
 cmd "deploy" {
   flag "-e --environment <env>" help="Target environment"
 
