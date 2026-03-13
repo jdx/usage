@@ -79,6 +79,8 @@ filter_unconventional = false
 split_commits = false
 # regex for preprocessing the commit messages
 commit_preprocessors = [
+  # normalize `type!(scope):` to `type(scope)!:` for conventional commit parsing
+  { pattern = '^(\w+)!\(([^)]*)\):', replace = "${1}(${2})!:" },
   # remove PR labels from commits
   { pattern = '\(#([0-9]+)\)', replace = "" },
   # Check spelling of the commit with https://github.com/crate-ci/typos
@@ -125,8 +127,6 @@ sort_commits = "oldest"
 [bump]
 # Detect breaking changes from conventional commit `!` marker and footer
 breaking_always_bump_major = true
-# Also match the `!` breaking change indicator in commit messages directly
-custom_major_increment_regex = "^(feat|fix|refactor|perf|chore|style|test|docs)(!(\\(.*\\))?|\\(.*\\)!):"
 
 [remote.github]
 owner = "jdx"
