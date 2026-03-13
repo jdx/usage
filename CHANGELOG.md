@@ -1,5 +1,46 @@
 # Changelog
 
+## [3.0.0](https://github.com/jdx/usage/compare/v2.18.2..v3.0.0) - 2026-03-13
+
+### 🚀 Features
+
+- **(spec)** **breaking** add support for license, before/after help metadata by [@jdx](https://github.com/jdx) in [#542](https://github.com/jdx/usage/pull/542)
+
+### 🐛 Bug Fixes
+
+- **(cobra)** escape newlines, tabs, and carriage returns in kdlQuoteAlways by [@thecodesmith](https://github.com/thecodesmith) in [#539](https://github.com/jdx/usage/pull/539)
+- bump major version for breaking changes in release automation by [@jdx](https://github.com/jdx) in [#544](https://github.com/jdx/usage/pull/544)
+- add custom_major_increment_regex for breaking change detection by [@jdx](https://github.com/jdx) in [#545](https://github.com/jdx/usage/pull/545)
+- handle all breaking change commit formats in major bump regex by [@jdx](https://github.com/jdx) in [27e1ab1](https://github.com/jdx/usage/commit/27e1ab1bfc4d53ac575dad7651f25fe3a141e676)
+- normalize breaking change commit format in preprocessor by [@jdx](https://github.com/jdx) in [aa72b92](https://github.com/jdx/usage/commit/aa72b927da091b080952d0fed7f5fe429f775ac3)
+
+### 📚 Documentation
+
+- add argparse-usage integration by [@jdx](https://github.com/jdx) in [#531](https://github.com/jdx/usage/pull/531)
+- mark KDL code blocks as KDL and use correct inline-comment `//` by [@muzimuzhi](https://github.com/muzimuzhi) in [#536](https://github.com/jdx/usage/pull/536)
+- fix include syntax to match implementation by [@jdx](https://github.com/jdx) in [#540](https://github.com/jdx/usage/pull/540)
+- consolidate integration list to single source by [@jdx](https://github.com/jdx) in [#541](https://github.com/jdx/usage/pull/541)
+- fix link to integrations by [@muzimuzhi](https://github.com/muzimuzhi) in [#543](https://github.com/jdx/usage/pull/543)
+
+### 🛡️ Security
+
+- **(deps)** update dependency eslint to v10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#526](https://github.com/jdx/usage/pull/526)
+
+### 🔍 Other Changes
+
+- Added an integration with ruby's OptionParser by [@packrat386](https://github.com/packrat386) in [#533](https://github.com/jdx/usage/pull/533)
+
+### 📦️ Dependency Updates
+
+- update actions/setup-node digest to 53b8394 by [@renovate[bot]](https://github.com/renovate[bot]) in [#525](https://github.com/jdx/usage/pull/525)
+- update jdx/mise-action action to v3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#528](https://github.com/jdx/usage/pull/528)
+- update rust crate roff to v1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#529](https://github.com/jdx/usage/pull/529)
+
+### New Contributors
+
+- @thecodesmith made their first contribution in [#539](https://github.com/jdx/usage/pull/539)
+- @packrat386 made their first contribution in [#533](https://github.com/jdx/usage/pull/533)
+
 ## [2.18.2](https://github.com/jdx/usage/compare/v2.18.1..v2.18.2) - 2026-03-01
 
 ### 🐛 Bug Fixes
