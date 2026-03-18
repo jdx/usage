@@ -79,6 +79,16 @@ fn complete_word_choices_from_env() {
 }
 
 #[test]
+fn complete_word_choices_from_env_unset_returns_empty() {
+    cmd("env-choices.usage.kdl", Some("fish"))
+        .env_remove("DEPLOY_ENVS")
+        .args(["--", "--env", ""])
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
 fn complete_word_shebang() {
     assert_cmd("example.sh", &["--", "-"])
         .stdout("--bar\tOption value\n--defaulted\tDefaulted value\n--foo\tFlag value\n");
