@@ -222,7 +222,7 @@ impl FigArg {
             is_optional: !arg.required,
             template: FigArg::get_template(&arg.name),
             generators: FigArg::get_generator(&arg.name),
-            suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
+            suggestions: arg.choices.as_ref().map(|c| c.values()).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
         }
     }

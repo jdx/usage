@@ -309,7 +309,15 @@ impl SpecArgBuilder {
     {
         self.inner.choices = Some(SpecChoices {
             choices: choices.into_iter().map(Into::into).collect(),
+            env: None,
         });
+        self
+    }
+
+    /// Set choices from an environment variable
+    pub fn choices_env(mut self, env: impl Into<String>) -> Self {
+        let choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
+        choices.env = Some(env.into());
         self
     }
 
@@ -678,6 +686,20 @@ mod tests {
             choices.choices,
             vec!["json".to_string(), "yaml".to_string(), "toml".to_string()]
         );
+        assert_eq!(choices.env, None);
+    }
+
+    #[test]
+    fn test_arg_builder_choices_env() {
+        let arg = SpecArgBuilder::new()
+            .name("env")
+            .choices(["local"])
+            .choices_env("DEPLOY_ENVS")
+            .build();
+
+        let choices = arg.choices.unwrap();
+        assert_eq!(choices.choices, vec!["local".to_string()]);
+        assert_eq!(choices.env, Some("DEPLOY_ENVS".to_string()));
     }
 
     #[test]

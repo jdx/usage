@@ -266,12 +266,14 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
-            return Ok(choices
-                .choices
-                .iter()
-                .map(|c| (c.clone(), String::new()))
-                .filter(|(c, _)| c.starts_with(ctoken))
-                .collect());
+            let values = choices.values();
+            if !values.is_empty() {
+                return Ok(values
+                    .into_iter()
+                    .map(|c| (c, String::new()))
+                    .filter(|(c, _)| c.starts_with(ctoken))
+                    .collect());
+            }
         }
         if let Some(run) = &complete.run {
             let run = tera::Tera::one_off(run, ctx, false).into_diagnostic()?;

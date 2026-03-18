@@ -385,7 +385,7 @@ impl From<&clap::Arg> for SpecFlag {
                 .flat_map(|v| v.get_name_and_aliases().map(|s| s.to_string()))
                 .collect::<Vec<_>>();
             if !choices.is_empty() {
-                arg.choices = Some(SpecChoices { choices });
+                arg.choices = Some(SpecChoices { choices, env: None });
             }
 
             Some(arg)

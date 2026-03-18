@@ -342,7 +342,7 @@ impl From<&clap::Arg> for SpecArg {
             env: None,
         };
         if !choices.is_empty() {
-            arg.choices = Some(SpecChoices { choices });
+            arg.choices = Some(SpecChoices { choices, env: None });
         }
 
         arg

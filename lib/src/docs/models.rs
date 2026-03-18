@@ -294,7 +294,11 @@ impl From<&crate::SpecArg> for SpecArg {
             var_max: arg.var_max,
             hide: arg.hide,
             default: arg.default.clone(),
-            choices: arg.choices.clone(),
+            choices: arg
+                .choices
+                .as_ref()
+                .map(SpecChoices::resolved)
+                .filter(|choices| !choices.choices.is_empty()),
             env: arg.env.clone(),
             rendered: false,
             help_rendered: None,

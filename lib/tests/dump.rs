@@ -26,5 +26,9 @@ tests_same! {
     choices bash fish zsh
 }"#,
 
+    arg_choices_env: r#"arg <env> {
+    choices env=DEPLOY_ENVS
+}"#,
+
     double_dash: r#"arg "<-- shell>…" var=#true"#,
 }
