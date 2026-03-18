@@ -29,7 +29,8 @@ Arguments:
 {%- for arg in cmd.args %}
   {{ arg.usage | trim }}
 {%- if arg.help %}  {{ arg.help }}{%- endif %}
-{%- if arg.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if arg.choices and arg.choices.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if arg.choices and arg.choices.env %} [choices env: {{ arg.choices.env }}]{%- endif %}
 {%- if arg.env %} [env: {{ arg.env }}]{%- endif %}
 {%- if arg.default %} (default: {{ arg.default | join(sep=", ") }}){%- endif %}
 {%- endfor %}
@@ -42,7 +43,8 @@ Flags:
   {{ flag.usage | trim }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- if flag.help %}  {{ flag.help }}{%- endif %}
-{%- if flag.arg.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
 {%- if flag.env %} [env: {{ flag.env }}]{%- endif %}
 {%- endfor %}
 {%- endif %}

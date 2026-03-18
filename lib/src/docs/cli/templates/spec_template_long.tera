@@ -49,8 +49,11 @@ Arguments:
     {{ help | indent(width=2) }}
 {%- endif %}
 {%- endif %}
-{%- if arg.choices %}
+{%- if arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
+{%- endif %}
+{%- if arg.choices and arg.choices.env %}
+    [choices env: {{ arg.choices.env }}]
 {%- endif %}
 {%- if arg.env %}
     [env: {{ arg.env }}]
@@ -78,8 +81,11 @@ Flags:
     {{ help | indent(width=2) }}
 {%- endif %}
 {%- endif %}
-{%- if flag.arg.choices %}
+{%- if flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %}
+    [choices env: {{ flag.arg.choices.env }}]
 {%- endif %}
 {%- if flag.env %}
     [env: {{ flag.env }}]

@@ -1787,8 +1787,6 @@ mod tests {
             ..Default::default()
         };
 
-        std::env::remove_var("USAGE_TEST_DEPLOY_ENVS_ARG");
-
         let env = HashMap::from([(
             "USAGE_TEST_DEPLOY_ENVS_ARG".to_string(),
             "foo,bar baz".to_string(),
@@ -1817,8 +1815,6 @@ mod tests {
             cmd,
             ..Default::default()
         };
-
-        std::env::remove_var("USAGE_TEST_DEPLOY_ENVS_ARG_ERR");
 
         let env = HashMap::from([(
             "USAGE_TEST_DEPLOY_ENVS_ARG_ERR".to_string(),
@@ -1855,8 +1851,6 @@ mod tests {
             cmd,
             ..Default::default()
         };
-
-        std::env::remove_var("USAGE_TEST_DEPLOY_ENVS_FLAG");
 
         let env = HashMap::from([(
             "USAGE_TEST_DEPLOY_ENVS_FLAG".to_string(),

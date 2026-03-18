@@ -47,9 +47,11 @@ impl SpecChoices {
         let mut values = self.choices.clone();
 
         if let Some(env_key) = &self.env {
-            let env_value = env
-                .and_then(|env_map| env_map.get(env_key).cloned())
-                .or_else(|| std::env::var(env_key).ok());
+            let env_value = if let Some(env_map) = env {
+                env_map.get(env_key).cloned()
+            } else {
+                std::env::var(env_key).ok()
+            };
 
             if let Some(env_value) = env_value {
                 for choice in env_value
@@ -65,13 +67,6 @@ impl SpecChoices {
         }
 
         values
-    }
-
-    pub fn resolved(&self) -> Self {
-        Self {
-            choices: self.values(),
-            env: None,
-        }
     }
 }
 
@@ -118,5 +113,18 @@ mod tests {
         let env = HashMap::from([("DEPLOY_ENVS".to_string(), "foo,bar foo".to_string())]);
 
         assert_eq!(choices.values_with_env(Some(&env)), vec!["foo", "bar"]);
+    }
+
+    #[test]
+    fn values_with_env_does_not_fallback_when_custom_env_is_present() {
+        let choices = SpecChoices {
+            choices: vec!["local".into()],
+            env: Some("USAGE_TEST_CHOICES_ENV_DOES_NOT_EXIST_A5E0F4D1".into()),
+        };
+
+        assert_eq!(
+            choices.values_with_env(Some(&HashMap::new())),
+            vec!["local"]
+        );
     }
 }
