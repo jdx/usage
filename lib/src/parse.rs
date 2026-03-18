@@ -647,10 +647,17 @@ fn validate_choices(
 ) -> miette::Result<bool> {
     if let Some(choices) = choices {
         let values = choices.values_with_env(custom_env);
-        if !values.is_empty() && !values.iter().any(|choice| choice == value) {
+        if !values.iter().any(|choice| choice == value) {
             if is_help_arg(spec, value) {
                 errors.push(render_help_err(spec, cmd, value.len() > 2));
                 return Ok(true);
+            }
+            if let Some(env) = &choices.env {
+                if values.is_empty() {
+                    bail!(
+                        "Invalid choice for {kind} {name}: {value}, no choices resolved from env {env}"
+                    );
+                }
             }
             bail!(
                 "Invalid choice for {kind} {name}: {value}, expected one of {}",
@@ -1826,6 +1833,36 @@ mod tests {
         assert_eq!(
             format!("{err}"),
             "Invalid choice for arg env: prod, expected one of foo, bar, baz"
+        );
+    }
+
+    #[test]
+    fn test_parser_rejects_arg_choices_when_env_resolves_to_no_values() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("env")
+                    .choices_env("USAGE_TEST_DEPLOY_ENVS_ARG_EMPTY")
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string(), "prod".to_string()];
+        let err = Parser::new(&spec)
+            .with_env(HashMap::new())
+            .parse(&input)
+            .unwrap_err();
+
+        assert_eq!(
+            format!("{err}"),
+            "Invalid choice for arg env: prod, no choices resolved from env USAGE_TEST_DEPLOY_ENVS_ARG_EMPTY"
         );
     }
 

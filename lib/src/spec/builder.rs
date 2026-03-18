@@ -307,10 +307,8 @@ impl SpecArgBuilder {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.inner.choices = Some(SpecChoices {
-            choices: choices.into_iter().map(Into::into).collect(),
-            env: None,
-        });
+        let spec_choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
+        spec_choices.choices = choices.into_iter().map(Into::into).collect();
         self
     }
 
@@ -695,6 +693,19 @@ mod tests {
             .name("env")
             .choices(["local"])
             .choices_env("DEPLOY_ENVS")
+            .build();
+
+        let choices = arg.choices.unwrap();
+        assert_eq!(choices.choices, vec!["local".to_string()]);
+        assert_eq!(choices.env, Some("DEPLOY_ENVS".to_string()));
+    }
+
+    #[test]
+    fn test_arg_builder_choices_preserves_choices_env() {
+        let arg = SpecArgBuilder::new()
+            .name("env")
+            .choices_env("DEPLOY_ENVS")
+            .choices(["local"])
             .build();
 
         let choices = arg.choices.unwrap();
