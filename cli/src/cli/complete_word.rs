@@ -144,7 +144,6 @@ impl CompleteWord {
                     if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
                         // Include completions from default subcommand's first arg
                         if let Some(arg) = default_cmd.args.first() {
-                            has_explicit_choices = has_explicit_choices || arg.choices.is_some();
                             choices.extend(self.complete_arg(
                                 &ctx,
                                 spec,
