@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.1.0](https://github.com/jdx/usage/compare/v3.0.0..v3.1.0) - 2026-03-22
+
+### 🚀 Features
+
+- **(cli)** render all doc-related fields in --help output by [@jdx](https://github.com/jdx) in [#554](https://github.com/jdx/usage/pull/554)
+- **(cli)** support reading spec from stdin via --file - by [@jdx](https://github.com/jdx) in [#555](https://github.com/jdx/usage/pull/555)
+
+### 🐛 Bug Fixes
+
+- **(zsh)** remove trailing space from completions and add directory slash by [@jdx](https://github.com/jdx) in [#556](https://github.com/jdx/usage/pull/556)
+- use field assignment for non-exhaustive Spec in benchmarks by [@jdx](https://github.com/jdx) in [#552](https://github.com/jdx/usage/pull/552)
+
+### 📦️ Dependency Updates
+
+- update apple-actions/import-codesign-certs digest to fe74d46 by [@renovate[bot]](https://github.com/renovate[bot]) in [#550](https://github.com/jdx/usage/pull/550)
+- update codecov/codecov-action digest to 1af5884 by [@renovate[bot]](https://github.com/renovate[bot]) in [#551](https://github.com/jdx/usage/pull/551)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#547](https://github.com/jdx/usage/pull/547)
+
 ## [3.0.0](https://github.com/jdx/usage/compare/v2.18.2..v3.0.0) - 2026-03-13
 
 ### 🚀 Features
