@@ -12,7 +12,7 @@ Generate markdown documentation from usage specs
 
 ### `-f --file <FILE>`
 
-A usage spec taken in as a file
+A usage spec taken in as a file, use "-" to read from stdin
 
 ### `-m --multi`
 

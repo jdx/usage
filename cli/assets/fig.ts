@@ -121,7 +121,8 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: ["-f", "--file"],
-          description: "Usage spec file or script with usage shebang",
+          description:
+            'Usage spec file or script with usage shebang, use "-" to read from stdin',
           isRepeatable: false,
           args: {
             name: "file",
@@ -233,7 +234,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-f", "--file"],
               description:
-                "A .usage.kdl spec file to use for generating completions",
+                'A .usage.kdl spec file to use for generating completions, use "-" to read from stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -291,7 +292,8 @@ const completionSpec: Fig.Spec = {
           options: [
             {
               name: ["-f", "--file"],
-              description: "A usage spec taken in as a file",
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -324,7 +326,8 @@ const completionSpec: Fig.Spec = {
           options: [
             {
               name: ["-f", "--file"],
-              description: "A usage spec taken in as a file",
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -346,7 +349,8 @@ const completionSpec: Fig.Spec = {
           options: [
             {
               name: ["-f", "--file"],
-              description: "A usage spec taken in as a file",
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -378,7 +382,8 @@ const completionSpec: Fig.Spec = {
           options: [
             {
               name: ["-f", "--file"],
-              description: "A usage spec taken in as a file",
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -453,7 +458,7 @@ const completionSpec: Fig.Spec = {
       ],
       args: {
         name: "file",
-        description: "A usage spec file to lint",
+        description: 'A usage spec file to lint, use "-" to read from stdin',
         template: "filepaths",
       },
     },

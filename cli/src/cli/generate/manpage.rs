@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
+use super::parse_file_or_stdin;
 use clap::Args;
 use usage::docs::manpage::ManpageRenderer;
-use super::parse_file_or_stdin;
 
 #[derive(Args)]
 #[clap(visible_alias = "man")]

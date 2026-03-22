@@ -79,8 +79,8 @@
           {
             "name": "file",
             "usage": "-f --file <FILE>",
-            "help": "Usage spec file or script with usage shebang",
-            "help_first_line": "Usage spec file or script with usage shebang",
+            "help": "Usage spec file or script with usage shebang, use \"-\" to read from stdin",
+            "help_first_line": "Usage spec file or script with usage shebang, use \"-\" to read from stdin",
             "short": ["f"],
             "long": ["file"],
             "hide": false,
@@ -309,8 +309,8 @@
               {
                 "name": "file",
                 "usage": "-f --file <FILE>",
-                "help": "A .usage.kdl spec file to use for generating completions",
-                "help_first_line": "A .usage.kdl spec file to use for generating completions",
+                "help": "A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin",
+                "help_first_line": "A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin",
                 "short": ["f"],
                 "long": ["file"],
                 "hide": false,
@@ -405,8 +405,8 @@
               {
                 "name": "file",
                 "usage": "-f --file <FILE>",
-                "help": "A usage spec taken in as a file",
-                "help_first_line": "A usage spec taken in as a file",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
                 "short": ["f"],
                 "long": ["file"],
                 "hide": false,
@@ -471,8 +471,8 @@
               {
                 "name": "file",
                 "usage": "-f --file <FILE>",
-                "help": "A usage spec taken in as a file",
-                "help_first_line": "A usage spec taken in as a file",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
                 "short": ["f"],
                 "long": ["file"],
                 "hide": false,
@@ -520,8 +520,8 @@
               {
                 "name": "file",
                 "usage": "-f --file <FILE>",
-                "help": "A usage spec taken in as a file",
-                "help_first_line": "A usage spec taken in as a file",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
                 "short": ["f"],
                 "long": ["file"],
                 "required": true,
@@ -588,8 +588,8 @@
               {
                 "name": "file",
                 "usage": "-f --file <FILE>",
-                "help": "A usage spec taken in as a file",
-                "help_first_line": "A usage spec taken in as a file",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
                 "short": ["f"],
                 "long": ["file"],
                 "required": true,
@@ -713,8 +713,8 @@
           {
             "name": "FILE",
             "usage": "<FILE>",
-            "help": "A usage spec file to lint",
-            "help_first_line": "A usage spec file to lint",
+            "help": "A usage spec file to lint, use \"-\" to read from stdin",
+            "help_first_line": "A usage spec file to lint, use \"-\" to read from stdin",
             "required": true,
             "double_dash": "Optional",
             "hide": false

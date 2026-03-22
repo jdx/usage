@@ -11,7 +11,7 @@ Outputs a usage spec in json format
 
 ### `-f --file <FILE>`
 
-A usage spec taken in as a file
+A usage spec taken in as a file, use "-" to read from stdin
 
 ### `--spec <SPEC>`
 

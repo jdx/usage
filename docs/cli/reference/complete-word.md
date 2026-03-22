@@ -20,7 +20,7 @@ User's input from the command line
 
 ### `-f --file <FILE>`
 
-Usage spec file or script with usage shebang
+Usage spec file or script with usage shebang, use "-" to read from stdin
 
 ### `-s --spec <SPEC>`
 

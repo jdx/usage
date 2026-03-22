@@ -11,7 +11,7 @@ Lint a usage spec file for common issues
 
 ### `<FILE>`
 
-A usage spec file to lint
+A usage spec file to lint, use "-" to read from stdin
 
 ## Flags
 

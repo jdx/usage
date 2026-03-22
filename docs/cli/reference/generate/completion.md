@@ -30,7 +30,7 @@ The CLI which we're generating completions for
 
 ### `-f --file <FILE>`
 
-A .usage.kdl spec file to use for generating completions
+A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
 
 ### `--cache-key <CACHE_KEY>`
 

@@ -16,7 +16,7 @@ cmd bash help="Execute a shell script using bash" {
 cmd complete-word help="Generate shell completion candidates for a partial command line" {
     alias cw
     long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments."
-    flag "-f --file" help="Usage spec file or script with usage shebang" {
+    flag "-f --file" help="Usage spec file or script with usage shebang, use \"-\" to read from stdin" {
         arg <FILE>
     }
     flag "-s --spec" help="Raw string spec input" {
@@ -52,7 +52,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
     cmd completion help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" {
         alias c
         alias complete completions hide=#true
-        flag "-f --file" help="A .usage.kdl spec file to use for generating completions" {
+        flag "-f --file" help="A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin" {
             arg <FILE>
         }
         flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" {
@@ -74,7 +74,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         arg <BIN> help="The CLI which we're generating completions for"
     }
     cmd fig help="Generate Fig completion spec for Amazon Q / Fig" {
-        flag "-f --file" help="A usage spec taken in as a file" {
+        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
         flag --out-file help="File path where the generated Fig spec will be saved" {
@@ -85,7 +85,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         }
     }
     cmd json help="Outputs a usage spec in json format" {
-        flag "-f --file" help="A usage spec taken in as a file" {
+        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
         flag --spec help="raw string spec input" {
@@ -94,7 +94,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
     }
     cmd manpage {
         alias man
-        flag "-f --file" help="A usage spec taken in as a file" required=#true {
+        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
         }
         flag "-o --out-file" help="Output file path (defaults to stdout)" {
@@ -107,7 +107,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
     }
     cmd markdown help="Generate markdown documentation from usage specs" {
         alias md
-        flag "-f --file" help="A usage spec taken in as a file" required=#true {
+        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
         }
         flag "-m --multi" help="Render each subcommand as a separate markdown file"
@@ -131,7 +131,7 @@ cmd lint help="Lint a usage spec file for common issues" {
         }
     }
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
-    arg <FILE> help="A usage spec file to lint"
+    arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
 cmd powershell help="Execute a shell script using PowerShell" {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."

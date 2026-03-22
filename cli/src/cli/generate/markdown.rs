@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
+use super::parse_file_or_stdin;
 use clap::Args;
 use usage::docs::markdown::MarkdownRenderer;
-use super::parse_file_or_stdin;
 
 /// Generate markdown documentation from usage specs
 #[derive(Args)]
