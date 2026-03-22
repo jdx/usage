@@ -1,8 +1,20 @@
+{%- if cmd.before_help_long %}{{ cmd.before_help_long }}
+
+{% elif cmd.before_help %}{{ cmd.before_help }}
+
+{% elif spec.before_help_long %}{{ spec.before_help_long }}
+
+{% elif spec.before_help %}{{ spec.before_help }}
+
+{% endif -%}
+{%- if spec.name and spec.version %}{{ spec.name }} {{ spec.version }}
+{% elif spec.version %}{{ spec.bin }} {{ spec.version }}
+{% endif -%}
 {%- if spec.about_long %}{{ spec.about_long }}
 
 {% elif spec.about %}{{ spec.about }}
 
-{% endif %}
+{% endif -%}
 Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
 
 {%- if cmd.subcommands %}
@@ -10,6 +22,7 @@ Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
 Commands:
 {%- for name, cmd in cmd.subcommands %}
   {{ cmd.usage | trim }}
+{%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = cmd.help_long | default(value=cmd.help | default(value='')) %}
 {%- if help %}
@@ -72,4 +85,53 @@ Flags:
     [env: {{ flag.env }}]
 {%- endif %}
 {%- endfor %}
+{%- endif %}
+
+{%- if cmd.examples %}
+
+Examples:
+{%- for example in cmd.examples %}
+{%- if example.header %}
+  {{ example.header }}:
+{%- endif %}
+{%- if example.help %}
+    {{ example.help }}
+{%- endif %}
+    $ {{ example.code }}
+{%- endfor %}
+{%- elif spec.examples %}
+
+Examples:
+{%- for example in spec.examples %}
+{%- if example.header %}
+  {{ example.header }}:
+{%- endif %}
+{%- if example.help %}
+    {{ example.help }}
+{%- endif %}
+    $ {{ example.code }}
+{%- endfor %}
+{%- endif %}
+
+{%- if cmd.after_help_long %}
+
+{{ cmd.after_help_long }}
+{%- elif cmd.after_help %}
+
+{{ cmd.after_help }}
+{%- elif spec.after_help_long %}
+
+{{ spec.after_help_long }}
+{%- elif spec.after_help %}
+
+{{ spec.after_help }}
+{%- endif %}
+
+{%- if spec.author or spec.license %}
+{% if spec.author %}
+Author: {{ spec.author }}
+{%- endif %}
+{%- if spec.license %}
+License: {{ spec.license }}
+{%- endif %}
 {%- endif -%}

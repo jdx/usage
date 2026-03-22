@@ -112,4 +112,167 @@ arg "[default]" help="Arg with default value" default="default value"
             (default: default value)
         ");
     }
+
+    #[test]
+    fn test_render_help_with_before_after_help() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+before_help "This text appears before the help"
+after_help "This text appears after the help"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        This text appears before the help
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        This text appears after the help
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_before_after_help_long() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+before_help "short before"
+before_help_long "This is the long version of before help"
+after_help "short after"
+after_help_long "This is the long version of after help"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        short before
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        short after
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        This is the long version of before help
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        This is the long version of after help
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_examples() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--verbose" help="Enable verbose output"
+example "testcli --verbose" header="Run with verbose output"
+example "testcli" header="Run normally" help="Just runs the tool"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Examples:
+          Run with verbose output:
+            $ testcli --verbose
+          Run normally:
+            $ testcli
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Examples:
+          Run with verbose output:
+            $ testcli --verbose
+          Run normally:
+            Just runs the tool
+            $ testcli
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_version() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+name "TestCLI"
+version "1.2.3"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        TestCLI 1.2.3
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_author_license() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+author "Test Author"
+license "MIT"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        // Short help should not show author/license
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+        ");
+
+        // Long help should show author/license at the bottom
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Author: Test Author
+        License: MIT
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_deprecated_command() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+cmd "old-cmd" help="Do something" deprecated="use new-cmd instead"
+cmd "new-cmd" help="Do something better"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli <SUBCOMMAND>
+
+        Commands:
+          new-cmd  Do something better
+          old-cmd [deprecated: use new-cmd instead]  Do something
+          help  Print this message or the help of the given subcommand(s)
+        ");
+    }
 }
