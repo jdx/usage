@@ -1,7 +1,27 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// Helper to run usage complete-word and return stdout
+fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&str]) -> String {
+    let mut args = vec![
+        "complete-word".to_string(),
+        "--shell".to_string(),
+        shell.to_string(),
+        "-f".to_string(),
+        spec_file.to_str().unwrap().to_string(),
+        "--".to_string(),
+    ];
+    args.extend(words.iter().map(|w| w.to_string()));
+
+    let output = Command::new(usage_bin)
+        .args(&args)
+        .output()
+        .expect("Failed to run usage complete-word");
+
+    String::from_utf8_lossy(&output.stdout).to_string()
+}
 
 /// Build the usage binary and return its path
 fn build_usage_binary() -> PathBuf {
@@ -668,6 +688,90 @@ Write-Host "COMPLETION_TEST_DONE"
     assert!(
         stdout.contains("COMPLETION_TEST_DONE"),
         "Should complete test"
+    );
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_zsh_complete_word_output_format() {
+    let usage_bin = build_usage_binary();
+
+    let temp_dir = env::temp_dir().join(format!("usage_zsh_fmt_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    // Spec with subcommands (which have descriptions)
+    let usage_spec = r#"name testcli
+bin testcli
+flag "-v --verbose" help="Verbose output"
+arg <file> help="Input file"
+cmd sub help="A subcommand"
+cmd other help="Another subcommand"
+"#;
+    let spec_file = temp_dir.join("test.spec");
+    fs::write(&spec_file, usage_spec).unwrap();
+
+    // Test zsh output format: should be `name:description` for _describe
+    let output = run_complete_word(&usage_bin, "zsh", &spec_file, &["testcli", ""]);
+    let lines: Vec<&str> = output.lines().collect();
+
+    // Should have completions with description format "name:description"
+    assert!(
+        lines.iter().any(|l| l.contains("sub:A subcommand")),
+        "Expected 'sub:A subcommand' in zsh output, got: {:?}",
+        lines
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains("other:Another subcommand")),
+        "Expected 'other:Another subcommand' in zsh output, got: {:?}",
+        lines
+    );
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_complete_path_adds_trailing_slash_for_directories() {
+    let usage_bin = build_usage_binary();
+
+    let temp_dir = env::temp_dir().join(format!("usage_path_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    // Create a test directory structure
+    let test_dir = temp_dir.join("testdir");
+    fs::create_dir_all(test_dir.join("subdir")).unwrap();
+    fs::write(test_dir.join("file.txt"), "hello").unwrap();
+
+    // Spec with a path-type arg
+    let usage_spec = r#"name testcli
+bin testcli
+arg <path>
+complete path type="path"
+"#;
+    let spec_file = temp_dir.join("test.spec");
+    fs::write(&spec_file, usage_spec).unwrap();
+
+    // Complete with a path prefix pointing to our test directory
+    let test_dir_str = format!("{}/", test_dir.to_str().unwrap());
+    let output = run_complete_word(&usage_bin, "bash", &spec_file, &["testcli", &test_dir_str]);
+    let lines: Vec<&str> = output.lines().collect();
+
+    // Directory should have trailing slash
+    assert!(
+        lines.iter().any(|l| l.ends_with("subdir/")),
+        "Expected directory completion to end with '/', got: {:?}",
+        lines
+    );
+
+    // File should NOT have trailing slash
+    assert!(
+        lines.iter().any(|l| l.ends_with("file.txt")),
+        "Expected file completion without trailing '/', got: {:?}",
+        lines
     );
 
     // Cleanup

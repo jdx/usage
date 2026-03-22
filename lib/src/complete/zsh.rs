@@ -86,7 +86,11 @@ fi"#
         r#"
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
   {file_write_logic}
-  _arguments "*: :(($(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}" )))"
+  local -a completions=()
+  while IFS= read -r line; do
+    completions+=("$line")
+  done < <(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}")
+  _describe 'completions' completions -- -S ''
   return 0
 }}
 

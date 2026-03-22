@@ -59,12 +59,12 @@ impl CompleteWord {
                     }
                 }
                 "zsh" => {
-                    let c = c.replace(":", "\\\\:");
+                    let c = c.replace(':', "\\:");
                     if any_descriptions {
-                        let description = description.replace("'", "'\\''");
-                        println!("'{c}'\\:'{description}'")
+                        let description = description.replace(':', "\\:");
+                        println!("{c}:{description}")
                     } else {
-                        println!("'{c}'")
+                        println!("{c}")
                     }
                 }
                 _ => miette::bail!("unsupported shell: {}", shell),
@@ -338,10 +338,15 @@ impl CompleteWord {
             .map(|de| de.path())
             .filter(|p| filter(p))
             .map(|p| {
-                p.strip_prefix(base)
+                let mut s = p
+                    .strip_prefix(base)
                     .unwrap_or(&p)
                     .to_string_lossy()
-                    .to_string()
+                    .to_string();
+                if p.is_dir() {
+                    s.push('/');
+                }
+                s
             })
             .sorted()
             .collect()

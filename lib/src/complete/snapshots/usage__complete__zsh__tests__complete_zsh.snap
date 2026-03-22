@@ -29,7 +29,11 @@ _mycli() {
 
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli.spec"
   mycli complete --usage >| "$spec_file"
-  _arguments "*: :(($(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}" )))"
+  local -a completions=()
+  while IFS= read -r line; do
+    completions+=("$line")
+  done < <(command usage complete-word --shell zsh -f "$spec_file" -- "${words[@]}")
+  _describe 'completions' completions -- -S ''
   return 0
 }
 
