@@ -1,8 +1,17 @@
+{%- if cmd.before_help_long %}{{ cmd.before_help_long }}
+
+{% elif cmd.before_help %}{{ cmd.before_help }}
+
+{% elif spec.before_help_long %}{{ spec.before_help_long }}
+
+{% elif spec.before_help %}{{ spec.before_help }}
+
+{% endif -%}
 {%- if spec.about_long %}{{ spec.about_long }}
 
 {% elif spec.about %}{{ spec.about }}
 
-{% endif %}
+{% endif -%}
 Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
 
 {%- if cmd.subcommands %}
@@ -72,4 +81,44 @@ Flags:
     [env: {{ flag.env }}]
 {%- endif %}
 {%- endfor %}
+{%- endif %}
+
+{%- if cmd.examples %}
+
+Examples:
+{%- for example in cmd.examples %}
+{%- if example.header %}
+  {{ example.header }}:
+{%- endif %}
+{%- if example.help %}
+    {{ example.help }}
+{%- endif %}
+    $ {{ example.code }}
+{%- endfor %}
+{%- elif spec.examples %}
+
+Examples:
+{%- for example in spec.examples %}
+{%- if example.header %}
+  {{ example.header }}:
+{%- endif %}
+{%- if example.help %}
+    {{ example.help }}
+{%- endif %}
+    $ {{ example.code }}
+{%- endfor %}
+{%- endif %}
+
+{%- if cmd.after_help_long %}
+
+{{ cmd.after_help_long }}
+{%- elif cmd.after_help %}
+
+{{ cmd.after_help }}
+{%- elif spec.after_help_long %}
+
+{{ spec.after_help_long }}
+{%- elif spec.after_help %}
+
+{{ spec.after_help }}
 {%- endif -%}

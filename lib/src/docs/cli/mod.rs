@@ -112,4 +112,99 @@ arg "[default]" help="Arg with default value" default="default value"
             (default: default value)
         ");
     }
+
+    #[test]
+    fn test_render_help_with_before_after_help() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+before_help "This text appears before the help"
+after_help "This text appears after the help"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        This text appears before the help
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        This text appears after the help
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_before_after_help_long() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+before_help "short before"
+before_help_long "This is the long version of before help"
+after_help "short after"
+after_help_long "This is the long version of after help"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        short before
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        short after
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        This is the long version of before help
+
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        This is the long version of after help
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_examples() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--verbose" help="Enable verbose output"
+example "testcli --verbose" header="Run with verbose output"
+example "testcli" header="Run normally" help="Just runs the tool"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Examples:
+          Run with verbose output:
+            $ testcli --verbose
+          Run normally:
+            $ testcli
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Examples:
+          Run with verbose output:
+            $ testcli --verbose
+          Run normally:
+            Just runs the tool
+            $ testcli
+        ");
+    }
 }
