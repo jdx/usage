@@ -48,7 +48,7 @@ mod description_format {
 #[derive(Args)]
 #[clap()]
 pub struct Fig {
-    /// A usage spec taken in as a file
+    /// A usage spec taken in as a file, use "-" to read from stdin
     #[clap(short, long)]
     file: Option<PathBuf>,
 

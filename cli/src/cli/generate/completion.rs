@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use usage::complete::CompleteOptions;
 use usage::Spec;
 
+use super::parse_file_or_stdin;
+
 /// Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 #[derive(Args)]
 #[clap(visible_alias = "c", aliases = ["complete", "completions"])]
@@ -14,7 +16,7 @@ pub struct Completion {
     /// The CLI which we're generating completions for
     bin: String,
 
-    /// A .usage.kdl spec file to use for generating completions
+    /// A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
     #[clap(short, long)]
     file: Option<PathBuf>,
 
@@ -45,7 +47,7 @@ impl Completion {
     pub fn run(&self) -> miette::Result<()> {
         // TODO: refactor this
         let spec = match &self.file {
-            Some(file) => Spec::parse_file(file)?,
+            Some(file) => parse_file_or_stdin(file)?,
             None => Spec::default(),
         };
         let spec = match self.file.is_some() {

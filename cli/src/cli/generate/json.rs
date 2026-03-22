@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[derive(clap::Args)]
 #[clap()]
 pub struct Json {
-    /// A usage spec taken in as a file
+    /// A usage spec taken in as a file, use "-" to read from stdin
     #[clap(short, long)]
     file: Option<PathBuf>,
 

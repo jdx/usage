@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use clap::Args;
 use usage::docs::markdown::MarkdownRenderer;
-use usage::Spec;
+use super::parse_file_or_stdin;
 
 /// Generate markdown documentation from usage specs
 #[derive(Args)]
 #[clap(visible_alias = "md")]
 pub struct Markdown {
-    /// A usage spec taken in as a file
+    /// A usage spec taken in as a file, use "-" to read from stdin
     #[clap(short, long)]
     file: PathBuf,
     // /// Pass a usage spec in an argument instead of a file
@@ -52,7 +52,7 @@ impl Markdown {
             )?;
             Ok(())
         };
-        let spec = Spec::parse_file(&self.file)?;
+        let spec = parse_file_or_stdin(&self.file)?;
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);

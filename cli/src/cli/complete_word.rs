@@ -26,7 +26,7 @@ pub struct CompleteWord {
     /// User's input from the command line
     words: Vec<String>,
 
-    /// Usage spec file or script with usage shebang
+    /// Usage spec file or script with usage shebang, use "-" to read from stdin
     #[clap(short, long)]
     file: Option<PathBuf>,
 
