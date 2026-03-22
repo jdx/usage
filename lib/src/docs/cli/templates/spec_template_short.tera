@@ -3,6 +3,9 @@
 {% elif spec.before_help %}{{ spec.before_help }}
 
 {% endif -%}
+{%- if spec.name and spec.version %}{{ spec.name }} {{ spec.version }}
+{% elif spec.version %}{{ spec.bin }} {{ spec.version }}
+{% endif -%}
 {%- if spec.about %}{{ spec.about }}
 
 {% endif -%}
@@ -13,6 +16,7 @@ Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
 Commands:
 {%- for name, cmd in cmd.subcommands %}
   {{ cmd.usage | trim }}
+{%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
 {%- if cmd.help %}  {{ cmd.help }}{%- endif %}
 {%- endfor %}

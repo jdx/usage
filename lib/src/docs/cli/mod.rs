@@ -207,4 +207,72 @@ example "testcli" header="Run normally" help="Just runs the tool"
             $ testcli
         ");
     }
+
+    #[test]
+    fn test_render_help_with_version() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+name "TestCLI"
+version "1.2.3"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        TestCLI 1.2.3
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_author_license() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+author "Test Author"
+license "MIT"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        // Short help should not show author/license
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+        ");
+
+        // Long help should show author/license at the bottom
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli [--verbose]
+
+        Flags:
+          --verbose  Enable verbose output
+
+        Author: Test Author
+        License: MIT
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_deprecated_command() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+cmd "old-cmd" help="Do something" deprecated="use new-cmd instead"
+cmd "new-cmd" help="Do something better"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli <SUBCOMMAND>
+
+        Commands:
+          new-cmd  Do something better
+          old-cmd [deprecated: use new-cmd instead]  Do something
+          help  Print this message or the help of the given subcommand(s)
+        ");
+    }
 }

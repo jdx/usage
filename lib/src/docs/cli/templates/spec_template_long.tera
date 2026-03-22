@@ -7,6 +7,9 @@
 {% elif spec.before_help %}{{ spec.before_help }}
 
 {% endif -%}
+{%- if spec.name and spec.version %}{{ spec.name }} {{ spec.version }}
+{% elif spec.version %}{{ spec.bin }} {{ spec.version }}
+{% endif -%}
 {%- if spec.about_long %}{{ spec.about_long }}
 
 {% elif spec.about %}{{ spec.about }}
@@ -19,6 +22,7 @@ Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
 Commands:
 {%- for name, cmd in cmd.subcommands %}
   {{ cmd.usage | trim }}
+{%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = cmd.help_long | default(value=cmd.help | default(value='')) %}
 {%- if help %}
@@ -121,4 +125,13 @@ Examples:
 {%- elif spec.after_help %}
 
 {{ spec.after_help }}
+{%- endif %}
+
+{%- if spec.author or spec.license %}
+{% if spec.author %}
+Author: {{ spec.author }}
+{%- endif %}
+{%- if spec.license %}
+License: {{ spec.license }}
+{%- endif %}
 {%- endif -%}
