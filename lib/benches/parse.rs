@@ -16,12 +16,11 @@ fn build_small_spec() -> Spec {
         .build();
     cmd.subcommands.insert("install".to_string(), install_cmd);
 
-    Spec {
-        name: "test".to_string(),
-        bin: "test".to_string(),
-        cmd,
-        ..Default::default()
-    }
+    let mut spec = Spec::default();
+    spec.name = "test".to_string();
+    spec.bin = "test".to_string();
+    spec.cmd = cmd;
+    spec
 }
 
 fn build_large_spec() -> Spec {
@@ -85,12 +84,11 @@ fn build_large_spec() -> Spec {
         .build();
     cmd.subcommands = subcommands;
 
-    Spec {
-        name: "bench".to_string(),
-        bin: "bench".to_string(),
-        cmd,
-        ..Default::default()
-    }
+    let mut spec = Spec::default();
+    spec.name = "bench".to_string();
+    spec.bin = "bench".to_string();
+    spec.cmd = cmd;
+    spec
 }
 
 fn bench_parse_small_spec(c: &mut Criterion) {
