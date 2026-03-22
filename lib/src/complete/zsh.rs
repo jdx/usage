@@ -90,7 +90,7 @@ fi"#
   while IFS= read -r line; do
     completions+=("$line")
   done < <(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}")
-  _describe 'completions' completions -- -S ''
+  _describe 'completions' completions -S ''
   return 0
 }}
 

@@ -59,8 +59,8 @@ impl CompleteWord {
                     }
                 }
                 "zsh" => {
-                    let c = c.replace(':', "\\:");
                     if any_descriptions {
+                        let c = c.replace(':', "\\:");
                         let description = description.replace(':', "\\:");
                         println!("{c}:{description}")
                     } else {
@@ -335,15 +335,19 @@ impl CompleteWord {
                 let name = name.to_string_lossy();
                 !name.starts_with('.') && name.starts_with(&prefix)
             })
-            .map(|de| de.path())
-            .filter(|p| filter(p))
-            .map(|p| {
+            .filter(|de| filter(&de.path()))
+            .map(|de| {
+                let p = de.path();
+                let is_dir = de
+                    .file_type()
+                    .map(|ft| ft.is_dir())
+                    .unwrap_or_else(|_| p.is_dir());
                 let mut s = p
                     .strip_prefix(base)
                     .unwrap_or(&p)
                     .to_string_lossy()
                     .to_string();
-                if p.is_dir() {
+                if is_dir {
                     s.push('/');
                 }
                 s
