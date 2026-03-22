@@ -10,7 +10,7 @@
 
 ### `-f --file <FILE>`
 
-A usage spec taken in as a file
+A usage spec taken in as a file, use "-" to read from stdin
 
 ### `-o --out-file <OUT_FILE>`
 

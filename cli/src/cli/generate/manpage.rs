@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
+use super::parse_file_or_stdin;
 use clap::Args;
 use usage::docs::manpage::ManpageRenderer;
-use usage::Spec;
 
 #[derive(Args)]
 #[clap(visible_alias = "man")]
 pub struct Manpage {
-    /// A usage spec taken in as a file
+    /// A usage spec taken in as a file, use "-" to read from stdin
     #[clap(short, long)]
     file: PathBuf,
 
@@ -28,7 +28,7 @@ pub struct Manpage {
 
 impl Manpage {
     pub fn run(&self) -> miette::Result<()> {
-        let spec = Spec::parse_file(&self.file)?;
+        let spec = parse_file_or_stdin(&self.file)?;
         let renderer = ManpageRenderer::new(spec).with_section(self.section);
         let manpage = renderer.render()?;
 

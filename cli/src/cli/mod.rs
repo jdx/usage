@@ -4,7 +4,7 @@ use miette::Result;
 
 mod complete_word;
 mod exec;
-mod generate;
+pub(crate) mod generate;
 mod lint;
 mod shell;
 

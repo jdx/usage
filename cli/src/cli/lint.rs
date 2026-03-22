@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
+use crate::cli::generate::parse_file_or_stdin;
+
 /// Lint a usage spec file for common issues
 #[derive(clap::Args)]
 pub struct Lint {
-    /// A usage spec file to lint
+    /// A usage spec file to lint, use "-" to read from stdin
     #[clap(required = true)]
     file: PathBuf,
 
@@ -67,7 +69,7 @@ impl std::fmt::Display for LintIssue {
 
 impl Lint {
     pub fn run(&self) -> miette::Result<()> {
-        let spec = Spec::parse_file(&self.file)?;
+        let spec = parse_file_or_stdin(&self.file)?;
         let issues = lint_spec(&spec);
 
         match self.format {

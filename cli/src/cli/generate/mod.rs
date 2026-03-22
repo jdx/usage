@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use usage::error::UsageErr;
 
 use usage::Spec;
@@ -40,8 +41,26 @@ impl Generate {
 
 pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> Result<Spec, UsageErr> {
     if let Some(file) = file {
-        Spec::parse_file(file)
+        if file.as_os_str() == "-" {
+            read_spec_from_stdin()
+        } else {
+            Spec::parse_file(file)
+        }
     } else {
         spec.as_ref().unwrap().parse()
     }
+}
+
+pub fn parse_file_or_stdin(file: &Path) -> Result<Spec, UsageErr> {
+    if file.as_os_str() == "-" {
+        read_spec_from_stdin()
+    } else {
+        Spec::parse_file(file)
+    }
+}
+
+fn read_spec_from_stdin() -> Result<Spec, UsageErr> {
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input)?;
+    input.parse()
 }

@@ -105,7 +105,7 @@ This is used internally by shell completion scripts to provide intelligent compl
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-Usage spec file or script with usage shebang
+Usage spec file or script with usage shebang, use "\-" to read from stdin
 .TP
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
@@ -178,7 +178,7 @@ Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A .usage.kdl spec file to use for generating completions
+A .usage.kdl spec file to use for generating completions, use "\-" to read from stdin
 .TP
 \fB\-\-cache\-key\fR \fI<CACHE_KEY>\fR
 A cache key to use for storing the results of calling the CLI with \-\-usage\-cmd
@@ -215,7 +215,7 @@ Generate Fig completion spec for Amazon Q / Fig
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file
+A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
 File path where the generated Fig spec will be saved
@@ -231,7 +231,7 @@ Outputs a usage spec in json format
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file
+A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 raw string spec input
@@ -242,7 +242,7 @@ raw string spec input
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file
+A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-o, \-\-out\-file\fR \fI<OUT_FILE>\fR
 Output file path (defaults to stdout)
@@ -263,7 +263,7 @@ Generate markdown documentation from usage specs
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file
+A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-m, \-\-multi\fR
 Render each subcommand as a separate markdown file
@@ -302,7 +302,7 @@ Treat warnings as errors
 .PP
 .TP
 \fB<FILE>\fR
-A usage spec file to lint
+A usage spec file to lint, use "\-" to read from stdin
 .SH "USAGE POWERSHELL"
 Execute a shell script with the specified shell
 
