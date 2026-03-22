@@ -723,9 +723,7 @@ cmd other help="Another subcommand"
         lines
     );
     assert!(
-        lines
-            .iter()
-            .any(|l| l.contains("other:Another subcommand")),
+        lines.iter().any(|l| l.contains("other:Another subcommand")),
         "Expected 'other:Another subcommand' in zsh output, got: {:?}",
         lines
     );
