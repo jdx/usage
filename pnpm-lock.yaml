@@ -28,7 +28,7 @@ importers:
         specifier: ^1.31.0
         version: 1.31.0
       eslint:
-        specifier: ^10.0.3
+        specifier: ^10.1.0
         version: 10.1.0
       semver:
         specifier: ^7.7.4
