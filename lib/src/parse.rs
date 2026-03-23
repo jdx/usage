@@ -883,6 +883,78 @@ impl Debug for ParseOutput {
 mod tests {
     use super::*;
 
+    fn input(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    fn spec_with_arg(arg: SpecArg) -> Spec {
+        let cmd = SpecCommand::builder().name("test").arg(arg).build();
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    fn spec_with_flag(flag: SpecFlag) -> Spec {
+        let cmd = SpecCommand::builder().name("test").flag(flag).build();
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    fn parse_with_env(
+        spec: &Spec,
+        words: &[&str],
+        env: &[(&str, &str)],
+    ) -> Result<ParseOutput, miette::Error> {
+        let env = env
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect();
+        Parser::new(spec).with_env(env).parse(&input(words))
+    }
+
+    fn first_string_value(parsed: &ParseOutput) -> &str {
+        if let Some(ParseValue::String(value)) = parsed.args.values().next() {
+            return value;
+        }
+        if let Some(ParseValue::String(value)) = parsed.flags.values().next() {
+            return value;
+        }
+        panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    fn assert_parse_err(result: Result<ParseOutput, miette::Error>, expected: &str) {
+        let err = result.expect_err("expected parser error");
+        assert_eq!(format!("{err}"), expected);
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    fn spec_arg_choices_env(key: &str) -> Spec {
+        spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .choices_env(key)
+                .required(false)
+                .build(),
+        )
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    fn spec_flag_choices_env(key: &str) -> Spec {
+        spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(SpecArg::builder().name("env").choices_env(key).build())
+                .build(),
+        )
+    }
+
     #[test]
     fn test_parse() {
         let cmd = SpecCommand::builder()
@@ -1300,10 +1372,9 @@ mod tests {
     }
 
     #[test]
-    fn test_arg_var_false_validates_only_first_default_choice() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
+    fn test_scalar_defaults_validate_only_first_default_choice() {
+        let specs = [
+            spec_with_arg(
                 SpecArg::builder()
                     .name("env")
                     .var(false)
@@ -1311,31 +1382,8 @@ mod tests {
                     .choices(["dev"])
                     .required(false)
                     .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        let input = vec!["test".to_string()];
-        let parsed = parse(&spec, &input).unwrap();
-
-        assert_eq!(parsed.args.len(), 1);
-        let value = parsed.args.values().next().unwrap();
-        match value {
-            ParseValue::String(s) => assert_eq!(s, "dev"),
-            _ => panic!("Expected String, got {:?}", value),
-        }
-    }
-
-    #[test]
-    fn test_flag_arg_default_var_false_validates_only_first_default_choice() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .flag(
+            ),
+            spec_with_flag(
                 SpecFlag::builder()
                     .long("env")
                     .arg(
@@ -1346,23 +1394,12 @@ mod tests {
                             .build(),
                     )
                     .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
+            ),
+        ];
 
-        let input = vec!["test".to_string()];
-        let parsed = parse(&spec, &input).unwrap();
-
-        assert_eq!(parsed.flags.len(), 1);
-        let value = parsed.flags.values().next().unwrap();
-        match value {
-            ParseValue::String(s) => assert_eq!(s, "dev"),
-            _ => panic!("Expected String, got {:?}", value),
+        for spec in specs {
+            let parsed = parse(&spec, &input(&["test"])).unwrap();
+            assert_eq!(first_string_value(&parsed), "dev");
         }
     }
 
@@ -1873,306 +1910,122 @@ mod tests {
 
     #[test]
     fn test_parser_with_custom_env_for_required_arg() {
-        // Test that Parser::with_env works for required args with env vars
-        // This should NOT fail validation even though the env var is not in std::env
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("name")
-                    .env("NAME")
-                    .required(true)
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("name")
+                .env("NAME")
+                .required(true)
+                .build(),
+        );
         std::env::remove_var("NAME");
 
-        // Provide env through custom env map
-        let mut env = HashMap::new();
-        env.insert("NAME".to_string(), "john".to_string());
-
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
-
-        // Should succeed - custom env map should be used for validation
-        let parsed = result.expect("parse should succeed with custom env");
+        let parsed = parse_with_env(&spec, &["test"], &[("NAME", "john")])
+            .expect("parse should succeed with custom env");
         assert_eq!(parsed.args.len(), 1);
-        let value = parsed.args.values().next().unwrap();
-        assert_eq!(value.to_string(), "john");
+        assert_eq!(first_string_value(&parsed), "john");
     }
 
     #[test]
     fn test_parser_with_custom_env_for_required_flag() {
-        // Test that Parser::with_env works for required flags with env vars
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .flag(
-                SpecFlag::builder()
-                    .long("name")
-                    .env("NAME")
-                    .required(true)
-                    .arg(SpecArg::builder().name("name").build())
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("name")
+                .env("NAME")
+                .required(true)
+                .arg(SpecArg::builder().name("name").build())
+                .build(),
+        );
         std::env::remove_var("NAME");
 
-        // Provide env through custom env map
-        let mut env = HashMap::new();
-        env.insert("NAME".to_string(), "jane".to_string());
-
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
-
-        // Should succeed - custom env map should be used for validation
-        let parsed = result.expect("parse should succeed with custom env");
+        let parsed = parse_with_env(&spec, &["test"], &[("NAME", "jane")])
+            .expect("parse should succeed with custom env");
         assert_eq!(parsed.flags.len(), 1);
-        let value = parsed.flags.values().next().unwrap();
-        assert_eq!(value.to_string(), "jane");
+        assert_eq!(first_string_value(&parsed), "jane");
     }
 
     #[test]
     fn test_parser_with_custom_env_still_fails_when_missing() {
-        // Test that validation still fails when env var is missing from both maps
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("name")
-                    .env("NAME")
-                    .required(true)
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("name")
+                .env("NAME")
+                .required(true)
+                .build(),
+        );
         std::env::remove_var("NAME");
-
-        // Provide a custom env map WITHOUT the required env var
-        let env = HashMap::new();
-
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
-
-        // Should fail - env var is missing from both custom and process env
-        assert!(result.is_err());
+        assert!(parse_with_env(&spec, &["test"], &[]).is_err());
     }
 
     #[cfg(feature = "unstable_choices_env")]
     #[test]
-    fn test_parser_validates_arg_choices_from_custom_env() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("env")
-                    .choices_env("USAGE_TEST_DEPLOY_ENVS_ARG")
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
+    fn test_parser_arg_choices_from_custom_env() {
+        let spec = spec_arg_choices_env("DEPLOY_ENVS");
 
-        let env = HashMap::from([(
-            "USAGE_TEST_DEPLOY_ENVS_ARG".to_string(),
-            "foo,bar baz".to_string(),
-        )]);
-        let input = vec!["test".to_string(), "bar".to_string()];
-        let parsed = Parser::new(&spec).with_env(env).parse(&input).unwrap();
+        let parsed =
+            parse_with_env(&spec, &["test", "bar"], &[("DEPLOY_ENVS", "foo,bar baz")]).unwrap();
+        assert_eq!(first_string_value(&parsed), "bar");
 
-        let value = parsed.args.values().next().unwrap();
-        assert_eq!(value.to_string(), "bar");
-    }
-
-    #[cfg(feature = "unstable_choices_env")]
-    #[test]
-    fn test_parser_rejects_arg_choices_from_custom_env() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("env")
-                    .choices_env("USAGE_TEST_DEPLOY_ENVS_ARG_ERR")
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        let env = HashMap::from([(
-            "USAGE_TEST_DEPLOY_ENVS_ARG_ERR".to_string(),
-            "foo,bar baz".to_string(),
-        )]);
-        let input = vec!["test".to_string(), "prod".to_string()];
-        let err = Parser::new(&spec).with_env(env).parse(&input).unwrap_err();
-
-        assert_eq!(
-            format!("{err}"),
-            "Invalid choice for arg env: prod, expected one of foo, bar, baz"
+        assert_parse_err(
+            parse_with_env(&spec, &["test", "prod"], &[("DEPLOY_ENVS", "foo,bar baz")]),
+            "Invalid choice for arg env: prod, expected one of foo, bar, baz",
         );
-    }
-
-    #[cfg(feature = "unstable_choices_env")]
-    #[test]
-    fn test_parser_rejects_arg_choices_when_env_resolves_to_no_values() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("env")
-                    .choices_env("USAGE_TEST_DEPLOY_ENVS_ARG_EMPTY")
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        let input = vec!["test".to_string(), "prod".to_string()];
-        let err = Parser::new(&spec)
-            .with_env(HashMap::new())
-            .parse(&input)
-            .unwrap_err();
-
-        assert_eq!(
-            format!("{err}"),
-            "Invalid choice for arg env: prod, no choices resolved from env USAGE_TEST_DEPLOY_ENVS_ARG_EMPTY"
-        );
-    }
-
-    #[cfg(feature = "unstable_choices_env")]
-    #[test]
-    fn test_parser_rejects_arg_env_value_not_in_choices_env() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("env")
-                    .env("CURRENT_ENV")
-                    .choices_env("DEPLOY_ENVS")
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        let env = HashMap::from([
-            ("CURRENT_ENV".to_string(), "prod".to_string()),
-            ("DEPLOY_ENVS".to_string(), "dev,staging".to_string()),
-        ]);
-        let input = vec!["test".to_string()];
-        let err = Parser::new(&spec).with_env(env).parse(&input).unwrap_err();
-
-        assert_eq!(
-            format!("{err}"),
-            "Invalid choice for arg env: prod, expected one of dev, staging"
+        assert_parse_err(
+            parse_with_env(&spec, &["test", "prod"], &[]),
+            "Invalid choice for arg env: prod, no choices resolved from env DEPLOY_ENVS",
         );
     }
 
     #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_validates_flag_choices_from_custom_env() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .flag(
-                SpecFlag::builder()
-                    .long("env")
-                    .arg(
-                        SpecArg::builder()
-                            .name("env")
-                            .choices_env("USAGE_TEST_DEPLOY_ENVS_FLAG")
-                            .build(),
-                    )
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        let env = HashMap::from([(
-            "USAGE_TEST_DEPLOY_ENVS_FLAG".to_string(),
-            "foo,bar baz".to_string(),
-        )]);
-        let input = vec!["test".to_string(), "--env".to_string(), "baz".to_string()];
-        let parsed = Parser::new(&spec).with_env(env).parse(&input).unwrap();
-
-        let value = parsed.flags.values().next().unwrap();
-        assert_eq!(value.to_string(), "baz");
+        let spec = spec_flag_choices_env("DEPLOY_ENVS");
+        let parsed = parse_with_env(
+            &spec,
+            &["test", "--env", "baz"],
+            &[("DEPLOY_ENVS", "foo,bar baz")],
+        )
+        .unwrap();
+        assert_eq!(first_string_value(&parsed), "baz");
     }
 
     #[cfg(feature = "unstable_choices_env")]
     #[test]
-    fn test_parser_rejects_flag_default_value_not_in_choices_env() {
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .flag(
-                SpecFlag::builder()
-                    .long("env")
-                    .arg(
-                        SpecArg::builder()
-                            .name("env")
-                            .choices_env("DEPLOY_ENVS")
-                            .build(),
-                    )
-                    .default_value("prod")
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
+    fn test_parser_revalidates_env_and_default_values_against_choices_env() {
+        let arg_env_spec = spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .env("CURRENT_ENV")
+                .choices_env("DEPLOY_ENVS")
+                .build(),
+        );
+        assert_parse_err(
+            parse_with_env(
+                &arg_env_spec,
+                &["test"],
+                &[("CURRENT_ENV", "prod"), ("DEPLOY_ENVS", "dev,staging")],
+            ),
+            "Invalid choice for arg env: prod, expected one of dev, staging",
+        );
 
-        let env = HashMap::from([("DEPLOY_ENVS".to_string(), "dev,staging".to_string())]);
-        let input = vec!["test".to_string()];
-        let err = Parser::new(&spec).with_env(env).parse(&input).unwrap_err();
-
-        assert_eq!(
-            format!("{err}"),
-            "Invalid choice for option env: prod, expected one of dev, staging"
+        let flag_default_spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(
+                    SpecArg::builder()
+                        .name("env")
+                        .choices_env("DEPLOY_ENVS")
+                        .build(),
+                )
+                .default_value("prod")
+                .build(),
+        );
+        assert_parse_err(
+            parse_with_env(
+                &flag_default_spec,
+                &["test"],
+                &[("DEPLOY_ENVS", "dev,staging")],
+            ),
+            "Invalid choice for option env: prod, expected one of dev, staging",
         );
     }
 
