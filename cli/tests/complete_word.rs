@@ -264,6 +264,18 @@ fn complete_word_escaped_colons_in_completions() {
         .stdout("test:unit\tRun unit tests\ntest:integration\tRun integration tests\nbuild\tBuild the project\n");
 }
 
+#[test]
+fn complete_word_zsh_escapes_parens_and_brackets() {
+    // zsh's _describe interprets parentheses as glob qualifiers and brackets
+    // as character classes, so they must be escaped in completion output.
+    // See: https://github.com/jdx/usage/issues/558
+    let mut c = cmd("parens-in-descriptions.usage.kdl", Some("zsh"));
+    c.args(["--", "run", ""]);
+    c.assert().success().stdout(
+        "connect\\:server:Connect server \\(Hot Reload\\)\ntest\\:unit:Run tests \\[fast\\]\nbuild:Build project\n",
+    );
+}
+
 fn cmd(example: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
