@@ -2,15 +2,15 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
 use std::process::Command;
 use std::sync::Arc;
 
 use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+use regex::Regex;
 use std::sync::LazyLock;
-use xx::process::check_status;
-use xx::{regex, XXError, XXResult};
 
 use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
@@ -283,7 +283,8 @@ impl CompleteWord {
             trace!("run: {run}");
             let stdout = sh(&run)?;
             // trace!("stdout: {stdout}");
-            let re = regex!(r"[^\\]:");
+            static COLON_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[^\\]:").unwrap());
+            let re = &*COLON_RE;
             return Ok(stdout
                 .lines()
                 .map(|l| {
@@ -372,7 +373,10 @@ fn zsh_escape(s: &str) -> String {
         .replace(']', "\\]")
 }
 
-fn sh(script: &str) -> XXResult<String> {
+#[cfg(not(target_arch = "wasm32"))]
+fn sh(script: &str) -> xx::XXResult<String> {
+    use xx::process::check_status;
+    use xx::XXError;
     let output = Command::new("sh")
         .arg("-c")
         .arg(script)
@@ -386,4 +390,9 @@ fn sh(script: &str) -> XXResult<String> {
         .map_err(|err| XXError::ProcessError(err, format!("sh -c {script}")))?;
     let stdout = String::from_utf8(output.stdout).expect("stdout is not utf-8");
     Ok(stdout)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn sh(_script: &str) -> miette::Result<String> {
+    Err(miette::miette!("shell execution is not supported on wasm"))
 }

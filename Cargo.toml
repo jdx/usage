@@ -20,3 +20,8 @@ usage-lib = { path = "./lib", version = "3.2.0", features = ["clap"] }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
+
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+strip = "symbols"

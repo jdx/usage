@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use super::parse_file_or_stdin;
 use clap::Args;
+use miette::IntoDiagnostic;
 use usage::docs::manpage::ManpageRenderer;
 
 #[derive(Args)]
@@ -34,7 +35,10 @@ impl Manpage {
 
         if let Some(out_file) = &self.out_file {
             println!("writing to {}", out_file.display());
-            xx::file::write(out_file, &manpage)?;
+            if let Some(parent) = out_file.parent() {
+                std::fs::create_dir_all(parent).into_diagnostic()?;
+            }
+            std::fs::write(out_file, &manpage).into_diagnostic()?;
         } else {
             print!("{}", manpage);
         }

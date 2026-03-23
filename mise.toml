@@ -124,3 +124,39 @@ includes = ['tasks']
 
 [tasks.install-dev]
 run = "cargo install --path cli --debug"
+
+[tasks."wasm:clean"]
+dir = "cli"
+run = "rm -rf target wasi-sdk binaryen"
+
+[tasks."wasm:get-wasisdk"]
+dir = "cli"
+run = """
+if [ ! -d "wasi-sdk" ]; then
+  wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/wasi-sdk-29.0-x86_64-linux.tar.gz
+  tar xvf wasi-sdk-29.0-x86_64-linux.tar.gz
+  rm wasi-sdk-29.0-x86_64-linux.tar.gz
+  mv wasi-sdk-29.0-x86_64-linux wasi-sdk
+fi
+"""
+
+[tasks."wasm:get-binaryen"]
+dir = "cli"
+run = """
+if [ ! -d "binaryen" ]; then
+  wget https://github.com/WebAssembly/binaryen/releases/download/version_125/binaryen-version_125-x86_64-linux.tar.gz
+  tar xvf binaryen-version_125-x86_64-linux.tar.gz
+  rm binaryen-version_125-x86_64-linux.tar.gz
+  mv binaryen-version_125 binaryen
+fi
+"""
+
+[tasks."wasm:build"]
+dir = "cli"
+depends = ["wasm:get-wasisdk"]
+run = """
+WASI_SDK_PATH=$(pwd)/wasi-sdk \
+CC_wasm32_wasip1=$(pwd)/wasi-sdk/bin/clang \
+CFLAGS_wasm32_wasip1="--sysroot=$(pwd)/wasi-sdk/share/wasi-sysroot" \
+cargo build --target wasm32-wasip1 --profile wasm
+"""

@@ -10,3 +10,7 @@
 #/target
 megalinter-reports/
 tasks/fig/build
+
+cli/wasi-sdk/
+cli/binaryen/
+integrations/java/target/

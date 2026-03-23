@@ -7,6 +7,7 @@ use itertools::Itertools;
 use usage::{SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
 use crate::cli::generate;
+use miette::IntoDiagnostic;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_with::{serde_as, OneOrMany};
 
@@ -356,7 +357,10 @@ impl Fig {
     pub fn run(&self) -> miette::Result<()> {
         let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
             println!("writing to {}", path.display());
-            xx::file::write(path, format!("{}\n", md.trim()))?;
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).into_diagnostic()?;
+            }
+            std::fs::write(path, format!("{}\n", md.trim())).into_diagnostic()?;
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
