@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
         for arg in out.cmd.args.iter().skip(out.args.len()) {
             if let Some(env_var) = arg.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
-                    validate_choices(
+                    validate_choice_value(
                         self.spec,
                         &out.cmd,
                         &mut out.errors,
@@ -121,18 +121,16 @@ impl<'a> Parser<'a> {
                 }
             }
             if !arg.default.is_empty() {
-                for default_value in &arg.default {
-                    validate_choices(
-                        self.spec,
-                        &out.cmd,
-                        &mut out.errors,
-                        "arg",
-                        &arg.name,
-                        default_value,
-                        arg.choices.as_ref(),
-                        self.env.as_ref(),
-                    )?;
-                }
+                validate_choice_values(
+                    self.spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    "arg",
+                    &arg.name,
+                    &arg.default,
+                    arg.choices.as_ref(),
+                    self.env.as_ref(),
+                )?;
                 // Consider var when deciding the type of default return value
                 if arg.var {
                     // For var=true, always return a vec (MultiString)
@@ -159,7 +157,7 @@ impl<'a> Parser<'a> {
                 if let Some(env_value) = get_env(env_var) {
                     if flag.arg.is_some() {
                         let arg = flag.arg.as_ref().unwrap();
-                        validate_choices(
+                        validate_choice_value(
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
@@ -187,18 +185,16 @@ impl<'a> Parser<'a> {
                     // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
                     if flag.arg.is_some() {
                         let arg = flag.arg.as_ref().unwrap();
-                        for default_value in &flag.default {
-                            validate_choices(
-                                self.spec,
-                                &out.cmd,
-                                &mut out.errors,
-                                "option",
-                                &flag.name,
-                                default_value,
-                                arg.choices.as_ref(),
-                                self.env.as_ref(),
-                            )?;
-                        }
+                        validate_choice_values(
+                            self.spec,
+                            &out.cmd,
+                            &mut out.errors,
+                            "option",
+                            &flag.name,
+                            &flag.default,
+                            arg.choices.as_ref(),
+                            self.env.as_ref(),
+                        )?;
                         out.flags.insert(
                             Arc::clone(flag),
                             ParseValue::MultiString(flag.default.clone()),
@@ -217,7 +213,7 @@ impl<'a> Parser<'a> {
                     // For var=false, return the first default value
                     if flag.arg.is_some() {
                         let arg = flag.arg.as_ref().unwrap();
-                        validate_choices(
+                        validate_choice_value(
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
@@ -243,18 +239,16 @@ impl<'a> Parser<'a> {
             // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
             if let Some(arg) = flag.arg.as_ref() {
                 if !out.flags.contains_key(flag) && !arg.default.is_empty() {
-                    for default_value in &arg.default {
-                        validate_choices(
-                            self.spec,
-                            &out.cmd,
-                            &mut out.errors,
-                            "option",
-                            &flag.name,
-                            default_value,
-                            arg.choices.as_ref(),
-                            self.env.as_ref(),
-                        )?;
-                    }
+                    validate_choice_values(
+                        self.spec,
+                        &out.cmd,
+                        &mut out.errors,
+                        "option",
+                        &flag.name,
+                        &arg.default,
+                        arg.choices.as_ref(),
+                        self.env.as_ref(),
+                    )?;
                     if flag.var {
                         out.flags.insert(
                             Arc::clone(flag),
@@ -735,6 +729,36 @@ fn validate_choices(
         }
     }
     Ok(false)
+}
+
+fn validate_choice_value(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    kind: &str,
+    name: &str,
+    value: &str,
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<()> {
+    validate_choices(spec, cmd, errors, kind, name, value, choices, custom_env)?;
+    Ok(())
+}
+
+fn validate_choice_values(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    kind: &str,
+    name: &str,
+    values: &[String],
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<()> {
+    for value in values {
+        validate_choice_value(spec, cmd, errors, kind, name, value, choices, custom_env)?;
+    }
+    Ok(())
 }
 
 fn is_help_arg(spec: &Spec, w: &str) -> bool {
