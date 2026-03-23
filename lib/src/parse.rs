@@ -740,11 +740,19 @@ fn validate_choices(
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
+    if is_help_arg(spec, value)
+        && choices.is_some_and(|choices| {
+            !choices
+                .values_with_env(custom_env)
+                .iter()
+                .any(|choice| choice == value)
+        })
+    {
+        errors.push(render_help_err(spec, cmd, value.len() > 2));
+        return Ok(true);
+    }
+
     if let Some(err) = choice_error(target, value, choices, custom_env) {
-        if is_help_arg(spec, value) {
-            errors.push(render_help_err(spec, cmd, value.len() > 2));
-            return Ok(true);
-        }
         bail!("{err}");
     }
     Ok(false)
