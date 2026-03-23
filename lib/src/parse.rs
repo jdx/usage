@@ -778,15 +778,34 @@ fn validate_choices(
 }
 
 fn validate_choice_value(
-    spec: &Spec,
-    cmd: &SpecCommand,
-    errors: &mut Vec<UsageErr>,
+    _spec: &Spec,
+    _cmd: &SpecCommand,
+    _errors: &mut Vec<UsageErr>,
     target: ChoiceTarget<'_>,
     value: &str,
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<()> {
-    validate_choices(spec, cmd, errors, target, value, choices, custom_env)?;
+    if let Some(choices) = choices {
+        let values = choices.values_with_env(custom_env);
+        if !values.iter().any(|choice| choice == value) {
+            if let Some(env) = choices.env() {
+                if values.is_empty() {
+                    bail!(
+                        "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
+                        target.kind,
+                        target.name,
+                    );
+                }
+            }
+            bail!(
+                "Invalid choice for {} {}: {value}, expected one of {}",
+                target.kind,
+                target.name,
+                values.join(", ")
+            );
+        }
+    }
     Ok(())
 }
 
@@ -1954,6 +1973,44 @@ mod tests {
         );
         std::env::remove_var("NAME");
         assert!(parse_with_env(&spec, &["test"], &[]).is_err());
+    }
+
+    #[test]
+    fn test_parser_does_not_treat_env_choice_value_as_help() {
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .env("CURRENT_ENV")
+                .choices(["dev", "staging"])
+                .required(false)
+                .build(),
+        );
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[("CURRENT_ENV", "--help")]),
+            "Invalid choice for arg env: --help, expected one of dev, staging",
+        );
+    }
+
+    #[test]
+    fn test_parser_does_not_treat_default_choice_value_as_help() {
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(
+                    SpecArg::builder()
+                        .name("env")
+                        .choices(["dev", "staging"])
+                        .build(),
+                )
+                .default_value("--help")
+                .build(),
+        );
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[]),
+            "Invalid choice for option env: --help, expected one of dev, staging",
+        );
     }
 
     #[cfg(feature = "unstable_choices_env")]
