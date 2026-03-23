@@ -109,8 +109,10 @@ impl<'a> Parser<'a> {
                         self.spec,
                         &out.cmd,
                         &mut out.errors,
-                        "arg",
-                        &arg.name,
+                        ChoiceTarget {
+                            kind: "arg",
+                            name: &arg.name,
+                        },
                         &env_value,
                         arg.choices.as_ref(),
                         self.env.as_ref(),
@@ -127,8 +129,10 @@ impl<'a> Parser<'a> {
                         self.spec,
                         &out.cmd,
                         &mut out.errors,
-                        "arg",
-                        &arg.name,
+                        ChoiceTarget {
+                            kind: "arg",
+                            name: &arg.name,
+                        },
                         &arg.default,
                         arg.choices.as_ref(),
                         self.env.as_ref(),
@@ -143,8 +147,10 @@ impl<'a> Parser<'a> {
                         self.spec,
                         &out.cmd,
                         &mut out.errors,
-                        "arg",
-                        &arg.name,
+                        ChoiceTarget {
+                            kind: "arg",
+                            name: &arg.name,
+                        },
                         &arg.default[0],
                         arg.choices.as_ref(),
                         self.env.as_ref(),
@@ -165,14 +171,15 @@ impl<'a> Parser<'a> {
             }
             if let Some(env_var) = flag.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
-                    if flag.arg.is_some() {
-                        let arg = flag.arg.as_ref().unwrap();
+                    if let Some(arg) = flag.arg.as_ref() {
                         validate_choice_value(
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
-                            "option",
-                            &flag.name,
+                            ChoiceTarget {
+                                kind: "option",
+                                name: &flag.name,
+                            },
                             &env_value,
                             arg.choices.as_ref(),
                             self.env.as_ref(),
@@ -193,14 +200,15 @@ impl<'a> Parser<'a> {
                 // Consider var when deciding the type of default return value
                 if flag.var {
                     // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
-                    if flag.arg.is_some() {
-                        let arg = flag.arg.as_ref().unwrap();
+                    if let Some(arg) = flag.arg.as_ref() {
                         validate_choice_values(
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
-                            "option",
-                            &flag.name,
+                            ChoiceTarget {
+                                kind: "option",
+                                name: &flag.name,
+                            },
                             &flag.default,
                             arg.choices.as_ref(),
                             self.env.as_ref(),
@@ -221,14 +229,15 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     // For var=false, return the first default value
-                    if flag.arg.is_some() {
-                        let arg = flag.arg.as_ref().unwrap();
+                    if let Some(arg) = flag.arg.as_ref() {
                         validate_choice_value(
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
-                            "option",
-                            &flag.name,
+                            ChoiceTarget {
+                                kind: "option",
+                                name: &flag.name,
+                            },
                             &flag.default[0],
                             arg.choices.as_ref(),
                             self.env.as_ref(),
@@ -254,8 +263,10 @@ impl<'a> Parser<'a> {
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
-                            "option",
-                            &flag.name,
+                            ChoiceTarget {
+                                kind: "option",
+                                name: &flag.name,
+                            },
                             &arg.default,
                             arg.choices.as_ref(),
                             self.env.as_ref(),
@@ -269,8 +280,10 @@ impl<'a> Parser<'a> {
                             self.spec,
                             &out.cmd,
                             &mut out.errors,
-                            "option",
-                            &flag.name,
+                            ChoiceTarget {
+                                kind: "option",
+                                name: &flag.name,
+                            },
                             &arg.default[0],
                             arg.choices.as_ref(),
                             self.env.as_ref(),
@@ -559,8 +572,10 @@ fn parse_partial_with_env(
                     spec,
                     &out.cmd,
                     &mut out.errors,
-                    "option",
-                    &flag.name,
+                    ChoiceTarget {
+                        kind: "option",
+                        name: &flag.name,
+                    },
                     &w,
                     arg.choices.as_ref(),
                     custom_env,
@@ -588,8 +603,10 @@ fn parse_partial_with_env(
                 spec,
                 &out.cmd,
                 &mut out.errors,
-                "arg",
-                &arg.name,
+                ChoiceTarget {
+                    kind: "arg",
+                    name: &arg.name,
+                },
                 &w,
                 arg.choices.as_ref(),
                 custom_env,
@@ -718,12 +735,17 @@ fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
+#[derive(Copy, Clone)]
+struct ChoiceTarget<'a> {
+    kind: &'a str,
+    name: &'a str,
+}
+
 fn validate_choices(
     spec: &Spec,
     cmd: &SpecCommand,
     errors: &mut Vec<UsageErr>,
-    kind: &str,
-    name: &str,
+    target: ChoiceTarget<'_>,
     value: &str,
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
@@ -738,12 +760,16 @@ fn validate_choices(
             if let Some(env) = &choices.env {
                 if values.is_empty() {
                     bail!(
-                        "Invalid choice for {kind} {name}: {value}, no choices resolved from env {env}"
+                        "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
+                        target.kind,
+                        target.name,
                     );
                 }
             }
             bail!(
-                "Invalid choice for {kind} {name}: {value}, expected one of {}",
+                "Invalid choice for {} {}: {value}, expected one of {}",
+                target.kind,
+                target.name,
                 values.join(", ")
             );
         }
@@ -755,13 +781,12 @@ fn validate_choice_value(
     spec: &Spec,
     cmd: &SpecCommand,
     errors: &mut Vec<UsageErr>,
-    kind: &str,
-    name: &str,
+    target: ChoiceTarget<'_>,
     value: &str,
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<()> {
-    validate_choices(spec, cmd, errors, kind, name, value, choices, custom_env)?;
+    validate_choices(spec, cmd, errors, target, value, choices, custom_env)?;
     Ok(())
 }
 
@@ -769,14 +794,13 @@ fn validate_choice_values(
     spec: &Spec,
     cmd: &SpecCommand,
     errors: &mut Vec<UsageErr>,
-    kind: &str,
-    name: &str,
+    target: ChoiceTarget<'_>,
     values: &[String],
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<()> {
     for value in values {
-        validate_choice_value(spec, cmd, errors, kind, name, value, choices, custom_env)?;
+        validate_choice_value(spec, cmd, errors, target, value, choices, custom_env)?;
     }
     Ok(())
 }

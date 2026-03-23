@@ -15,11 +15,13 @@ pub struct SpecChoices {
 
 impl SpecChoices {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
-        let mut config = Self::default();
-        config.choices = node
-            .args()
-            .map(|e| e.ensure_string())
-            .collect::<Result<_, _>>()?;
+        let mut config = Self {
+            choices: node
+                .args()
+                .map(|e| e.ensure_string())
+                .collect::<Result<_, _>>()?,
+            ..Default::default()
+        };
 
         for (k, v) in node.props() {
             match k {
