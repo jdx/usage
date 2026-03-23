@@ -1,6 +1,6 @@
 # usage-java
 
-Run the [usage](https://usage.jdx.dev) CLI from Java via [Chicory](https://github.com/nicholasgasior/chicory), a pure-Java WebAssembly runtime.
+Run the [usage](https://usage.jdx.dev) CLI from Java via [Chicory](https://github.com/dylibso/chicory), a pure-Java WebAssembly runtime.
 
 The `usage` CLI is compiled to WebAssembly (WASI) and executed at runtime through Chicory with build-time AOT compilation for fast execution.
 
