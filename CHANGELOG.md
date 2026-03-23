@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.2.0](https://github.com/jdx/usage/compare/v3.1.0..v3.2.0) - 2026-03-23
+
+### 🚀 Features
+
+- Support env-backed choices with `choices env=...` by [@mustafa0x](https://github.com/mustafa0x) in [#548](https://github.com/jdx/usage/pull/548)
+
+### 🐛 Bug Fixes
+
+- **(zsh)** escape parentheses and brackets in completion descriptions by [@jdx](https://github.com/jdx) in [#559](https://github.com/jdx/usage/pull/559)
+
+### New Contributors
+
+- @mustafa0x made their first contribution in [#548](https://github.com/jdx/usage/pull/548)
+
 ## [3.1.0](https://github.com/jdx/usage/compare/v3.0.0..v3.1.0) - 2026-03-22
 
 ### 🚀 Features
