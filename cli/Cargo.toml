@@ -39,7 +39,7 @@ serde_json = "1.0"
 serde_with = "3"
 tera = "1"
 thiserror = "2"
-usage-lib = { workspace = true, features = ["clap", "docs"] }
+usage-lib = { workspace = true, features = ["clap", "docs", "unstable_choices_env"] }
 xx = "2"
 
 [target.'cfg(unix)'.dependencies]

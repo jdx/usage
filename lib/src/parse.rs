@@ -757,7 +757,7 @@ fn validate_choices(
                 errors.push(render_help_err(spec, cmd, value.len() > 2));
                 return Ok(true);
             }
-            if let Some(env) = &choices.env {
+            if let Some(env) = choices.env() {
                 if values.is_empty() {
                     bail!(
                         "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
@@ -1980,6 +1980,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_validates_arg_choices_from_custom_env() {
         let cmd = SpecCommand::builder()
@@ -2009,6 +2010,7 @@ mod tests {
         assert_eq!(value.to_string(), "bar");
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_rejects_arg_choices_from_custom_env() {
         let cmd = SpecCommand::builder()
@@ -2040,6 +2042,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_rejects_arg_choices_when_env_resolves_to_no_values() {
         let cmd = SpecCommand::builder()
@@ -2070,6 +2073,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_rejects_arg_env_value_not_in_choices_env() {
         let cmd = SpecCommand::builder()
@@ -2102,6 +2106,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_validates_flag_choices_from_custom_env() {
         let cmd = SpecCommand::builder()
@@ -2136,6 +2141,7 @@ mod tests {
         assert_eq!(value.to_string(), "baz");
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_rejects_flag_default_value_not_in_choices_env() {
         let cmd = SpecCommand::builder()

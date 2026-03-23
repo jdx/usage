@@ -42,6 +42,7 @@ xx = "2"
 [features]
 default = ["docs"]
 docs = ["tera", "roff"]
+unstable_choices_env = []
 
 [dev-dependencies]
 criterion = "0.8"

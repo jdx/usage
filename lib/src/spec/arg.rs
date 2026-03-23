@@ -342,7 +342,10 @@ impl From<&clap::Arg> for SpecArg {
             env: None,
         };
         if !choices.is_empty() {
-            arg.choices = Some(SpecChoices { choices, env: None });
+            arg.choices = Some(SpecChoices {
+                choices,
+                ..Default::default()
+            });
         }
 
         arg
