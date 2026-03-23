@@ -126,8 +126,7 @@ includes = ['tasks']
 run = "cargo install --path cli --debug"
 
 [tasks."wasm:clean"]
-dir = "cli"
-run = "rm -rf target wasi-sdk binaryen"
+run = "rm -rf target/wasm32-wasip1 cli/wasi-sdk"
 
 [tasks."wasm:get-wasisdk"]
 dir = "cli"
@@ -140,16 +139,6 @@ if [ ! -d "wasi-sdk" ]; then
 fi
 """
 
-[tasks."wasm:get-binaryen"]
-dir = "cli"
-run = """
-if [ ! -d "binaryen" ]; then
-  wget https://github.com/WebAssembly/binaryen/releases/download/version_125/binaryen-version_125-x86_64-linux.tar.gz
-  tar xvf binaryen-version_125-x86_64-linux.tar.gz
-  rm binaryen-version_125-x86_64-linux.tar.gz
-  mv binaryen-version_125 binaryen
-fi
-"""
 
 [tasks."wasm:build"]
 dir = "cli"
