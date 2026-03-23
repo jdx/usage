@@ -1,0 +1,5 @@
+cmd "run" {
+    arg "task"
+}
+
+complete "task" descriptions=#true run="echo \"connect\\\\:server:Connect server (Hot Reload)\ntest\\\\:unit:Run tests [fast]\nbuild:Build project\""

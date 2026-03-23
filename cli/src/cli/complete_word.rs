@@ -60,8 +60,8 @@ impl CompleteWord {
                 }
                 "zsh" => {
                     if any_descriptions {
-                        let c = c.replace(':', "\\:");
-                        let description = description.replace(':', "\\:");
+                        let c = zsh_escape(&c);
+                        let description = zsh_escape(&description);
                         println!("{c}:{description}")
                     } else {
                         println!("{c}")
@@ -355,6 +355,16 @@ impl CompleteWord {
             .sorted()
             .collect()
     }
+}
+
+/// Escape special characters for zsh's `_describe` function.
+/// Colons are field separators, parentheses and brackets are glob qualifiers.
+fn zsh_escape(s: &str) -> String {
+    s.replace(':', "\\:")
+        .replace('(', "\\(")
+        .replace(')', "\\)")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
 }
 
 fn sh(script: &str) -> XXResult<String> {
