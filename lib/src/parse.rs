@@ -121,24 +121,34 @@ impl<'a> Parser<'a> {
                 }
             }
             if !arg.default.is_empty() {
-                validate_choice_values(
-                    self.spec,
-                    &out.cmd,
-                    &mut out.errors,
-                    "arg",
-                    &arg.name,
-                    &arg.default,
-                    arg.choices.as_ref(),
-                    self.env.as_ref(),
-                )?;
                 // Consider var when deciding the type of default return value
                 if arg.var {
+                    validate_choice_values(
+                        self.spec,
+                        &out.cmd,
+                        &mut out.errors,
+                        "arg",
+                        &arg.name,
+                        &arg.default,
+                        arg.choices.as_ref(),
+                        self.env.as_ref(),
+                    )?;
                     // For var=true, always return a vec (MultiString)
                     out.args.insert(
                         Arc::new(arg.clone()),
                         ParseValue::MultiString(arg.default.clone()),
                     );
                 } else {
+                    validate_choice_value(
+                        self.spec,
+                        &out.cmd,
+                        &mut out.errors,
+                        "arg",
+                        &arg.name,
+                        &arg.default[0],
+                        arg.choices.as_ref(),
+                        self.env.as_ref(),
+                    )?;
                     // For var=false, return the first default value as String
                     out.args.insert(
                         Arc::new(arg.clone()),
@@ -239,22 +249,32 @@ impl<'a> Parser<'a> {
             // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
             if let Some(arg) = flag.arg.as_ref() {
                 if !out.flags.contains_key(flag) && !arg.default.is_empty() {
-                    validate_choice_values(
-                        self.spec,
-                        &out.cmd,
-                        &mut out.errors,
-                        "option",
-                        &flag.name,
-                        &arg.default,
-                        arg.choices.as_ref(),
-                        self.env.as_ref(),
-                    )?;
                     if flag.var {
+                        validate_choice_values(
+                            self.spec,
+                            &out.cmd,
+                            &mut out.errors,
+                            "option",
+                            &flag.name,
+                            &arg.default,
+                            arg.choices.as_ref(),
+                            self.env.as_ref(),
+                        )?;
                         out.flags.insert(
                             Arc::clone(flag),
                             ParseValue::MultiString(arg.default.clone()),
                         );
                     } else {
+                        validate_choice_value(
+                            self.spec,
+                            &out.cmd,
+                            &mut out.errors,
+                            "option",
+                            &flag.name,
+                            &arg.default[0],
+                            arg.choices.as_ref(),
+                            self.env.as_ref(),
+                        )?;
                         out.flags
                             .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
                     }
@@ -1251,6 +1271,73 @@ mod tests {
             ParseValue::String(s) => {
                 assert_eq!(s, "default.txt");
             }
+            _ => panic!("Expected String, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_arg_var_false_validates_only_first_default_choice() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("env")
+                    .var(false)
+                    .default_values(["dev", "prod"])
+                    .choices(["dev"])
+                    .required(false)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        match value {
+            ParseValue::String(s) => assert_eq!(s, "dev"),
+            _ => panic!("Expected String, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_flag_arg_default_var_false_validates_only_first_default_choice() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .long("env")
+                    .arg(
+                        SpecArg::builder()
+                            .name("env")
+                            .default_values(["dev", "prod"])
+                            .choices(["dev"])
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        let value = parsed.flags.values().next().unwrap();
+        match value {
+            ParseValue::String(s) => assert_eq!(s, "dev"),
             _ => panic!("Expected String, got {:?}", value),
         }
     }
