@@ -307,9 +307,20 @@ impl SpecArgBuilder {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.inner.choices = Some(SpecChoices {
-            choices: choices.into_iter().map(Into::into).collect(),
-        });
+        let spec_choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
+        #[cfg(feature = "unstable_choices_env")]
+        let env = spec_choices.env().map(ToString::to_string);
+        spec_choices.choices = choices.into_iter().map(Into::into).collect();
+        #[cfg(feature = "unstable_choices_env")]
+        spec_choices.set_env(env);
+        self
+    }
+
+    /// Set choices from an environment variable
+    #[cfg(feature = "unstable_choices_env")]
+    pub fn choices_env(mut self, env: impl Into<String>) -> Self {
+        let choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
+        choices.set_env(Some(env.into()));
         self
     }
 
@@ -678,6 +689,35 @@ mod tests {
             choices.choices,
             vec!["json".to_string(), "yaml".to_string(), "toml".to_string()]
         );
+        assert_eq!(choices.env(), None);
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn test_arg_builder_choices_env() {
+        let arg = SpecArgBuilder::new()
+            .name("env")
+            .choices(["local"])
+            .choices_env("DEPLOY_ENVS")
+            .build();
+
+        let choices = arg.choices.unwrap();
+        assert_eq!(choices.choices, vec!["local".to_string()]);
+        assert_eq!(choices.env(), Some("DEPLOY_ENVS"));
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn test_arg_builder_choices_preserves_choices_env() {
+        let arg = SpecArgBuilder::new()
+            .name("env")
+            .choices_env("DEPLOY_ENVS")
+            .choices(["local"])
+            .build();
+
+        let choices = arg.choices.unwrap();
+        assert_eq!(choices.choices, vec!["local".to_string()]);
+        assert_eq!(choices.env(), Some("DEPLOY_ENVS"));
     }
 
     #[test]

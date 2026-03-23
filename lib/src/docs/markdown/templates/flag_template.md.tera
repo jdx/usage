@@ -2,12 +2,16 @@
 
 {{ flag.help_md | escape_md }}
 {%- endif %}
-{%- if flag.arg.choices %}
+{%- if flag.arg.choices and flag.arg.choices.choices %}
 
 **Choices:**
 {% for choice in flag.arg.choices.choices %}
 - `{{ choice }}`
 {%- endfor %}
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %}
+
+**Choices Environment Variable:** `{{ flag.arg.choices.env }}`
 {%- endif %}
 {%- if flag.default | length > 0 %}
 

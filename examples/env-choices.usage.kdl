@@ -1,0 +1,3 @@
+flag "--env <env>" {
+  choices env="DEPLOY_ENVS"
+}

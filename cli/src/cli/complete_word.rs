@@ -106,6 +106,7 @@ impl CompleteWord {
             .as_ref()
             .is_some_and(|rt| prev_token == Some(rt.as_str()));
 
+        let mut has_explicit_choices = false;
         let mut choices = if ctoken == "-" {
             let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
             let longs = self.complete_long_flag_names(&parsed.available_flags, "");
@@ -120,14 +121,18 @@ impl CompleteWord {
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.first() {
+                has_explicit_choices = arg.choices.is_some();
                 choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
             }
             choices
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
-            self.complete_arg(&ctx, spec, &parsed.cmd, flag.arg.as_ref().unwrap(), &ctoken)?
+            let arg = flag.arg.as_ref().unwrap();
+            has_explicit_choices = arg.choices.is_some();
+            self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?
         } else {
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
+                has_explicit_choices = arg.choices.is_some();
                 choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
             }
             if !parsed.cmd.subcommands.is_empty() {
@@ -153,7 +158,7 @@ impl CompleteWord {
             choices
         };
         // Fallback to file completions if nothing is known about this argument and it's not a flag
-        if choices.is_empty() && !ctoken.starts_with('-') {
+        if choices.is_empty() && !ctoken.starts_with('-') && !has_explicit_choices {
             let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             let files = self.complete_path(&cwd, &ctoken, |_| true);
             choices = files.into_iter().map(|n| (n, String::new())).collect();
@@ -266,10 +271,10 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
-            return Ok(choices
-                .choices
-                .iter()
-                .map(|c| (c.clone(), String::new()))
+            let values = choices.values();
+            return Ok(values
+                .into_iter()
+                .map(|c| (c, String::new()))
                 .filter(|(c, _)| c.starts_with(ctoken))
                 .collect());
         }

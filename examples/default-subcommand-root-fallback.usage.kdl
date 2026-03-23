@@ -1,0 +1,8 @@
+arg "<target>"
+default_subcommand "run"
+
+cmd "run" {
+  arg "<task>" {
+    choices "task-a" "task-b"
+  }
+}

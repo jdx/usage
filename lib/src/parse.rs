@@ -12,7 +12,7 @@ use strum::EnumTryAs;
 use crate::docs;
 use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
-use crate::{Spec, SpecArg, SpecCommand, SpecFlag};
+use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
 /// Extract the flag key from a flag word for lookup in available_flags map
 /// Handles both long flags (--flag, --flag=value) and short flags (-f)
@@ -90,11 +90,12 @@ impl<'a> Parser<'a> {
     ///
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
-        let mut out = parse_partial_with_env(self.spec, input, self.env.as_ref())?;
+        let custom_env = self.env.as_ref();
+        let mut out = parse_partial_with_env(self.spec, input, custom_env)?;
         trace!("{out:?}");
 
         let get_env = |key: &str| -> Option<String> {
-            if let Some(ref env_map) = self.env {
+            if let Some(env_map) = custom_env {
                 env_map.get(key).cloned()
             } else {
                 std::env::var(key).ok()
@@ -105,6 +106,12 @@ impl<'a> Parser<'a> {
         for arg in out.cmd.args.iter().skip(out.args.len()) {
             if let Some(env_var) = arg.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
+                    validate_choice_value(
+                        ChoiceTarget::arg(arg),
+                        &env_value,
+                        arg.choices.as_ref(),
+                        custom_env,
+                    )?;
                     out.args
                         .insert(Arc::new(arg.clone()), ParseValue::String(env_value));
                     continue;
@@ -113,12 +120,24 @@ impl<'a> Parser<'a> {
             if !arg.default.is_empty() {
                 // Consider var when deciding the type of default return value
                 if arg.var {
+                    validate_choice_values(
+                        ChoiceTarget::arg(arg),
+                        &arg.default,
+                        arg.choices.as_ref(),
+                        custom_env,
+                    )?;
                     // For var=true, always return a vec (MultiString)
                     out.args.insert(
                         Arc::new(arg.clone()),
                         ParseValue::MultiString(arg.default.clone()),
                     );
                 } else {
+                    validate_choice_value(
+                        ChoiceTarget::arg(arg),
+                        &arg.default[0],
+                        arg.choices.as_ref(),
+                        custom_env,
+                    )?;
                     // For var=false, return the first default value as String
                     out.args.insert(
                         Arc::new(arg.clone()),
@@ -135,7 +154,13 @@ impl<'a> Parser<'a> {
             }
             if let Some(env_var) = flag.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
-                    if flag.arg.is_some() {
+                    if let Some(arg) = flag.arg.as_ref() {
+                        validate_choice_value(
+                            ChoiceTarget::option(flag),
+                            &env_value,
+                            arg.choices.as_ref(),
+                            custom_env,
+                        )?;
                         out.flags
                             .insert(Arc::clone(flag), ParseValue::String(env_value));
                     } else {
@@ -152,7 +177,13 @@ impl<'a> Parser<'a> {
                 // Consider var when deciding the type of default return value
                 if flag.var {
                     // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
-                    if flag.arg.is_some() {
+                    if let Some(arg) = flag.arg.as_ref() {
+                        validate_choice_values(
+                            ChoiceTarget::option(flag),
+                            &flag.default,
+                            arg.choices.as_ref(),
+                            custom_env,
+                        )?;
                         out.flags.insert(
                             Arc::clone(flag),
                             ParseValue::MultiString(flag.default.clone()),
@@ -169,7 +200,13 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     // For var=false, return the first default value
-                    if flag.arg.is_some() {
+                    if let Some(arg) = flag.arg.as_ref() {
+                        validate_choice_value(
+                            ChoiceTarget::option(flag),
+                            &flag.default[0],
+                            arg.choices.as_ref(),
+                            custom_env,
+                        )?;
                         out.flags.insert(
                             Arc::clone(flag),
                             ParseValue::String(flag.default[0].clone()),
@@ -187,11 +224,23 @@ impl<'a> Parser<'a> {
             if let Some(arg) = flag.arg.as_ref() {
                 if !out.flags.contains_key(flag) && !arg.default.is_empty() {
                     if flag.var {
+                        validate_choice_values(
+                            ChoiceTarget::option(flag),
+                            &arg.default,
+                            arg.choices.as_ref(),
+                            custom_env,
+                        )?;
                         out.flags.insert(
                             Arc::clone(flag),
                             ParseValue::MultiString(arg.default.clone()),
                         );
                     } else {
+                        validate_choice_value(
+                            ChoiceTarget::option(flag),
+                            &arg.default[0],
+                            arg.choices.as_ref(),
+                            custom_env,
+                        )?;
                         out.flags
                             .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
                     }
@@ -472,21 +521,18 @@ fn parse_partial_with_env(
         if !out.flag_awaiting_value.is_empty() {
             while let Some(flag) = out.flag_awaiting_value.pop() {
                 let arg = flag.arg.as_ref().unwrap();
+                if validate_choices(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    ChoiceTarget::option(&flag),
+                    &w,
+                    arg.choices.as_ref(),
+                    custom_env,
+                )? {
+                    return Ok(out);
+                }
                 if flag.var {
-                    if let Some(choices) = &arg.choices {
-                        if !choices.choices.contains(&w) {
-                            if is_help_arg(spec, &w) {
-                                out.errors
-                                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                                return Ok(out);
-                            }
-                            bail!(
-                                "Invalid choice for option {}: {w}, expected one of {}",
-                                flag.name,
-                                choices.choices.join(", ")
-                            );
-                        }
-                    }
                     let arr = out
                         .flags
                         .entry(flag)
@@ -495,20 +541,6 @@ fn parse_partial_with_env(
                         .unwrap();
                     arr.push(w);
                 } else {
-                    if let Some(choices) = &arg.choices {
-                        if !choices.choices.contains(&w) {
-                            if is_help_arg(spec, &w) {
-                                out.errors
-                                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                                return Ok(out);
-                            }
-                            bail!(
-                                "Invalid choice for option {}: {w}, expected one of {}",
-                                flag.name,
-                                choices.choices.join(", ")
-                            );
-                        }
-                    }
                     out.flags.insert(flag, ParseValue::String(w));
                 }
                 w = "".to_string();
@@ -517,21 +549,18 @@ fn parse_partial_with_env(
         }
 
         if let Some(arg) = next_arg {
+            if validate_choices(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                ChoiceTarget::arg(arg),
+                &w,
+                arg.choices.as_ref(),
+                custom_env,
+            )? {
+                return Ok(out);
+            }
             if arg.var {
-                if let Some(choices) = &arg.choices {
-                    if !choices.choices.contains(&w) {
-                        if is_help_arg(spec, &w) {
-                            out.errors
-                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                            return Ok(out);
-                        }
-                        bail!(
-                            "Invalid choice for arg {}: {w}, expected one of {}",
-                            arg.name,
-                            choices.choices.join(", ")
-                        );
-                    }
-                }
                 let arr = out
                     .args
                     .entry(Arc::new(arg.clone()))
@@ -543,20 +572,6 @@ fn parse_partial_with_env(
                     next_arg = out.cmd.args.get(out.args.len());
                 }
             } else {
-                if let Some(choices) = &arg.choices {
-                    if !choices.choices.contains(&w) {
-                        if is_help_arg(spec, &w) {
-                            out.errors
-                                .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                            return Ok(out);
-                        }
-                        bail!(
-                            "Invalid choice for arg {}: {w}, expected one of {}",
-                            arg.name,
-                            choices.choices.join(", ")
-                        );
-                    }
-                }
                 out.args
                     .insert(Arc::new(arg.clone()), ParseValue::String(w));
                 next_arg = out.cmd.args.get(out.args.len());
@@ -667,6 +682,106 @@ fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
+#[derive(Copy, Clone)]
+struct ChoiceTarget<'a> {
+    kind: &'a str,
+    name: &'a str,
+}
+
+impl<'a> ChoiceTarget<'a> {
+    fn arg(arg: &'a SpecArg) -> Self {
+        Self {
+            kind: "arg",
+            name: &arg.name,
+        }
+    }
+
+    fn option(flag: &'a SpecFlag) -> Self {
+        Self {
+            kind: "option",
+            name: &flag.name,
+        }
+    }
+}
+
+fn choice_error(
+    target: ChoiceTarget<'_>,
+    value: &str,
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> Option<String> {
+    let choices = choices?;
+    let values = choices.values_with_env(custom_env);
+    if values.iter().any(|choice| choice == value) {
+        return None;
+    }
+    if let Some(env) = choices.env() {
+        if values.is_empty() {
+            return Some(format!(
+                "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
+                target.kind, target.name,
+            ));
+        }
+    }
+    Some(format!(
+        "Invalid choice for {} {}: {value}, expected one of {}",
+        target.kind,
+        target.name,
+        values.join(", ")
+    ))
+}
+
+fn validate_choices(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    target: ChoiceTarget<'_>,
+    value: &str,
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    if is_help_arg(spec, value)
+        && choices.is_some_and(|choices| {
+            !choices
+                .values_with_env(custom_env)
+                .iter()
+                .any(|choice| choice == value)
+        })
+    {
+        errors.push(render_help_err(spec, cmd, value.len() > 2));
+        return Ok(true);
+    }
+
+    if let Some(err) = choice_error(target, value, choices, custom_env) {
+        bail!("{err}");
+    }
+    Ok(false)
+}
+
+fn validate_choice_value(
+    target: ChoiceTarget<'_>,
+    value: &str,
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<()> {
+    if let Some(err) = choice_error(target, value, choices, custom_env) {
+        bail!("{err}");
+    }
+    Ok(())
+}
+
+fn validate_choice_values(
+    target: ChoiceTarget<'_>,
+    values: &[String],
+    choices: Option<&SpecChoices>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<()> {
+    for value in values {
+        validate_choice_value(target, value, choices, custom_env)?;
+    }
+    Ok(())
+}
+
 fn is_help_arg(spec: &Spec, w: &str) -> bool {
     spec.disable_help != Some(true)
         && (w == "--help"
@@ -744,6 +859,78 @@ impl Debug for ParseOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn input(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    fn spec_with_arg(arg: SpecArg) -> Spec {
+        let cmd = SpecCommand::builder().name("test").arg(arg).build();
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    fn spec_with_flag(flag: SpecFlag) -> Spec {
+        let cmd = SpecCommand::builder().name("test").flag(flag).build();
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    fn parse_with_env(
+        spec: &Spec,
+        words: &[&str],
+        env: &[(&str, &str)],
+    ) -> Result<ParseOutput, miette::Error> {
+        let env = env
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect();
+        Parser::new(spec).with_env(env).parse(&input(words))
+    }
+
+    fn first_string_value(parsed: &ParseOutput) -> &str {
+        if let Some(ParseValue::String(value)) = parsed.args.values().next() {
+            return value;
+        }
+        if let Some(ParseValue::String(value)) = parsed.flags.values().next() {
+            return value;
+        }
+        panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    fn assert_parse_err(result: Result<ParseOutput, miette::Error>, expected: &str) {
+        let err = result.expect_err("expected parser error");
+        assert_eq!(format!("{err}"), expected);
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    fn spec_arg_choices_env(key: &str) -> Spec {
+        spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .choices_env(key)
+                .required(false)
+                .build(),
+        )
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    fn spec_flag_choices_env(key: &str) -> Spec {
+        spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(SpecArg::builder().name("env").choices_env(key).build())
+                .build(),
+        )
+    }
 
     #[test]
     fn test_parse() {
@@ -1158,6 +1345,38 @@ mod tests {
                 assert_eq!(s, "default.txt");
             }
             _ => panic!("Expected String, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_scalar_defaults_validate_only_first_default_choice() {
+        let specs = [
+            spec_with_arg(
+                SpecArg::builder()
+                    .name("env")
+                    .var(false)
+                    .default_values(["dev", "prod"])
+                    .choices(["dev"])
+                    .required(false)
+                    .build(),
+            ),
+            spec_with_flag(
+                SpecFlag::builder()
+                    .long("env")
+                    .arg(
+                        SpecArg::builder()
+                            .name("env")
+                            .default_values(["dev", "prod"])
+                            .choices(["dev"])
+                            .build(),
+                    )
+                    .build(),
+            ),
+        ];
+
+        for spec in specs {
+            let parsed = parse(&spec, &input(&["test"])).unwrap();
+            assert_eq!(first_string_value(&parsed), "dev");
         }
     }
 
@@ -1668,111 +1887,161 @@ mod tests {
 
     #[test]
     fn test_parser_with_custom_env_for_required_arg() {
-        // Test that Parser::with_env works for required args with env vars
-        // This should NOT fail validation even though the env var is not in std::env
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("name")
-                    .env("NAME")
-                    .required(true)
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("name")
+                .env("NAME")
+                .required(true)
+                .build(),
+        );
         std::env::remove_var("NAME");
 
-        // Provide env through custom env map
-        let mut env = HashMap::new();
-        env.insert("NAME".to_string(), "john".to_string());
-
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
-
-        // Should succeed - custom env map should be used for validation
-        let parsed = result.expect("parse should succeed with custom env");
+        let parsed = parse_with_env(&spec, &["test"], &[("NAME", "john")])
+            .expect("parse should succeed with custom env");
         assert_eq!(parsed.args.len(), 1);
-        let value = parsed.args.values().next().unwrap();
-        assert_eq!(value.to_string(), "john");
+        assert_eq!(first_string_value(&parsed), "john");
     }
 
     #[test]
     fn test_parser_with_custom_env_for_required_flag() {
-        // Test that Parser::with_env works for required flags with env vars
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .flag(
-                SpecFlag::builder()
-                    .long("name")
-                    .env("NAME")
-                    .required(true)
-                    .arg(SpecArg::builder().name("name").build())
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("name")
+                .env("NAME")
+                .required(true)
+                .arg(SpecArg::builder().name("name").build())
+                .build(),
+        );
         std::env::remove_var("NAME");
 
-        // Provide env through custom env map
-        let mut env = HashMap::new();
-        env.insert("NAME".to_string(), "jane".to_string());
-
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
-
-        // Should succeed - custom env map should be used for validation
-        let parsed = result.expect("parse should succeed with custom env");
+        let parsed = parse_with_env(&spec, &["test"], &[("NAME", "jane")])
+            .expect("parse should succeed with custom env");
         assert_eq!(parsed.flags.len(), 1);
-        let value = parsed.flags.values().next().unwrap();
-        assert_eq!(value.to_string(), "jane");
+        assert_eq!(first_string_value(&parsed), "jane");
     }
 
     #[test]
     fn test_parser_with_custom_env_still_fails_when_missing() {
-        // Test that validation still fails when env var is missing from both maps
-        let cmd = SpecCommand::builder()
-            .name("test")
-            .arg(
-                SpecArg::builder()
-                    .name("name")
-                    .env("NAME")
-                    .required(true)
-                    .build(),
-            )
-            .build();
-        let spec = Spec {
-            name: "test".to_string(),
-            bin: "test".to_string(),
-            cmd,
-            ..Default::default()
-        };
-
-        // Ensure NAME is not in process env
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("name")
+                .env("NAME")
+                .required(true)
+                .build(),
+        );
         std::env::remove_var("NAME");
+        assert!(parse_with_env(&spec, &["test"], &[]).is_err());
+    }
 
-        // Provide a custom env map WITHOUT the required env var
-        let env = HashMap::new();
+    #[test]
+    fn test_parser_does_not_treat_env_choice_value_as_help() {
+        let spec = spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .env("CURRENT_ENV")
+                .choices(["dev", "staging"])
+                .required(false)
+                .build(),
+        );
 
-        let input = vec!["test".to_string()];
-        let result = Parser::new(&spec).with_env(env).parse(&input);
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[("CURRENT_ENV", "--help")]),
+            "Invalid choice for arg env: --help, expected one of dev, staging",
+        );
+    }
 
-        // Should fail - env var is missing from both custom and process env
-        assert!(result.is_err());
+    #[test]
+    fn test_parser_does_not_treat_default_choice_value_as_help() {
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(
+                    SpecArg::builder()
+                        .name("env")
+                        .choices(["dev", "staging"])
+                        .build(),
+                )
+                .default_value("--help")
+                .build(),
+        );
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[]),
+            "Invalid choice for option env: --help, expected one of dev, staging",
+        );
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn test_parser_arg_choices_from_custom_env() {
+        let spec = spec_arg_choices_env("DEPLOY_ENVS");
+
+        let parsed =
+            parse_with_env(&spec, &["test", "bar"], &[("DEPLOY_ENVS", "foo,bar baz")]).unwrap();
+        assert_eq!(first_string_value(&parsed), "bar");
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test", "prod"], &[("DEPLOY_ENVS", "foo,bar baz")]),
+            "Invalid choice for arg env: prod, expected one of foo, bar, baz",
+        );
+        assert_parse_err(
+            parse_with_env(&spec, &["test", "prod"], &[]),
+            "Invalid choice for arg env: prod, no choices resolved from env DEPLOY_ENVS",
+        );
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn test_parser_validates_flag_choices_from_custom_env() {
+        let spec = spec_flag_choices_env("DEPLOY_ENVS");
+        let parsed = parse_with_env(
+            &spec,
+            &["test", "--env", "baz"],
+            &[("DEPLOY_ENVS", "foo,bar baz")],
+        )
+        .unwrap();
+        assert_eq!(first_string_value(&parsed), "baz");
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn test_parser_revalidates_env_and_default_values_against_choices_env() {
+        let arg_env_spec = spec_with_arg(
+            SpecArg::builder()
+                .name("env")
+                .env("CURRENT_ENV")
+                .choices_env("DEPLOY_ENVS")
+                .build(),
+        );
+        assert_parse_err(
+            parse_with_env(
+                &arg_env_spec,
+                &["test"],
+                &[("CURRENT_ENV", "prod"), ("DEPLOY_ENVS", "dev,staging")],
+            ),
+            "Invalid choice for arg env: prod, expected one of dev, staging",
+        );
+
+        let flag_default_spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("env")
+                .arg(
+                    SpecArg::builder()
+                        .name("env")
+                        .choices_env("DEPLOY_ENVS")
+                        .build(),
+                )
+                .default_value("prod")
+                .build(),
+        );
+        assert_parse_err(
+            parse_with_env(
+                &flag_default_spec,
+                &["test"],
+                &[("DEPLOY_ENVS", "dev,staging")],
+            ),
+            "Invalid choice for option env: prod, expected one of dev, staging",
+        );
     }
 
     #[test]

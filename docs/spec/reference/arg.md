@@ -43,6 +43,10 @@ arg "<shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices
 }
 
+arg "<env>" {
+  choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
+}
+
 arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 
 // double-dash behavior
