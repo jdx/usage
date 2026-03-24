@@ -17,6 +17,7 @@
     <chicory.version>1.7.3</chicory.version>
     <junit.version>5.14.3</junit.version>
     <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
     <templating-maven-plugin.version>3.1.0</templating-maven-plugin.version>
   </properties>
 
@@ -92,6 +93,11 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>

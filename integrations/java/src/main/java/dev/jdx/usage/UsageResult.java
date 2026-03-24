@@ -14,11 +14,11 @@ public class UsageResult {
     }
 
     public byte[] stdout() {
-        return stdout;
+        return stdout.clone();
     }
 
     public byte[] stderr() {
-        return stderr;
+        return stderr.clone();
     }
 
     public String stdoutAsString() {
