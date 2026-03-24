@@ -13,13 +13,13 @@ pub mod mount;
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use log::{info, warn};
+use regex::Regex;
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use regex::Regex;
 
 use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
@@ -307,7 +307,8 @@ fn split_script(file: &Path) -> Result<String, UsageErr> {
     let full = std::fs::read_to_string(file)?;
     // If file has a shebang and USAGE comments, extract the spec from comments
     if full.starts_with("#!") {
-        static USAGE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])").unwrap());
+        static USAGE_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])").unwrap());
         if full.lines().any(|l| USAGE_RE.is_match(l)) {
             return Ok(extract_usage_from_comments(&full));
         }
@@ -317,8 +318,10 @@ fn split_script(file: &Path) -> Result<String, UsageErr> {
 }
 
 fn extract_usage_from_comments(full: &str) -> String {
-    static USAGE_CAPTURE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$").unwrap());
-    static BLANK_COMMENT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:#|//|::)\s*$").unwrap());
+    static USAGE_CAPTURE_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$").unwrap());
+    static BLANK_COMMENT_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:#|//|::)\s*$").unwrap());
     let usage_regex = &*USAGE_CAPTURE_RE;
     let blank_comment_regex = &*BLANK_COMMENT_RE;
     let mut usage = vec![];
