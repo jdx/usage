@@ -28,5 +28,5 @@ jobs:
           java-version: 21
       - run: mise run wasm:build
       - run: cd integrations/java && mvn clean install
-      - uses: jbangdev/setup-jbang@6109ef573a4a3e8e21df68dcc3e0e29e3c5e48ea # v3
+      - uses: jbangdev/setup-jbang@2b1b465a7b75f4222b81426f23a01e013aa7b95c # v0.1.1
       - run: cd integrations/java && jbang example/Main.java
