@@ -124,3 +124,28 @@ includes = ['tasks']
 
 [tasks.install-dev]
 run = "cargo install --path cli --debug"
+
+[tasks."wasm:clean"]
+run = "rm -rf target/wasm32-wasip1 cli/wasi-sdk"
+
+[tasks."wasm:get-wasisdk"]
+dir = "cli"
+run = """
+if [ ! -d "wasi-sdk" ]; then
+  wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/wasi-sdk-29.0-x86_64-linux.tar.gz
+  tar xvf wasi-sdk-29.0-x86_64-linux.tar.gz
+  rm wasi-sdk-29.0-x86_64-linux.tar.gz
+  mv wasi-sdk-29.0-x86_64-linux wasi-sdk
+fi
+"""
+
+
+[tasks."wasm:build"]
+dir = "cli"
+depends = ["wasm:get-wasisdk"]
+run = """
+WASI_SDK_PATH=$(pwd)/wasi-sdk \
+CC_wasm32_wasip1=$(pwd)/wasi-sdk/bin/clang \
+CFLAGS_wasm32_wasip1="--sysroot=$(pwd)/wasi-sdk/share/wasi-sysroot" \
+cargo build --target wasm32-wasip1 --profile wasm
+"""
