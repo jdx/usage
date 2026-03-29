@@ -25,6 +25,10 @@ fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&
 
 /// Build the usage binary and return its path
 fn build_usage_binary() -> PathBuf {
+    if let Some(usage_path) = std::env::var("CARGO_BIN_EXE_usage").ok().filter(|s| !s.is_empty()) {
+        return PathBuf::from(usage_path);
+    }
+
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().unwrap();
 
