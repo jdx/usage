@@ -4,7 +4,8 @@ use crate::error::UsageErr;
 use itertools::Itertools;
 use serde::Serialize;
 use std::collections::HashMap;
-use xx::regex;
+use regex::Regex;
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
@@ -88,7 +89,10 @@ impl MarkdownRenderer {
                             return line.to_string();
                         }
                         // replace '<' with '&lt;' but not inside code blocks
-                        xx::regex!(r"(`[^`]*`)|(<)")
+                        {
+                            static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
+                            &RE
+                        }
                             .replace_all(line, |caps: &regex::Captures| {
                                 if caps.get(1).is_some() {
                                     caps.get(1).unwrap().as_str().to_string()
@@ -102,8 +106,8 @@ impl MarkdownRenderer {
                 Ok(value.into())
             },
         );
-        let path_re =
-            regex!(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/");
+        static PATH_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/").unwrap());
+        let path_re = &*PATH_RE;
         tera.register_function("source_code_link", |args: &HashMap<String, tera::Value>| {
             let spec = args.get("spec").unwrap().as_object().unwrap();
             let cmd = args.get("cmd").unwrap().as_object().unwrap();

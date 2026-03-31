@@ -50,6 +50,7 @@ pub enum UsageErr {
     #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[error(transparent)]
     #[diagnostic(transparent)]
     XXError(#[from] xx::error::XXError),

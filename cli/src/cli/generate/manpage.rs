@@ -34,7 +34,11 @@ impl Manpage {
 
         if let Some(out_file) = &self.out_file {
             println!("writing to {}", out_file.display());
-            xx::file::write(out_file, &manpage)?;
+            if let Some(parent) = out_file.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| miette::miette!("{e}"))?;
+            }
+            std::fs::write(out_file, &manpage)
+                .map_err(|e| miette::miette!("{e}"))?;
         } else {
             print!("{}", manpage);
         }

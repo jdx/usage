@@ -50,3 +50,5 @@ jobs:
             exit 1
           fi
       - run: mise r lint
+      - name: check wasm build
+        run: rustup target add wasm32-wasip1 && cargo build --target wasm32-wasip1 -p usage-cli
