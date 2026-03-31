@@ -37,8 +37,7 @@ impl Manpage {
             if let Some(parent) = out_file.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| miette::miette!("{e}"))?;
             }
-            std::fs::write(out_file, &manpage)
-                .map_err(|e| miette::miette!("{e}"))?;
+            std::fs::write(out_file, &manpage).map_err(|e| miette::miette!("{e}"))?;
         } else {
             print!("{}", manpage);
         }

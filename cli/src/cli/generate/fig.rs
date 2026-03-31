@@ -359,8 +359,7 @@ impl Fig {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| miette::miette!("{e}"))?;
             }
-            std::fs::write(path, format!("{}\n", md.trim()))
-                .map_err(|e| miette::miette!("{e}"))?;
+            std::fs::write(path, format!("{}\n", md.trim())).map_err(|e| miette::miette!("{e}"))?;
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
