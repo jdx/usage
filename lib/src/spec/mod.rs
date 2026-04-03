@@ -13,12 +13,13 @@ pub mod mount;
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use log::{info, warn};
+use regex::Regex;
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::Path;
 use std::str::FromStr;
-use xx::file;
+use std::sync::LazyLock;
 
 use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
@@ -102,7 +103,7 @@ impl Spec {
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
-        let raw = extract_usage_from_comments(&file::read_to_string(file)?);
+        let raw = extract_usage_from_comments(&std::fs::read_to_string(file)?);
         let ctx = ParsingContext::new(file, &raw);
         let mut spec = Self::parse(&ctx, &raw)?;
         if spec.bin.is_empty() {
@@ -303,11 +304,12 @@ fn check_usage_version(version: &str) {
 }
 
 fn split_script(file: &Path) -> Result<String, UsageErr> {
-    let full = file::read_to_string(file)?;
+    let full = std::fs::read_to_string(file)?;
     // If file has a shebang and USAGE comments, extract the spec from comments
     if full.starts_with("#!") {
-        let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])");
-        if full.lines().any(|l| usage_regex.is_match(l)) {
+        static USAGE_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])").unwrap());
+        if full.lines().any(|l| USAGE_RE.is_match(l)) {
             return Ok(extract_usage_from_comments(&full));
         }
     }
@@ -316,8 +318,12 @@ fn split_script(file: &Path) -> Result<String, UsageErr> {
 }
 
 fn extract_usage_from_comments(full: &str) -> String {
-    let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$");
-    let blank_comment_regex = xx::regex!(r"^(?:#|//|::)\s*$");
+    static USAGE_CAPTURE_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$").unwrap());
+    static BLANK_COMMENT_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:#|//|::)\s*$").unwrap());
+    let usage_regex = &*USAGE_CAPTURE_RE;
+    let blank_comment_regex = &*BLANK_COMMENT_RE;
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
