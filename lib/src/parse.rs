@@ -809,6 +809,23 @@ impl ParseOutput {
         }
         env
     }
+
+    pub fn trailing_varargs_count(&self) -> Option<usize> {
+        if !self.errors.is_empty() {
+            return None;
+        }
+        Some(
+            self.args
+                .iter()
+                .rev()
+                .take_while(|(a, _)| a.var)
+                .filter_map(|(_, v)| match v {
+                    ParseValue::MultiString(s) => Some(s.len()),
+                    _ => None,
+                })
+                .sum(),
+        )
+    }
 }
 
 impl Display for ParseValue {
@@ -2145,5 +2162,188 @@ mod tests {
             }
             _ => panic!("Expected MultiString, got {:?}", args_val),
         }
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_basic() {
+        let spec: Spec = r#"
+            flag "--verbose"
+            arg "<file>"
+            arg "[extra...]"
+        "#
+        .parse()
+        .unwrap();
+        let input: Vec<String> = vec!["test", "--verbose", "myfile", "extra1", "extra2"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.trailing_varargs_count(), Some(2));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_no_varargs() {
+        let spec: Spec = r#"
+            flag "--verbose"
+            arg "<file>"
+        "#
+        .parse()
+        .unwrap();
+        let input: Vec<String> = vec!["test", "--verbose", "myfile"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.trailing_varargs_count(), Some(0));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_with_double_dash() {
+        let spec: Spec = r#"
+            flag "--verbose"
+            arg "<file>"
+            arg "[extra...]"
+        "#
+        .parse()
+        .unwrap();
+        let input: Vec<String> = vec!["test", "--verbose", "myfile", "--", "extra1", "extra2"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        assert_eq!(parsed.trailing_varargs_count(), Some(2));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_with_subcommand() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .subcommand(
+                SpecCommand::builder()
+                    .name("run")
+                    .arg(SpecArg::builder().name("task").build())
+                    .arg(
+                        SpecArg::builder()
+                            .name("args")
+                            .required(false)
+                            .var(true)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+        let input: Vec<String> = vec!["test", "run", "build", "arg1", "arg2"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(env.get("usage_task").unwrap(), "build");
+        assert_eq!(env.get("usage_args").unwrap(), "arg1 arg2");
+        assert_eq!(parsed.trailing_varargs_count(), Some(2));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_multiple_groups() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("files")
+                    .required(false)
+                    .var(true)
+                    .var_max(2)
+                    .build(),
+            )
+            .arg(
+                SpecArg::builder()
+                    .name("dirs")
+                    .required(false)
+                    .var(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+        let input: Vec<String> = vec!["test", "f1", "f2", "d1", "d2", "d3"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(env.get("usage_files").unwrap(), "f1 f2");
+        assert_eq!(env.get("usage_dirs").unwrap(), "d1 d2 d3");
+        assert_eq!(parsed.trailing_varargs_count(), Some(5));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_non_trailing_excluded() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("files")
+                    .required(false)
+                    .var(true)
+                    .var_max(2)
+                    .build(),
+            )
+            .arg(SpecArg::builder().name("output").build())
+            .arg(
+                SpecArg::builder()
+                    .name("extra")
+                    .required(false)
+                    .var(true)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+        let input: Vec<String> = vec!["test", "f1", "f2", "out", "e1", "e2"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(env.get("usage_files").unwrap(), "f1 f2");
+        assert_eq!(env.get("usage_output").unwrap(), "out");
+        assert_eq!(env.get("usage_extra").unwrap(), "e1 e2");
+        assert_eq!(parsed.trailing_varargs_count(), Some(2));
+    }
+
+    #[test]
+    fn test_trailing_varargs_count_non_multi_string() {
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(SpecArg::builder().name("extra").var(true).build())
+            .build();
+        let mut out = ParseOutput {
+            cmd: cmd.clone(),
+            cmds: vec![cmd],
+            args: IndexMap::new(),
+            flags: IndexMap::new(),
+            available_flags: BTreeMap::new(),
+            flag_awaiting_value: vec![],
+            errors: vec![],
+        };
+        out.args.insert(
+            Arc::new(SpecArg::builder().name("extra").var(true).build()),
+            ParseValue::String("single".to_string()),
+        );
+        assert_eq!(out.trailing_varargs_count(), Some(0));
     }
 }

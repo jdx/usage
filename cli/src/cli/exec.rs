@@ -78,6 +78,12 @@ impl Exec {
         for (key, val) in &parsed.as_env() {
             cmd.env(key, val);
         }
+        if let Some(trailing) = parsed.trailing_varargs_count() {
+            cmd.env(
+                "usage__varargs_idx",
+                self.args.len().saturating_sub(trailing).to_string(),
+            );
+        }
 
         let result = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
 
