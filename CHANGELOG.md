@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.2.1](https://github.com/jdx/usage/compare/v3.2.0..v3.2.1) - 2026-04-06
+
+### 🐛 Bug Fixes
+
+- use CARGO_BIN_EXE_usage if set by [@kybe236](https://github.com/kybe236) in [#568](https://github.com/jdx/usage/pull/568)
+
+### 📦️ Dependency Updates
+
+- pin dtolnay/rust-toolchain action to 631a55b by [@renovate[bot]](https://github.com/renovate[bot]) in [#562](https://github.com/jdx/usage/pull/562)
+- update codecov/codecov-action digest to 75cd116 by [@renovate[bot]](https://github.com/renovate[bot]) in [#563](https://github.com/jdx/usage/pull/563)
+- update pnpm/action-setup digest to b906aff by [@renovate[bot]](https://github.com/renovate[bot]) in [#566](https://github.com/jdx/usage/pull/566)
+- update jdx/mise-action digest to 5228313 by [@renovate[bot]](https://github.com/renovate[bot]) in [#565](https://github.com/jdx/usage/pull/565)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#569](https://github.com/jdx/usage/pull/569)
+- update dtolnay/rust-toolchain digest to 29eef33 by [@renovate[bot]](https://github.com/renovate[bot]) in [#571](https://github.com/jdx/usage/pull/571)
+- update swatinem/rust-cache digest to e18b497 by [@renovate[bot]](https://github.com/renovate[bot]) in [#572](https://github.com/jdx/usage/pull/572)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#574](https://github.com/jdx/usage/pull/574)
+
+### New Contributors
+
+- @kybe236 made their first contribution in [#568](https://github.com/jdx/usage/pull/568)
+
 ## [3.2.0](https://github.com/jdx/usage/compare/v3.1.0..v3.2.0) - 2026-03-23
 
 ### 🚀 Features
