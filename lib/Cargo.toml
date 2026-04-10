@@ -46,7 +46,7 @@ unstable_choices_env = []
 
 [dev-dependencies]
 criterion = "0.8"
-ctor = "0.6"
+ctor = "0.9"
 insta = "1"
 pretty_assertions = "1"
 shell-words = "1"
