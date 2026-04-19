@@ -12,6 +12,22 @@
   "dependencies": {
     "vitepress": "1.6.4"
   },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current",
+        "linux"
+      ],
+      "cpu": [
+        "current",
+        "x64"
+      ],
+      "libc": [
+        "current",
+        "glibc"
+      ]
+    }
+  },
   "prettier": {
     "trailingComma": "es5",
     "printWidth": 80
