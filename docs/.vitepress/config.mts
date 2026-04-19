@@ -35,7 +35,8 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "Spec", link: "/spec/" },
-      { text: "CLI", link: "/cli/" }
+      { text: "CLI", link: "/cli/" },
+      { text: "Releases", link: "https://github.com/jdx/usage/releases" }
     ],
 
     sidebar: [

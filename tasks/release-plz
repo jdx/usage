@@ -38,10 +38,10 @@ mise run lint-fix
 git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
 cargo update
-pnpm update
+aube update
 git add \
   {./,cli/,lib/}Cargo.* \
-  package.json pnpm-lock.yaml \
+  package.json aube-lock.yaml \
   cli/usage.usage.kdl \
   docs/cli/reference/* \
   CHANGELOG.md

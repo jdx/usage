@@ -4,6 +4,7 @@ _.path = ["./target/debug"]
 
 [tools]
 actionlint = "latest"
+aube = "latest"
 communique = "latest"
 cargo-binstall = "1"
 gh = "latest"
@@ -14,7 +15,7 @@ gh = "latest"
 "cargo:git-cliff" = "latest"
 "npm:prettier" = "latest"
 shellcheck = "latest"
-pnpm = "latest"
+node = "24"
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]
@@ -49,7 +50,7 @@ raw = true
 [tasks."docs:dev"]
 alias = "docs"
 dir = 'docs'
-run = 'npm run docs:dev'
+run = 'aube install && aube run docs:dev'
 
 [tasks.test]
 alias = 't'
