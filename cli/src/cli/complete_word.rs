@@ -59,8 +59,8 @@ impl CompleteWord {
                     }
                 }
                 "zsh" => {
+                    let c = zsh_escape(&c);
                     if any_descriptions {
-                        let c = zsh_escape(&c);
                         let description = zsh_escape(&description);
                         println!("{c}:{description}")
                     } else {
