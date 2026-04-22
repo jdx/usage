@@ -1,0 +1,5 @@
+cmd "run" {
+    arg "<task>" {
+        choices "test:git" "test:nvim"
+    }
+}

@@ -302,6 +302,13 @@ fn complete_word_zsh_escapes_parens_and_brackets() {
     );
 }
 
+#[test]
+fn complete_word_zsh_escapes_colons_without_descriptions() {
+    let mut c = cmd("zsh-colons-without-descriptions.usage.kdl", Some("zsh"));
+    c.args(["--", "run", ""]);
+    c.assert().success().stdout("test\\:git\ntest\\:nvim\n");
+}
+
 fn cmd(example: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
