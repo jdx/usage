@@ -29,15 +29,6 @@ time:
   "@docsearch/js@3.8.2": 2024-12-17T15:34:38.867Z
   "@docsearch/react@3.8.2": 2024-12-17T15:34:36.229Z
   "@esbuild-plugins/node-modules-polyfill@0.2.2": 2023-01-27T10:38:16.927Z
-  "@esbuild/darwin-arm64@0.21.5": 2024-06-09T21:17:13.758Z
-  "@esbuild/darwin-arm64@0.23.1": 2024-08-16T22:13:33.762Z
-  "@esbuild/darwin-arm64@0.24.2": 2024-12-20T17:56:13.272Z
-  "@esbuild/darwin-x64@0.21.5": 2024-06-09T21:17:00.976Z
-  "@esbuild/darwin-x64@0.23.1": 2024-08-16T22:13:19.973Z
-  "@esbuild/darwin-x64@0.24.2": 2024-12-20T17:56:14.010Z
-  "@esbuild/linux-arm64@0.21.5": 2024-06-09T21:17:23.384Z
-  "@esbuild/linux-arm64@0.23.1": 2024-08-16T22:13:43.777Z
-  "@esbuild/linux-arm64@0.24.2": 2024-12-20T17:57:17.541Z
   "@esbuild/linux-x64@0.21.5": 2024-06-09T21:17:15.111Z
   "@esbuild/linux-x64@0.23.1": 2024-08-16T22:13:33.535Z
   "@esbuild/linux-x64@0.24.2": 2024-12-20T17:56:52.550Z
@@ -52,7 +43,6 @@ time:
   "@fig/autocomplete-helpers@1.0.7": 2022-11-29T18:33:30.012Z
   "@fig/autocomplete-helpers@2.0.0": 2025-01-07T22:41:49.297Z
   "@fig/autocomplete-merge@1.4.0": 2024-05-31T18:56:09.915Z
-  "@fig/eslint-config-autocomplete@2.0.0": 2024-05-10T19:12:15.295Z
   "@humanfs/core@0.19.2": 2026-04-17T20:51:11.882Z
   "@humanfs/node@0.16.8": 2026-04-17T20:51:26.959Z
   "@humanfs/types@0.15.0": 2024-09-09T19:44:08.000Z
@@ -65,12 +55,7 @@ time:
   "@nodelib/fs.scandir@2.1.5": 2021-06-04T07:43:24.492Z
   "@nodelib/fs.stat@2.0.5": 2021-06-04T07:43:20.317Z
   "@nodelib/fs.walk@1.2.8": 2021-07-08T18:41:05.552Z
-  "@rollup/rollup-darwin-arm64@4.60.2": 2026-04-18T13:58:27.555Z
-  "@rollup/rollup-darwin-x64@4.60.2": 2026-04-18T13:59:28.701Z
-  "@rollup/rollup-linux-arm64-gnu@4.60.2": 2026-04-18T13:58:41.555Z
-  "@rollup/rollup-linux-arm64-musl@4.60.2": 2026-04-18T13:58:45.162Z
   "@rollup/rollup-linux-x64-gnu@4.60.2": 2026-04-18T13:59:43.183Z
-  "@rollup/rollup-linux-x64-musl@4.60.2": 2026-04-18T13:59:46.857Z
   "@shikijs/core@2.5.0": 2025-02-18T09:10:12.142Z
   "@shikijs/engine-javascript@2.5.0": 2025-02-18T09:09:26.369Z
   "@shikijs/engine-oniguruma@2.5.0": 2025-02-18T09:09:33.593Z
@@ -80,7 +65,6 @@ time:
   "@shikijs/types@2.5.0": 2025-02-18T09:09:20.251Z
   "@shikijs/vscode-textmate@10.0.2": 2025-02-15T16:46:32.096Z
   "@ts-morph/common@0.23.0": 2024-03-10T17:21:08.186Z
-  "@tsconfig/node24@24.0.4": 2026-01-16T04:36:59.236Z
   "@types/esrecurse@4.3.1": 2025-07-19T03:47:09.775Z
   "@types/estree@1.0.8": 2025-06-06T00:04:34.692Z
   "@types/hast@3.0.4": 2024-01-30T22:06:19.288Z
@@ -118,9 +102,6 @@ time:
   "@vueuse/integrations@12.8.2": 2025-03-05T11:41:34.399Z
   "@vueuse/metadata@12.8.2": 2025-03-05T11:39:15.362Z
   "@vueuse/shared@12.8.2": 2025-03-05T11:39:22.947Z
-  "@withfig/autocomplete-tools@2.11.0": 2025-01-07T22:41:53.840Z
-  "@withfig/autocomplete-types@1.31.0": 2024-05-08T19:03:14.702Z
-  "@withfig/autocomplete@2.692.3": 2025-05-05T17:15:37.900Z
   "@withfig/eslint-plugin-fig-linter@1.4.1": 2023-02-05T19:39:17.032Z
   acorn-jsx@5.3.2: 2021-07-09T01:15:57.512Z
   acorn@8.16.0: 2026-02-19T15:06:28.070Z
@@ -167,7 +148,6 @@ time:
   eslint-scope@9.1.2: 2026-03-06T22:32:49.946Z
   eslint-visitor-keys@3.4.3: 2023-08-11T14:49:54.383Z
   eslint-visitor-keys@5.0.1: 2026-02-20T14:40:47.824Z
-  eslint@10.2.1: 2026-04-17T20:17:44.852Z
   espree@11.2.0: 2026-03-06T22:32:40.951Z
   esquery@1.7.0: 2025-12-31T15:44:57.664Z
   esrecurse@4.3.0: 2020-08-31T18:21:44.794Z
@@ -186,7 +166,6 @@ time:
   flat-cache@4.0.1: 2024-03-02T16:09:41.118Z
   flatted@3.4.2: 2026-03-17T15:03:56.392Z
   focus-trap@7.8.0: 2026-01-10T22:24:14.284Z
-  fsevents@2.3.3: 2023-08-21T16:24:22.854Z
   glob-parent@5.1.2: 2021-03-06T21:21:44.487Z
   glob-parent@6.0.2: 2021-09-29T22:14:24.467Z
   globby@11.1.0: 2022-01-08T02:46:38.602Z
@@ -260,7 +239,6 @@ time:
   rollup@4.60.2: 2026-04-18T13:59:58.613Z
   run-parallel@1.2.0: 2021-02-10T02:58:08.152Z
   search-insights@2.17.3: 2024-11-18T02:06:21.689Z
-  semver@7.7.4: 2026-02-05T17:23:11.131Z
   shebang-command@2.0.0: 2019-09-06T14:53:25.901Z
   shebang-regex@3.0.0: 2019-04-27T10:46:19.256Z
   shiki@2.5.0: 2025-02-18T09:10:30.900Z
@@ -291,7 +269,6 @@ time:
   vfile-message@4.0.3: 2025-07-26T15:08:12.656Z
   vfile@6.0.3: 2024-08-27T09:12:42.377Z
   vite@5.4.21: 2025-10-20T05:32:04.015Z
-  vitepress@1.6.4: 2025-08-05T13:40:31.197Z
   vue@3.5.32: 2026-04-03T05:41:39.680Z
   which@2.0.2: 2019-11-18T22:26:15.325Z
   word-wrap@1.2.5: 2023-07-22T14:37:38.795Z
@@ -339,7 +316,7 @@ importers:
         version: 2.17.3
       typescript:
         specifier: ">=4.7.4"
-        version: 6.0.3
+        version: 4.9.5
       vite:
         specifier: ^5.0.0 || ^6.0.0
         version: 5.4.21
@@ -348,11 +325,11 @@ importers:
         version: 1.6.4(postcss@8.5.10)
       vue:
         specifier: ^3.2.25
-        version: 3.5.32(typescript@6.0.3)
+        version: 3.5.32(typescript@4.9.5)
     devDependencies:
       "@fig/eslint-config-autocomplete":
         specifier: ^2.0.0
-        version: 2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@6.0.3)
+        version: 2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@4.9.5)
       "@tsconfig/node24":
         specifier: ^24.0.4
         version: 24.0.4
@@ -474,69 +451,6 @@ packages:
       integrity: sha512-LXV7QsWJxRuMYvKbiznh+U1ilIop3g2TeKRzUxOG5X3YITc8JyyTa90BmLwqqv0YnX4v32CSlG+vsziZp9dMvA==
     peerDependencies:
       esbuild: "*"
-  "@esbuild/darwin-arm64@0.21.5":
-    resolution:
-      integrity: sha512-DwqXqZyuk5AiWWf3UfLiRDJ5EDd49zg6O9wclZ7kUMv2WRFr4HKjXp/5t8JZ11QbQfUS6/cRCKGwYhtNAY88kQ==
-    os:
-      - darwin
-    cpu:
-      - arm64
-  "@esbuild/darwin-arm64@0.23.1":
-    resolution:
-      integrity: sha512-YsS2e3Wtgnw7Wq53XXBLcV6JhRsEq8hkfg91ESVadIrzr9wO6jJDMZnCQbHm1Guc5t/CdDiFSSfWP58FNuvT3Q==
-    os:
-      - darwin
-    cpu:
-      - arm64
-  "@esbuild/darwin-arm64@0.24.2":
-    resolution:
-      integrity: sha512-kj3AnYWc+CekmZnS5IPu9D+HWtUI49hbnyqk0FLEJDbzCIQt7hg7ucF1SQAilhtYpIujfaHr6O0UHlzzSPdOeA==
-    os:
-      - darwin
-    cpu:
-      - arm64
-  "@esbuild/darwin-x64@0.21.5":
-    resolution:
-      integrity: sha512-se/JjF8NlmKVG4kNIuyWMV/22ZaerB+qaSi5MdrXtd6R08kvs2qCN4C09miupktDitvh8jRFflwGFBQcxZRjbw==
-    os:
-      - darwin
-    cpu:
-      - x64
-  "@esbuild/darwin-x64@0.23.1":
-    resolution:
-      integrity: sha512-aClqdgTDVPSEGgoCS8QDG37Gu8yc9lTHNAQlsztQ6ENetKEO//b8y31MMu2ZaPbn4kVsIABzVLXYLhCGekGDqw==
-    os:
-      - darwin
-    cpu:
-      - x64
-  "@esbuild/darwin-x64@0.24.2":
-    resolution:
-      integrity: sha512-WeSrmwwHaPkNR5H3yYfowhZcbriGqooyu3zI/3GGpF8AyUdsrrP0X6KumITGA9WOyiJavnGZUwPGvxvwfWPHIA==
-    os:
-      - darwin
-    cpu:
-      - x64
-  "@esbuild/linux-arm64@0.21.5":
-    resolution:
-      integrity: sha512-ibKvmyYzKsBeX8d8I7MH/TMfWDXBF3db4qM6sy+7re0YXya+K1cem3on9XgdT2EQGMu4hQyZhan7TeQ8XkGp4Q==
-    os:
-      - linux
-    cpu:
-      - arm64
-  "@esbuild/linux-arm64@0.23.1":
-    resolution:
-      integrity: sha512-/93bf2yxencYDnItMYV/v116zff6UyTjo4EtEQjUBeGiVpMmffDNUyD9UN2zV+V3LRV3/on4xdZ26NKzn6754g==
-    os:
-      - linux
-    cpu:
-      - arm64
-  "@esbuild/linux-arm64@0.24.2":
-    resolution:
-      integrity: sha512-7HnAD6074BW43YvvUmE/35Id9/NB7BeX5EoNkK9obndmZBUk8xmJJeU7DwmUeN7tkysslb2eSl6CTrYz6oEMQg==
-    os:
-      - linux
-    cpu:
-      - arm64
   "@esbuild/linux-x64@0.21.5":
     resolution:
       integrity: sha512-1rYdTpyv03iycF1+BhzrzQJCdOuAOtaqHTWJZCWvijKD2N5Xu0TtVC8/+1faWqcP9iBCWOmjmhoH94dH82BxPQ==
@@ -639,38 +553,6 @@ packages:
   "@nodelib/fs.walk@1.2.8":
     resolution:
       integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==
-  "@rollup/rollup-darwin-arm64@4.60.2":
-    resolution:
-      integrity: sha512-UwRE7CGpvSVEQS8gUMBe1uADWjNnVgP3Iusyda1nSRwNDCsRjnGc7w6El6WLQsXmZTbLZx9cecegumcitNfpmA==
-    os:
-      - darwin
-    cpu:
-      - arm64
-  "@rollup/rollup-darwin-x64@4.60.2":
-    resolution:
-      integrity: sha512-gjEtURKLCC5VXm1I+2i1u9OhxFsKAQJKTVB8WvDAHF+oZlq0GTVFOlTlO1q3AlCTE/DF32c16ESvfgqR7343/g==
-    os:
-      - darwin
-    cpu:
-      - x64
-  "@rollup/rollup-linux-arm64-gnu@4.60.2":
-    resolution:
-      integrity: sha512-bO/rVDiDUuM2YfuCUwZ1t1cP+/yqjqz+Xf2VtkdppefuOFS2OSeAfgafaHNkFn0t02hEyXngZkxtGqXcXwO8Rg==
-    os:
-      - linux
-    cpu:
-      - arm64
-    libc:
-      - glibc
-  "@rollup/rollup-linux-arm64-musl@4.60.2":
-    resolution:
-      integrity: sha512-hr26p7e93Rl0Za+JwW7EAnwAvKkehh12BU1Llm9Ykiibg4uIr2rbpxG9WCf56GuvidlTG9KiiQT/TXT1yAWxTA==
-    os:
-      - linux
-    cpu:
-      - arm64
-    libc:
-      - musl
   "@rollup/rollup-linux-x64-gnu@4.60.2":
     resolution:
       integrity: sha512-UQjrkIdWrKI626Du8lCQ6MJp/6V1LAo2bOK9OTu4mSn8GGXIkPXk/Vsp4bLHCd9Z9Iz2OTEaokUE90VweJgIYQ==
@@ -680,15 +562,6 @@ packages:
       - x64
     libc:
       - glibc
-  "@rollup/rollup-linux-x64-musl@4.60.2":
-    resolution:
-      integrity: sha512-bTsRGj6VlSdn/XD4CGyzMnzaBs9bsRxy79eTqTCBsA8TMIEky7qg48aPkvJvFe1HyzQ5oMZdg7AnVlWQSKLTnw==
-    os:
-      - linux
-    cpu:
-      - x64
-    libc:
-      - musl
   "@shikijs/core@2.5.0":
     resolution:
       integrity: sha512-uu/8RExTKtavlpH7XqnVYBrfBkUc20ngXiX9NSrBhOVZYv/7XQRKUyhtkeflY5QsxC0GbJThCerruZfsUaSldg==
@@ -1110,11 +983,6 @@ packages:
   focus-trap@7.8.0:
     resolution:
       integrity: sha512-/yNdlIkpWbM0ptxno3ONTuf+2g318kh2ez3KSeZN5dZ8YC6AAmgeWz+GasYYiBJPFaYcSAPeu4GfhUaChzIJXA==
-  fsevents@2.3.3:
-    resolution:
-      integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
-    os:
-      - darwin
   glob-parent@5.1.2:
     resolution:
       integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==
@@ -1396,9 +1264,6 @@ packages:
   typescript@5.9.3:
     resolution:
       integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==
-  typescript@6.0.3:
-    resolution:
-      integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==
   unist-util-is@6.0.1:
     resolution:
       integrity: sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==
@@ -1605,15 +1470,6 @@ snapshots:
       esbuild: 0.24.2
       escape-string-regexp: 4.0.0
       rollup-plugin-node-polyfills: 0.2.1
-  "@esbuild/darwin-arm64@0.21.5": {}
-  "@esbuild/darwin-arm64@0.23.1": {}
-  "@esbuild/darwin-arm64@0.24.2": {}
-  "@esbuild/darwin-x64@0.21.5": {}
-  "@esbuild/darwin-x64@0.23.1": {}
-  "@esbuild/darwin-x64@0.24.2": {}
-  "@esbuild/linux-arm64@0.21.5": {}
-  "@esbuild/linux-arm64@0.23.1": {}
-  "@esbuild/linux-arm64@0.24.2": {}
   "@esbuild/linux-x64@0.21.5": {}
   "@esbuild/linux-x64@0.23.1": {}
   "@esbuild/linux-x64@0.24.2": {}
@@ -1651,14 +1507,14 @@ snapshots:
       prettier: 3.8.3
       ts-morph: 22.0.0
       typescript: 5.9.3
-  "@fig/eslint-config-autocomplete@2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@6.0.3)":
+  "@fig/eslint-config-autocomplete@2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@4.9.5)":
     dependencies:
       "@typescript-eslint/eslint-plugin": 7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1)
       "@typescript-eslint/parser": 7.18.0(eslint@10.2.1)
       "@withfig/eslint-plugin-fig-linter": 1.4.1
       eslint: 10.2.1
       eslint-plugin-compat: 4.2.0(eslint@10.2.1)
-      typescript: 6.0.3
+      typescript: 4.9.5
   "@humanfs/core@0.19.2":
     dependencies:
       "@humanfs/types": 0.15.0
@@ -1685,12 +1541,7 @@ snapshots:
     dependencies:
       "@nodelib/fs.scandir": 2.1.5
       fastq: 1.20.1
-  "@rollup/rollup-darwin-arm64@4.60.2": {}
-  "@rollup/rollup-darwin-x64@4.60.2": {}
-  "@rollup/rollup-linux-arm64-gnu@4.60.2": {}
-  "@rollup/rollup-linux-arm64-musl@4.60.2": {}
   "@rollup/rollup-linux-x64-gnu@4.60.2": {}
-  "@rollup/rollup-linux-x64-musl@4.60.2": {}
   "@shikijs/core@2.5.0":
     dependencies:
       "@shikijs/engine-javascript": 2.5.0
@@ -1760,7 +1611,7 @@ snapshots:
       graphemer: 1.4.0
       ignore: 5.3.2
       natural-compare: 1.4.0
-      ts-api-utils: 1.4.3(typescript@6.0.3)
+      ts-api-utils: 1.4.3(typescript@4.9.5)
   "@typescript-eslint/parser@7.18.0(eslint@10.2.1)":
     dependencies:
       "@typescript-eslint/scope-manager": 7.18.0
@@ -1779,7 +1630,7 @@ snapshots:
       "@typescript-eslint/utils": 7.18.0(eslint@10.2.1)
       debug: 4.4.3
       eslint: 10.2.1
-      ts-api-utils: 1.4.3(typescript@6.0.3)
+      ts-api-utils: 1.4.3(typescript@4.9.5)
   "@typescript-eslint/types@7.18.0": {}
   "@typescript-eslint/typescript-estree@7.18.0":
     dependencies:
@@ -1790,7 +1641,7 @@ snapshots:
       is-glob: 4.0.3
       minimatch: 9.0.9
       semver: 7.7.4
-      ts-api-utils: 1.4.3(typescript@6.0.3)
+      ts-api-utils: 1.4.3(typescript@4.9.5)
   "@typescript-eslint/utils@7.18.0(eslint@10.2.1)":
     dependencies:
       "@eslint-community/eslint-utils": 4.9.1(eslint@10.2.1)
@@ -1803,10 +1654,10 @@ snapshots:
       "@typescript-eslint/types": 7.18.0
       eslint-visitor-keys: 3.4.3
   "@ungap/structured-clone@1.3.0": {}
-  "@vitejs/plugin-vue@5.2.4(vite@5.4.21)(vue@3.5.32(typescript@6.0.3))":
+  "@vitejs/plugin-vue@5.2.4(vite@5.4.21)(vue@3.5.32(typescript@4.9.5))":
     dependencies:
       vite: 5.4.21
-      vue: 3.5.32(typescript@6.0.3)
+      vue: 3.5.32(typescript@4.9.5)
   "@vue/compiler-core@3.5.32":
     dependencies:
       "@babel/parser": 7.29.2
@@ -1861,28 +1712,28 @@ snapshots:
       "@vue/runtime-core": 3.5.32
       "@vue/shared": 3.5.32
       csstype: 3.2.3
-  "@vue/server-renderer@3.5.32(vue@3.5.32(typescript@6.0.3))":
+  "@vue/server-renderer@3.5.32(vue@3.5.32(typescript@4.9.5))":
     dependencies:
       "@vue/compiler-ssr": 3.5.32
       "@vue/shared": 3.5.32
-      vue: 3.5.32(typescript@6.0.3)
+      vue: 3.5.32(typescript@4.9.5)
   "@vue/shared@3.5.32": {}
   "@vueuse/core@12.8.2":
     dependencies:
       "@types/web-bluetooth": 0.0.21
       "@vueuse/metadata": 12.8.2
       "@vueuse/shared": 12.8.2
-      vue: 3.5.32(typescript@6.0.3)
+      vue: 3.5.32(typescript@4.9.5)
   "@vueuse/integrations@12.8.2(focus-trap@7.8.0)":
     dependencies:
       "@vueuse/core": 12.8.2
       "@vueuse/shared": 12.8.2
       focus-trap: 7.8.0
-      vue: 3.5.32(typescript@6.0.3)
+      vue: 3.5.32(typescript@4.9.5)
   "@vueuse/metadata@12.8.2": {}
   "@vueuse/shared@12.8.2":
     dependencies:
-      vue: 3.5.32(typescript@6.0.3)
+      vue: 3.5.32(typescript@4.9.5)
   "@withfig/autocomplete-tools@2.11.0":
     dependencies:
       "@esbuild-plugins/node-modules-polyfill": 0.2.2(esbuild@0.24.2)
@@ -1999,21 +1850,12 @@ snapshots:
   entities@7.0.1: {}
   esbuild@0.21.5:
     optionalDependencies:
-      "@esbuild/darwin-arm64": 0.21.5
-      "@esbuild/darwin-x64": 0.21.5
-      "@esbuild/linux-arm64": 0.21.5
       "@esbuild/linux-x64": 0.21.5
   esbuild@0.23.1:
     optionalDependencies:
-      "@esbuild/darwin-arm64": 0.23.1
-      "@esbuild/darwin-x64": 0.23.1
-      "@esbuild/linux-arm64": 0.23.1
       "@esbuild/linux-x64": 0.23.1
   esbuild@0.24.2:
     optionalDependencies:
-      "@esbuild/darwin-arm64": 0.24.2
-      "@esbuild/darwin-x64": 0.24.2
-      "@esbuild/linux-arm64": 0.24.2
       "@esbuild/linux-x64": 0.24.2
   escalade@3.2.0: {}
   escape-string-regexp@4.0.0: {}
@@ -2113,7 +1955,6 @@ snapshots:
   focus-trap@7.8.0:
     dependencies:
       tabbable: 6.4.0
-  fsevents@2.3.3: {}
   glob-parent@5.1.2:
     dependencies:
       is-glob: 4.0.3
@@ -2284,13 +2125,7 @@ snapshots:
     dependencies:
       "@types/estree": 1.0.8
     optionalDependencies:
-      "@rollup/rollup-darwin-arm64": 4.60.2
-      "@rollup/rollup-darwin-x64": 4.60.2
-      "@rollup/rollup-linux-arm64-gnu": 4.60.2
-      "@rollup/rollup-linux-arm64-musl": 4.60.2
       "@rollup/rollup-linux-x64-gnu": 4.60.2
-      "@rollup/rollup-linux-x64-musl": 4.60.2
-      fsevents: 2.3.3
   run-parallel@1.2.0:
     dependencies:
       queue-microtask: 1.2.3
@@ -2328,9 +2163,9 @@ snapshots:
     dependencies:
       is-number: 7.0.0
   trim-lines@3.0.1: {}
-  ts-api-utils@1.4.3(typescript@6.0.3):
+  ts-api-utils@1.4.3(typescript@4.9.5):
     dependencies:
-      typescript: 6.0.3
+      typescript: 4.9.5
   ts-morph@22.0.0:
     dependencies:
       "@ts-morph/common": 0.23.0
@@ -2340,7 +2175,6 @@ snapshots:
       prelude-ls: 1.2.1
   typescript@4.9.5: {}
   typescript@5.9.3: {}
-  typescript@6.0.3: {}
   unist-util-is@6.0.1:
     dependencies:
       "@types/unist": 3.0.3
@@ -2380,8 +2214,6 @@ snapshots:
       esbuild: 0.21.5
       postcss: 8.5.10
       rollup: 4.60.2
-    optionalDependencies:
-      fsevents: 2.3.3
   vitepress@1.6.4(postcss@8.5.10):
     dependencies:
       "@docsearch/css": 3.8.2
@@ -2391,7 +2223,7 @@ snapshots:
       "@shikijs/transformers": 2.5.0
       "@shikijs/types": 2.5.0
       "@types/markdown-it": 14.1.2
-      "@vitejs/plugin-vue": 5.2.4(vite@5.4.21)(vue@3.5.32(typescript@6.0.3))
+      "@vitejs/plugin-vue": 5.2.4(vite@5.4.21)(vue@3.5.32(typescript@4.9.5))
       "@vue/devtools-api": 7.7.9
       "@vue/shared": 3.5.32
       "@vueuse/core": 12.8.2
@@ -2402,15 +2234,15 @@ snapshots:
       postcss: 8.5.10
       shiki: 2.5.0
       vite: 5.4.21
-      vue: 3.5.32(typescript@6.0.3)
-  vue@3.5.32(typescript@6.0.3):
+      vue: 3.5.32(typescript@4.9.5)
+  vue@3.5.32(typescript@4.9.5):
     dependencies:
       "@vue/compiler-dom": 3.5.32
       "@vue/compiler-sfc": 3.5.32
       "@vue/runtime-dom": 3.5.32
-      "@vue/server-renderer": 3.5.32(vue@3.5.32(typescript@6.0.3))
+      "@vue/server-renderer": 3.5.32(vue@3.5.32(typescript@4.9.5))
       "@vue/shared": 3.5.32
-      typescript: 6.0.3
+      typescript: 4.9.5
   which@2.0.2:
     dependencies:
       isexe: 2.0.0

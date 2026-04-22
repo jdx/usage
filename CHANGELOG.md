@@ -1,5 +1,52 @@
 # Changelog
 
+## [3.2.1](https://github.com/jdx/usage/compare/v3.2.0..v3.2.1) - 2026-04-22
+
+### 🐛 Bug Fixes
+
+- **(zsh)** escape values without descriptions by [@david-hamilton-glean](https://github.com/david-hamilton-glean) in [#597](https://github.com/jdx/usage/pull/597)
+- use CARGO_BIN_EXE_usage if set by [@kybe236](https://github.com/kybe236) in [#568](https://github.com/jdx/usage/pull/568)
+
+### 📚 Documentation
+
+- add releases nav and aube lock by [@jdx](https://github.com/jdx) in [#593](https://github.com/jdx/usage/pull/593)
+- add linux optional packages to aube lock by [@jdx](https://github.com/jdx) in [#594](https://github.com/jdx/usage/pull/594)
+
+### 📦️ Dependency Updates
+
+- pin dtolnay/rust-toolchain action to 631a55b by [@renovate[bot]](https://github.com/renovate[bot]) in [#562](https://github.com/jdx/usage/pull/562)
+- update codecov/codecov-action digest to 75cd116 by [@renovate[bot]](https://github.com/renovate[bot]) in [#563](https://github.com/jdx/usage/pull/563)
+- update pnpm/action-setup digest to b906aff by [@renovate[bot]](https://github.com/renovate[bot]) in [#566](https://github.com/jdx/usage/pull/566)
+- update jdx/mise-action digest to 5228313 by [@renovate[bot]](https://github.com/renovate[bot]) in [#565](https://github.com/jdx/usage/pull/565)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#569](https://github.com/jdx/usage/pull/569)
+- update dtolnay/rust-toolchain digest to 29eef33 by [@renovate[bot]](https://github.com/renovate[bot]) in [#571](https://github.com/jdx/usage/pull/571)
+- update swatinem/rust-cache digest to e18b497 by [@renovate[bot]](https://github.com/renovate[bot]) in [#572](https://github.com/jdx/usage/pull/572)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#574](https://github.com/jdx/usage/pull/574)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#575](https://github.com/jdx/usage/pull/575)
+- update taiki-e/upload-rust-binary-action digest to 10c1cf6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#576](https://github.com/jdx/usage/pull/576)
+- update rust crate ctor to 0.9 by [@renovate[bot]](https://github.com/renovate[bot]) in [#577](https://github.com/jdx/usage/pull/577)
+- update actions/configure-pages action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#579](https://github.com/jdx/usage/pull/579)
+- update rust crate indexmap to v2.14.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#578](https://github.com/jdx/usage/pull/578)
+- update codecov/codecov-action action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#581](https://github.com/jdx/usage/pull/581)
+- update actions/deploy-pages action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#580](https://github.com/jdx/usage/pull/580)
+- update pnpm/action-setup action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#583](https://github.com/jdx/usage/pull/583)
+- update jdx/mise-action action to v4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#582](https://github.com/jdx/usage/pull/582)
+- update pnpm/action-setup action to v6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#584](https://github.com/jdx/usage/pull/584)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#585](https://github.com/jdx/usage/pull/585)
+- update rust crate clap to v4.6.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#586](https://github.com/jdx/usage/pull/586)
+- update rust crate ctor to 0.10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#587](https://github.com/jdx/usage/pull/587)
+- update actions/upload-pages-artifact action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#588](https://github.com/jdx/usage/pull/588)
+- update rust crate assert_cmd to v2.2.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#589](https://github.com/jdx/usage/pull/589)
+- update taiki-e/upload-rust-binary-action digest to f0d45ae by [@renovate[bot]](https://github.com/renovate[bot]) in [#590](https://github.com/jdx/usage/pull/590)
+- update dependency eslint to v10.2.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#591](https://github.com/jdx/usage/pull/591)
+- update pnpm/action-setup digest to 078e9d4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#592](https://github.com/jdx/usage/pull/592)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#595](https://github.com/jdx/usage/pull/595)
+
+### New Contributors
+
+- @david-hamilton-glean made their first contribution in [#597](https://github.com/jdx/usage/pull/597)
+- @kybe236 made their first contribution in [#568](https://github.com/jdx/usage/pull/568)
+
 ## [3.2.0](https://github.com/jdx/usage/compare/v3.1.0..v3.2.0) - 2026-03-23
 
 ### 🚀 Features
