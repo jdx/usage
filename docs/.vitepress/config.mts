@@ -18,7 +18,10 @@ function getCommands(cmd): string[][] {
 const commands = getCommands(spec.cmd);
 const configDir = dirname(fileURLToPath(import.meta.url));
 const cargoToml = readFileSync(resolve(configDir, "../../lib/Cargo.toml"), "utf8");
-const versionMatch = cargoToml.match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/);
+const versionMatch = cargoToml.match(/^\[package\][\s\S]*?^\s*version\s*=\s*"([^"]+)"/m);
+if (!versionMatch) {
+  console.warn("Unable to find package version in lib/Cargo.toml");
+}
 const latestVersion = versionMatch?.[1] ?? "0.0.0";
 
 // https://vitepress.dev/reference/site-config
