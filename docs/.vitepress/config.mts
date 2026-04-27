@@ -129,15 +129,12 @@ export default defineConfig({
     ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }],
     [
       "script",
-      { async: "", src: "https://www.googletagmanager.com/gtag/js?id=G-63L7VEB1RB" }
-    ],
-    [
-      "script",
-      {},
-      `window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-63L7VEB1RB');`
+      {
+        defer: "",
+        "data-domain": "pa-9z3f-p-ATqjtilwc0InyS",
+        "data-api": "https://shrill.en.dev/f5f1/event",
+        src: "https://shrill.en.dev/shrill/script.js"
+      }
     ]
   ]
 });
