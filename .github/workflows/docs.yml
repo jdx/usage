@@ -36,6 +36,8 @@ jobs:
       - name: Install dependencies
         run: aube install
       - name: Build with VitePress
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           aube run docs:build
           touch docs/.vitepress/dist/.nojekyll
