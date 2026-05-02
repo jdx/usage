@@ -126,15 +126,6 @@ export default defineConfig({
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }],
     ["meta", { name: "twitter:card", content: "summary" }],
-    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }],
-    [
-      "script",
-      {
-        defer: "",
-        "data-domain": "usage.jdx.dev",
-        "data-api": "https://shrill.en.dev/f5f1/event",
-        src: "https://shrill.en.dev/shrill/script.js"
-      }
-    ]
+    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/android-chrome-512x512.png" }]
   ]
 });
