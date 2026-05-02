@@ -98,3 +98,30 @@ by spaces. If an arg itself has a space, then it will have quotes around it. Thi
 by [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html). For now,
 this is not customizable behavior. It would be possible to
 support [alternatives](https://github.com/jdx/usage/issues/189) though.
+
+## Trailing Varargs
+
+Usage always sets the `usage__varargs_idx` environment variable on the subprocess. Its value is the
+number of parsed args in `$@` that precede the trailing varargs. A script can `shift` by this amount
+to isolate the varargs in `$@`. When there are no trailing varargs, the value equals the total number
+of args, so `shift $usage__varargs_idx` empties `$@`:
+
+```bash
+#!/usr/bin/env -S usage bash
+#USAGE flag "-v --verbose" help="Enable verbose output"
+#USAGE arg "<file>" help="Input file"
+#USAGE arg "[extra...]" help="Extra arguments passed through"
+
+echo "file: $usage_file"
+echo "extra: $usage_extra"
+
+shift "$usage__varargs_idx"
+echo "raw varargs in \$@: $@"
+```
+
+```bash
+$ ./mycli --verbose input.txt foo bar baz
+file: input.txt
+extra: foo bar baz
+raw varargs in $@: foo bar baz
+```
