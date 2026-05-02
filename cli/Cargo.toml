@@ -40,6 +40,7 @@ serde_with = "3"
 tera = "1"
 thiserror = "2"
 usage-lib = { workspace = true, features = ["clap", "docs", "unstable_choices_env"] }
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 xx = "2"
 
 [target.'cfg(unix)'.dependencies]

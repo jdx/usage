@@ -356,7 +356,10 @@ impl Fig {
     pub fn run(&self) -> miette::Result<()> {
         let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
             println!("writing to {}", path.display());
-            xx::file::write(path, format!("{}\n", md.trim()))?;
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| miette::miette!("{e}"))?;
+            }
+            std::fs::write(path, format!("{}\n", md.trim())).map_err(|e| miette::miette!("{e}"))?;
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
