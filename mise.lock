@@ -228,6 +228,10 @@ url = "https://nodejs.org/dist/v24.14.0/node-v24.14.0-win-x64.zip"
 version = "3.8.1"
 backend = "npm:prettier"
 
+[[tools."npm:tsc"]]
+version = "2.0.4"
+backend = "npm:tsc"
+
 [[tools.pnpm]]
 version = "10.29.3"
 backend = "aqua:pnpm/pnpm"
@@ -239,6 +243,10 @@ url = "https://github.com/pnpm/pnpm/releases/download/v10.29.3/pnpm-linux-x64"
 [tools.pnpm."platforms.macos-arm64"]
 checksum = "sha256:a248c56b0ab20443e18d0c8ee3207c6c564ee342bd3fc8694b3569a060cecece"
 url = "https://github.com/pnpm/pnpm/releases/download/v10.29.3/pnpm-macos-arm64"
+
+[[tools.python]]
+version = "3.14.4"
+backend = "core:python"
 
 [[tools.shellcheck]]
 version = "0.11.0"
