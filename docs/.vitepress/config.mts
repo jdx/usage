@@ -92,9 +92,9 @@ export default defineConfig({
               { text: "clap (Rust)", link: "/spec/integrations/clap" },
               { text: "argparse (Python)", link: "https://github.com/acidghost/argparse-usage" },
               { text: "OptionParser (Ruby)", link: "https://github.com/packrat386/option_parser_usage" },
-              { text: "Commander.js (Node.js)", link: "https://github.com/gaojunran/usage-integrations/tree/main/packages/commander-usage" },
-              { text: "oclif (Node.js)", link: "https://github.com/gaojunran/usage-integrations/tree/main/packages/oclif-usage" },
-              { text: "yargs (Node.js)", link: "https://github.com/gaojunran/usage-integrations/tree/main/packages/yargs-usage" },
+              { text: "Commander.js (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/commander" },
+              { text: "oclif (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/oclif" },
+              { text: "yargs (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/yargs" },
             ]
           }
         ]
