@@ -11,6 +11,13 @@ function __usage_register_shebang_completions
     if not type -q usage
         return 0
     end
+    # `commandline -x` (fish 3.4+) tokenizes quoted/complex arguments more
+    # accurately than `-o`. Mirror the per-binary `complete_fish` detection so
+    # init-registered completions behave identically on modern fish.
+    set -l cmdline_pre_cmd 'commandline -opc'
+    if commandline -x >/dev/null 2>&1
+        set cmdline_pre_cmd 'commandline -xpc'
+    end
     set -l registered
     for dir in $PATH
         test -d $dir; or continue
@@ -25,7 +32,7 @@ function __usage_register_shebang_completions
             set -l first
             read -l -n 128 first <$file 2>/dev/null
             if string match -q -- '#!*usage*' "$first"
-                complete -c $name -x -a "(command usage complete-word --shell fish -f \"$file\" -- (commandline -opc) (commandline -t))"
+                complete -c $name -x -a "(command usage complete-word --shell fish -f \"$file\" -- ($cmdline_pre_cmd) (commandline -t))"
                 set -a registered $name
             end
         end
