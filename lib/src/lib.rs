@@ -23,6 +23,8 @@ pub use error::Result;
 
 #[cfg(feature = "docs")]
 pub mod docs;
+#[cfg(feature = "sdk")]
+pub mod sdk;
 pub mod parse;
 pub(crate) mod sh;
 pub(crate) mod string;

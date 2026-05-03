@@ -1,0 +1,6 @@
+---
+source: lib/src/sdk/python/mod.rs
+expression: "get_file(&output, \"__init__.py\")"
+---
+from .client import Mycli
+from .types import *

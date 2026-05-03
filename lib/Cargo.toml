@@ -40,9 +40,10 @@ versions = "7"
 xx = "2"
 
 [features]
-default = ["docs"]
+default = ["docs", "sdk"]
 docs = ["tera", "roff"]
 unstable_choices_env = []
+sdk = []
 
 [dev-dependencies]
 criterion = "0.8"

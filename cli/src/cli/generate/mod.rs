@@ -9,6 +9,7 @@ mod fig;
 mod json;
 mod manpage;
 mod markdown;
+mod sdk;
 
 /// Generate completions, documentation, and other artifacts from usage specs
 #[derive(clap::Args)]
@@ -25,6 +26,7 @@ pub enum Command {
     Json(json::Json),
     Manpage(manpage::Manpage),
     Markdown(markdown::Markdown),
+    Sdk(sdk::Sdk),
 }
 
 impl Generate {
@@ -35,6 +37,7 @@ impl Generate {
             Command::Json(cmd) => cmd.run(),
             Command::Manpage(cmd) => cmd.run(),
             Command::Markdown(cmd) => cmd.run(),
+            Command::Sdk(cmd) => cmd.run(),
         }
     }
 }
