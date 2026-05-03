@@ -1,7 +1,8 @@
 use heck::AsPascalCase;
-use indexmap::IndexMap;
 
-use crate::sdk::{collect_choice_types, command_type_name, generated_header, CodeWriter};
+use crate::sdk::{
+    collect_choice_types, command_type_name, generated_header, ChoiceTypeMap, CodeWriter,
+};
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::SpecConfigProp;
 use crate::spec::data_types::SpecDataTypes;
@@ -52,7 +53,7 @@ pub fn render(spec: &crate::Spec, package_name: &str, source_file: &Option<Strin
     // GlobalFlags
     if has_global_flags {
         w.line("");
-        render_flags_struct("GlobalFlags", &root_global_flags, &choice_types, &mut w);
+        render_flags_struct("GlobalFlags", "", &root_global_flags, &choice_types, &mut w);
     }
 
     // command types
@@ -136,7 +137,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
 fn render_command_types(
     cmd: &SpecCommand,
     package_name: &str,
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
     global_flags: &[&SpecFlag],
     w: &mut CodeWriter,
@@ -146,13 +147,20 @@ fn render_command_types(
     }
 
     let name = command_type_name(cmd, package_name);
+    let cmd_name = &cmd.name;
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
     let has_any_flags = !visible_flags.is_empty() || has_global_flags;
 
     if !visible_args.is_empty() {
         w.line("");
-        render_args_struct(&format!("{name}Args"), &visible_args, choice_types, w);
+        render_args_struct(
+            &format!("{name}Args"),
+            cmd_name,
+            &visible_args,
+            choice_types,
+            w,
+        );
     }
 
     if has_any_flags {
@@ -171,7 +179,13 @@ fn render_command_types(
         } else {
             visible_flags
         };
-        render_flags_struct(&format!("{name}Flags"), &all_flags, choice_types, w);
+        render_flags_struct(
+            &format!("{name}Flags"),
+            cmd_name,
+            &all_flags,
+            choice_types,
+            w,
+        );
     }
 
     for subcmd in cmd.subcommands.values() {
@@ -188,8 +202,9 @@ fn render_command_types(
 
 fn render_args_struct(
     name: &str,
+    cmd_name: &str,
     args: &[&SpecArg],
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
     let all_optional = args.iter().all(|a| !a.required || !a.default.is_empty());
@@ -202,7 +217,7 @@ fn render_args_struct(
     w.line(&format!("pub struct {name} {{"));
     w.indent();
     for arg in args {
-        let rs_type = arg_rs_type(arg, choice_types);
+        let rs_type = arg_rs_type(arg, cmd_name, choice_types);
         let field_name = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
         let optional = !(arg.required && arg.default.is_empty());
 
@@ -226,15 +241,16 @@ fn render_args_struct(
 
 fn render_flags_struct(
     name: &str,
+    cmd_name: &str,
     flags: &[&SpecFlag],
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
     w.line("#[derive(Debug, Clone, Default)]");
     w.line(&format!("pub struct {name} {{"));
     w.indent();
     for flag in flags {
-        let rs_type = flag_rs_type(flag, choice_types);
+        let rs_type = flag_rs_type(flag, cmd_name, choice_types);
         let prop_name = flag_property_name_rs(flag);
         let field = format!("pub {prop_name}: Option<{rs_type}>,");
         render_flag_docs(flag, w);
@@ -305,11 +321,10 @@ fn render_flag_docs(flag: &SpecFlag, w: &mut CodeWriter) {
 // Type mapping
 // ---------------------------------------------------------------------------
 
-fn arg_rs_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> String {
-    let base = if let Some(_choices) = &arg.choices {
-        let type_name = format!("{}Choice", AsPascalCase(&arg.name));
-        if choice_types.contains_key(&type_name) {
-            type_name
+fn arg_rs_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
+    let base = if arg.choices.is_some() {
+        if let Some(resolved) = choice_types.lookup(cmd_name, &arg.name) {
+            resolved.to_string()
         } else {
             "String".to_string()
         }
@@ -324,17 +339,16 @@ fn arg_rs_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> S
     }
 }
 
-fn flag_rs_type(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>) -> String {
+fn flag_rs_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
     if flag.count {
         return "i32".to_string();
     }
 
     match &flag.arg {
         Some(arg) => {
-            let base = if let Some(_choices) = &arg.choices {
-                let type_name = format!("{}Choice", AsPascalCase(&flag.name));
-                if choice_types.contains_key(&type_name) {
-                    type_name
+            let base = if arg.choices.is_some() {
+                if let Some(resolved) = choice_types.lookup(cmd_name, &flag.name) {
+                    resolved.to_string()
                 } else {
                     "String".to_string()
                 }

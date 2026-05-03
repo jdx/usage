@@ -20,8 +20,8 @@ class MycliArgs:
     arg3: str
     argrest: list[str]
     # arg2 description
-    arg2: Optional[Arg2Choice] = None
-    with_default: Optional[str] = None
+    arg2: Optional[Arg2Choice] = "default value"
+    with_default: Optional[str] = "default value"
 
 
 @dataclass

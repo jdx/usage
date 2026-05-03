@@ -117,27 +117,115 @@ pub(crate) fn command_type_name(cmd: &SpecCommand, package_name: &str) -> String
     }
 }
 
-/// Collects all unique choice types across a command tree.
-pub(crate) fn collect_choice_types(cmd: &SpecCommand) -> IndexMap<String, Vec<String>> {
-    let mut types = IndexMap::new();
-    collect_choice_types_recursive(cmd, &mut types);
-    types
+// ---------------------------------------------------------------------------
+// Choice type collection with collision detection
+// ---------------------------------------------------------------------------
+
+/// Maps choice type definitions and provides collision-aware type name lookup.
+///
+/// When two commands have the same arg/flag name with different choices,
+/// the type name is prefixed with the command's PascalCase name to avoid collision.
+pub(crate) struct ChoiceTypeMap {
+    /// Resolved type name -> choice values
+    pub types: IndexMap<String, Vec<String>>,
+    /// (cmd_name, item_name) -> resolved type name
+    name_map: IndexMap<(String, String), String>,
 }
 
-fn collect_choice_types_recursive(cmd: &SpecCommand, types: &mut IndexMap<String, Vec<String>>) {
+impl ChoiceTypeMap {
+    /// Look up the resolved type name for a choice arg/flag.
+    /// `cmd_name` is the command's name (empty string for root).
+    /// `item_name` is the arg or flag name.
+    pub fn lookup(&self, cmd_name: &str, item_name: &str) -> Option<&str> {
+        self.name_map
+            .get(&(cmd_name.to_string(), item_name.to_string()))
+            .map(|s| s.as_str())
+    }
+
+    /// Iterate over type definitions (name, choices).
+    pub fn iter(&self) -> indexmap::map::Iter<'_, String, Vec<String>> {
+        self.types.iter()
+    }
+
+    /// Check if there are no choice types.
+    pub fn is_empty(&self) -> bool {
+        self.types.is_empty()
+    }
+}
+
+struct ChoiceEntry {
+    base_name: String,
+    item_name: String,
+    cmd_name: String,
+    cmd_prefix: String,
+    choices: Vec<String>,
+}
+
+/// Collects all unique choice types across a command tree.
+/// When two commands have the same arg/flag name with different choices,
+/// the type name is prefixed with the command's PascalCase name to avoid collision.
+pub(crate) fn collect_choice_types(cmd: &SpecCommand) -> ChoiceTypeMap {
+    let mut all_entries: Vec<ChoiceEntry> = Vec::new();
+    collect_choice_entries(cmd, &mut all_entries);
+
+    // Group by base type name, check for choice differences
+    let mut base_groups: IndexMap<String, Vec<&ChoiceEntry>> = IndexMap::new();
+    for entry in &all_entries {
+        base_groups
+            .entry(entry.base_name.clone())
+            .or_default()
+            .push(entry);
+    }
+
+    let mut types = IndexMap::new();
+    let mut name_map = IndexMap::new();
+    for (base_name, entries) in &base_groups {
+        let all_same = entries.windows(2).all(|w| w[0].choices == w[1].choices);
+        if all_same {
+            types.insert(base_name.clone(), entries[0].choices.clone());
+            for entry in entries {
+                name_map.insert(
+                    (entry.cmd_name.clone(), entry.item_name.clone()),
+                    base_name.clone(),
+                );
+            }
+        } else {
+            for entry in entries {
+                let prefixed = format!("{}{}", entry.cmd_prefix, base_name);
+                types.insert(prefixed.clone(), entry.choices.clone());
+                name_map.insert((entry.cmd_name.clone(), entry.item_name.clone()), prefixed);
+            }
+        }
+    }
+
+    ChoiceTypeMap { types, name_map }
+}
+
+fn collect_choice_entries(cmd: &SpecCommand, entries: &mut Vec<ChoiceEntry>) {
     if cmd.hide {
         return;
     }
+
+    let cmd_prefix = if cmd.name.is_empty() {
+        String::new()
+    } else {
+        AsPascalCase(&cmd.name).to_string()
+    };
+    let cmd_name = cmd.name.clone();
 
     for arg in &cmd.args {
         if arg.hide {
             continue;
         }
         if let Some(choices) = &arg.choices {
-            let type_name = format!("{}Choice", AsPascalCase(&arg.name));
-            types
-                .entry(type_name)
-                .or_insert_with(|| choices.choices.clone());
+            let base_name = format!("{}Choice", AsPascalCase(&arg.name));
+            entries.push(ChoiceEntry {
+                base_name,
+                item_name: arg.name.clone(),
+                cmd_name: cmd_name.clone(),
+                cmd_prefix: cmd_prefix.clone(),
+                choices: choices.choices.clone(),
+            });
         }
     }
 
@@ -147,23 +235,31 @@ fn collect_choice_types_recursive(cmd: &SpecCommand, types: &mut IndexMap<String
         }
         if let Some(arg) = &flag.arg {
             if let Some(choices) = &arg.choices {
-                let type_name = format!("{}Choice", AsPascalCase(&flag.name));
-                types
-                    .entry(type_name)
-                    .or_insert_with(|| choices.choices.clone());
+                let base_name = format!("{}Choice", AsPascalCase(&flag.name));
+                entries.push(ChoiceEntry {
+                    base_name,
+                    item_name: flag.name.clone(),
+                    cmd_name: cmd_name.clone(),
+                    cmd_prefix: cmd_prefix.clone(),
+                    choices: choices.choices.clone(),
+                });
             }
         }
     }
 
     for subcmd in cmd.subcommands.values() {
-        collect_choice_types_recursive(subcmd, types);
+        collect_choice_entries(subcmd, entries);
     }
 }
 
 /// Collects type names that need to be imported from the types module.
-pub(crate) fn collect_type_imports(cmd: &SpecCommand, package_name: &str) -> Vec<String> {
+pub(crate) fn collect_type_imports(
+    cmd: &SpecCommand,
+    package_name: &str,
+    choice_types: &ChoiceTypeMap,
+) -> Vec<String> {
     let mut imports = Vec::new();
-    collect_type_imports_recursive(cmd, package_name, &mut imports);
+    collect_type_imports_recursive(cmd, package_name, choice_types, &mut imports);
     imports.sort();
     imports.dedup();
     imports
@@ -172,6 +268,7 @@ pub(crate) fn collect_type_imports(cmd: &SpecCommand, package_name: &str) -> Vec
 fn collect_type_imports_recursive(
     cmd: &SpecCommand,
     package_name: &str,
+    choice_types: &ChoiceTypeMap,
     imports: &mut Vec<String>,
 ) {
     if cmd.hide {
@@ -191,20 +288,24 @@ fn collect_type_imports_recursive(
 
     for arg in &cmd.args {
         if !arg.hide && arg.choices.is_some() {
-            imports.push(format!("{}Choice", AsPascalCase(&arg.name)));
+            if let Some(type_name) = choice_types.lookup(&cmd.name, &arg.name) {
+                imports.push(type_name.to_string());
+            }
         }
     }
     for flag in &cmd.flags {
         if !flag.hide {
             if let Some(arg) = &flag.arg {
                 if arg.choices.is_some() {
-                    imports.push(format!("{}Choice", AsPascalCase(&flag.name)));
+                    if let Some(type_name) = choice_types.lookup(&cmd.name, &flag.name) {
+                        imports.push(type_name.to_string());
+                    }
                 }
             }
         }
     }
 
     for subcmd in cmd.subcommands.values() {
-        collect_type_imports_recursive(subcmd, package_name, imports);
+        collect_type_imports_recursive(subcmd, package_name, choice_types, imports);
     }
 }

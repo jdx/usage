@@ -201,4 +201,51 @@ mod tests {
         let output = crate::sdk::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "src/client.rs"));
     }
+
+    /// Choice type collision: same arg name with different choices in different subcommands.
+    #[test]
+    fn test_rust_choice_collision() {
+        let spec: Spec = r##"
+            bin "tool"
+            cmd "build" help="Build" {
+                arg "env" help="Build environment" {
+                    choices "debug" "release"
+                }
+            }
+            cmd "deploy" help="Deploy" {
+                arg "env" help="Deploy environment" {
+                    choices "staging" "production"
+                }
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("BuildEnvChoice"));
+        assert!(types.contains("DeployEnvChoice"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flags-only subcommand (no positional args).
+    #[test]
+    fn test_rust_flags_only_subcommand() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "status" help="Show status" {
+                flag "--verbose" help="Show detailed status"
+                flag "--json" help="Output as JSON"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        // Must not have double comma in exec signature
+        assert!(!client.contains("self, ,"));
+        assert!(client.contains(
+            "pub fn exec(&self, flags: Option<&StatusFlags>) -> Result<CliResult, CliError>"
+        ));
+        insta::assert_snapshot!(client);
+    }
 }

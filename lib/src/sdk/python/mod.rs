@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
 use heck::AsPascalCase;
-use indexmap::IndexMap;
 
 use crate::sdk::{
-    collect_choice_types, collect_type_imports, command_type_name, generated_header, CodeWriter,
-    SdkFile, SdkOptions, SdkOutput,
+    collect_choice_types, collect_type_imports, command_type_name, generated_header, ChoiceTypeMap,
+    CodeWriter, SdkFile, SdkOptions, SdkOutput,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
@@ -83,7 +82,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 
     if !choice_types.is_empty() {
         w.line("");
-        for (name, choices) in &choice_types {
+        for (name, choices) in choice_types.iter() {
             let union = choices
                 .iter()
                 .map(|c| format!("\"{c}\""))
@@ -95,7 +94,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 
     if has_global_flags {
         w.line("");
-        render_flags_dataclass("GlobalFlags", &root_global_flags, &choice_types, &mut w);
+        render_flags_dataclass("GlobalFlags", "", &root_global_flags, &choice_types, &mut w);
     }
 
     render_command_types(
@@ -146,7 +145,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 fn render_command_types(
     cmd: &SpecCommand,
     package_name: &str,
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
     global_flags: &[&SpecFlag],
     w: &mut CodeWriter,
@@ -156,13 +155,20 @@ fn render_command_types(
     }
 
     let name = command_type_name(cmd, package_name);
+    let cmd_name = &cmd.name;
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
     let has_any_flags = !visible_flags.is_empty() || has_global_flags;
 
     if !visible_args.is_empty() {
         w.line("");
-        render_args_dataclass(&format!("{name}Args"), &visible_args, choice_types, w);
+        render_args_dataclass(
+            &format!("{name}Args"),
+            cmd_name,
+            &visible_args,
+            choice_types,
+            w,
+        );
     }
 
     if has_any_flags {
@@ -181,7 +187,13 @@ fn render_command_types(
         } else {
             visible_flags
         };
-        render_flags_dataclass(&format!("{name}Flags"), &all_flags, choice_types, w);
+        render_flags_dataclass(
+            &format!("{name}Flags"),
+            cmd_name,
+            &all_flags,
+            choice_types,
+            w,
+        );
     }
 
     for subcmd in cmd.subcommands.values() {
@@ -198,8 +210,9 @@ fn render_command_types(
 
 fn render_args_dataclass(
     name: &str,
+    cmd_name: &str,
     args: &[&SpecArg],
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
     w.line("");
@@ -216,22 +229,25 @@ fn render_args_dataclass(
             .partition(|a| a.required && a.default.is_empty());
 
         for arg in required.iter().chain(optional.iter()) {
-            let py_type = arg_py_type(arg, choice_types);
-            let optional = !(arg.required && arg.default.is_empty());
-            let field = if optional {
+            let py_type = arg_py_type(arg, cmd_name, choice_types);
+            let is_required_no_default = arg.required && arg.default.is_empty();
+            let field = if !is_required_no_default && !arg.default.is_empty() {
+                // has default value
+                let default_val = &arg.default[0];
+                format!(
+                    "{}: Optional[{}] = \"{default_val}\"",
+                    sanitize_py_ident(&arg.name),
+                    py_type
+                )
+            } else if !is_required_no_default {
+                // optional without explicit default
                 format!(
                     "{}: Optional[{}] = None",
                     sanitize_py_ident(&arg.name),
                     py_type
                 )
-            } else if !arg.default.is_empty() {
-                let default_val = &arg.default[0];
-                format!(
-                    "{}: {} = \"{default_val}\"",
-                    sanitize_py_ident(&arg.name),
-                    py_type
-                )
             } else {
+                // required, no default
                 format!("{}: {}", sanitize_py_ident(&arg.name), py_type)
             };
             if let Some(help) = &arg.help {
@@ -245,8 +261,9 @@ fn render_args_dataclass(
 
 fn render_flags_dataclass(
     name: &str,
+    cmd_name: &str,
     flags: &[&SpecFlag],
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
     w.line("");
@@ -263,7 +280,7 @@ fn render_flags_dataclass(
             .partition(|f| f.required && f.default.is_empty());
 
         for flag in required.iter().chain(optional.iter()) {
-            let py_type = flag_py_type(flag, choice_types);
+            let py_type = flag_py_type(flag, cmd_name, choice_types);
             let prop_name = flag_property_name_py(flag);
             let optional = !(flag.required && flag.default.is_empty());
             let field = if !flag.default.is_empty() {
@@ -317,11 +334,10 @@ fn render_flags_dataclass(
     w.dedent();
 }
 
-fn arg_py_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> String {
+fn arg_py_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
     let base = if let Some(choices) = &arg.choices {
-        let type_name = format!("{}Choice", AsPascalCase(&arg.name));
-        if choice_types.contains_key(&type_name) {
-            type_name
+        if let Some(resolved) = choice_types.lookup(cmd_name, &arg.name) {
+            resolved.to_string()
         } else {
             let union = choices
                 .choices
@@ -342,7 +358,7 @@ fn arg_py_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> S
     }
 }
 
-fn flag_py_type(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>) -> String {
+fn flag_py_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
     if flag.count {
         return "int".to_string();
     }
@@ -350,9 +366,8 @@ fn flag_py_type(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>) -
     match &flag.arg {
         Some(arg) => {
             let base = if let Some(choices) = &arg.choices {
-                let type_name = format!("{}Choice", AsPascalCase(&flag.name));
-                if choice_types.contains_key(&type_name) {
-                    type_name
+                if let Some(resolved) = choice_types.lookup(cmd_name, &flag.name) {
+                    resolved.to_string()
                 } else {
                     let union = choices
                         .choices
@@ -424,7 +439,8 @@ fn render_client(spec: &Spec, package_name: &str, source_file: &Option<String>) 
     w.line("from .runtime import CliResult, CliRunner");
 
     // collect imports from types
-    let type_imports = collect_type_imports(&spec.cmd, package_name);
+    let choice_types = collect_choice_types(&spec.cmd);
+    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types);
     let has_global_flags = spec.cmd.flags.iter().any(|f| f.global && !f.hide);
     let mut all_imports = type_imports;
     if has_global_flags {
@@ -515,12 +531,7 @@ fn render_class(
     }
     w.dedent();
 
-    // exec method
-    let args_param = if has_args {
-        format!("args: {class_name}Args")
-    } else {
-        String::new()
-    };
+    // exec method — build signature with four explicit arms to avoid double comma
     let flags_type = if !global_flags.is_empty() && !visible_flags.is_empty() {
         format!("{class_name}Flags")
     } else if !global_flags.is_empty() && visible_flags.is_empty() {
@@ -530,15 +541,14 @@ fn render_class(
     } else {
         String::new()
     };
-    let flags_param = if !flags_type.is_empty() {
-        format!(", flags: Optional[{flags_type}] = None")
+    let sig = if has_args && !flags_type.is_empty() {
+        format!("def exec(self, args: {class_name}Args, flags: Optional[{flags_type}] = None) -> CliResult:")
+    } else if has_args {
+        format!("def exec(self, args: {class_name}Args) -> CliResult:")
+    } else if !flags_type.is_empty() {
+        format!("def exec(self, flags: Optional[{flags_type}] = None) -> CliResult:")
     } else {
-        String::new()
-    };
-    let sig = if args_param.is_empty() && flags_param.is_empty() {
         "def exec(self) -> CliResult:".to_string()
-    } else {
-        format!("def exec(self, {args_param}{flags_param}) -> CliResult:")
     };
 
     // docstring on exec
@@ -834,5 +844,77 @@ mod tests {
         .unwrap();
         let output = crate::sdk::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.py"));
+    }
+
+    /// Flags-only subcommand (no positional args) — tests exec signature without double comma.
+    #[test]
+    fn test_python_flags_only_subcommand() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "status" help="Show status" {
+                flag "--verbose" help="Show detailed status"
+                flag "--json" help="Output as JSON"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.py");
+        assert!(!client.contains("def exec(self, ,"));
+        assert!(
+            client.contains("def exec(self, flags: Optional[StatusFlags] = None) -> CliResult:")
+        );
+        insta::assert_snapshot!(client);
+    }
+
+    /// Choice type collision: same arg name with different choices in different subcommands.
+    #[test]
+    fn test_python_choice_collision() {
+        let spec: Spec = r##"
+            bin "tool"
+            cmd "build" help="Build" {
+                arg "env" help="Build environment" {
+                    choices "debug" "release"
+                }
+            }
+            cmd "deploy" help="Deploy" {
+                arg "env" help="Deploy environment" {
+                    choices "staging" "production"
+                }
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        // Must have separate choice types due to collision
+        assert!(types.contains("BuildEnvChoice"));
+        assert!(types.contains("DeployEnvChoice"));
+        assert!(types.contains(r#""debug""#));
+        assert!(types.contains(r#""staging""#));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Args with default values — tests that defaults are preserved, not dropped to None.
+    #[test]
+    fn test_python_arg_defaults() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "mode" default="fast" help="Run mode"
+            arg "output" help="Output path" required=#true
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        assert!(types.contains(r#"mode: Optional[str] = "fast""#));
+        assert!(types.contains("output: str"));
+        // required arg must come before optional
+        let output_pos = types.find("output: str").unwrap();
+        let mode_pos = types.find(r#"mode: Optional[str] = "fast""#).unwrap();
+        assert!(
+            output_pos < mode_pos,
+            "required arg must precede optional arg"
+        );
     }
 }

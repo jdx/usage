@@ -1,12 +1,13 @@
 use heck::AsPascalCase;
-use indexmap::IndexMap;
 
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::SpecConfigProp;
 use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
-use crate::sdk::{collect_choice_types, command_type_name, generated_header, CodeWriter};
+use crate::sdk::{
+    collect_choice_types, command_type_name, generated_header, ChoiceTypeMap, CodeWriter,
+};
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
     let mut w = CodeWriter::new();
@@ -38,7 +39,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
 
     if !choice_types.is_empty() {
         w.line("");
-        for (name, choices) in &choice_types {
+        for (name, choices) in choice_types.iter() {
             let union = choices
                 .iter()
                 .map(|c| format!("\"{c}\""))
@@ -105,7 +106,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
 fn render_command_types(
     cmd: &SpecCommand,
     package_name: &str,
-    choice_types: &IndexMap<String, Vec<String>>,
+    choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
     w: &mut CodeWriter,
 ) {
@@ -114,6 +115,7 @@ fn render_command_types(
     }
 
     let name = command_type_name(cmd, package_name);
+    let cmd_name = &cmd.name;
 
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
@@ -124,7 +126,7 @@ fn render_command_types(
         w.line(&format!("export interface {name}Args {{"));
         w.indent();
         for arg in &visible_args {
-            render_arg_field(arg, choice_types, w);
+            render_arg_field(arg, cmd_name, choice_types, w);
         }
         w.dedent();
         w.line("}");
@@ -141,7 +143,7 @@ fn render_command_types(
         }
         w.indent();
         for flag in &visible_flags {
-            render_flag_field(flag, choice_types, w);
+            render_flag_field(flag, cmd_name, choice_types, w);
         }
         w.dedent();
         w.line("}");
@@ -154,10 +156,11 @@ fn render_command_types(
 
 fn render_arg_field(
     arg: &SpecArg,
-    choice_types: &IndexMap<String, Vec<String>>,
+    cmd_name: &str,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
-    let ts_type = arg_ts_type(arg, choice_types);
+    let ts_type = arg_ts_type(arg, cmd_name, choice_types);
     let optional = if arg.required && arg.default.is_empty() {
         ""
     } else {
@@ -189,10 +192,11 @@ fn render_arg_field(
 
 fn render_flag_field(
     flag: &SpecFlag,
-    choice_types: &IndexMap<String, Vec<String>>,
+    cmd_name: &str,
+    choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
-    let ts_type = flag_ts_type(flag, choice_types);
+    let ts_type = flag_ts_type(flag, cmd_name, choice_types);
     let optional = if flag.required && flag.default.is_empty() {
         ""
     } else {
@@ -229,11 +233,10 @@ fn render_flag_field(
     w.line(&format!("{prop_name}{optional}: {ts_type};"));
 }
 
-fn arg_ts_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> String {
+fn arg_ts_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
     let base = if let Some(choices) = &arg.choices {
-        let type_name = format!("{}Choice", AsPascalCase(&arg.name));
-        if choice_types.contains_key(&type_name) {
-            type_name
+        if let Some(resolved) = choice_types.lookup(cmd_name, &arg.name) {
+            resolved.to_string()
         } else {
             choices
                 .choices
@@ -253,7 +256,7 @@ fn arg_ts_type(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>) -> S
     }
 }
 
-fn flag_ts_type(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>) -> String {
+fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
     if flag.count {
         return "number".to_string();
     }
@@ -261,9 +264,8 @@ fn flag_ts_type(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>) -
     match &flag.arg {
         Some(arg) => {
             let base = if let Some(choices) = &arg.choices {
-                let type_name = format!("{}Choice", AsPascalCase(&flag.name));
-                if choice_types.contains_key(&type_name) {
-                    type_name
+                if let Some(resolved) = choice_types.lookup(cmd_name, &flag.name) {
+                    resolved.to_string()
                 } else {
                     choices
                         .choices
@@ -528,5 +530,50 @@ mod tests {
         };
         let output = super::super::super::generate(&spec, &opts);
         insta::assert_snapshot!(get_file(&output, "index.ts"));
+    }
+
+    /// Choice type collision: same arg name with different choices in different subcommands.
+    #[test]
+    fn test_choice_collision() {
+        let spec: Spec = r##"
+            bin "tool"
+            cmd "build" help="Build" {
+                arg "env" help="Build environment" {
+                    choices "debug" "release"
+                }
+            }
+            cmd "deploy" help="Deploy" {
+                arg "env" help="Deploy environment" {
+                    choices "staging" "production"
+                }
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("BuildEnvChoice"));
+        assert!(types.contains("DeployEnvChoice"));
+        assert!(types.contains(r#""debug""#));
+        assert!(types.contains(r#""staging""#));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flags-only subcommand (no positional args).
+    #[test]
+    fn test_flags_only_subcommand() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "status" help="Show status" {
+                flag "--verbose" help="Show detailed status"
+                flag "--json" help="Output as JSON"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("exec(flags?: StatusFlags): CliResult"));
+        insta::assert_snapshot!(client);
     }
 }

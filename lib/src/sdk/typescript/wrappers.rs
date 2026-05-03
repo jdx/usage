@@ -1,12 +1,11 @@
 use heck::AsPascalCase;
 
-use crate::sdk::collect_type_imports;
+use crate::sdk::{collect_choice_types, collect_type_imports, generated_header, CodeWriter};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::{Spec, SpecArg, SpecFlag};
 
 use super::types::{flag_property_name, sanitize_ident};
-use crate::sdk::{generated_header, CodeWriter};
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
     let mut w = CodeWriter::new();
@@ -15,7 +14,8 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
     w.line("import { CliRunner, CliResult } from \"./runtime\";");
 
     // collect all type imports needed
-    let type_imports = collect_type_imports(&spec.cmd, package_name);
+    let choice_types = collect_choice_types(&spec.cmd);
+    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types);
     let has_global_flags = spec.cmd.flags.iter().any(|f| f.global && !f.hide);
     if has_global_flags {
         let mut all_imports = type_imports;
