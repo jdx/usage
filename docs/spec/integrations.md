@@ -13,6 +13,8 @@ Integrations extract CLI definitions from framework internals and output a [usag
 | [Commander.js](https://github.com/tj/commander.js)                  | Node.js  | [`@usage-spec/commander`](https://www.npmjs.com/package/@usage-spec/commander) |
 | [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://www.npmjs.com/package/@usage-spec/oclif)         |
 | [yargs](https://yargs.js.org)                                       | Node.js  | [`@usage-spec/yargs`](https://www.npmjs.com/package/@usage-spec/yargs)         |
+| [Typer](https://github.com/fastapi/typer)                           | Python   | [`usage-spec-typer`](https://pypi.org/project/usage-spec-typer/)               |
+| [Click](https://github.com/pallets/click)                           | Python   | [`usage-spec-click`](https://pypi.org/project/usage-spec-click/)               |
 
 ## Planned
 
@@ -23,8 +25,6 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 | Framework                                   | Language |
 | ------------------------------------------- | -------- |
 | [urfave/cli](https://github.com/urfave/cli) | Go       |
-| [Typer](https://github.com/fastapi/typer)   | Python   |
-| [Click](https://github.com/pallets/click)   | Python   |
 
 ### Medium Priority
 
