@@ -11,8 +11,8 @@ Integrations extract CLI definitions from framework internals and output a [usag
 | [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)                                               |
 | [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage)                                    |
 | [Commander.js](https://commanderjs.com)                             | Node.js  | [`@usage-spec/commander`](https://github.com/gaojunran/usage-integrations/tree/main/packages/commander-usage) |
-| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://github.com/gaojunran/usage-integrations/tree/main/packages/oclif-usage)        |
-| [yargs](https://yargs.js.org)                                       | Node.js  | [`@usage-spec/yargs`](https://github.com/gaojunran/usage-integrations/tree/main/packages/yargs-usage)        |
+| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://github.com/gaojunran/usage-integrations/tree/main/packages/oclif-usage)         |
+| [yargs](https://yargs.js.org)                                       | Node.js  | [`@usage-spec/yargs`](https://github.com/gaojunran/usage-integrations/tree/main/packages/yargs-usage)         |
 
 ## Planned
 
