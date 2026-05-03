@@ -85,7 +85,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line(&format!("pub enum {name} {{"));
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = sanitize_enum_variant(choice);
         w.line(&format!("{variant},"));
     }
     w.dedent();
@@ -100,7 +100,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line("match self {");
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = sanitize_enum_variant(choice);
         w.line(&format!("Self::{variant} => write!(f, \"{choice}\"),"));
     }
     w.dedent();
@@ -119,7 +119,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line("match self {");
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = sanitize_enum_variant(choice);
         w.line(&format!("Self::{variant} => \"{choice}\","));
     }
     w.dedent();
@@ -128,6 +128,47 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line("}");
     w.dedent();
     w.line("}");
+}
+
+fn sanitize_enum_variant(choice: &str) -> String {
+    let pascal = AsPascalCase(choice).to_string();
+    if pascal.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("V{pascal}")
+    } else if is_rs_reserved(&pascal) {
+        format!("_{pascal}")
+    } else {
+        pascal
+    }
+}
+
+fn is_rs_reserved(s: &str) -> bool {
+    matches!(
+        s,
+        "Self"
+            | "Super"
+            | "Box"
+            | "Crate"
+            | "Dyn"
+            | "Extern"
+            | "Fn"
+            | "Impl"
+            | "Mod"
+            | "Mut"
+            | "Pub"
+            | "Ref"
+            | "Static"
+            | "Trait"
+            | "Type"
+            | "Use"
+            | "Where"
+            | "Yield"
+            | "Async"
+            | "Await"
+            | "Unsafe"
+            | "Abstract"
+            | "Override"
+            | "Macro"
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -362,7 +403,13 @@ fn flag_rs_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                 base
             }
         }
-        None => "bool".to_string(),
+        None => {
+            if flag.var {
+                "Vec<bool>".to_string()
+            } else {
+                "bool".to_string()
+            }
+        }
     }
 }
 

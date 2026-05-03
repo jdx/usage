@@ -7,7 +7,8 @@ use usage::Spec;
 
 /// Comprehensive spec that exercises all SDK features:
 /// version, about, author, global flags, choices, deprecated, aliases,
-/// examples, double_dash, var args, negate flags, config props.
+/// examples, double_dash, var args, negate flags, config props,
+/// repeatable boolean flags, numeric choices.
 fn full_spec() -> Spec {
     r##"
         bin "mytool"
@@ -26,9 +27,10 @@ fn full_spec() -> Spec {
         flag "-v --verbose" help="Verbosity level" count=#true global=#true
         flag "-C --config <path>" help="Config file path" global=#true env="MYTOOL_CONFIG"
         flag "--dry-run" help="Show what would be done" negate="--no-dry-run"
+        flag "--debug" var=#true help="Repeatable boolean flag"
 
         arg "input" help="Input file" required=#true
-        arg "extra" var=#true help="Extra files"
+        arg "[extra]" var=#true help="Extra files"
 
         cmd "build" help="Build the project" deprecated="Use compile instead" {
             alias "b"
@@ -48,6 +50,13 @@ fn full_spec() -> Spec {
             arg "tags" var=#true help="Deployment tags" var_min=1 var_max=5
             flag "-f --force" help="Force deploy" deprecated="Use --confirm instead"
             flag "--confirm" help="Confirm deployment"
+        }
+
+        cmd "log" help="Show log level" {
+            arg "level" help="Log level" {
+                choices "1" "2" "3" "4" "5"
+            }
+            flag "--json" help="Output as JSON"
         }
 
         cmd "status" help="Show status" {
@@ -70,6 +79,14 @@ fn write_sdk_to_dir(output: &SdkOutput, dir: &Path) {
 
 fn tool_exists(name: &str) -> bool {
     Command::new(name).arg("--version").output().is_ok()
+}
+
+fn npx_tsc_available() -> bool {
+    Command::new("npx")
+        .args(["--yes", "typescript", "tsc", "--version"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------
@@ -161,8 +178,8 @@ fn test_python_sdk_imports() {
 
 #[test]
 fn test_typescript_sdk_typechecks() {
-    if !tool_exists("tsc") {
-        eprintln!("Skipping TypeScript SDK typecheck test - tsc not found");
+    if !npx_tsc_available() {
+        eprintln!("Skipping TypeScript SDK typecheck test - tsc not available via npx");
         return;
     }
 
@@ -221,14 +238,15 @@ fn test_typescript_sdk_typechecks() {
     }"#;
     fs::write(dir.path().join("tsconfig.json"), tsconfig).unwrap();
 
-    let result = Command::new("tsc")
-        .args(["--project"])
+    let result = Command::new("npx")
+        .args(["--yes", "typescript", "tsc", "--project"])
         .arg(dir.path().join("tsconfig.json"))
         .output()
         .expect("Failed to run tsc");
 
     if !result.status.success() {
+        let stdout = String::from_utf8_lossy(&result.stdout);
         let stderr = String::from_utf8_lossy(&result.stderr);
-        panic!("Generated TypeScript SDK does not typecheck:\n{stderr}");
+        panic!("Generated TypeScript SDK does not typecheck:\nstdout: {stdout}\nstderr: {stderr}");
     }
 }

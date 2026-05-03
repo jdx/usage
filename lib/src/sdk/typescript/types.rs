@@ -284,7 +284,13 @@ fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                 base
             }
         }
-        None => "boolean".to_string(),
+        None => {
+            if flag.var {
+                "boolean[]".to_string()
+            } else {
+                "boolean".to_string()
+            }
+        }
     }
 }
 
@@ -300,7 +306,13 @@ fn flag_ts_simple(flag: &SpecFlag) -> String {
                 "string".to_string()
             }
         }
-        None => "boolean".to_string(),
+        None => {
+            if flag.var {
+                "boolean[]".to_string()
+            } else {
+                "boolean".to_string()
+            }
+        }
     }
 }
 

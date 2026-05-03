@@ -184,19 +184,23 @@ fn render_class(
 
         for arg in &visible_args {
             let ident = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
+            let optional = !(arg.required && arg.default.is_empty());
             if arg.var {
-                w.line(&format!(
-                    "cmd_args.extend(args.{ident}.iter().map(|v| v.to_string()));"
-                ));
-            } else {
-                let optional = !(arg.required && arg.default.is_empty());
                 if optional {
                     w.line(&format!(
-                        "if let Some(v) = &args.{ident} {{ cmd_args.push(v.to_string()); }}"
+                        "if let Some(v) = &args.{ident} {{ cmd_args.extend(v.iter().map(|s| s.to_string())); }}"
                     ));
                 } else {
-                    w.line(&format!("cmd_args.push(args.{ident}.to_string());"));
+                    w.line(&format!(
+                        "cmd_args.extend(args.{ident}.iter().map(|v| v.to_string()));"
+                    ));
                 }
+            } else if optional {
+                w.line(&format!(
+                    "if let Some(v) = &args.{ident} {{ cmd_args.push(v.to_string()); }}"
+                ));
+            } else {
+                w.line(&format!("cmd_args.push(args.{ident}.to_string());"));
             }
         }
 
