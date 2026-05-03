@@ -56,7 +56,7 @@ fn render_lib_rs(package_name: &str, source_file: &Option<String>) -> String {
     w.line(&format!("pub use client::{class_name};"));
     w.line("pub use types::*;");
     w.line("pub use runtime::{CliResult, CliError, CliRunner};");
-    w.to_string()
+    w.finish()
 }
 
 fn render_cargo_toml(crate_name: &str) -> String {

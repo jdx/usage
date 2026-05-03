@@ -15,3 +15,4 @@ Generate completions, documentation, and other artifacts from usage specs
 - [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
+- [`usage generate sdk <FLAGS>`](/cli/reference/generate/sdk.md)

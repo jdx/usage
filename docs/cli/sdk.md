@@ -76,11 +76,11 @@ if (result.ok) {
 
 ## Supported Languages
 
-| Language | Flag | Output Files |
-|----------|------|-------------|
-| TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts` |
-| Python | `-l python` | `types.py`, `client.py`, `runtime.py`, `__init__.py` |
-| Rust | `-l rust` | `src/types.rs`, `src/client.rs`, `src/runtime.rs`, `src/lib.rs`, `Cargo.toml` |
+| Language   | Flag            | Output Files                                                                  |
+| ---------- | --------------- | ----------------------------------------------------------------------------- |
+| TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`                             |
+| Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py`                          |
+| Rust       | `-l rust`       | `src/types.rs`, `src/client.rs`, `src/runtime.rs`, `src/lib.rs`, `Cargo.toml` |
 
 ### TypeScript
 
@@ -162,37 +162,37 @@ Options:
 
 The following table shows which Usage spec features are supported by each language target:
 
-| Feature | Spec Syntax | TypeScript | Python | Rust |
-|---------|-------------|:---------:|:------:|:----:|
-| Positional args | `arg "name"` | ✅ | ✅ | ✅ |
-| Required args | `arg "name" required=#true` | ✅ | ✅ | ✅ |
-| Optional args | `arg "[name]"` | ✅ | ✅ | ✅ |
-| Variadic args | `arg "name" var=#true` | ✅ | ✅ | ✅ |
-| Arg choices | `arg "name" { choices "a" "b" }` | ✅ | ✅ | ✅ |
-| Arg defaults | `arg "name" default="value"` | ✅ | ✅ | ✅ |
-| Arg help text | `arg "name" help="..."` | ✅ | ✅ | ✅ |
-| Arg env var | `arg "name" env="VAR"` | ✅ | ✅ | ✅ |
-| Double dash | `arg "name" double_dash="required"` | ✅ | ✅ | ✅ |
-| Boolean flags | `flag "--flag"` | ✅ | ✅ | ✅ |
-| Value flags | `flag "--flag <value>"` | ✅ | ✅ | ✅ |
-| Short flags | `flag "-f --flag"` | ✅ | ✅ | ✅ |
-| Flag choices | `flag "--flag" { choices "a" "b" }` | ✅ | ✅ | ✅ |
-| Flag defaults | `flag "--flag" default="val"` | ✅ | ✅ | ✅ |
-| Flag help text | `flag "--flag" help="..."` | ✅ | ✅ | ✅ |
-| Flag env var | `flag "--flag" env="VAR"` | ✅ | ✅ | ✅ |
-| Count flags | `flag "-v" count=#true` | ✅ | ✅ | ✅ |
-| Negate flags | `flag "--flag" negate="--no-flag"` | ✅ | ✅ | ✅ |
-| Repeatable flags | `flag "--flag" var=#true` | ✅ | ✅ | ✅ |
-| Required flags | `flag "--flag" required=#true` | ✅ | ✅ | ✅ |
-| Global flags | `flag "--flag" global=#true` | ✅ | ✅ | ✅ |
-| Deprecated flags | `flag "--flag" deprecated="msg"` | ✅ | ✅ | ✅ |
-| Hidden args/flags | `hide=#true` | ✅ | ✅ | ✅ |
-| Subcommands | `cmd "name" { ... }` | ✅ | ✅ | ✅ |
-| Nested subcommands | `cmd "a" { cmd "b" { ... } }` | ✅ | ✅ | ✅ |
-| Subcommand aliases | `alias "name"` | ✅ | ✅ | ✅ |
-| Hyphenated names | `cmd "add-remote"` | ✅ | ✅ | ✅ |
-| Spec metadata | `version`, `about`, `author` | ✅ | ✅ | ✅ |
-| Config | `config "key" { ... }` | ✅ | ✅ | ✅ |
+| Feature            | Spec Syntax                         | TypeScript | Python | Rust |
+| ------------------ | ----------------------------------- | :--------: | :----: | :--: |
+| Positional args    | `arg "name"`                        |     ✅     |   ✅   |  ✅  |
+| Required args      | `arg "name" required=#true`         |     ✅     |   ✅   |  ✅  |
+| Optional args      | `arg "[name]"`                      |     ✅     |   ✅   |  ✅  |
+| Variadic args      | `arg "name" var=#true`              |     ✅     |   ✅   |  ✅  |
+| Arg choices        | `arg "name" { choices "a" "b" }`    |     ✅     |   ✅   |  ✅  |
+| Arg defaults       | `arg "name" default="value"`        |     ✅     |   ✅   |  ✅  |
+| Arg help text      | `arg "name" help="..."`             |     ✅     |   ✅   |  ✅  |
+| Arg env var        | `arg "name" env="VAR"`              |     ✅     |   ✅   |  ✅  |
+| Double dash        | `arg "name" double_dash="required"` |     ✅     |   ✅   |  ✅  |
+| Boolean flags      | `flag "--flag"`                     |     ✅     |   ✅   |  ✅  |
+| Value flags        | `flag "--flag <value>"`             |     ✅     |   ✅   |  ✅  |
+| Short flags        | `flag "-f --flag"`                  |     ✅     |   ✅   |  ✅  |
+| Flag choices       | `flag "--flag" { choices "a" "b" }` |     ✅     |   ✅   |  ✅  |
+| Flag defaults      | `flag "--flag" default="val"`       |     ✅     |   ✅   |  ✅  |
+| Flag help text     | `flag "--flag" help="..."`          |     ✅     |   ✅   |  ✅  |
+| Flag env var       | `flag "--flag" env="VAR"`           |     ✅     |   ✅   |  ✅  |
+| Count flags        | `flag "-v" count=#true`             |     ✅     |   ✅   |  ✅  |
+| Negate flags       | `flag "--flag" negate="--no-flag"`  |     ✅     |   ✅   |  ✅  |
+| Repeatable flags   | `flag "--flag" var=#true`           |     ✅     |   ✅   |  ✅  |
+| Required flags     | `flag "--flag" required=#true`      |     ✅     |   ✅   |  ✅  |
+| Global flags       | `flag "--flag" global=#true`        |     ✅     |   ✅   |  ✅  |
+| Deprecated flags   | `flag "--flag" deprecated="msg"`    |     ✅     |   ✅   |  ✅  |
+| Hidden args/flags  | `hide=#true`                        |     ✅     |   ✅   |  ✅  |
+| Subcommands        | `cmd "name" { ... }`                |     ✅     |   ✅   |  ✅  |
+| Nested subcommands | `cmd "a" { cmd "b" { ... } }`       |     ✅     |   ✅   |  ✅  |
+| Subcommand aliases | `alias "name"`                      |     ✅     |   ✅   |  ✅  |
+| Hyphenated names   | `cmd "add-remote"`                  |     ✅     |   ✅   |  ✅  |
+| Spec metadata      | `version`, `about`, `author`        |     ✅     |   ✅   |  ✅  |
+| Config             | `config "key" { ... }`              |     ✅     |   ✅   |  ✅  |
 
 ## How It Works
 

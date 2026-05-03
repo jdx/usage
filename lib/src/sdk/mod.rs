@@ -1,3 +1,5 @@
+use std::fmt;
+
 use std::path::PathBuf;
 
 use heck::AsPascalCase;
@@ -86,8 +88,14 @@ impl CodeWriter {
         self.indent = self.indent.saturating_sub(1);
     }
 
-    pub fn to_string(self) -> String {
+    pub fn finish(self) -> String {
         self.buf
+    }
+}
+
+impl fmt::Display for CodeWriter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.buf)
     }
 }
 

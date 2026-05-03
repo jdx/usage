@@ -1,12 +1,12 @@
 use heck::AsPascalCase;
 
+use crate::sdk::collect_type_imports;
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
-use crate::sdk::{collect_type_imports};
 use crate::{Spec, SpecArg, SpecFlag};
 
-use crate::sdk::{generated_header, CodeWriter};
 use super::types::{flag_property_name, sanitize_ident};
+use crate::sdk::{generated_header, CodeWriter};
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
     let mut w = CodeWriter::new();
@@ -46,9 +46,16 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
     let class_name = AsPascalCase(package_name).to_string();
 
     // render the root class (the main entry point)
-    render_class(&spec.cmd, &class_name, true, &global_flags, &spec.bin, &mut w);
+    render_class(
+        &spec.cmd,
+        &class_name,
+        true,
+        &global_flags,
+        &spec.bin,
+        &mut w,
+    );
 
-    w.to_string()
+    w.finish()
 }
 
 fn subcmd_path(cmd: &SpecCommand) -> String {
@@ -67,11 +74,7 @@ fn render_class(
     bin_name: &str,
     w: &mut CodeWriter,
 ) {
-    let visible_subcmds: Vec<_> = cmd
-        .subcommands
-        .iter()
-        .filter(|(_, c)| !c.hide)
-        .collect();
+    let visible_subcmds: Vec<_> = cmd.subcommands.iter().filter(|(_, c)| !c.hide).collect();
 
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
@@ -126,7 +129,9 @@ fn render_class(
             let target_prop = sanitize_ident(name);
             let sub_class = AsPascalCase(name).to_string();
             w.line(&format!("/** Alias for `{name}` */"));
-            w.line(&format!("get {alias_prop}(): {sub_class} {{ return this.{target_prop}; }}"));
+            w.line(&format!(
+                "get {alias_prop}(): {sub_class} {{ return this.{target_prop}; }}"
+            ));
         }
     }
 
@@ -135,7 +140,9 @@ fn render_class(
     if is_root {
         w.line("constructor(binPath?: string) {");
         w.indent();
-        w.line(&format!("this.runner = new CliRunner(binPath ?? \"{bin_name}\");"));
+        w.line(&format!(
+            "this.runner = new CliRunner(binPath ?? \"{bin_name}\");"
+        ));
     } else {
         w.line("constructor(runner: CliRunner) {");
         w.indent();
@@ -180,16 +187,16 @@ fn render_class(
         exec_doc.push(cmd.usage.clone());
     }
     for example in &cmd.examples {
-        let label = example
-            .header
-            .as_deref()
-            .unwrap_or("Example");
+        let label = example.header.as_deref().unwrap_or("Example");
         let lang = if example.lang.is_empty() {
             ""
         } else {
             &example.lang
         };
-        exec_doc.push(format!("@example {label}\n```{lang}\n{code}\n```", code = example.code));
+        exec_doc.push(format!(
+            "@example {label}\n```{lang}\n{code}\n```",
+            code = example.code
+        ));
     }
     if !exec_doc.is_empty() {
         w.line(&format!("/** {} */", exec_doc.join("\\n")));
@@ -205,12 +212,12 @@ fn render_class(
 
         // add positional args with double_dash handling
         if has_args {
-            let has_required_double_dash = visible_args.iter().any(|a| {
-                matches!(a.double_dash, SpecDoubleDashChoices::Required)
-            });
-            let has_automatic_double_dash = visible_args.iter().any(|a| {
-                matches!(a.double_dash, SpecDoubleDashChoices::Automatic)
-            });
+            let has_required_double_dash = visible_args
+                .iter()
+                .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
+            let has_automatic_double_dash = visible_args
+                .iter()
+                .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
 
             for arg in &visible_args {
                 let ident = sanitize_ident(&arg.name);
@@ -228,7 +235,9 @@ fn render_class(
             if has_required_double_dash {
                 w.line("cmdArgs.push(\"--\");");
             } else if has_automatic_double_dash {
-                w.line("// double_dash=automatic: \"--\" is implied after the first positional arg");
+                w.line(
+                    "// double_dash=automatic: \"--\" is implied after the first positional arg",
+                );
             }
         }
 

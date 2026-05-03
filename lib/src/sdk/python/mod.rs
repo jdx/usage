@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use heck::AsPascalCase;
 use indexmap::IndexMap;
 
-use crate::sdk::{collect_choice_types, collect_type_imports, command_type_name, generated_header, CodeWriter, SdkFile, SdkOptions, SdkOutput};
+use crate::sdk::{
+    collect_choice_types, collect_type_imports, command_type_name, generated_header, CodeWriter,
+    SdkFile, SdkOptions, SdkOutput,
+};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::SpecConfigProp;
@@ -111,10 +114,16 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         w.line("@dataclass");
         w.line(&format!("class {config_name}:"));
         w.indent();
-        for (name, prop) in &spec.config.props {
+        // Python dataclass requires non-default fields before default fields
+        let (required, optional): (Vec<_>, Vec<_>) = spec
+            .config
+            .props
+            .iter()
+            .partition(|(_, p)| p.default.is_none());
+
+        for (name, prop) in required.iter().chain(optional.iter()) {
             let py_type = config_prop_type(prop);
-            let default = if prop.default.is_some() {
-                let d = prop.default.as_ref().unwrap();
+            let default = if let Some(d) = &prop.default {
                 match prop.data_type {
                     SpecDataTypes::Boolean => format!(" = {d}"),
                     SpecDataTypes::Integer | SpecDataTypes::Float => format!(" = {d}"),
@@ -131,7 +140,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         w.dedent();
     }
 
-    w.to_string()
+    w.finish()
 }
 
 fn render_command_types(
@@ -162,7 +171,12 @@ fn render_command_types(
             global_flags
                 .iter()
                 .copied()
-                .chain(visible_flags.iter().filter(|f| !global_flags.iter().any(|gf| gf.name == f.name)).copied())
+                .chain(
+                    visible_flags
+                        .iter()
+                        .filter(|f| !global_flags.iter().any(|gf| gf.name == f.name))
+                        .copied(),
+                )
                 .collect()
         } else {
             visible_flags
@@ -171,7 +185,14 @@ fn render_command_types(
     }
 
     for subcmd in cmd.subcommands.values() {
-        render_command_types(subcmd, package_name, choice_types, has_global_flags, global_flags, w);
+        render_command_types(
+            subcmd,
+            package_name,
+            choice_types,
+            has_global_flags,
+            global_flags,
+            w,
+        );
     }
 }
 
@@ -182,24 +203,31 @@ fn render_args_dataclass(
     w: &mut CodeWriter,
 ) {
     w.line("");
-    w.line(&format!("@dataclass"));
+    w.line("@dataclass");
     w.line(&format!("class {name}:"));
     w.indent();
     if args.is_empty() {
         w.line("pass");
     } else {
-        for arg in args {
+        // Python dataclass requires non-default fields before default fields
+        let (required, optional): (Vec<_>, Vec<_>) = args
+            .iter()
+            .copied()
+            .partition(|a| a.required && a.default.is_empty());
+
+        for arg in required.iter().chain(optional.iter()) {
             let py_type = arg_py_type(arg, choice_types);
-            let optional = !(arg.required && arg.default.is_none());
+            let optional = !(arg.required && arg.default.is_empty());
             let field = if optional {
                 format!(
                     "{}: Optional[{}] = None",
                     sanitize_py_ident(&arg.name),
                     py_type
                 )
-            } else if let Some(default) = &arg.default {
+            } else if !arg.default.is_empty() {
+                let default_val = &arg.default[0];
                 format!(
-                    "{}: {} = \"{default}\"",
+                    "{}: {} = \"{default_val}\"",
                     sanitize_py_ident(&arg.name),
                     py_type
                 )
@@ -222,30 +250,40 @@ fn render_flags_dataclass(
     w: &mut CodeWriter,
 ) {
     w.line("");
-    w.line(&format!("@dataclass"));
+    w.line("@dataclass");
     w.line(&format!("class {name}:"));
     w.indent();
     if flags.is_empty() {
         w.line("pass");
     } else {
-        for flag in flags {
+        // Python dataclass requires non-default fields before default fields
+        let (required, optional): (Vec<_>, Vec<_>) = flags
+            .iter()
+            .copied()
+            .partition(|f| f.required && f.default.is_empty());
+
+        for flag in required.iter().chain(optional.iter()) {
             let py_type = flag_py_type(flag, choice_types);
             let prop_name = flag_property_name_py(flag);
-            let optional = !(flag.required && flag.default.is_none());
-            let field = if let Some(default) = &flag.default {
-                // has explicit default
+            let optional = !(flag.required && flag.default.is_empty());
+            let field = if !flag.default.is_empty() {
+                // has explicit default — use first value
+                let default_val = &flag.default[0];
                 if flag.count {
-                    format!("{prop_name}: {py_type} = {default}")
+                    format!("{prop_name}: {py_type} = {default_val}")
                 } else if flag.arg.is_none() {
                     // boolean with default
-                    let val = match default.as_str() {
-                        "true" | "#true" => "True",
-                        "false" | "#false" => "False",
-                        other => other,
-                    };
-                    format!("{prop_name}: {py_type} = {val}")
+                    match default_val.as_str() {
+                        "true" | "#true" => format!("{prop_name}: {py_type} = True"),
+                        "false" | "#false" => format!("{prop_name}: {py_type} = False"),
+                        _ => {
+                            // unrecognized boolean default — cannot emit as valid Python bool;
+                            // fall back to Optional[bool] = None with a comment
+                            format!("{prop_name}: Optional[bool] = None  # default: {default_val}")
+                        }
+                    }
                 } else {
-                    format!("{prop_name}: Optional[{py_type}] = \"{default}\"")
+                    format!("{prop_name}: Optional[{py_type}] = \"{default_val}\"")
                 }
             } else if optional {
                 format!("{prop_name}: Optional[{py_type}] = None")
@@ -417,7 +455,7 @@ fn render_client(spec: &Spec, package_name: &str, source_file: &Option<String>) 
         &mut w,
     );
 
-    w.to_string()
+    w.finish()
 }
 
 fn render_class(

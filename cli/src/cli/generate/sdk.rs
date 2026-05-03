@@ -9,6 +9,10 @@ use usage::sdk::{SdkLanguage, SdkOptions};
 #[derive(Args)]
 #[clap(about = "Generate a type-safe SDK from a usage spec")]
 pub struct Sdk {
+    /// A usage spec taken in as a file
+    #[clap(short, long)]
+    file: Option<PathBuf>,
+
     /// Target language for the SDK
     #[clap(short, long, value_parser = ["typescript", "python", "rust"])]
     language: String,
@@ -20,10 +24,6 @@ pub struct Sdk {
     /// Override the package/module name (defaults to spec bin name)
     #[clap(short, long)]
     package_name: Option<String>,
-
-    /// A usage spec taken in as a file
-    #[clap(short, long)]
-    file: Option<PathBuf>,
 
     /// Raw string spec input
     #[clap(long, required_unless_present = "file", overrides_with = "file")]

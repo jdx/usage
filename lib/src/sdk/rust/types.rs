@@ -7,11 +7,7 @@ use crate::spec::config::SpecConfigProp;
 use crate::spec::data_types::SpecDataTypes;
 use crate::{SpecArg, SpecFlag};
 
-pub fn render(
-    spec: &crate::Spec,
-    package_name: &str,
-    source_file: &Option<String>,
-) -> String {
+pub fn render(spec: &crate::Spec, package_name: &str, source_file: &Option<String>) -> String {
     let mut w = CodeWriter::with_indent("    ");
 
     w.line(&generated_header("//!", source_file));
@@ -60,7 +56,14 @@ pub fn render(
     }
 
     // command types
-    render_command_types(&spec.cmd, package_name, &choice_types, has_global_flags, &root_global_flags, &mut w);
+    render_command_types(
+        &spec.cmd,
+        package_name,
+        &choice_types,
+        has_global_flags,
+        &root_global_flags,
+        &mut w,
+    );
 
     // Config
     if !spec.config.props.is_empty() {
@@ -69,7 +72,7 @@ pub fn render(
         render_config_struct(&config_name, &spec.config.props, &mut w);
     }
 
-    w.to_string()
+    w.finish()
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +96,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.indent();
     w.line("fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {");
     w.indent();
-    w.line(&format!("match self {{"));
+    w.line("match self {");
     w.indent();
     for choice in choices {
         let variant = AsPascalCase(choice).to_string();
@@ -158,7 +161,12 @@ fn render_command_types(
             global_flags
                 .iter()
                 .copied()
-                .chain(visible_flags.iter().filter(|f| !global_flags.iter().any(|gf| gf.name == f.name)).copied())
+                .chain(
+                    visible_flags
+                        .iter()
+                        .filter(|f| !global_flags.iter().any(|gf| gf.name == f.name))
+                        .copied(),
+                )
                 .collect()
         } else {
             visible_flags
@@ -167,7 +175,14 @@ fn render_command_types(
     }
 
     for subcmd in cmd.subcommands.values() {
-        render_command_types(subcmd, package_name, choice_types, has_global_flags, global_flags, w);
+        render_command_types(
+            subcmd,
+            package_name,
+            choice_types,
+            has_global_flags,
+            global_flags,
+            w,
+        );
     }
 }
 
@@ -177,30 +192,31 @@ fn render_args_struct(
     choice_types: &IndexMap<String, Vec<String>>,
     w: &mut CodeWriter,
 ) {
-    let all_optional = args.iter().all(|a| !a.required || a.default.is_some());
-    let derives = if all_optional { "#[derive(Debug, Clone, Default)]" } else { "#[derive(Debug, Clone)]" };
+    let all_optional = args.iter().all(|a| !a.required || !a.default.is_empty());
+    let derives = if all_optional {
+        "#[derive(Debug, Clone, Default)]"
+    } else {
+        "#[derive(Debug, Clone)]"
+    };
     w.line(derives);
     w.line(&format!("pub struct {name} {{"));
     w.indent();
     for arg in args {
         let rs_type = arg_rs_type(arg, choice_types);
         let field_name = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
-        let optional = !(arg.required && arg.default.is_none());
+        let optional = !(arg.required && arg.default.is_empty());
 
-        let field = if let Some(default) = &arg.default {
-            if optional {
-                format!("pub {field_name}: Option<{rs_type}> = Some(\"{default}\".to_string()),")
-            } else {
-                format!("pub {field_name}: {rs_type} = \"{default}\".to_string(),")
-            }
-        } else if optional {
-            format!("pub {field_name}: Option<{rs_type}> = None,")
+        let field = if optional {
+            format!("pub {field_name}: Option<{rs_type}>,")
         } else {
             format!("pub {field_name}: {rs_type},")
         };
 
         if let Some(help) = &arg.help {
             w.line(&format!("/// {help}"));
+        }
+        if !arg.default.is_empty() {
+            w.line(&format!("/// Default: \"{}\"", arg.default.join(", ")));
         }
         w.line(&field);
     }
@@ -234,24 +250,26 @@ fn render_config_struct(
     w: &mut CodeWriter,
 ) {
     let all_optional = props.iter().all(|(_, p)| p.default.is_some());
-    let derives = if all_optional { "#[derive(Debug, Clone, Default)]" } else { "#[derive(Debug, Clone)]" };
+    let derives = if all_optional {
+        "#[derive(Debug, Clone, Default)]"
+    } else {
+        "#[derive(Debug, Clone)]"
+    };
     w.line(derives);
     w.line(&format!("pub struct {name} {{"));
     w.indent();
     for (field_name, prop) in props {
         let rs_type = config_prop_type(prop);
         let field = if prop.default.is_some() {
-            let d = prop.default.as_ref().unwrap();
-            match prop.data_type {
-                SpecDataTypes::Boolean => format!("pub {field_name}: Option<{rs_type}> = Some({d}),"),
-                SpecDataTypes::Integer | SpecDataTypes::Float => format!("pub {field_name}: Option<{rs_type}> = Some({d}),"),
-                _ => format!("pub {field_name}: Option<{rs_type}> = Some(\"{d}\".to_string()),"),
-            }
+            format!("pub {field_name}: Option<{rs_type}>,")
         } else {
             format!("pub {field_name}: {rs_type},")
         };
         if let Some(help) = &prop.help {
             w.line(&format!("/// {help}"));
+        }
+        if let Some(default) = &prop.default {
+            w.line(&format!("/// Default: {default}"));
         }
         w.line(&field);
     }
@@ -267,8 +285,8 @@ fn render_flag_docs(flag: &SpecFlag, w: &mut CodeWriter) {
     if let Some(env) = &flag.env {
         doc_parts.push(format!("Env: {env}"));
     }
-    if let Some(default) = &flag.default {
-        doc_parts.push(format!("Default: {default}"));
+    if !flag.default.is_empty() {
+        doc_parts.push(format!("Default: {}", flag.default.join(", ")));
     }
     // aliases in doc
     if flag.long.len() > 1 {
@@ -361,12 +379,13 @@ pub fn flag_property_name_rs(flag: &SpecFlag) -> String {
 pub fn sanitize_rs_ident(name: &str) -> String {
     let snake = heck::AsSnakeCase(name).to_string();
     match snake.as_str() {
-        "type" | "self" | "super" | "mod" | "use" | "fn" | "let" | "mut" | "pub"
-        | "impl" | "trait" | "struct" | "enum" | "match" | "if" | "else" | "for"
-        | "while" | "loop" | "return" | "break" | "continue" | "where" | "as"
-        | "in" | "ref" | "move" | "async" | "await" | "unsafe" | "static"
-        | "const" | "dyn" | "true" | "false" | "crate" | "extern" | "default"
-        | "macro" | "yield" | "box" | "override" | "abstract" => format!("_{snake}"),
+        "type" | "self" | "super" | "mod" | "use" | "fn" | "let" | "mut" | "pub" | "impl"
+        | "trait" | "struct" | "enum" | "match" | "if" | "else" | "for" | "while" | "loop"
+        | "return" | "break" | "continue" | "where" | "as" | "in" | "ref" | "move" | "async"
+        | "await" | "unsafe" | "static" | "const" | "dyn" | "true" | "false" | "crate"
+        | "extern" | "default" | "macro" | "yield" | "box" | "override" | "abstract" => {
+            format!("_{snake}")
+        }
         _ => snake,
     }
 }

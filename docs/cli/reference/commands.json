@@ -692,6 +692,111 @@
             "aliases": ["md"],
             "hidden_aliases": [],
             "examples": []
+          },
+          "sdk": {
+            "full_cmd": ["generate", "sdk"],
+            "usage": "generate sdk <FLAGS>",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file",
+                "help_first_line": "A usage spec taken in as a file",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "language",
+                "usage": "-l --language <LANGUAGE>",
+                "help": "Target language for the SDK",
+                "help_first_line": "Target language for the SDK",
+                "short": ["l"],
+                "long": ["language"],
+                "required": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "LANGUAGE",
+                  "usage": "<LANGUAGE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false,
+                  "choices": {
+                    "choices": ["typescript", "python", "rust"]
+                  }
+                }
+              },
+              {
+                "name": "output",
+                "usage": "-o --output <OUTPUT>",
+                "help": "Output directory for generated SDK files",
+                "help_first_line": "Output directory for generated SDK files",
+                "short": ["o"],
+                "long": ["output"],
+                "required": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUTPUT",
+                  "usage": "<OUTPUT>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "package-name",
+                "usage": "-p --package-name <PACKAGE_NAME>",
+                "help": "Override the package/module name (defaults to spec bin name)",
+                "help_first_line": "Override the package/module name (defaults to spec bin name)",
+                "short": ["p"],
+                "long": ["package-name"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "PACKAGE_NAME",
+                  "usage": "<PACKAGE_NAME>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "Raw string spec input",
+                "help_first_line": "Raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "help": "Generate a type-safe SDK from a usage spec",
+            "name": "sdk",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
           }
         },
         "args": [],

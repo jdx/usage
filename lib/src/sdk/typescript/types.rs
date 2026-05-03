@@ -74,7 +74,13 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         w.line("}");
     }
 
-    render_command_types(&spec.cmd, package_name, &choice_types, has_global_flags, &mut w);
+    render_command_types(
+        &spec.cmd,
+        package_name,
+        &choice_types,
+        has_global_flags,
+        &mut w,
+    );
 
     if !spec.config.props.is_empty() {
         w.line("");
@@ -93,7 +99,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         w.line("}");
     }
 
-    w.to_string()
+    w.finish()
 }
 
 fn render_command_types(
@@ -127,7 +133,9 @@ fn render_command_types(
     if has_any_flags {
         w.line("");
         if has_global_flags {
-            w.line(&format!("export interface {name}Flags extends GlobalFlags {{"));
+            w.line(&format!(
+                "export interface {name}Flags extends GlobalFlags {{"
+            ));
         } else {
             w.line(&format!("export interface {name}Flags {{"));
         }
@@ -144,9 +152,13 @@ fn render_command_types(
     }
 }
 
-fn render_arg_field(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>, w: &mut CodeWriter) {
+fn render_arg_field(
+    arg: &SpecArg,
+    choice_types: &IndexMap<String, Vec<String>>,
+    w: &mut CodeWriter,
+) {
     let ts_type = arg_ts_type(arg, choice_types);
-    let optional = if arg.required && arg.default.is_none() {
+    let optional = if arg.required && arg.default.is_empty() {
         ""
     } else {
         "?"
@@ -169,12 +181,19 @@ fn render_arg_field(arg: &SpecArg, choice_types: &IndexMap<String, Vec<String>>,
     if !doc_parts.is_empty() {
         w.line(&format!("/** {} */", doc_parts.join(". ")));
     }
-    w.line(&format!("{}{optional}: {ts_type};", sanitize_ident(&arg.name)));
+    w.line(&format!(
+        "{}{optional}: {ts_type};",
+        sanitize_ident(&arg.name)
+    ));
 }
 
-fn render_flag_field(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String>>, w: &mut CodeWriter) {
+fn render_flag_field(
+    flag: &SpecFlag,
+    choice_types: &IndexMap<String, Vec<String>>,
+    w: &mut CodeWriter,
+) {
     let ts_type = flag_ts_type(flag, choice_types);
-    let optional = if flag.required && flag.default.is_none() {
+    let optional = if flag.required && flag.default.is_empty() {
         ""
     } else {
         "?"
@@ -189,8 +208,8 @@ fn render_flag_field(flag: &SpecFlag, choice_types: &IndexMap<String, Vec<String
     if let Some(deprecated) = &flag.deprecated {
         doc_parts.push(format!("@deprecated {deprecated}"));
     }
-    if let Some(default) = &flag.default {
-        doc_parts.push(format!("@default {default}"));
+    if !flag.default.is_empty() {
+        doc_parts.push(format!("@default {}", flag.default.join(", ")));
     }
     // document flag aliases
     let alias_strs: Vec<String> = flag
@@ -398,7 +417,9 @@ mod tests {
                 flag "-f --force" help="Force deploy" deprecated="Use --confirm instead"
                 flag "--confirm" help="Confirm deployment"
             }
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         spec
     }
 
@@ -426,7 +447,9 @@ mod tests {
                 prop "port" default=8080 data_type=integer env="MYAPP_PORT"
                 prop "host" data_type=string
             }
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         let output = super::super::super::generate(&spec, &make_opts());
         // just verify it doesn't crash and has the config interface
         let types = get_file(&output, "types.ts");
@@ -448,7 +471,9 @@ mod tests {
             cmd "remove-remote" help="Remove a remote" {
                 arg "name"
             }
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         let output = super::super::super::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.ts"));
     }
@@ -469,7 +494,9 @@ mod tests {
                     }
                 }
             }
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         let output = super::super::super::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.ts"));
     }
@@ -479,7 +506,9 @@ mod tests {
     fn test_minimal_spec() {
         let spec: Spec = r##"
             bin "hello"
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         let output = super::super::super::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.ts"));
     }
@@ -489,7 +518,9 @@ mod tests {
     fn test_package_name_override() {
         let spec: Spec = r##"
             bin "original-cli"
-        "##.parse().unwrap();
+        "##
+        .parse()
+        .unwrap();
         let opts = SdkOptions {
             language: SdkLanguage::TypeScript,
             package_name: Some("MyCustomSdk".to_string()),

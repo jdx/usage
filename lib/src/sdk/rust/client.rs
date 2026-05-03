@@ -1,8 +1,8 @@
 use heck::AsPascalCase;
 
+use crate::sdk::{generated_header, CodeWriter};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
-use crate::sdk::{generated_header, CodeWriter};
 use crate::{Spec, SpecFlag};
 
 use super::types::{flag_property_name_rs, sanitize_rs_ident};
@@ -24,9 +24,16 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         .collect();
 
     let class_name = AsPascalCase(package_name).to_string();
-    render_class(&spec.cmd, &class_name, true, &global_flags, &spec.bin, &mut w);
+    render_class(
+        &spec.cmd,
+        &class_name,
+        true,
+        &global_flags,
+        &spec.bin,
+        &mut w,
+    );
 
-    w.to_string()
+    w.finish()
 }
 
 fn render_class(
@@ -34,14 +41,10 @@ fn render_class(
     class_name: &str,
     is_root: bool,
     global_flags: &[&SpecFlag],
-    bin_name: &str,
+    _bin_name: &str,
     w: &mut CodeWriter,
 ) {
-    let visible_subcmds: Vec<_> = cmd
-        .subcommands
-        .iter()
-        .filter(|(_, c)| !c.hide)
-        .collect();
+    let visible_subcmds: Vec<_> = cmd.subcommands.iter().filter(|(_, c)| !c.hide).collect();
 
     let visible_args: Vec<&crate::SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
@@ -77,7 +80,7 @@ fn render_class(
 
     // constructor
     if is_root {
-        w.line(&format!("pub fn new(bin_path: &str) -> Self {{"));
+        w.line("pub fn new(bin_path: &str) -> Self {");
         w.indent();
         w.line("Self::with_runner(CliRunner::new(bin_path))");
         w.dedent();
@@ -146,7 +149,9 @@ fn render_class(
     } else if has_args {
         format!("pub fn exec(&self, args: {args_type}) -> Result<CliResult, CliError> {{")
     } else if !flags_type.is_empty() {
-        format!("pub fn exec(&self, flags: Option<&{flags_type}>) -> Result<CliResult, CliError> {{")
+        format!(
+            "pub fn exec(&self, flags: Option<&{flags_type}>) -> Result<CliResult, CliError> {{"
+        )
     } else {
         "pub fn exec(&self) -> Result<CliResult, CliError> {".to_string()
     };
@@ -160,7 +165,11 @@ fn render_class(
         .map(|s| format!("\"{s}\".to_string()"))
         .collect::<Vec<_>>()
         .join(", ");
-    let mut_decl = if has_args || has_flags { "let mut cmd_args" } else { "let cmd_args" };
+    let mut_decl = if has_args || has_flags {
+        "let mut cmd_args"
+    } else {
+        "let cmd_args"
+    };
     w.line(&format!("{mut_decl}: Vec<String> = vec![{path}];"));
 
     // push args
@@ -175,11 +184,15 @@ fn render_class(
         for arg in &visible_args {
             let ident = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
             if arg.var {
-                w.line(&format!("cmd_args.extend(args.{ident}.iter().map(|v| v.to_string()));"));
+                w.line(&format!(
+                    "cmd_args.extend(args.{ident}.iter().map(|v| v.to_string()));"
+                ));
             } else {
-                let optional = !(arg.required && arg.default.is_none());
+                let optional = !(arg.required && arg.default.is_empty());
                 if optional {
-                    w.line(&format!("if let Some(v) = &args.{ident} {{ cmd_args.push(v.to_string()); }}"));
+                    w.line(&format!(
+                        "if let Some(v) = &args.{ident} {{ cmd_args.push(v.to_string()); }}"
+                    ));
                 } else {
                     w.line(&format!("cmd_args.push(args.{ident}.to_string());"));
                 }
@@ -195,9 +208,7 @@ fn render_class(
 
     // push flags
     if has_flags {
-        w.line(&format!(
-            "cmd_args.extend(Self::build_flag_args(flags));"
-        ));
+        w.line("cmd_args.extend(Self::build_flag_args(flags));");
         w.line("self.runner.run(cmd_args)");
     } else {
         w.line("self.runner.run(cmd_args)");
@@ -237,7 +248,7 @@ fn render_class(
     for (name, subcmd) in &visible_subcmds {
         w.line("");
         let sub_class = AsPascalCase(name).to_string();
-        render_class(subcmd, &sub_class, false, global_flags, bin_name, w);
+        render_class(subcmd, &sub_class, false, global_flags, _bin_name, w);
     }
 }
 
@@ -256,7 +267,7 @@ fn render_flag_build_rs(flag: &SpecFlag, w: &mut CodeWriter) {
             // repeatable value flag
             w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
             w.indent();
-            w.line(&format!("for item in v {{"));
+            w.line("for item in v {");
             w.indent();
             w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
             w.line("result.push(item.to_string());");
@@ -277,16 +288,20 @@ fn render_flag_build_rs(flag: &SpecFlag, w: &mut CodeWriter) {
         // count flag
         w.line(&format!("if let Some(count) = flags.{prop_name} {{"));
         w.indent();
-        w.line(&format!("for _ in 0..count {{ result.push(\"{flag_arg_name}\".to_string()); }}"));
+        w.line(&format!(
+            "for _ in 0..count {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+        ));
         w.dedent();
         w.line("}");
     } else if flag.var {
         // repeatable boolean flag
         w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
         w.indent();
-        w.line(&format!("for item in v {{"));
+        w.line("for item in v {");
         w.indent();
-        w.line(&format!("if *item {{ result.push(\"{flag_arg_name}\".to_string()); }}"));
+        w.line(&format!(
+            "if *item {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+        ));
         w.dedent();
         w.line("}");
         w.dedent();

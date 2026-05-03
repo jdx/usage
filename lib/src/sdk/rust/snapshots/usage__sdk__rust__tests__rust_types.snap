@@ -66,11 +66,13 @@ pub struct MycliArgs {
     /// arg1 description
     pub arg1: String,
     /// arg2 description
-    pub arg2: Option<Arg2Choice> = Some("default value".to_string()),
+    /// Default: "default value"
+    pub arg2: Option<Arg2Choice>,
     /// arg3 description
     pub arg3: String,
     pub argrest: Vec<String>,
-    pub with_default: Option<String> = Some("default value".to_string()),
+    /// Default: "default value"
+    pub with_default: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
