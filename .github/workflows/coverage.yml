@@ -23,6 +23,8 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@fc9eae0a7877a2f4152f841721d1d1aa8c3f1a27 # cargo-llvm-cov
+      - name: Install shells for completion integration tests
+        run: sudo apt-get update && sudo apt-get install -y zsh fish
       - name: Generate code coverage
         run: mise run coverage
       - name: Upload coverage to Codecov

@@ -23,6 +23,8 @@ jobs:
         with:
           shared-key: test
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+      - name: Install shells for completion integration tests
+        run: sudo apt-get update && sudo apt-get install -y zsh fish
       - run: mise r build
       - run: mise r test
       - run: mise r lint
