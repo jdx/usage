@@ -1,5 +1,5 @@
 pub const RUNTIME_TS: &str = r#"// Runtime module for usage-generated SDK clients. Do not edit manually.
-import { execFileSync } from "node:child_process";
+import { execFileSync, SpawnSyncReturns } from "node:child_process";
 
 export class CliResult {
   constructor(
@@ -13,29 +13,30 @@ export class CliResult {
   }
 }
 
+export class CliError extends Error {
+  constructor(
+    public readonly binPath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CliError";
+  }
+}
+
 export class CliRunner {
   constructor(private binPath: string) {}
 
-  run(args: string[], flags?: Record<string, unknown>): CliResult {
-    const flagArgs: string[] = [];
-    if (flags) {
-      for (const [key, value] of Object.entries(flags)) {
-        if (value === undefined || value === null) continue;
-        if (typeof value === "boolean") {
-          if (value) flagArgs.push(`--${key}`);
-        } else {
-          flagArgs.push(`--${key}`, String(value));
-        }
-      }
-    }
-
+  run(args: string[]): CliResult {
     try {
-      const stdout = execFileSync(this.binPath, [...args, ...flagArgs], {
+      const result: SpawnSyncReturns<string> = execFileSync(this.binPath, args, {
         encoding: "utf-8",
       });
-      return new CliResult(stdout, "", 0);
+      return new CliResult(result.stdout ?? "", result.stderr ?? "", 0);
     } catch (e: unknown) {
-      const err = e as { stdout?: string; stderr?: string; status?: number };
+      if (e instanceof Error && "code" in e && (e as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new CliError(this.binPath, `CLI binary not found: ${this.binPath}`);
+      }
+      const err = e as SpawnSyncReturns<string>;
       return new CliResult(err.stdout ?? "", err.stderr ?? "", err.status ?? 1);
     }
   }
