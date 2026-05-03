@@ -287,6 +287,27 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
+          name: ["completion-init", "ci"],
+          description:
+            "Generate a shell init script that auto-completes any usage shebang script on $PATH",
+          options: [
+            {
+              name: "--usage-bin",
+              description:
+                "Override the bin used for calling back to usage-cli",
+              isRepeatable: false,
+              args: {
+                name: "usage_bin",
+              },
+            },
+          ],
+          args: {
+            name: "shell",
+            description: "Shell to generate the init script for",
+            suggestions: ["bash"],
+          },
+        },
+        {
           name: "fig",
           description: "Generate Fig completion spec for Amazon Q / Fig",
           options: [

@@ -50,3 +50,21 @@ pub fn complete(options: &CompleteOptions) -> Result<String, UsageErr> {
         _ => Err(UsageErr::UnsupportedShell(options.shell.clone())),
     }
 }
+
+/// Generates a shell-specific "init" script that enables tab-completion for any
+/// command on `$PATH` whose first line is a `usage` shebang, without requiring
+/// per-script `usage g completion` generation. The user sources this once from
+/// their shell rc.
+///
+/// # Supported Shells
+/// - `bash` - registers a `complete -D` default handler
+/// - `zsh` - registers a `compdef -default-` fallback handler
+/// - `fish` - scans `$PATH` once at startup and registers per-command completers
+pub fn complete_init(shell: &str, usage_bin: &str) -> Result<String, UsageErr> {
+    match shell {
+        "bash" => Ok(bash::complete_bash_init(usage_bin)),
+        "fish" => Ok(fish::complete_fish_init(usage_bin)),
+        "zsh" => Ok(zsh::complete_zsh_init(usage_bin)),
+        _ => Err(UsageErr::UnsupportedShell(shell.to_string())),
+    }
+}

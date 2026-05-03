@@ -11,6 +11,7 @@ Generate completions, documentation, and other artifacts from usage specs
 ## Subcommands
 
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)
+- [`usage generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>`](/cli/reference/generate/completion-init.md)
 - [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
 - [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)

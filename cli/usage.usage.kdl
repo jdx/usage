@@ -73,6 +73,18 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         }
         arg <BIN> help="The CLI which we're generating completions for"
     }
+    cmd completion-init help="Generate a shell init script that auto-completes any usage shebang script on $PATH" {
+        alias ci
+        alias init completions-init hide=#true
+        long_help "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required."
+        flag --usage-bin help="Override the bin used for calling back to usage-cli" default=usage {
+            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            arg <USAGE_BIN>
+        }
+        arg <SHELL> help="Shell to generate the init script for" {
+            choices bash
+        }
+    }
     cmd fig help="Generate Fig completion spec for Amazon Q / Fig" {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
