@@ -304,7 +304,7 @@ const completionSpec: Fig.Spec = {
           args: {
             name: "shell",
             description: "Shell to generate the init script for",
-            suggestions: ["bash"],
+            suggestions: ["bash", "fish", "zsh"],
           },
         },
         {

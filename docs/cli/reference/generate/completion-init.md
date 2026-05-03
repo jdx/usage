@@ -19,6 +19,8 @@ Shell to generate the init script for
 **Choices:**
 
 - `bash`
+- `fish`
+- `zsh`
 
 ## Flags
 

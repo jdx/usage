@@ -410,7 +410,7 @@
                 "double_dash": "Optional",
                 "hide": false,
                 "choices": {
-                  "choices": ["bash"]
+                  "choices": ["bash", "fish", "zsh"]
                 }
               }
             ],

@@ -82,7 +82,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <USAGE_BIN>
         }
         arg <SHELL> help="Shell to generate the init script for" {
-            choices bash
+            choices bash fish zsh
         }
     }
     cmd fig help="Generate Fig completion spec for Amazon Q / Fig" {
