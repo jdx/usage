@@ -68,3 +68,22 @@ pub fn complete_init(shell: &str, usage_bin: &str) -> Result<String, UsageErr> {
         _ => Err(UsageErr::UnsupportedShell(shell.to_string())),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn complete_init_supported_shells() {
+        for shell in ["bash", "zsh", "fish"] {
+            let out = complete_init(shell, "usage").expect("supported shell");
+            assert!(!out.is_empty(), "{shell} init should not be empty");
+        }
+    }
+
+    #[test]
+    fn complete_init_rejects_unsupported_shell() {
+        let err = complete_init("nu", "usage").expect_err("nu has no init script");
+        assert!(matches!(err, UsageErr::UnsupportedShell(ref s) if s == "nu"));
+    }
+}
