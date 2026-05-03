@@ -1,5 +1,50 @@
 # Generating Completion Scripts
 
+## Auto-completion for shebang scripts (bash)
+
+If you have shell scripts that use the `usage` shebang
+(e.g. `#!/usr/bin/env -S usage bash`) and live on `$PATH`, you can enable
+tab-completion for all of them at once with a single init line — no per-script
+generation required.
+
+Add this to your `~/.bashrc`:
+
+```bash
+source <(usage g completion-init bash)
+```
+
+For zsh:
+
+```bash
+# Add this to your ~/.zshrc
+source <(usage g completion-init zsh)
+```
+
+For fish:
+
+```bash
+# Add this to ~/.config/fish/conf.d/usage.fish
+usage g completion-init fish | source
+```
+
+After restarting your shell, `<Tab>` will work on any script whose first line
+is a `usage` shebang. Mechanism per shell:
+
+- **bash**: registers a `complete -D` default handler that dispatches to
+  `usage complete-word` for usage shebangs. Source this **after**
+  bash-completion so the existing default handler is chained to for non-usage
+  commands.
+- **zsh**: registers a `compdef -default-` fallback. Falls back to `_files`
+  for non-usage commands.
+- **fish**: scans `$PATH` once at shell startup (fish has no default-completer
+  fallback) and registers `complete -c <name>` per usage-shebang script.
+
+This is the simplest setup if your CLIs are written as `usage`-shebang scripts.
+For `.usage.kdl` specs or binaries with `--usage`, generate per-binary
+completion scripts as shown below.
+
+## Per-binary completion scripts
+
 Usage can generate completion scripts for any shell. Here is an example for bash:
 
 ```bash

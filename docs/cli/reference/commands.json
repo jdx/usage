@@ -396,6 +396,54 @@
             "hidden_aliases": ["complete", "completions"],
             "examples": []
           },
+          "completion-init": {
+            "full_cmd": ["generate", "completion-init"],
+            "usage": "generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>",
+            "subcommands": {},
+            "args": [
+              {
+                "name": "SHELL",
+                "usage": "<SHELL>",
+                "help": "Shell to generate the init script for",
+                "help_first_line": "Shell to generate the init script for",
+                "required": true,
+                "double_dash": "Optional",
+                "hide": false,
+                "choices": {
+                  "choices": ["bash", "fish", "zsh"]
+                }
+              }
+            ],
+            "flags": [
+              {
+                "name": "usage-bin",
+                "usage": "--usage-bin <USAGE_BIN>",
+                "help": "Override the bin used for calling back to usage-cli",
+                "help_long": "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\"",
+                "help_first_line": "Override the bin used for calling back to usage-cli",
+                "short": [],
+                "long": ["usage-bin"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "USAGE_BIN",
+                  "usage": "<USAGE_BIN>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                },
+                "default": ["usage"]
+              }
+            ],
+            "mounts": [],
+            "hide": false,
+            "help": "Generate a shell init script that auto-completes any usage shebang script on $PATH",
+            "help_long": "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.",
+            "name": "completion-init",
+            "aliases": ["ci"],
+            "hidden_aliases": ["init", "completions-init"],
+            "examples": []
+          },
           "fig": {
             "full_cmd": ["generate", "fig"],
             "usage": "generate fig [FLAGS]",

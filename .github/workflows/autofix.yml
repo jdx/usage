@@ -24,5 +24,12 @@ jobs:
           shared-key: test
           save-if: false
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+      - name: Install shells for completion integration tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh fish
+          if ! command -v pwsh >/dev/null 2>&1; then
+            sudo snap install powershell --classic
+          fi
       - run: mise r autofix
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4

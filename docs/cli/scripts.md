@@ -4,6 +4,13 @@ Scripts can be used with the Usage CLI to display help, powerful arg parsing, an
 any language.
 For this to work, we add comments to the script that describe the flags and arguments that the
 script accepts.
+
+::: tip Enabling autocompletion
+Tab-completion for shebang scripts is opt-in: add
+`source <(usage g completion-init bash)` to your `~/.bashrc` (one-time setup)
+to enable `<Tab>` on every `usage`-shebang script on `$PATH`. See
+[Generating Completion Scripts](./completions.md) for details and other shells.
+:::
 Here is an example in bash:
 
 ```bash
