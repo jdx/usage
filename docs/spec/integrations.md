@@ -4,15 +4,15 @@ Integrations extract CLI definitions from framework internals and output a [usag
 
 ## Available
 
-| Framework                                                           | Language | Package                                                                    |
-| ------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
-| [Cobra](https://github.com/spf13/cobra)                             | Go       | [`cobra_usage`](/spec/integrations/cobra)                                  |
-| [clap](https://crates.io/crates/clap)                               | Rust     | [`clap_usage`](/spec/integrations/clap)                                    |
-| [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)            |
-| [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage) |
+| Framework                                                           | Language | Package                                                                                                       |
+| ------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| [Cobra](https://github.com/spf13/cobra)                             | Go       | [`cobra_usage`](/spec/integrations/cobra)                                                                     |
+| [clap](https://crates.io/crates/clap)                               | Rust     | [`clap_usage`](/spec/integrations/clap)                                                                       |
+| [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)                                               |
+| [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage)                                    |
 | [Commander.js](https://github.com/tj/commander.js)                  | Node.js  | [`@usage-spec/commander`](https://github.com/gaojunran/usage-integrations/tree/main/packages/commander-usage) |
-| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://github.com/gaojunran/usage-integrations/tree/main/packages/oclif-usage)        |
-| [yargs](https://github.com/yargs/yargs)                             | Node.js  | [`@usage-spec/yargs`](https://github.com/gaojunran/usage-integrations/tree/main/packages/yargs-usage)        |
+| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://github.com/gaojunran/usage-integrations/tree/main/packages/oclif-usage)         |
+| [yargs](https://github.com/yargs/yargs)                             | Node.js  | [`@usage-spec/yargs`](https://github.com/gaojunran/usage-integrations/tree/main/packages/yargs-usage)         |
 
 ## Planned
 
@@ -20,11 +20,11 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 
 ### High Priority
 
-| Framework                                                          | Language |
-| ------------------------------------------------------------------ | -------- |
-| [urfave/cli](https://github.com/urfave/cli)                        | Go       |
-| [Typer](https://github.com/fastapi/typer)                          | Python   |
-| [Click](https://github.com/pallets/click)                          | Python   |
+| Framework                                   | Language |
+| ------------------------------------------- | -------- |
+| [urfave/cli](https://github.com/urfave/cli) | Go       |
+| [Typer](https://github.com/fastapi/typer)   | Python   |
+| [Click](https://github.com/pallets/click)   | Python   |
 
 ### Medium Priority
 
