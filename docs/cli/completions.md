@@ -13,20 +13,35 @@ Add this to your `~/.bashrc`:
 source <(usage g completion-init bash)
 ```
 
+For zsh:
+
+```bash
+# Add this to your ~/.zshrc
+source <(usage g completion-init zsh)
+```
+
+For fish:
+
+```bash
+# Add this to ~/.config/fish/conf.d/usage.fish
+usage g completion-init fish | source
+```
+
 After restarting your shell, `<Tab>` will work on any script whose first line
-is a `usage` shebang. The init script registers a `complete -D` default handler
-that detects the shebang at completion time and dispatches to
-`usage complete-word`. Non-`usage` commands fall through to bash-completion's
-loader if it's installed.
+is a `usage` shebang. Mechanism per shell:
+
+- **bash**: registers a `complete -D` default handler that dispatches to
+  `usage complete-word` for usage shebangs. Source this **after**
+  bash-completion so the existing default handler is chained to for non-usage
+  commands.
+- **zsh**: registers a `compdef -default-` fallback. Falls back to `_files`
+  for non-usage commands.
+- **fish**: scans `$PATH` once at shell startup (fish has no default-completer
+  fallback) and registers `complete -c <name>` per usage-shebang script.
 
 This is the simplest setup if your CLIs are written as `usage`-shebang scripts.
 For `.usage.kdl` specs or binaries with `--usage`, generate per-binary
 completion scripts as shown below.
-
-::: info
-Currently only `bash` is supported for the init flow. zsh / fish use different
-completion mechanisms and are tracked as follow-ups.
-:::
 
 ## Per-binary completion scripts
 
