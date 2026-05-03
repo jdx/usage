@@ -62,6 +62,7 @@ fn render_class(
         w.line(&format!("/// Aliases: {}", cmd.aliases.join(", ")));
     }
 
+    w.line("#[derive(Debug, Clone)]");
     w.line(&format!("pub struct {class_name} {{"));
     w.indent();
     w.line("runner: CliRunner,");

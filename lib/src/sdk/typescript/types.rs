@@ -576,4 +576,80 @@ mod tests {
         assert!(client.contains("exec(flags?: StatusFlags): CliResult"));
         insta::assert_snapshot!(client);
     }
+
+    /// Config with all data_type variants, arg with env, flag with deprecated + aliases,
+    /// reserved keyword identifiers.
+    #[test]
+    fn test_typescript_config_and_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "debug" default=#true data_type=boolean help="Enable debug mode"
+                prop "port" default=8080 data_type=integer
+                prop "rate" default="1.5" data_type=float
+                prop "host" data_type=string
+                prop "extra" data_type="null"
+            }
+            arg "input" help="Input file" env="MYAPP_INPUT"
+            flag "--type" help="Reserved keyword" deprecated="Use --kind"
+            flag "-f --format --fmt <fmt>" help="Flag with short and long alias"
+            flag "-v" help="Short-only flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("MyappConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Hidden command — covers cmd.hide early-return in render_command_types.
+    #[test]
+    fn test_typescript_hidden_command() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "visible" help="A visible command" {
+                arg "name"
+            }
+            cmd "secret" hide=#true help="Hidden command" {
+                arg "name"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("VisibleArgs"));
+        assert!(!types.contains("SecretArgs"));
+    }
+
+    /// double_dash=automatic, examples with lang, global flags with flags-only subcommand,
+    /// repeatable boolean flag, short-only flag build.
+    #[test]
+    fn test_typescript_client_edge_cases() {
+        let spec: Spec = r##"
+            bin "runner"
+            flag "-v --verbose" global=#true help="Verbosity"
+            flag "--debug" var=#true help="Repeatable boolean flag"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run" lang="bash"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+            cmd "info" help="Show info" {}
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("double_dash=automatic"));
+        assert!(client.contains("@example Basic run"));
+        assert!(client.contains("```bash"));
+        // GlobalFlags type for info subcommand
+        assert!(client.contains("flags?: GlobalFlags"));
+        // repeatable boolean flag
+        assert!(client.contains("for (const v of flags.debug)"));
+        insta::assert_snapshot!(client);
+    }
 }

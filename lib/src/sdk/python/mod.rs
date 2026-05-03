@@ -124,8 +124,15 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
             let py_type = config_prop_type(prop);
             let default = if let Some(d) = &prop.default {
                 match prop.data_type {
-                    SpecDataTypes::Boolean => format!(" = {d}"),
-                    SpecDataTypes::Integer | SpecDataTypes::Float => format!(" = {d}"),
+                    SpecDataTypes::Boolean => match d.as_str() {
+                        "#true" | "true" => " = True".to_string(),
+                        "#false" | "false" => " = False".to_string(),
+                        other => format!(" = {other}"),
+                    },
+                    SpecDataTypes::Integer | SpecDataTypes::Float => {
+                        let numeric = d.trim_matches('"');
+                        format!(" = {numeric}")
+                    }
                     _ => format!(" = \"{d}\""),
                 }
             } else {
@@ -916,5 +923,117 @@ mod tests {
             output_pos < mode_pos,
             "required arg must precede optional arg"
         );
+    }
+
+    /// Config props — covers config dataclass and config_prop_type.
+    #[test]
+    fn test_python_config_props() {
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "debug" default=#true data_type=boolean help="Enable debug mode"
+                prop "port" default=8080 data_type=integer
+                prop "rate" default="1.5" data_type=float
+                prop "host" data_type=string
+                prop "extra" data_type="null"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        assert!(types.contains("class MyappConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Hidden command, hidden arg/flag — covers early-return and empty dataclass paths.
+    #[test]
+    fn test_python_hidden_command() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "visible" help="A visible command" {
+                arg "name"
+            }
+            cmd "secret" hide=#true help="Hidden command" {
+                arg "name"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        assert!(types.contains("VisibleArgs"));
+        assert!(!types.contains("SecretArgs"));
+    }
+
+    /// Flag edge cases: short-only, aliases, deprecated, count+default, required flag,
+    /// repeatable boolean flag, non-bool value flag with default.
+    #[test]
+    fn test_python_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "-v" help="Short-only flag"
+            flag "--type" help="Reserved keyword" deprecated="Use --kind"
+            flag "--level" count=#true default="2" help="Count flag with default"
+            flag "--format <fmt>" default="json" help="Value flag with default"
+            flag "--confirm" required=#true help="Required flag"
+            flag "--verbose" var=#true help="Repeatable boolean flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        insta::assert_snapshot!(types);
+        let client = get_file(&output, "client.py");
+        // short-only flag build
+        assert!(client.contains(r#""-v""#));
+        // repeatable boolean flag build
+        assert!(client.contains("for v in flags.verbose:"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// double_dash=automatic, examples in exec doc, global flags with flags-only subcommand.
+    #[test]
+    fn test_python_exec_edge_cases() {
+        let spec: Spec = r##"
+            bin "runner"
+            flag "-v --verbose" global=#true help="Verbosity"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+            cmd "info" help="Show info" {}
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.py");
+        assert!(client.contains("double_dash=automatic"));
+        assert!(client.contains("Basic run: runner run hello"));
+        // "info" has no own flags, only global flags => GlobalFlags type
+        assert!(client.contains("flags: Optional[GlobalFlags] = None"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Optional arg without default and empty flags dataclass.
+    #[test]
+    fn test_python_optional_arg_empty_flags() {
+        let spec: Spec = r##"
+            bin "app"
+            arg "[name]" help="Optional arg without default"
+            cmd "check" help="Check something" {
+                arg "target" required=#true help="Required arg"
+                arg "mode" default="quick" help="Optional arg with default"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        // optional arg without default should have = None
+        assert!(types.contains("name: Optional[str] = None"));
+        insta::assert_snapshot!(types);
     }
 }

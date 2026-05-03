@@ -95,7 +95,15 @@ fn render_class(
         class_doc.push(format!("Aliases: {}", cmd.aliases.join(", ")));
     }
     if !class_doc.is_empty() {
-        w.line(&format!("/** {} */", class_doc.join("\\n")));
+        if class_doc.len() == 1 {
+            w.line(&format!("/** {} */", class_doc[0]));
+        } else {
+            w.line("/**");
+            for line in &class_doc {
+                w.line(&format!(" * {line}"));
+            }
+            w.line(" */");
+        }
     }
 
     // class declaration
@@ -199,7 +207,17 @@ fn render_class(
         ));
     }
     if !exec_doc.is_empty() {
-        w.line(&format!("/** {} */", exec_doc.join("\\n")));
+        if exec_doc.len() == 1 && !exec_doc[0].contains('\n') {
+            w.line(&format!("/** {} */", exec_doc[0]));
+        } else {
+            w.line("/**");
+            for part in &exec_doc {
+                for line in part.split('\n') {
+                    w.line(&format!(" * {line}"));
+                }
+            }
+            w.line(" */");
+        }
     }
 
     if has_args || has_flags {

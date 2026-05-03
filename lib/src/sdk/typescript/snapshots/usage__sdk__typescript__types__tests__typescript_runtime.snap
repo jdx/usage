@@ -3,7 +3,7 @@ source: lib/src/sdk/typescript/types.rs
 expression: "get_file(&output, \"runtime.ts\")"
 ---
 // Runtime module for usage-generated SDK clients. Do not edit manually.
-import { execFileSync } from "node:child_process";
+import { spawnSync, SpawnSyncReturns } from "node:child_process";
 
 export class CliResult {
   constructor(
@@ -17,30 +17,30 @@ export class CliResult {
   }
 }
 
+export class CliError extends Error {
+  constructor(
+    public readonly binPath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CliError";
+  }
+}
+
 export class CliRunner {
   constructor(private binPath: string) {}
 
-  run(args: string[], flags?: Record<string, unknown>): CliResult {
-    const flagArgs: string[] = [];
-    if (flags) {
-      for (const [key, value] of Object.entries(flags)) {
-        if (value === undefined || value === null) continue;
-        if (typeof value === "boolean") {
-          if (value) flagArgs.push(`--${key}`);
-        } else {
-          flagArgs.push(`--${key}`, String(value));
-        }
+  run(args: string[]): CliResult {
+    const result: SpawnSyncReturns<string> = spawnSync(this.binPath, args, {
+      encoding: "utf-8",
+    });
+    if (result.error) {
+      const err = result.error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        throw new CliError(this.binPath, `CLI binary not found: ${this.binPath}`);
       }
+      throw err;
     }
-
-    try {
-      const stdout = execFileSync(this.binPath, [...args, ...flagArgs], {
-        encoding: "utf-8",
-      });
-      return new CliResult(stdout, "", 0);
-    } catch (e: unknown) {
-      const err = e as { stdout?: string; stderr?: string; status?: number };
-      return new CliResult(err.stdout ?? "", err.stderr ?? "", err.status ?? 1);
-    }
+    return new CliResult(result.stdout ?? "", result.stderr ?? "", result.status ?? 1);
   }
 }

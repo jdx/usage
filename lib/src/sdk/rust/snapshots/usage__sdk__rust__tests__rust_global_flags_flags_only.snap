@@ -11,6 +11,7 @@ use crate::types::*;
 pub struct App {
     runner: CliRunner,
     pub status: Status,
+    pub info: Info,
 }
 
 impl App {
@@ -22,13 +23,24 @@ impl App {
         Self {
             runner: runner.clone(),
             status: Status::new(runner.clone()),
+            info: Info::new(runner.clone()),
         }
     }
 
-    /// <SUBCOMMAND>
-    pub fn exec(&self) -> Result<CliResult, CliError> {
-        let cmd_args: Vec<String> = vec![];
+    /// [-v --verbose] <SUBCOMMAND>
+    pub fn exec(&self, flags: Option<&AppFlags>) -> Result<CliResult, CliError> {
+        let mut cmd_args: Vec<String> = vec![];
+        cmd_args.extend(Self::build_flag_args(flags));
         self.runner.run(cmd_args)
+    }
+
+    fn build_flag_args(flags: Option<&AppFlags>) -> Vec<String> {
+        let mut result = Vec::new();
+        let Some(flags) = flags else { return result };
+        if flags.verbose == Some(true) {
+            result.push("--verbose".to_string());
+        }
+        result
     }
 }
 
@@ -45,7 +57,7 @@ impl Status {
         }
     }
 
-    /// status [--verbose] [--json]
+    /// status [--json]
     pub fn exec(&self, flags: Option<&StatusFlags>) -> Result<CliResult, CliError> {
         let mut cmd_args: Vec<String> = vec!["status".to_string()];
         cmd_args.extend(Self::build_flag_args(flags));
@@ -60,6 +72,36 @@ impl Status {
         }
         if flags.json == Some(true) {
             result.push("--json".to_string());
+        }
+        result
+    }
+}
+
+/// Show info
+#[derive(Debug, Clone)]
+pub struct Info {
+    runner: CliRunner,
+}
+
+impl Info {
+    pub(crate) fn new(runner: CliRunner) -> Self {
+        Self {
+            runner: runner.clone(),
+        }
+    }
+
+    /// info
+    pub fn exec(&self, flags: Option<&GlobalFlags>) -> Result<CliResult, CliError> {
+        let mut cmd_args: Vec<String> = vec!["info".to_string()];
+        cmd_args.extend(Self::build_flag_args(flags));
+        self.runner.run(cmd_args)
+    }
+
+    fn build_flag_args(flags: Option<&GlobalFlags>) -> Vec<String> {
+        let mut result = Vec::new();
+        let Some(flags) = flags else { return result };
+        if flags.verbose == Some(true) {
+            result.push("--verbose".to_string());
         }
         result
     }

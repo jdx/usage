@@ -7,6 +7,7 @@ expression: "get_file(&output, \"src/client.rs\")"
 use crate::runtime::{CliRunner, CliResult, CliError};
 use crate::types::*;
 
+#[derive(Debug, Clone)]
 pub struct Mytool {
     runner: CliRunner,
     pub build: Build,
@@ -58,6 +59,7 @@ impl Mytool {
 /// Build the project
 /// DEPRECATED: Use compile instead
 /// Aliases: b
+#[derive(Debug, Clone)]
 pub struct Build {
     runner: CliRunner,
 }
@@ -103,6 +105,7 @@ impl Build {
 }
 
 /// Deploy the project
+#[derive(Debug, Clone)]
 pub struct Deploy {
     runner: CliRunner,
 }

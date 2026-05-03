@@ -248,4 +248,116 @@ mod tests {
         ));
         insta::assert_snapshot!(client);
     }
+
+    /// Config props — covers render_config_struct and config_prop_type.
+    #[test]
+    fn test_rust_config_props() {
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "debug" default=#true data_type=boolean help="Enable debug mode"
+                prop "port" default=8080 data_type=integer
+                prop "rate" default="1.5" data_type=float
+                prop "host" data_type=string
+                prop "extra" data_type="null"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("pub struct MyappConfig"));
+        assert!(types.contains("debug: Option<bool>"));
+        assert!(types.contains("port: Option<i64>"));
+        assert!(types.contains("rate: Option<f64>"));
+        assert!(types.contains("host: String"));
+        assert!(types.contains("extra: String"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Hidden command — covers cmd.hide early-return paths.
+    #[test]
+    fn test_rust_hidden_command() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "visible" help="A visible command" {
+                arg "name"
+            }
+            cmd "secret" hide=#true help="Hidden command" {
+                arg "name"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("VisibleArgs"));
+        assert!(!types.contains("SecretArgs"));
+    }
+
+    /// Flag with aliases, deprecated, short-only, and reserved keyword identifiers.
+    #[test]
+    fn test_rust_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "-v" help="Short-only flag"
+            flag "--type" help="Reserved keyword as flag name" deprecated="Use --kind instead"
+            arg "type" help="Reserved keyword as arg name" required=#true
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        // reserved keyword "type" should be sanitized to "_type"
+        assert!(types.contains("_type: String,"));
+        assert!(types.contains("_type: Option<bool>,"));
+        assert!(types.contains("#[deprecated = \"Use --kind instead\"]"));
+        insta::assert_snapshot!(types);
+        let client = get_file(&output, "src/client.rs");
+        // short-only flag build uses "-v"
+        assert!(client.contains(r#""-v""#));
+        insta::assert_snapshot!(client);
+    }
+
+    /// double_dash=automatic, examples, repeatable boolean flag.
+    #[test]
+    fn test_rust_double_dash_automatic() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            flag "--verbose" var=#true help="Repeatable boolean flag"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        assert!(client.contains("double_dash=automatic"));
+        assert!(client.contains("Basic run: `runner run hello`"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Global flags with flags-only subcommand — covers GlobalFlags type branch.
+    #[test]
+    fn test_rust_global_flags_flags_only() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" global=#true help="Verbosity"
+            cmd "status" help="Show status" {
+                flag "--json" help="JSON output"
+            }
+            cmd "info" help="Show info" {}
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        // "info" subcommand has no own flags, only global flags => GlobalFlags type
+        assert!(client.contains("Option<&GlobalFlags>"));
+        insta::assert_snapshot!(client);
+    }
 }

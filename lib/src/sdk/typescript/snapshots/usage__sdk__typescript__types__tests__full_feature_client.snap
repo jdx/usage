@@ -40,17 +40,24 @@ export class Mytool {
   }
 }
 
-/** Build the project\n@deprecated Use 'compile' instead\nAliases: b */
+/**
+ * Build the project
+ * @deprecated Use 'compile' instead
+ * Aliases: b
+ */
 export class Build {
   private runner: CliRunner;
 
   constructor(runner: CliRunner) {
     this.runner = runner;
   }
-  /** build [-j --jobs… <n>] [--release] <target> <-- output>\n@example Build in release mode
-```bash
-mytool build --release target
-``` */
+  /**
+   * build [-j --jobs… <n>] [--release] <target> <-- output>
+   * @example Build in release mode
+   * ```bash
+   * mytool build --release target
+   * ```
+   */
   exec(args: BuildArgs, flags?: BuildFlags): CliResult {
     const cmdArgs: string[] = ["build"];
     if (args.target !== undefined) { cmdArgs.push(String(args.target)); }
