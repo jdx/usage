@@ -1,5 +1,41 @@
 # Changelog
 
+## [3.3.0](https://github.com/jdx/usage/compare/v3.2.1..v3.3.0) - 2026-05-03
+
+### 🚀 Features
+
+- **(complete)** auto-completion for usage shebang scripts by [@jdx](https://github.com/jdx) in [#620](https://github.com/jdx/usage/pull/620)
+
+### 🐛 Bug Fixes
+
+- **(docs)** stack banner and pin close button on mobile by [@jdx](https://github.com/jdx) in [#603](https://github.com/jdx/usage/pull/603)
+
+### 📚 Documentation
+
+- **(site)** show release version and github stars by [@jdx](https://github.com/jdx) in [#604](https://github.com/jdx/usage/pull/604)
+- add cross-site announcement banner by [@jdx](https://github.com/jdx) in [#600](https://github.com/jdx/usage/pull/600)
+- fix banner dark-mode contrast by [@jdx](https://github.com/jdx) in [#601](https://github.com/jdx/usage/pull/601)
+- respect banner expires field by [@jdx](https://github.com/jdx) in [#602](https://github.com/jdx/usage/pull/602)
+- prefix star count with ★ glyph and populate it on deploy by [@jdx](https://github.com/jdx) in [#606](https://github.com/jdx/usage/pull/606)
+- integrate Commander.js, oclif and yargs by [@gaojunran](https://github.com/gaojunran) in [#616](https://github.com/jdx/usage/pull/616)
+- integrate Typer and Click by [@gaojunran](https://github.com/gaojunran) in [#619](https://github.com/jdx/usage/pull/619)
+
+### 🔍 Other Changes
+
+- **(docs)** remove shrill.en.dev analytics script by [@jdx](https://github.com/jdx) in [#614](https://github.com/jdx/usage/pull/614)
+- **(release)** append en.dev sponsor blurb to release notes by [@jdx](https://github.com/jdx) in [#598](https://github.com/jdx/usage/pull/598)
+- switch analytics from gtm to plausible by [@jdx](https://github.com/jdx) in [#609](https://github.com/jdx/usage/pull/609)
+- pin taiki-e/install-action to commit SHA by [@jdx](https://github.com/jdx) in [#610](https://github.com/jdx/usage/pull/610)
+- rename CLAUDE.md to AGENTS.md and symlink by [@jdx](https://github.com/jdx) in [#618](https://github.com/jdx/usage/pull/618)
+
+### 📦️ Dependency Updates
+
+- bump communique to 1.1.2 by [@jdx](https://github.com/jdx) in [#605](https://github.com/jdx/usage/pull/605)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#607](https://github.com/jdx/usage/pull/607)
+- update autofix-ci/action action to v1.3.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#611](https://github.com/jdx/usage/pull/611)
+- update apple-actions/import-codesign-certs action to v7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#612](https://github.com/jdx/usage/pull/612)
+- update taiki-e/install-action digest to fc9eae0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#613](https://github.com/jdx/usage/pull/613)
+
 ## [3.2.1](https://github.com/jdx/usage/compare/v3.2.0..v3.2.1) - 2026-04-22
 
 ### 🐛 Bug Fixes

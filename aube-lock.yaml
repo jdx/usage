@@ -258,7 +258,6 @@ time:
   type-check@0.4.0: 2020-04-03T03:02:37.249Z
   typescript@4.9.5: 2023-01-30T21:05:37.231Z
   typescript@5.9.3: 2025-09-30T21:19:38.784Z
-  typescript@6.0.3: 2026-04-16T23:38:27.905Z
   unist-util-is@6.0.1: 2025-10-16T18:01:47.398Z
   unist-util-position@5.0.0: 2023-07-07T09:59:34.316Z
   unist-util-stringify-position@4.0.0: 2023-07-07T10:09:26.763Z
@@ -283,10 +282,10 @@ importers:
         version: 5.50.2
       "@typescript-eslint/eslint-plugin":
         specifier: ^7.0.0
-        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1)
+        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(eslint@10.3.0)
       "@typescript-eslint/parser":
         specifier: ^7.0.0
-        version: 7.18.0(eslint@10.2.1)
+        version: 7.18.0(eslint@10.3.0)
       "@withfig/eslint-plugin-fig-linter":
         specifier: ^1.4.1
         version: 1.4.1
@@ -304,7 +303,7 @@ importers:
         version: 0.24.2
       eslint-plugin-compat:
         specifier: ^4.2.0
-        version: 4.2.0(eslint@10.2.1)
+        version: 4.2.0(eslint@10.3.0)
       focus-trap:
         specifier: ^7
         version: 7.8.0
@@ -329,7 +328,7 @@ importers:
     devDependencies:
       "@fig/eslint-config-autocomplete":
         specifier: ^2.0.0
-        version: 2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@4.9.5)
+        version: 2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(eslint@10.3.0))(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.3.0)(eslint-plugin-compat@4.2.0(eslint@10.3.0))(typescript@4.9.5)
       "@tsconfig/node24":
         specifier: ^24.0.4
         version: 24.0.4
@@ -344,7 +343,7 @@ importers:
         version: 1.31.0
       eslint:
         specifier: ^10.1.0
-        version: 10.2.1
+        version: 10.3.0
       semver:
         specifier: ^7.7.4
         version: 7.7.4
@@ -921,9 +920,9 @@ packages:
   eslint-visitor-keys@5.0.1:
     resolution:
       integrity: sha512-tD40eHxA35h0PEIZNeIjkHoDR4YjjJp34biM0mDvplBe//mB+IHCqHDGV7pxF+7MklTvighcCPPZC7ynWyjdTA==
-  eslint@10.2.1:
+  eslint@10.3.0:
     resolution:
-      integrity: sha512-wiyGaKsDgqXvF40P8mDwiUp/KQjE1FdrIEJsM8PZ3XCiniTMXS3OHWWUe5FI5agoCnr8x4xPrTDZuxsBlNHl+Q==
+      integrity: sha512-XbEXaRva5cF0ZQB8w6MluHA0kZZfV2DuCMJ3ozyEOHLwDpZX2Lmm/7Pp0xdJmI0GL1W05VH5VwIFHEm1Vcw2gw==
     peerDependencies:
       jiti: "*"
     peerDependenciesMeta:
@@ -1473,9 +1472,9 @@ snapshots:
   "@esbuild/linux-x64@0.21.5": {}
   "@esbuild/linux-x64@0.23.1": {}
   "@esbuild/linux-x64@0.24.2": {}
-  "@eslint-community/eslint-utils@4.9.1(eslint@10.2.1)":
+  "@eslint-community/eslint-utils@4.9.1(eslint@10.3.0)":
     dependencies:
-      eslint: 10.2.1
+      eslint: 10.3.0
       eslint-visitor-keys: 3.4.3
   "@eslint-community/regexpp@4.12.2": {}
   "@eslint/config-array@0.23.5":
@@ -1507,13 +1506,13 @@ snapshots:
       prettier: 3.8.3
       ts-morph: 22.0.0
       typescript: 5.9.3
-  "@fig/eslint-config-autocomplete@2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1))(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.2.1)(eslint-plugin-compat@4.2.0(eslint@10.2.1))(typescript@4.9.5)":
+  "@fig/eslint-config-autocomplete@2.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(eslint@10.3.0))(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(@withfig/eslint-plugin-fig-linter@1.4.1)(eslint@10.3.0)(eslint-plugin-compat@4.2.0(eslint@10.3.0))(typescript@4.9.5)":
     dependencies:
-      "@typescript-eslint/eslint-plugin": 7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1)
-      "@typescript-eslint/parser": 7.18.0(eslint@10.2.1)
+      "@typescript-eslint/eslint-plugin": 7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(eslint@10.3.0)
+      "@typescript-eslint/parser": 7.18.0(eslint@10.3.0)
       "@withfig/eslint-plugin-fig-linter": 1.4.1
-      eslint: 10.2.1
-      eslint-plugin-compat: 4.2.0(eslint@10.2.1)
+      eslint: 10.3.0
+      eslint-plugin-compat: 4.2.0(eslint@10.3.0)
       typescript: 4.9.5
   "@humanfs/core@0.19.2":
     dependencies:
@@ -1599,37 +1598,37 @@ snapshots:
   "@types/semver@7.7.1": {}
   "@types/unist@3.0.3": {}
   "@types/web-bluetooth@0.0.21": {}
-  "@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.2.1))(eslint@10.2.1)":
+  "@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@10.3.0))(eslint@10.3.0)":
     dependencies:
       "@eslint-community/regexpp": 4.12.2
-      "@typescript-eslint/parser": 7.18.0(eslint@10.2.1)
+      "@typescript-eslint/parser": 7.18.0(eslint@10.3.0)
       "@typescript-eslint/scope-manager": 7.18.0
-      "@typescript-eslint/type-utils": 7.18.0(eslint@10.2.1)
-      "@typescript-eslint/utils": 7.18.0(eslint@10.2.1)
+      "@typescript-eslint/type-utils": 7.18.0(eslint@10.3.0)
+      "@typescript-eslint/utils": 7.18.0(eslint@10.3.0)
       "@typescript-eslint/visitor-keys": 7.18.0
-      eslint: 10.2.1
+      eslint: 10.3.0
       graphemer: 1.4.0
       ignore: 5.3.2
       natural-compare: 1.4.0
       ts-api-utils: 1.4.3(typescript@4.9.5)
-  "@typescript-eslint/parser@7.18.0(eslint@10.2.1)":
+  "@typescript-eslint/parser@7.18.0(eslint@10.3.0)":
     dependencies:
       "@typescript-eslint/scope-manager": 7.18.0
       "@typescript-eslint/types": 7.18.0
       "@typescript-eslint/typescript-estree": 7.18.0
       "@typescript-eslint/visitor-keys": 7.18.0
       debug: 4.4.3
-      eslint: 10.2.1
+      eslint: 10.3.0
   "@typescript-eslint/scope-manager@7.18.0":
     dependencies:
       "@typescript-eslint/types": 7.18.0
       "@typescript-eslint/visitor-keys": 7.18.0
-  "@typescript-eslint/type-utils@7.18.0(eslint@10.2.1)":
+  "@typescript-eslint/type-utils@7.18.0(eslint@10.3.0)":
     dependencies:
       "@typescript-eslint/typescript-estree": 7.18.0
-      "@typescript-eslint/utils": 7.18.0(eslint@10.2.1)
+      "@typescript-eslint/utils": 7.18.0(eslint@10.3.0)
       debug: 4.4.3
-      eslint: 10.2.1
+      eslint: 10.3.0
       ts-api-utils: 1.4.3(typescript@4.9.5)
   "@typescript-eslint/types@7.18.0": {}
   "@typescript-eslint/typescript-estree@7.18.0":
@@ -1642,13 +1641,13 @@ snapshots:
       minimatch: 9.0.9
       semver: 7.7.4
       ts-api-utils: 1.4.3(typescript@4.9.5)
-  "@typescript-eslint/utils@7.18.0(eslint@10.2.1)":
+  "@typescript-eslint/utils@7.18.0(eslint@10.3.0)":
     dependencies:
-      "@eslint-community/eslint-utils": 4.9.1(eslint@10.2.1)
+      "@eslint-community/eslint-utils": 4.9.1(eslint@10.3.0)
       "@typescript-eslint/scope-manager": 7.18.0
       "@typescript-eslint/types": 7.18.0
       "@typescript-eslint/typescript-estree": 7.18.0
-      eslint: 10.2.1
+      eslint: 10.3.0
   "@typescript-eslint/visitor-keys@7.18.0":
     dependencies:
       "@typescript-eslint/types": 7.18.0
@@ -1859,13 +1858,13 @@ snapshots:
       "@esbuild/linux-x64": 0.24.2
   escalade@3.2.0: {}
   escape-string-regexp@4.0.0: {}
-  eslint-plugin-compat@4.2.0(eslint@10.2.1):
+  eslint-plugin-compat@4.2.0(eslint@10.3.0):
     dependencies:
       "@mdn/browser-compat-data": 5.7.6
       ast-metadata-inferer: 0.8.1
       browserslist: 4.28.2
       caniuse-lite: 1.0.30001788
-      eslint: 10.2.1
+      eslint: 10.3.0
       find-up: 5.0.0
       lodash.memoize: 4.1.2
       semver: 7.7.4
@@ -1877,9 +1876,9 @@ snapshots:
       estraverse: 5.3.0
   eslint-visitor-keys@3.4.3: {}
   eslint-visitor-keys@5.0.1: {}
-  eslint@10.2.1:
+  eslint@10.3.0:
     dependencies:
-      "@eslint-community/eslint-utils": 4.9.1(eslint@10.2.1)
+      "@eslint-community/eslint-utils": 4.9.1(eslint@10.3.0)
       "@eslint-community/regexpp": 4.12.2
       "@eslint/config-array": 0.23.5
       "@eslint/config-helpers": 0.5.5
