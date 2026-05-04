@@ -152,6 +152,9 @@ fn render_command_types(
         }
         w.indent();
         for flag in &visible_flags {
+            if has_global_flags && flag.global {
+                continue;
+            }
             render_flag_field(flag, cmd_name, choice_types, w);
         }
         w.dedent();

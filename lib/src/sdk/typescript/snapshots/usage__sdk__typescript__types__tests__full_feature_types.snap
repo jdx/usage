@@ -27,10 +27,6 @@ export interface MytoolArgs {
 }
 
 export interface MytoolFlags extends GlobalFlags {
-  /** Verbosity level */
-  verbose?: number;
-  /** Config file path. Environment variable: MYTOOL_CONFIG */
-  config?: string;
   /** Show what would be done */
   dryRun?: boolean;
 }

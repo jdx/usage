@@ -153,7 +153,8 @@ fn render_class(
         w.line("constructor(binPath?: string) {");
         w.indent();
         w.line(&format!(
-            "this.runner = new CliRunner(binPath ?? \"{}\");", escape_ts_string(bin_name)
+            "this.runner = new CliRunner(binPath ?? \"{}\");",
+            escape_ts_string(bin_name)
         ));
     } else {
         w.line("constructor(runner: CliRunner) {");
@@ -383,7 +384,8 @@ fn render_flag_build(flag: &SpecFlag, w: &mut CodeWriter) {
         // handle negate
         if let Some(negate) = &flag.negate {
             w.line(&format!(
-                "else if (flags.{prop_name} === false) {{ result.push(\"{}\"); }}", escape_ts_string(negate)
+                "else if (flags.{prop_name} === false) {{ result.push(\"{}\"); }}",
+                escape_ts_string(negate)
             ));
         }
     }

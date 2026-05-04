@@ -28,11 +28,3 @@ class AppFlags:
 @dataclass
 class RunArgs:
     target: str
-
-
-@dataclass
-class RunFlags:
-    # Repeatable verbose. Short: -v
-    verbose: Optional[list[bool]] = None
-    # Repeatable tag
-    tag: Optional[list[str]] = None

@@ -85,7 +85,8 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         for (name, choices) in choice_types.iter() {
             let union = choices
                 .iter()
-                .map(|c| format!("\"{}\"", escape_py_string(c)))                .collect::<Vec<_>>()
+                .map(|c| format!("\"{}\"", escape_py_string(c)))
+                .collect::<Vec<_>>()
                 .join(", ");
             w.line(&format!("{name} = Literal[{union}]"));
         }
@@ -164,7 +165,6 @@ fn render_command_types(
     let cmd_name = &cmd.name;
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
-    let has_any_flags = !visible_flags.is_empty() || has_global_flags;
 
     if !visible_args.is_empty() {
         w.line("");
@@ -177,7 +177,7 @@ fn render_command_types(
         );
     }
 
-    if has_any_flags {
+    if !visible_flags.is_empty() {
         w.line("");
         let all_flags: Vec<&SpecFlag> = if has_global_flags {
             global_flags
@@ -356,7 +356,8 @@ fn arg_py_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> S
             let union = choices
                 .choices
                 .iter()
-                .map(|c| format!("\"{}\"", escape_py_string(c)))                .collect::<Vec<_>>()
+                .map(|c| format!("\"{}\"", escape_py_string(c)))
+                .collect::<Vec<_>>()
                 .join(", ");
             format!("Literal[{union}]")
         }
@@ -385,7 +386,8 @@ fn flag_py_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                     let union = choices
                         .choices
                         .iter()
-                        .map(|c| format!("\"{}\"", escape_py_string(c)))                        .collect::<Vec<_>>()
+                        .map(|c| format!("\"{}\"", escape_py_string(c)))
+                        .collect::<Vec<_>>()
                         .join(", ");
                     format!("Literal[{union}]")
                 }
@@ -588,7 +590,10 @@ fn render_class(
         w.line(&sig);
         w.indent();
         if exec_doc.len() == 1 {
-            w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&exec_doc[0])));
+            w.line(&format!(
+                "\"\"\"{}\"\"\"",
+                escape_py_docstring(&exec_doc[0])
+            ));
         } else {
             w.line(&format!("\"\"\"{}", escape_py_docstring(&exec_doc[0])));
             for part in exec_doc.iter().skip(1) {
@@ -700,7 +705,10 @@ fn render_class(
             w.line("@property");
             w.line(&format!("def {alias_prop}(self) -> {sub_class}:"));
             w.indent();
-            w.line(&format!("\"\"\"Alias for {}.\"\"\"", escape_py_docstring(name)));
+            w.line(&format!(
+                "\"\"\"Alias for {}.\"\"\"",
+                escape_py_docstring(name)
+            ));
             w.line(&format!("return self.{target_prop}"));
             w.dedent();
         }
@@ -757,7 +765,8 @@ fn render_flag_build_py(flag: &SpecFlag, w: &mut CodeWriter) {
         ));
         if let Some(negate) = &flag.negate {
             w.line(&format!(
-                "elif flags.{prop_name} is False: result.append(\"{}\")", escape_py_string(negate)
+                "elif flags.{prop_name} is False: result.append(\"{}\")",
+                escape_py_string(negate)
             ));
         }
     }

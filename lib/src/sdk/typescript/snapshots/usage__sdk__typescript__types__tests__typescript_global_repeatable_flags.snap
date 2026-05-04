@@ -13,10 +13,6 @@ export interface GlobalFlags {
 }
 
 export interface AppFlags extends GlobalFlags {
-  /** Repeatable verbose */
-  verbose?: boolean[];
-  /** Repeatable tag */
-  tag?: string[];
 }
 
 export interface RunArgs {
