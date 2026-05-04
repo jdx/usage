@@ -141,7 +141,7 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
         }
         flag "-l --language" help="Target language for the SDK" required=#true {
             arg <LANGUAGE> {
-                choices typescript python rust
+                choices typescript python
             }
         }
         flag "-o --output" help="Output directory for generated SDK files" required=#true {

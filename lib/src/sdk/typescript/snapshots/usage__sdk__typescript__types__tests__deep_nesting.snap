@@ -16,7 +16,7 @@ export class App {
     this.db = new Db(this.runner);
   }
   /** <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
 }
@@ -32,7 +32,7 @@ export class Db {
     this.migration = new Migration(this.runner);
   }
   /** db <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run(["db"]);
   }
 }
@@ -51,7 +51,7 @@ export class Migration {
     this.run = new Run(this.runner);
   }
   /** db migration <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run(["db", "migration"]);
   }
 }
@@ -64,7 +64,7 @@ export class Create {
     this.runner = runner;
   }
   /** db migration create [--template <t>] <name> */
-  exec(args: CreateArgs, flags?: CreateFlags): CliResult {
+  async exec(args: CreateArgs, flags?: CreateFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["db", "migration", "create"];
     if (args.name !== undefined) { cmdArgs.push(String(args.name)); }
     const flagArgs = this.buildFlagArgs(flags);
@@ -87,7 +87,7 @@ export class Run {
     this.runner = runner;
   }
   /** db migration run [--step <n>] */
-  exec(flags?: RunFlags): CliResult {
+  async exec(flags?: RunFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["db", "migration", "run"];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

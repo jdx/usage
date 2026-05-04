@@ -19,7 +19,7 @@ export class App {
     this.info = new Info(this.runner);
   }
   /** [-v --verbose] <SUBCOMMAND> */
-  exec(flags?: AppFlags): CliResult {
+  async exec(flags?: AppFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);
@@ -41,7 +41,7 @@ export class Status {
     this.runner = runner;
   }
   /** status [--json] */
-  exec(flags?: StatusFlags): CliResult {
+  async exec(flags?: StatusFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["status"];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);
@@ -64,7 +64,7 @@ export class Info {
     this.runner = runner;
   }
   /** info */
-  exec(flags?: GlobalFlags): CliResult {
+  async exec(flags?: GlobalFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["info"];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

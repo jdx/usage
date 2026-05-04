@@ -19,7 +19,7 @@ export class Runner {
     this.info = new Info(this.runner);
   }
   /** [-v --verbose] [--debug…] <input> <extra>… <SUBCOMMAND> */
-  exec(args: RunnerArgs, flags?: RunnerFlags): CliResult {
+  async exec(args: RunnerArgs, flags?: RunnerFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }
     if (args.extra !== undefined) { cmdArgs.push(...args.extra); }
@@ -51,7 +51,7 @@ export class Run {
    * runner run hello
    * ```
    */
-  exec(args: RunArgs, flags?: GlobalFlags): CliResult {
+  async exec(args: RunArgs, flags?: GlobalFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["run"];
     if (args.task !== undefined) { cmdArgs.push(String(args.task)); }
     // double_dash=automatic: "--" is implied after the first positional arg
@@ -75,7 +75,7 @@ export class Info {
     this.runner = runner;
   }
   /** info */
-  exec(flags?: GlobalFlags): CliResult {
+  async exec(flags?: GlobalFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["info"];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

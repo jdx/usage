@@ -437,7 +437,7 @@ fn sanitize_py_ident(name: &str) -> String {
         | "elif" | "else" | "and" | "or" | "not" | "in" | "is" | "as" | "break" | "continue"
         | "assert" | "type" | "input" | "id" | "list" | "dict" | "set" | "print" | "range"
         | "format" | "help" | "vars" | "dir" | "exec" | "exit" | "quit" | "bool" | "int"
-        | "str" | "float" | "bytes" | "object" | "super" | "property" | "static"         | "true"
+        | "str" | "float" | "bytes" | "object" | "super" | "property" | "static" | "true"
         | "false" | "none" => format!("_{snake}"),
         _ => snake,
     }
@@ -524,7 +524,10 @@ fn render_class(
     w.indent();
 
     if !class_doc.is_empty() {
-        w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&class_doc.join(". "))));
+        w.line(&format!(
+            "\"\"\"{}\"\"\"",
+            escape_py_docstring(&class_doc.join(". "))
+        ));
     }
 
     // constructor
@@ -582,7 +585,10 @@ fn render_class(
     if !exec_doc.is_empty() {
         w.line(&sig);
         w.indent();
-        w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&exec_doc.join("\\n"))));
+        w.line(&format!(
+            "\"\"\"{}\"\"\"",
+            escape_py_docstring(&exec_doc.join("\\n"))
+        ));
     } else {
         w.line(&sig);
         w.indent();

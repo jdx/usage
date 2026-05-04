@@ -13,7 +13,7 @@ export class Tool {
     this.runner = new CliRunner(binPath ?? "tool");
   }
   /** <FLAGS> */
-  exec(flags?: ToolFlags): CliResult {
+  async exec(flags?: ToolFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

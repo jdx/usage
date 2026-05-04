@@ -1,6 +1,8 @@
 use heck::AsPascalCase;
 
-use crate::sdk::{collect_choice_types, collect_type_imports, escape_jsdoc, generated_header, CodeWriter};
+use crate::sdk::{
+    collect_choice_types, collect_type_imports, escape_jsdoc, generated_header, CodeWriter,
+};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::{Spec, SpecArg, SpecFlag};
@@ -223,7 +225,9 @@ fn render_class(
     }
 
     if has_args || has_flags {
-        w.line(&format!("exec({args_param}{flags_param}): CliResult {{"));
+        w.line(&format!(
+            "async exec({args_param}{flags_param}): Promise<CliResult> {{"
+        ));
         w.indent();
 
         // build command args
@@ -317,7 +321,7 @@ fn render_class(
         }
     } else {
         // no args/flags: provide a simple exec
-        w.line("exec(): CliResult {");
+        w.line("async exec(): Promise<CliResult> {");
         w.indent();
         let path = subcmd_path(cmd);
         w.line(&format!("return this.runner.run([{path}]);"));

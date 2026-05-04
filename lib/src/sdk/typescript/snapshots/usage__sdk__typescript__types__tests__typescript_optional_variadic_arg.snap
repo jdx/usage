@@ -13,7 +13,7 @@ export class Tool {
     this.runner = new CliRunner(binPath ?? "tool");
   }
   /** [files]… */
-  exec(args: ToolArgs): CliResult {
+  async exec(args: ToolArgs): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.files !== undefined) { cmdArgs.push(...args.files); }
     return this.runner.run(cmdArgs);

@@ -19,7 +19,7 @@ export class Cli {
     this.removeRemote = new RemoveRemote(this.runner);
   }
   /** <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
 }
@@ -32,7 +32,7 @@ export class AddRemote {
     this.runner = runner;
   }
   /** add-remote <name> <url> */
-  exec(args: AddRemoteArgs): CliResult {
+  async exec(args: AddRemoteArgs): Promise<CliResult> {
     const cmdArgs: string[] = ["add-remote"];
     if (args.name !== undefined) { cmdArgs.push(String(args.name)); }
     if (args.url !== undefined) { cmdArgs.push(String(args.url)); }
@@ -48,7 +48,7 @@ export class RemoveRemote {
     this.runner = runner;
   }
   /** remove-remote <name> */
-  exec(args: RemoveRemoteArgs): CliResult {
+  async exec(args: RemoveRemoteArgs): Promise<CliResult> {
     const cmdArgs: string[] = ["remove-remote"];
     if (args.name !== undefined) { cmdArgs.push(String(args.name)); }
     return this.runner.run(cmdArgs);

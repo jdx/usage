@@ -21,7 +21,7 @@ export class Mytool {
     this.deploy = new Deploy(this.runner);
   }
   /** [FLAGS] <input> <extra>… <SUBCOMMAND> */
-  exec(args: MytoolArgs, flags?: MytoolFlags): CliResult {
+  async exec(args: MytoolArgs, flags?: MytoolFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }
     if (args.extra !== undefined) { cmdArgs.push(...args.extra); }
@@ -58,7 +58,7 @@ export class Build {
    * mytool build --release target
    * ```
    */
-  exec(args: BuildArgs, flags?: BuildFlags): CliResult {
+  async exec(args: BuildArgs, flags?: BuildFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["build"];
     if (args.target !== undefined) { cmdArgs.push(String(args.target)); }
     cmdArgs.push("--");
@@ -86,7 +86,7 @@ export class Deploy {
     this.runner = runner;
   }
   /** deploy [-f --force] [--confirm] <env> <tags>… */
-  exec(args: DeployArgs, flags?: DeployFlags): CliResult {
+  async exec(args: DeployArgs, flags?: DeployFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["deploy"];
     if (args.env !== undefined) { cmdArgs.push(String(args.env)); }
     if (args.tags !== undefined) { cmdArgs.push(...args.tags); }

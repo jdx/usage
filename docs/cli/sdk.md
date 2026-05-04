@@ -1,8 +1,8 @@
 # Generating Type-Safe SDKs
 
 Usage CLI can generate type-safe SDK client libraries from a Usage spec. The generated SDK is a
-**subprocess wrapper** -- it invokes your CLI binary via `subprocess.run` / `execFileSync` /
-`std::process::Command`, not a native binding. It provides type definitions for arguments, flags,
+**subprocess wrapper** -- it invokes your CLI binary via `subprocess.run` / `child_process.spawn` /
+not a native binding. It provides type definitions for arguments, flags,
 and choices, along with a client that constructs the correct CLI argument list for you.
 
 ## When to Use This
@@ -47,8 +47,8 @@ of truth:
 ```ts
 // auto-generated, always in sync with the CLI
 import { deploy } from "@internal/platform-sdk";
-const result = deploy({ env: "prod", service: "api", replicas: 3 });
-//                   ^ typed, choices-constrained, required-checked
+const result = await deploy({ env: "prod", service: "api", replicas: 3 });
+//                        ^ typed, choices-constrained, required-checked
 ```
 
 ## Quick Start
@@ -65,7 +65,7 @@ This generates a complete SDK in the `./sdk` directory, ready to use:
 import { Mycli } from "./sdk";
 
 const cli = new Mycli();
-const result = cli.build.exec(
+const result = await cli.build.exec(
   { target: "release", output: "./dist" },
   { release: true }
 );
@@ -76,11 +76,11 @@ if (result.ok) {
 
 ## Supported Languages
 
-| Language   | Flag            | Output Files                                                                  |
-| ---------- | --------------- | ----------------------------------------------------------------------------- |
-| TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`                             |
-| Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py`                          |
-| Rust       | Coming soon     |                                                                               |
+| Language   | Flag            | Output Files                                         |
+| ---------- | --------------- | ---------------------------------------------------- |
+| TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`    |
+| Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py` |
+| Rust       | Coming soon     |                                                      |
 
 ### TypeScript
 
@@ -88,14 +88,15 @@ if (result.ok) {
 usage generate sdk -l typescript -o ./sdk -f ./mycli.usage.kdl
 ```
 
-Generates ES module files with full type annotations. The client uses `execFileSync` from
-`node:child_process` under the hood.
+Generates ES module files with full type annotations. The client uses `spawn` from
+`node:child_process` under the hood and all `exec()` methods are async, returning
+`Promise<CliResult>`.
 
 ```ts
 import { Mycli, BuildArgs, BuildFlags } from "./sdk";
 
 const cli = new Mycli();
-const result = cli.build.exec(
+const result = await cli.build.exec(
   { target: "release", output: "./dist" } as BuildArgs,
   { release: true } as BuildFlags
 );
@@ -125,7 +126,6 @@ if result.ok:
 ### Rust
 
 _Rust SDK support is coming soon._
-
 
 ## How It Works
 

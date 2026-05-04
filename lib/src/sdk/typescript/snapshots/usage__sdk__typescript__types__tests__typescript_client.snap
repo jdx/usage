@@ -15,7 +15,7 @@ export class Mycli {
     this.plugin = new Plugin(this.runner);
   }
   /** [FLAGS] <ARGS>… <SUBCOMMAND> */
-  exec(args: MycliArgs, flags?: MycliFlags): CliResult {
+  async exec(args: MycliArgs, flags?: MycliFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.arg1 !== undefined) { cmdArgs.push(String(args.arg1)); }
     if (args.arg2 !== undefined) { cmdArgs.push(String(args.arg2)); }
@@ -48,7 +48,7 @@ export class Plugin {
     this.install = new Install(this.runner);
   }
   /** plugin <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run(["plugin"]);
   }
 }
@@ -61,7 +61,7 @@ export class Install {
     this.runner = runner;
   }
   /** plugin install [FLAGS] <plugin> <version> */
-  exec(args: InstallArgs, flags?: InstallFlags): CliResult {
+  async exec(args: InstallArgs, flags?: InstallFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["plugin", "install"];
     if (args.plugin !== undefined) { cmdArgs.push(String(args.plugin)); }
     if (args.version !== undefined) { cmdArgs.push(String(args.version)); }

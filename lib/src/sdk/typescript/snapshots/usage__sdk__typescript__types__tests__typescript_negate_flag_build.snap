@@ -13,7 +13,7 @@ export class App {
     this.runner = new CliRunner(binPath ?? "app");
   }
   /** [--dry-run] */
-  exec(flags?: AppFlags): CliResult {
+  async exec(flags?: AppFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

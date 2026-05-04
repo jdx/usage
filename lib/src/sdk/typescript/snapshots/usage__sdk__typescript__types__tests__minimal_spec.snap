@@ -11,7 +11,7 @@ export class Hello {
   constructor(binPath?: string) {
     this.runner = new CliRunner(binPath ?? "hello");
   }
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
 }

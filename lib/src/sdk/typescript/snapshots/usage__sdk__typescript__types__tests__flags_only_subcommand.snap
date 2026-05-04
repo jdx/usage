@@ -16,7 +16,7 @@ export class App {
     this.status = new Status(this.runner);
   }
   /** <SUBCOMMAND> */
-  exec(): CliResult {
+  async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
 }
@@ -29,7 +29,7 @@ export class Status {
     this.runner = runner;
   }
   /** status [--verbose] [--json] */
-  exec(flags?: StatusFlags): CliResult {
+  async exec(flags?: StatusFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["status"];
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);

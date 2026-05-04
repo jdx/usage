@@ -586,7 +586,7 @@ mod tests {
         .unwrap();
         let output = super::super::super::generate(&spec, &make_opts());
         let client = get_file(&output, "client.ts");
-        assert!(client.contains("exec(flags?: StatusFlags): CliResult"));
+        assert!(client.contains("async exec(flags?: StatusFlags): Promise<CliResult>"));
         insta::assert_snapshot!(client);
     }
 
