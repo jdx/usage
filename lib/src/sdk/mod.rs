@@ -52,6 +52,16 @@ pub(crate) fn escape_py_docstring(s: &str) -> String {
     s.replace(r#"""""#, r#"\"\"\""#)
 }
 
+/// Escape backslashes and double quotes for Python string literals.
+pub(crate) fn escape_py_string(s: &str) -> String {
+    s.replace('\\', r"\\").replace('"', r#"\""#)
+}
+
+/// Escape backslashes and double quotes for TypeScript string literals.
+pub(crate) fn escape_ts_string(s: &str) -> String {
+    s.replace('\\', r"\\").replace('"', r#"\""#)
+}
+
 /// A simple code writer with indentation management.
 pub(crate) struct CodeWriter {
     buf: String,

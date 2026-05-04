@@ -3,5 +3,5 @@ source: lib/src/sdk/typescript/types.rs
 expression: "get_file(&output, \"index.ts\")"
 ---
 export { Mycli } from "./client";
-export { CliResult } from "./runtime";
+export { CliResult, CliError } from "./runtime";
 export * from "./types";

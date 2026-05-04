@@ -6,8 +6,8 @@ use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
 use crate::sdk::{
-    collect_choice_types, command_type_name, escape_jsdoc, generated_header, ChoiceTypeMap,
-    CodeWriter,
+    collect_choice_types, command_type_name, escape_jsdoc, escape_ts_string, generated_header,
+    ChoiceTypeMap, CodeWriter,
 };
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
@@ -17,14 +17,23 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
 
     // spec metadata constants
     if let Some(version) = &spec.version {
-        w.line(&format!("export const VERSION = \"{version}\";"));
+        w.line(&format!(
+            "export const VERSION = \"{}\";",
+            escape_ts_string(version)
+        ));
     }
     if let Some(about) = &spec.about {
         w.line(&format!("/** {} */", escape_jsdoc(about)));
-        w.line(&format!("export const ABOUT = \"{about}\";"));
+        w.line(&format!(
+            "export const ABOUT = \"{}\";",
+            escape_ts_string(about)
+        ));
     }
     if let Some(author) = &spec.author {
-        w.line(&format!("export const AUTHOR = \"{author}\";"));
+        w.line(&format!(
+            "export const AUTHOR = \"{}\";",
+            escape_ts_string(author)
+        ));
     }
 
     let choice_types = collect_choice_types(&spec.cmd);
@@ -120,7 +129,6 @@ fn render_command_types(
 
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
-    let has_any_flags = !visible_flags.is_empty() || has_global_flags;
 
     if !visible_args.is_empty() {
         w.line("");
@@ -133,7 +141,7 @@ fn render_command_types(
         w.line("}");
     }
 
-    if has_any_flags {
+    if !visible_flags.is_empty() {
         w.line("");
         if has_global_flags {
             w.line(&format!(

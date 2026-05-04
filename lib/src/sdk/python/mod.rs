@@ -4,7 +4,7 @@ use heck::AsPascalCase;
 
 use crate::sdk::{
     collect_choice_types, collect_type_imports, command_type_name, escape_py_docstring,
-    generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions, SdkOutput,
+    escape_py_string, generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions, SdkOutput,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
@@ -62,13 +62,13 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 
     // spec metadata
     if let Some(version) = &spec.version {
-        w.line(&format!("VERSION = \"{version}\""));
+        w.line(&format!("VERSION = \"{}\"", escape_py_string(version)));
     }
     if let Some(about) = &spec.about {
-        w.line(&format!("ABOUT = \"{about}\""));
+        w.line(&format!("ABOUT = \"{}\"", escape_py_string(about)));
     }
     if let Some(author) = &spec.author {
-        w.line(&format!("AUTHOR = \"{author}\""));
+        w.line(&format!("AUTHOR = \"{}\"", escape_py_string(author)));
     }
 
     let choice_types = collect_choice_types(&spec.cmd);
@@ -133,7 +133,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
                         let numeric = d.trim_matches('"');
                         format!(" = {numeric}")
                     }
-                    _ => format!(" = \"{d}\""),
+                    _ => format!(" = \"{}\"", escape_py_string(d)),
                 }
             } else {
                 String::new()
@@ -242,9 +242,10 @@ fn render_args_dataclass(
                 // has default value
                 let default_val = &arg.default[0];
                 format!(
-                    "{}: Optional[{}] = \"{default_val}\"",
+                    "{}: Optional[{}] = \"{}\"",
                     sanitize_py_ident(&arg.name),
-                    py_type
+                    py_type,
+                    escape_py_string(default_val)
                 )
             } else if !is_required_no_default {
                 // optional without explicit default
@@ -311,7 +312,10 @@ fn render_flags_dataclass(
                     // (Python dataclass requires immutable defaults), use None with comment
                     format!("{prop_name}: Optional[{py_type}] = None  # default: {default_val}")
                 } else {
-                    format!("{prop_name}: Optional[{py_type}] = \"{default_val}\"")
+                    format!(
+                        "{prop_name}: Optional[{py_type}] = \"{}\"",
+                        escape_py_string(default_val)
+                    )
                 }
             } else if optional {
                 format!("{prop_name}: Optional[{py_type}] = None")
@@ -533,7 +537,8 @@ fn render_class(
     // constructor
     if is_root {
         w.line(&format!(
-            "def __init__(self, bin_path: str = \"{bin_name}\") -> None:"
+            "def __init__(self, bin_path: str = \"{}\") -> None:",
+            escape_py_string(bin_name)
         ));
     } else {
         w.line("def __init__(self, runner: CliRunner) -> None:");
