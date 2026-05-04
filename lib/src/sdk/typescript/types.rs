@@ -903,4 +903,127 @@ mod tests {
         assert!(client.contains("args.files !== undefined"));
         insta::assert_snapshot!(client);
     }
+
+    /// Boolean config prop with default=#false — covers the false default branch.
+    #[test]
+    fn test_typescript_config_boolean_default_false() {
+        let spec: Spec = r##"
+            bin "app"
+            config {
+                prop "verbose" default=#false data_type=boolean help="Verbose output"
+                prop "dry_run" default=#true data_type=boolean help="Dry run mode"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("verbose?: boolean"));
+        assert!(types.contains("dry_run?: boolean"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// String config prop with default — covers string default branch.
+    #[test]
+    fn test_typescript_config_string_with_default() {
+        let spec: Spec = r##"
+            bin "app"
+            config {
+                prop "host" default="localhost" data_type=string help="Server host"
+                prop "name" default="myapp" data_type=string
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("host?: string"));
+        assert!(types.contains("name?: string"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Example without lang — covers example rendering without language tag.
+    #[test]
+    fn test_typescript_example_without_lang() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "greet" help="Greet someone" {
+                example "app greet hello"
+                arg "name" help="Name to greet"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("app greet hello"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Flag edge cases — short-only, deprecated, count with default, value flag with default,
+    /// required flag, repeatable boolean flag.
+    #[test]
+    fn test_typescript_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "-v" help="Short-only flag"
+            flag "--type" help="Reserved keyword" deprecated="Use --kind"
+            flag "--level" count=#true default="2" help="Count flag with default"
+            flag "--format <fmt>" default="json" help="Value flag with default"
+            flag "--confirm" required=#true help="Required flag"
+            flag "--verbose" var=#true help="Repeatable boolean flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        insta::assert_snapshot!(types);
+        let client = get_file(&output, "client.ts");
+        // short-only flag build
+        assert!(client.contains(r#""-v""#));
+        // repeatable boolean flag build
+        assert!(client.contains("for (const v of flags.verbose)"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Global flags with flags-only subcommand — covers GlobalFlags type branch.
+    #[test]
+    fn test_typescript_global_flags_flags_only() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" global=#true help="Verbosity"
+            cmd "status" help="Show status" {
+                flag "--json" help="JSON output"
+            }
+            cmd "info" help="Show info" {}
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        // "info" subcommand has no own flags, only global flags => GlobalFlags type
+        assert!(client.contains("GlobalFlags"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// double_dash=automatic — covers arg ordering and separator insertion.
+    #[test]
+    fn test_typescript_double_dash_automatic() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            flag "--verbose" var=#true help="Repeatable boolean flag"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("double_dash=automatic"));
+        insta::assert_snapshot!(client);
+    }
 }

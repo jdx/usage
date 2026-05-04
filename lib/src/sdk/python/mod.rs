@@ -1394,4 +1394,77 @@ mod tests {
         assert!(types.contains("list[str]"));
         insta::assert_snapshot!(types);
     }
+
+    /// Client edge cases: double_dash=automatic, examples, global flags, repeatable boolean flag.
+    #[test]
+    fn test_python_client_edge_cases() {
+        let spec: Spec = r##"
+            bin "runner"
+            flag "-v --verbose" global=#true help="Verbosity"
+            flag "--debug" var=#true help="Repeatable boolean flag"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run" lang="bash"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+            cmd "info" help="Show info" {}
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.py");
+        assert!(client.contains("double_dash=automatic"));
+        assert!(client.contains("Basic run: runner run hello"));
+        // GlobalFlags type for info subcommand
+        assert!(client.contains("Optional[GlobalFlags]"));
+        // repeatable boolean flag
+        assert!(client.contains("for v in flags.debug:"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Config and flag edge cases — config with various data types, env, deprecated, aliases.
+    #[test]
+    fn test_python_config_and_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "debug" default=#true data_type=boolean help="Enable debug mode"
+                prop "port" default=8080 data_type=integer
+                prop "rate" default="1.5" data_type=float
+                prop "host" data_type=string
+            }
+            arg "input" help="Input file" env="MYAPP_INPUT"
+            flag "--type" help="Reserved keyword" deprecated="Use --kind"
+            flag "-f --format --fmt <fmt>" help="Flag with short and long alias"
+            flag "-v" help="Short-only flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        assert!(types.contains("MyappConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// double_dash=automatic — covers arg ordering and separator insertion.
+    #[test]
+    fn test_python_double_dash_automatic() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "input" help="Input file"
+            arg "extra" double_dash="automatic" var=#true help="Extra files"
+            flag "--verbose" var=#true help="Repeatable boolean flag"
+            cmd "run" help="Run a task" {
+                example "runner run hello" header="Basic run"
+                arg "task" help="Task to run" double_dash="automatic"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.py");
+        assert!(client.contains("double_dash=automatic"));
+        insta::assert_snapshot!(client);
+    }
 }
