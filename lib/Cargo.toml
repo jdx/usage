@@ -40,9 +40,10 @@ versions = "7"
 xx = "2"
 
 [features]
-default = ["docs"]
+default = ["docs", "sdk"]
 docs = ["tera", "roff"]
 unstable_choices_env = []
+sdk = []
 
 [dev-dependencies]
 criterion = "0.8"
@@ -50,6 +51,7 @@ ctor = "0.10"
 insta = "1"
 pretty_assertions = "1"
 shell-words = "1"
+tempfile = "3"
 
 [[bench]]
 name = "parse"

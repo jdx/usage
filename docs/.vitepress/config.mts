@@ -57,6 +57,7 @@ export default defineConfig({
           { text: "Completions", link: "/cli/completions" },
           { text: "Manpages", link: "/cli/manpages" },
           { text: "Markdown", link: "/cli/markdown" },
+          { text: "SDK Generation", link: "/cli/sdk" },
           { text: "Scripts", link: "/cli/scripts" },
           {
             text: "CLI Reference", link: "/cli/reference/", items:

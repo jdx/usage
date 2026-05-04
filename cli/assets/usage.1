@@ -69,6 +69,9 @@ Generate markdown documentation from usage specs
 \fIAliases: \fRmd
 .RE
 .TP
+\fBgenerate sdk\fR
+Generate a type\-safe SDK from a usage spec
+.TP
 \fBlint\fR
 Lint a usage spec file for common issues
 .TP
@@ -310,6 +313,28 @@ Replace `<pre>` tags with markdown code fences
 .TP
 \fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
 Prefix to add to all URLs
+.SH "USAGE GENERATE SDK"
+Generate a type\-safe SDK from a usage spec
+.PP
+\fBUsage:\fR usage generate sdk [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file
+.TP
+\fB\-l, \-\-language\fR \fI<LANGUAGE>\fR
+Target language for the SDK
+.TP
+\fB\-o, \-\-output\fR \fI<OUTPUT>\fR
+Output directory for generated SDK files
+.TP
+\fB\-p, \-\-package\-name\fR \fI<PACKAGE_NAME>\fR
+Override the package/module name (defaults to spec bin name)
+.TP
+\fB\-\-spec\fR \fI<SPEC>\fR
+Raw string spec input
 .SH "USAGE LINT"
 Lint a usage spec file for common issues
 .PP

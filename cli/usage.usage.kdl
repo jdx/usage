@@ -135,6 +135,25 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <URL_PREFIX>
         }
     }
+    cmd sdk help="Generate a type-safe SDK from a usage spec" {
+        flag "-f --file" help="A usage spec taken in as a file" {
+            arg <FILE>
+        }
+        flag "-l --language" help="Target language for the SDK" required=#true {
+            arg <LANGUAGE> {
+                choices typescript python
+            }
+        }
+        flag "-o --output" help="Output directory for generated SDK files" required=#true {
+            arg <OUTPUT>
+        }
+        flag "-p --package-name" help="Override the package/module name (defaults to spec bin name)" {
+            arg <PACKAGE_NAME>
+        }
+        flag --spec help="Raw string spec input" {
+            arg <SPEC>
+        }
+    }
 }
 cmd lint help="Lint a usage spec file for common issues" {
     flag "-f --format" help="Output format" default=text {
