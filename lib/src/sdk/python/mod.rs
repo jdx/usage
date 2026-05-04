@@ -587,10 +587,15 @@ fn render_class(
     if !exec_doc.is_empty() {
         w.line(&sig);
         w.indent();
-        w.line(&format!(
-            "\"\"\"{}\"\"\"",
-            escape_py_docstring(&exec_doc.join("\\n"))
-        ));
+        if exec_doc.len() == 1 {
+            w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&exec_doc[0])));
+        } else {
+            w.line(&format!("\"\"\"{}", escape_py_docstring(&exec_doc[0])));
+            for part in exec_doc.iter().skip(1) {
+                w.line(&escape_py_docstring(part));
+            }
+            w.line("\"\"\"");
+        }
     } else {
         w.line(&sig);
         w.indent();

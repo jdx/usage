@@ -38,7 +38,9 @@ class Run:
         self._runner = runner
 
     def exec(self, args: RunArgs, flags: Optional[GlobalFlags] = None) -> CliResult:
-        """run <task>\nBasic run: runner run hello"""
+        """run <task>
+        Basic run: runner run hello
+        """
         cmd_args: list[str] = ["run"]
         if args.task is not None: cmd_args.append(str(args.task))
         # double_dash=automatic: "--" is implied after the first positional arg

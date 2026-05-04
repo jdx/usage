@@ -1,7 +1,7 @@
 # Generating Type-Safe SDKs
 
 Usage CLI can generate type-safe SDK client libraries from a Usage spec. The generated SDK is a
-**subprocess wrapper** -- it invokes your CLI binary via `subprocess.run` / `child_process.spawn` /
+**subprocess wrapper** -- it invokes your CLI binary via `subprocess.run` / `child_process.spawn`,
 not a native binding. It provides type definitions for arguments, flags,
 and choices, along with a client that constructs the correct CLI argument list for you.
 

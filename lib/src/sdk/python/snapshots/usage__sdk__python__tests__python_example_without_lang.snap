@@ -24,7 +24,9 @@ class Greet:
         self._runner = runner
 
     def exec(self, args: GreetArgs) -> CliResult:
-        """greet <name>\nExample: app greet hello"""
+        """greet <name>
+        Example: app greet hello
+        """
         cmd_args: list[str] = ["greet"]
         if args.name is not None: cmd_args.append(str(args.name))
         return self._runner.run(cmd_args)
