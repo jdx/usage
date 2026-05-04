@@ -52,7 +52,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         for (name, choices) in choice_types.iter() {
             let union = choices
                 .iter()
-                .map(|c| format!("\"{c}\""))
+                .map(|c| format!("\"{}\"", escape_ts_string(c)))
                 .collect::<Vec<_>>()
                 .join(" | ");
             w.line(&format!("export type {name} = {union};"));
@@ -250,7 +250,7 @@ fn arg_ts_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> S
             choices
                 .choices
                 .iter()
-                .map(|c| format!("\"{c}\""))
+                .map(|c| format!("\"{}\"", escape_ts_string(c)))
                 .collect::<Vec<_>>()
                 .join(" | ")
         }
@@ -279,7 +279,7 @@ fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                     choices
                         .choices
                         .iter()
-                        .map(|c| format!("\"{c}\""))
+                        .map(|c| format!("\"{}\"", escape_ts_string(c)))
                         .collect::<Vec<_>>()
                         .join(" | ")
                 }

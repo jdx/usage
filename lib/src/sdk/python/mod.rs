@@ -85,8 +85,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         for (name, choices) in choice_types.iter() {
             let union = choices
                 .iter()
-                .map(|c| format!("\"{c}\""))
-                .collect::<Vec<_>>()
+                .map(|c| format!("\"{}\"", escape_py_string(c)))                .collect::<Vec<_>>()
                 .join(", ");
             w.line(&format!("{name} = Literal[{union}]"));
         }
@@ -357,8 +356,7 @@ fn arg_py_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> S
             let union = choices
                 .choices
                 .iter()
-                .map(|c| format!("\"{c}\""))
-                .collect::<Vec<_>>()
+                .map(|c| format!("\"{}\"", escape_py_string(c)))                .collect::<Vec<_>>()
                 .join(", ");
             format!("Literal[{union}]")
         }
@@ -387,8 +385,7 @@ fn flag_py_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                     let union = choices
                         .choices
                         .iter()
-                        .map(|c| format!("\"{c}\""))
-                        .collect::<Vec<_>>()
+                        .map(|c| format!("\"{}\"", escape_py_string(c)))                        .collect::<Vec<_>>()
                         .join(", ");
                     format!("Literal[{union}]")
                 }
@@ -602,7 +599,7 @@ fn render_class(
     let path: String = cmd
         .full_cmd
         .iter()
-        .map(|s| format!("\"{s}\""))
+        .map(|s| format!("\"{}\"", escape_py_string(s)))
         .collect::<Vec<_>>()
         .join(", ");
     w.line(&format!("cmd_args: list[str] = [{path}]"));
@@ -698,7 +695,7 @@ fn render_class(
             w.line("@property");
             w.line(&format!("def {alias_prop}(self) -> {sub_class}:"));
             w.indent();
-            w.line(&format!("\"\"\"Alias for {name}.\"\"\""));
+            w.line(&format!("\"\"\"Alias for {}.\"\"\"", escape_py_docstring(name)));
             w.line(&format!("return self.{target_prop}"));
             w.dedent();
         }
@@ -717,11 +714,11 @@ fn render_class(
 fn render_flag_build_py(flag: &SpecFlag, w: &mut CodeWriter) {
     let prop_name = flag_property_name_py(flag);
     let flag_arg_name = if let Some(long) = flag.long.first() {
-        format!("--{long}")
+        format!("--{}", escape_py_string(long))
     } else if let Some(short) = flag.short.first() {
         format!("-{short}")
     } else {
-        format!("--{}", flag.name)
+        format!("--{}", escape_py_string(&flag.name))
     };
 
     if flag.arg.is_some() {
@@ -755,7 +752,7 @@ fn render_flag_build_py(flag: &SpecFlag, w: &mut CodeWriter) {
         ));
         if let Some(negate) = &flag.negate {
             w.line(&format!(
-                "elif flags.{prop_name} is False: result.append(\"{negate}\")"
+                "elif flags.{prop_name} is False: result.append(\"{}\")", escape_py_string(negate)
             ));
         }
     }

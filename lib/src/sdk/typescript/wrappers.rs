@@ -1,7 +1,8 @@
 use heck::AsPascalCase;
 
 use crate::sdk::{
-    collect_choice_types, collect_type_imports, escape_jsdoc, generated_header, CodeWriter,
+    collect_choice_types, collect_type_imports, escape_jsdoc, escape_ts_string, generated_header,
+    CodeWriter,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
@@ -63,7 +64,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
 fn subcmd_path(cmd: &SpecCommand) -> String {
     cmd.full_cmd
         .iter()
-        .map(|s| format!("\"{s}\""))
+        .map(|s| format!("\"{}\"", escape_ts_string(s)))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -152,7 +153,7 @@ fn render_class(
         w.line("constructor(binPath?: string) {");
         w.indent();
         w.line(&format!(
-            "this.runner = new CliRunner(binPath ?? \"{bin_name}\");"
+            "this.runner = new CliRunner(binPath ?? \"{}\");", escape_ts_string(bin_name)
         ));
     } else {
         w.line("constructor(runner: CliRunner) {");
@@ -345,11 +346,11 @@ fn render_flag_build(flag: &SpecFlag, w: &mut CodeWriter) {
 
     // use the first long name for the flag argument, or short if no long
     let flag_arg_name = if let Some(long) = flag.long.first() {
-        format!("--{long}")
+        format!("--{}", escape_ts_string(long))
     } else if let Some(short) = flag.short.first() {
         format!("-{short}")
     } else {
-        format!("--{}", flag.name)
+        format!("--{}", escape_ts_string(&flag.name))
     };
 
     if flag.arg.is_some() {
@@ -382,7 +383,7 @@ fn render_flag_build(flag: &SpecFlag, w: &mut CodeWriter) {
         // handle negate
         if let Some(negate) = &flag.negate {
             w.line(&format!(
-                "else if (flags.{prop_name} === false) {{ result.push(\"{negate}\"); }}"
+                "else if (flags.{prop_name} === false) {{ result.push(\"{}\"); }}", escape_ts_string(negate)
             ));
         }
     }
