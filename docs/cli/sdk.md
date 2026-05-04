@@ -47,8 +47,8 @@ of truth:
 ```ts
 // auto-generated, always in sync with the CLI
 import { deploy } from "@internal/platform-sdk";
-await deploy({ env: "prod", service: "api", replicas: 3 });
-//             ^ typed, choices-constrained, required-checked
+const result = deploy({ env: "prod", service: "api", replicas: 3 });
+//                   ^ typed, choices-constrained, required-checked
 ```
 
 ## Quick Start

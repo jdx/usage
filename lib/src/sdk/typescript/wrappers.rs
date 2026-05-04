@@ -1,6 +1,6 @@
 use heck::AsPascalCase;
 
-use crate::sdk::{collect_choice_types, collect_type_imports, generated_header, CodeWriter};
+use crate::sdk::{collect_choice_types, collect_type_imports, escape_jsdoc, generated_header, CodeWriter};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::{Spec, SpecArg, SpecFlag};
@@ -95,6 +95,7 @@ fn render_class(
         class_doc.push(format!("Aliases: {}", cmd.aliases.join(", ")));
     }
     if !class_doc.is_empty() {
+        let class_doc: Vec<String> = class_doc.iter().map(|s| escape_jsdoc(s)).collect();
         if class_doc.len() == 1 {
             w.line(&format!("/** {} */", class_doc[0]));
         } else {
@@ -125,7 +126,7 @@ fn render_class(
             doc_parts.push(format!("@deprecated {dep}"));
         }
         if !doc_parts.is_empty() {
-            w.line(&format!("/** {} */", doc_parts.join(". ")));
+            w.line(&format!("/** {} */", escape_jsdoc(&doc_parts.join(". "))));
         }
         w.line(&format!("readonly {prop}: {sub_class};"));
     }
@@ -136,7 +137,7 @@ fn render_class(
             let alias_prop = sanitize_ident(alias);
             let target_prop = sanitize_ident(name);
             let sub_class = AsPascalCase(name).to_string();
-            w.line(&format!("/** Alias for `{name}` */"));
+            w.line(&format!("/** Alias for `{}` */", escape_jsdoc(name)));
             w.line(&format!(
                 "get {alias_prop}(): {sub_class} {{ return this.{target_prop}; }}"
             ));
@@ -207,6 +208,7 @@ fn render_class(
         ));
     }
     if !exec_doc.is_empty() {
+        let exec_doc: Vec<String> = exec_doc.iter().map(|s| escape_jsdoc(s)).collect();
         if exec_doc.len() == 1 && !exec_doc[0].contains('\n') {
             w.line(&format!("/** {} */", exec_doc[0]));
         } else {

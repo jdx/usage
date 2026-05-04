@@ -6,7 +6,8 @@ use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
 use crate::sdk::{
-    collect_choice_types, command_type_name, generated_header, ChoiceTypeMap, CodeWriter,
+    collect_choice_types, command_type_name, escape_jsdoc, generated_header, ChoiceTypeMap,
+    CodeWriter,
 };
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
@@ -19,7 +20,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         w.line(&format!("export const VERSION = \"{version}\";"));
     }
     if let Some(about) = &spec.about {
-        w.line(&format!("/** {about} */"));
+        w.line(&format!("/** {} */", escape_jsdoc(about)));
         w.line(&format!("export const ABOUT = \"{about}\";"));
     }
     if let Some(author) = &spec.author {
@@ -67,7 +68,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
                 doc_parts.push(format!("Environment variable: {env}"));
             }
             if !doc_parts.is_empty() {
-                w.line(&format!("/** {} */", doc_parts.join(". ")));
+                w.line(&format!("/** {} */", escape_jsdoc(&doc_parts.join(". "))));
             }
             w.line(&format!("{prop}{optional}: {ts_type};"));
         }
@@ -92,7 +93,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
             let ts_type = config_prop_type(prop);
             let optional = if prop.default.is_some() { "?" } else { "" };
             if let Some(help) = &prop.help {
-                w.line(&format!("/** {help} */"));
+                w.line(&format!("/** {} */", escape_jsdoc(help)));
             }
             w.line(&format!("{name}{optional}: {ts_type};"));
         }
@@ -182,7 +183,7 @@ fn render_arg_field(
         }
     }
     if !doc_parts.is_empty() {
-        w.line(&format!("/** {} */", doc_parts.join(". ")));
+        w.line(&format!("/** {} */", escape_jsdoc(&doc_parts.join(". "))));
     }
     w.line(&format!(
         "{}{optional}: {ts_type};",
@@ -227,7 +228,7 @@ fn render_flag_field(
         doc_parts.push(format!("Aliases: {}", alias_strs.join(", ")));
     }
     if !doc_parts.is_empty() {
-        w.line(&format!("/** {} */", doc_parts.join(". ")));
+        w.line(&format!("/** {} */", escape_jsdoc(&doc_parts.join(". "))));
     }
     let prop_name = flag_property_name(flag);
     w.line(&format!("{prop_name}{optional}: {ts_type};"));

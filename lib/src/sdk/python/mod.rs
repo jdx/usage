@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use heck::AsPascalCase;
 
 use crate::sdk::{
-    collect_choice_types, collect_type_imports, command_type_name, generated_header, ChoiceTypeMap,
-    CodeWriter, SdkFile, SdkOptions, SdkOutput,
+    collect_choice_types, collect_type_imports, command_type_name, escape_py_docstring,
+    generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions, SdkOutput,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
@@ -44,7 +44,7 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
 
 fn render_init(package_name: &str) -> String {
     let class_name = AsPascalCase(package_name).to_string();
-    format!("from .client import {class_name}\nfrom .types import *\n")
+    format!("from .client import {class_name}\nfrom .runtime import CliResult, CliRunner\nfrom .types import *\n")
 }
 
 // ---------------------------------------------------------------------------
@@ -437,8 +437,8 @@ fn sanitize_py_ident(name: &str) -> String {
         | "elif" | "else" | "and" | "or" | "not" | "in" | "is" | "as" | "break" | "continue"
         | "assert" | "type" | "input" | "id" | "list" | "dict" | "set" | "print" | "range"
         | "format" | "help" | "vars" | "dir" | "exec" | "exit" | "quit" | "bool" | "int"
-        | "str" | "float" | "bytes" | "object" | "super" | "property" | "static" | "True"
-        | "False" | "None" => format!("_{snake}"),
+        | "str" | "float" | "bytes" | "object" | "super" | "property" | "static"         | "true"
+        | "false" | "none" => format!("_{snake}"),
         _ => snake,
     }
 }
@@ -524,7 +524,7 @@ fn render_class(
     w.indent();
 
     if !class_doc.is_empty() {
-        w.line(&format!("\"\"\"{}\"\"\"", class_doc.join(". ")));
+        w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&class_doc.join(". "))));
     }
 
     // constructor
@@ -582,7 +582,7 @@ fn render_class(
     if !exec_doc.is_empty() {
         w.line(&sig);
         w.indent();
-        w.line(&format!("\"\"\"{}\"\"\"", exec_doc.join("\\n")));
+        w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&exec_doc.join("\\n"))));
     } else {
         w.line(&sig);
         w.indent();

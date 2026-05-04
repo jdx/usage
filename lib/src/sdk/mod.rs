@@ -42,6 +42,16 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
     }
 }
 
+/// Escape JSDoc-terminating sequences in comment text.
+pub(crate) fn escape_jsdoc(s: &str) -> String {
+    s.replace("*/", r"*\/")
+}
+
+/// Escape triple-quote sequences in Python docstrings.
+pub(crate) fn escape_py_docstring(s: &str) -> String {
+    s.replace(r#"""""#, r#"\"\"\""#)
+}
+
 /// A simple code writer with indentation management.
 pub(crate) struct CodeWriter {
     buf: String,

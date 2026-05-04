@@ -37,5 +37,5 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
 
 fn render_index(package_name: &str) -> String {
     let class_name = heck::AsPascalCase(package_name).to_string();
-    format!("export {{ {class_name} }} from \"./client\";\nexport * from \"./types\";\n")
+    format!("export {{ {class_name} }} from \"./client\";\nexport {{ CliResult }} from \"./runtime\";\nexport * from \"./types\";\n")
 }
