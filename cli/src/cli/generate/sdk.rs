@@ -14,7 +14,7 @@ pub struct Sdk {
     file: Option<PathBuf>,
 
     /// Target language for the SDK
-    #[clap(short, long, value_parser = ["typescript", "python", "rust"])]
+    #[clap(short, long, value_parser = ["typescript", "python"])]
     language: String,
 
     /// Output directory for generated SDK files
@@ -37,7 +37,6 @@ impl Sdk {
         let language = match self.language.as_str() {
             "typescript" => SdkLanguage::TypeScript,
             "python" => SdkLanguage::Python,
-            "rust" => SdkLanguage::Rust,
             other => {
                 return Err(miette::miette!("unsupported language: {other}"));
             }
