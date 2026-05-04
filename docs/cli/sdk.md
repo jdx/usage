@@ -80,7 +80,7 @@ if (result.ok) {
 | ---------- | --------------- | ----------------------------------------------------------------------------- |
 | TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`                             |
 | Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py`                          |
-| Rust       | `-l rust`       | `src/types.rs`, `src/client.rs`, `src/runtime.rs`, `src/lib.rs`, `Cargo.toml` |
+| Rust       | Coming soon     |                                                                               |
 
 ### TypeScript
 
@@ -124,82 +124,15 @@ if result.ok:
 
 ### Rust
 
-```sh
-usage generate sdk -l rust -o ./sdk -f ./mycli.usage.kdl
-```
+_Rust SDK support is coming soon._
 
-Generates a zero-dependency Rust crate with idiomatic types: enums for choices, structs for
-args/flags, and `Result<CliResult, CliError>` return types. The client uses
-`std::process::Command` under the hood.
-
-```rust
-use mycli_sdk::{Mycli, BuildArgs, BuildFlags, TargetChoice};
-
-let cli = Mycli::new("mycli");
-let result = cli.build.exec(
-    BuildArgs { target: TargetChoice::Release, output: "./dist".into() },
-    Some(&BuildFlags { release: Some(true), ..Default::default() }),
-)?;
-if result.ok() {
-    println!("{}", result.stdout);
-}
-```
-
-## CLI Options
-
-```
-usage generate sdk [OPTIONS]
-
-Options:
-  -l, --language <LANGUAGE>       Target language: typescript, python, rust
-  -o, --output <OUTPUT>           Output directory for generated SDK files
-  -p, --package-name <NAME>       Override the package/module name (defaults to spec bin name)
-  -f, --file <FILE>               A usage spec taken in as a file
-      --spec <SPEC>               Raw string spec input
-```
-
-## Feature Support
-
-The following table shows which Usage spec features are supported by each language target:
-
-| Feature            | Spec Syntax                         | TypeScript | Python | Rust |
-| ------------------ | ----------------------------------- | :--------: | :----: | :--: |
-| Positional args    | `arg "name"`                        |     ✅     |   ✅   |  ✅  |
-| Required args      | `arg "name" required=#true`         |     ✅     |   ✅   |  ✅  |
-| Optional args      | `arg "[name]"`                      |     ✅     |   ✅   |  ✅  |
-| Variadic args      | `arg "name" var=#true`              |     ✅     |   ✅   |  ✅  |
-| Arg choices        | `arg "name" { choices "a" "b" }`    |     ✅     |   ✅   |  ✅  |
-| Arg defaults       | `arg "name" default="value"`        |     ✅     |   ✅   |  ✅  |
-| Arg help text      | `arg "name" help="..."`             |     ✅     |   ✅   |  ✅  |
-| Arg env var        | `arg "name" env="VAR"`              |     ✅     |   ✅   |  ✅  |
-| Double dash        | `arg "name" double_dash="required"` |     ✅     |   ✅   |  ✅  |
-| Boolean flags      | `flag "--flag"`                     |     ✅     |   ✅   |  ✅  |
-| Value flags        | `flag "--flag <value>"`             |     ✅     |   ✅   |  ✅  |
-| Short flags        | `flag "-f --flag"`                  |     ✅     |   ✅   |  ✅  |
-| Flag choices       | `flag "--flag" { choices "a" "b" }` |     ✅     |   ✅   |  ✅  |
-| Flag defaults      | `flag "--flag" default="val"`       |     ✅     |   ✅   |  ✅  |
-| Flag help text     | `flag "--flag" help="..."`          |     ✅     |   ✅   |  ✅  |
-| Flag env var       | `flag "--flag" env="VAR"`           |     ✅     |   ✅   |  ✅  |
-| Count flags        | `flag "-v" count=#true`             |     ✅     |   ✅   |  ✅  |
-| Negate flags       | `flag "--flag" negate="--no-flag"`  |     ✅     |   ✅   |  ✅  |
-| Repeatable flags   | `flag "--flag" var=#true`           |     ✅     |   ✅   |  ✅  |
-| Required flags     | `flag "--flag" required=#true`      |     ✅     |   ✅   |  ✅  |
-| Global flags       | `flag "--flag" global=#true`        |     ✅     |   ✅   |  ✅  |
-| Deprecated flags   | `flag "--flag" deprecated="msg"`    |     ✅     |   ✅   |  ✅  |
-| Hidden args/flags  | `hide=#true`                        |     ✅     |   ✅   |  ✅  |
-| Subcommands        | `cmd "name" { ... }`                |     ✅     |   ✅   |  ✅  |
-| Nested subcommands | `cmd "a" { cmd "b" { ... } }`       |     ✅     |   ✅   |  ✅  |
-| Subcommand aliases | `alias "name"`                      |     ✅     |   ✅   |  ✅  |
-| Hyphenated names   | `cmd "add-remote"`                  |     ✅     |   ✅   |  ✅  |
-| Spec metadata      | `version`, `about`, `author`        |     ✅     |   ✅   |  ✅  |
-| Config             | `config "key" { ... }`              |     ✅     |   ✅   |  ✅  |
 
 ## How It Works
 
 Each generated SDK consists of three parts:
 
 1. **Types module** -- Type definitions for every command's args and flags. Choice constraints are
-   rendered as union types (TypeScript), `Literal` types (Python), or enums with `Display` (Rust).
+   rendered as union types (TypeScript) or `Literal` types (Python).
    Global flags are propagated to all subcommand flag types.
 
 2. **Client module** -- A nested class/struct hierarchy mirroring the subcommand tree. Each node has

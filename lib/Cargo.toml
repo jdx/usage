@@ -51,6 +51,7 @@ ctor = "0.10"
 insta = "1"
 pretty_assertions = "1"
 shell-words = "1"
+tempfile = "3"
 
 [[bench]]
 name = "parse"

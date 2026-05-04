@@ -1,5 +1,5 @@
 pub const RUNTIME_TS: &str = r#"// Runtime module for usage-generated SDK clients. Do not edit manually.
-import { execFileSync, SpawnSyncReturns } from "node:child_process";
+import { spawnSync, SpawnSyncReturns } from "node:child_process";
 
 export class CliResult {
   constructor(
@@ -27,18 +27,17 @@ export class CliRunner {
   constructor(private binPath: string) {}
 
   run(args: string[]): CliResult {
-    try {
-      const result: SpawnSyncReturns<string> = execFileSync(this.binPath, args, {
-        encoding: "utf-8",
-      });
-      return new CliResult(result.stdout ?? "", result.stderr ?? "", 0);
-    } catch (e: unknown) {
-      if (e instanceof Error && "code" in e && (e as NodeJS.ErrnoException).code === "ENOENT") {
+    const result: SpawnSyncReturns<string> = spawnSync(this.binPath, args, {
+      encoding: "utf-8",
+    });
+    if (result.error) {
+      const err = result.error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
         throw new CliError(this.binPath, `CLI binary not found: ${this.binPath}`);
       }
-      const err = e as SpawnSyncReturns<string>;
-      return new CliResult(err.stdout ?? "", err.stderr ?? "", err.status ?? 1);
+      throw err;
     }
+    return new CliResult(result.stdout ?? "", result.stderr ?? "", result.status ?? 1);
   }
 }
 "#;

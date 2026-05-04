@@ -309,3 +309,113 @@ fn collect_type_imports_recursive(
         collect_type_imports_recursive(subcmd, package_name, choice_types, imports);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_code_writer_display() {
+        let mut w = CodeWriter::with_indent("    ");
+        w.line("hello");
+        w.line("world");
+        let displayed = format!("{w}");
+        assert!(displayed.contains("hello"));
+        assert!(displayed.contains("world"));
+    }
+
+    #[test]
+    fn test_command_type_name_empty() {
+        let cmd = SpecCommand::default();
+        assert!(cmd.name.is_empty());
+        let result = command_type_name(&cmd, "mypackage");
+        assert_eq!(result, "Mypackage");
+    }
+
+    #[test]
+    fn test_generated_header_with_source() {
+        let result = generated_header("//", &Some("test.kdl".to_string()));
+        assert!(result.contains("test.kdl"));
+    }
+
+    #[test]
+    fn test_generated_header_without_source() {
+        let result = generated_header("//", &None);
+        assert!(!result.contains("test.kdl"));
+        assert!(result.contains("@generated"));
+    }
+
+    /// Hidden command with choices — covers collect_choice_entries skip paths
+    /// and collect_type_imports_recursive cmd.hide path.
+    #[test]
+    fn test_hidden_command_with_choices() {
+        let spec: crate::Spec = r##"
+            bin "app"
+            cmd "visible" help="Visible" {
+                arg "env" help="Environment" {
+                    choices "dev" "prod"
+                }
+            }
+            cmd "hidden" hide=#true help="Hidden" {
+                arg "mode" help="Mode" {
+                    choices "fast" "slow"
+                }
+                flag "--level <n>" help="Level" {
+                    choices "1" "2" "3"
+                }
+            }
+        "##
+        .parse()
+        .unwrap();
+        let choice_types = collect_choice_types(&spec.cmd);
+        // hidden command's choices should not be collected
+        assert!(choice_types.lookup("hidden", "mode").is_none());
+        assert!(choice_types.lookup("hidden", "level").is_none());
+        // visible command's choices should be collected
+        assert!(choice_types.lookup("visible", "env").is_some());
+    }
+
+    /// Hidden arg/flag with choices — covers skip paths in collect_choice_entries.
+    #[test]
+    fn test_hidden_arg_flag_with_choices() {
+        let spec: crate::Spec = r##"
+            bin "app"
+            arg "visible_choice" help="Visible" {
+                choices "a" "b"
+            }
+            arg "hidden_choice" hide=#true help="Hidden" {
+                choices "x" "y"
+            }
+            flag "--visible-flag <val>" help="Visible" {
+                choices "m" "n"
+            }
+            flag "--hidden-flag <val>" hide=#true help="Hidden" {
+                choices "p" "q"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let choice_types = collect_choice_types(&spec.cmd);
+        assert!(choice_types.lookup("app", "visible_choice").is_some());
+        assert!(choice_types.lookup("app", "hidden_choice").is_none());
+        assert!(choice_types.lookup("app", "visible-flag").is_some());
+        assert!(choice_types.lookup("app", "hidden-flag").is_none());
+    }
+
+    /// Flag with arg choices — covers flag.arg choices import path.
+    #[test]
+    fn test_flag_arg_choices_import() {
+        let spec: crate::Spec = r##"
+            bin "app"
+            flag "--shell <shell>" help="Shell type" {
+                choices "bash" "zsh" "fish"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let choice_types = collect_choice_types(&spec.cmd);
+        let mut imports = Vec::new();
+        collect_type_imports_recursive(&spec.cmd, "app", &choice_types, &mut imports);
+        assert!(imports.iter().any(|i| i.contains("Choice")));
+    }
+}
