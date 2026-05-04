@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.3.1](https://github.com/jdx/usage/compare/v3.3.0..v3.3.1) - 2026-05-04
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#621](https://github.com/jdx/usage/pull/621)
+
 ## [3.3.0](https://github.com/jdx/usage/compare/v3.2.1..v3.3.0) - 2026-05-03
 
 ### 🚀 Features
