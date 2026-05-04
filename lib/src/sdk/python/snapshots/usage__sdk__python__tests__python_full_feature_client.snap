@@ -45,8 +45,8 @@ class Build:
         """build [-j --jobs… <n>] [--release] <target> <-- output>"""
         cmd_args: list[str] = ["build"]
         if args.target is not None: cmd_args.append(str(args.target))
-        if args.output is not None: cmd_args.append(str(args.output))
         cmd_args.append("--")
+        if args.output is not None: cmd_args.append(str(args.output))
         flag_args = self._build_flag_args(flags)
         return self._runner.run(cmd_args + flag_args)
 

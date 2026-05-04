@@ -75,8 +75,8 @@ impl Build {
     pub fn exec(&self, args: BuildArgs, flags: Option<&BuildFlags>) -> Result<CliResult, CliError> {
         let mut cmd_args: Vec<String> = vec!["build".to_string()];
         cmd_args.push(args.target.to_string());
-        cmd_args.push(args.output.to_string());
         cmd_args.push("--".to_string());
+        cmd_args.push(args.output.to_string());
         cmd_args.extend(Self::build_flag_args(flags));
         self.runner.run(cmd_args)
     }

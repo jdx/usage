@@ -360,4 +360,287 @@ mod tests {
         assert!(client.contains("Option<&GlobalFlags>"));
         insta::assert_snapshot!(client);
     }
+
+    /// Args with default values — tests that defaults are preserved.
+    #[test]
+    fn test_rust_arg_defaults() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "mode" default="fast" help="Run mode"
+            arg "output" help="Output path" required=#true
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains(r#"/// Default: "fast""#));
+        assert!(types.contains("pub output: String,"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Optional arg without default and empty flags struct.
+    #[test]
+    fn test_rust_optional_arg_empty_flags() {
+        let spec: Spec = r##"
+            bin "app"
+            arg "[name]" help="Optional arg without default"
+            cmd "check" help="Check something" {
+                arg "target" required=#true help="Required arg"
+                arg "mode" default="quick" help="Optional arg with default"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("name: Option<String>"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Config with all data_type variants, arg with env, flag with deprecated + aliases,
+    /// reserved keyword identifiers.
+    #[test]
+    fn test_rust_config_and_flag_edge_cases() {
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "debug" default=#true data_type=boolean help="Enable debug mode"
+                prop "port" default=8080 data_type=integer
+                prop "rate" default="1.5" data_type=float
+                prop "host" data_type=string
+                prop "extra" data_type="null"
+            }
+            arg "input" help="Input file" env="MYAPP_INPUT"
+            flag "--type" help="Reserved keyword" deprecated="Use --kind"
+            flag "-f --format --fmt <fmt>" help="Flag with short and long alias"
+            flag "-v" help="Short-only flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("MyappConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with choices — flag arg with choices renders correct type.
+    #[test]
+    fn test_rust_flag_with_choices() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--shell <shell>" help="Shell type" {
+                choices "bash" "zsh" "fish"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("ShellChoice"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with env annotation — env variable appears in doc comment.
+    #[test]
+    fn test_rust_flag_with_env() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--config <path>" help="Config file" env="APP_CONFIG"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("APP_CONFIG"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Hidden flag excluded from types and client.
+    #[test]
+    fn test_rust_flag_hide() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--verbose" help="Verbosity"
+            flag "--debug" hide=#true help="Hidden debug flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("verbose"));
+        assert!(!types.contains("debug"));
+    }
+
+    /// Negate flag rendered in client build method.
+    #[test]
+    fn test_rust_negate_flag_build() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--dry-run" help="Dry run" negate="--no-dry-run"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        assert!(client.contains("--dry-run"));
+        assert!(client.contains("--no-dry-run"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Count flag rendered in client build method.
+    #[test]
+    fn test_rust_count_flag_build() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" count=#true help="Verbosity level"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        assert!(client.contains("-v"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Repeatable value flag with default — covers var + arg + default in client build.
+    #[test]
+    fn test_rust_var_value_flag_with_default() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--tag <t>" var=#true default="latest" help="Tags"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("Vec<String>"));
+        let client = get_file(&output, "src/client.rs");
+        assert!(client.contains("for item in v"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with multiple long aliases — `-f --format --fmt <fmt>`.
+    #[test]
+    fn test_rust_multiple_aliases() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "-f --format --fmt <fmt>" help="Output format"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("fmt"));
+        let client = get_file(&output, "src/client.rs");
+        // should use first long for the flag argument name
+        assert!(client.contains("--format"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Config with all props having defaults — tests Default derive.
+    #[test]
+    fn test_rust_config_all_optional() {
+        let spec: Spec = r##"
+            bin "app"
+            config {
+                prop "debug" default=#true data_type=boolean
+                prop "port" default=8080 data_type=integer
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("#[derive(Debug, Clone, Default)]"));
+        assert!(types.contains("pub struct AppConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Optional variadic arg — covers the optional + var branch in client rendering.
+    #[test]
+    fn test_rust_optional_variadic_arg() {
+        let spec: Spec = r##"
+            bin "tool"
+            arg "[files]" var=#true help="Input files"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("Vec<String>"));
+        let client = get_file(&output, "src/client.rs");
+        // optional variadic arg should use if let Some guard
+        assert!(client.contains("if let Some(v) = &args.files"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Required flag without default — tests non-Option flag type rendering.
+    #[test]
+    fn test_rust_required_flag_type() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--token <t>" required=#true help="Auth token"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        // required flag without default should NOT be Option
+        assert!(types.contains("pub token: String,"));
+        assert!(!types.contains("pub token: Option<String>,"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Global repeatable flags — covers var branches in GlobalFlags.
+    #[test]
+    fn test_rust_global_repeatable_flags() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" global=#true var=#true help="Repeatable verbose"
+            flag "--tag <t>" global=#true var=#true help="Repeatable tag"
+            cmd "run" help="Run" {
+                arg "target"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("Vec<bool>"));
+        assert!(types.contains("Vec<String>"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Boolean flag with default=#false — covers False default in types.
+    #[test]
+    fn test_rust_boolean_flag_default_false() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--no-cache" default=#false help="Disable cache"
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "src/types.rs");
+        assert!(types.contains("Default: false"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Example without lang attribute — tests single-line doc path.
+    #[test]
+    fn test_rust_example_without_lang() {
+        let spec: Spec = r##"
+            bin "app"
+            cmd "greet" help="Greet someone" {
+                example "app greet hello"
+                arg "name" help="Name to greet"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "src/client.rs");
+        assert!(client.contains("app greet hello"));
+        insta::assert_snapshot!(client);
+    }
 }

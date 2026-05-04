@@ -287,13 +287,24 @@ fn render_flags_struct(
     choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
 ) {
-    w.line("#[derive(Debug, Clone, Default)]");
+    let all_optional = flags.iter().all(|f| !(f.required && f.default.is_empty()));
+    let derives = if all_optional {
+        "#[derive(Debug, Clone, Default)]"
+    } else {
+        "#[derive(Debug, Clone)]"
+    };
+    w.line(derives);
     w.line(&format!("pub struct {name} {{"));
     w.indent();
     for flag in flags {
         let rs_type = flag_rs_type(flag, cmd_name, choice_types);
         let prop_name = flag_property_name_rs(flag);
-        let field = format!("pub {prop_name}: Option<{rs_type}>,");
+        let optional = !(flag.required && flag.default.is_empty());
+        let field = if optional {
+            format!("pub {prop_name}: Option<{rs_type}>,")
+        } else {
+            format!("pub {prop_name}: {rs_type},")
+        };
         render_flag_docs(flag, w);
         w.line(&field);
     }

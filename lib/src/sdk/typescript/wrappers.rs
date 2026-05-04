@@ -237,7 +237,11 @@ fn render_class(
                 .iter()
                 .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
 
+            // Args before `--`: all args without double_dash=required
             for arg in &visible_args {
+                if matches!(arg.double_dash, SpecDoubleDashChoices::Required) {
+                    continue;
+                }
                 let ident = sanitize_ident(&arg.name);
                 if arg.var {
                     w.line(&format!(
@@ -252,6 +256,22 @@ fn render_class(
 
             if has_required_double_dash {
                 w.line("cmdArgs.push(\"--\");");
+                // Args after `--`: only double_dash=required args
+                for arg in &visible_args {
+                    if !matches!(arg.double_dash, SpecDoubleDashChoices::Required) {
+                        continue;
+                    }
+                    let ident = sanitize_ident(&arg.name);
+                    if arg.var {
+                        w.line(&format!(
+                            "if (args.{ident} !== undefined) {{ cmdArgs.push(...args.{ident}); }}"
+                        ));
+                    } else {
+                        w.line(&format!(
+                            "if (args.{ident} !== undefined) {{ cmdArgs.push(String(args.{ident})); }}"
+                        ));
+                    }
+                }
             } else if has_automatic_double_dash {
                 w.line(
                     "// double_dash=automatic: \"--\" is implied after the first positional arg",

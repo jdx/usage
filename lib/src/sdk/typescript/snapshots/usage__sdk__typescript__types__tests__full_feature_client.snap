@@ -61,8 +61,8 @@ export class Build {
   exec(args: BuildArgs, flags?: BuildFlags): CliResult {
     const cmdArgs: string[] = ["build"];
     if (args.target !== undefined) { cmdArgs.push(String(args.target)); }
-    if (args.output !== undefined) { cmdArgs.push(String(args.output)); }
     cmdArgs.push("--");
+    if (args.output !== undefined) { cmdArgs.push(String(args.output)); }
     const flagArgs = this.buildFlagArgs(flags);
     return this.runner.run([...cmdArgs, ...flagArgs]);
   }

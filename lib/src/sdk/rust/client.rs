@@ -145,14 +145,26 @@ fn render_class(
         w.line(&format!("/// {label}: `{}`", example.code));
     }
 
+    let has_required_flag = visible_flags
+        .iter()
+        .any(|f| f.required && f.default.is_empty())
+        || global_flags
+            .iter()
+            .any(|f| f.required && f.default.is_empty());
+    let flags_sig = if has_required_flag {
+        format!("flags: &{flags_type}")
+    } else {
+        format!("flags: Option<&{flags_type}>")
+    };
+
     let sig = if has_args && !flags_type.is_empty() {
-        format!("pub fn exec(&self, args: {args_type}, flags: Option<&{flags_type}>) -> Result<CliResult, CliError> {{")
+        format!(
+            "pub fn exec(&self, args: {args_type}, {flags_sig}) -> Result<CliResult, CliError> {{"
+        )
     } else if has_args {
         format!("pub fn exec(&self, args: {args_type}) -> Result<CliResult, CliError> {{")
     } else if !flags_type.is_empty() {
-        format!(
-            "pub fn exec(&self, flags: Option<&{flags_type}>) -> Result<CliResult, CliError> {{"
-        )
+        format!("pub fn exec(&self, {flags_sig}) -> Result<CliResult, CliError> {{")
     } else {
         "pub fn exec(&self) -> Result<CliResult, CliError> {".to_string()
     };
@@ -182,7 +194,11 @@ fn render_class(
             .iter()
             .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
 
+        // Args before `--`: all args without double_dash=required
         for arg in &visible_args {
+            if matches!(arg.double_dash, SpecDoubleDashChoices::Required) {
+                continue;
+            }
             let ident = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
             let optional = !(arg.required && arg.default.is_empty());
             if arg.var {
@@ -206,6 +222,31 @@ fn render_class(
 
         if has_required_double_dash {
             w.line("cmd_args.push(\"--\".to_string());");
+            // Args after `--`: only double_dash=required args
+            for arg in &visible_args {
+                if !matches!(arg.double_dash, SpecDoubleDashChoices::Required) {
+                    continue;
+                }
+                let ident = sanitize_rs_ident(&heck::AsSnakeCase(&arg.name).to_string());
+                let optional = !(arg.required && arg.default.is_empty());
+                if arg.var {
+                    if optional {
+                        w.line(&format!(
+                            "if let Some(v) = &args.{ident} {{ cmd_args.extend(v.iter().map(|s| s.to_string())); }}"
+                        ));
+                    } else {
+                        w.line(&format!(
+                            "cmd_args.extend(args.{ident}.iter().map(|v| v.to_string()));"
+                        ));
+                    }
+                } else if optional {
+                    w.line(&format!(
+                        "if let Some(v) = &args.{ident} {{ cmd_args.push(v.to_string()); }}"
+                    ));
+                } else {
+                    w.line(&format!("cmd_args.push(args.{ident}.to_string());"));
+                }
+            }
         } else if has_automatic_double_dash {
             w.line("// double_dash=automatic: \"--\" is implied after the first positional arg");
         }
@@ -225,12 +266,20 @@ fn render_class(
     // build_flag_args
     if has_flags {
         w.line("");
-        w.line(&format!(
-            "fn build_flag_args(flags: Option<&{flags_type}>) -> Vec<String> {{"
-        ));
+        if has_required_flag {
+            w.line(&format!(
+                "fn build_flag_args(flags: &{flags_type}) -> Vec<String> {{"
+            ));
+        } else {
+            w.line(&format!(
+                "fn build_flag_args(flags: Option<&{flags_type}>) -> Vec<String> {{"
+            ));
+        }
         w.indent();
         w.line("let mut result = Vec::new();");
-        w.line("let Some(flags) = flags else { return result };");
+        if !has_required_flag {
+            w.line("let Some(flags) = flags else { return result };");
+        }
 
         for flag in global_flags {
             render_flag_build_rs(flag, w);
@@ -259,6 +308,7 @@ fn render_class(
 
 fn render_flag_build_rs(flag: &SpecFlag, w: &mut CodeWriter) {
     let prop_name = flag_property_name_rs(flag);
+    let required = flag.required && flag.default.is_empty();
     let flag_arg_name = if let Some(long) = flag.long.first() {
         format!("--{long}")
     } else if let Some(short) = flag.short.first() {
@@ -270,60 +320,105 @@ fn render_flag_build_rs(flag: &SpecFlag, w: &mut CodeWriter) {
     if flag.arg.is_some() {
         if flag.var {
             // repeatable value flag
+            if required {
+                w.line(&format!("for item in &flags.{prop_name} {{"));
+                w.indent();
+                w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
+                w.line("result.push(item.to_string());");
+                w.dedent();
+                w.line("}");
+            } else {
+                w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
+                w.indent();
+                w.line("for item in v {");
+                w.indent();
+                w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
+                w.line("result.push(item.to_string());");
+                w.dedent();
+                w.line("}");
+                w.dedent();
+                w.line("}");
+            }
+        } else {
+            // single value flag
+            if required {
+                w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
+                w.line(&format!("result.push(flags.{prop_name}.to_string());"));
+            } else {
+                w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
+                w.indent();
+                w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
+                w.line("result.push(v.to_string());");
+                w.dedent();
+                w.line("}");
+            }
+        }
+    } else if flag.count {
+        // count flag
+        if required {
+            w.line(&format!(
+                "for _ in 0..flags.{prop_name} {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+            ));
+        } else {
+            w.line(&format!("if let Some(count) = flags.{prop_name} {{"));
+            w.indent();
+            w.line(&format!(
+                "for _ in 0..count {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+            ));
+            w.dedent();
+            w.line("}");
+        }
+    } else if flag.var {
+        // repeatable boolean flag
+        if required {
+            w.line(&format!("for item in &flags.{prop_name} {{"));
+            w.indent();
+            w.line(&format!(
+                "if *item {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+            ));
+            w.dedent();
+            w.line("}");
+        } else {
             w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
             w.indent();
             w.line("for item in v {");
             w.indent();
-            w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
-            w.line("result.push(item.to_string());");
+            w.line(&format!(
+                "if *item {{ result.push(\"{flag_arg_name}\".to_string()); }}"
+            ));
             w.dedent();
             w.line("}");
-            w.dedent();
-            w.line("}");
-        } else {
-            // single value flag
-            w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
-            w.indent();
-            w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
-            w.line("result.push(v.to_string());");
             w.dedent();
             w.line("}");
         }
-    } else if flag.count {
-        // count flag
-        w.line(&format!("if let Some(count) = flags.{prop_name} {{"));
-        w.indent();
-        w.line(&format!(
-            "for _ in 0..count {{ result.push(\"{flag_arg_name}\".to_string()); }}"
-        ));
-        w.dedent();
-        w.line("}");
-    } else if flag.var {
-        // repeatable boolean flag
-        w.line(&format!("if let Some(v) = &flags.{prop_name} {{"));
-        w.indent();
-        w.line("for item in v {");
-        w.indent();
-        w.line(&format!(
-            "if *item {{ result.push(\"{flag_arg_name}\".to_string()); }}"
-        ));
-        w.dedent();
-        w.line("}");
-        w.dedent();
-        w.line("}");
     } else {
         // boolean flag
-        w.line(&format!("if flags.{prop_name} == Some(true) {{"));
-        w.indent();
-        w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
-        w.dedent();
-        w.line("}");
-        if let Some(negate) = &flag.negate {
-            w.line(&format!("else if flags.{prop_name} == Some(false) {{"));
+        if required {
+            w.line(&format!("if flags.{prop_name} {{"));
             w.indent();
-            w.line(&format!("result.push(\"{negate}\".to_string());"));
+            w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
             w.dedent();
             w.line("}");
+            if let Some(negate) = &flag.negate {
+                w.line("else {");
+                w.indent();
+                w.line(&format!("result.push(\"{negate}\".to_string());"));
+                w.dedent();
+                w.line("}");
+            }
+        } else {
+            w.line(&format!("if flags.{prop_name} == Some(true) {{"));
+            w.indent();
+            w.line(&format!("result.push(\"{flag_arg_name}\".to_string());"));
+            w.dedent();
+            w.line("}");
+            if let Some(negate) = &flag.negate {
+                w.line(&format!("else if flags.{prop_name} == Some(false) {{"));
+                w.indent();
+                w.line(&format!("result.push(\"{negate}\".to_string());"));
+                w.dedent();
+                w.line("}");
+            }
         }
     }
 }

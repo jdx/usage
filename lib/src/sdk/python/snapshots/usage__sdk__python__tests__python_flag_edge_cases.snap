@@ -22,4 +22,4 @@ class ToolFlags:
     # Value flag with default
     _format: Optional[str] = "json"
     # Repeatable boolean flag
-    verbose: Optional[bool] = None
+    verbose: Optional[list[bool]] = None

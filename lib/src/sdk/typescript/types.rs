@@ -664,4 +664,243 @@ mod tests {
         assert!(client.contains("for (const v of flags.debug)"));
         insta::assert_snapshot!(client);
     }
+
+    /// Args with default values — tests that defaults are preserved, not dropped to undefined.
+    #[test]
+    fn test_typescript_arg_defaults() {
+        let spec: Spec = r##"
+            bin "runner"
+            arg "mode" default="fast" help="Run mode"
+            arg "output" help="Output path" required=#true
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("mode?: string"));
+        assert!(types.contains("output: string"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Optional arg without default and empty flags interface.
+    #[test]
+    fn test_typescript_optional_arg_empty_flags() {
+        let spec: Spec = r##"
+            bin "app"
+            arg "[name]" help="Optional arg without default"
+            cmd "check" help="Check something" {
+                arg "target" required=#true help="Required arg"
+                arg "mode" default="quick" help="Optional arg with default"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("name?: string"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with choices — flag arg with choices renders correct type.
+    #[test]
+    fn test_typescript_flag_with_choices() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--shell <shell>" help="Shell type" {
+                choices "bash" "zsh" "fish"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains(r#""bash" | "zsh" | "fish""#));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with env annotation — env variable appears in JSDoc.
+    #[test]
+    fn test_typescript_flag_with_env() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--config <path>" help="Config file" env="APP_CONFIG"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("APP_CONFIG"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Hidden flag excluded from types and client.
+    #[test]
+    fn test_typescript_flag_hide() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--verbose" help="Verbosity"
+            flag "--debug" hide=#true help="Hidden debug flag"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("verbose"));
+        assert!(!types.contains("debug"));
+    }
+
+    /// Negate flag rendered in client build method.
+    #[test]
+    fn test_typescript_negate_flag_build() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--dry-run" help="Dry run" negate="--no-dry-run"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("--dry-run"));
+        assert!(client.contains("--no-dry-run"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Count flag rendered in client build method.
+    #[test]
+    fn test_typescript_count_flag_build() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" count=#true help="Verbosity level"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("-v"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Repeatable value flag with default — covers var + arg + default in client build.
+    #[test]
+    fn test_typescript_var_value_flag_with_default() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--tag <t>" var=#true default="latest" help="Tags"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("string[]"));
+        let client = get_file(&output, "client.ts");
+        assert!(client.contains("for (const v of flags.tag)"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Flag with multiple long aliases — `-f --format --fmt <fmt>`.
+    #[test]
+    fn test_typescript_multiple_aliases() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "-f --format --fmt <fmt>" help="Output format"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("fmt"));
+        let client = get_file(&output, "client.ts");
+        // should use first long for the flag argument name
+        assert!(client.contains("--format"));
+        insta::assert_snapshot!(client);
+    }
+
+    /// Required flag without default — tests non-optional flag type in Flags interface.
+    #[test]
+    fn test_typescript_required_flag_type() {
+        let spec: Spec = r##"
+            bin "tool"
+            flag "--token <t>" required=#true help="Auth token"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        // required flag without default should NOT have "?"
+        assert!(types.contains("token: string;"));
+        assert!(!types.contains("token?:"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Global repeatable flags — covers flag_ts_simple var branches in GlobalFlags.
+    #[test]
+    fn test_typescript_global_repeatable_flags() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "-v --verbose" global=#true var=#true help="Repeatable verbose"
+            flag "--tag <t>" global=#true var=#true help="Repeatable tag"
+            cmd "run" help="Run" {
+                arg "target"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        // GlobalFlags should have boolean[] and string[] types
+        assert!(types.contains("boolean[]"));
+        assert!(types.contains("string[]"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Boolean flag with default=#false — covers False default in types.
+    #[test]
+    fn test_typescript_boolean_flag_default_false() {
+        let spec: Spec = r##"
+            bin "app"
+            flag "--no-cache" default=#false help="Disable cache"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("@default false"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Config with all props having defaults — tests Default-friendly rendering.
+    #[test]
+    fn test_typescript_config_all_optional() {
+        let spec: Spec = r##"
+            bin "app"
+            config {
+                prop "debug" default=#true data_type=boolean
+                prop "port" default=8080 data_type=integer
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("AppConfig"));
+        insta::assert_snapshot!(types);
+    }
+
+    /// Optional variadic arg — covers the optional + var branch.
+    #[test]
+    fn test_typescript_optional_variadic_arg() {
+        let spec: Spec = r##"
+            bin "tool"
+            arg "[files]" var=#true help="Input files"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("string[]"));
+        let client = get_file(&output, "client.ts");
+        // optional variadic arg should use spread with undefined guard
+        assert!(client.contains("args.files !== undefined"));
+        insta::assert_snapshot!(client);
+    }
 }
