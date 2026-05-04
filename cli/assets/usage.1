@@ -46,6 +46,12 @@ Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 \fIAliases: \fRc
 .RE
 .TP
+\fBgenerate completion\-init\fR
+Generate a shell init script that auto\-completes any usage shebang script on $PATH
+.RS
+\fIAliases: \fRci
+.RE
+.TP
 \fBgenerate fig\fR
 Generate Fig completion spec for Amazon Q / Fig
 .TP
@@ -209,6 +215,28 @@ Shell to generate completions for
 .TP
 \fB<BIN>\fR
 The CLI which we're generating completions for
+.SH "USAGE GENERATE COMPLETION-INIT"
+Generate a shell init script that auto\-completes any usage shebang script on $PATH
+
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab\-completion for any executable whose first line is a `usage` shebang — no per\-script `usage g completion` step required.
+.PP
+\fBUsage:\fR usage generate completion\-init [OPTIONS] <SHELL>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-usage\-bin\fR \fI<USAGE_BIN>\fR
+Override the bin used for calling back to usage\-cli
+
+You may need to set this if you have a different bin named "usage"
+.RS
+\fIDefault: \fRusage
+.RE
+\fBArguments:\fR
+.PP
+.TP
+\fB<SHELL>\fR
+Shell to generate the init script for
 .SH "USAGE GENERATE FIG"
 Generate Fig completion spec for Amazon Q / Fig
 .PP

@@ -5,6 +5,7 @@ use usage::error::UsageErr;
 use usage::Spec;
 
 mod completion;
+mod completion_init;
 mod fig;
 mod json;
 mod manpage;
@@ -22,6 +23,7 @@ pub struct Generate {
 #[derive(clap::Subcommand)]
 pub enum Command {
     Completion(completion::Completion),
+    CompletionInit(completion_init::CompletionInit),
     Fig(fig::Fig),
     Json(json::Json),
     Manpage(manpage::Manpage),
@@ -33,6 +35,7 @@ impl Generate {
     pub fn run(&self) -> miette::Result<()> {
         match &self.command {
             Command::Completion(cmd) => cmd.run(),
+            Command::CompletionInit(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),
             Command::Json(cmd) => cmd.run(),
             Command::Manpage(cmd) => cmd.run(),

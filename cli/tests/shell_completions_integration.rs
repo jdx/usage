@@ -3,6 +3,21 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Returns `true` if the test should be skipped because the shell is not
+/// installed. Panics under `CI=1` (or any non-empty `CI`) to prevent silent
+/// false-positives in CI: if a shell is missing in CI it's a configuration
+/// bug, not an excuse to skip the test.
+fn skip_if_shell_missing(shell: &str) -> bool {
+    if Command::new(shell).arg("--version").output().is_ok() {
+        return false;
+    }
+    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+        panic!("shell `{shell}` not installed but CI is set — refusing to skip");
+    }
+    eprintln!("Skipping {shell} test - {shell} shell not installed");
+    true
+}
+
 /// Helper to run usage complete-word and return stdout
 fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&str]) -> String {
     let mut args = vec![
@@ -58,9 +73,7 @@ fn build_usage_binary() -> PathBuf {
 
 #[test]
 fn test_fish_completion_integration() {
-    // Skip if fish is not installed
-    if Command::new("fish").arg("--version").output().is_err() {
-        eprintln!("Skipping fish test - fish shell not installed");
+    if skip_if_shell_missing("fish") {
         return;
     }
 
@@ -209,9 +222,7 @@ echo "COMPLETION_TEST_DONE"
 
 #[test]
 fn test_bash_completion_integration() {
-    // Skip if bash is not installed
-    if Command::new("bash").arg("--version").output().is_err() {
-        eprintln!("Skipping bash test - bash shell not installed");
+    if skip_if_shell_missing("bash") {
         return;
     }
 
@@ -399,9 +410,7 @@ echo "COMPLETION_TEST_DONE"
 
 #[test]
 fn test_zsh_completion_integration() {
-    // Skip if zsh is not installed
-    if Command::new("zsh").arg("--version").output().is_err() {
-        eprintln!("Skipping zsh test - zsh shell not installed");
+    if skip_if_shell_missing("zsh") {
         return;
     }
 
@@ -558,9 +567,7 @@ echo "COMPLETION_TEST_DONE"
 
 #[test]
 fn test_powershell_completion_integration() {
-    // Skip if pwsh is not installed
-    if Command::new("pwsh").arg("--version").output().is_err() {
-        eprintln!("Skipping pwsh test - PowerShell Core not installed");
+    if skip_if_shell_missing("pwsh") {
         return;
     }
 
@@ -736,6 +743,241 @@ cmd other help="Another subcommand"
     );
 
     // Cleanup
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Stage a `usage`-shebang test script onto a temp `bin/` directory and
+/// generate the `g completion-init <shell>` output. Returns (temp_dir,
+/// bin_dir, init_script_path).
+fn stage_init_test_env(usage_bin: &Path, shell: &str, label: &str) -> (PathBuf, PathBuf, PathBuf) {
+    let temp_dir = env::temp_dir().join(format!("usage_{label}_init_test_{}", std::process::id()));
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+
+    let script = "\
+#!/usr/bin/env -S usage bash
+#USAGE bin \"ex\"
+#USAGE flag \"--foo\" help=\"Flag value\"
+#USAGE arg \"baz\" help=\"Positional values\"
+#USAGE complete \"baz\" run=\"echo val-1; echo val-2; echo val-3\"
+echo baz: $usage_baz
+";
+    let script_path = bin_dir.join("ex");
+    fs::write(&script_path, script).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&script_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&script_path, perms).unwrap();
+    }
+
+    // Generate the init script
+    let output = Command::new(usage_bin)
+        .args(["generate", "completion-init", shell])
+        .output()
+        .expect("Failed to generate completion-init");
+    assert!(
+        output.status.success(),
+        "completion-init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let init_script = temp_dir.join(format!("init.{shell}"));
+    fs::write(&init_script, &output.stdout).unwrap();
+
+    (temp_dir, bin_dir, init_script)
+}
+
+#[test]
+fn test_bash_completion_init_integration() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, init_script) = stage_init_test_env(&usage_bin, "bash", "bash");
+
+    // Drive `_usage_default_complete` directly with simulated COMP_WORDS/CWORD.
+    // This mirrors what bash does at `<Tab>` time.
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+set -e
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+source "{init_script}"
+
+run_case() {{
+    local label="$1"; shift
+    local cword="$1"; shift
+    COMP_WORDS=("$@")
+    COMP_CWORD="$cword"
+    COMPREPLY=()
+    _usage_default_complete "${{COMP_WORDS[0]}}" "${{COMP_WORDS[$cword]}}" "${{COMP_WORDS[$((cword-1))]:-}}"
+    echo "[$label] ${{COMPREPLY[*]}}"
+}}
+
+run_case empty 1 ex ""
+run_case dashes 1 ex "--"
+run_case foo 1 ex "--f"
+"#,
+        bin_dir = bin_dir.display(),
+        usage_dir = usage_bin.parent().unwrap().display(),
+        init_script = init_script.display(),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("bash")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run bash init test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("bash init stdout:\n{stdout}\nstderr:\n{stderr}");
+
+    assert!(
+        result.status.success(),
+        "bash init script exited non-zero. stderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("[empty] val-1 val-2 val-3"),
+        "expected positional completion, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("[dashes] --foo"),
+        "expected flag listing for `--`, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("[foo] --foo"),
+        "expected `--foo` for `--f`, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_zsh_completion_init_integration() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, init_script) = stage_init_test_env(&usage_bin, "zsh", "zsh");
+
+    // Stub `_describe`/`_files` to capture what the handler offers without
+    // needing an interactive ZLE context. Drive with $words/$CURRENT.
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+set -e
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+autoload -U compinit
+compinit -u
+source "{init_script}"
+
+_describe() {{
+    local arr_name="$2"
+    local -a items
+    items=("${{(@P)arr_name}}")
+    print -r -- "[describe:$1] ${{items[*]}}"
+}}
+_files() {{ print -r -- "[files-fallback]" }}
+
+words=(ex "")
+CURRENT=2
+_usage_default_complete
+
+words=(ex "--f")
+CURRENT=2
+_usage_default_complete
+"#,
+        bin_dir = bin_dir.display(),
+        usage_dir = usage_bin.parent().unwrap().display(),
+        init_script = init_script.display(),
+    );
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("zsh")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh init test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("zsh init stdout:\n{stdout}\nstderr:\n{stderr}");
+
+    assert!(
+        result.status.success(),
+        "zsh init script exited non-zero. stderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("[describe:completions] val-1 val-2 val-3"),
+        "expected positional completions via _describe, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("--foo:Flag value"),
+        "expected --foo flag with description in _describe items, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_fish_completion_init_integration() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, init_script) = stage_init_test_env(&usage_bin, "fish", "fish");
+
+    // Fish: source the init (which scans $PATH), then verify `complete -C`
+    // produces the expected output. We restrict $PATH to the test bin dir
+    // plus coreutils so the scan stays bounded.
+    let test_script = format!(
+        r#"#!/usr/bin/env fish
+set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
+source "{init_script}"
+
+if not complete -c ex | string match -q -- '*usage*'
+    echo "FAIL: completion not registered for ex"
+    exit 1
+end
+echo "[registered] ex"
+
+echo "[empty]" (complete -C 'ex ')
+echo "[foo]" (complete -C 'ex --f')
+"#,
+        bin_dir = bin_dir.display(),
+        usage_dir = usage_bin.parent().unwrap().display(),
+        init_script = init_script.display(),
+    );
+    let script_file = temp_dir.join("test.fish");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("fish")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run fish init test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("fish init stdout:\n{stdout}\nstderr:\n{stderr}");
+
+    assert!(
+        result.status.success(),
+        "fish init script exited non-zero. stderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("[registered] ex"),
+        "expected `ex` to be registered, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("[empty] val-1 val-2 val-3"),
+        "expected positional completion, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("--foo"),
+        "expected --foo for `--f`, got: {stdout}"
+    );
+
     let _ = fs::remove_dir_all(&temp_dir);
 }
 

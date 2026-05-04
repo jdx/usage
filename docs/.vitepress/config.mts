@@ -96,6 +96,8 @@ export default defineConfig({
               { text: "Commander.js (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/commander" },
               { text: "oclif (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/oclif" },
               { text: "yargs (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/yargs" },
+              { text: "Typer (Python)", link: "https://pypi.org/project/usage-spec-typer/" },
+              { text: "Click (Python)", link: "https://pypi.org/project/usage-spec-click/" },
             ]
           }
         ]
