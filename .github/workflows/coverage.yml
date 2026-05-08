@@ -22,7 +22,7 @@ jobs:
       - run: rustup component add llvm-tools-preview --toolchain stable-x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@e5de28abeb52d916c5e5875d54b21a9e738b61ec # cargo-llvm-cov
+        uses: taiki-e/install-action@4c7e9f3bb4ca35f54341be8fc8d3608f71e4d24e # cargo-llvm-cov
       - name: Install shells for completion integration tests
         run: |
           sudo apt-get update
