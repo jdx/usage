@@ -139,8 +139,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          # Strip any pre-existing sponsor section (e.g. one inserted by
+          # communique) and trailing blanks before appending the canonical
+          # block. Idempotent regardless of what's already in the body —
+          # avoids the duplicate-block bug seen in mise v2026.5.4.
           {
-            gh release view "$TAG" --json body --jq .body
+            gh release view "$TAG" --json body --jq .body | awk '
+              /^## .*Sponsor usage[[:space:]]*$/ { exit }
+              /^[[:space:]]*$/ { blanks++; next }
+              { while (blanks-- > 0) print ""; blanks = 0; print }
+            '
             cat <<'EOF'
 
           ## 💚 Sponsor usage
