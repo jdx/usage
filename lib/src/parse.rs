@@ -454,11 +454,11 @@ fn parse_partial_with_env(
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
-            if !val.is_empty() {
-                input.push_front(val.to_string());
-            }
             if let Some(f) = out.available_flags.get(word) {
                 if f.arg.is_some() {
+                    if !val.is_empty() {
+                        input.push_front(val.to_string());
+                    }
                     out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
                     let arr = out
@@ -1307,6 +1307,41 @@ mod tests {
                 assert_eq!(v.len(), 2);
                 assert_eq!(v[0], "file1.txt");
                 assert_eq!(v[1], "file2.txt");
+            }
+            _ => panic!("Expected MultiString, got {:?}", value),
+        }
+    }
+
+    #[test]
+    fn test_arg_var_true_unknown_long_eq_flag_not_split() {
+        // Regression: `--unknown=value` against a spec with only a variadic
+        // positional must be captured as a single arg, not split into
+        // `--unknown=value` plus a trailing `value`.
+        let cmd = SpecCommand::builder()
+            .name("test")
+            .arg(
+                SpecArg::builder()
+                    .name("args")
+                    .var(true)
+                    .required(false)
+                    .build(),
+            )
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let input = vec!["test".to_string(), "--depth=3".to_string()];
+        let parsed = parse(&spec, &input).unwrap();
+
+        assert_eq!(parsed.args.len(), 1);
+        let value = parsed.args.values().next().unwrap();
+        match value {
+            ParseValue::MultiString(v) => {
+                assert_eq!(v, &vec!["--depth=3".to_string()]);
             }
             _ => panic!("Expected MultiString, got {:?}", value),
         }
