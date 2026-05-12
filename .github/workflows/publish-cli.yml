@@ -132,7 +132,7 @@ jobs:
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
         with:
           cache: false
-      - run: gh release edit ${GITHUB_REF_NAME} --draft=false
+      - run: gh release edit "${GITHUB_REF_NAME}" --draft=false
         if: ${{ github.event_name != 'workflow_dispatch' }}
   enhance-release:
     runs-on: ubuntu-latest
