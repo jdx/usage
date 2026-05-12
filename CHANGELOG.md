@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.3.1](https://github.com/jdx/usage/compare/v3.3.0..v3.3.1) - 2026-05-12
+
+### 🔍 Other Changes
+
+- **(ci)** make sponsor blurb append idempotent by [@jdx](https://github.com/jdx) in [#627](https://github.com/jdx/usage/pull/627)
+- **(ci)** remove autofix.ci workflow by [@jdx](https://github.com/jdx) in [#631](https://github.com/jdx/usage/pull/631)
+- **(ci)** assert mise run render produces no diff by [@jdx](https://github.com/jdx) in [#632](https://github.com/jdx/usage/pull/632)
+- remove pull_request_target workflow by [@jdx](https://github.com/jdx) in [#629](https://github.com/jdx/usage/pull/629)
+- remove caching from publishing workflows by [@jdx](https://github.com/jdx) in [#630](https://github.com/jdx/usage/pull/630)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#621](https://github.com/jdx/usage/pull/621)
+- update taiki-e/install-action digest to e5de28a by [@renovate[bot]](https://github.com/renovate[bot]) in [#624](https://github.com/jdx/usage/pull/624)
+- update rust crate ctor to 0.12 by [@renovate[bot]](https://github.com/renovate[bot]) in [#625](https://github.com/jdx/usage/pull/625)
+- update taiki-e/install-action digest to 4c7e9f3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#626](https://github.com/jdx/usage/pull/626)
+
 ## [3.3.0](https://github.com/jdx/usage/compare/v3.2.1..v3.3.0) - 2026-05-03
 
 ### 🚀 Features
