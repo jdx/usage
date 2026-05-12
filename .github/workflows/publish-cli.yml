@@ -1,7 +1,6 @@
 name: publish-cli
 
-permissions:
-  contents: write
+permissions: {}
 
 on:
   push:
@@ -21,16 +20,21 @@ env:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           submodules: recursive
           fetch-depth: 0
+          persist-credentials: false
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+        with:
+          cache: false
       - name: Create draft release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
-          TAG_NAME="${{ github.ref_name }}"
+          TAG_NAME="${GITHUB_REF_NAME}"
           awk '/^## \[/{if(found) exit; found=1} found{print}' CHANGELOG.md >/tmp/release-notes.txt
           BODY=$(cat /tmp/release-notes.txt)
           # GitHub may not have indexed the tag yet after a push. Draft releases
@@ -83,14 +87,18 @@ jobs:
             os: windows-latest
             build-tool: cargo
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           submodules: recursive
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
         with:
           experimental: true
+          cache: false
       - if: matrix.os == 'macos-latest'
         uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7
         with:
@@ -114,24 +122,34 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-publish]
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           submodules: recursive
+          persist-credentials: false
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
-      - run: gh release edit ${{ github.ref_name }} --draft=false
+        with:
+          cache: false
+      - run: gh release edit ${GITHUB_REF_NAME} --draft=false
         if: ${{ github.event_name != 'workflow_dispatch' }}
   enhance-release:
     runs-on: ubuntu-latest
     needs: [release]
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           submodules: recursive
           fetch-depth: 0
+          persist-credentials: false
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
-      - run: communique generate "${{ github.ref_name }}" --github-release
+        with:
+          cache: false
+      - run: communique generate "${GITHUB_REF_NAME}" --github-release
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Append en.dev sponsor blurb
