@@ -29,13 +29,6 @@ _mycli() {
 
   local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli.spec"
   mycli complete --usage >| "$spec_file"
-  # Each line from `complete-word --shell zsh` is two tab-separated columns:
-  #   1. value:description (or just value) for _describe's menu rendering
-  #   2. the shell-quoted form for compadd -Q to insert verbatim
-  # `usage complete-word` filters by the typed prefix, so `-U` tells compadd
-  # not to re-filter (which would discard our pre-quoted matches whose
-  # literal text starts with `'`). `compstate[insert]=menu` skips longest-
-  # common-prefix insertion when values share a leading quote.
   local -a completions=() inserts=()
   local needs_menu=0 display insert
   while IFS=$'\t' read -r display insert; do
