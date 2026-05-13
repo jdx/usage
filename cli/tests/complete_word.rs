@@ -293,20 +293,27 @@ fn complete_word_escaped_colons_in_completions() {
 #[test]
 fn complete_word_zsh_escapes_parens_and_brackets() {
     // zsh's _describe interprets parentheses as glob qualifiers and brackets
-    // as character classes, so they must be escaped in completion output.
+    // as character classes, so they must be escaped in the display column.
+    // The second (insert) column is shell-quoted for `compadd -Q`.
     // See: https://github.com/jdx/usage/issues/558
     let mut c = cmd("parens-in-descriptions.usage.kdl", Some("zsh"));
     c.args(["--", "run", ""]);
     c.assert().success().stdout(
-        "connect\\:server:Connect server \\(Hot Reload\\)\ntest\\:unit:Run tests \\[fast\\]\nbuild:Build project\n",
+        "connect\\:server:Connect server \\(Hot Reload\\)\tconnect:server\n\
+         test\\:unit:Run tests \\[fast\\]\ttest:unit\n\
+         build:Build project\tbuild\n",
     );
 }
 
 #[test]
 fn complete_word_zsh_escapes_colons_without_descriptions() {
+    // Display column has `\:` escapes for `_describe`; insert column has the
+    // raw value (no shell-quoting needed — colons aren't shell-special).
     let mut c = cmd("zsh-colons-without-descriptions.usage.kdl", Some("zsh"));
     c.args(["--", "run", ""]);
-    c.assert().success().stdout("test\\:git\ntest\\:nvim\n");
+    c.assert()
+        .success()
+        .stdout("test\\:git\ttest:git\ntest\\:nvim\ttest:nvim\n");
 }
 
 fn cmd(example: &str, shell: Option<&str>) -> Command {

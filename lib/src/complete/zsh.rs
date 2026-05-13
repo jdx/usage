@@ -86,24 +86,22 @@ fi"#
         r#"
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
   {file_write_logic}
+  # Each line from `complete-word --shell zsh` is two tab-separated columns:
+  #   1. value:description (or just value) for _describe's menu rendering
+  #   2. the shell-quoted form for compadd -Q to insert verbatim
+  # `usage complete-word` filters by the typed prefix, so `-U` tells compadd
+  # not to re-filter (which would discard our pre-quoted matches whose
+  # literal text starts with `'`). `compstate[insert]=menu` skips longest-
+  # common-prefix insertion when values share a leading quote.
   local -a completions=() inserts=()
-  local needs_menu=0
-  while IFS= read -r line; do
-    completions+=("$line")
-    local marker=$'\x01'
-    local subst="${{line//\\:/$marker}}"
-    local val="${{subst%%:*}}"
-    val="${{val//$marker/:}}"
-    val="${{val//\\\(/(}}"
-    val="${{val//\\\)/)}}"
-    val="${{val//\\\[/[}}"
-    val="${{val//\\\]/]}}"
-    local quoted="${{(q-)val}}"
-    inserts+=("$quoted")
-    [[ "$quoted" != "$val" ]] && needs_menu=1
+  local needs_menu=0 display insert
+  while IFS=$'\t' read -r display insert; do
+    completions+=("$display")
+    inserts+=("$insert")
+    [[ "$insert" == "'"* ]] && needs_menu=1
   done < <(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{(Q)words[@]}}")
   (( needs_menu )) && compstate[insert]=menu
-  _describe 'completions' completions inserts -Q -S ''
+  _describe 'completions' completions inserts -U -Q -S ''
   return 0
 }}
 
@@ -152,24 +150,14 @@ _usage_default_complete() {{
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if (( ${{+commands[{usage_bin}]}} )); then
                 local -a completions=() inserts=()
-                local needs_menu=0
-                local line
-                while IFS= read -r line; do
-                    completions+=("$line")
-                    local marker=$'\x01'
-                    local subst="${{line//\\:/$marker}}"
-                    local val="${{subst%%:*}}"
-                    val="${{val//$marker/:}}"
-                    val="${{val//\\\(/(}}"
-                    val="${{val//\\\)/)}}"
-                    val="${{val//\\\[/[}}"
-                    val="${{val//\\\]/]}}"
-                    local quoted="${{(q-)val}}"
-                    inserts+=("$quoted")
-                    [[ "$quoted" != "$val" ]] && needs_menu=1
+                local needs_menu=0 display insert
+                while IFS=$'\t' read -r display insert; do
+                    completions+=("$display")
+                    inserts+=("$insert")
+                    [[ "$insert" == "'"* ]] && needs_menu=1
                 done < <(command {usage_bin} complete-word --shell zsh -f "$cmdpath" --cword=$((CURRENT - 1)) -- "${{(Q)words[@]}}")
                 (( needs_menu )) && compstate[insert]=menu
-                _describe 'completions' completions inserts -Q -S ''
+                _describe 'completions' completions inserts -U -Q -S ''
                 return $?
             fi
         fi

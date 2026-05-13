@@ -59,13 +59,20 @@ impl CompleteWord {
                     }
                 }
                 "zsh" => {
-                    let c = zsh_escape(&c);
-                    if any_descriptions {
-                        let description = zsh_escape(&description);
-                        println!("{c}:{description}")
+                    // Two tab-separated columns per line:
+                    //   1. `value:description` (or just `value`) for _describe's
+                    //      menu rendering and prefix matching, with `:` `(` `)`
+                    //      `[` `]` escaped as `_describe` requires.
+                    //   2. The shell-quoted form that `compadd -Q` should insert
+                    //      verbatim — wrapped in single quotes when the value
+                    //      contains shell metacharacters, raw otherwise.
+                    let display = if any_descriptions {
+                        format!("{}:{}", zsh_escape(&c), zsh_escape(&description))
                     } else {
-                        println!("{c}")
-                    }
+                        zsh_escape(&c)
+                    };
+                    let insert = zsh_shell_quote(&c);
+                    println!("{display}\t{insert}")
                 }
                 _ => miette::bail!("unsupported shell: {}", shell),
             }
@@ -370,6 +377,25 @@ fn zsh_escape(s: &str) -> String {
         .replace(')', "\\)")
         .replace('[', "\\[")
         .replace(']', "\\]")
+}
+
+/// Wrap a completion value in single quotes if any character would otherwise
+/// be interpreted by the shell. The result is meant to be inserted by
+/// `compadd -Q` verbatim, so the user sees consistent single-quote quoting
+/// instead of zsh's default mix of backslash and single-quote styles.
+fn zsh_shell_quote(s: &str) -> String {
+    fn safe(c: char) -> bool {
+        matches!(c,
+            'a'..='z' | 'A'..='Z' | '0'..='9'
+            | '_' | '-' | '.' | '/' | ':' | '@' | '+' | '=' | '%' | ','
+        )
+    }
+    if !s.is_empty() && s.chars().all(safe) {
+        return s.to_string();
+    }
+    // Wrap in single quotes; close-open dance escapes any internal apostrophes.
+    let escaped = s.replace('\'', "'\\''");
+    format!("'{escaped}'")
 }
 
 fn sh(script: &str) -> XXResult<String> {

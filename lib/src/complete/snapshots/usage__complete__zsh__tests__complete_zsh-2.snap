@@ -31,24 +31,22 @@ _mycli() {
   if [[ ! -f "$spec_file" ]]; then
     mycli complete --usage >| "$spec_file"
   fi
+  # Each line from `complete-word --shell zsh` is two tab-separated columns:
+  #   1. value:description (or just value) for _describe's menu rendering
+  #   2. the shell-quoted form for compadd -Q to insert verbatim
+  # `usage complete-word` filters by the typed prefix, so `-U` tells compadd
+  # not to re-filter (which would discard our pre-quoted matches whose
+  # literal text starts with `'`). `compstate[insert]=menu` skips longest-
+  # common-prefix insertion when values share a leading quote.
   local -a completions=() inserts=()
-  local needs_menu=0
-  while IFS= read -r line; do
-    completions+=("$line")
-    local marker=$'\x01'
-    local subst="${line//\\:/$marker}"
-    local val="${subst%%:*}"
-    val="${val//$marker/:}"
-    val="${val//\\\(/(}"
-    val="${val//\\\)/)}"
-    val="${val//\\\[/[}"
-    val="${val//\\\]/]}"
-    local quoted="${(q-)val}"
-    inserts+=("$quoted")
-    [[ "$quoted" != "$val" ]] && needs_menu=1
+  local needs_menu=0 display insert
+  while IFS=$'\t' read -r display insert; do
+    completions+=("$display")
+    inserts+=("$insert")
+    [[ "$insert" == "'"* ]] && needs_menu=1
   done < <(command usage complete-word --shell zsh -f "$spec_file" -- "${(Q)words[@]}")
   (( needs_menu )) && compstate[insert]=menu
-  _describe 'completions' completions inserts -Q -S ''
+  _describe 'completions' completions inserts -U -Q -S ''
   return 0
 }
 
