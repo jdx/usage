@@ -86,11 +86,24 @@ fi"#
         r#"
   local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
   {file_write_logic}
-  local -a completions=()
+  local -a completions=() inserts=()
+  local needs_menu=0
   while IFS= read -r line; do
     completions+=("$line")
-  done < <(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{words[@]}}")
-  _describe 'completions' completions -S ''
+    local marker=$'\x01'
+    local subst="${{line//\\:/$marker}}"
+    local val="${{subst%%:*}}"
+    val="${{val//$marker/:}}"
+    val="${{val//\\\(/(}}"
+    val="${{val//\\\)/)}}"
+    val="${{val//\\\[/[}}"
+    val="${{val//\\\]/]}}"
+    local quoted="${{(q-)val}}"
+    inserts+=("$quoted")
+    [[ "$quoted" != "$val" ]] && needs_menu=1
+  done < <(command {usage_bin} complete-word --shell zsh -f "$spec_file" -- "${{(Q)words[@]}}")
+  (( needs_menu )) && compstate[insert]=menu
+  _describe 'completions' completions inserts -Q -S ''
   return 0
 }}
 
@@ -138,12 +151,25 @@ _usage_default_complete() {{
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if (( ${{+commands[{usage_bin}]}} )); then
-                local -a completions=()
+                local -a completions=() inserts=()
+                local needs_menu=0
                 local line
                 while IFS= read -r line; do
                     completions+=("$line")
-                done < <(command {usage_bin} complete-word --shell zsh -f "$cmdpath" --cword=$((CURRENT - 1)) -- "${{words[@]}}")
-                _describe 'completions' completions -S ''
+                    local marker=$'\x01'
+                    local subst="${{line//\\:/$marker}}"
+                    local val="${{subst%%:*}}"
+                    val="${{val//$marker/:}}"
+                    val="${{val//\\\(/(}}"
+                    val="${{val//\\\)/)}}"
+                    val="${{val//\\\[/[}}"
+                    val="${{val//\\\]/]}}"
+                    local quoted="${{(q-)val}}"
+                    inserts+=("$quoted")
+                    [[ "$quoted" != "$val" ]] && needs_menu=1
+                done < <(command {usage_bin} complete-word --shell zsh -f "$cmdpath" --cword=$((CURRENT - 1)) -- "${{(Q)words[@]}}")
+                (( needs_menu )) && compstate[insert]=menu
+                _describe 'completions' completions inserts -Q -S ''
                 return $?
             fi
         fi

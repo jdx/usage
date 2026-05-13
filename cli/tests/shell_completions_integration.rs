@@ -565,6 +565,140 @@ echo "COMPLETION_TEST_DONE"
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// Regression test for https://github.com/jdx/usage/issues/634
+/// Verifies that the zsh completion script builds an `inserts` array where
+/// choice values with spaces are wrapped in single quotes (so menu-selecting
+/// one inserts `'Alice Alice'`, not `Alice\ Alice`), and that the script
+/// passes its words through `${(Q)...}` to strip user-supplied quoting before
+/// invoking `usage complete-word`.
+#[test]
+fn test_zsh_completion_quotes_choices_with_spaces() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+
+    let temp_dir = env::temp_dir().join(format!(
+        "usage_zsh_choices_quote_test_{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+arg "<course>" required {
+  choices "A B & C"
+}
+arg "<recipient>" required {
+  choices "Alice Alice" "Bob Bob" "Carol Carol"
+}
+"#;
+    let spec_kdl_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_kdl_file, spec).unwrap();
+
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "zsh", "testcli"])
+        .arg("-f")
+        .arg(spec_kdl_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate zsh completion");
+    let completion_script = String::from_utf8_lossy(&output.stdout);
+
+    // Sanity checks on the generated script
+    assert!(
+        completion_script.contains("(Q)words"),
+        "Completion script should unquote `words` via (Q) flag, script:\n{completion_script}"
+    );
+    assert!(
+        completion_script.contains("(q-)val"),
+        "Completion script should pre-quote each choice via (q-) flag, script:\n{completion_script}"
+    );
+    assert!(
+        completion_script.contains("compstate[insert]=menu"),
+        "Completion script should force menu mode when values need quoting, script:\n{completion_script}"
+    );
+    assert!(
+        completion_script.contains("_describe 'completions' completions inserts -Q -S ''"),
+        "Completion script should call _describe with both display and inserts arrays and -Q, script:\n{completion_script}"
+    );
+
+    // Drive the parsing/quoting logic with a stub `usage` that mimics what
+    // `usage complete-word --shell zsh` would print for the recipient arg,
+    // then inspect the resulting `inserts` array.
+    let test_script = format!(
+        r#"#!/bin/zsh
+set -u
+
+# Stub `usage` so we can exercise the completion-script's parsing logic
+# without depending on a real completion-context (zpty etc).
+PATH="{tmp}/stubbin:$PATH"
+mkdir -p "{tmp}/stubbin"
+cat > "{tmp}/stubbin/usage" <<'STUB'
+#!/bin/sh
+# Mimic `usage complete-word --shell zsh` output for the recipient arg
+printf '%s\n' 'Alice Alice' 'Bob Bob' 'Carol Carol'
+STUB
+chmod +x "{tmp}/stubbin/usage"
+
+# Replicate the inner loop the completion script runs.
+local -a completions=() inserts=()
+local needs_menu=0
+while IFS= read -r line; do
+    completions+=("$line")
+    local marker=$'\x01'
+    local subst="${{line//\\:/$marker}}"
+    local val="${{subst%%:*}}"
+    val="${{val//$marker/:}}"
+    val="${{val//\\\(/(}}"
+    val="${{val//\\\)/)}}"
+    val="${{val//\\\[/[}}"
+    val="${{val//\\\]/]}}"
+    local quoted="${{(q-)val}}"
+    inserts+=("$quoted")
+    [[ "$quoted" != "$val" ]] && needs_menu=1
+done < <(usage complete-word --shell zsh)
+
+print -r -- "needs_menu=$needs_menu"
+for i in {{1..3}}; do
+    print -r -- "inserts[$i]=${{inserts[$i]}}"
+done
+"#,
+        tmp = temp_dir.to_str().unwrap(),
+    );
+
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("zsh")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh test");
+
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("stdout:\n{stdout}");
+    println!("stderr:\n{stderr}");
+
+    assert!(
+        stdout.contains("needs_menu=1"),
+        "Expected needs_menu=1 for choices with spaces, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("inserts[1]='Alice Alice'"),
+        "Expected inserts[1]='Alice Alice', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("inserts[2]='Bob Bob'"),
+        "Expected inserts[2]='Bob Bob', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("inserts[3]='Carol Carol'"),
+        "Expected inserts[3]='Carol Carol', got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 #[test]
 fn test_powershell_completion_integration() {
     if skip_if_shell_missing("pwsh") {
