@@ -31,11 +31,11 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
         if opts.cache_key.is_some() {
             format!(
                 r#"if not ($spec_file | path exists) {{
-            {usage_cmd} | collect | save $spec_file
+            ^{usage_cmd} | collect | save $spec_file
         }}"#
             )
         } else {
-            format!(r#"{usage_cmd} | collect | save -f $spec_file"#)
+            format!(r#"^{usage_cmd} | collect | save -f $spec_file"#)
         }
     } else if let Some(_spec) = &opts.spec {
         if opts.cache_key.is_some() {
@@ -57,7 +57,7 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
         let spec_file = $"($nu.temp-dir)/usage_{spec_variable}.spec"
         {file_write_logic}
 
-        ({usage_bin} complete-word -f $spec_file --shell nu -- ...$spans)
+        (^{usage_bin} complete-word -f $spec_file --shell nu -- ...$spans)
         | lines
         | each {{|it| $it | split column "\t" | rename value description | into record }}
     }}

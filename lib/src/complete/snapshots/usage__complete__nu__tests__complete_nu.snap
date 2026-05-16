@@ -6,9 +6,9 @@ expression: "complete_nu(&CompleteOptions\n{\n    usage_bin: \"usage\".to_string
 module _mycli_completions {
     def mycli_completer [spans: list<string>] {
         let spec_file = $"($nu.temp-dir)/usage__usage_spec_mycli.spec"
-        mycli complete --usage | collect | save -f $spec_file
+        ^mycli complete --usage | collect | save -f $spec_file
 
-        (usage complete-word -f $spec_file --shell nu -- ...$spans)
+        (^usage complete-word -f $spec_file --shell nu -- ...$spans)
         | lines
         | each {|it| $it | split column "\t" | rename value description | into record }
     }
