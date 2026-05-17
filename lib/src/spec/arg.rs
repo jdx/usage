@@ -7,7 +7,7 @@ use std::str::FromStr;
 use crate::error::UsageErr;
 use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecChoices};
 
@@ -176,13 +176,13 @@ impl From<&SpecArg> for KdlNode {
         let mut node = KdlNode::new("arg");
         node.push(KdlEntry::new(arg.usage()));
         if let Some(desc) = &arg.help {
-            node.push(KdlEntry::new_prop("help", desc.clone()));
+            node.push(string_entry(Some("help"), desc));
         }
         if let Some(desc) = &arg.help_long {
-            node.push(KdlEntry::new_prop("help_long", desc.clone()));
+            node.push(string_entry(Some("help_long"), desc));
         }
         if let Some(desc) = &arg.help_md {
-            node.push(KdlEntry::new_prop("help_md", desc.clone()));
+            node.push(string_entry(Some("help_md"), desc));
         }
         if !arg.required {
             node.push(KdlEntry::new_prop("required", false));
@@ -211,7 +211,7 @@ impl From<&SpecArg> for KdlNode {
         if !arg.default.is_empty() {
             if arg.default.len() == 1 {
                 // Single value: use property default="bar"
-                node.push(KdlEntry::new_prop("default", arg.default[0].clone()));
+                node.push(string_entry(Some("default"), &arg.default[0]));
             } else {
                 // Multiple values: use child node default { "xyz"; "bar" }
                 let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -228,7 +228,7 @@ impl From<&SpecArg> for KdlNode {
             }
         }
         if let Some(env) = &arg.env {
-            node.push(KdlEntry::new_prop("env", env.clone()));
+            node.push(string_entry(Some("env"), env));
         }
         if let Some(choices) = &arg.choices {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

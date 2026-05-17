@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
 use crate::spec::data_types::SpecDataTypes;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecConfig {
@@ -72,19 +72,19 @@ impl SpecConfigProp {
         let mut node = KdlNode::new("prop");
         node.push(KdlEntry::new(key));
         if let Some(default) = &self.default {
-            node.push(KdlEntry::new_prop("default", default.clone()));
+            node.push(string_entry(Some("default"), default));
         }
         if let Some(default_note) = &self.default_note {
-            node.push(KdlEntry::new_prop("default_note", default_note.clone()));
+            node.push(string_entry(Some("default_note"), default_note));
         }
         if let Some(env) = &self.env {
-            node.push(KdlEntry::new_prop("env", env.clone()));
+            node.push(string_entry(Some("env"), env));
         }
         if let Some(help) = &self.help {
-            node.push(KdlEntry::new_prop("help", help.clone()));
+            node.push(string_entry(Some("help"), help));
         }
         if let Some(long_help) = &self.long_help {
-            node.push(KdlEntry::new_prop("long_help", long_help.clone()));
+            node.push(string_entry(Some("long_help"), long_help));
         }
         node
     }

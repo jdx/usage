@@ -5,13 +5,13 @@ use crate::error::UsageErr;
 use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
 use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
 use indexmap::IndexMap;
 use itertools::Itertools;
-use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 /// A CLI command or subcommand specification.
@@ -154,15 +154,15 @@ impl SpecExample {
 impl From<&SpecExample> for KdlNode {
     fn from(example: &SpecExample) -> KdlNode {
         let mut node = KdlNode::new("example");
-        node.push(KdlEntry::new(example.code.clone()));
+        node.push(string_entry(None, &example.code));
         if let Some(header) = &example.header {
-            node.push(KdlEntry::new_prop("header", header.clone()));
+            node.push(string_entry(Some("header"), header));
         }
         if let Some(help) = &example.help {
-            node.push(KdlEntry::new_prop("help", help.clone()));
+            node.push(string_entry(Some("help"), help));
         }
         if !example.lang.is_empty() {
-            node.push(KdlEntry::new_prop("lang", example.lang.clone()));
+            node.push(string_entry(Some("lang"), &example.lang));
         }
         node
     }
@@ -487,52 +487,55 @@ impl From<&SpecCommand> for KdlNode {
             children.nodes_mut().push(aliases);
         }
         if let Some(help) = &cmd.help {
-            node.entries_mut()
-                .push(KdlEntry::new_prop("help", help.clone()));
+            node.entries_mut().push(string_entry(Some("help"), help));
         }
         if let Some(help) = &cmd.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("help_md");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.before_help {
             node.entries_mut()
-                .push(KdlEntry::new_prop("before_help", help.clone()));
+                .push(string_entry(Some("before_help"), help));
         }
         if let Some(help) = &cmd.before_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_long_help");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.before_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_help_md");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.after_help {
             node.entries_mut()
-                .push(KdlEntry::new_prop("after_help", help.clone()));
+                .push(string_entry(Some("after_help"), help));
         }
         if let Some(help) = &cmd.after_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_long_help");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
         if let Some(help) = &cmd.after_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_help_md");
-            node.insert(0, KdlValue::String(help.clone()));
+            node.push(string_entry(None, help));
             children.nodes_mut().push(node);
+        }
+        if let Some(deprecated) = &cmd.deprecated {
+            node.entries_mut()
+                .push(string_entry(Some("deprecated"), deprecated));
         }
         for flag in &cmd.flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

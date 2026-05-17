@@ -1,11 +1,52 @@
 use indexmap::IndexMap;
-use kdl::{KdlEntry, KdlNode, KdlValue};
+use kdl::{KdlEntry, KdlEntryFormat, KdlNode, KdlValue};
 use miette::SourceSpan;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
+
+/// Compute the number of `#` characters needed for a raw multiline string.
+/// We need `n` such that the value does not contain `"""` followed by `n` `#` characters.
+fn raw_multiline_hash_count(value: &str) -> usize {
+    let mut max_count = 0;
+    for line in value.lines() {
+        for (idx, _) in line.match_indices("\"\"\"") {
+            let after = &line[idx + 3..];
+            let count = after.chars().take_while(|&c| c == '#').count();
+            max_count = max_count.max(count);
+        }
+    }
+    max_count + 1
+}
+
+/// Create a KdlEntry for a string value, using KDL raw multiline string syntax (`#"""..."""#`)
+/// when the value contains newlines. The number of `#` characters is automatically determined
+/// to ensure the value can be embedded safely.
+pub(crate) fn string_entry(key: Option<&str>, value: &str) -> KdlEntry {
+    let mut entry = match key {
+        Some(k) => KdlEntry::new_prop(k, KdlValue::String(value.to_string())),
+        None => KdlEntry::new(KdlValue::String(value.to_string())),
+    };
+    if value.contains('\n') {
+        let n = raw_multiline_hash_count(value);
+        let hashes = "#".repeat(n);
+        let repr = format!("{hashes}\"\"\"\n{value}\n\"\"\"{hashes}");
+        entry.set_format(KdlEntryFormat {
+            value_repr: repr,
+            leading: " ".into(),
+            trailing: "".into(),
+            after_ty: "".into(),
+            before_ty_name: "".into(),
+            after_ty_name: "".into(),
+            after_key: "".into(),
+            after_eq: "".into(),
+            autoformat_keep: true,
+        });
+    }
+    entry
+}
 
 #[derive(Debug)]
 pub struct NodeHelper<'a> {

@@ -7,7 +7,14 @@ usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
 cmd bash help="Execute a shell script using bash" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     flag -h help="Show help"
     flag --help help="Show help"
     arg <SCRIPT>
@@ -15,7 +22,11 @@ cmd bash help="Execute a shell script using bash" {
 }
 cmd complete-word help="Generate shell completion candidates for a partial command line" {
     alias cw
-    long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments."
+    long_help #"""
+Generate shell completion candidates for a partial command line
+
+This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+"""#
     flag "-f --file" help="Usage spec file or script with usage shebang, use \"-\" to read from stdin" {
         arg <FILE>
     }
@@ -41,7 +52,14 @@ cmd exec help="Execute a script, parsing args and exposing them as environment v
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
 }
 cmd fish help="Execute a shell script using fish" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     flag -h help="Show help"
     flag --help help="Show help"
     arg <SCRIPT>
@@ -59,10 +77,18 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <CACHE_KEY>
         }
         flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
-            long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
+            long_help #"""
+Include https://github.com/scop/bash-completion
+
+This is required for usage completions to work in bash, but the user may already provide it
+"""#
         }
         flag --usage-bin help="Override the bin used for calling back to usage-cli" default=usage {
-            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            long_help #"""
+Override the bin used for calling back to usage-cli
+
+You may need to set this if you have a different bin named "usage"
+"""#
             arg <USAGE_BIN>
         }
         flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" {
@@ -76,9 +102,17 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
     cmd completion-init help="Generate a shell init script that auto-completes any usage shebang script on $PATH" {
         alias ci
         alias init completions-init hide=#true
-        long_help "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required."
+        long_help #"""
+Generate a shell init script that auto-completes any usage shebang script on $PATH
+
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
+"""#
         flag --usage-bin help="Override the bin used for calling back to usage-cli" default=usage {
-            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            long_help #"""
+Override the bin used for calling back to usage-cli
+
+You may need to set this if you have a different bin named "usage"
+"""#
             arg <USAGE_BIN>
         }
         arg <SHELL> help="Shell to generate the init script for" {
@@ -113,7 +147,11 @@ cmd generate subcommand_required=#true help="Generate completions, documentation
             arg <OUT_FILE>
         }
         flag "-s --section" help="Manual section number (default: 1)" default="1" {
-            long_help "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands"
+            long_help #"""
+Manual section number (default: 1)
+
+Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
+"""#
             arg <SECTION>
         }
     }
@@ -146,14 +184,28 @@ cmd lint help="Lint a usage spec file for common issues" {
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
 cmd powershell help="Execute a shell script using PowerShell" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     flag -h help="Show help"
     flag --help help="Show help"
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
 cmd zsh help="Execute a shell script using zsh" {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     flag -h help="Show help"
     flag --help help="Show help"
     arg <SCRIPT>
