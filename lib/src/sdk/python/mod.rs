@@ -12,6 +12,10 @@ use crate::spec::config::SpecConfigProp;
 use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
+fn sanitize_py_comment(text: &str) -> String {
+    text.replace(['\n', '\r'], " ")
+}
+
 mod runtime;
 
 pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
@@ -139,7 +143,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
                 String::new()
             };
             if let Some(help) = &prop.help {
-                w.line(&format!("# {help}"));
+                w.line(&format!("# {}", sanitize_py_comment(help)));
             }
             w.line(&format!("{name}: {py_type}{default}"));
         }
@@ -258,7 +262,7 @@ fn render_args_dataclass(
                 format!("{}: {}", sanitize_py_ident(&arg.name), py_type)
             };
             if let Some(help) = &arg.help {
-                w.line(&format!("# {help}"));
+                w.line(&format!("# {}", sanitize_py_comment(help)));
             }
             w.line(&field);
         }
@@ -340,7 +344,10 @@ fn render_flags_dataclass(
                 doc_parts.push(format!("Short: {}", shorts.join(", ")));
             }
             if !doc_parts.is_empty() {
-                w.line(&format!("# {}", doc_parts.join(". ")));
+                w.line(&format!(
+                    "# {}",
+                    sanitize_py_comment(&doc_parts.join(". "))
+                ));
             }
             w.line(&field);
         }

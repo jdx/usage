@@ -352,7 +352,8 @@ pub(crate) fn sanitize_ident(name: &str) -> String {
     let camel = heck::AsLowerCamelCase(name).to_string();
     match camel.as_str() {
         "function" | "class" | "const" | "let" | "var" | "type" | "interface" | "new"
-        | "delete" | "return" | "export" | "import" | "default" | "in" | "instanceof" => {
+        | "delete" | "return" | "export" | "import" | "default" | "in" | "instanceof"
+        | "exec" | "runner" | "buildFlagArgs" => {
             format!("_{camel}")
         }
         _ => camel,
