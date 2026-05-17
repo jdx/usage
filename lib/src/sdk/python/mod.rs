@@ -57,7 +57,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
     w.line(&generated_header("#", source_file));
     w.line("from __future__ import annotations");
     w.line("from dataclasses import dataclass");
-    w.line("from typing import Literal, Optional, Union");
+    w.line("from typing import Literal, Optional");
     w.line("");
 
     // spec metadata
@@ -307,8 +307,8 @@ fn render_flags_dataclass(
                         }
                     }
                 } else if flag.var {
-                    // var value flag with default — cannot use list literal as default
-                    // (Python dataclass requires immutable defaults), use None with comment
+                    // var flag with a default — list defaults are mutable and forbidden in dataclasses.
+                    // use None and preserve the intended default in a comment.
                     format!("{prop_name}: Optional[{py_type}] = None  # default: {default_val}")
                 } else {
                     format!(
