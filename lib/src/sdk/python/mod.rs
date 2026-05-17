@@ -344,10 +344,7 @@ fn render_flags_dataclass(
                 doc_parts.push(format!("Short: {}", shorts.join(", ")));
             }
             if !doc_parts.is_empty() {
-                w.line(&format!(
-                    "# {}",
-                    sanitize_py_comment(&doc_parts.join(". "))
-                ));
+                w.line(&format!("# {}", sanitize_py_comment(&doc_parts.join(". "))));
             }
             w.line(&field);
         }
