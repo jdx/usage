@@ -69,7 +69,7 @@ cmd plugin {
         let spec_file = $"($nu.temp-dir)/usage__usage_spec_mycli.spec"
         $_usage_spec_mycli | save -f $spec_file
 
-        (usage complete-word -f $spec_file --shell nu -- ...$spans)
+        (^usage complete-word -f $spec_file --shell nu -- ...$spans)
         | lines
         | each {|it| $it | split column "\t" | rename value description | into record }
     }
