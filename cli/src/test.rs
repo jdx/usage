@@ -1,6 +1,6 @@
 use crate::env;
 
-#[ctor::ctor]
+#[ctor::ctor(unsafe)]
 fn init() {
     env::set_var("USAGE_BIN", "usage");
 }
