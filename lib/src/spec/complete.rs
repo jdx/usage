@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -47,12 +47,12 @@ impl SpecComplete {
 impl From<&SpecComplete> for KdlNode {
     fn from(complete: &SpecComplete) -> Self {
         let mut node = KdlNode::new("complete");
-        node.push(KdlEntry::new(complete.name.clone()));
+        node.push(string_entry(None, &complete.name));
         if let Some(run) = &complete.run {
-            node.push(KdlEntry::new_prop("run", run.clone()));
+            node.push(string_entry(Some("run"), run));
         }
         if let Some(type_) = &complete.type_ {
-            node.push(KdlEntry::new_prop("type", type_.clone()));
+            node.push(string_entry(Some("type"), type_));
         }
         if complete.descriptions {
             node.push(KdlEntry::new_prop("descriptions", true));

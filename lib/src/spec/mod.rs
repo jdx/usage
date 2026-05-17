@@ -11,7 +11,7 @@ pub mod helpers;
 pub mod mount;
 
 use indexmap::IndexMap;
-use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
+use kdl::{KdlDocument, KdlEntry, KdlNode};
 use log::{info, warn};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
@@ -24,7 +24,7 @@ use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
 use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::{SpecArg, SpecComplete, SpecFlag};
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -358,67 +358,67 @@ impl Display for Spec {
         let nodes = &mut doc.nodes_mut();
         if !self.name.is_empty() {
             let mut node = KdlNode::new("name");
-            node.push(KdlEntry::new(self.name.clone()));
+            node.push(string_entry(None, &self.name));
             nodes.push(node);
         }
         if !self.bin.is_empty() {
             let mut node = KdlNode::new("bin");
-            node.push(KdlEntry::new(self.bin.clone()));
+            node.push(string_entry(None, &self.bin));
             nodes.push(node);
         }
         if let Some(version) = &self.version {
             let mut node = KdlNode::new("version");
-            node.push(KdlEntry::new(version.clone()));
+            node.push(string_entry(None, version));
             nodes.push(node);
         }
         if let Some(author) = &self.author {
             let mut node = KdlNode::new("author");
-            node.push(KdlEntry::new(author.clone()));
+            node.push(string_entry(None, author));
             nodes.push(node);
         }
         if let Some(about) = &self.about {
             let mut node = KdlNode::new("about");
-            node.push(KdlEntry::new(about.clone()));
+            node.push(string_entry(None, about));
             nodes.push(node);
         }
         if let Some(source_code_link_template) = &self.source_code_link_template {
             let mut node = KdlNode::new("source_code_link_template");
-            node.push(KdlEntry::new(source_code_link_template.clone()));
+            node.push(string_entry(None, source_code_link_template));
             nodes.push(node);
         }
         if let Some(about_md) = &self.about_md {
             let mut node = KdlNode::new("about_md");
-            node.push(KdlEntry::new(KdlValue::String(about_md.clone())));
+            node.push(string_entry(None, about_md));
             nodes.push(node);
         }
         if let Some(long_about) = &self.about_long {
             let mut node = KdlNode::new("long_about");
-            node.push(KdlEntry::new(KdlValue::String(long_about.clone())));
+            node.push(string_entry(None, long_about));
             nodes.push(node);
         }
         if let Some(license) = &self.license {
             let mut node = KdlNode::new("license");
-            node.push(KdlEntry::new(KdlValue::String(license.clone())));
+            node.push(string_entry(None, license));
             nodes.push(node);
         }
         if let Some(before_help) = &self.before_help {
             let mut node = KdlNode::new("before_help");
-            node.push(KdlEntry::new(KdlValue::String(before_help.clone())));
+            node.push(string_entry(None, before_help));
             nodes.push(node);
         }
         if let Some(after_help) = &self.after_help {
             let mut node = KdlNode::new("after_help");
-            node.push(KdlEntry::new(KdlValue::String(after_help.clone())));
+            node.push(string_entry(None, after_help));
             nodes.push(node);
         }
         if let Some(before_help_long) = &self.before_help_long {
             let mut node = KdlNode::new("before_long_help");
-            node.push(KdlEntry::new(KdlValue::String(before_help_long.clone())));
+            node.push(string_entry(None, before_help_long));
             nodes.push(node);
         }
         if let Some(after_help_long) = &self.after_help_long {
             let mut node = KdlNode::new("after_long_help");
-            node.push(KdlEntry::new(KdlValue::String(after_help_long.clone())));
+            node.push(string_entry(None, after_help_long));
             nodes.push(node);
         }
         if let Some(disable_help) = self.disable_help {
@@ -428,17 +428,17 @@ impl Display for Spec {
         }
         if let Some(min_usage_version) = &self.min_usage_version {
             let mut node = KdlNode::new("min_usage_version");
-            node.push(KdlEntry::new(min_usage_version.clone()));
+            node.push(string_entry(None, min_usage_version));
             nodes.push(node);
         }
         if let Some(default_subcommand) = &self.default_subcommand {
             let mut node = KdlNode::new("default_subcommand");
-            node.push(KdlEntry::new(default_subcommand.clone()));
+            node.push(string_entry(None, default_subcommand));
             nodes.push(node);
         }
         if !self.usage.is_empty() {
             let mut node = KdlNode::new("usage");
-            node.push(KdlEntry::new(self.usage.clone()));
+            node.push(string_entry(None, &self.usage));
             nodes.push(node);
         }
         for flag in self.cmd.flags.iter() {

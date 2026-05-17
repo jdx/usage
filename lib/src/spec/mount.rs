@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-use kdl::{KdlEntry, KdlNode};
+use kdl::KdlNode;
 use serde::Serialize;
 
 use crate::error::Result;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecMount {
@@ -44,7 +44,7 @@ impl SpecMount {
 impl From<&SpecMount> for KdlNode {
     fn from(mount: &SpecMount) -> KdlNode {
         let mut node = KdlNode::new("mount");
-        node.push(KdlEntry::new_prop("run", mount.run.clone()));
+        node.push(string_entry(Some("run"), &mount.run));
         node
     }
 }

@@ -9,7 +9,7 @@ use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::NodeHelper;
+use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices};
 
@@ -226,18 +226,18 @@ impl From<&SpecFlag> for KdlNode {
             .join(" ");
         node.push(KdlEntry::new(name));
         if let Some(desc) = &flag.help {
-            node.push(KdlEntry::new_prop("help", desc.clone()));
+            node.push(string_entry(Some("help"), desc));
         }
         if let Some(desc) = &flag.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
-            node.entries_mut().push(KdlEntry::new(desc.clone()));
+            node.push(string_entry(None, desc));
             children.nodes_mut().push(node);
         }
         if let Some(desc) = &flag.help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("help_md");
-            node.entries_mut().push(KdlEntry::new(desc.clone()));
+            node.push(string_entry(None, desc));
             children.nodes_mut().push(node);
         }
         if flag.required {
@@ -262,13 +262,13 @@ impl From<&SpecFlag> for KdlNode {
             node.push(KdlEntry::new_prop("count", true));
         }
         if let Some(negate) = &flag.negate {
-            node.push(KdlEntry::new_prop("negate", negate.clone()));
+            node.push(string_entry(Some("negate"), negate));
         }
         if let Some(env) = &flag.env {
-            node.push(KdlEntry::new_prop("env", env.clone()));
+            node.push(string_entry(Some("env"), env));
         }
         if let Some(deprecated) = &flag.deprecated {
-            node.push(KdlEntry::new_prop("deprecated", deprecated.clone()));
+            node.push(string_entry(Some("deprecated"), deprecated));
         }
         // Serialize default values
         if !flag.default.is_empty() {
