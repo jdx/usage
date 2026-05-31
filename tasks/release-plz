@@ -33,12 +33,12 @@ PR_BODY="$(git cliff --bump --unreleased --strip all | tail -n +3)"
 
 cargo set-version "${version#v}" --exclude clap_usage
 mise run render
-mise run lint-fix
 
 git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
 cargo update
 aube update
+mise run lint-fix
 git add \
   {./,cli/,lib/}Cargo.* \
   package.json aube-lock.yaml \
