@@ -162,6 +162,55 @@ fn complete_word_mounted_with_global_flags() {
 }
 
 #[test]
+fn complete_word_mounted_global_flag_choices() {
+    // Regression for the parser-side root cause referenced by jdx/mise#10069:
+    // a value-taking global flag placed before a mounted subcommand must not leak its
+    // consumed tokens into the mounted task's `choices` positional arg.
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Baseline: no global flag prefix. The mount sees no `usage_cd`, so it returns the
+    // default choices. This must complete (not error) and not be polluted by stray tokens.
+    assert_cmd(
+        "mounted-global-flags-choices.sh",
+        &["--", "run", "sample:run", ""],
+    )
+    .stdout("one\ntwo\n");
+
+    // Value-taking global flag before the mounted subcommand (the failing case). The choices
+    // switch to the dir2 set, which also proves `usage_cd=dir2` propagated to the mount even
+    // though `run` re-declares `-C/--cd` as non-global.
+    assert_cmd(
+        "mounted-global-flags-choices.sh",
+        &["--", "-C", "dir2", "run", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+
+    // Long form.
+    assert_cmd(
+        "mounted-global-flags-choices.sh",
+        &["--", "--cd", "dir2", "run", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+
+    // Embedded-value form.
+    assert_cmd(
+        "mounted-global-flags-choices.sh",
+        &["--", "--cd=dir2", "run", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+}
+
+#[test]
 fn complete_word_boolean_flags_dont_consume_subcommands() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
