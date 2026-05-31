@@ -1,5 +1,51 @@
 # Changelog
 
+## [3.4.0](https://github.com/jdx/usage/compare/v3.3.0..v3.4.0) - 2026-05-31
+
+### 🚀 Features
+
+- **(spec)** output KDL multiline strings for descriptions by [@gaojunran](https://github.com/gaojunran) in [#639](https://github.com/jdx/usage/pull/639)
+
+### 🐛 Bug Fixes
+
+- **(ci)** preserve release push credentials by [@jdx](https://github.com/jdx) in [#650](https://github.com/jdx/usage/pull/650)
+- **(nushell)** use caret for invoking cmd in completion script by [@silvanshade](https://github.com/silvanshade) in [#638](https://github.com/jdx/usage/pull/638)
+- **(parse)** keep inherited global flags when a subcommand re-declares them as non-global by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#649](https://github.com/jdx/usage/pull/649)
+- **(zsh)** consistently single-quote choice values containing spaces by [@jdx](https://github.com/jdx) in [#635](https://github.com/jdx/usage/pull/635)
+
+### 🛡️ Security
+
+- **(ci)** add zizmor workflow for github actions security analysis by [@jdx](https://github.com/jdx) in [#633](https://github.com/jdx/usage/pull/633)
+
+### 🔍 Other Changes
+
+- **(ci)** make sponsor blurb append idempotent by [@jdx](https://github.com/jdx) in [#627](https://github.com/jdx/usage/pull/627)
+- **(ci)** remove autofix.ci workflow by [@jdx](https://github.com/jdx) in [#631](https://github.com/jdx/usage/pull/631)
+- **(ci)** assert mise run render produces no diff by [@jdx](https://github.com/jdx) in [#632](https://github.com/jdx/usage/pull/632)
+- **(ci)** add PR autocloser by [@jdx](https://github.com/jdx) in [#640](https://github.com/jdx/usage/pull/640)
+- **(ci)** format release lock after aube update by [@jdx](https://github.com/jdx) in [#653](https://github.com/jdx/usage/pull/653)
+- remove pull_request_target workflow by [@jdx](https://github.com/jdx) in [#629](https://github.com/jdx/usage/pull/629)
+- remove caching from publishing workflows by [@jdx](https://github.com/jdx) in [#630](https://github.com/jdx/usage/pull/630)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#621](https://github.com/jdx/usage/pull/621)
+- update taiki-e/install-action digest to e5de28a by [@renovate[bot]](https://github.com/renovate[bot]) in [#624](https://github.com/jdx/usage/pull/624)
+- update rust crate ctor to 0.12 by [@renovate[bot]](https://github.com/renovate[bot]) in [#625](https://github.com/jdx/usage/pull/625)
+- update taiki-e/install-action digest to 4c7e9f3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#626](https://github.com/jdx/usage/pull/626)
+- update rust crate ctor to v1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#637](https://github.com/jdx/usage/pull/637)
+- update codecov/codecov-action digest to e79a696 by [@renovate[bot]](https://github.com/renovate[bot]) in [#642](https://github.com/jdx/usage/pull/642)
+- update zizmorcore/zizmor-action action to v0.5.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#644](https://github.com/jdx/usage/pull/644)
+- update rust crate assert_cmd to v2.2.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#643](https://github.com/jdx/usage/pull/643)
+- update rust crate serde_with to v3.20.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#645](https://github.com/jdx/usage/pull/645)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#647](https://github.com/jdx/usage/pull/647)
+- update zizmorcore/zizmor-action action to v0.5.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#648](https://github.com/jdx/usage/pull/648)
+
+### New Contributors
+
+- @JamBalaya56562 made their first contribution in [#649](https://github.com/jdx/usage/pull/649)
+- @silvanshade made their first contribution in [#638](https://github.com/jdx/usage/pull/638)
+
 ## [3.3.0](https://github.com/jdx/usage/compare/v3.2.1..v3.3.0) - 2026-05-03
 
 ### 🚀 Features
