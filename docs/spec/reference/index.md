@@ -43,7 +43,8 @@ source_code_link_template #"""
 {%- else -%}
 {%- set path = path ~ ".rs" -%}
 {%- endif -%}
-https://github.com/jdx/mise/blob/main/src/cli/{{path}}"""#
+https://github.com/jdx/mise/blob/main/src/cli/{{path}}
+"""#
 ```
 
 ## Examples
