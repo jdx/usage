@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.MY_RELEASE_PLEASE_TOKEN }}
-          persist-credentials: false
+          persist-credentials: true
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
         with:
           experimental: true
