@@ -36,14 +36,14 @@ This is a tera template that can be used to customize the path for markdown docu
 example, in mise I use the following to convert filenames to snake case:
 
 ```kdl
-source_code_link_template r#"
+source_code_link_template #"""
 {%- set path = path | replace(from='-', to='_') -%}
 {%- if cmd.subcommands | length > 0 -%}
 {%- set path = path | split(pat="/") | slice(end=1) | concat(with="mod.rs") | join(sep="/") -%}
 {%- else -%}
 {%- set path = path ~ ".rs" -%}
 {%- endif -%}
-https://github.com/jdx/mise/blob/main/src/cli/{{path}}"#
+https://github.com/jdx/mise/blob/main/src/cli/{{path}}"""#
 ```
 
 ## Examples

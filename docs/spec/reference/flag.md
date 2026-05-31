@@ -43,10 +43,11 @@ flag "--env <env>" {
 flag "--file <file>" long_help="longer help for --help (as opposed to -h)"
 // this is equivalent to the above but preferred when a lot of space is needed
 flag "--file <file>" {
-  long_help r#"longer help for --help (as opposed to -h)
-   even
-   more
-   text
-   "#
+  long_help #"""
+    longer help for --help (as opposed to -h)
+    even
+    more
+    text
+    """#
 }
 ```
