@@ -14,6 +14,33 @@ use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
+/// Merge a subcommand's flags into the currently available flags when descending
+/// into that subcommand.
+///
+/// On descent we drop the parent's non-global flags (they are scoped to the parent)
+/// but keep its global flags so they remain recognized further down. A subcommand may
+/// re-declare a flag that the parent exposed as global (e.g. `-C/--cd`) but mark its own
+/// copy as non-global. In that case we must NOT let the non-global re-declaration shadow
+/// the inherited global flag, otherwise the next descent's `retain(global)` would drop it
+/// entirely and later parsing would treat the already-consumed global token as an
+/// unexpected positional/flag value.
+fn merge_subcommand_flags(
+    available: &mut BTreeMap<String, Arc<SpecFlag>>,
+    new_flags: BTreeMap<String, Arc<SpecFlag>>,
+) {
+    // Keep only inherited global flags from the parent.
+    available.retain(|_, f| f.global);
+    for (key, flag) in new_flags {
+        // Don't let a subcommand's non-global re-declaration shadow an inherited global flag.
+        // After the `retain` above, every remaining entry is global, so a present key here is
+        // always an inherited global flag.
+        if !flag.global && available.contains_key(&key) {
+            continue;
+        }
+        available.insert(key, flag);
+    }
+}
+
 /// Extract the flag key from a flag word for lookup in available_flags map
 /// Handles both long flags (--flag, --flag=value) and short flags (-f)
 fn get_flag_key(word: &str) -> &str {
@@ -338,8 +365,7 @@ fn parse_partial_with_env(
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&prefix_words)?;
-            out.available_flags.retain(|_, f| f.global);
-            out.available_flags.extend(gather_flags(&subcommand));
+            merge_subcommand_flags(&mut out.available_flags, gather_flags(&subcommand));
             // Remove subcommand from input
             input.remove(idx);
             out.cmds.push(subcommand.clone());
@@ -353,7 +379,14 @@ fn parse_partial_with_env(
             let flag_key = get_flag_key(word);
 
             if let Some(f) = out.available_flags.get(flag_key) {
-                // Only collect global flags for mount execution
+                // Only collect global flags for mount execution.
+                //
+                // We deliberately leave the global flag (and its value) in `input` so that
+                // Phase 2 re-parses it and records it in `out.flags`. That is how global flags
+                // reach `as_env()` for normal execution and for the env passed to mount scripts.
+                // Re-parsing is harmless as long as the flag stays recognized in
+                // `available_flags` (see `merge_subcommand_flags`): Phase 2 consumes it as a
+                // flag instead of mistaking it for a positional argument.
                 if f.global {
                     prefix_words.push(input[idx].clone());
                     idx += 1;
@@ -388,8 +421,7 @@ fn parse_partial_with_env(
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
                         subcommand.mount(&prefix_words)?;
-                        out.available_flags.retain(|_, f| f.global);
-                        out.available_flags.extend(gather_flags(&subcommand));
+                        merge_subcommand_flags(&mut out.available_flags, gather_flags(&subcommand));
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
                         prefix_words.clear();
@@ -1485,6 +1517,134 @@ mod tests {
         assert_eq!(arg.name, "name");
         let value = parsed.args.values().next().unwrap();
         assert_eq!(value.to_string(), "hello");
+    }
+
+    /// Build a spec equivalent to the post-mount structure produced by mise's
+    /// `mise usage` output: a root with a value-taking global flag (`-C/--cd`), a `run`
+    /// subcommand that re-declares the same flag as NON-global, and a mounted task
+    /// (`sample:run`) carrying a positional arg with `choices`.
+    ///
+    /// We construct the merged structure directly instead of executing a real mount so the
+    /// test stays hermetic and cross-platform while still exercising the parser defect.
+    fn mounted_global_flag_spec() -> Spec {
+        let task_cmd = SpecCommand::builder()
+            .name("sample:run")
+            .arg(
+                SpecArg::builder()
+                    .name("profile")
+                    .choices(["alpha", "beta", "gamma"])
+                    .build(),
+            )
+            .build();
+        // `run` re-declares `-C/--cd` but as a NON-global flag, mirroring the mise spec.
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        run_cmd
+            .subcommands
+            .insert("sample:run".to_string(), task_cmd);
+
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_prefix_global_flag_does_not_pollute_choices() {
+        // Regression for the parser-side root cause referenced by jdx/mise#10069.
+        //
+        // When `run` re-declares the global `-C/--cd` as non-global, descending into it (and
+        // then into the mounted `sample:run`) used to drop the inherited global flag from
+        // `available_flags`. Phase 2 then no longer recognized the prefix `-C`, so it was
+        // mis-validated against the task's `choices` positional arg.
+        let spec = mounted_global_flag_spec();
+
+        // The prefix global flag must stay recognized so it is consumed as a flag (not as the
+        // positional). Before the fix this bailed with "Invalid choice for arg profile: -C".
+        for words in [
+            &["test", "-C", "/tmp", "run", "sample:run"][..],
+            // Embedded-value form must behave identically.
+            &["test", "--cd=/tmp", "run", "sample:run"][..],
+        ] {
+            let parsed = parse_partial(&spec, &input(words)).unwrap();
+            assert_eq!(
+                parsed
+                    .cmds
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["test", "run", "sample:run"],
+            );
+            // No positional arg should have been consumed by the leftover global-flag tokens.
+            assert!(
+                parsed.args.is_empty(),
+                "args should be empty, got {:?}",
+                parsed.args
+            );
+
+            // Fix (B): the inherited global flag survives the descent even though `run`
+            // re-declares `-C/--cd` as non-global.
+            let cd = parsed
+                .available_flags
+                .get("--cd")
+                .expect("--cd should remain available after descending into the subcommand");
+            assert!(cd.global, "--cd must stay global after descent");
+            assert!(
+                parsed.available_flags.get("-C").is_some_and(|f| f.global),
+                "-C must stay global after descent",
+            );
+
+            // The global flag must still be recorded in `out.flags` so it reaches `as_env()`
+            // for normal execution and for the env passed to mount scripts. (Removing the
+            // token in Phase 1 instead of re-parsing it would silently drop `usage_cd`.)
+            assert_eq!(
+                parsed.as_env().get("usage_cd").map(String::as_str),
+                Some("/tmp"),
+                "global flag value must survive in as_env(), got {:?}",
+                parsed.as_env(),
+            );
+        }
+
+        // A real, valid choice still parses through the global flag prefix.
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "-C", "/tmp", "run", "sample:run", "alpha"]),
+        )
+        .unwrap();
+        assert_eq!(parsed.args.len(), 1);
+        assert_eq!(parsed.args.values().next().unwrap().to_string(), "alpha");
+
+        // And genuinely invalid choices are still rejected (we didn't disable validation).
+        assert_parse_err(
+            parse_partial(&spec, &input(&["test", "run", "sample:run", "wrong"])),
+            "Invalid choice for arg profile: wrong, expected one of alpha, beta, gamma",
+        );
     }
 
     #[test]
