@@ -61,6 +61,16 @@ fn merge_subcommand_flags(
                 .cloned()
         });
         if let Some(global_flag) = inherited_global {
+            // Never clobber a *different* inherited global's alias. If this re-declaration's
+            // orphan alias (e.g. `-r`) is already owned by some other global (e.g. an unrelated
+            // `-r --restrict`), that is a genuine collision: keep the existing global, as global
+            // precedence dictates, instead of stealing the alias for the merged flag.
+            if available
+                .get(&key)
+                .is_some_and(|existing| existing.global && !Arc::ptr_eq(existing, &global_flag))
+            {
+                continue;
+            }
             let merged = merged_cache
                 .entry(Arc::as_ptr(&flag) as usize)
                 .or_insert_with(|| {
@@ -1837,6 +1847,67 @@ mod tests {
             parse_partial(&spec, &input(&["test", "run", "-r", "sample:run", "wrong"])),
             "Invalid choice for arg profile: wrong, expected one of alpha, beta, gamma",
         );
+    }
+
+    #[test]
+    fn test_orphan_short_does_not_clobber_unrelated_global() {
+        // When a re-declaration's orphan short collides with a DIFFERENT inherited global's
+        // short, the merge must not steal it. Here the root has both a long-only `--raw` global
+        // and a `-r --restrict` global; `run` re-declares `-r --raw` as non-global. `-r` is a
+        // genuine collision with `--restrict`, so global precedence must keep `-r -> restrict`.
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .short('r')
+                    .long("raw")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .long("raw")
+                    .global(true)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("restrict")
+                    .short('r')
+                    .long("restrict")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+        // `-r` stays owned by the unrelated `--restrict` global, not stolen by the merged raw.
+        assert_eq!(
+            parsed.available_flags.get("-r").map(|f| f.name.as_str()),
+            Some("restrict"),
+            "-r must remain owned by the unrelated global it already belonged to",
+        );
+        // Both globals are still recognized and global after the descent.
+        assert!(parsed
+            .available_flags
+            .get("--raw")
+            .is_some_and(|f| f.global));
+        assert!(parsed
+            .available_flags
+            .get("--restrict")
+            .is_some_and(|f| f.global));
     }
 
     #[test]
