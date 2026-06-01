@@ -98,7 +98,19 @@ impl CompleteWord {
             ctx.insert("PREV", &(cword - 1));
         }
 
-        let parsed = usage::parse::parse_partial(spec, &words)?;
+        // The words before the cursor may not parse (e.g. an unexpected word
+        // earlier on the line). A completion helper must stay silent rather than
+        // surface a hard parse error to stderr, which garbles the shell prompt
+        // mid-completion — emit no candidates instead. (#596)
+        let parsed = match usage::parse::parse_partial(spec, &words) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                debug!(
+                    "parse_partial failed during completion (words: {words:?}), no candidates: {e}"
+                );
+                return Ok(vec![]);
+            }
+        };
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
 
         // Check if previous token was a restart_token - if so, complete from first arg

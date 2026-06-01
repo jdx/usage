@@ -16,6 +16,21 @@ fn complete_word_completer() {
 }
 
 #[test]
+fn complete_word_after_unexpected_word_is_silent() {
+    // #596: completion after an unexpected word must NOT print a hard parse error
+    // to stderr (which garbles the shell prompt) — the helper should exit 0 with
+    // no candidates instead.
+    let spec = "name \"mycli\"\ncmd \"build\"\ncmd \"test\"\n";
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw", "--shell", "bash", "--spec", spec, "--", "mycli", "help", "",
+        ])
+        .assert()
+        .success()
+        .stdout("");
+}
+
+#[test]
 fn complete_word_subcommands() {
     assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("install"));
 }
@@ -258,11 +273,14 @@ fn complete_word_non_global_flags_stop_search() {
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     env::set_var("PATH", env::join_paths(path).unwrap());
 
-    // Non-global flag --local should stop subcommand search
-    // The parser will fail to recognize 'run' as a subcommand and error
+    // Non-global flag --local stops the subcommand search, so 'run' is not
+    // recognized as a subcommand. Completion must still exit cleanly with no
+    // candidates — NOT surface a hard parse error to stderr, which would garble
+    // the shell prompt (#596). (Previously this asserted .failure() with
+    // "unexpected word", which was the bug.)
     let mut cmd = cmd("test-boolean-flags.sh", Some("fish"));
     cmd.args(["--", "--local", "run", ""]);
-    cmd.assert().failure().stderr(contains("unexpected word"));
+    cmd.assert().success().stdout("");
 }
 
 #[test]
