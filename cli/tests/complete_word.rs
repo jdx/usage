@@ -211,6 +211,54 @@ fn complete_word_mounted_global_flag_choices() {
 }
 
 #[test]
+fn complete_word_mounted_orphan_short_flag_choices() {
+    // Follow-up to jdx/mise#10069: a long-only global flag re-declared as a non-global flag
+    // with an ADDED short (`-r --raw`, `-S --silent`) must keep the orphan short recognized.
+    // Completing a mounted task with the short in front must return the task's choices rather
+    // than bailing with "unexpected word" / "Invalid choice" (which mise worked around by
+    // promoting the short back to global).
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Orphan short `-r` before the mounted task (the failing case).
+    assert_cmd(
+        "mounted-orphan-short-flags.sh",
+        &["--", "run", "-r", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+
+    // A different orphan short (`-S`) on the same subcommand.
+    assert_cmd(
+        "mounted-orphan-short-flags.sh",
+        &["--", "run", "-S", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+
+    // The nested `tasks run` path exercises a second descent level.
+    assert_cmd(
+        "mounted-orphan-short-flags.sh",
+        &["--", "tasks", "run", "-r", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+
+    // The original long alias still works after the merge.
+    assert_cmd(
+        "mounted-orphan-short-flags.sh",
+        &["--", "run", "--raw", "sample:run", ""],
+    )
+    .stdout("alpha\nbeta\ngamma\n");
+}
+
+#[test]
 fn complete_word_boolean_flags_dont_consume_subcommands() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
