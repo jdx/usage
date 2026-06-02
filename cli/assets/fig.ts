@@ -511,6 +511,11 @@ const completionSpec: Fig.Spec = {
       ],
     },
     {
+      name: "sponsors",
+      description:
+        "Show the companies sponsoring usage and the en.dev project family",
+    },
+    {
       name: "zsh",
       description: "Execute a shell script using zsh",
       options: [
