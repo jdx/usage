@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import { h, onMounted, onUnmounted } from 'vue'
 import UsageHero from './UsageHero.vue'
 import EndevFooter from './EndevFooter.vue'
+import EndevSponsors from './EndevSponsors.vue'
 import { initBanner } from './banner'
 import { data as starsData } from '../stars.data'
 import './custom.css'
@@ -11,7 +12,7 @@ export default {
   Layout() {
     return h(DefaultTheme.Layout, null, {
       'home-hero-before': () => h(UsageHero),
-      'layout-bottom': () => h(EndevFooter)
+      'layout-bottom': () => [h(EndevSponsors), h(EndevFooter)]
     })
   },
   enhanceApp() {
