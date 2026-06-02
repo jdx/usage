@@ -12,3 +12,7 @@ for CLIs. Here are some potential reasons for defining your CLI with a Usage spe
 - [coming soon] Host your CLI documentation on usage.sh
 
 See more at [usage.jdx.dev](https://usage.jdx.dev/).
+
+## Sponsors
+
+usage is sponsored by [37signals](https://37signals.com).
