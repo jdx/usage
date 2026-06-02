@@ -197,6 +197,7 @@ to properly escape and quote values with spaces in them.
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
+cmd sponsors help="Show the companies sponsoring usage and the en.dev project family"
 cmd zsh help="Execute a shell script using zsh" {
     long_help #"""
 Execute a shell script with the specified shell

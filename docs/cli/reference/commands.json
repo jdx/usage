@@ -863,6 +863,20 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "sponsors": {
+        "full_cmd": ["sponsors"],
+        "usage": "sponsors",
+        "subcommands": {},
+        "args": [],
+        "flags": [],
+        "mounts": [],
+        "hide": false,
+        "help": "Show the companies sponsoring usage and the en.dev project family",
+        "name": "sponsors",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "zsh": {
         "full_cmd": ["zsh"],
         "usage": "zsh [-h] [--help] <SCRIPT> [ARGS]…",
