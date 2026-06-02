@@ -6,7 +6,7 @@
   >
     <div class="EndevSponsorsInner">
       <p id="endev-sponsors-title" class="EndevSponsorsTitle">
-        Company sponsors
+        sponsors
       </p>
       <div class="EndevSponsorsLogos">
         <a
@@ -20,8 +20,8 @@
           <img :alt="sponsor.name" :src="sponsor.logo" loading="lazy" decoding="async" />
         </a>
       </div>
-      <a class="EndevSponsorsCta" href="https://en.dev/#contact">
-        Sponsor the work
+      <a class="EndevSponsorsCta" href="https://en.dev/sponsors.html">
+        View all sponsors
       </a>
     </div>
   </section>
@@ -31,6 +31,7 @@
 import { onMounted, ref } from "vue";
 
 const sponsors = ref([]);
+const footerTiers = new Set(["anchor", "premier", "partner"]);
 
 const sponsorItems = (items) => (Array.isArray(items) ? items : []);
 const isSafeUrl = (url) => {
@@ -59,7 +60,7 @@ onMounted(async () => {
 
     const payload = await res.json();
     sponsors.value = sponsorItems(payload?.sponsors).filter((sponsor) =>
-      isSponsor(sponsor) && sponsor.kind !== "infrastructure",
+      isSponsor(sponsor) && footerTiers.has(sponsor.tier),
     );
   } catch {
     sponsors.value = [];
@@ -69,7 +70,6 @@ onMounted(async () => {
 
 <style scoped>
 .EndevSponsors {
-  border-top: 1px solid var(--vp-c-divider);
   padding: 22px 24px;
 }
 

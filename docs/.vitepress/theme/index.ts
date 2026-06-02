@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { h, onMounted, onUnmounted } from 'vue'
 import UsageHero from './UsageHero.vue'
+import EndevSponsors from './EndevSponsors.vue'
 import EndevFooter from './EndevFooter.vue'
 import EndevSponsors from './EndevSponsors.vue'
 import { initBanner } from './banner'
