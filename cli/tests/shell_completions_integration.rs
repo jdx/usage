@@ -641,14 +641,128 @@ arg "<recipient>" required {
         .expect("Failed to generate zsh completion");
     let script = String::from_utf8_lossy(&gen.stdout);
     let expected_fragments = [
-        "(Q)words",                                          // unquote user input
-        r#"IFS=$'\t' read -r display insert"#,               // tab-separated
-        "_describe 'completions' completions inserts -U -Q", // -U -Q on _describe
+        "(Q)words",                            // unquote user input
+        r#"IFS=$'\t' read -r display insert"#, // tab-separated
+        "compadd -l -d _usage_display -U -Q -S '' -a inserts", // -U -Q on compadd
     ];
     for fragment in expected_fragments {
         assert!(
             script.contains(fragment),
             "Expected `{fragment}` in generated script:\n{script}"
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Regression test: subcommands whose names contain `:` (e.g. `release:create`,
+/// `release:docs-sync`, `release:pr`) must all appear in the completion menu.
+///
+/// The previous implementation handed `\:`-escaped `value:description` strings
+/// to `_describe`, which groups matches that share a `\:`-escaped prefix and
+/// surfaces only one entry per group — so out of four `release:*` subcommands
+/// only `release:create` would show. This test feeds the spec through a real
+/// zsh + zpty session and asserts every colon-named subcommand is offered.
+#[test]
+fn test_zsh_completion_includes_all_colon_subcommands() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!(
+        "usage_zsh_colon_subs_test_{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+bin "testcli"
+cmd "release:create" help="Create release"
+cmd "release:docs-sync" help="Refresh docs"
+cmd "release:pr" help="Open release PR"
+cmd "release:update" help="Update release state"
+cmd "lint" help="Run lints"
+cmd "lint:fix" help="Auto-fix lints"
+"#;
+    let spec_kdl_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_kdl_file, spec).unwrap();
+
+    let gen = Command::new(&usage_bin)
+        .args(["generate", "completion", "zsh", "testcli", "-f"])
+        .arg(spec_kdl_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate zsh completion");
+    let comp_file = temp_dir.join("_testcli");
+    fs::write(&comp_file, &gen.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/bin/zsh
+export PATH="{usage_dir}:$PATH"
+export TMPDIR="{tmp}"
+
+autoload -U compinit
+compinit -D
+
+source {comp}
+echo "LOAD_SUCCESS"
+
+comptest () {{
+    bindkey '^I' complete-word
+    zle -C {{,,}}complete-word
+    complete-word () {{
+        unset 'compstate[vared]'
+        compadd -x $'\002'
+        _main_complete "$@"
+        compadd -J -last- -x $'\003'
+        exit
+    }}
+    vared -c tmp
+}}
+
+zmodload zsh/zpty
+zpty comptest comptest
+zpty -w comptest $'testcli \t'
+zpty -rt 5 comptest REPLY $'*\002' 2>/dev/null
+zpty -rt 5 comptest REPLY $'*\003' 2>/dev/null
+echo "COMPLETIONS_START"
+echo "$REPLY"
+echo "COMPLETIONS_END"
+zpty -d comptest
+"#,
+        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
+        tmp = temp_dir.to_str().unwrap(),
+        comp = comp_file.to_str().unwrap(),
+    );
+
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("timeout")
+        .args(["10", "zsh"])
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("LOAD_SUCCESS"),
+        "completion script failed to load.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let expected = [
+        "release:create",
+        "release:docs-sync",
+        "release:pr",
+        "release:update",
+        "lint",
+        "lint:fix",
+    ];
+    for sub in expected {
+        assert!(
+            stdout.contains(sub),
+            "Expected subcommand `{sub}` in completion output.\nstdout:\n{stdout}\nstderr:\n{stderr}"
         );
     }
 

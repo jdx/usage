@@ -23,6 +23,11 @@ use heck::ToSnakeCase;
 /// caller (e.g. `-f "$spec_file"` vs `-f "$cmdpath" --cword=$((CURRENT - 1))`).
 /// `indent` is prepended to every emitted line.
 fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) -> String {
+    // `_describe` groups matches that share a `\:`-escaped prefix and only
+    // surfaces one per group, so tasks like `release:create`, `release:docs-sync`,
+    // `release:pr`, `release:update` collapse to a single entry. Build the
+    // display column ourselves and call `compadd` directly so every match
+    // is offered, with the description column aligned to the longest value.
     let template = r#"local -a completions=() inserts=()
 local needs_menu=0 display insert
 while IFS=$'\t' read -r display insert; do
@@ -31,7 +36,25 @@ while IFS=$'\t' read -r display insert; do
   [[ "$insert" == "'"* ]] && needs_menu=1
 done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
 (( needs_menu )) && compstate[insert]=menu
-_describe 'completions' completions inserts -U -Q -S ''"#;
+if (( ${#inserts[@]} )); then
+  local -a _usage_display=()
+  local _usage_i _usage_max=0 _usage_v _usage_esc _usage_desc _usage_pad
+  for _usage_v in "${inserts[@]}"; do
+    (( ${#_usage_v} > _usage_max )) && _usage_max=${#_usage_v}
+  done
+  for ((_usage_i=1; _usage_i<=${#inserts[@]}; _usage_i++)); do
+    _usage_esc="${inserts[_usage_i]//:/\\:}"
+    _usage_desc="${completions[_usage_i]#${_usage_esc}}"
+    _usage_desc="${_usage_desc#:}"
+    if [[ -n "$_usage_desc" ]]; then
+      _usage_pad=$(( _usage_max - ${#inserts[_usage_i]} ))
+      _usage_display+=("${inserts[_usage_i]}${(l:_usage_pad:: :)}  -- ${_usage_desc}")
+    else
+      _usage_display+=("${inserts[_usage_i]}")
+    fi
+  done
+  compadd -l -d _usage_display -U -Q -S '' -a inserts
+fi"#;
     template
         .replace("__USAGE_BIN__", usage_bin)
         .replace("__CW_EXTRA__", cw_extra_args)
