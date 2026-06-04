@@ -30,15 +30,91 @@ fn merge_subcommand_flags(
 ) {
     // Keep only inherited global flags from the parent.
     available.retain(|_, f| f.global);
+
+    // Cache the merged (global ∪ orphan-alias) flag per re-declared child so every alias key of
+    // that flag ends up sharing one `Arc`. Keyed by the child `Arc`'s identity.
+    let mut merged_cache: HashMap<usize, Arc<SpecFlag>> = HashMap::new();
+
+    // Iterate the *flattened* child map directly (one entry per alias key). This preserves the
+    // map's existing intra-subcommand collision resolution: when two flags in the same command
+    // share an alias (e.g. `-x --alpha` then `-x --beta`), the BTreeMap already collapsed `-x`
+    // to its last-declared owner, and we must not change which flag owns it.
     for (key, flag) in new_flags {
-        // Don't let a subcommand's non-global re-declaration shadow an inherited global flag.
-        // After the `retain` above, every remaining entry is global, so a present key here is
-        // always an inherited global flag.
-        if !flag.global && available.contains_key(&key) {
+        if flag.global {
+            // A child that re-declares (or adds) a global flag stays recognized everywhere.
+            available.insert(key, flag);
+            continue;
+        }
+
+        // A non-global re-declaration that shares a LONG name with an inherited global flag is
+        // the SAME logical flag (e.g. mise's `-r --raw` re-declaring the long-only `--raw`
+        // global). Keep the global flag (global precedence, so it survives the next descent's
+        // `retain`), but union in any short/long aliases that exist only on the re-declaration,
+        // otherwise those orphan aliases would be silently dropped. Matching on a shared long is
+        // deliberate: a re-declaration sharing only a short letter with an unrelated global
+        // (`-q --quiet` vs `-q --quoting`) is a genuine collision, not an alias addition, and is
+        // handled by the `contains_key` skip below instead.
+        let inherited_global = flag.long.iter().find_map(|l| {
+            available
+                .get(&format!("--{l}"))
+                .filter(|f| f.global)
+                .cloned()
+        });
+        if let Some(global_flag) = inherited_global {
+            // Never clobber a *different* inherited global's alias. If this re-declaration's
+            // orphan alias (e.g. `-r`) is already owned by some other global (e.g. an unrelated
+            // `-r --restrict`), that is a genuine collision: keep the existing global, as global
+            // precedence dictates, instead of stealing the alias for the merged flag.
+            if available
+                .get(&key)
+                .is_some_and(|existing| existing.global && !Arc::ptr_eq(existing, &global_flag))
+            {
+                continue;
+            }
+            let merged = merged_cache
+                .entry(Arc::as_ptr(&flag) as usize)
+                .or_insert_with(|| {
+                    let mut merged = (*global_flag).clone();
+                    for s in &flag.short {
+                        if !merged.short.contains(s) {
+                            merged.short.push(*s);
+                        }
+                    }
+                    for l in &flag.long {
+                        if !merged.long.contains(l) {
+                            merged.long.push(l.clone());
+                        }
+                    }
+                    Arc::new(merged)
+                })
+                .clone();
+            available.insert(key, merged);
+            continue;
+        }
+
+        // Purely-local flag (shares nothing with an inherited global), or one that collides only
+        // on a short with an unrelated global. Insert this alias but never shadow an inherited
+        // global flag. Such non-global flags are dropped by the next descent's `retain`.
+        if available.contains_key(&key) {
             continue;
         }
         available.insert(key, flag);
     }
+}
+
+/// Build the lookup keys a flag is registered under in `available_flags`:
+/// `--<long>` for each long name, `-<short>` for each short char, plus the `negate` token.
+fn flag_keys(flag: &SpecFlag) -> Vec<String> {
+    let mut keys: Vec<String> = flag
+        .long
+        .iter()
+        .map(|l| format!("--{l}"))
+        .chain(flag.short.iter().map(|s| format!("-{s}")))
+        .collect();
+    if let Some(negate) = &flag.negate {
+        keys.push(negate.clone());
+    }
+    keys
 }
 
 /// Extract the flag key from a flag word for lookup in available_flags map
@@ -318,16 +394,10 @@ fn parse_partial_with_env(
             .iter()
             .flat_map(|f| {
                 let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
-                let mut flags = f
-                    .long
-                    .iter()
-                    .map(|l| (format!("--{l}"), Arc::clone(&f)))
-                    .chain(f.short.iter().map(|s| (format!("-{s}"), Arc::clone(&f))))
-                    .collect::<Vec<_>>();
-                if let Some(negate) = &f.negate {
-                    flags.push((negate.clone(), Arc::clone(&f)));
-                }
-                flags
+                flag_keys(&f)
+                    .into_iter()
+                    .map(|key| (key, Arc::clone(&f)))
+                    .collect::<Vec<_>>()
             })
             .collect()
     };
@@ -1644,6 +1714,256 @@ mod tests {
         assert_parse_err(
             parse_partial(&spec, &input(&["test", "run", "sample:run", "wrong"])),
             "Invalid choice for arg profile: wrong, expected one of alpha, beta, gamma",
+        );
+    }
+
+    /// Build a spec mirroring mise's orphan-short re-declarations: a root with a LONG-ONLY
+    /// global boolean flag (`--raw`, no short), a `run` subcommand that re-declares it as a
+    /// NON-global flag while ADDING a short (`-r --raw`) plus a purely-local `-f/--force`
+    /// flag, and a mounted task (`sample:run`) with a `choices` positional arg.
+    fn mounted_orphan_short_spec() -> Spec {
+        let task_cmd = SpecCommand::builder()
+            .name("sample:run")
+            .arg(
+                SpecArg::builder()
+                    .name("profile")
+                    .choices(["alpha", "beta", "gamma"])
+                    .build(),
+            )
+            .build();
+        // `run` re-declares `--raw` as NON-global but adds a `-r` short that exists only here,
+        // and also carries a purely-local `-f/--force` flag (shares nothing with a global).
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .short('r')
+                    .long("raw")
+                    .global(false)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("force")
+                    .short('f')
+                    .long("force")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        run_cmd
+            .subcommands
+            .insert("sample:run".to_string(), task_cmd);
+
+        // Root global is LONG-ONLY: `--raw` with no short.
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .long("raw")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_orphan_short_alias_survives_merge() {
+        // Follow-up to test_prefix_global_flag_does_not_pollute_choices (jdx/mise#10069):
+        // when `run` re-declares the long-only global `--raw` as a non-global `-r --raw`, the
+        // added short `-r` must be unioned onto the surviving inherited global flag instead of
+        // being discarded with the wholesale re-declaration. Otherwise `mycli run -r <task>`
+        // would not recognize `-r` and would mis-validate it against the task's `choices` arg.
+        let spec = mounted_orphan_short_spec();
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "-r", "sample:run"])).unwrap();
+        assert_eq!(
+            parsed
+                .cmds
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["test", "run", "sample:run"],
+        );
+
+        // (a) The orphan short `-r` survives the descent, merged onto the inherited global flag,
+        // and the original long `--raw` is still global too.
+        assert!(
+            parsed.available_flags.get("-r").is_some_and(|f| f.global),
+            "-r must be merged onto the inherited global flag and stay global after descent",
+        );
+        assert!(
+            parsed
+                .available_flags
+                .get("--raw")
+                .is_some_and(|f| f.global),
+            "--raw must stay global after descent",
+        );
+
+        // (b) The token is consumed as a flag, not mistaken for the `choices` positional.
+        assert!(
+            parsed.args.is_empty(),
+            "args should be empty, got {:?}",
+            parsed.args
+        );
+
+        // (c) The value still reaches as_env() so `usage_raw` is produced for execution/mounts.
+        assert_eq!(
+            parsed.as_env().get("usage_raw").map(String::as_str),
+            Some("true"),
+            "merged short's value must survive in as_env(), got {:?}",
+            parsed.as_env(),
+        );
+
+        // (d) Negative case: a purely-local flag that shares nothing with a global is NOT
+        // promoted/merged — it is correctly dropped when descending into the mount.
+        assert!(
+            parsed.available_flags.get("-f").is_none(),
+            "purely-local -f must not be promoted onto a global",
+        );
+        assert!(
+            parsed.available_flags.get("--force").is_none(),
+            "purely-local --force must not be promoted onto a global",
+        );
+
+        // A real, valid choice still parses through the merged short prefix.
+        let parsed =
+            parse_partial(&spec, &input(&["test", "run", "-r", "sample:run", "alpha"])).unwrap();
+        assert_eq!(parsed.args.len(), 1);
+        assert_eq!(parsed.args.values().next().unwrap().to_string(), "alpha");
+
+        // And genuinely invalid choices are still rejected.
+        assert_parse_err(
+            parse_partial(&spec, &input(&["test", "run", "-r", "sample:run", "wrong"])),
+            "Invalid choice for arg profile: wrong, expected one of alpha, beta, gamma",
+        );
+    }
+
+    #[test]
+    fn test_orphan_short_does_not_clobber_unrelated_global() {
+        // When a re-declaration's orphan short collides with a DIFFERENT inherited global's
+        // short, the merge must not steal it. Here the root has both a long-only `--raw` global
+        // and a `-r --restrict` global; `run` re-declares `-r --raw` as non-global. `-r` is a
+        // genuine collision with `--restrict`, so global precedence must keep `-r -> restrict`.
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .short('r')
+                    .long("raw")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("raw")
+                    .long("raw")
+                    .global(true)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("restrict")
+                    .short('r')
+                    .long("restrict")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+        // `-r` stays owned by the unrelated `--restrict` global, not stolen by the merged raw.
+        assert_eq!(
+            parsed.available_flags.get("-r").map(|f| f.name.as_str()),
+            Some("restrict"),
+            "-r must remain owned by the unrelated global it already belonged to",
+        );
+        // Both globals are still recognized and global after the descent.
+        assert!(parsed
+            .available_flags
+            .get("--raw")
+            .is_some_and(|f| f.global));
+        assert!(parsed
+            .available_flags
+            .get("--restrict")
+            .is_some_and(|f| f.global));
+    }
+
+    #[test]
+    fn test_subcommand_alias_collision_keeps_last_owner() {
+        // The orphan-alias merge must not disturb how two flags in the SAME subcommand that
+        // share an alias are resolved. Historically the flattened flag map gave the shared
+        // alias to the LAST-declared flag (last-writer-wins); that must be preserved.
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("alpha")
+                    .short('x')
+                    .long("alpha")
+                    .global(false)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("beta")
+                    .short('x')
+                    .long("beta")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+        // `-x` is declared by both flags; the last one (`beta`) keeps it, as before the fix.
+        assert_eq!(
+            parsed.available_flags.get("-x").map(|f| f.name.as_str()),
+            Some("beta"),
+            "the last-declared flag must keep a shared short alias",
+        );
+        // Both distinct long aliases remain recognized and point to their own flag.
+        assert_eq!(
+            parsed
+                .available_flags
+                .get("--alpha")
+                .map(|f| f.name.as_str()),
+            Some("alpha"),
+        );
+        assert_eq!(
+            parsed
+                .available_flags
+                .get("--beta")
+                .map(|f| f.name.as_str()),
+            Some("beta"),
         );
     }
 
