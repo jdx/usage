@@ -97,6 +97,9 @@ export default defineConfig({
               { text: "yargs (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/yargs" },
               { text: "Typer (Python)", link: "https://pypi.org/project/usage-spec-typer/" },
               { text: "Click (Python)", link: "https://pypi.org/project/usage-spec-click/" },
+              { text: "JCommander (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045397" },
+              { text: "picocli (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045398" },
+              { text: "Clikt (Kotlin)", link: "https://github.com/gaojunran/usage-integrations/packages/3045396" },
             ]
           }
         ]
