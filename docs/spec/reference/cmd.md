@@ -26,19 +26,19 @@ cmd "config" {
 }
 
 cmd "list" {
-  example "Basic usage" r#"
+  example "Basic usage" #"""
     $ mycli list
     FRUIT  COLOR
     apple  red
     banana yellow
-  "#
-  example "JSON output" r#"
+  """#
+  example "JSON output" #"""
     $ mycli list --json
     [
       {"FRUIT": "apple", "COLOR": "red"},
       {"FRUIT": "banana", "COLOR": "yellow"}
     ]
-  "#
+  """#
 }
 ```
 

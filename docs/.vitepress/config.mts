@@ -97,6 +97,9 @@ export default defineConfig({
               { text: "yargs (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/yargs" },
               { text: "Typer (Python)", link: "https://pypi.org/project/usage-spec-typer/" },
               { text: "Click (Python)", link: "https://pypi.org/project/usage-spec-click/" },
+              { text: "JCommander (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045397" },
+              { text: "picocli (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045398" },
+              { text: "Clikt (Kotlin)", link: "https://github.com/gaojunran/usage-integrations/packages/3045396" },
             ]
           }
         ]
@@ -114,11 +117,7 @@ export default defineConfig({
     search: {
       provider: "local"
     },
-    footer: {
-      message:
-        "Licensed under the MIT License. Maintained by <a href=\"https://github.com/jdx\">@jdx</a> and <a href=\"https://github.com/jdx/usage/graphs/contributors\">friends</a>.",
-      copyright: "Copyright © 2024 <a href=\"https://github.com/jdx\">@jdx</a>"
-    }
+    footer: false,
   },
   head: [
     ["link", { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" }],

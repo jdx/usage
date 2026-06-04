@@ -4,7 +4,7 @@
 
 **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
-**Version**: 3.3.0
+**Version**: 3.4.0
 
 - **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
 
@@ -35,4 +35,5 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
 - [`usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`](/cli/reference/lint.md)
 - [`usage powershell [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/powershell.md)
+- [`usage sponsors`](/cli/reference/sponsors.md)
 - [`usage zsh [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/zsh.md)

@@ -863,6 +863,20 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "sponsors": {
+        "full_cmd": ["sponsors"],
+        "usage": "sponsors",
+        "subcommands": {},
+        "args": [],
+        "flags": [],
+        "mounts": [],
+        "hide": false,
+        "help": "Show the companies sponsoring usage and the en.dev project family",
+        "name": "sponsors",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "zsh": {
         "full_cmd": ["zsh"],
         "usage": "zsh [-h] [--help] <SCRIPT> [ARGS]…",
@@ -951,7 +965,7 @@
   "config": {
     "props": {}
   },
-  "version": "3.3.0",
+  "version": "3.4.0",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",

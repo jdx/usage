@@ -7,6 +7,7 @@ mod exec;
 pub(crate) mod generate;
 mod lint;
 mod shell;
+mod sponsors;
 
 #[derive(Parser)]
 #[clap(author, version, about)]
@@ -34,6 +35,7 @@ enum Command {
     Lint(lint::Lint),
     #[clap(name = "powershell", about = "Execute a shell script using PowerShell")]
     PowerShell(shell::Shell),
+    Sponsors(sponsors::Sponsors),
     #[clap(about = "Execute a shell script using zsh")]
     Zsh(shell::Shell),
 }
@@ -53,6 +55,7 @@ impl Cli {
             Command::Exec(mut cmd) => cmd.run(),
             Command::CompleteWord(cmd) => cmd.run(),
             Command::Lint(cmd) => cmd.run(),
+            Command::Sponsors(cmd) => cmd.run(),
         }
     }
 }
