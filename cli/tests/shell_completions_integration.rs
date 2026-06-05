@@ -607,9 +607,9 @@ arg "<recipient>" required {
         .expect("Failed to run complete-word");
     let raw_stdout = String::from_utf8_lossy(&raw.stdout);
     let expected_lines = [
-        "Alice Alice\t'Alice Alice'",
-        "Bob Bob\t'Bob Bob'",
-        "Carol Carol\t'Carol Carol'",
+        "Alice Alice\t\t'Alice Alice'",
+        "Bob Bob\t\t'Bob Bob'",
+        "Carol Carol\t\t'Carol Carol'",
     ];
     for line in expected_lines {
         assert!(
@@ -618,8 +618,8 @@ arg "<recipient>" required {
         );
     }
 
-    // 2. The simple unquoted case still emits a tab + the raw value as the
-    //    insert column (no surrounding quotes).
+    // 2. The simple unquoted case still emits the three tab-separated columns
+    //    (value, empty description, raw insert with no surrounding quotes).
     let raw_simple = Command::new(&usage_bin)
         .args(["complete-word", "--shell", "zsh", "-s"])
         .arg(r#"arg "<env>" { choices "dev" "prod" }"#)
@@ -628,12 +628,13 @@ arg "<recipient>" required {
         .expect("Failed to run complete-word");
     let simple_stdout = String::from_utf8_lossy(&raw_simple.stdout);
     assert!(
-        simple_stdout.lines().any(|l| l == "dev\tdev"),
-        "Expected `dev\\tdev` in complete-word output, got:\n{simple_stdout}"
+        simple_stdout.lines().any(|l| l == "dev\t\tdev"),
+        "Expected `dev\\t\\tdev` in complete-word output, got:\n{simple_stdout}"
     );
 
-    // 3. The generated zsh completion script wires these two columns into
-    //    `_describe` with `-U -Q` so zsh inserts the pre-quoted value verbatim.
+    // 3. The generated zsh completion script wires the three columns into
+    //    `compadd -U -Q -d ...` so zsh inserts the pre-quoted value verbatim
+    //    without re-filtering.
     let gen = Command::new(&usage_bin)
         .args(["generate", "completion", "zsh", "testcli", "-f"])
         .arg(spec_kdl_file.to_str().unwrap())
@@ -641,8 +642,8 @@ arg "<recipient>" required {
         .expect("Failed to generate zsh completion");
     let script = String::from_utf8_lossy(&gen.stdout);
     let expected_fragments = [
-        "(Q)words",                            // unquote user input
-        r#"IFS=$'\t' read -r display insert"#, // tab-separated
+        "(Q)words",                                            // unquote user input
+        r#"IFS=$'\t' read -r value desc insert"#,              // three tab-separated columns
         "compadd -l -d _usage_display -U -Q -S '' -a inserts", // -U -Q on compadd
     ];
     for fragment in expected_fragments {
@@ -930,23 +931,24 @@ cmd other help="Another subcommand"
     let spec_file = temp_dir.join("test.spec");
     fs::write(&spec_file, usage_spec).unwrap();
 
-    // Test zsh output format: each line is `<display>\t<insert>` where
-    // <display> is `name:description` (or `name`) for `_describe`'s menu
-    // rendering, and <insert> is the shell-quoted form to insert verbatim
-    // via `compadd -Q`.
+    // Test zsh output format: each line is `<value>\t<description>\t<insert>`
+    // where <value> and <description> are the raw strings (no escaping) and
+    // <insert> is the shell-quoted form for `compadd -Q`. The generated
+    // completion script builds the menu label from value + description
+    // directly, so no `\:` / `\(` / `\[` escaping is needed.
     let output = run_complete_word(&usage_bin, "zsh", &spec_file, &["testcli", ""]);
     let lines: Vec<&str> = output.lines().collect();
 
     assert!(
-        lines.iter().any(|l| *l == "sub:A subcommand\tsub"),
-        "Expected 'sub:A subcommand\\tsub' in zsh output, got: {:?}",
+        lines.iter().any(|l| *l == "sub\tA subcommand\tsub"),
+        "Expected 'sub\\tA subcommand\\tsub' in zsh output, got: {:?}",
         lines
     );
     assert!(
         lines
             .iter()
-            .any(|l| *l == "other:Another subcommand\tother"),
-        "Expected 'other:Another subcommand\\tother' in zsh output, got: {:?}",
+            .any(|l| *l == "other\tAnother subcommand\tother"),
+        "Expected 'other\\tAnother subcommand\\tother' in zsh output, got: {:?}",
         lines
     );
 

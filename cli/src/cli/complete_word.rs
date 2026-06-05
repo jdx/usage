@@ -59,20 +59,20 @@ impl CompleteWord {
                     }
                 }
                 "zsh" => {
-                    // Two tab-separated columns per line:
-                    //   1. `value:description` (or just `value`) for _describe's
-                    //      menu rendering and prefix matching, with `:` `(` `)`
-                    //      `[` `]` escaped as `_describe` requires.
-                    //   2. The shell-quoted form that `compadd -Q` should insert
-                    //      verbatim — wrapped in single quotes when the value
-                    //      contains shell metacharacters, raw otherwise.
-                    let display = if any_descriptions {
-                        format!("{}:{}", zsh_escape(&c), zsh_escape(&description))
-                    } else {
-                        zsh_escape(&c)
-                    };
+                    // Three tab-separated columns per line:
+                    //   1. The raw value (used as the menu display label).
+                    //   2. The description (may be empty).
+                    //   3. The shell-quoted form that `compadd -Q` should
+                    //      insert verbatim — wrapped in single quotes when
+                    //      the value contains shell metacharacters, raw
+                    //      otherwise.
+                    // The generated zsh script builds the formatted display
+                    // (`value -- description`) from columns 1 and 2 and uses
+                    // column 3 as the inserted match. Keeping these as three
+                    // distinct fields avoids the `\:`-escaping acrobatics
+                    // that `_describe`'s `value:description` format required.
                     let insert = zsh_shell_quote(&c);
-                    println!("{display}\t{insert}")
+                    println!("{c}\t{description}\t{insert}")
                 }
                 _ => miette::bail!("unsupported shell: {}", shell),
             }
@@ -367,16 +367,6 @@ impl CompleteWord {
             .sorted()
             .collect()
     }
-}
-
-/// Escape special characters for zsh's `_describe` function.
-/// Colons are field separators, parentheses and brackets are glob qualifiers.
-fn zsh_escape(s: &str) -> String {
-    s.replace(':', "\\:")
-        .replace('(', "\\(")
-        .replace(')', "\\)")
-        .replace('[', "\\[")
-        .replace(']', "\\]")
 }
 
 /// Wrap a completion value in single quotes if any character would otherwise

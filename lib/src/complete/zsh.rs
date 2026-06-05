@@ -12,45 +12,38 @@ use heck::ToSnakeCase;
 /// `compstate[insert]=menu` skips longest-common-prefix insertion when
 /// values share a leading quote.
 ///
-/// `_describe` parses `candidate:description` in BOTH arrays, so colons in
-/// the insert strings must be escaped too (the display column arrives
-/// pre-escaped). Without this, a value like `chezmoi:brew:dump` collapses
-/// to candidate `chezmoi` with `brew:dump` treated as its description —
-/// completion inserts the truncated value, and with `-U` the next <Tab>
-/// replaces what the user already typed past the colon.
-///
 /// `cw_extra_args` is the extra `complete-word` arguments specific to each
 /// caller (e.g. `-f "$spec_file"` vs `-f "$cmdpath" --cword=$((CURRENT - 1))`).
 /// `indent` is prepended to every emitted line.
 fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) -> String {
     // `_describe` groups matches that share a `\:`-escaped prefix and only
     // surfaces one per group, so tasks like `release:create`, `release:docs-sync`,
-    // `release:pr`, `release:update` collapse to a single entry. Build the
-    // display column ourselves and call `compadd` directly so every match
-    // is offered, with the description column aligned to the longest value.
-    let template = r#"local -a completions=() inserts=()
-local needs_menu=0 display insert
-while IFS=$'\t' read -r display insert; do
-  completions+=("$display")
-  inserts+=("${insert//:/\\:}")
+    // `release:pr`, `release:update` collapse to a single entry. `complete-word
+    // --shell zsh` emits three tab-separated columns — raw value, description,
+    // shell-quoted insert — and we build the formatted display ourselves and
+    // call `compadd` directly so every match is offered, with descriptions
+    // aligned to the longest value.
+    let template = r#"local -a values=() descs=() inserts=()
+local needs_menu=0 value desc insert
+while IFS=$'\t' read -r value desc insert; do
+  values+=("$value")
+  descs+=("$desc")
+  inserts+=("$insert")
   [[ "$insert" == "'"* ]] && needs_menu=1
 done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
 (( needs_menu )) && compstate[insert]=menu
 if (( ${#inserts[@]} )); then
   local -a _usage_display=()
-  local _usage_i _usage_max=0 _usage_v _usage_esc _usage_desc _usage_pad
-  for _usage_v in "${inserts[@]}"; do
+  local _usage_i _usage_max=0 _usage_v _usage_pad
+  for _usage_v in "${values[@]}"; do
     (( ${#_usage_v} > _usage_max )) && _usage_max=${#_usage_v}
   done
-  for ((_usage_i=1; _usage_i<=${#inserts[@]}; _usage_i++)); do
-    _usage_esc="${inserts[_usage_i]//:/\\:}"
-    _usage_desc="${completions[_usage_i]#${_usage_esc}}"
-    _usage_desc="${_usage_desc#:}"
-    if [[ -n "$_usage_desc" ]]; then
-      _usage_pad=$(( _usage_max - ${#inserts[_usage_i]} ))
-      _usage_display+=("${inserts[_usage_i]}${(l:_usage_pad:: :)}  -- ${_usage_desc}")
+  for ((_usage_i=1; _usage_i<=${#values[@]}; _usage_i++)); do
+    if [[ -n "${descs[_usage_i]}" ]]; then
+      _usage_pad=$(( _usage_max - ${#values[_usage_i]} ))
+      _usage_display+=("${values[_usage_i]}${(l:_usage_pad:: :)}  -- ${descs[_usage_i]}")
     else
-      _usage_display+=("${inserts[_usage_i]}")
+      _usage_display+=("${values[_usage_i]}")
     fi
   done
   compadd -l -d _usage_display -U -Q -S '' -a inserts
