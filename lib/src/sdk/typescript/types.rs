@@ -67,7 +67,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         w.indent();
         for flag in &root_global_flags {
             let prop = flag_property_name(flag);
-            let ts_type = flag_ts_simple(flag);
+            let ts_type = flag_ts_type(flag, &spec.cmd.name, &choice_types);
             let optional = if flag.required { "" } else { "?" };
             let mut doc_parts = Vec::new();
             if let Some(help) = &flag.help {
@@ -294,28 +294,6 @@ fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                 format!("{base}[]")
             } else {
                 base
-            }
-        }
-        None => {
-            if flag.var {
-                "boolean[]".to_string()
-            } else {
-                "boolean".to_string()
-            }
-        }
-    }
-}
-
-fn flag_ts_simple(flag: &SpecFlag) -> String {
-    if flag.count {
-        return "number".to_string();
-    }
-    match &flag.arg {
-        Some(_) => {
-            if flag.var {
-                "string[]".to_string()
-            } else {
-                "string".to_string()
             }
         }
         None => {

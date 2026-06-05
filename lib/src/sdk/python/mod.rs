@@ -98,7 +98,13 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 
     if has_global_flags {
         w.line("");
-        render_flags_dataclass("GlobalFlags", "", &root_global_flags, &choice_types, &mut w);
+        render_flags_dataclass(
+            "GlobalFlags",
+            &spec.cmd.name,
+            &root_global_flags,
+            &choice_types,
+            &mut w,
+        );
     }
 
     render_command_types(
