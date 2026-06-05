@@ -311,7 +311,17 @@ fn render_flags_dataclass(
                 // has explicit default — use first value
                 let default_val = &flag.default[0];
                 if flag.count {
-                    format!("{prop_name}: {py_type} = {default_val}")
+                    let numeric = default_val.trim();
+                    if let Ok(n) = numeric.parse::<i64>() {
+                        format!("{prop_name}: {py_type} = {n}")
+                    } else {
+                        // invalid count default — cannot emit as valid Python int;
+                        // fall back to 0 with a comment
+                        format!(
+                            "{prop_name}: {py_type} = 0  # default: {}",
+                            sanitize_py_comment(default_val)
+                        )
+                    }
                 } else if flag.arg.is_none() {
                     // boolean with default
                     match default_val.as_str() {
