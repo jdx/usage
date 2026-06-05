@@ -458,13 +458,13 @@ fn flag_property_name_py(flag: &SpecFlag) -> String {
 fn sanitize_py_ident(name: &str) -> String {
     let snake = heck::AsSnakeCase(name).to_string();
     match snake.as_str() {
-        "class" | "def" | "return" | "import" | "from" | "global" | "lambda" | "pass" | "raise"
-        | "with" | "yield" | "del" | "try" | "except" | "finally" | "while" | "for" | "if"
-        | "elif" | "else" | "and" | "or" | "not" | "in" | "is" | "as" | "break" | "continue"
-        | "assert" | "type" | "input" | "id" | "list" | "dict" | "set" | "print" | "range"
-        | "format" | "help" | "vars" | "dir" | "exec" | "exit" | "quit" | "bool" | "int"
-        | "str" | "float" | "bytes" | "object" | "super" | "property" | "static" | "true"
-        | "false" | "none" => format!("_{snake}"),
+        "async" | "await" | "nonlocal" | "class" | "def" | "return" | "import" | "from"
+        | "global" | "lambda" | "pass" | "raise" | "with" | "yield" | "del" | "try" | "except"
+        | "finally" | "while" | "for" | "if" | "elif" | "else" | "and" | "or" | "not" | "in"
+        | "is" | "as" | "break" | "continue" | "assert" | "type" | "input" | "id" | "list"
+        | "dict" | "set" | "print" | "range" | "format" | "help" | "vars" | "dir" | "exec"
+        | "exit" | "quit" | "bool" | "int" | "str" | "float" | "bytes" | "object" | "super"
+        | "property" | "static" | "true" | "false" | "none" => format!("_{snake}"),
         _ => snake,
     }
 }
