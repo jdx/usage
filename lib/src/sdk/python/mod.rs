@@ -307,13 +307,13 @@ fn render_flags_dataclass(
                         _ => {
                             // unrecognized boolean default — cannot emit as valid Python bool;
                             // fall back to Optional[bool] = None with a comment
-                            format!("{prop_name}: Optional[bool] = None  # default: {default_val}")
+                            format!("{prop_name}: Optional[bool] = None  # default: {}", sanitize_py_comment(&default_val))
                         }
                     }
                 } else if flag.var {
                     // var flag with a default — list defaults are mutable and forbidden in dataclasses.
                     // use None and preserve the intended default in a comment.
-                    format!("{prop_name}: Optional[{py_type}] = None  # default: {default_val}")
+                    format!("{prop_name}: Optional[{py_type}] = None  # default: {}", sanitize_py_comment(&default_val))
                 } else {
                     format!(
                         "{prop_name}: Optional[{py_type}] = \"{}\"",
