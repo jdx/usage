@@ -101,6 +101,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         render_flags_dataclass(
             "GlobalFlags",
             &spec.cmd.name,
+            &spec.cmd.name,
             &root_global_flags,
             &choice_types,
             &mut w,
@@ -110,6 +111,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
     render_command_types(
         &spec.cmd,
         package_name,
+        &spec.cmd.name,
         &choice_types,
         has_global_flags,
         &root_global_flags,
@@ -162,6 +164,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 fn render_command_types(
     cmd: &SpecCommand,
     package_name: &str,
+    root_cmd_name: &str,
     choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
     global_flags: &[&SpecFlag],
@@ -206,6 +209,7 @@ fn render_command_types(
         render_flags_dataclass(
             &format!("{name}Flags"),
             cmd_name,
+            root_cmd_name,
             &all_flags,
             choice_types,
             w,
@@ -216,6 +220,7 @@ fn render_command_types(
         render_command_types(
             subcmd,
             package_name,
+            root_cmd_name,
             choice_types,
             has_global_flags,
             global_flags,
@@ -279,6 +284,7 @@ fn render_args_dataclass(
 fn render_flags_dataclass(
     name: &str,
     cmd_name: &str,
+    root_cmd_name: &str,
     flags: &[&SpecFlag],
     choice_types: &ChoiceTypeMap,
     w: &mut CodeWriter,
@@ -297,7 +303,8 @@ fn render_flags_dataclass(
             .partition(|f| f.required && f.default.is_empty());
 
         for flag in required.iter().chain(optional.iter()) {
-            let py_type = flag_py_type(flag, cmd_name, choice_types);
+            let lookup_cmd = if flag.global { root_cmd_name } else { cmd_name };
+            let py_type = flag_py_type(flag, lookup_cmd, choice_types);
             let prop_name = flag_property_name_py(flag);
             let optional = !(flag.required && flag.default.is_empty());
             let field = if !flag.default.is_empty() {
