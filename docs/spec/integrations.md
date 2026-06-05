@@ -4,32 +4,28 @@ Integrations extract CLI definitions from framework internals and output a [usag
 
 ## Available
 
-| Framework                                                           | Language | Package                                                                                |
-| ------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| [Cobra](https://github.com/spf13/cobra)                             | Go       | [`cobra_usage`](/spec/integrations/cobra)                                              |
-| [clap](https://crates.io/crates/clap)                               | Rust     | [`clap_usage`](/spec/integrations/clap)                                                |
-| [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)                        |
-| [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage)             |
-| [Commander.js](https://github.com/tj/commander.js)                  | Node.js  | [`@usage-spec/commander`](https://www.npmjs.com/package/@usage-spec/commander)         |
-| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://www.npmjs.com/package/@usage-spec/oclif)                 |
-| [yargs](https://yargs.js.org)                                       | Node.js  | [`@usage-spec/yargs`](https://www.npmjs.com/package/@usage-spec/yargs)                 |
-| [Typer](https://github.com/fastapi/typer)                           | Python   | [`usage-spec-typer`](https://pypi.org/project/usage-spec-typer/)                       |
-| [Click](https://github.com/pallets/click)                           | Python   | [`usage-spec-click`](https://pypi.org/project/usage-spec-click/)                       |
-| [JCommander](https://github.com/cbeust/jcommander)                  | Java     | [`jcommander-usage`](https://github.com/gaojunran/usage-integrations/packages/3045397) |
-| [picocli](https://github.com/remkop/picocli)                        | Java     | [`picocli-usage`](https://github.com/gaojunran/usage-integrations/packages/3045398)    |
-| [Clikt](https://github.com/ajalt/clikt)                             | Kotlin   | [`clikt-usage`](https://github.com/gaojunran/usage-integrations/packages/3045396)      |
+| Framework                                                           | Language | Package                                                                                                 |
+| ------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| [Cobra](https://github.com/spf13/cobra)                             | Go       | [`cobra_usage`](/spec/integrations/cobra)                                                               |
+| [Kong](https://github.com/alecthomas/kong)                          | Go       | [`kong-usage`](https://github.com/gaojunran/usage-integrations/tree/main/packages/kong-usage)           |
+| [urfave/cli](https://github.com/urfave/cli)                         | Go       | [`urfavecli-usage`](https://github.com/gaojunran/usage-integrations/tree/main/packages/urfavecli-usage) |
+| [clap](https://crates.io/crates/clap)                               | Rust     | [`clap_usage`](/spec/integrations/clap)                                                                 |
+| [argparse](https://docs.python.org/3/library/argparse.html)         | Python   | [`argparse-usage`](https://github.com/acidghost/argparse-usage)                                         |
+| [OptionParser](https://docs.ruby-lang.org/en/4.0/OptionParser.html) | Ruby     | [`option_parser_usage`](https://github.com/packrat386/option_parser_usage)                              |
+| [Commander.js](https://github.com/tj/commander.js)                  | Node.js  | [`@usage-spec/commander`](https://www.npmjs.com/package/@usage-spec/commander)                          |
+| [oclif](https://oclif.io)                                           | Node.js  | [`@usage-spec/oclif`](https://www.npmjs.com/package/@usage-spec/oclif)                                  |
+| [yargs](https://yargs.js.org)                                       | Node.js  | [`@usage-spec/yargs`](https://www.npmjs.com/package/@usage-spec/yargs)                                  |
+| [Typer](https://github.com/fastapi/typer)                           | Python   | [`usage-spec-typer`](https://pypi.org/project/usage-spec-typer/)                                        |
+| [Click](https://github.com/pallets/click)                           | Python   | [`usage-spec-click`](https://pypi.org/project/usage-spec-click/)                                        |
+| [JCommander](https://github.com/cbeust/jcommander)                  | Java     | [`jcommander-usage`](https://github.com/gaojunran/usage-integrations/packages/3045397)                  |
+| [picocli](https://github.com/remkop/picocli)                        | Java     | [`picocli-usage`](https://github.com/gaojunran/usage-integrations/packages/3045398)                     |
+| [Clikt](https://github.com/ajalt/clikt)                             | Kotlin   | [`clikt-usage`](https://github.com/gaojunran/usage-integrations/packages/3045396)                       |
 
 ## Planned
 
 Contributions welcome! Here are the frameworks we'd like to support next.
 
 ### High Priority
-
-| Framework                                   | Language |
-| ------------------------------------------- | -------- |
-| [urfave/cli](https://github.com/urfave/cli) | Go       |
-
-### Medium Priority
 
 | Framework                                                               | Language |
 | ----------------------------------------------------------------------- | -------- |
@@ -43,11 +39,10 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | Swift    |
 | [System.CommandLine](https://github.com/dotnet/command-line-api)        | C#/.NET  |
 
-### Lower Priority
+### Medium Priority
 
 | Framework                                                                  | Language |
 | -------------------------------------------------------------------------- | -------- |
-| [Kong](https://github.com/alecthomas/kong)                                 | Go       |
 | [argh](https://github.com/google/argh)                                     | Rust     |
 | [zig-clap](https://github.com/Hejsil/zig-clap)                             | Zig      |
 | [optparse-applicative](https://github.com/pcapriotti/optparse-applicative) | Haskell  |
