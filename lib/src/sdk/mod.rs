@@ -47,9 +47,9 @@ pub(crate) fn escape_jsdoc(s: &str) -> String {
     s.replace("*/", r"*\/")
 }
 
-/// Escape triple-quote sequences in Python docstrings.
+/// Escape triple-quote sequences and backslashes in Python docstrings.
 pub(crate) fn escape_py_docstring(s: &str) -> String {
-    s.replace(r#"""""#, r#"\"\"\""#)
+    s.replace('\\', r"\\").replace(r#"""""#, r#"\"\"\""#)
 }
 
 /// Escape backslashes and double quotes for Python string literals.
