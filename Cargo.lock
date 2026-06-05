@@ -2092,6 +2092,7 @@ dependencies = [
  "serde",
  "shell-words",
  "strum",
+ "tempfile",
  "tera",
  "thiserror",
  "versions",

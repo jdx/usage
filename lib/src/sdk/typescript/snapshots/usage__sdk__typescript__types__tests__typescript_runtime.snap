@@ -1,0 +1,54 @@
+---
+source: lib/src/sdk/typescript/types.rs
+expression: "get_file(&output, \"runtime.ts\")"
+---
+// Runtime module for usage-generated SDK clients. Do not edit manually.
+import { spawn, ChildProcess } from "node:child_process";
+
+export class CliResult {
+  constructor(
+    public readonly stdout: string,
+    public readonly stderr: string,
+    public readonly exitCode: number,
+  ) {}
+
+  get ok(): boolean {
+    return this.exitCode === 0;
+  }
+}
+
+export class CliError extends Error {
+  constructor(
+    public readonly binPath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CliError";
+  }
+}
+
+export class CliRunner {
+  constructor(private binPath: string) {}
+
+  async run(args: string[]): Promise<CliResult> {
+    return new Promise<CliResult>((resolve, reject) => {
+      const child: ChildProcess = spawn(this.binPath, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout?.setEncoding("utf-8").on("data", (chunk: string) => { stdout += chunk; });
+      child.stderr?.setEncoding("utf-8").on("data", (chunk: string) => { stderr += chunk; });
+      child.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "ENOENT") {
+          reject(new CliError(this.binPath, `CLI binary not found: ${this.binPath}`));
+        } else {
+          reject(err);
+        }
+      });
+      child.on("close", (code: number | null) => {
+        resolve(new CliResult(stdout, stderr, code ?? 1));
+      });
+    });
+  }
+}

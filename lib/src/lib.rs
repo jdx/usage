@@ -24,6 +24,7 @@ pub use error::Result;
 #[cfg(feature = "docs")]
 pub mod docs;
 pub mod parse;
+pub mod sdk;
 pub(crate) mod sh;
 pub(crate) mod string;
 #[cfg(test)]

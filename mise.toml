@@ -16,6 +16,8 @@ gh = "latest"
 "npm:prettier" = "latest"
 shellcheck = "latest"
 node = "24"
+python = "latest"
+"npm:tsc" = "latest"
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]

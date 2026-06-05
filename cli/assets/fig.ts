@@ -456,6 +456,55 @@ const completionSpec: Fig.Spec = {
             },
           ],
         },
+        {
+          name: "sdk",
+          description: "Generate a type-safe SDK from a usage spec",
+          options: [
+            {
+              name: ["-f", "--file"],
+              description: "A usage spec taken in as a file",
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: ["-l", "--language"],
+              description: "Target language for the SDK",
+              isRepeatable: false,
+              args: {
+                name: "language",
+                suggestions: ["typescript", "python"],
+              },
+            },
+            {
+              name: ["-o", "--output"],
+              description: "Output directory for generated SDK files",
+              isRepeatable: false,
+              args: {
+                name: "output",
+              },
+            },
+            {
+              name: ["-p", "--package-name"],
+              description:
+                "Override the package/module name (defaults to spec bin name)",
+              isRepeatable: false,
+              args: {
+                name: "package_name",
+              },
+            },
+            {
+              name: "--spec",
+              description: "Raw string spec input",
+              isRepeatable: false,
+              args: {
+                name: "spec",
+              },
+            },
+          ],
+        },
       ],
     },
     {
