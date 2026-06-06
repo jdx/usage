@@ -248,7 +248,12 @@ fn render_class(
 
     // build command args
     let path = subcmd_path(cmd);
-    w.line(&format!("let mut cmd_args: Vec<String> = vec![{path}];"));
+    let needs_mut = has_args || has_flags;
+    if needs_mut {
+        w.line(&format!("let mut cmd_args: Vec<String> = vec![{path}];"));
+    } else {
+        w.line(&format!("let cmd_args: Vec<String> = vec![{path}];"));
+    }
 
     // add positional args with double_dash handling
     if has_args {

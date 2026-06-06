@@ -165,7 +165,7 @@ fn render_command_types(
     let cmd_name = &cmd.name;
     let visible_args: Vec<&SpecArg> = cmd.args.iter().filter(|a| !a.hide).collect();
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
-    let has_any_flags = !visible_flags.is_empty() || has_global_flags;
+    let has_own_flags = !visible_flags.is_empty();
 
     if !visible_args.is_empty() {
         w.line("");
@@ -178,7 +178,9 @@ fn render_command_types(
         );
     }
 
-    if has_any_flags {
+    // Only generate a {Name}Flags struct if the command has its own flags.
+    // Commands that only inherit global flags use GlobalFlags directly.
+    if has_own_flags {
         w.line("");
         let all_flags: Vec<&SpecFlag> = if has_global_flags {
             global_flags
