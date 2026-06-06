@@ -19,9 +19,9 @@ impl Mytool {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             build: Build::new(runner.clone()),
             deploy: Deploy::new(runner.clone()),
+            runner,
         }
     }
 
@@ -47,10 +47,9 @@ impl Mytool {
         if let Some(v) = flags.dry_run { if v { result.push("--dry-run".to_string()); } else { result.push("--no-dry-run".to_string()); } }
         result
     }
-}
 
-/// Alias for `build`.
-pub fn b(&self) -> &Build { &self.build }
+    /// Alias for `build`.
+    pub fn b(&self) -> &Build { &self.build }
 }
 
 /// Build the project
@@ -88,7 +87,6 @@ impl Build {
         result
     }
 }
-}
 
 /// Deploy the project
 pub struct Deploy {
@@ -121,5 +119,4 @@ impl Deploy {
         if let Some(v) = flags.confirm { if v { result.push("--confirm".to_string()); } }
         result
     }
-}
 }

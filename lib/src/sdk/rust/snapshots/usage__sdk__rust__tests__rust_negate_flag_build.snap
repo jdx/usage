@@ -38,4 +38,3 @@ impl App {
         result
     }
 }
-}

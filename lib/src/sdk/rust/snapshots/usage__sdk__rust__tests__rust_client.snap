@@ -16,8 +16,8 @@ impl Mycli {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             plugin: Plugin::new(runner.clone()),
+            runner,
         }
     }
 
@@ -49,7 +49,6 @@ impl Mycli {
         result
     }
 }
-}
 
 pub struct Plugin {
     runner: CliRunner,
@@ -69,7 +68,6 @@ impl Plugin {
         let mut cmd_args: Vec<String> = vec!["plugin".to_string()];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// install a plugin
@@ -102,5 +100,4 @@ impl Install {
         if let Some(v) = flags.force { if v { result.push("--force".to_string()); } else { result.push("--no-force".to_string()); } }
         result
     }
-}
 }

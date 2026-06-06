@@ -27,4 +27,3 @@ impl Hello {
         self.runner.run(cmd_args)
     }
 }
-}

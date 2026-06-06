@@ -1,6 +1,8 @@
 use heck::AsPascalCase;
 
-use crate::sdk::{collect_choice_types, collect_type_imports, generated_header, CodeWriter};
+use crate::sdk::{
+    collect_choice_types, collect_type_imports, command_type_name, generated_header, CodeWriter,
+};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::{Spec, SpecArg, SpecFlag};
@@ -46,6 +48,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         true,
         &global_flags,
         &spec.bin,
+        package_name,
         &mut w,
     );
 
@@ -66,6 +69,7 @@ fn render_class(
     is_root: bool,
     global_flags: &[&SpecFlag],
     bin_name: &str,
+    package_name: &str,
     w: &mut CodeWriter,
 ) {
     let visible_subcmds: Vec<_> = cmd.subcommands.iter().filter(|(_, c)| !c.hide).collect();
@@ -74,6 +78,8 @@ fn render_class(
     let visible_flags: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.hide).collect();
     let has_args = !visible_args.is_empty();
     let has_flags = !visible_flags.is_empty() || !global_flags.is_empty();
+
+    let type_name = command_type_name(cmd, package_name);
 
     // doc comment on struct
     let mut class_doc = Vec::new();
@@ -130,12 +136,12 @@ fn render_class(
         w.line("let runner = CliRunner::new(bin_path);");
         w.line("Self {");
         w.indent();
-        w.line("runner,");
         for (name, _) in &visible_subcmds {
             let sub_class = AsPascalCase(name).to_string();
             let prop = sanitize_rs_ident(&heck::AsSnakeCase(name).to_string());
             w.line(&format!("{prop}: {sub_class}::new(runner.clone()),"));
         }
+        w.line("runner,");
         w.dedent();
         w.line("}");
     } else {
@@ -170,11 +176,11 @@ fn render_class(
 
     // exec method
     let flags_type = if !global_flags.is_empty() && !visible_flags.is_empty() {
-        format!("{class_name}Flags")
+        format!("{type_name}Flags")
     } else if !global_flags.is_empty() && visible_flags.is_empty() {
         "GlobalFlags".to_string()
     } else if !visible_flags.is_empty() {
-        format!("{class_name}Flags")
+        format!("{type_name}Flags")
     } else {
         String::new()
     };
@@ -214,16 +220,16 @@ fn render_class(
     if has_args && !flags_type.is_empty() {
         if has_required_flags {
             w.line(&format!(
-                "pub fn exec(&self, args: {class_name}Args, flags: {flags_type}) -> Result<CliResult, crate::runtime::CliError> {{"
+                "pub fn exec(&self, args: {type_name}Args, flags: {flags_type}) -> Result<CliResult, crate::runtime::CliError> {{"
             ));
         } else {
             w.line(&format!(
-                "pub fn exec(&self, args: {class_name}Args, flags: Option<{flags_type}>) -> Result<CliResult, crate::runtime::CliError> {{"
+                "pub fn exec(&self, args: {type_name}Args, flags: Option<{flags_type}>) -> Result<CliResult, crate::runtime::CliError> {{"
             ));
         }
     } else if has_args {
         w.line(&format!(
-            "pub fn exec(&self, args: {class_name}Args) -> Result<CliResult, crate::runtime::CliError> {{"
+            "pub fn exec(&self, args: {type_name}Args) -> Result<CliResult, crate::runtime::CliError> {{"
         ));
     } else if !flags_type.is_empty() {
         if has_required_flags {
@@ -353,9 +359,6 @@ fn render_class(
         w.line("}");
     }
 
-    w.dedent();
-    w.line("}");
-
     // alias methods for subcommand aliases (inside impl block)
     for (name, subcmd) in &visible_subcmds {
         for alias in &subcmd.aliases {
@@ -377,7 +380,15 @@ fn render_class(
     for (name, subcmd) in &visible_subcmds {
         w.line("");
         let sub_class = AsPascalCase(name).to_string();
-        render_class(subcmd, &sub_class, false, global_flags, bin_name, w);
+        render_class(
+            subcmd,
+            &sub_class,
+            false,
+            global_flags,
+            bin_name,
+            package_name,
+            w,
+        );
     }
 }
 

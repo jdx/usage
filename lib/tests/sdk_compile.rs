@@ -156,7 +156,22 @@ fn test_rust_sdk_compiles() {
     );
 
     let dir = tempfile::tempdir().unwrap();
-    write_sdk_to_dir(&output, dir.path());
+
+    // Write a minimal Cargo.toml
+    let cargo_toml = r#"[package]
+name = "mytool-sdk"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+"#;
+    fs::write(dir.path().join("Cargo.toml"), cargo_toml).unwrap();
+
+    // Write the generated SDK files into src/
+    let src_dir = dir.path().join("src");
+    fs::create_dir_all(&src_dir).unwrap();
+    write_sdk_to_dir(&output, &src_dir);
 
     // Verify the generated Rust code compiles
     let result = Command::new("cargo")

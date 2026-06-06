@@ -17,8 +17,8 @@ impl App {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             greet: Greet::new(runner.clone()),
+            runner,
         }
     }
 
@@ -31,7 +31,6 @@ impl App {
         let mut cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Greet someone
@@ -53,5 +52,4 @@ impl Greet {
         cmd_args.push(args.name.to_string());
         self.runner.run(cmd_args)
     }
-}
 }

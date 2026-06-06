@@ -94,7 +94,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line(&format!("pub enum {name} {{"));
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = choice_variant_name(choice);
         w.line(&format!("{variant},"));
     }
     w.dedent();
@@ -109,7 +109,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line("match self {");
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = choice_variant_name(choice);
         w.line(&format!(
             "Self::{variant} => write!(f, \"{}\"),",
             escape_rs_string(choice)
@@ -131,7 +131,7 @@ fn render_choice_enum(name: &str, choices: &[String], w: &mut CodeWriter) {
     w.line("match self {");
     w.indent();
     for choice in choices {
-        let variant = AsPascalCase(choice).to_string();
+        let variant = choice_variant_name(choice);
         w.line(&format!(
             "Self::{variant} => \"{}\",",
             escape_rs_string(choice)
@@ -457,4 +457,15 @@ pub fn sanitize_rs_ident(name: &str) -> String {
 /// Escape backslashes and double quotes for Rust string literals.
 pub fn escape_rs_string(s: &str) -> String {
     s.replace('\\', r"\\").replace('"', r#"\""#)
+}
+
+/// Generate a valid Rust identifier for a choice variant.
+/// Numeric choices like "1" become "N1" since Rust identifiers can't start with digits.
+fn choice_variant_name(choice: &str) -> String {
+    let pascal = AsPascalCase(choice).to_string();
+    if pascal.bytes().next().is_some_and(|b| b.is_ascii_digit()) {
+        format!("N{pascal}")
+    } else {
+        pascal
+    }
 }

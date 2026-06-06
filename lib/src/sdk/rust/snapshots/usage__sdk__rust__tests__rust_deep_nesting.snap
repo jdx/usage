@@ -17,8 +17,8 @@ impl App {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             db: Db::new(runner.clone()),
+            runner,
         }
     }
 
@@ -31,7 +31,6 @@ impl App {
         let mut cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Database operations
@@ -54,7 +53,6 @@ impl Db {
         let mut cmd_args: Vec<String> = vec!["db".to_string()];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Migration management
@@ -80,7 +78,6 @@ impl Migration {
         let mut cmd_args: Vec<String> = vec!["db".to_string(), "migration".to_string()];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Create a new migration
@@ -111,7 +108,6 @@ impl Create {
         result
     }
 }
-}
 
 /// Run pending migrations
 pub struct Run {
@@ -139,5 +135,4 @@ impl Run {
         if let Some(ref v) = flags.step { result.push("--step".to_string()); result.push(v.to_string()); }
         result
     }
-}
 }

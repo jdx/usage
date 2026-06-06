@@ -30,4 +30,3 @@ impl Tool {
         self.runner.run(cmd_args)
     }
 }
-}

@@ -17,8 +17,8 @@ impl App {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             status: Status::new(runner.clone()),
+            runner,
         }
     }
 
@@ -31,7 +31,6 @@ impl App {
         let mut cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Show status
@@ -61,5 +60,4 @@ impl Status {
         if let Some(v) = flags.json { if v { result.push("--json".to_string()); } }
         result
     }
-}
 }

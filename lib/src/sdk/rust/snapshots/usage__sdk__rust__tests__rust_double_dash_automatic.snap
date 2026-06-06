@@ -17,8 +17,8 @@ impl Runner {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             run: Run::new(runner.clone()),
+            runner,
         }
     }
 
@@ -44,7 +44,6 @@ impl Runner {
         result
     }
 }
-}
 
 /// Run a task
 pub struct Run {
@@ -66,5 +65,4 @@ impl Run {
         // double_dash=automatic: "--" is implied after the first positional arg
         self.runner.run(cmd_args)
     }
-}
 }

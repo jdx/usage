@@ -19,9 +19,9 @@ impl App {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             status: Status::new(runner.clone()),
             info: Info::new(runner.clone()),
+            runner,
         }
     }
 
@@ -43,7 +43,6 @@ impl App {
         if let Some(v) = flags.verbose { if v { result.push("--verbose".to_string()); } }
         result
     }
-}
 }
 
 /// Show status
@@ -74,7 +73,6 @@ impl Status {
         result
     }
 }
-}
 
 /// Show info
 pub struct Info {
@@ -102,5 +100,4 @@ impl Info {
         if let Some(v) = flags.verbose { if v { result.push("--verbose".to_string()); } }
         result
     }
-}
 }

@@ -38,4 +38,3 @@ impl Tool {
         result
     }
 }
-}

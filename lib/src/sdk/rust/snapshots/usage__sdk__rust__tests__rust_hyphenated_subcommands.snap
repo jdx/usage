@@ -19,9 +19,9 @@ impl Cli {
     pub fn new(bin_path: &str) -> Self {
         let runner = CliRunner::new(bin_path);
         Self {
-            runner,
             add_remote: AddRemote::new(runner.clone()),
             remove_remote: RemoveRemote::new(runner.clone()),
+            runner,
         }
     }
 
@@ -34,7 +34,6 @@ impl Cli {
         let mut cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
-}
 }
 
 /// Add a remote
@@ -57,7 +56,6 @@ impl AddRemote {
         self.runner.run(cmd_args)
     }
 }
-}
 
 /// Remove a remote
 pub struct RemoveRemote {
@@ -77,5 +75,4 @@ impl RemoveRemote {
         cmd_args.push(args.name.to_string());
         self.runner.run(cmd_args)
     }
-}
 }
