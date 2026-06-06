@@ -80,7 +80,7 @@ if (result.ok) {
 | ---------- | --------------- | ---------------------------------------------------- |
 | TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`    |
 | Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py` |
-| Rust       | Coming soon     |                                                      |
+| Rust       | `-l rust`       | `types.rs`, `client.rs`, `runtime.rs`, `lib.rs`      |
 
 ### TypeScript
 
@@ -125,14 +125,33 @@ if result.ok:
 
 ### Rust
 
-_Rust SDK support is coming soon._
+```sh
+usage generate sdk -l rust -o ./sdk -f ./mycli.usage.kdl
+```
+
+Generates Rust module files with full type annotations. The client uses
+`std::process::Command` under the hood and all `exec()` methods are synchronous,
+returning `Result<CliResult, CliError>`.
+
+```rust
+use mycli::{Mycli, MycliArgs, MycliFlags};
+
+let cli = Mycli::default_bin();
+let result = cli.build.exec(
+    BuildArgs { target: Some(BuildTargetChoice::Release), output: "./dist".to_string() },
+    BuildFlags { release: Some(true) },
+)?;
+if result.ok() {
+    println!("{}", result.stdout);
+}
+```
 
 ## How It Works
 
 Each generated SDK consists of three parts:
 
 1. **Types module** -- Type definitions for every command's args and flags. Choice constraints are
-   rendered as union types (TypeScript) or `Literal` types (Python).
+   rendered as union types (TypeScript), `Literal` types (Python), or enums (Rust).
    Global flags are propagated to all subcommand flag types.
 
 2. **Client module** -- A nested class/struct hierarchy mirroring the subcommand tree. Each node has

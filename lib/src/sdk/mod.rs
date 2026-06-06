@@ -9,12 +9,14 @@ use crate::spec::cmd::SpecCommand;
 use crate::Spec;
 
 pub mod python;
+pub mod rust;
 pub mod typescript;
 
 #[derive(Debug, Clone)]
 pub enum SdkLanguage {
     TypeScript,
     Python,
+    Rust,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +41,7 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
     match opts.language {
         SdkLanguage::TypeScript => typescript::generate(spec, opts),
         SdkLanguage::Python => python::generate(spec, opts),
+        SdkLanguage::Rust => rust::generate(spec, opts),
     }
 }
 

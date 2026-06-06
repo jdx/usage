@@ -179,7 +179,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         }
         flag "-l --language" help="Target language for the SDK" required=#true {
             arg <LANGUAGE> {
-                choices typescript python
+                choices typescript python rust
             }
         }
         flag "-o --output" help="Output directory for generated SDK files" required=#true {

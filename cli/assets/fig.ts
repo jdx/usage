@@ -475,7 +475,7 @@ const completionSpec: Fig.Spec = {
               isRepeatable: false,
               args: {
                 name: "language",
-                suggestions: ["typescript", "python"],
+                suggestions: ["typescript", "python", "rust"],
               },
             },
             {

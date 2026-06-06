@@ -21,6 +21,7 @@ Target language for the SDK
 
 - `typescript`
 - `python`
+- `rust`
 
 ### `-o --output <OUTPUT>`
 
