@@ -25,11 +25,3 @@ pub struct AppFlags {
 pub struct RunArgs {
     pub target: String,
 }
-
-#[derive(Debug, Clone, Default)]
-pub struct RunFlags {
-    /// Repeatable verbose. Short: -v
-    pub verbose: Option<Vec<bool>>,
-    /// Repeatable tag
-    pub tag: Option<Vec<String>>,
-}

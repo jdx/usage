@@ -65,7 +65,7 @@ impl Plugin {
     /// plugin <SUBCOMMAND>
 
     pub fn exec(&self) -> Result<CliResult, crate::runtime::CliError> {
-        let mut cmd_args: Vec<String> = vec!["plugin".to_string()];
+        let cmd_args: Vec<String> = vec!["plugin".to_string()];
         self.runner.run(cmd_args)
     }
 }

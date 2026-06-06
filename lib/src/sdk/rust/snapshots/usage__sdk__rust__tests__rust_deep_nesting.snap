@@ -28,7 +28,7 @@ impl App {
     /// <SUBCOMMAND>
 
     pub fn exec(&self) -> Result<CliResult, crate::runtime::CliError> {
-        let mut cmd_args: Vec<String> = vec![];
+        let cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
 }
@@ -50,7 +50,7 @@ impl Db {
     /// db <SUBCOMMAND>
 
     pub fn exec(&self) -> Result<CliResult, crate::runtime::CliError> {
-        let mut cmd_args: Vec<String> = vec!["db".to_string()];
+        let cmd_args: Vec<String> = vec!["db".to_string()];
         self.runner.run(cmd_args)
     }
 }
@@ -75,7 +75,7 @@ impl Migration {
     /// db migration <SUBCOMMAND>
 
     pub fn exec(&self) -> Result<CliResult, crate::runtime::CliError> {
-        let mut cmd_args: Vec<String> = vec!["db".to_string(), "migration".to_string()];
+        let cmd_args: Vec<String> = vec!["db".to_string(), "migration".to_string()];
         self.runner.run(cmd_args)
     }
 }

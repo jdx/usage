@@ -23,7 +23,7 @@ impl Hello {
     }
 
     pub fn exec(&self) -> Result<CliResult, crate::runtime::CliError> {
-        let mut cmd_args: Vec<String> = vec![];
+        let cmd_args: Vec<String> = vec![];
         self.runner.run(cmd_args)
     }
 }
