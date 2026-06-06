@@ -19,7 +19,11 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
     let choice_types = collect_choice_types(&spec.cmd);
     let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types);
     let has_global_flags = spec.cmd.flags.iter().any(|f| f.global && !f.hide);
-    let mut all_imports = type_imports;
+    let choice_names: Vec<&str> = choice_types.types.keys().map(|s| s.as_str()).collect();
+    let mut all_imports: Vec<String> = type_imports
+        .into_iter()
+        .filter(|imp| !choice_names.iter().any(|cn| *cn == imp))
+        .collect();
     if has_global_flags {
         all_imports.push("GlobalFlags".to_string());
     }

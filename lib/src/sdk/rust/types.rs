@@ -445,11 +445,12 @@ pub fn flag_property_name_rs(flag: &SpecFlag) -> String {
 pub fn sanitize_rs_ident(name: &str) -> String {
     let snake = heck::AsSnakeCase(name).to_string();
     match snake.as_str() {
-        "type" | "self" | "super" | "mod" | "use" | "fn" | "let" | "mut" | "pub" | "impl"
-        | "trait" | "struct" | "enum" | "match" | "if" | "else" | "for" | "while" | "loop"
-        | "return" | "break" | "continue" | "where" | "as" | "in" | "ref" | "move" | "async"
-        | "await" | "unsafe" | "static" | "const" | "dyn" | "true" | "false" | "crate"
-        | "extern" | "default" | "macro" | "yield" | "box" | "override" | "abstract" => {
+        "as" | "break" | "const" | "continue" | "crate" | "else" | "enum" | "extern" | "false"
+        | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" | "match" | "mod" | "move"
+        | "mut" | "pub" | "ref" | "return" | "self" | "self_" | "static" | "struct" | "super"
+        | "trait" | "true" | "type" | "unsafe" | "use" | "where" | "while" | "async" | "await"
+        | "dyn" | "abstract" | "become" | "box" | "do" | "final" | "macro" | "override"
+        | "priv" | "try" | "typeof" | "unsized" | "virtual" | "yield" => {
             format!("_{snake}")
         }
         _ => snake,
