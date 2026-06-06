@@ -32,7 +32,8 @@ export class Status {
   async exec(flags?: StatusFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["status"];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: StatusFlags): string[] {

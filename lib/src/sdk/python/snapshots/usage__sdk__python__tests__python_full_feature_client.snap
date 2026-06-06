@@ -20,7 +20,8 @@ class Mytool:
         if args._input is not None: cmd_args.append(str(args._input))
         if args.extra is not None: cmd_args.extend(args.extra)
         flag_args = self._build_flag_args(flags)
-        return self._runner.run(cmd_args + flag_args)
+        cmd_args.extend(flag_args)
+        return self._runner.run(cmd_args)
 
     def _build_flag_args(self, flags: Optional[MytoolFlags]) -> list[str]:
         result: list[str] = []
@@ -45,10 +46,11 @@ class Build:
         """build [-j --jobs… <n>] [--release] <target> <-- output>"""
         cmd_args: list[str] = ["build"]
         if args.target is not None: cmd_args.append(str(args.target))
+        flag_args = self._build_flag_args(flags)
+        cmd_args.extend(flag_args)
         cmd_args.append("--")
         if args.output is not None: cmd_args.append(str(args.output))
-        flag_args = self._build_flag_args(flags)
-        return self._runner.run(cmd_args + flag_args)
+        return self._runner.run(cmd_args)
 
     def _build_flag_args(self, flags: Optional[BuildFlags]) -> list[str]:
         result: list[str] = []
@@ -71,7 +73,8 @@ class Deploy:
         if args.env is not None: cmd_args.append(str(args.env))
         if args.tags is not None: cmd_args.extend(args.tags)
         flag_args = self._build_flag_args(flags)
-        return self._runner.run(cmd_args + flag_args)
+        cmd_args.extend(flag_args)
+        return self._runner.run(cmd_args)
 
     def _build_flag_args(self, flags: Optional[DeployFlags]) -> list[str]:
         result: list[str] = []

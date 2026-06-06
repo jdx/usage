@@ -16,7 +16,8 @@ export class App {
   async exec(flags?: AppFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: AppFlags): string[] {

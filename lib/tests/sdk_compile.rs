@@ -50,6 +50,11 @@ fn full_spec() -> Spec {
             arg "tags" var=#true help="Deployment tags" var_min=1 var_max=5
             flag "-f --force" help="Force deploy" deprecated="Use --confirm instead"
             flag "--confirm" help="Confirm deployment"
+
+            cmd "rollback" help="Rollback deployment" {
+                arg "version" help="Version to rollback to"
+                flag "--force" help="Force rollback"
+            }
         }
 
         cmd "log" help="Show log level" {
@@ -79,14 +84,6 @@ fn write_sdk_to_dir(output: &SdkOutput, dir: &Path) {
 
 fn tool_exists(name: &str) -> bool {
     Command::new(name).arg("--version").output().is_ok()
-}
-
-fn npx_tsc_available() -> bool {
-    Command::new("npx")
-        .args(["--yes", "typescript", "tsc", "--version"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------

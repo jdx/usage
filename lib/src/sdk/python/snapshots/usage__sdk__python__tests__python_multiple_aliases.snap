@@ -16,7 +16,8 @@ class Tool:
         """[-f --format <fmt>]"""
         cmd_args: list[str] = []
         flag_args = self._build_flag_args(flags)
-        return self._runner.run(cmd_args + flag_args)
+        cmd_args.extend(flag_args)
+        return self._runner.run(cmd_args)
 
     def _build_flag_args(self, flags: Optional[ToolFlags]) -> list[str]:
         result: list[str] = []

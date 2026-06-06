@@ -23,7 +23,8 @@ export class Mycli {
     if (args.argrest !== undefined) { cmdArgs.push(...args.argrest); }
     if (args.withDefault !== undefined) { cmdArgs.push(String(args.withDefault)); }
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: MycliFlags): string[] {
@@ -66,7 +67,8 @@ export class Install {
     if (args.plugin !== undefined) { cmdArgs.push(String(args.plugin)); }
     if (args.version !== undefined) { cmdArgs.push(String(args.version)); }
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: InstallFlags): string[] {

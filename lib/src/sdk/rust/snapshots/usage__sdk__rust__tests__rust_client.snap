@@ -58,8 +58,8 @@ pub struct Plugin {
 impl Plugin {
     pub fn new(runner: CliRunner) -> Self {
         Self {
-            runner,
             install: Install::new(runner.clone()),
+            runner,
         }
     }
     /// plugin <SUBCOMMAND>

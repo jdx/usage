@@ -43,8 +43,8 @@ pub struct Db {
 impl Db {
     pub fn new(runner: CliRunner) -> Self {
         Self {
-            runner,
             migration: Migration::new(runner.clone()),
+            runner,
         }
     }
     /// db <SUBCOMMAND>
@@ -67,9 +67,9 @@ pub struct Migration {
 impl Migration {
     pub fn new(runner: CliRunner) -> Self {
         Self {
-            runner,
             create: Create::new(runner.clone()),
             run: Run::new(runner.clone()),
+            runner,
         }
     }
     /// db migration <SUBCOMMAND>

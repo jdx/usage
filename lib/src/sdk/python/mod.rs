@@ -648,9 +648,6 @@ fn render_class(
     w.line(&format!("cmd_args: list[str] = [{path}]"));
 
     if has_args {
-        let has_required_double_dash = visible_args
-            .iter()
-            .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
         let has_automatic_double_dash = visible_args
             .iter()
             .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
@@ -672,6 +669,21 @@ fn render_class(
             }
         }
 
+        if has_automatic_double_dash {
+            w.line("# double_dash=automatic: \"--\" is implied after the first positional arg");
+        }
+    }
+
+    if has_flags {
+        w.line("flag_args = self._build_flag_args(flags)");
+        w.line("cmd_args.extend(flag_args)");
+    }
+
+    if has_args {
+        let has_required_double_dash = visible_args
+            .iter()
+            .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
+
         if has_required_double_dash {
             w.line("cmd_args.append(\"--\")");
             // Args after `--`: only double_dash=required args
@@ -690,17 +702,10 @@ fn render_class(
                     ));
                 }
             }
-        } else if has_automatic_double_dash {
-            w.line("# double_dash=automatic: \"--\" is implied after the first positional arg");
         }
     }
 
-    if has_flags {
-        w.line("flag_args = self._build_flag_args(flags)");
-        w.line("return self._runner.run(cmd_args + flag_args)");
-    } else {
-        w.line("return self._runner.run(cmd_args)");
-    }
+    w.line("return self._runner.run(cmd_args)");
 
     w.dedent();
 

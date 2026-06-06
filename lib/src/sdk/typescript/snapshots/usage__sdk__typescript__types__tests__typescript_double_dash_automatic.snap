@@ -22,7 +22,8 @@ export class Runner {
     if (args.extra !== undefined) { cmdArgs.push(...args.extra); }
     // double_dash=automatic: "--" is implied after the first positional arg
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: RunnerFlags): string[] {

@@ -238,9 +238,6 @@ fn render_class(
 
         // add positional args with double_dash handling
         if has_args {
-            let has_required_double_dash = visible_args
-                .iter()
-                .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
             let has_automatic_double_dash = visible_args
                 .iter()
                 .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
@@ -262,6 +259,25 @@ fn render_class(
                 }
             }
 
+            if has_automatic_double_dash {
+                w.line(
+                    "// double_dash=automatic: \"--\" is implied after the first positional arg",
+                );
+            }
+        }
+
+        // add flags (before `--` separator)
+        if has_flags {
+            w.line("const flagArgs = this.buildFlagArgs(flags);");
+            w.line("cmdArgs.push(...flagArgs);");
+        }
+
+        // add `--` and double_dash=required args after flags
+        if has_args {
+            let has_required_double_dash = visible_args
+                .iter()
+                .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
+
             if has_required_double_dash {
                 w.line("cmdArgs.push(\"--\");");
                 // Args after `--`: only double_dash=required args
@@ -280,20 +296,10 @@ fn render_class(
                         ));
                     }
                 }
-            } else if has_automatic_double_dash {
-                w.line(
-                    "// double_dash=automatic: \"--\" is implied after the first positional arg",
-                );
             }
         }
 
-        // add flags
-        if has_flags {
-            w.line("const flagArgs = this.buildFlagArgs(flags);");
-            w.line("return this.runner.run([...cmdArgs, ...flagArgs]);");
-        } else {
-            w.line("return this.runner.run(cmdArgs);");
-        }
+        w.line("return this.runner.run(cmdArgs);");
 
         w.dedent();
         w.line("}");

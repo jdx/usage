@@ -22,7 +22,8 @@ export class App {
   async exec(flags?: AppFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: AppFlags): string[] {
@@ -44,7 +45,8 @@ export class Status {
   async exec(flags?: StatusFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["status"];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: StatusFlags): string[] {
@@ -67,7 +69,8 @@ export class Info {
   async exec(flags?: GlobalFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["info"];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: GlobalFlags): string[] {

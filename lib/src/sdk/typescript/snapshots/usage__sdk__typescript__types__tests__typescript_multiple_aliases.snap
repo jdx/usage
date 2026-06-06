@@ -16,7 +16,8 @@ export class Tool {
   async exec(flags?: ToolFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: ToolFlags): string[] {

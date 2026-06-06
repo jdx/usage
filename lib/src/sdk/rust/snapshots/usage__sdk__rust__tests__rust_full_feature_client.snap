@@ -70,10 +70,10 @@ impl Build {
     pub fn exec(&self, args: BuildArgs, flags: Option<BuildFlags>) -> Result<CliResult, crate::runtime::CliError> {
         let mut cmd_args: Vec<String> = vec!["build".to_string()];
         cmd_args.push(args.target.to_string());
-        cmd_args.push("--".to_string());
-        cmd_args.push(args.output.to_string());
         let flag_args = self.build_flag_args(flags);
         cmd_args.extend(flag_args);
+        cmd_args.push("--".to_string());
+        cmd_args.push(args.output.to_string());
         self.runner.run(cmd_args)
     }
 

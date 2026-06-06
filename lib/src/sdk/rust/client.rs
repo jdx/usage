@@ -149,12 +149,12 @@ fn render_class(
         w.indent();
         w.line("Self {");
         w.indent();
-        w.line("runner,");
         for (name, _) in &visible_subcmds {
             let sub_class = AsPascalCase(name).to_string();
             let prop = sanitize_rs_ident(&heck::AsSnakeCase(name).to_string());
             w.line(&format!("{prop}: {sub_class}::new(runner.clone()),"));
         }
+        w.line("runner,");
         w.dedent();
         w.line("}");
     }
@@ -252,13 +252,11 @@ fn render_class(
 
     // add positional args with double_dash handling
     if has_args {
-        let has_required_double_dash = visible_args
-            .iter()
-            .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
         let has_automatic_double_dash = visible_args
             .iter()
             .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Automatic));
 
+        // Args before `--`: all args without double_dash=required
         for arg in &visible_args {
             if matches!(arg.double_dash, SpecDoubleDashChoices::Required) {
                 continue;
@@ -283,6 +281,23 @@ fn render_class(
                 ));
             }
         }
+
+        if has_automatic_double_dash {
+            w.line("// double_dash=automatic: \"--\" is implied after the first positional arg");
+        }
+    }
+
+    // add flags (before `--` separator)
+    if has_flags {
+        w.line("let flag_args = self.build_flag_args(flags);");
+        w.line("cmd_args.extend(flag_args);");
+    }
+
+    // add `--` and double_dash=required args after flags
+    if has_args {
+        let has_required_double_dash = visible_args
+            .iter()
+            .any(|a| matches!(a.double_dash, SpecDoubleDashChoices::Required));
 
         if has_required_double_dash {
             w.line("cmd_args.push(\"--\".to_string());");
@@ -310,19 +325,10 @@ fn render_class(
                     ));
                 }
             }
-        } else if has_automatic_double_dash {
-            w.line("// double_dash=automatic: \"--\" is implied after the first positional arg");
         }
     }
 
-    // add flags
-    if has_flags {
-        w.line("let flag_args = self.build_flag_args(flags);");
-        w.line("cmd_args.extend(flag_args);");
-        w.line("self.runner.run(cmd_args)");
-    } else {
-        w.line("self.runner.run(cmd_args)");
-    }
+    w.line("self.runner.run(cmd_args)");
 
     w.dedent();
     w.line("}");

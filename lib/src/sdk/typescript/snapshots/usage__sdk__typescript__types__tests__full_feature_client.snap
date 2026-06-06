@@ -26,7 +26,8 @@ export class Mytool {
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }
     if (args.extra !== undefined) { cmdArgs.push(...args.extra); }
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: MytoolFlags): string[] {
@@ -61,10 +62,11 @@ export class Build {
   async exec(args: BuildArgs, flags?: BuildFlags): Promise<CliResult> {
     const cmdArgs: string[] = ["build"];
     if (args.target !== undefined) { cmdArgs.push(String(args.target)); }
+    const flagArgs = this.buildFlagArgs(flags);
+    cmdArgs.push(...flagArgs);
     cmdArgs.push("--");
     if (args.output !== undefined) { cmdArgs.push(String(args.output)); }
-    const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: BuildFlags): string[] {
@@ -91,7 +93,8 @@ export class Deploy {
     if (args.env !== undefined) { cmdArgs.push(String(args.env)); }
     if (args.tags !== undefined) { cmdArgs.push(...args.tags); }
     const flagArgs = this.buildFlagArgs(flags);
-    return this.runner.run([...cmdArgs, ...flagArgs]);
+    cmdArgs.push(...flagArgs);
+    return this.runner.run(cmdArgs);
   }
 
   private buildFlagArgs(flags?: DeployFlags): string[] {
