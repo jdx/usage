@@ -29,7 +29,7 @@ _usage() {
   local needs_menu=0 display insert
   while IFS=$'\t' read -r display insert; do
     completions+=("$display")
-    inserts+=("$insert")
+    inserts+=("${insert//:/\\:}")
     [[ "$insert" == "'"* ]] && needs_menu=1
   done < <(command usage complete-word --shell zsh -f "$spec_file" -- "${(Q)words[@]}")
   (( needs_menu )) && compstate[insert]=menu

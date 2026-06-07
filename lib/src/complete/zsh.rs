@@ -12,6 +12,13 @@ use heck::ToSnakeCase;
 /// `compstate[insert]=menu` skips longest-common-prefix insertion when
 /// values share a leading quote.
 ///
+/// `_describe` parses `candidate:description` in BOTH arrays, so colons in
+/// the insert strings must be escaped too (the display column arrives
+/// pre-escaped). Without this, a value like `chezmoi:brew:dump` collapses
+/// to candidate `chezmoi` with `brew:dump` treated as its description —
+/// completion inserts the truncated value, and with `-U` the next <Tab>
+/// replaces what the user already typed past the colon.
+///
 /// `cw_extra_args` is the extra `complete-word` arguments specific to each
 /// caller (e.g. `-f "$spec_file"` vs `-f "$cmdpath" --cword=$((CURRENT - 1))`).
 /// `indent` is prepended to every emitted line.
@@ -20,7 +27,7 @@ fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) ->
 local needs_menu=0 display insert
 while IFS=$'\t' read -r display insert; do
   completions+=("$display")
-  inserts+=("$insert")
+  inserts+=("${insert//:/\\:}")
   [[ "$insert" == "'"* ]] && needs_menu=1
 done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
 (( needs_menu )) && compstate[insert]=menu
