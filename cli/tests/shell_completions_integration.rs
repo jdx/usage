@@ -731,6 +731,11 @@ _testcli
         .expect("Failed to run zsh test");
     let stdout = String::from_utf8_lossy(&result.stdout);
     let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
 
     let expected = [
         "release:create",
@@ -1195,6 +1200,11 @@ _usage_default_complete
         .expect("Failed to run zsh init test");
     let stdout = String::from_utf8_lossy(&result.stdout);
     let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh init completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
 
     let expected = [
         "release:create",
