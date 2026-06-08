@@ -4,9 +4,10 @@ use heck::ToSnakeCase;
 /// The completion loop that both `complete_zsh` (per-bin script) and
 /// `complete_zsh_init` (shebang-fallback handler) need to emit.
 ///
-/// `complete-word --shell zsh` emits two tab-separated columns per match:
-/// the display string (`value:description` for `_describe`) and the
-/// shell-quoted insert string. `usage complete-word` already filters by the
+/// `complete-word --shell zsh` emits three tab-separated columns per match:
+/// raw value, description, and shell-quoted insert. We build the display
+/// string from value+description (descriptions aligned to the longest value)
+/// and pass insert to `compadd`. `usage complete-word` already filters by the
 /// typed prefix, so `-U` tells `compadd` not to re-filter (which would
 /// discard our pre-quoted matches whose literal text starts with `'`).
 /// `compstate[insert]=menu` skips longest-common-prefix insertion when
@@ -24,12 +25,13 @@ fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) ->
     // call `compadd` directly so every match is offered, with descriptions
     // aligned to the longest value.
     let template = r#"local -a values=() descs=() inserts=()
-local needs_menu=0 value desc insert
-while IFS=$'\t' read -r value desc insert; do
-  values+=("$value")
-  descs+=("$desc")
-  inserts+=("$insert")
-  [[ "$insert" == "'"* ]] && needs_menu=1
+local needs_menu=0 line
+while IFS= read -r line; do
+  local -a parts=("${(@ps:\t:)line}")
+  values+=("${parts[1]}")
+  descs+=("${parts[2]}")
+  inserts+=("${parts[3]}")
+  [[ "${parts[3]}" == "'"* ]] && needs_menu=1
 done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
 (( needs_menu )) && compstate[insert]=menu
 if (( ${#inserts[@]} )); then
@@ -46,11 +48,7 @@ if (( ${#inserts[@]} )); then
       _usage_display+=("${values[_usage_i]}")
     fi
   done
-  if [[ -n "${compstate[context]-}" ]]; then
-    compadd -l -d _usage_display -U -Q -S '' -a inserts
-  else
-    _describe 'completions' _usage_display inserts -U -Q -S ''
-  fi
+  compadd -l -d _usage_display -U -Q -S '' -a inserts
 fi"#;
     template
         .replace("__USAGE_BIN__", usage_bin)

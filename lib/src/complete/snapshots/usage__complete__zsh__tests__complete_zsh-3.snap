@@ -81,12 +81,13 @@ cmd plugin {
 }
 __USAGE_EOF__
   local -a values=() descs=() inserts=()
-  local needs_menu=0 value desc insert
-  while IFS=$'\t' read -r value desc insert; do
-    values+=("$value")
-    descs+=("$desc")
-    inserts+=("$insert")
-    [[ "$insert" == "'"* ]] && needs_menu=1
+  local needs_menu=0 line
+  while IFS= read -r line; do
+    local -a parts=("${(@ps:\t:)line}")
+    values+=("${parts[1]}")
+    descs+=("${parts[2]}")
+    inserts+=("${parts[3]}")
+    [[ "${parts[3]}" == "'"* ]] && needs_menu=1
   done < <(command usage complete-word --shell zsh -f "$spec_file" -- "${(Q)words[@]}")
   (( needs_menu )) && compstate[insert]=menu
   if (( ${#inserts[@]} )); then
