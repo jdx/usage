@@ -46,7 +46,11 @@ if (( ${#inserts[@]} )); then
       _usage_display+=("${values[_usage_i]}")
     fi
   done
-  compadd -l -d _usage_display -U -Q -S '' -a inserts
+  if [[ -n "${compstate[context]-}" ]]; then
+    compadd -l -d _usage_display -U -Q -S '' -a inserts
+  else
+    _describe 'completions' _usage_display inserts -U -Q -S ''
+  fi
 fi"#;
     template
         .replace("__USAGE_BIN__", usage_bin)
