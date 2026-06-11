@@ -1,5 +1,42 @@
 # Changelog
 
+## [3.5.0](https://github.com/jdx/usage/compare/v3.4.0..v3.5.0) - 2026-06-11
+
+### 🚀 Features
+
+- add sponsors command by [@jdx](https://github.com/jdx) in [#662](https://github.com/jdx/usage/pull/662)
+- generate SDK for TypeScript and Python by [@gaojunran](https://github.com/gaojunran) in [#623](https://github.com/jdx/usage/pull/623)
+
+### 🐛 Bug Fixes
+
+- **(parse)** union orphan aliases when merging a re-declared global flag by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#659](https://github.com/jdx/usage/pull/659)
+- **(zsh)** escape colons in completion insert strings by [@davidolrik](https://github.com/davidolrik) in [#670](https://github.com/jdx/usage/pull/670)
+- **(zsh)** show all matches when subcommand names contain `:` by [@zeitlinger](https://github.com/zeitlinger) in [#666](https://github.com/jdx/usage/pull/666)
+
+### 📚 Documentation
+
+- use KDLv2 raw multiline strings by [@salim-b](https://github.com/salim-b) in [#657](https://github.com/jdx/usage/pull/657)
+- add sponsor feed to docs by [@jdx](https://github.com/jdx) in [#608](https://github.com/jdx/usage/pull/608)
+- add sponsor footer by [@jdx](https://github.com/jdx) in [#656](https://github.com/jdx/usage/pull/656)
+
+### 🔍 Other Changes
+
+- **(ci)** fix zizmor version comments by [@jdx](https://github.com/jdx) in [#665](https://github.com/jdx/usage/pull/665)
+- **(ci)** use pr-closer action by [@jdx](https://github.com/jdx) in [#664](https://github.com/jdx/usage/pull/664)
+- **(ci)** remove codecov upload by [@jdx](https://github.com/jdx) in [#672](https://github.com/jdx/usage/pull/672)
+- **(docs)** add integrations for JCommander, picocli and Clikt by [@gaojunran](https://github.com/gaojunran) in [#655](https://github.com/jdx/usage/pull/655)
+- **(docs)** add integrations for urfave/cli and Kong by [@gaojunran](https://github.com/gaojunran) in [#667](https://github.com/jdx/usage/pull/667)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance lockfile maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#671](https://github.com/jdx/usage/pull/671)
+
+### New Contributors
+
+- @zeitlinger made their first contribution in [#666](https://github.com/jdx/usage/pull/666)
+- @davidolrik made their first contribution in [#670](https://github.com/jdx/usage/pull/670)
+- @salim-b made their first contribution in [#657](https://github.com/jdx/usage/pull/657)
+
 ## [3.4.0](https://github.com/jdx/usage/compare/v3.3.0..v3.4.0) - 2026-05-31
 
 ### 🚀 Features
@@ -9,6 +46,7 @@
 ### 🐛 Bug Fixes
 
 - **(ci)** preserve release push credentials by [@jdx](https://github.com/jdx) in [#650](https://github.com/jdx/usage/pull/650)
+- **(ci)** use trusted publishing for crates by [@jdx](https://github.com/jdx) in [#654](https://github.com/jdx/usage/pull/654)
 - **(nushell)** use caret for invoking cmd in completion script by [@silvanshade](https://github.com/silvanshade) in [#638](https://github.com/jdx/usage/pull/638)
 - **(parse)** keep inherited global flags when a subcommand re-declares them as non-global by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#649](https://github.com/jdx/usage/pull/649)
 - **(zsh)** consistently single-quote choice values containing spaces by [@jdx](https://github.com/jdx) in [#635](https://github.com/jdx/usage/pull/635)
