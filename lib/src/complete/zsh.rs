@@ -4,9 +4,10 @@ use heck::ToSnakeCase;
 /// The completion loop that both `complete_zsh` (per-bin script) and
 /// `complete_zsh_init` (shebang-fallback handler) need to emit.
 ///
-/// `complete-word --shell zsh` emits two tab-separated columns per match:
-/// the display string (`value:description` for `_describe`) and the
-/// shell-quoted insert string. `usage complete-word` already filters by the
+/// `complete-word --shell zsh` emits three tab-separated columns per match:
+/// raw value, description, and shell-quoted insert. We build the display
+/// string from value+description (descriptions aligned to the longest value)
+/// and pass insert to `compadd`. `usage complete-word` already filters by the
 /// typed prefix, so `-U` tells `compadd` not to re-filter (which would
 /// discard our pre-quoted matches whose literal text starts with `'`).
 /// `compstate[insert]=menu` skips longest-common-prefix insertion when
@@ -16,15 +17,39 @@ use heck::ToSnakeCase;
 /// caller (e.g. `-f "$spec_file"` vs `-f "$cmdpath" --cword=$((CURRENT - 1))`).
 /// `indent` is prepended to every emitted line.
 fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) -> String {
-    let template = r#"local -a completions=() inserts=()
-local needs_menu=0 display insert
-while IFS=$'\t' read -r display insert; do
-  completions+=("$display")
-  inserts+=("$insert")
-  [[ "$insert" == "'"* ]] && needs_menu=1
+    // `_describe` groups matches that share a `\:`-escaped prefix and only
+    // surfaces one per group, so tasks like `release:create`, `release:docs-sync`,
+    // `release:pr`, `release:update` collapse to a single entry. `complete-word
+    // --shell zsh` emits three tab-separated columns — raw value, description,
+    // shell-quoted insert — and we build the formatted display ourselves and
+    // call `compadd` directly so every match is offered, with descriptions
+    // aligned to the longest value.
+    let template = r#"local -a values=() descs=() inserts=()
+local needs_menu=0 line
+while IFS= read -r line; do
+  local -a parts=("${(@ps:\t:)line}")
+  values+=("${parts[1]}")
+  descs+=("${parts[2]}")
+  inserts+=("${parts[3]}")
+  [[ "${parts[3]}" == "'"* ]] && needs_menu=1
 done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
 (( needs_menu )) && compstate[insert]=menu
-_describe 'completions' completions inserts -U -Q -S ''"#;
+if (( ${#inserts[@]} )); then
+  local -a _usage_display=()
+  local _usage_i _usage_max=0 _usage_v _usage_pad
+  for _usage_v in "${values[@]}"; do
+    (( ${#_usage_v} > _usage_max )) && _usage_max=${#_usage_v}
+  done
+  for ((_usage_i=1; _usage_i<=${#values[@]}; _usage_i++)); do
+    if [[ -n "${descs[_usage_i]}" ]]; then
+      _usage_pad=$(( _usage_max - ${#values[_usage_i]} ))
+      _usage_display+=("${values[_usage_i]}${(l:_usage_pad:: :)}  -- ${descs[_usage_i]}")
+    else
+      _usage_display+=("${values[_usage_i]}")
+    fi
+  done
+  compadd -l -d _usage_display -U -Q -S '' -a inserts
+fi"#;
     template
         .replace("__USAGE_BIN__", usage_bin)
         .replace("__CW_EXTRA__", cw_extra_args)

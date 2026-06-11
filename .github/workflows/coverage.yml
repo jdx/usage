@@ -38,8 +38,3 @@ jobs:
           fi
       - name: Generate code coverage
         run: mise run coverage
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
-        with:
-          files: codecov.json
-          fail_ci_if_error: true

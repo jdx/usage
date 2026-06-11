@@ -507,10 +507,10 @@ zpty comptest comptest
 zpty -w comptest $'testcli \t'
 
 # Read up to first delimiter (with timeout)
-zpty -rt 2 comptest REPLY $'*\002' 2>/dev/null
+zpty -r comptest REPLY $'*\002' 2>/dev/null
 
-# Read actual completions (with timeout)
-zpty -rt 2 comptest REPLY $'*\003' 2>/dev/null
+# Read actual completions
+zpty -r comptest REPLY $'*\003' 2>/dev/null
 
 # Check if we got completions
 if [[ -n "${{REPLY%$'\003'}}" ]]; then
@@ -607,9 +607,9 @@ arg "<recipient>" required {
         .expect("Failed to run complete-word");
     let raw_stdout = String::from_utf8_lossy(&raw.stdout);
     let expected_lines = [
-        "Alice Alice\t'Alice Alice'",
-        "Bob Bob\t'Bob Bob'",
-        "Carol Carol\t'Carol Carol'",
+        "Alice Alice\t\t'Alice Alice'",
+        "Bob Bob\t\t'Bob Bob'",
+        "Carol Carol\t\t'Carol Carol'",
     ];
     for line in expected_lines {
         assert!(
@@ -618,8 +618,8 @@ arg "<recipient>" required {
         );
     }
 
-    // 2. The simple unquoted case still emits a tab + the raw value as the
-    //    insert column (no surrounding quotes).
+    // 2. The simple unquoted case still emits the three tab-separated columns
+    //    (value, empty description, raw insert with no surrounding quotes).
     let raw_simple = Command::new(&usage_bin)
         .args(["complete-word", "--shell", "zsh", "-s"])
         .arg(r#"arg "<env>" { choices "dev" "prod" }"#)
@@ -628,12 +628,13 @@ arg "<recipient>" required {
         .expect("Failed to run complete-word");
     let simple_stdout = String::from_utf8_lossy(&raw_simple.stdout);
     assert!(
-        simple_stdout.lines().any(|l| l == "dev\tdev"),
-        "Expected `dev\\tdev` in complete-word output, got:\n{simple_stdout}"
+        simple_stdout.lines().any(|l| l == "dev\t\tdev"),
+        "Expected `dev\\t\\tdev` in complete-word output, got:\n{simple_stdout}"
     );
 
-    // 3. The generated zsh completion script wires these two columns into
-    //    `_describe` with `-U -Q` so zsh inserts the pre-quoted value verbatim.
+    // 3. The generated zsh completion script wires the three columns into
+    //    `compadd -U -Q -d ...` so zsh inserts the pre-quoted value verbatim
+    //    without re-filtering.
     let gen = Command::new(&usage_bin)
         .args(["generate", "completion", "zsh", "testcli", "-f"])
         .arg(spec_kdl_file.to_str().unwrap())
@@ -641,14 +642,113 @@ arg "<recipient>" required {
         .expect("Failed to generate zsh completion");
     let script = String::from_utf8_lossy(&gen.stdout);
     let expected_fragments = [
-        "(Q)words",                                          // unquote user input
-        r#"IFS=$'\t' read -r display insert"#,               // tab-separated
-        "_describe 'completions' completions inserts -U -Q", // -U -Q on _describe
+        "(Q)words",                                            // unquote user input
+        r#"${(@ps:\t:)line}"#,                                 // tab-split preserves empty fields
+        "compadd -l -d _usage_display -U -Q -S '' -a inserts", // -U -Q on compadd
     ];
     for fragment in expected_fragments {
         assert!(
             script.contains(fragment),
             "Expected `{fragment}` in generated script:\n{script}"
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Regression test: subcommands whose names contain `:` (e.g. `release:create`,
+/// `release:docs-sync`, `release:pr`) must all appear in the completion menu.
+///
+/// The previous implementation handed `\:`-escaped `value:description` strings
+/// to `_describe`, which groups matches that share a `\:`-escaped prefix and
+/// surfaces only one entry per group — so out of four `release:*` subcommands
+/// only `release:create` would show. The fix switches to `compadd` driven by
+/// three-column output; this test stubs `compadd` to capture the inserts array
+/// and asserts every colon-named subcommand is passed individually.
+#[test]
+fn test_zsh_completion_includes_all_colon_subcommands() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir =
+        env::temp_dir().join(format!("usage_zsh_colon_subs_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+bin "testcli"
+cmd "release:create" help="Create release"
+cmd "release:docs-sync" help="Refresh docs"
+cmd "release:pr" help="Open release PR"
+cmd "release:update" help="Update release state"
+cmd "lint" help="Run lints"
+cmd "lint:fix" help="Auto-fix lints"
+"#;
+    let spec_kdl_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_kdl_file, spec).unwrap();
+
+    let gen = Command::new(&usage_bin)
+        .args(["generate", "completion", "zsh", "testcli", "-f"])
+        .arg(spec_kdl_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate zsh completion");
+    let comp_file = temp_dir.join("_testcli");
+    fs::write(&comp_file, &gen.stdout).unwrap();
+
+    // Drive the generated `_testcli` function directly with stubbed compadd
+    // so we can inspect the inserts array without needing a real ZLE context.
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+set -e
+export PATH="{usage_dir}:$PATH"
+export TMPDIR="{tmp}"
+
+autoload -U compinit
+compinit -u
+source {comp}
+
+compadd() {{
+    local i="${{inserts[*]}}"
+    print -r -- "[compadd:inserts] $i"
+}}
+
+words=(testcli "")
+CURRENT=2
+_testcli
+"#,
+        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
+        tmp = temp_dir.to_str().unwrap(),
+        comp = comp_file.to_str().unwrap(),
+    );
+
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("zsh")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+
+    let expected = [
+        "release:create",
+        "release:docs-sync",
+        "release:pr",
+        "release:update",
+        "lint",
+        "lint:fix",
+    ];
+    for sub in expected {
+        assert!(
+            stdout.contains(sub),
+            "Expected subcommand `{sub}` in compadd inserts.\nstdout:\n{stdout}\nstderr:\n{stderr}"
         );
     }
 
@@ -816,23 +916,24 @@ cmd other help="Another subcommand"
     let spec_file = temp_dir.join("test.spec");
     fs::write(&spec_file, usage_spec).unwrap();
 
-    // Test zsh output format: each line is `<display>\t<insert>` where
-    // <display> is `name:description` (or `name`) for `_describe`'s menu
-    // rendering, and <insert> is the shell-quoted form to insert verbatim
-    // via `compadd -Q`.
+    // Test zsh output format: each line is `<value>\t<description>\t<insert>`
+    // where <value> and <description> are the raw strings (no escaping) and
+    // <insert> is the shell-quoted form for `compadd -Q`. The generated
+    // completion script builds the menu label from value + description
+    // directly, so no `\:` / `\(` / `\[` escaping is needed.
     let output = run_complete_word(&usage_bin, "zsh", &spec_file, &["testcli", ""]);
     let lines: Vec<&str> = output.lines().collect();
 
     assert!(
-        lines.iter().any(|l| *l == "sub:A subcommand\tsub"),
-        "Expected 'sub:A subcommand\\tsub' in zsh output, got: {:?}",
+        lines.iter().any(|l| *l == "sub\tA subcommand\tsub"),
+        "Expected 'sub\\tA subcommand\\tsub' in zsh output, got: {:?}",
         lines
     );
     assert!(
         lines
             .iter()
-            .any(|l| *l == "other:Another subcommand\tother"),
-        "Expected 'other:Another subcommand\\tother' in zsh output, got: {:?}",
+            .any(|l| *l == "other\tAnother subcommand\tother"),
+        "Expected 'other\\tAnother subcommand\\tother' in zsh output, got: {:?}",
         lines
     );
 
@@ -957,8 +1058,9 @@ fn test_zsh_completion_init_integration() {
     let usage_bin = build_usage_binary();
     let (temp_dir, bin_dir, init_script) = stage_init_test_env(&usage_bin, "zsh", "zsh");
 
-    // Stub `_describe`/`_files` to capture what the handler offers without
+    // Stub `compadd`/`_files` to capture what the handler offers without
     // needing an interactive ZLE context. Drive with $words/$CURRENT.
+    // The init template calls `compadd -l -d <display-arr> -U -Q -S '' -a <inserts-arr>`.
     let test_script = format!(
         r#"#!/usr/bin/env zsh
 set -e
@@ -967,11 +1069,11 @@ autoload -U compinit
 compinit -u
 source "{init_script}"
 
-_describe() {{
-    local arr_name="$2"
-    local -a items
-    items=("${{(@P)arr_name}}")
-    print -r -- "[describe:$1] ${{items[*]}}"
+compadd() {{
+    local d="${{_usage_display[*]}}"
+    local i="${{inserts[*]}}"
+    print -r -- "[compadd:display] $d"
+    print -r -- "[compadd:inserts] $i"
 }}
 _files() {{ print -r -- "[files-fallback]" }}
 
@@ -1003,13 +1105,121 @@ _usage_default_complete
         "zsh init script exited non-zero. stderr: {stderr}"
     );
     assert!(
-        stdout.contains("[describe:completions] val-1 val-2 val-3"),
-        "expected positional completions via _describe, got: {stdout}"
+        stdout.contains("[compadd:inserts] val-1 val-2 val-3"),
+        "expected positional completions in compadd inserts, got: {stdout}"
     );
     assert!(
-        stdout.contains("--foo:Flag value"),
-        "expected --foo flag with description in _describe items, got: {stdout}"
+        stdout.contains("[compadd:display]") && stdout.contains("--foo"),
+        "expected --foo flag in compadd display, got: {stdout}"
     );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Regression: init script (`compdef -default-` handler) must surface every
+/// colon-named subcommand, not collapse them via `_describe` grouping.
+/// Mirrors `test_zsh_completion_includes_all_colon_subcommands` but exercises
+/// the shebang/init path instead of a per-bin `compdef` registration.
+#[test]
+fn test_zsh_init_completion_includes_all_colon_subcommands() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!(
+        "usage_zsh_init_colon_subs_test_{}",
+        std::process::id()
+    ));
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+
+    let script = "\
+#!/usr/bin/env -S usage bash
+#USAGE bin \"testcli\"
+#USAGE cmd \"release:create\" help=\"Create release\"
+#USAGE cmd \"release:docs-sync\" help=\"Refresh docs\"
+#USAGE cmd \"release:pr\" help=\"Open release PR\"
+#USAGE cmd \"release:update\" help=\"Update release state\"
+#USAGE cmd \"lint\" help=\"Run lints\"
+#USAGE cmd \"lint:fix\" help=\"Auto-fix lints\"
+";
+    let script_path = bin_dir.join("testcli");
+    fs::write(&script_path, script).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&script_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&script_path, perms).unwrap();
+    }
+
+    let gen = Command::new(&usage_bin)
+        .args(["generate", "completion-init", "zsh"])
+        .output()
+        .expect("Failed to generate completion-init");
+    assert!(
+        gen.status.success(),
+        "completion-init failed: {}",
+        String::from_utf8_lossy(&gen.stderr)
+    );
+    let init_script = temp_dir.join("init.zsh");
+    fs::write(&init_script, &gen.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+set -e
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+export TMPDIR="{tmp}"
+
+autoload -U compinit
+compinit -u
+source "{init}"
+
+compadd() {{
+    local i="${{inserts[*]}}"
+    print -r -- "[compadd:inserts] $i"
+}}
+
+words=(testcli "")
+CURRENT=2
+_usage_default_complete
+"#,
+        bin_dir = bin_dir.to_str().unwrap(),
+        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
+        tmp = temp_dir.to_str().unwrap(),
+        init = init_script.to_str().unwrap(),
+    );
+
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("zsh")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh init test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh init completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+
+    let expected = [
+        "release:create",
+        "release:docs-sync",
+        "release:pr",
+        "release:update",
+        "lint",
+        "lint:fix",
+    ];
+    for sub in expected {
+        assert!(
+            stdout.contains(sub),
+            "Expected subcommand `{sub}` in init-path compadd inserts.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        );
+    }
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
