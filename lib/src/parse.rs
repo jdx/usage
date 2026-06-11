@@ -556,10 +556,13 @@ fn parse_partial_with_env(
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
-            if !val.is_empty() {
-                input.push_front(val.to_string());
-            }
             if let Some(f) = out.available_flags.get(word) {
+                // Only push the embedded value back when the flag is known so that
+                // unknown --flag=value tokens fall through intact to positional arg
+                // handling without also injecting a stray "value" positional.
+                if !val.is_empty() {
+                    input.push_front(val.to_string());
+                }
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
@@ -2625,5 +2628,55 @@ mod tests {
             }
             _ => panic!("Expected MultiString, got {:?}", args_val),
         }
+    }
+
+    #[test]
+    fn test_variadic_arg_unknown_flag_equals_value_not_split() {
+        // Regression: --flag=value should be treated as a single positional token when
+        // --flag is not a known spec flag, not split into "--flag=value" AND "value".
+        let spec: Spec = r#"arg "[other_args]" var=#true"#.parse().unwrap();
+
+        // Single unknown --flag=value: must not produce a stray "3" positional.
+        // as_env() shell-joins via shell_words::join, so "=" gets quoted.
+        let input: Vec<String> = vec!["test", "--option=3"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed = parse(&spec, &input).unwrap();
+        let env = parsed.as_env();
+        assert_eq!(
+            env.get("usage_other_args").map(String::as_str),
+            Some("'--option=3'"),
+            "expected a single --option=3 token, got {:?}",
+            env.get("usage_other_args"),
+        );
+
+        // Multiple unknown --flag=value args should each be kept intact
+        let input2: Vec<String> = vec!["test", "--foo=bar", "--baz=qux"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed2 = parse(&spec, &input2).unwrap();
+        let env2 = parsed2.as_env();
+        assert_eq!(
+            env2.get("usage_other_args").map(String::as_str),
+            Some("'--foo=bar' '--baz=qux'"),
+            "expected two intact tokens, got {:?}",
+            env2.get("usage_other_args"),
+        );
+
+        // Mix of plain positional args and unknown --flag=value tokens
+        let input3: Vec<String> = vec!["test", "positional1", "--option=3", "positional2"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let parsed3 = parse(&spec, &input3).unwrap();
+        let env3 = parsed3.as_env();
+        assert_eq!(
+            env3.get("usage_other_args").map(String::as_str),
+            Some("positional1 '--option=3' positional2"),
+            "expected positional args and intact flag token, got {:?}",
+            env3.get("usage_other_args"),
+        );
     }
 }
