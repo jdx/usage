@@ -344,7 +344,11 @@ fn render_class(
 
     // build_flag_args method
     if has_flags {
+        let has_deprecated = all_flags.iter().any(|f| f.deprecated.is_some());
         w.line("");
+        if has_deprecated {
+            w.line("#[allow(deprecated)]");
+        }
         if has_required_flags {
             w.line(&format!(
                 "fn build_flag_args(&self, flags: {flags_type}) -> Vec<String> {{"

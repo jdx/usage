@@ -142,6 +142,11 @@ fn test_python_sdk_imports() {
 /// temporary directory, and runs `cargo check` on the generated code.
 #[test]
 fn test_rust_sdk_compiles() {
+    if !tool_exists("cargo") {
+        eprintln!("Skipping Rust SDK compilation test - cargo not found");
+        return;
+    }
+
     let spec = full_spec();
     let output = usage::sdk::generate(
         &spec,

@@ -31,6 +31,7 @@ impl Tool {
         self.runner.run(cmd_args)
     }
 
+    #[allow(deprecated)]
     fn build_flag_args(&self, flags: ToolFlags) -> Vec<String> {
         let mut result = Vec::new();
         if let Some(v) = flags.v { if v { result.push("-v".to_string()); } }

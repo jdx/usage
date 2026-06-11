@@ -457,9 +457,10 @@ pub fn sanitize_rs_ident(name: &str) -> String {
     }
 }
 
-/// Escape backslashes and double quotes for Rust string literals.
+/// Escape a string for use in a Rust string literal.
+/// Handles backslashes, double quotes, and control characters (newlines, tabs, etc.).
 pub fn escape_rs_string(s: &str) -> String {
-    s.replace('\\', r"\\").replace('"', r#"\""#)
+    s.chars().flat_map(|c| c.escape_default()).collect()
 }
 
 /// Generate a valid Rust identifier for a choice variant.

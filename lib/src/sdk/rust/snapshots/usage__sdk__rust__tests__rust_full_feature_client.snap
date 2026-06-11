@@ -110,6 +110,7 @@ impl Deploy {
         self.runner.run(cmd_args)
     }
 
+    #[allow(deprecated)]
     fn build_flag_args(&self, flags: Option<DeployFlags>) -> Vec<String> {
         let mut result = Vec::new();
         let flags = match flags { Some(f) => f, None => return result };
