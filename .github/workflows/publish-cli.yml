@@ -28,7 +28,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           cache: false
       - name: Create draft release
@@ -95,7 +95,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           experimental: true
           cache: false
@@ -129,7 +129,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           cache: false
       - run: gh release edit "${GITHUB_REF_NAME}" --draft=false
@@ -146,7 +146,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           cache: false
       - run: communique generate "${GITHUB_REF_NAME}" --github-release
