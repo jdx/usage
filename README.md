@@ -16,3 +16,5 @@ See more at [usage.jdx.dev](https://usage.jdx.dev/).
 ## Sponsors
 
 usage is sponsored by [37signals](https://37signals.com).
+
+[View all sponsors](https://en.dev/sponsors.html).
