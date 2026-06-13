@@ -50,6 +50,7 @@ export default defineConfig({
     ],
 
     sidebar: [
+      { text: "Contributing", link: "/contributing" },
       {
         text: "CLI",
         link: "/cli/",
