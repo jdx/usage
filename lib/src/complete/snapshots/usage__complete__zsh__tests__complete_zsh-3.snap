@@ -7,6 +7,7 @@ expression: "complete_zsh(&CompleteOptions\n{\n    usage_bin: \"usage\".to_strin
 local curcontext="$curcontext"
 
 _mycli() {
+  emulate -L zsh
   typeset -A opt_args
   local curcontext="$curcontext" cache_policy
 

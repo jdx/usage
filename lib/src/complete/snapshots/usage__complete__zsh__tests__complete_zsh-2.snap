@@ -17,6 +17,7 @@ _usage_mycli_cache_policy() {
 }
 
 _mycli() {
+  emulate -L zsh
   typeset -A opt_args
   local curcontext="$curcontext" cache_policy
 
