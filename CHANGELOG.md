@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.2](https://github.com/jdx/usage/compare/v3.5.1..v3.5.2) - 2026-06-17
+
+### 🔍 Other Changes
+
+- **(ci)** install publish build targets by [@jdx](https://github.com/jdx) in [#687](https://github.com/jdx/usage/pull/687)
+
 ## [3.5.1](https://github.com/jdx/usage/compare/v3.5.0..v3.5.1) - 2026-06-17
 
 ### 🐛 Bug Fixes
