@@ -95,6 +95,9 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - name: Install Rust target
+        if: ${{ matrix.target != 'universal-apple-darwin' }}
+        run: rustup target add ${{ matrix.target }}
       - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           experimental: true
