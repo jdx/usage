@@ -30,6 +30,11 @@ required_flag:
     args="",
     expected=r#"Missing required flag: --name <name>"#,
 
+required_flag_with_short_alias:
+    spec=r#"flag "-n --name <name>" required=#true"#,
+    args="",
+    expected=r#"Missing required flag: --name <name>"#,
+
 negate:
     spec=r#"flag "--force" negate="--no-force""#,
     args="--no-force",

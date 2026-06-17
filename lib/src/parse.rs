@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
 use miette::bail;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use strum::EnumTryAs;
@@ -115,6 +115,15 @@ fn flag_keys(flag: &SpecFlag) -> Vec<String> {
         keys.push(negate.clone());
     }
     keys
+}
+
+fn unique_flags<'a>(
+    flags: impl IntoIterator<Item = &'a Arc<SpecFlag>>,
+) -> impl Iterator<Item = &'a Arc<SpecFlag>> {
+    let mut seen = HashSet::new();
+    flags
+        .into_iter()
+        .filter(move |flag| seen.insert(Arc::as_ptr(flag) as usize))
 }
 
 /// Extract the flag key from a flag word for lookup in available_flags map
@@ -704,7 +713,7 @@ fn parse_partial_with_env(
         }
     }
 
-    for flag in out.available_flags.values() {
+    for flag in unique_flags(out.available_flags.values()) {
         if out.flags.contains_key(flag) {
             continue;
         }
