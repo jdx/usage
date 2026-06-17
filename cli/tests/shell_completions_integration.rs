@@ -755,6 +755,83 @@ _testcli
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// Regression test for user zsh options leaking into generated completions.
+///
+/// With KSH_ARRAYS enabled, zsh arrays become zero-indexed. The generated
+/// completion script indexes tab-split completion rows as zsh arrays, so it
+/// must enter local zsh emulation before parsing `complete-word` output.
+#[test]
+fn test_zsh_completion_ignores_ksh_arrays_option() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir =
+        env::temp_dir().join(format!("usage_zsh_ksh_arrays_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+bin "testcli"
+cmd "doctor" help="Check installation"
+"#;
+    let spec_kdl_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_kdl_file, spec).unwrap();
+
+    let gen = Command::new(&usage_bin)
+        .args(["generate", "completion", "zsh", "testcli", "-f"])
+        .arg(spec_kdl_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate zsh completion");
+    let comp_file = temp_dir.join("_testcli");
+    fs::write(&comp_file, &gen.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+set -e
+setopt KSH_ARRAYS
+export PATH="{usage_dir}:$PATH"
+export TMPDIR="{tmp}"
+
+autoload -U compinit
+compinit -u
+source {comp}
+
+compadd() {{
+    print -r -- "[compadd:inserts] ${{inserts[*]}}"
+}}
+
+words=(testcli d)
+CURRENT=2
+_testcli
+"#,
+        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
+        tmp = temp_dir.to_str().unwrap(),
+        comp = comp_file.to_str().unwrap(),
+    );
+
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("zsh")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run zsh test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+    assert!(
+        stdout.contains("[compadd:inserts] doctor"),
+        "Expected only the insert value in compadd inserts.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 #[test]
 fn test_powershell_completion_integration() {
     if skip_if_shell_missing("pwsh") {

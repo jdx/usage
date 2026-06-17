@@ -98,6 +98,7 @@ _usage_{bin_snake}_cache_policy() {{
     out.push(format!(
         r#"
 _{bin_snake}() {{
+  emulate -L zsh
   typeset -A opt_args
   local curcontext="$curcontext" cache_policy
 
@@ -187,6 +188,7 @@ pub fn complete_zsh_init(usage_bin: &str) -> String {
 # on $PATH whose first line is a `usage` shebang.
 
 _usage_default_complete() {{
+    emulate -L zsh
     local cmd cmdpath
     cmd="${{words[1]}}"
     if [[ "$cmd" == */* ]]; then
