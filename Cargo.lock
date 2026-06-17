@@ -1850,9 +1850,9 @@ checksum = "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
 
 [[package]]
 name = "syn"
-version = "2.0.117"
+version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
+checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2045,7 +2045,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "usage-cli"
-version = "3.5.0"
+version = "3.5.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -2073,7 +2073,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "3.5.0"
+version = "3.5.1"
 dependencies = [
  "clap",
  "criterion",
