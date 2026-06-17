@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.5.1](https://github.com/jdx/usage/compare/v3.5.0..v3.5.1) - 2026-06-17
+
+### 🐛 Bug Fixes
+
+- **(parse)** dedupe required flag validation errors by [@jdx](https://github.com/jdx) in [#685](https://github.com/jdx/usage/pull/685)
+- **(zsh)** isolate generated completion options by [@jdx](https://github.com/jdx) in [#686](https://github.com/jdx/usage/pull/686)
+- allow for variadic arguments to capture unknown flags as well by [@rtpg](https://github.com/rtpg) in [#676](https://github.com/jdx/usage/pull/676)
+
+### 📚 Documentation
+
+- link to all sponsors by [@jdx](https://github.com/jdx) in [#680](https://github.com/jdx/usage/pull/680)
+- clarify contribution fit by [@jdx](https://github.com/jdx) in [#681](https://github.com/jdx/usage/pull/681)
+
+### 🛡️ Security
+
+- **(deps)** update actions/checkout action to v6.0.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#678](https://github.com/jdx/usage/pull/678)
+
+### 📦️ Dependency Updates
+
+- update jdx/mise-action action to v4.1.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#679](https://github.com/jdx/usage/pull/679)
+- update mise dev tools in lockfile to latest by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#682](https://github.com/jdx/usage/pull/682)
+- lock file maintenance lockfile maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#683](https://github.com/jdx/usage/pull/683)
+
+### New Contributors
+
+- @rtpg made their first contribution in [#676](https://github.com/jdx/usage/pull/676)
+
 ## [3.5.0](https://github.com/jdx/usage/compare/v3.4.0..v3.5.0) - 2026-06-11
 
 ### 🚀 Features
