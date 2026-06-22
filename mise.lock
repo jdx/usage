@@ -257,18 +257,6 @@ backend = "npm:prettier"
 version = "2.0.4"
 backend = "npm:tsc"
 
-[[tools.pnpm]]
-version = "10.29.3"
-backend = "aqua:pnpm/pnpm"
-
-[tools.pnpm."platforms.linux-x64"]
-checksum = "sha256:2fc98db127c611be0c110af11b5b72759f7d736893dddc81df73b7b59b30f15a"
-url = "https://github.com/pnpm/pnpm/releases/download/v10.29.3/pnpm-linux-x64"
-
-[tools.pnpm."platforms.macos-arm64"]
-checksum = "sha256:a248c56b0ab20443e18d0c8ee3207c6c564ee342bd3fc8694b3569a060cecece"
-url = "https://github.com/pnpm/pnpm/releases/download/v10.29.3/pnpm-macos-arm64"
-
 [[tools.python]]
 version = "3.14.6"
 backend = "core:python"
@@ -304,7 +292,7 @@ url = "https://github.com/astral-sh/python-build-standalone/releases/download/20
 provenance = "github-attestations"
 
 [tools.python."platforms.windows-x64"]
-checksum = "blake3:54f0c3b7d4c10ce2e0a5d4a4129b5adbda40c0f74813accb3272a2be1c995e01"
+checksum = "sha256:49f0c7e8d1c2eaba70c5516ca6c01b6b766f6ff473f1209a76fd01783e7c75ae"
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260610/cpython-3.14.6+20260610-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
