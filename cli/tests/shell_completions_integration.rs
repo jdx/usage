@@ -1137,6 +1137,7 @@ fn test_zsh_completion_init_integration() {
 
     // Stub `compadd`/`_files` to capture what the handler offers without
     // needing an interactive ZLE context. Drive with $words/$CURRENT.
+    // The fallback must preserve completion-friendly options for `_files`.
     // The init template calls `compadd -l -d <display-arr> -U -Q -S '' -a <inserts-arr>`.
     let test_script = format!(
         r#"#!/usr/bin/env zsh
@@ -1152,13 +1153,19 @@ compadd() {{
     print -r -- "[compadd:display] $d"
     print -r -- "[compadd:inserts] $i"
 }}
-_files() {{ print -r -- "[files-fallback]" }}
+_files() {{
+    print -r -- "[files-fallback] nomatch=$options[nomatch] extendedglob=$options[extendedglob]"
+}}
 
 words=(ex "")
 CURRENT=2
 _usage_default_complete
 
 words=(ex "--f")
+CURRENT=2
+_usage_default_complete
+
+words=(plain "")
 CURRENT=2
 _usage_default_complete
 "#,
@@ -1188,6 +1195,10 @@ _usage_default_complete
     assert!(
         stdout.contains("[compadd:display]") && stdout.contains("--foo"),
         "expected --foo flag in compadd display, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("[files-fallback] nomatch=off extendedglob=on"),
+        "expected file fallback to disable nomatch and enable extendedglob, got: {stdout}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);

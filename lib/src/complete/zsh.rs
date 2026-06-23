@@ -189,6 +189,7 @@ pub fn complete_zsh_init(usage_bin: &str) -> String {
 
 _usage_default_complete() {{
     emulate -L zsh
+    setopt localoptions nonomatch extendedglob
     local cmd cmdpath
     cmd="${{words[1]}}"
     if [[ "$cmd" == */* ]]; then
