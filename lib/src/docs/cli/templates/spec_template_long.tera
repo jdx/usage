@@ -69,12 +69,12 @@ Arguments:
 Flags:
 {%- for flag in cmd.flags %}
 {%- if flag.help_rendered %}
-  {{ flag.usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
+  {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
 {%- if flag.help_is_multiline %}
 
 {%- endif %}
 {%- else %}
-  {{ flag.usage | trim }}
+  {{ flag.display_usage | trim }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}
