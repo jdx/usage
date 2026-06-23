@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.5.3](https://github.com/jdx/usage/compare/v3.5.2..v3.5.3) - 2026-06-23
+
+### 🐛 Bug Fixes
+
+- **(docs)** show negated flags in cli help by [@jdx](https://github.com/jdx) in [#694](https://github.com/jdx/usage/pull/694)
+- **(zsh)** preserve options for default completion by [@jdx](https://github.com/jdx) in [#693](https://github.com/jdx/usage/pull/693)
+
+### 📦️ Dependency Updates
+
+- update jdx/pr-closer action to v1.1.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#689](https://github.com/jdx/usage/pull/689)
+- lock file maintenance lockfile maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#691](https://github.com/jdx/usage/pull/691)
+
 ## [3.5.2](https://github.com/jdx/usage/compare/v3.5.1..v3.5.2) - 2026-06-17
 
 ### 🔍 Other Changes

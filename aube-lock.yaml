@@ -56,8 +56,8 @@ importers:
         specifier: ^10.5.0
         version: 10.5.0
       semver:
-        specifier: ^7.8.4
-        version: 7.8.4
+        specifier: ^7.8.5
+        version: 7.8.5
 
 packages:
   "@algolia/abtesting@1.16.2":
@@ -1654,10 +1654,10 @@ packages:
     engines: { node: ">=10" }
     hasBin: true
 
-  semver@7.8.4:
+  semver@7.8.5:
     resolution:
       {
-        integrity: sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==,
+        integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==,
       }
     engines: { node: ">=10" }
     hasBin: true
@@ -2414,7 +2414,7 @@ snapshots:
       fast-glob: 3.3.3
       module-from-string: 3.3.1
       prettier: 3.8.3
-      semver: 7.8.4
+      semver: 7.8.5
       typescript: 5.9.3
 
   "@withfig/autocomplete-types@1.31.0": {}
@@ -2423,7 +2423,7 @@ snapshots:
     dependencies:
       "@fig/autocomplete-generators": 2.4.0
       "@fig/autocomplete-helpers": 1.0.7
-      semver: 7.8.4
+      semver: 7.8.5
       strip-json-comments: 5.0.3
       yaml: 2.8.3
 
@@ -2939,7 +2939,7 @@ snapshots:
 
   semver@7.7.4: {}
 
-  semver@7.8.4: {}
+  semver@7.8.5: {}
 
   shebang-command@2.0.0:
     dependencies:
