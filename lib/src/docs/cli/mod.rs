@@ -114,6 +114,32 @@ arg "[default]" help="Arg with default value" default="default value"
     }
 
     #[test]
+    fn test_render_help_with_negated_flag() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--compress" negate="--no-compress" default=#true help="Compress output"
+flag "--verbose" help="Verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--compress] [--verbose]
+
+        Flags:
+          --compress / --no-compress  Compress output
+          --verbose  Verbose output
+        ");
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        Usage: testcli [--compress] [--verbose]
+
+        Flags:
+          --compress / --no-compress  Compress output
+          --verbose                   Verbose output
+        ");
+    }
+
+    #[test]
     fn test_render_help_with_before_after_help() {
         let spec = crate::spec! { r#"
 bin "testcli"

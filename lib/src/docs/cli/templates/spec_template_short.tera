@@ -40,7 +40,7 @@ Arguments:
 
 Flags:
 {%- for flag in cmd.flags %}
-  {{ flag.usage | trim }}
+  {{ flag.display_usage | trim }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- if flag.help %}  {{ flag.help }}{%- endif %}
 {%- if flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}

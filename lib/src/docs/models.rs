@@ -60,6 +60,7 @@ pub struct SpecCommand {
 pub struct SpecFlag {
     pub name: String,
     pub usage: String,
+    pub display_usage: String,
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
@@ -178,13 +179,11 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .collect();
 
         // Calculate layout for flags
-        let flags_usage_col_width = max_usage_width(cmd.flags.iter().map(|f| f.usage.as_str()));
-        let flags: Vec<SpecFlag> = cmd
-            .flags
-            .iter()
-            .map(|flag| {
-                let mut spec_flag = SpecFlag::from(flag);
-
+        let flags: Vec<SpecFlag> = cmd.flags.iter().map(SpecFlag::from).collect();
+        let flags_usage_col_width = max_usage_width(flags.iter().map(|f| f.display_usage.as_str()));
+        let flags: Vec<SpecFlag> = flags
+            .into_iter()
+            .map(|mut spec_flag| {
                 // Get help text (prefer help_long over help)
                 let help_text = spec_flag.help_long.as_deref().or(spec_flag.help.as_deref());
 
@@ -241,6 +240,10 @@ impl From<&crate::SpecFlag> for SpecFlag {
         Self {
             name: flag.name.clone(),
             usage: flag.usage.clone(),
+            display_usage: flag.negate.as_ref().map_or_else(
+                || flag.usage.trim().to_string(),
+                |negate| format!("{} / {}", flag.usage.trim(), negate.trim()),
+            ),
             help: flag.help.clone(),
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),
