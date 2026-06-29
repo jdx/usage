@@ -2058,7 +2058,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-cli"
-version = "3.5.3"
+version = "3.5.4"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -2086,7 +2086,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "3.5.3"
+version = "3.5.4"
 dependencies = [
  "clap",
  "criterion",

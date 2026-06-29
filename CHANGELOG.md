@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.5.4](https://github.com/jdx/usage/compare/v3.5.3..v3.5.4) - 2026-06-29
+
+### 🔍 Other Changes
+
+- Enable Entire for Codex by [@jdx](https://github.com/jdx) in [#695](https://github.com/jdx/usage/pull/695)
+
+### 📦️ Dependency Updates
+
+- update jdx/mise-action action to v4.2.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#698](https://github.com/jdx/usage/pull/698)
+- update rust-lang/crates-io-auth-action action to v1.0.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#697](https://github.com/jdx/usage/pull/697)
+- update rust crate itertools to 0.15 by [@renovate[bot]](https://github.com/renovate[bot]) in [#699](https://github.com/jdx/usage/pull/699)
+- update actions/checkout action to v7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#700](https://github.com/jdx/usage/pull/700)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#701](https://github.com/jdx/usage/pull/701)
+
 ## [3.5.3](https://github.com/jdx/usage/compare/v3.5.2..v3.5.3) - 2026-06-23
 
 ### 🐛 Bug Fixes
