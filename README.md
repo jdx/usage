@@ -15,6 +15,6 @@ See more at [usage.jdx.dev](https://usage.jdx.dev/).
 
 ## Sponsors
 
-usage is sponsored by [37signals](https://37signals.com).
+usage is sponsored by [entire.io](https://entire.io), [37signals](https://37signals.com), [CodeRabbit](https://coderabbit.link/mise), and [Supabase](https://supabase.com).
 
-[View all sponsors](https://en.dev/sponsors.html).
+[View all sponsors](https://jdx.dev/sponsors.html).

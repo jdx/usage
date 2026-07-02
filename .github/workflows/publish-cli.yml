@@ -155,7 +155,7 @@ jobs:
       - run: communique generate "${GITHUB_REF_NAME}" --github-release
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      - name: Append en.dev sponsor blurb
+      - name: Append jdx.dev sponsor blurb
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
@@ -174,9 +174,9 @@ jobs:
 
           ## 💚 Sponsor usage
 
-          usage is built by [@jdx](https://github.com/jdx) at [**en.dev**](https://en.dev) — an independent developer-tooling studio behind [mise](https://mise.jdx.dev/), [aube](https://aube.en.dev/), hk, and more. Work on usage is funded by sponsorships.
+          usage is maintained by [@jdx](https://github.com/jdx), an open source developer for [**entire.io**](https://entire.io), the title sponsor of the [jdx.dev](https://jdx.dev) open source tools including [mise](https://mise.jdx.dev/), [aube](https://aube.jdx.dev/), hk, and more. Work on usage is funded by sponsorships.
 
-          If `usage` powers CLI specs, docs, or completions for a tool you maintain or use, please consider [sponsoring at en.dev](https://en.dev). Every sponsorship helps the project stay independent and moving.
+          If `usage` powers CLI specs, docs, or completions for a tool you maintain or use, please consider [sponsoring at jdx.dev](https://jdx.dev/sponsors.html). Every sponsorship helps the project stay independent and moving.
           EOF
           } > /tmp/release-notes.md
           gh release edit "$TAG" --notes-file /tmp/release-notes.md

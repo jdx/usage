@@ -562,7 +562,7 @@ const completionSpec: Fig.Spec = {
     {
       name: "sponsors",
       description:
-        "Show the companies sponsoring usage and the en.dev project family",
+        "Show the companies sponsoring usage and the jdx.dev open source tools",
     },
     {
       name: "zsh",
