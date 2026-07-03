@@ -9,12 +9,12 @@
 {%- if spec.about %}{{ spec.about }}
 
 {% endif -%}
-Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
+Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {%- if cmd.subcommands %}
 
 Commands:
-{%- for name, cmd in cmd.subcommands %}
+{%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}

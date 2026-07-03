@@ -15,12 +15,12 @@
 {% elif spec.about %}{{ spec.about }}
 
 {% endif -%}
-Usage: {{ spec.bin ~ " " ~ cmd.usage | trim }}
+Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {%- if cmd.subcommands %}
 
 Commands:
-{%- for name, cmd in cmd.subcommands %}
+{%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
@@ -46,7 +46,7 @@ Arguments:
   {{ arg.usage | trim }}
 {%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
 {%- if help %}
-    {{ help | indent(width=2) }}
+    {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
 {%- if arg.choices and arg.choices.choices %}
@@ -78,7 +78,7 @@ Flags:
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}
-    {{ help | indent(width=2) }}
+    {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
 {%- if flag.arg.choices and flag.arg.choices.choices %}

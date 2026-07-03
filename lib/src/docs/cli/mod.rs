@@ -22,22 +22,36 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
 static TERA: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
 
+    // Register ljust filter for left-justifying text with padding
+    tera.register_filter(
+        "ljust",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value.as_str().unwrap_or("");
+            let width = args.get::<u64>("width")?.unwrap_or(0) as usize;
+            Ok(format!("{:<width$}", value, width = width))
+        },
+    );
+    tera.register_filter(
+        "default",
+        |value: &tera::Value,
+         kwargs: tera::Kwargs,
+         _: &tera::State|
+         -> tera::TeraResult<tera::Value> {
+            let default_val = kwargs.must_get::<tera::Value>("value")?;
+            let boolean = kwargs.get::<bool>("boolean")?.unwrap_or_default();
+            if value.is_undefined() || value.is_none() || (boolean && !value.is_truthy()) {
+                Ok(default_val)
+            } else {
+                Ok(value.clone())
+            }
+        },
+    );
+
     #[rustfmt::skip]
     tera.add_raw_templates([
         ("spec_template_short.tera", include_str!("templates/spec_template_short.tera")),
         ("spec_template_long.tera", include_str!("templates/spec_template_long.tera")),
     ]).unwrap();
-
-    // Register ljust filter for left-justifying text with padding
-    tera.register_filter(
-        "ljust",
-        |value: &tera::Value, args: &std::collections::HashMap<String, tera::Value>| {
-            let value = value.as_str().unwrap_or("");
-            let width = args.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-            let result = format!("{:<width$}", value, width = width);
-            Ok(result.into())
-        },
-    );
 
     tera
 });

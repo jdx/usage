@@ -3,8 +3,6 @@ use crate::docs::models::Spec;
 use crate::error::UsageErr;
 use itertools::Itertools;
 use serde::Serialize;
-use std::collections::HashMap;
-use xx::regex;
 
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
@@ -60,7 +58,7 @@ impl MarkdownRenderer {
     }
 
     pub(crate) fn insert<T: Serialize + ?Sized, S: Into<String>>(&mut self, key: S, val: &T) {
-        self.tera_ctx.insert(key, val);
+        self.tera_ctx.insert(key.into(), val);
     }
 
     fn tera_ctx(&self) -> tera::Context {
@@ -79,7 +77,10 @@ impl MarkdownRenderer {
         let html_encode = self.html_encode;
         tera.register_filter(
             "escape_md",
-            move |value: &tera::Value, _: &HashMap<String, tera::Value>| {
+            move |value: &tera::Value,
+                  _: tera::Kwargs,
+                  _: &tera::State|
+                  -> tera::TeraResult<String> {
                 let value = value.as_str().unwrap();
                 let value = value
                     .lines()
@@ -99,41 +100,9 @@ impl MarkdownRenderer {
                             .to_string()
                     })
                     .join("\n");
-                Ok(value.into())
+                Ok(value)
             },
         );
-        let path_re =
-            regex!(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/");
-        tera.register_function("source_code_link", |args: &HashMap<String, tera::Value>| {
-            let spec = args.get("spec").unwrap().as_object().unwrap();
-            let cmd = args.get("cmd").unwrap().as_object().unwrap();
-            let full_cmd = cmd.get("full_cmd").unwrap().as_array();
-            let source_code_link_template = spec
-                .get("source_code_link_template")
-                .and_then(|v| v.as_str());
-            if let (Some(full_cmd), Some(source_code_link_template)) =
-                (full_cmd, source_code_link_template)
-            {
-                if full_cmd.is_empty() {
-                    return Ok("".into());
-                }
-                let mut ctx = tera::Context::new();
-                let path = full_cmd.iter().map(|v| v.as_str().unwrap()).join("/");
-                ctx.insert("spec", spec);
-                ctx.insert("cmd", cmd);
-                ctx.insert("path", &path);
-                let href = TERA.clone().render_str(source_code_link_template, &ctx)?;
-                let friendly = path_re.replace_all(&href, "").to_string();
-                let link = if path_re.is_match(&href) {
-                    format!("[`{friendly}`]({href})")
-                } else {
-                    format!("[{friendly}]({href})")
-                };
-                Ok(link.into())
-            } else {
-                Ok("".into())
-            }
-        });
 
         Ok(tera.render(template_name, &self.tera_ctx())?)
     }
