@@ -113,6 +113,10 @@ function __usage_register_shebang_completions
         test -d $dir; or continue
         for file in $dir/*
             test -f $file -a -x $file; or continue
+            # Skip files we can't read (e.g. setuid/execute-only binaries like
+            # macOS's sudo/visudo) — reading them below would make fish print
+            # a redirection warning on every shell startup.
+            test -r $file; or continue
             # `string replace` works on every supported fish version; `path
             # basename` requires fish 3.5+ which excludes Ubuntu 22.04 LTS.
             set -l name (string replace -r '^.*/' '' -- $file)
