@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.5.4](https://github.com/jdx/usage/compare/v3.5.3..v3.5.4) - 2026-07-06
+
+### 🐛 Bug Fixes
+
+- **(complete)** skip unreadable files in fish shebang completion scan by [@GrantD-ADSK](https://github.com/GrantD-ADSK) in [#707](https://github.com/jdx/usage/pull/707)
+
+### 🔍 Other Changes
+
+- Enable Entire for Codex by [@jdx](https://github.com/jdx) in [#695](https://github.com/jdx/usage/pull/695)
+- Update sponsor references for jdx.dev by [@jdx](https://github.com/jdx) in [#702](https://github.com/jdx/usage/pull/702)
+- use release backends for cargo tools by [@jdx](https://github.com/jdx) in [#709](https://github.com/jdx/usage/pull/709)
+
+### 📦️ Dependency Updates
+
+- update jdx/mise-action action to v4.2.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#698](https://github.com/jdx/usage/pull/698)
+- update rust-lang/crates-io-auth-action action to v1.0.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#697](https://github.com/jdx/usage/pull/697)
+- update rust crate itertools to 0.15 by [@renovate[bot]](https://github.com/renovate[bot]) in [#699](https://github.com/jdx/usage/pull/699)
+- update actions/checkout action to v7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#700](https://github.com/jdx/usage/pull/700)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#701](https://github.com/jdx/usage/pull/701)
+- update zizmorcore/zizmor-action action to v0.5.7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#704](https://github.com/jdx/usage/pull/704)
+- update dependency cargo-binstall to v1.20.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#703](https://github.com/jdx/usage/pull/703)
+- update rust crate tera to v2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#705](https://github.com/jdx/usage/pull/705)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#708](https://github.com/jdx/usage/pull/708)
+
+### New Contributors
+
+- @GrantD-ADSK made their first contribution in [#707](https://github.com/jdx/usage/pull/707)
+
 ## [3.5.3](https://github.com/jdx/usage/compare/v3.5.2..v3.5.3) - 2026-06-23
 
 ### 🐛 Bug Fixes
