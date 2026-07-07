@@ -37,6 +37,7 @@ use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand,
 #[derive(Debug, Default, Clone)]
 pub struct SpecFlagBuilder {
     inner: SpecFlag,
+    allow_hyphen_values: bool,
 }
 
 impl SpecFlagBuilder {
@@ -163,13 +164,25 @@ impl SpecFlagBuilder {
 
     /// Allow this flag's value to start with `-`
     pub fn allow_hyphen_values(mut self, allow: bool) -> Self {
-        self.inner.allow_hyphen_values = allow;
+        self.allow_hyphen_values = allow;
+        if let Some(arg) = &mut self.inner.arg {
+            arg.double_dash = if allow {
+                crate::spec::arg::SpecDoubleDashChoices::Automatic
+            } else {
+                crate::spec::arg::SpecDoubleDashChoices::Optional
+            };
+        }
         self
     }
 
     /// Set the argument spec for flags that take values
     pub fn arg(mut self, arg: SpecArg) -> Self {
         self.inner.arg = Some(arg);
+        if self.allow_hyphen_values {
+            if let Some(arg) = &mut self.inner.arg {
+                arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
+            }
+        }
         self
     }
 
@@ -194,6 +207,11 @@ impl SpecFlagBuilder {
     /// Build the final SpecFlag
     #[must_use]
     pub fn build(mut self) -> SpecFlag {
+        if self.allow_hyphen_values {
+            if let Some(arg) = &mut self.inner.arg {
+                arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
+            }
+        }
         self.inner.usage = self.inner.usage();
         if self.inner.name.is_empty() {
             // Derive name from long or short flags

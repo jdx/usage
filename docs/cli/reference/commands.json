@@ -123,10 +123,9 @@
               "name": "CWORD",
               "usage": "<CWORD>",
               "required": true,
-              "double_dash": "Optional",
+              "double_dash": "Automatic",
               "hide": false
-            },
-            "allow_hyphen_values": true
+            }
           },
           {
             "name": "shell",

@@ -565,7 +565,7 @@ fn parse_partial_with_env(
             && out
                 .flag_awaiting_value
                 .last()
-                .is_some_and(|flag| flag.allow_hyphen_values)
+                .is_some_and(|flag| flag.allow_hyphen_values())
         {
             let should_return = drain_pending_flag_values(
                 spec,
