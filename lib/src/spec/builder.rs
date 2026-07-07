@@ -161,6 +161,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Allow this flag's value to start with `-`
+    pub fn allow_hyphen_values(mut self, allow: bool) -> Self {
+        self.inner.allow_hyphen_values = allow;
+        self
+    }
+
     /// Set the argument spec for flags that take values
     pub fn arg(mut self, arg: SpecArg) -> Self {
         self.inner.arg = Some(arg);

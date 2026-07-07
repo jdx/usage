@@ -561,6 +561,40 @@ fn parse_partial_with_env(
             }
         }
 
+        if out
+            .flag_awaiting_value
+            .last()
+            .is_some_and(|flag| flag.allow_hyphen_values)
+        {
+            while let Some(flag) = out.flag_awaiting_value.pop() {
+                let arg = flag.arg.as_ref().unwrap();
+                if validate_choices(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    ChoiceTarget::option(&flag),
+                    &w,
+                    arg.choices.as_ref(),
+                    custom_env,
+                )? {
+                    return Ok(out);
+                }
+                if flag.var {
+                    let arr = out
+                        .flags
+                        .entry(flag)
+                        .or_insert_with(|| ParseValue::MultiString(vec![]))
+                        .try_as_multi_string_mut()
+                        .unwrap();
+                    arr.push(w);
+                } else {
+                    out.flags.insert(flag, ParseValue::String(w));
+                }
+                w = "".to_string();
+            }
+            continue;
+        }
+
         // long flags
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
@@ -1018,6 +1052,22 @@ mod tests {
             return value;
         }
         panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    fn flag_string_value<'a>(parsed: &'a ParseOutput, name: &str) -> &'a str {
+        let flag = parsed
+            .flags
+            .keys()
+            .find(|flag| flag.name == name)
+            .unwrap_or_else(|| panic!("expected flag {name}"));
+        let value = parsed
+            .flags
+            .get(flag)
+            .unwrap_or_else(|| panic!("expected value for flag {name}"));
+        match value {
+            ParseValue::String(value) => value,
+            _ => panic!("expected flag {name} to be ParseValue::String"),
+        }
     }
 
     fn assert_parse_err(result: Result<ParseOutput, miette::Error>, expected: &str) {
@@ -2687,5 +2737,49 @@ mod tests {
             "expected positional args and intact flag token, got {:?}",
             env3.get("usage_other_args"),
         );
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_consumes_short_flag_collision() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_consumes_embedded_long_value() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--args=-destroy"])).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_hyphen_values_still_default_to_short_flag_parsing() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
+
+        assert_eq!(flag_string_value(&parsed, "working-dir"), "estroy");
     }
 }

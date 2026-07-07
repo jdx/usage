@@ -76,6 +76,9 @@ pub struct SpecFlag {
     /// Argument specification if this flag takes a value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arg: Option<SpecArg>,
+    /// Whether this flag's value may start with `-`
+    #[serde(skip_serializing_if = "is_false")]
+    pub allow_hyphen_values: bool,
     /// Default value(s) if the flag is not provided
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub default: Vec<String>,
@@ -115,6 +118,7 @@ impl SpecFlag {
                 }
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
+                "allow_hyphen_values" => flag.allow_hyphen_values = v.ensure_bool()?,
                 "default" => {
                     // Support both string and boolean defaults
                     let default_value = match v.value.as_bool() {
@@ -152,6 +156,7 @@ impl SpecFlag {
                 }
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
+                "allow_hyphen_values" => flag.allow_hyphen_values = child.arg(0)?.ensure_bool()?,
                 "default" => {
                     // Support both single value and multiple values
                     // default "bar"            -> vec!["bar"]
@@ -260,6 +265,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.count {
             node.push(KdlEntry::new_prop("count", true));
+        }
+        if flag.allow_hyphen_values {
+            node.push(KdlEntry::new_prop("allow_hyphen_values", true));
         }
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
@@ -411,6 +419,7 @@ impl From<&clap::Arg> for SpecFlag {
             hide,
             global: c.is_global_set(),
             arg,
+            allow_hyphen_values: c.is_allow_hyphen_values_set(),
             count: matches!(c.get_action(), clap::ArgAction::Count),
             default,
             deprecated: None,
