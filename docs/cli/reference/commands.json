@@ -125,7 +125,8 @@
               "required": true,
               "double_dash": "Optional",
               "hide": false
-            }
+            },
+            "allow_hyphen_values": true
           },
           {
             "name": "shell",

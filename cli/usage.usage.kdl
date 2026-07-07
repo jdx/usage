@@ -33,7 +33,7 @@ This is used internally by shell completion scripts to provide intelligent compl
     flag "-s --spec" help="Raw string spec input" {
         arg <SPEC>
     }
-    flag --cword help="Current word index" {
+    flag --cword help="Current word index" allow_hyphen_values=#true {
         arg <CWORD>
     }
     flag --shell default=bash {
