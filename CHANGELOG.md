@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.5.5](https://github.com/jdx/usage/compare/v3.5.4..v3.5.5) - 2026-07-13
+
+### 🐛 Bug Fixes
+
+- **(parse)** allow hyphen-prefixed flag values by [@jdx](https://github.com/jdx) in [#715](https://github.com/jdx/usage/pull/715)
+
+### 📚 Documentation
+
+- redesign logo as flat vector flag mark by [@jdx](https://github.com/jdx) in [#714](https://github.com/jdx/usage/pull/714)
+
+### 🧪 Testing
+
+- invoke typescript compiler through npx package by [@jdx](https://github.com/jdx) in [#719](https://github.com/jdx/usage/pull/719)
+
+### 🔍 Other Changes
+
+- **(release)** skip ai reviews for release prs by [@jdx](https://github.com/jdx) in [#718](https://github.com/jdx/usage/pull/718)
+- schedule releases for Monday morning by [@jdx](https://github.com/jdx) in [#710](https://github.com/jdx/usage/pull/710)
+- gate autorelease on fix and feat commits by [@jdx](https://github.com/jdx) in [#716](https://github.com/jdx/usage/pull/716)
+
 ## [3.5.4](https://github.com/jdx/usage/compare/v3.5.3..v3.5.4) - 2026-07-06
 
 ### 🐛 Bug Fixes
