@@ -989,7 +989,7 @@ impl Debug for ParseOutput {
                 &self
                     .args
                     .iter()
-                    .map(|(a, w)| format!("{}: {w}", &a.name))
+                    .map(|(a, w)| format!("{}: {w}", a.name))
                     .collect_vec(),
             )
             .field(
@@ -1005,7 +1005,7 @@ impl Debug for ParseOutput {
                 &self
                     .flags
                     .iter()
-                    .map(|(f, w)| format!("{}: {w}", &f.name))
+                    .map(|(f, w)| format!("{}: {w}", f.name))
                     .collect_vec(),
             )
             .field("flag_awaiting_value", &self.flag_awaiting_value)

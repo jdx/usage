@@ -37,7 +37,7 @@ impl SpecMount {
         Ok(mount)
     }
     pub fn usage(&self) -> String {
-        format!("mount:{}", &self.run)
+        format!("mount:{}", self.run)
     }
 }
 
