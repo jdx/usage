@@ -4,6 +4,49 @@ use crate::error::UsageErr;
 use itertools::Itertools;
 use serde::Serialize;
 
+fn escape_md(value: &str, html_encode: bool) -> String {
+    let mut in_fenced_code_block = false;
+
+    value
+        .lines()
+        .map(|line| {
+            if !html_encode {
+                return line.to_string();
+            }
+            // Indented code is handled before fence state. This is safe because
+            // `replace_code_fences` always emits closing fences at column zero.
+            if line.starts_with("    ") {
+                return line.to_string();
+            }
+            if in_fenced_code_block {
+                if line.trim_end() == "```" {
+                    in_fenced_code_block = false;
+                }
+                return line.to_string();
+            }
+            // Support the conventional fence shape emitted by `replace_code_fences`
+            // without attempting to parse the full Markdown specification.
+            if line
+                .strip_prefix("```")
+                .is_some_and(|suffix| !suffix.starts_with('`'))
+            {
+                in_fenced_code_block = true;
+                return line.to_string();
+            }
+            // replace '<' with '&lt;' but not inside code blocks
+            xx::regex!(r"(`[^`]*`)|(<)")
+                .replace_all(line, |caps: &regex::Captures| {
+                    if caps.get(1).is_some() {
+                        caps.get(1).unwrap().as_str().to_string()
+                    } else {
+                        "&lt;".to_string()
+                    }
+                })
+                .to_string()
+        })
+        .join("\n")
+}
+
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
     pub(crate) spec: Spec,
@@ -82,24 +125,7 @@ impl MarkdownRenderer {
                   _: &tera::State|
                   -> tera::TeraResult<String> {
                 let value = value.as_str().unwrap();
-                let value = value
-                    .lines()
-                    .map(|line| {
-                        if !html_encode || line.starts_with("    ") {
-                            return line.to_string();
-                        }
-                        // replace '<' with '&lt;' but not inside code blocks
-                        xx::regex!(r"(`[^`]*`)|(<)")
-                            .replace_all(line, |caps: &regex::Captures| {
-                                if caps.get(1).is_some() {
-                                    caps.get(1).unwrap().as_str().to_string()
-                                } else {
-                                    "&lt;".to_string()
-                                }
-                            })
-                            .to_string()
-                    })
-                    .join("\n");
+                let value = escape_md(value, html_encode);
                 Ok(value)
             },
         );
@@ -134,5 +160,49 @@ impl MarkdownRenderer {
             new_md.push_str("```\n");
         }
         new_md.replace("```\n\n```\n", "\n")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_md;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn escapes_html_around_fenced_code_blocks() {
+        let input = "before <\n```\ninside <\n```  \nafter <";
+        let expected = "before &lt;\n```\ninside <\n```  \nafter &lt;";
+
+        assert_eq!(escape_md(input, true), expected);
+    }
+
+    #[test]
+    fn supports_fence_info_strings() {
+        let input = "```bash\necho <value>\n```\nafter <";
+        let expected = "```bash\necho <value>\n```\nafter &lt;";
+
+        assert_eq!(escape_md(input, true), expected);
+    }
+
+    #[test]
+    fn leaves_unclosed_fences_unescaped() {
+        let input = "```\necho <value>";
+
+        assert_eq!(escape_md(input, true), input);
+    }
+
+    #[test]
+    fn ignores_indented_and_longer_fences() {
+        let input = "    ```\nindented <\n````\nlonger <";
+        let expected = "    ```\nindented &lt;\n````\nlonger &lt;";
+
+        assert_eq!(escape_md(input, true), expected);
+    }
+
+    #[test]
+    fn leaves_markdown_unchanged_when_html_encoding_is_disabled() {
+        let input = "before <\n```\ninside <\n```\nafter <";
+
+        assert_eq!(escape_md(input, false), input);
     }
 }
