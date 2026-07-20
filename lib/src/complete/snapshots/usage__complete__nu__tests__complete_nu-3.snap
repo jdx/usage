@@ -66,8 +66,11 @@ cmd plugin {
 }
 '##
     def mycli_completer [spans: list<string>] {
-        let spec_dir = ($env.XDG_CACHE_HOME? | default ($nu.home-path | path join ".cache") | path join "usage")
-        mkdir $spec_dir
+        let spec_dir = ($env.XDG_CACHE_HOME? | default ($nu.home-dir? | default $nu.home-path? | path join ".cache") | path join "usage")
+        if not ($spec_dir | path exists) {
+            mkdir $spec_dir
+            if $nu.os-info.family != "windows" { ^chmod 0700 $spec_dir }
+        }
         let spec_file = ($spec_dir | path join $"usage__usage_spec_mycli.spec")
         $_usage_spec_mycli | save -f $spec_file
 
