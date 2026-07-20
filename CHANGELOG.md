@@ -1,6 +1,26 @@
 # Changelog
 
-## [3.5.5](https://github.com/jdx/usage/compare/v3.5.4..v3.5.5) - 2026-07-13
+## [3.5.6](https://github.com/jdx/usage/compare/v3.5.5..v3.5.6) - 2026-07-20
+
+### 🐛 Bug Fixes
+
+- **(cli)** avoid trailing semicolon in macro expression position by [@jdx](https://github.com/jdx) in [#729](https://github.com/jdx/usage/pull/729)
+- **(completion)** write spec cache to private dir instead of world-writable tmp by [@jdx](https://github.com/jdx) in [#727](https://github.com/jdx/usage/pull/727)
+- **(lib)** remove needless borrows in format args by [@jdx](https://github.com/jdx) in [#726](https://github.com/jdx/usage/pull/726)
+- **(markdown)** preserve HTML in fenced code blocks by [@risu729](https://github.com/risu729) in [#720](https://github.com/jdx/usage/pull/720)
+- **(nu)** create completion cache dir with mode 700 and fix home-dir lookup by [@jdx](https://github.com/jdx) in [#731](https://github.com/jdx/usage/pull/731)
+
+### 🔍 Other Changes
+
+- remove dtolnay/rust-toolchain action, use runner default rust by [@jdx](https://github.com/jdx) in [#724](https://github.com/jdx/usage/pull/724)
+- regenerate aube-lock.yaml on renovate branches by [@jdx](https://github.com/jdx) in [#728](https://github.com/jdx/usage/pull/728)
+- exclude aube-lock.yaml from prettier by [@jdx](https://github.com/jdx) in [#732](https://github.com/jdx/usage/pull/732)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#723](https://github.com/jdx/usage/pull/723)
+
+## [3.5.5](https://github.com/jdx/usage/compare/v3.5.4..v3.5.5) - 2026-07-14
 
 ### 🐛 Bug Fixes
 
