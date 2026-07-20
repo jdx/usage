@@ -10,7 +10,7 @@ _usage() {
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
     local spec_dir="${XDG_CACHE_HOME:-$HOME/.cache}/usage"
-    [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
+    mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage__usage_spec_usage.spec"
     usage --usage-spec >| "$spec_file"
     # shellcheck disable=SC2207

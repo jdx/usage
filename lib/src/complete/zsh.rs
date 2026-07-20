@@ -158,7 +158,7 @@ fi"#
     out.push(format!(
         r#"
   local spec_dir="${{XDG_CACHE_HOME:-$HOME/.cache}}/usage"
-  [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
+  mkdir -p -m 700 "$spec_dir"
   local spec_file="$spec_dir/usage_{spec_variable}.spec"
   {file_write_logic}
 {completion_loop}

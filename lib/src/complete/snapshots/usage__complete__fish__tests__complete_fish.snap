@@ -12,7 +12,7 @@ if ! type -p usage &> /dev/null
     return 1
 end
 set -l spec_dir (if set -q XDG_CACHE_HOME; echo $XDG_CACHE_HOME; else; echo $HOME/.cache; end)/usage
-test -d "$spec_dir"; or mkdir -p -m 700 "$spec_dir"
+mkdir -p -m 700 "$spec_dir"
 set -l spec_file "$spec_dir/usage__usage_spec_mycli.spec"
 mycli complete --usage | string collect > "$spec_file"
 
