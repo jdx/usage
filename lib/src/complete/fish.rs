@@ -37,11 +37,22 @@ set {spec_variable} '{spec_escaped}'"#
         ));
     }
 
+    // The cache filename is version-keyed and the cache dir is now persistent
+    // (unlike the reboot-cleared temp dir), so old versions would accumulate
+    // forever. On a cache miss, reap this bin's spec files not regenerated in
+    // the last 30 days. Age-based (not "delete all other versions") so that
+    // running two versions of the same tool concurrently doesn't thrash — each
+    // live version's spec stays recent and survives.
+    let prune_stale = format!(
+        r#"find "$spec_dir" -maxdepth 1 -name 'usage__usage_spec_{bin_snake}_*.spec' -type f -mtime +30 -delete 2>/dev/null"#
+    );
+
     // Build logic to write spec directly to file without storing in shell variables
     let file_write_logic = if let Some(usage_cmd) = &opts.usage_cmd {
         if opts.cache_key.is_some() {
             format!(
                 r#"if not test -f "$spec_file"
+    {prune_stale}
     {usage_cmd} | string collect > "$spec_file"
 end"#
             )
@@ -52,6 +63,7 @@ end"#
         if opts.cache_key.is_some() {
             format!(
                 r#"if not test -f "$spec_file"
+    {prune_stale}
     echo ${spec_variable} > "$spec_file"
 end"#
             )
