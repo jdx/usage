@@ -74,7 +74,9 @@ impl CompleteWord {
                     let insert = zsh_shell_quote(&c);
                     println!("{c}\t{description}\t{insert}")
                 }
-                _ => miette::bail!("unsupported shell: {}", shell),
+                _ => {
+                    miette::bail!("unsupported shell: {}", shell);
+                }
             }
         }
 
