@@ -464,7 +464,7 @@ cmd sub help=Subcommand {
 
 # Add usage binary to PATH
 export PATH="{}:$PATH"
-export TMPDIR="{}"
+export XDG_CACHE_HOME="{}"
 
 # Initialize completion system
 autoload -U compinit
@@ -702,7 +702,7 @@ cmd "lint:fix" help="Auto-fix lints"
         r#"#!/usr/bin/env zsh
 set -e
 export PATH="{usage_dir}:$PATH"
-export TMPDIR="{tmp}"
+export XDG_CACHE_HOME="{tmp}"
 
 autoload -U compinit
 compinit -u
@@ -791,7 +791,7 @@ cmd "doctor" help="Check installation"
 set -e
 setopt KSH_ARRAYS
 export PATH="{usage_dir}:$PATH"
-export TMPDIR="{tmp}"
+export XDG_CACHE_HOME="{tmp}"
 
 autoload -U compinit
 compinit -u
@@ -1258,7 +1258,7 @@ fn test_zsh_init_completion_includes_all_colon_subcommands() {
         r#"#!/usr/bin/env zsh
 set -e
 export PATH="{bin_dir}:{usage_dir}:$PATH"
-export TMPDIR="{tmp}"
+export XDG_CACHE_HOME="{tmp}"
 
 autoload -U compinit
 compinit -u

@@ -65,7 +65,9 @@ fi"#
         r#"
 	local cur prev words cword was_split comp_args
     _comp_initialize -n : -- "$@" || return
-    local spec_file="${{TMPDIR:-/tmp}}/usage_{spec_variable}.spec"
+    local spec_dir="${{XDG_CACHE_HOME:-$HOME/.cache}}/usage"
+    [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
+    local spec_file="$spec_dir/usage_{spec_variable}.spec"
     {file_write_logic}
     # shellcheck disable=SC2207
 	_comp_compgen -- -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}")"

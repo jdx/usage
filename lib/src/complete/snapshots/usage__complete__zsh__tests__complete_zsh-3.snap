@@ -18,7 +18,9 @@ _mycli() {
       return 1
   fi
 
-  local spec_file="${TMPDIR:-/tmp}/usage__usage_spec_mycli.spec"
+  local spec_dir="${XDG_CACHE_HOME:-$HOME/.cache}/usage"
+  [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
+  local spec_file="$spec_dir/usage__usage_spec_mycli.spec"
   cat >| "$spec_file" <<'__USAGE_EOF__'
 name mycli
 bin mycli

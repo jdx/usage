@@ -54,7 +54,9 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
     out.push(
         format!(
             r#"    def {bin_snake}_completer [spans: list<string>] {{
-        let spec_file = $"($nu.temp-dir)/usage_{spec_variable}.spec"
+        let spec_dir = ($env.XDG_CACHE_HOME? | default ($nu.home-path | path join ".cache") | path join "usage")
+        mkdir $spec_dir
+        let spec_file = ($spec_dir | path join $"usage_{spec_variable}.spec")
         {file_write_logic}
 
         (^{usage_bin} complete-word -f $spec_file --shell nu -- ...$spans)

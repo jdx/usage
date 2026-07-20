@@ -64,8 +64,9 @@ end"#
 
     out.push(format!(
         r#"
-set -l tmpdir (if set -q TMPDIR; echo $TMPDIR; else; echo /tmp; end)
-set -l spec_file "$tmpdir/usage_{spec_variable}.spec"
+set -l spec_dir (if set -q XDG_CACHE_HOME; echo $XDG_CACHE_HOME; else; echo $HOME/.cache; end)/usage
+test -d "$spec_dir"; or mkdir -p -m 700 "$spec_dir"
+set -l spec_file "$spec_dir/usage_{spec_variable}.spec"
 {file_write_logic}
 
 set -l tokens
