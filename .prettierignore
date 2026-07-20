@@ -6,3 +6,6 @@ lib/bash-completion
 examples/docs
 lefthook.yml
 pnpm-lock.yaml
+
+# aube-generated lockfile (not prettier-formatted)
+**/aube-lock.yaml
