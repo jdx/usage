@@ -561,6 +561,27 @@ fn parse_partial_with_env(
             }
         }
 
+        if w.starts_with('-')
+            && out
+                .flag_awaiting_value
+                .last()
+                .is_some_and(|flag| flag.allow_hyphen_values())
+        {
+            let should_return = drain_pending_flag_values(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                custom_env,
+            )?;
+            if should_return {
+                return Ok(out);
+            }
+            continue;
+        }
+
         // long flags
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
@@ -633,31 +654,17 @@ fn parse_partial_with_env(
         }
 
         if !out.flag_awaiting_value.is_empty() {
-            while let Some(flag) = out.flag_awaiting_value.pop() {
-                let arg = flag.arg.as_ref().unwrap();
-                if validate_choices(
-                    spec,
-                    &out.cmd,
-                    &mut out.errors,
-                    ChoiceTarget::option(&flag),
-                    &w,
-                    arg.choices.as_ref(),
-                    custom_env,
-                )? {
-                    return Ok(out);
-                }
-                if flag.var {
-                    let arr = out
-                        .flags
-                        .entry(flag)
-                        .or_insert_with(|| ParseValue::MultiString(vec![]))
-                        .try_as_multi_string_mut()
-                        .unwrap();
-                    arr.push(w);
-                } else {
-                    out.flags.insert(flag, ParseValue::String(w));
-                }
-                w = "".to_string();
+            let should_return = drain_pending_flag_values(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                custom_env,
+            )?;
+            if should_return {
+                return Ok(out);
             }
             continue;
         }
@@ -818,6 +825,43 @@ impl<'a> ChoiceTarget<'a> {
     }
 }
 
+fn drain_pending_flag_values(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    word: &mut String,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    while let Some(flag) = flag_awaiting_value.pop() {
+        let arg = flag.arg.as_ref().unwrap();
+        if validate_choices(
+            spec,
+            cmd,
+            errors,
+            ChoiceTarget::option(&flag),
+            word,
+            arg.choices.as_ref(),
+            custom_env,
+        )? {
+            return Ok(true);
+        }
+        let value = std::mem::take(word);
+        if flag.var {
+            let arr = flags
+                .entry(flag)
+                .or_insert_with(|| ParseValue::MultiString(vec![]))
+                .try_as_multi_string_mut()
+                .unwrap();
+            arr.push(value);
+        } else {
+            flags.insert(flag, ParseValue::String(value));
+        }
+    }
+    Ok(false)
+}
+
 fn choice_error(
     target: ChoiceTarget<'_>,
     value: &str,
@@ -945,7 +989,7 @@ impl Debug for ParseOutput {
                 &self
                     .args
                     .iter()
-                    .map(|(a, w)| format!("{}: {w}", &a.name))
+                    .map(|(a, w)| format!("{}: {w}", a.name))
                     .collect_vec(),
             )
             .field(
@@ -961,7 +1005,7 @@ impl Debug for ParseOutput {
                 &self
                     .flags
                     .iter()
-                    .map(|(f, w)| format!("{}: {w}", &f.name))
+                    .map(|(f, w)| format!("{}: {w}", f.name))
                     .collect_vec(),
             )
             .field("flag_awaiting_value", &self.flag_awaiting_value)
@@ -1018,6 +1062,22 @@ mod tests {
             return value;
         }
         panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    fn flag_string_value<'a>(parsed: &'a ParseOutput, name: &str) -> &'a str {
+        let flag = parsed
+            .flags
+            .keys()
+            .find(|flag| flag.name == name)
+            .unwrap_or_else(|| panic!("expected flag {name}"));
+        let value = parsed
+            .flags
+            .get(flag)
+            .unwrap_or_else(|| panic!("expected value for flag {name}"));
+        match value {
+            ParseValue::String(value) => value,
+            _ => panic!("expected flag {name} to be ParseValue::String"),
+        }
     }
 
     fn assert_parse_err(result: Result<ParseOutput, miette::Error>, expected: &str) {
@@ -2687,5 +2747,73 @@ mod tests {
             "expected positional args and intact flag token, got {:?}",
             env3.get("usage_other_args"),
         );
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_consumes_short_flag_collision() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_consumes_embedded_long_value() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--args=-destroy"])).unwrap();
+
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_variadic_allow_hyphen_values_consumes_repeated_flag_values() {
+        let spec = r#"
+flag "-a --args <ARGS>" var=#true allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-val1", "-a", "-val2"])).unwrap();
+
+        let flag = parsed
+            .flags
+            .keys()
+            .find(|flag| flag.name == "args")
+            .expect("expected args flag");
+        let value = parsed.flags.get(flag).expect("expected args value");
+        match value {
+            ParseValue::MultiString(values) => {
+                assert_eq!(values, &vec!["-val1".to_string(), "-val2".to_string()]);
+            }
+            _ => panic!("expected MultiString, got {value:?}"),
+        }
+    }
+
+    #[test]
+    fn test_hyphen_values_still_default_to_short_flag_parsing() {
+        let spec = r#"
+flag "-d --working-dir <DIR>"
+flag "-a --args <ARGS>"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
+
+        assert_eq!(flag_string_value(&parsed, "working-dir"), "estroy");
     }
 }

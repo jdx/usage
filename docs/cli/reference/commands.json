@@ -123,7 +123,7 @@
               "name": "CWORD",
               "usage": "<CWORD>",
               "required": true,
-              "double_dash": "Optional",
+              "double_dash": "Automatic",
               "hide": false
             }
           },
@@ -1070,7 +1070,7 @@
   "config": {
     "props": {}
   },
-  "version": "3.5.3",
+  "version": "3.5.5",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",

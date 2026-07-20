@@ -203,7 +203,7 @@ fn test_typescript_sdk_typechecks() {
     fs::write(dir.path().join("tsconfig.json"), tsconfig).unwrap();
 
     let result = Command::new("npx")
-        .args(["--yes", "typescript", "tsc", "--project"])
+        .args(["--yes", "--package", "typescript", "tsc", "--project"])
         .arg(dir.path().join("tsconfig.json"))
         .output()
         .expect("Failed to run tsc");

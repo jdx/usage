@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 use crate::error::UsageErr::InvalidFlag;
 use crate::error::{Result, UsageErr};
+use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::{string_entry, NodeHelper};
@@ -95,6 +96,7 @@ impl SpecFlag {
 
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
+        let mut allow_hyphen_values = false;
         for (k, v) in node.props() {
             match k {
                 "help" => flag.help = Some(v.ensure_string()?),
@@ -115,6 +117,7 @@ impl SpecFlag {
                 }
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
+                "allow_hyphen_values" => allow_hyphen_values = v.ensure_bool()?,
                 "default" => {
                     // Support both string and boolean defaults
                     let default_value = match v.value.as_bool() {
@@ -152,6 +155,9 @@ impl SpecFlag {
                 }
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
+                "allow_hyphen_values" => {
+                    allow_hyphen_values = child.arg(0)?.ensure_bool()?;
+                }
                 "default" => {
                     // Support both single value and multiple values
                     // default "bar"            -> vec!["bar"]
@@ -187,10 +193,41 @@ impl SpecFlag {
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported flag child {k}"),
             }
         }
+        if allow_hyphen_values {
+            flag.set_allow_hyphen_values(ctx, node.node.name().span(), true)?;
+        }
         flag.usage = flag.usage();
         flag.help_first_line = flag.help.as_ref().map(|s| string::first_line(s));
         Ok(flag)
     }
+    pub fn allow_hyphen_values(&self) -> bool {
+        self.arg
+            .as_ref()
+            .is_some_and(|arg| arg.double_dash == SpecDoubleDashChoices::Automatic)
+    }
+
+    pub(crate) fn set_allow_hyphen_values(
+        &mut self,
+        ctx: &ParsingContext,
+        span: miette::SourceSpan,
+        allow: bool,
+    ) -> Result<()> {
+        if let Some(arg) = &mut self.arg {
+            arg.double_dash = if allow {
+                SpecDoubleDashChoices::Automatic
+            } else if arg.double_dash == SpecDoubleDashChoices::Automatic {
+                SpecDoubleDashChoices::Optional
+            } else {
+                arg.double_dash.clone()
+            };
+            Ok(())
+        } else if allow {
+            bail_parse!(ctx, span, "flag must have value to allow hyphen values")
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn usage(&self) -> String {
         let mut parts = vec![];
         let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
@@ -261,6 +298,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.count {
             node.push(KdlEntry::new_prop("count", true));
         }
+        if flag.allow_hyphen_values() {
+            node.push(KdlEntry::new_prop("allow_hyphen_values", true));
+        }
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
         }
@@ -292,7 +332,13 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(arg) = &flag.arg {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
-            children.nodes_mut().push(arg.into());
+            if flag.allow_hyphen_values() {
+                let mut arg = arg.clone();
+                arg.double_dash = SpecDoubleDashChoices::Optional;
+                children.nodes_mut().push((&arg).into());
+            } else {
+                children.nodes_mut().push(arg.into());
+            }
         }
         node
     }
@@ -395,7 +441,7 @@ impl From<&clap::Arg> for SpecFlag {
         } else {
             None
         };
-        Self {
+        let mut flag = Self {
             name,
             usage: "".into(),
             short,
@@ -416,7 +462,13 @@ impl From<&clap::Arg> for SpecFlag {
             deprecated: None,
             negate: None,
             env: None,
+        };
+        if c.is_allow_hyphen_values_set() {
+            if let Some(arg) = &mut flag.arg {
+                arg.double_dash = SpecDoubleDashChoices::Automatic;
+            }
         }
+        flag
     }
 }
 
