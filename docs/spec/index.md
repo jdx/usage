@@ -108,6 +108,40 @@ effect would make the least safe reading of a spec the default one. A command
 with no `effect` is unknown, not safe — consumers should treat the absence of a
 value as "ask".
 
+### Flags and arguments
+
+Some commands are only dangerous depending on how they are invoked. A flag or an
+argument can raise the effect when it is supplied:
+
+```kdl
+cmd "logs" effect="read" help="Show daemon logs" {
+  flag "--clear" effect="destructive" help="Delete stored logs"
+  flag "--follow"
+}
+
+cmd "settings" effect="read" {
+  arg "[setting]"
+  arg "[value]" effect="write"   // `settings foo` reads, `settings foo=bar` writes
+}
+```
+
+The effect of an invocation is the **maximum** of the command's effect and the
+effect of every flag and argument actually supplied. `read` < `write` <
+`destructive`, so the maximum is well defined, and `SpecCommand::effect_of`
+computes it.
+
+**Most flags should declare nothing.** The field is for the handful that change
+what a command does to the world, not for annotating every option.
+
+A flag or argument can only ever _raise_ the effect, never lower it. That makes
+the rule safe to approximate: a consumer that has a spec but not a parsed
+command line can take the maximum over the command and _all_ of its flags and
+arguments — `SpecCommand::max_effect` — and still never under-report danger.
+
+`--dry-run` is the tempting counterexample. Lowering is deliberately not
+supported, because a bug in a dry-run path would then produce a spec that claims
+a command is safe when it is not.
+
 It can also be written as a child node, which is easier to generate:
 
 ```kdl

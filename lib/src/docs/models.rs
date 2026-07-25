@@ -62,6 +62,7 @@ pub struct SpecCommand {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecFlag {
     pub name: String,
+    pub effect: Option<crate::spec::effect::SpecCommandEffect>,
     pub usage: String,
     pub display_usage: String,
     pub help: Option<String>,
@@ -275,6 +276,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
     fn from(flag: &crate::SpecFlag) -> Self {
         Self {
             name: flag.name.clone(),
+            effect: flag.effect,
             usage: flag.usage.clone(),
             display_usage: flag.negate.as_ref().map_or_else(
                 || flag.usage.trim().to_string(),

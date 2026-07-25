@@ -10,6 +10,7 @@ use crate::error::{Result, UsageErr};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
+use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices};
@@ -83,6 +84,10 @@ pub struct SpecFlag {
     /// Negation prefix (e.g., "no-" for --no-verbose)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
+    /// Raises the effect of the command when this flag is supplied.
+    /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effect: Option<SpecCommandEffect>,
     /// Environment variable that can set this flag's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
@@ -127,6 +132,17 @@ impl SpecFlag {
                     flag.default = vec![default_value];
                 }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
+                "effect" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => flag.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
                 "env" => flag.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
@@ -176,6 +192,18 @@ impl SpecFlag {
                         // Multiple values from children: default { "xyz"; "bar" }
                         // In KDL, these are child nodes where the string is the node name
                         flag.default = children.iter().map(|c| c.name().to_string()).collect();
+                    }
+                }
+                "effect" => {
+                    let arg = child.arg(0)?;
+                    let raw = arg.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => flag.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            arg.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
@@ -306,6 +334,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
+        }
+        if let Some(effect) = &flag.effect {
+            node.push(string_entry(Some("effect"), effect.as_str()));
         }
         if let Some(deprecated) = &flag.deprecated {
             node.push(string_entry(Some("deprecated"), deprecated));
@@ -461,6 +492,9 @@ impl From<&clap::Arg> for SpecFlag {
             default,
             deprecated: None,
             negate: None,
+            // clap has no way to express this; consumers set it on the derived
+            // spec (see the effect docs).
+            effect: None,
             env: None,
         };
         if c.is_allow_hyphen_values_set() {

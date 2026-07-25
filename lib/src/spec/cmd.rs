@@ -955,7 +955,9 @@ cmd "install" help="Install a package" subcommand_required=#false {
     after_long_help "The long after-help for install"
     after_help_md "The **markdown** after-help for install"
     arg "<pkg>" help="Package to install"
+    arg "[dest]" effect="write"
     flag "-f --force" help="Overwrite"
+    flag "--purge" effect="destructive"
     complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"
@@ -1018,5 +1020,24 @@ cmd "hidden" hide=#true
             };
             assert!(populated, "fixture does not exercise `{key}`");
         }
+
+        // Flag- and arg-level effects live one level down, so check them
+        // explicitly rather than by name against the command object.
+        assert!(
+            install["flags"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|f| f.get("effect").is_some()),
+            "fixture does not exercise a flag-level `effect`"
+        );
+        assert!(
+            install["args"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a.get("effect").is_some()),
+            "fixture does not exercise an arg-level `effect`"
+        );
     }
 }
