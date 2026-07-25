@@ -1,0 +1,7 @@
+{"run_id":"1785010937-360323306","line":141,"new":{"module_name":"usage__docs__markdown__cmd__tests","snapshot_name":"render_markdown_cmd_effect","metadata":{"source":"lib/src/docs/markdown/cmd.rs","assertion_line":141,"expression":"rendered"},"snapshot":"# `mise ls`\n\n- **Usage**: `mise ls`\n- **Effect**: read-only\n\nList installed tools\n# `mise use`\n\n- **Usage**: `mise use`\n- **Effect**: modifies state\n\nInstall a tool\n# `mise uninstall`\n\n- **Usage**: `mise uninstall`\n- **Effect**: destructive — may delete or irreversibly overwrite\n\nRemove a tool\n# `mise version`\n\n- **Usage**: `mise version`\n\nShow the version"},"old":{"module_name":"usage__docs__markdown__cmd__tests","metadata":{},"snapshot":"# `mise ls`\n\n- **Usage**: `mise ls`\n- **Effect**: read-only\n\nList installed tools\n\n# `mise use`\n\n- **Usage**: `mise use`\n- **Effect**: modifies state\n\nInstall a tool\n\n# `mise uninstall`\n\n- **Usage**: `mise uninstall`\n- **Effect**: destructive — may delete or irreversibly overwrite\n\nRemove a tool\n\n# `mise version`\n\n- **Usage**: `mise version`\n\nShow the version"}}
+{"run_id":"1785010954-370828992","line":141,"new":null,"old":null}
+{"run_id":"1785010954-370828992","line":27,"new":null,"old":null}
+{"run_id":"1785010965-151987287","line":141,"new":null,"old":null}
+{"run_id":"1785010965-151987287","line":27,"new":null,"old":null}
+{"run_id":"1785011019-265767551","line":141,"new":null,"old":null}
+{"run_id":"1785011019-265767551","line":27,"new":null,"old":null}

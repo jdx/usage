@@ -441,6 +441,9 @@ impl SpecCommand {
         }
         self.hide = other.hide;
         self.subcommand_required = other.subcommand_required;
+        if other.effect.is_some() {
+            self.effect = other.effect;
+        }
         if other.restart_token.is_some() {
             self.restart_token = other.restart_token;
         }
@@ -752,6 +755,32 @@ cmd "uninstall" effect="destructive"
         cmd ls effect=read
         cmd uninstall effect=destructive
         "#);
+    }
+
+    /// `merge` is how included and mounted specs are composed onto a command.
+    /// It has to treat `effect` the way it treats every other optional field:
+    /// an overlay that says nothing must not erase what is already declared.
+    #[test]
+    fn test_effect_survives_merge() {
+        let cmd_with = |src: &str| {
+            Spec::parse(&Default::default(), src)
+                .unwrap()
+                .cmd
+                .subcommands["uninstall"]
+                .clone()
+        };
+
+        let declared = cmd_with(r#"cmd "uninstall" effect="destructive""#);
+        let silent = cmd_with(r#"cmd "uninstall" help="Remove a tool""#);
+        let contradicting = cmd_with(r#"cmd "uninstall" effect="write""#);
+
+        let mut cmd = declared.clone();
+        cmd.merge(silent);
+        assert_eq!(cmd.effect, Some(SpecCommandEffect::Destructive));
+
+        let mut cmd = declared;
+        cmd.merge(contradicting);
+        assert_eq!(cmd.effect, Some(SpecCommandEffect::Write));
     }
 
     #[test]
