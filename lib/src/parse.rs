@@ -28,40 +28,27 @@ use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 /// Descending into a *mounted* subcommand (`crossing_mount`) is different: the mounted
 /// command describes another program, which does not accept the mounting CLI's globals.
 /// Those globals stay recognized (they may appear before the mounted command, and Phase 2
-/// re-parses them), but they are recorded in `inherited_only` so completions do not offer
-/// them, and the mounted command's own flags take precedence over them.
+/// re-parses them), but the mounted command's own flags take precedence over them, so its
+/// choices/completions are not replaced by a global's. Which flags a completion may offer
+/// there is a separate question, answered by [`ParseOutput::completion_flags`].
 fn merge_subcommand_flags(
     available: &mut BTreeMap<String, Arc<SpecFlag>>,
     new_flags: BTreeMap<String, Arc<SpecFlag>>,
-    inherited_only: &mut BTreeSet<String>,
     prefix_flag_keys: &BTreeSet<String>,
     crossing_mount: bool,
 ) {
     // Keep only inherited global flags from the parent.
-    available.retain(|key, f| {
-        if f.global {
-            true
-        } else {
-            inherited_only.remove(key);
-            false
-        }
-    });
+    available.retain(|_, f| f.global);
 
     if crossing_mount {
-        // Everything still available belongs to a command above the mount boundary.
-        inherited_only.extend(available.keys().cloned());
-        // A mounted command owns its flags outright: an inherited global with the same name
-        // is the mounting CLI's flag and must not shadow it (that would swap the mounted
-        // flag's choices/completions for the global's). Aliases the mounted command does not
-        // declare (e.g. a global's short) stay inherited so prefix tokens keep parsing.
+        // A mounted command owns its flags outright. Aliases it does not declare (e.g. a
+        // global's short) stay inherited so prefix tokens keep parsing.
         for (key, flag) in new_flags {
             // Exception: a token already consumed as an inherited global before the mounted
             // command (`mycli --env prod run task`) is still sitting in the input for Phase 2
-            // to re-parse, so that key has to keep resolving to the global. The name is
-            // offered either way, since the mounted command declares the same one.
+            // to re-parse, so that key has to keep resolving to the global.
             let shadows_consumed_global =
                 prefix_flag_keys.contains(&key) && available.get(&key).is_some_and(|f| f.global);
-            inherited_only.remove(&key);
             if !shadows_consumed_global {
                 available.insert(key, flag);
             }
@@ -80,7 +67,6 @@ fn merge_subcommand_flags(
     for (key, flag) in new_flags {
         if flag.global {
             // A child that re-declares (or adds) a global flag stays recognized everywhere.
-            inherited_only.remove(&key);
             available.insert(key, flag);
             continue;
         }
@@ -127,9 +113,6 @@ fn merge_subcommand_flags(
                     Arc::new(merged)
                 })
                 .clone();
-            // The child declares this flag, so it is offered again even if it was previously
-            // inherited-only (e.g. a subcommand of a mounted command re-declaring it).
-            inherited_only.remove(&key);
             available.insert(key, merged);
             continue;
         }
@@ -140,7 +123,6 @@ fn merge_subcommand_flags(
         if available.contains_key(&key) {
             continue;
         }
-        inherited_only.remove(&key);
         available.insert(key, flag);
     }
 }
@@ -195,9 +177,6 @@ pub struct ParseOutput {
     /// mounted command — see [`ParseOutput::completion_flags`] for the set a completion
     /// should offer.
     pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
-    /// Keys of [`ParseOutput::available_flags`] that belong to a command above a mount
-    /// boundary, i.e. to the mounting CLI rather than to the mounted program.
-    pub inherited_flag_keys: BTreeSet<String>,
     pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
 }
@@ -205,19 +184,30 @@ pub struct ParseOutput {
 impl ParseOutput {
     /// The flags a completion should offer for the parsed command.
     ///
-    /// Same as [`ParseOutput::available_flags`], minus the flags of commands above a mount
-    /// boundary: a mounted command describes another program, and the mounting CLI's flags
-    /// are not accepted after it (mise, for example, forwards everything after a task name
-    /// to the task itself). Without a mount in play the two are identical.
+    /// Usually every recognized flag, i.e. [`ParseOutput::available_flags`]. Once a mounted
+    /// command has been reached, though, the commands above it belong to the mounting CLI and
+    /// their flags are not accepted there — mise, for example, forwards everything after a task
+    /// name to the task itself — so only the flags declared from the mount boundary down are
+    /// offered. Those globals stay in `available_flags` because they may legitimately appear
+    /// *before* the mounted command.
     pub fn completion_flags(&self) -> BTreeMap<String, Arc<SpecFlag>> {
-        if self.inherited_flag_keys.is_empty() {
+        let Some(boundary) = self.cmds.iter().position(|cmd| cmd.mounted) else {
             return self.available_flags.clone();
+        };
+        // Re-run the descent from the mount boundary, which starts with no inherited flags.
+        let mut offered: BTreeMap<String, Arc<SpecFlag>> = BTreeMap::new();
+        for cmd in &self.cmds[boundary..] {
+            // Each descent drops the previous command's non-global flags, as in
+            // `merge_subcommand_flags`.
+            offered.retain(|_, f| f.global);
+            for flag in &cmd.flags {
+                let flag = Arc::new(flag.clone());
+                for key in flag_keys(&flag) {
+                    offered.insert(key, Arc::clone(&flag));
+                }
+            }
         }
-        self.available_flags
-            .iter()
-            .filter(|(key, _)| !self.inherited_flag_keys.contains(*key))
-            .map(|(key, flag)| (key.clone(), Arc::clone(flag)))
-            .collect()
+        offered
     }
 }
 
@@ -488,7 +478,6 @@ fn parse_partial_with_env(
         args: IndexMap::new(),
         flags: IndexMap::new(),
         available_flags: gather_flags(&spec.cmd),
-        inherited_flag_keys: BTreeSet::new(),
         flag_awaiting_value: vec![],
         errors: vec![],
     };
@@ -523,7 +512,6 @@ fn parse_partial_with_env(
             merge_subcommand_flags(
                 &mut out.available_flags,
                 gather_flags(&subcommand),
-                &mut out.inherited_flag_keys,
                 &prefix_flag_keys,
                 subcommand.mounted,
             );
@@ -586,7 +574,6 @@ fn parse_partial_with_env(
                         merge_subcommand_flags(
                             &mut out.available_flags,
                             gather_flags(&subcommand),
-                            &mut out.inherited_flag_keys,
                             &prefix_flag_keys,
                             subcommand.mounted,
                         );
@@ -2163,15 +2150,11 @@ mod tests {
         // Still recognized for parsing...
         assert!(parsed.available_flags.contains_key("--silent"));
         assert!(parsed.available_flags.contains_key("-E"));
-        // ...but marked as belonging to a command above the mount, so not offered.
+        // ...but belonging to a command above the mount, so not offered.
         assert_eq!(
             parsed.completion_flags().keys().collect::<Vec<_>>(),
             vec!["--bump", "--env"],
             "only the mounted command's own flags may be offered",
-        );
-        assert_eq!(
-            parsed.inherited_flag_keys.iter().collect::<Vec<_>>(),
-            vec!["--silent", "-E"],
         );
 
         // `run`'s own non-global flag is dropped on descent, as it always was.
@@ -2275,7 +2258,6 @@ mod tests {
         };
 
         let parsed = parse_partial(&spec, &input(&["test", "run", "nested"])).unwrap();
-        assert!(parsed.inherited_flag_keys.is_empty());
         assert_eq!(
             parsed.completion_flags().keys().collect::<Vec<_>>(),
             parsed.available_flags.keys().collect::<Vec<_>>(),
