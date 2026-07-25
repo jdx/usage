@@ -918,3 +918,56 @@ mod merge_tests {
         assert_eq!(cmd.deprecated.as_deref(), Some("gone in v3"));
     }
 }
+
+#[cfg(test)]
+mod roundtrip_tests {
+    use crate::Spec;
+
+    /// Serializing a spec back to KDL and reparsing it must not lose anything.
+    ///
+    /// The parser is a match on node names, so exhaustive destructuring can't
+    /// catch a field the serializer knows about but the parser doesn't, or the
+    /// reverse. Comparing the serde representation covers every field without
+    /// this test having to enumerate them, so a new field is covered the day it
+    /// is added.
+    #[test]
+    fn test_spec_survives_a_kdl_roundtrip() {
+        let src = r#"
+name "My CLI"
+bin "mycli"
+about "does things"
+version "1.0.0"
+author "nobody"
+license "MIT"
+
+flag "-v --verbose" help="Verbose logging" global=#true count=#true
+arg "<dir>" help="Directory to use"
+
+cmd "install" help="Install a package" subcommand_required=#false {
+    alias "i"
+    alias "add" hide=#true
+    long_help "The long help for install"
+    help_md "The **markdown** help for install"
+    before_help "before"
+    after_help "after"
+    arg "<pkg>" help="Package to install"
+    flag "-f --force" help="Overwrite"
+    example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
+    example "mycli install bar"
+    cmd "from" help="Install from a source" {
+        arg "<src>"
+    }
+}
+cmd "remove" help="Remove a package" deprecated="use `uninstall`"
+cmd "run" restart_token=":::" help="Run tasks"
+cmd "hidden" hide=#true
+        "#;
+
+        let original = Spec::parse(&Default::default(), src).unwrap();
+        let reparsed = Spec::parse(&Default::default(), &original.to_string()).unwrap();
+
+        let original = serde_json::to_value(&original).unwrap();
+        let reparsed = serde_json::to_value(&reparsed).unwrap();
+        pretty_assertions::assert_eq!(original, reparsed);
+    }
+}
