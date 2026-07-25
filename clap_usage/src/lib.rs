@@ -1,3 +1,3 @@
 mod generate;
 
-pub use crate::generate::generate;
+pub use crate::generate::{generate, spec};
