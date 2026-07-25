@@ -259,6 +259,97 @@ fn complete_word_mounted_orphan_short_flag_choices() {
 }
 
 #[test]
+fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
+    // Regression for jdx/mise#11282: the mounting CLI's global flags must not be offered
+    // inside a mounted command, and must not shadow the mounted command's own flags.
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Only the mounted task's own flags are offered. Previously this also listed the root's
+    // `--env`/`--silent`, which the mounted program rejects.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "--"])
+        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+
+    // Shorts of the mounting CLI's globals (`-E`) are not offered either, only the task's.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "-"])
+        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+
+    // The task's `--env` wins over the root global of the same name, so its choices complete
+    // instead of the global's (previously: file completion from the global's `<ENV>` arg).
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "mytask", "--env", ""],
+    )
+    .stdout("dev\nstage\nprod\n");
+
+    // A non-colliding task flag is unaffected.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "mytask", "--bump", ""],
+    )
+    .stdout("auto\nmajor\nminor\npatch\n");
+
+    // The mounting CLI's flags still complete *before* the mounted command.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "--"]).stdout(
+        "--env\tSet the environment\n--force\tForce the tasks to run\n--silent\tSilent output\n",
+    );
+
+    // And a global before the task still parses: the task's arg choices complete after it,
+    // and the global's value reaches the mount (jdx/mise#10069 behavior is preserved).
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "-E", "prod", "run", "mytask", ""],
+    )
+    .stdout("alpha\nbeta\n");
+
+    // Even when the global's value would be rejected by the mounted flag of the same name, it
+    // keeps parsing as the global, because Phase 1 recorded which flag it was read as.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "--env", "not-a-task-choice", "run", "mytask", ""],
+    )
+    .stdout("alpha\nbeta\n");
+
+    // ...and the mounted `--env` still owns the name after the mounted command, so its choices
+    // complete there rather than the global's file-path fallback.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "--env", "prod", "run", "mytask", "--env", ""],
+    )
+    .stdout("dev\nstage\nprod\n");
+
+    // Inside the mounted tree the mounted program's own commands are ordinary commands: a
+    // global it declares is still offered in its subcommands, while the mounting CLI's are not.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "grouped", "leaf", "--"],
+    )
+    .stdout("--group-wide\tApplies to the whole group\n--leaf-only\tOnly on the leaf\n");
+
+    // A NON-global flag of `run` before the task name must not hide the mounted command either
+    // (`mise run --force build <TAB>` used to fail with `unexpected word: build`).
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "--force", "mytask", "--"],
+    )
+    .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "-f", "mytask", ""],
+    )
+    .stdout("alpha\nbeta\n");
+}
+
+#[test]
 fn complete_word_boolean_flags_dont_consume_subcommands() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
@@ -293,7 +384,7 @@ fn complete_word_boolean_flags_dont_consume_subcommands() {
 }
 
 #[test]
-fn complete_word_non_global_flags_stop_search() {
+fn complete_word_non_global_flags_do_not_stop_search() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -306,10 +397,18 @@ fn complete_word_non_global_flags_stop_search() {
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     env::set_var("PATH", env::join_paths(path).unwrap());
 
-    // Non-global flag --local should stop subcommand search
-    // The parser will fail to recognize 'run' as a subcommand and error
+    // A non-global flag before a subcommand is consumed like a global one, so the subcommand
+    // (and its mount) is still found. It used to stop the search, leaving `run` to be read as a
+    // positional: `unexpected word: run`, with no completions at all. Only the flag's scope
+    // differs — being non-global, it is not forwarded to the mount, so the mount still reports
+    // the default task rather than the `--verbose` one.
+    assert_cmd("test-boolean-flags.sh", &["--", "--local", "run", ""])
+        .stdout("task-default\tTask default\n");
+
+    // An *unknown* flag still stops the search: the parser can't know whether it takes a value,
+    // so `run` may well be that value.
     let mut cmd = cmd("test-boolean-flags.sh", Some("fish"));
-    cmd.args(["--", "--local", "run", ""]);
+    cmd.args(["--", "--nope", "run", ""]);
     cmd.assert().failure().stderr(contains("unexpected word"));
 }
 

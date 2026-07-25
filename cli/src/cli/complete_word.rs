@@ -116,14 +116,17 @@ impl CompleteWord {
             .is_some_and(|rt| prev_token == Some(rt.as_str()));
 
         let mut has_explicit_choices = false;
+        // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
+        // recognized for parsing but are not accepted there, so they must not be offered.
+        let flags = parsed.completion_flags();
         let mut choices = if ctoken == "-" {
-            let shorts = self.complete_short_flag_names(&parsed.available_flags, "");
-            let longs = self.complete_long_flag_names(&parsed.available_flags, "");
+            let shorts = self.complete_short_flag_names(&flags, "");
+            let longs = self.complete_long_flag_names(&flags, "");
             shorts.into_iter().chain(longs).collect::<Vec<_>>()
         } else if ctoken.starts_with("--") {
-            self.complete_long_flag_names(&parsed.available_flags, &ctoken)
+            self.complete_long_flag_names(&flags, &ctoken)
         } else if ctoken.starts_with('-') {
-            self.complete_short_flag_names(&parsed.available_flags, &ctoken)
+            self.complete_short_flag_names(&flags, &ctoken)
         } else if after_restart_token {
             // After a restart_token, complete from the first arg of the current command
             // This must be checked after flag checks (to allow --flag after :::)

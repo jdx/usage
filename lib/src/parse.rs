@@ -24,12 +24,31 @@ use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 /// the inherited global flag, otherwise the next descent's `retain(global)` would drop it
 /// entirely and later parsing would treat the already-consumed global token as an
 /// unexpected positional/flag value.
+///
+/// Descending into a *mounted* subcommand (`crossing_mount`) is different: the mounted
+/// command describes another program, which does not accept the mounting CLI's globals.
+/// Those globals stay recognized (they may appear before the mounted command, and Phase 2
+/// re-parses them), but the mounted command's own flags take precedence over them, so its
+/// choices/completions are not replaced by a global's. Which flags a completion may offer
+/// there is a separate question, answered by [`ParseOutput::completion_flags`].
 fn merge_subcommand_flags(
     available: &mut BTreeMap<String, Arc<SpecFlag>>,
     new_flags: BTreeMap<String, Arc<SpecFlag>>,
+    crossing_mount: bool,
 ) {
     // Keep only inherited global flags from the parent.
     available.retain(|_, f| f.global);
+
+    if crossing_mount {
+        // A mounted command owns its flags outright, including names an inherited global also
+        // uses: a word after the mounted command belongs to the mounted program. Words before
+        // it keep resolving to the global they were read as, via `prefix_bindings`. Aliases the
+        // mounted command does not declare (e.g. a global's short) stay inherited.
+        for (key, flag) in new_flags {
+            available.insert(key, flag);
+        }
+        return;
+    }
 
     // Cache the merged (global ∪ orphan-alias) flag per re-declared child so every alias key of
     // that flag ends up sharing one `Arc`. Keyed by the child `Arc`'s identity.
@@ -117,6 +136,20 @@ fn flag_keys(flag: &SpecFlag) -> Vec<String> {
     keys
 }
 
+/// The flags a command declares, keyed by each of their aliases.
+fn gather_flags(cmd: &SpecCommand) -> BTreeMap<String, Arc<SpecFlag>> {
+    cmd.flags
+        .iter()
+        .flat_map(|f| {
+            let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
+            flag_keys(&f)
+                .into_iter()
+                .map(|key| (key, Arc::clone(&f)))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 fn unique_flags<'a>(
     flags: impl IntoIterator<Item = &'a Arc<SpecFlag>>,
 ) -> impl Iterator<Item = &'a Arc<SpecFlag>> {
@@ -145,9 +178,46 @@ pub struct ParseOutput {
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
+    /// Every flag the parser recognizes at this point, keyed by each of its aliases
+    /// (`--long`, `-s`, negations).
+    ///
+    /// This includes flags that only remain recognized because they may appear *before* a
+    /// mounted command — see [`ParseOutput::completion_flags`] for the set a completion
+    /// should offer.
     pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
     pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
+}
+
+impl ParseOutput {
+    /// The flags a completion should offer for the parsed command.
+    ///
+    /// Usually every recognized flag, i.e. [`ParseOutput::available_flags`]. Once a mounted
+    /// command has been reached, though, the commands above it belong to the mounting CLI and
+    /// their flags are not accepted there — mise, for example, forwards everything after a task
+    /// name to the task itself — so only the flags declared from the mount boundary down are
+    /// offered. Those globals stay in `available_flags` because they may legitimately appear
+    /// *before* the mounted command.
+    pub fn completion_flags(&self) -> BTreeMap<String, Arc<SpecFlag>> {
+        let Some(boundary) = self.cmds.iter().position(|cmd| cmd.mounted) else {
+            return self.available_flags.clone();
+        };
+        // A mount can also merge flags from its spec's root into the command it is mounted on
+        // (`SpecCommand::flags_from_mount`). Those describe the mounted program too, so the
+        // replay starts one level up to inherit its globals.
+        let start = match boundary.checked_sub(1) {
+            Some(prev) if self.cmds[prev].flags_from_mount => prev,
+            _ => boundary,
+        };
+        // Re-run the descent from there, which starts with no inherited flags. Below the
+        // boundary the mounted program's commands are ordinary commands, so the descents use
+        // the same merge as the real parse.
+        let mut offered = gather_flags(&self.cmds[start]);
+        for cmd in &self.cmds[start + 1..] {
+            merge_subcommand_flags(&mut offered, gather_flags(cmd), false);
+        }
+        offered
+    }
 }
 
 #[derive(Debug, EnumTryAs, Clone)]
@@ -398,19 +468,6 @@ fn parse_partial_with_env(
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
 
-    let gather_flags = |cmd: &SpecCommand| {
-        cmd.flags
-            .iter()
-            .flat_map(|f| {
-                let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
-                flag_keys(&f)
-                    .into_iter()
-                    .map(|key| (key, Arc::clone(&f)))
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    };
-
     let mut out = ParseOutput {
         cmd: spec.cmd.clone(),
         cmds: vec![spec.cmd.clone()],
@@ -430,10 +487,18 @@ fn parse_partial_with_env(
     //   -> finds "run" subcommand, passes ["--verbose"] to its mount command
     //   -> then finds "task" as a subcommand of "run" (if it exists)
     //
-    // We only collect global flags because:
+    // We only collect global flags for mounts because:
     // - Non-global flags are specific to the current command, not subcommands
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_words: Vec<String> = vec![];
+    // Which flag each word skipped here belongs to, aligned with the leading words left in
+    // `input`: `Some(flag)` for a flag word, `None` for its value (or anything unresolved).
+    //
+    // The words stay in `input` for Phase 2 to re-parse — that is how they reach `out.flags`
+    // and `as_env()` — but by then the recognized flags have changed, because each descent
+    // drops the parent's non-global flags and a mounted command may declare the same name as
+    // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
+    let mut prefix_bindings: VecDeque<Option<Arc<SpecFlag>>> = VecDeque::new();
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -444,7 +509,14 @@ fn parse_partial_with_env(
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&prefix_words)?;
-            merge_subcommand_flags(&mut out.available_flags, gather_flags(&subcommand));
+            // Only the *boundary* is a mount crossing: below it, the mounted program's own
+            // commands are ordinary commands relative to each other.
+            let crossing_mount = subcommand.mounted && !out.cmd.mounted;
+            merge_subcommand_flags(
+                &mut out.available_flags,
+                gather_flags(&subcommand),
+                crossing_mount,
+            );
             // Remove subcommand from input
             input.remove(idx);
             out.cmds.push(subcommand.clone());
@@ -453,38 +525,36 @@ fn parse_partial_with_env(
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
         } else if input[idx].starts_with('-') {
-            // Check if this is a known flag and if it's global
-            let word = &input[idx];
-            let flag_key = get_flag_key(word);
+            // Check if this is a known flag
+            let word = input[idx].clone();
+            let flag_key = get_flag_key(&word);
 
-            if let Some(f) = out.available_flags.get(flag_key) {
-                // Only collect global flags for mount execution.
+            if let Some(f) = out.available_flags.get(flag_key).cloned() {
+                // Skip the flag and keep scanning. Both global and non-global flags may precede
+                // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
+                // stopping at one would hide the subcommand — and any mount on it — from the
+                // parse, leaving the subcommand name to be mis-read as a positional argument.
                 //
-                // We deliberately leave the global flag (and its value) in `input` so that
-                // Phase 2 re-parses it and records it in `out.flags`. That is how global flags
-                // reach `as_env()` for normal execution and for the env passed to mount scripts.
-                // Re-parsing is harmless as long as the flag stays recognized in
-                // `available_flags` (see `merge_subcommand_flags`): Phase 2 consumes it as a
-                // flag instead of mistaking it for a positional argument.
+                // Only globals are forwarded to mounts: a non-global flag belongs to the
+                // command that declared it, not to what is mounted below it.
+                prefix_bindings.push_back(Some(Arc::clone(&f)));
                 if f.global {
-                    prefix_words.push(input[idx].clone());
-                    idx += 1;
+                    prefix_words.push(word.clone());
+                }
+                idx += 1;
 
-                    // Only consume next word if flag takes an argument AND value isn't embedded
-                    // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
-                    if f.arg.is_some()
-                        && !word.contains('=')
-                        && idx < input.len()
-                        && !input[idx].starts_with('-')
-                    {
+                // Only consume next word if flag takes an argument AND value isn't embedded
+                // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
+                if f.arg.is_some()
+                    && !word.contains('=')
+                    && idx < input.len()
+                    && !input[idx].starts_with('-')
+                {
+                    if f.global {
                         prefix_words.push(input[idx].clone());
-                        idx += 1;
                     }
-                } else {
-                    // Non-global flag encountered - stop subcommand search
-                    // This prevents incorrect parsing like: "cmd --local-flag run"
-                    // where "run" might be mistaken for a subcommand
-                    break;
+                    prefix_bindings.push_back(None);
+                    idx += 1;
                 }
             } else {
                 // Unknown flag - stop looking for subcommands
@@ -500,7 +570,12 @@ fn parse_partial_with_env(
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
                         subcommand.mount(&prefix_words)?;
-                        merge_subcommand_flags(&mut out.available_flags, gather_flags(&subcommand));
+                        let crossing_mount = subcommand.mounted && !out.cmd.mounted;
+                        merge_subcommand_flags(
+                            &mut out.available_flags,
+                            gather_flags(&subcommand),
+                            crossing_mount,
+                        );
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
                         prefix_words.clear();
@@ -528,6 +603,9 @@ fn parse_partial_with_env(
 
     while !input.is_empty() {
         let mut w = input.pop_front().unwrap();
+        // The flag this word was read as in Phase 1, if it skipped it (see `prefix_bindings`).
+        // Words pushed back below get a `None` so the two queues stay aligned.
+        let binding = prefix_bindings.pop_front().flatten();
 
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
@@ -586,12 +664,13 @@ fn parse_partial_with_env(
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
-            if let Some(f) = out.available_flags.get(word) {
+            if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
                 if !val.is_empty() {
                     input.push_front(val.to_string());
+                    prefix_bindings.push_front(None);
                 }
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(Arc::clone(f));
@@ -620,9 +699,13 @@ fn parse_partial_with_env(
         // short flags
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
-            if let Some(f) = out.available_flags.get(&format!("-{short}")) {
+            if let Some(f) = binding
+                .as_ref()
+                .or_else(|| out.available_flags.get(&format!("-{short}")))
+            {
                 if w.len() > 2 {
                     input.push_front(format!("-{}", &w[2..]));
+                    prefix_bindings.push_front(None);
                     grouped_flag = true;
                 }
                 if f.arg.is_some() {
@@ -1980,6 +2063,459 @@ mod tests {
             .available_flags
             .get("--restrict")
             .is_some_and(|f| f.global));
+    }
+
+    /// Build a spec shaped like mise's post-mount structure for jdx/mise#11282: a root with
+    /// globals (`-E/--env <ENV>`, `--silent`), a `run` subcommand with a non-global flag, and a
+    /// MOUNTED task command that declares its own `--env` (with choices) plus `--bump`.
+    ///
+    /// The task command is marked `mounted` the same way `SpecCommand::mount()` marks the
+    /// commands it merges in, so the test stays hermetic (no mount subprocess).
+    fn mounted_task_flag_spec() -> Spec {
+        let mut task_cmd = SpecCommand::builder()
+            .name("mytask")
+            .flag(
+                SpecFlag::builder()
+                    .name("env")
+                    .long("env")
+                    .arg(
+                        SpecArg::builder()
+                            .name("name")
+                            .choices(["dev", "stage", "prod"])
+                            .build(),
+                    )
+                    .global(false)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("bump")
+                    .long("bump")
+                    .arg(
+                        SpecArg::builder()
+                            .name("type")
+                            .choices(["auto", "major"])
+                            .build(),
+                    )
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        task_cmd.mounted = true;
+
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("force")
+                    .short('f')
+                    .long("force")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        run_cmd.subcommands.insert("mytask".to_string(), task_cmd);
+
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("env")
+                    .short('E')
+                    .long("env")
+                    .arg(SpecArg::builder().name("ENV").build())
+                    .global(true)
+                    .build(),
+            )
+            .flag(
+                SpecFlag::builder()
+                    .name("silent")
+                    .long("silent")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_mount_boundary_does_not_apply_inside_the_mounted_tree() {
+        // The mounted program's own commands are ordinary commands relative to each other, so
+        // descending *within* the mounted tree must follow the normal rules — including keeping
+        // an inherited global that a nested command re-declares as non-global (jdx/usage#649).
+        // Treating every level of the tree as a mount boundary let the re-declaration shadow the
+        // global, which the next descent's `retain(global)` then dropped entirely.
+        let deep = SpecCommand::builder().name("deep").build();
+        let mut sub = SpecCommand::builder()
+            .name("sub")
+            // Re-declares the mounted program's own global as non-global.
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        sub.subcommands.insert("deep".to_string(), deep);
+        let mut task = SpecCommand::builder()
+            .name("task")
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        task.subcommands.insert("sub".to_string(), sub);
+        task.mark_mounted();
+
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("task".to_string(), task);
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "task", "sub", "deep"])).unwrap();
+        assert!(
+            parsed.available_flags.get("--cd").is_some_and(|f| f.global),
+            "the mounted program's own global must survive descents inside the mounted tree",
+        );
+        assert!(
+            parsed.completion_flags().contains_key("--cd"),
+            "and must still be offered there: it belongs to the mounted program",
+        );
+        assert!(
+            parsed.completion_flags().contains_key("-C"),
+            "including the short the nested command re-declared",
+        );
+    }
+
+    #[test]
+    fn test_mount_flags_merged_into_the_mounting_cmd_are_offered() {
+        // A mounted spec may declare flags on its own root, which `SpecCommand::merge` folds
+        // into the command the mount sits on. They belong to the mounted program, so they must
+        // be offered inside the mounted commands rather than filtered out with the mounting
+        // CLI's own flags.
+        let mut task = SpecCommand::builder()
+            .name("task")
+            .flag(
+                SpecFlag::builder()
+                    .name("bump")
+                    .long("bump")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        task.mark_mounted();
+
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("task".to_string(), task);
+        // What `mount()` leaves behind when the mounted spec's root declares flags.
+        run_cmd.flags = vec![
+            SpecFlag::builder()
+                .name("tglobal")
+                .long("tglobal")
+                .global(true)
+                .build(),
+            SpecFlag::builder()
+                .name("tlocal")
+                .long("tlocal")
+                .global(false)
+                .build(),
+        ];
+        run_cmd.flags_from_mount = true;
+
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("silent")
+                    .long("silent")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "task"])).unwrap();
+        assert_eq!(
+            parsed.completion_flags().keys().collect::<Vec<_>>(),
+            vec!["--bump", "--tglobal"],
+            "the mounted spec's root global belongs to the mounted program; the mounting CLI's \
+             `--silent` does not, and the mount's non-global root flag is not inherited",
+        );
+    }
+
+    #[test]
+    fn test_mounted_cmd_does_not_offer_mounting_cli_globals() {
+        // Regression for jdx/mise#11282. A mounted command describes another program, which
+        // does not accept the mounting CLI's globals (mise forwards everything after a task
+        // name to the task). They must stay recognized — they may appear before the mounted
+        // command — but must not be offered in completions there.
+        let spec = mounted_task_flag_spec();
+        let parsed = parse_partial(&spec, &input(&["test", "run", "mytask"])).unwrap();
+
+        // Still recognized for parsing...
+        assert!(parsed.available_flags.contains_key("--silent"));
+        assert!(parsed.available_flags.contains_key("-E"));
+        // ...but belonging to a command above the mount, so not offered.
+        assert_eq!(
+            parsed.completion_flags().keys().collect::<Vec<_>>(),
+            vec!["--bump", "--env"],
+            "only the mounted command's own flags may be offered",
+        );
+
+        // `run`'s own non-global flag is dropped on descent, as it always was.
+        assert!(!parsed.available_flags.contains_key("--force"));
+    }
+
+    #[test]
+    fn test_mounted_cmd_flag_wins_over_inherited_global() {
+        // Second half of jdx/mise#11282: the mounted `--env` (with choices) used to be shadowed
+        // by the root's `--env` global, so completing its value fell back to file completion.
+        let spec = mounted_task_flag_spec();
+        let parsed = parse_partial(&spec, &input(&["test", "run", "mytask", "--env"])).unwrap();
+
+        let awaiting = parsed
+            .flag_awaiting_value
+            .first()
+            .expect("--env should await a value");
+        assert_eq!(
+            awaiting
+                .arg
+                .as_ref()
+                .and_then(|a| a.choices.as_ref())
+                .map(|c| c.choices.clone()),
+            Some(vec![
+                "dev".to_string(),
+                "stage".to_string(),
+                "prod".to_string()
+            ]),
+            "the mounted command's own --env must win over the inherited global",
+        );
+
+        // The global's short is not declared by the mounted command, so it keeps pointing at
+        // the global and a value passed before the mounted command still parses.
+        let parsed =
+            parse_partial(&spec, &input(&["test", "-E", "anything", "run", "mytask"])).unwrap();
+        assert!(
+            parsed.args.is_empty(),
+            "prefix global tokens must not be consumed as positionals, got {:?}",
+            parsed.args
+        );
+        assert_eq!(
+            parsed.as_env().get("usage_env").map(String::as_str),
+            Some("anything"),
+        );
+    }
+
+    #[test]
+    fn test_prefix_flag_keeps_the_flag_it_was_read_as() {
+        // A word before the mounted command is re-parsed by Phase 2, when the mounted command
+        // already owns the name. It has to stay bound to the flag Phase 1 read it as, or the
+        // global's value would be validated against the mounted flag's choices and a legitimate
+        // value would be rejected.
+        let spec = mounted_task_flag_spec();
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "--env", "not-a-task-choice", "run", "mytask"]),
+        )
+        .unwrap();
+        assert!(
+            parsed.errors.is_empty(),
+            "prefix global value must not be validated against the mounted flag: {:?}",
+            parsed
+                .errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            parsed.as_env().get("usage_env").map(String::as_str),
+            Some("not-a-task-choice"),
+        );
+
+        // The embedded-value form binds the same way.
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "--env=not-a-task-choice", "run", "mytask"]),
+        )
+        .unwrap();
+        assert!(parsed.errors.is_empty());
+        assert_eq!(
+            parsed.as_env().get("usage_env").map(String::as_str),
+            Some("not-a-task-choice"),
+        );
+
+        // Meanwhile a word *after* the mounted command belongs to the mounted flag, even when
+        // the same name was already used before it.
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "--env", "prod", "run", "mytask", "--env"]),
+        )
+        .unwrap();
+        let awaiting = parsed
+            .flag_awaiting_value
+            .first()
+            .expect("--env should await a value");
+        assert_eq!(
+            awaiting
+                .arg
+                .as_ref()
+                .and_then(|a| a.choices.as_ref())
+                .map(|c| c.choices.clone()),
+            Some(vec![
+                "dev".to_string(),
+                "stage".to_string(),
+                "prod".to_string()
+            ]),
+            "the mounted command's --env must own the name after the mounted command",
+        );
+    }
+
+    #[test]
+    fn test_non_global_flag_does_not_hide_subcommand() {
+        // A non-global flag may precede a subcommand (`mycli run --force task`). Phase 1 used to
+        // stop scanning at one, so the subcommand — and any mount on it — was never reached and
+        // its name was left to Phase 2 to mis-read as a positional: `unexpected word: mytask`.
+        let spec = mounted_task_flag_spec();
+
+        for words in [
+            // `run` declares `-f/--force` as non-global.
+            &["test", "run", "--force", "mytask"][..],
+            &["test", "run", "-f", "mytask"][..],
+            // Mixed with a global before the subcommand.
+            &["test", "-E", "prod", "run", "--force", "mytask"][..],
+        ] {
+            let parsed = parse_partial(&spec, &input(words)).unwrap();
+            assert_eq!(
+                parsed
+                    .cmds
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["test", "run", "mytask"],
+                "{words:?} should descend into the mounted command",
+            );
+            assert!(
+                parsed.args.is_empty(),
+                "{words:?} should not consume a positional, got {:?}",
+                parsed.args,
+            );
+            assert_eq!(
+                parsed.as_env().get("usage_force").map(String::as_str),
+                Some("true"),
+                "the non-global flag must still be recorded for {words:?}",
+            );
+        }
+
+        // A non-global flag that takes a value consumes it, rather than reading the value as the
+        // subcommand.
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("output")
+                    .short('o')
+                    .long("output")
+                    .arg(SpecArg::builder().name("mode").build())
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        run_cmd.subcommands.insert(
+            "task".to_string(),
+            SpecCommand::builder().name("task").build(),
+        );
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed =
+            parse_partial(&spec, &input(&["test", "run", "--output", "quiet", "task"])).unwrap();
+        assert_eq!(
+            parsed
+                .cmds
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["test", "run", "task"],
+        );
+        assert_eq!(
+            parsed.as_env().get("usage_output").map(String::as_str),
+            Some("quiet"),
+        );
+
+        // An unknown flag still stops the scan: it may take a value, so the next word cannot be
+        // assumed to be a subcommand. `run` takes no positional, so this stays an error.
+        assert_parse_err(
+            parse_partial(&spec, &input(&["test", "run", "--nope", "task"])),
+            "unexpected word: --nope",
+        );
+    }
+
+    #[test]
+    fn test_non_mounted_subcommand_offers_inherited_globals() {
+        // Nothing changes for ordinary (non-mounted) subcommands: a global declared above is
+        // still both recognized and offered.
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert(
+            "nested".to_string(),
+            SpecCommand::builder().name("nested").build(),
+        );
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("silent")
+                    .long("silent")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "nested"])).unwrap();
+        assert_eq!(
+            parsed.completion_flags().keys().collect::<Vec<_>>(),
+            parsed.available_flags.keys().collect::<Vec<_>>(),
+        );
+        assert!(parsed.completion_flags().contains_key("--silent"));
     }
 
     #[test]

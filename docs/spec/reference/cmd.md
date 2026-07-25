@@ -77,3 +77,31 @@ cmd "task2" {
 Now when using completion with usage, if the user types `mycli run <tab><tab>`, usage will then
 call `mycli mount-usage-tasks` and merge the emitted usage into the `run` command and display the
 task commands as if they were statically defined in the usage spec.
+
+### Global flags and mounted commands
+
+A mounted command describes a different program, so the flags of the commands it is mounted under
+are not part of it. Once a mounted command is reached, `global` flags declared above it are no
+longer offered in completions, and a flag the mounted command declares itself takes precedence over
+a global of the same name:
+
+```kdl
+flag "-E --env <ENV>" global=#true
+cmd "run" {
+	mount run="mycli mount-usage-tasks"
+}
+```
+
+```kdl
+# emitted by the mount
+cmd "task1" {
+  flag "--env <name>" {
+    choices "dev" "stage" "prod"
+  }
+}
+```
+
+`mycli run task1 --<tab>` offers only `task1`'s own flags, and `mycli run task1 --env <tab>` offers
+`dev stage prod` rather than the global's `<ENV>` value. Global flags are still recognized _before_
+the mounted command (`mycli --env prod run task1`), where they also propagate to the mount command
+itself.
