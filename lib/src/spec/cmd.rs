@@ -121,9 +121,12 @@ pub struct SpecCommand {
     #[serde(skip_serializing_if = "IndexMap::is_empty")]
     pub complete: IndexMap<String, SpecComplete>,
 
-    /// Cache for subcommand name lookups (including aliases)
+    /// Cache for subcommand name lookups (including aliases).
+    ///
+    /// `pub(crate)` only so that other modules can destructure `SpecCommand`
+    /// exhaustively; it stays private to the crate.
     #[serde(skip)]
-    subcommand_lookup: OnceLock<HashMap<String, String>>,
+    pub(crate) subcommand_lookup: OnceLock<HashMap<String, String>>,
 }
 
 impl Default for SpecCommand {
@@ -293,11 +296,18 @@ impl SpecCommand {
                 "long_help" => {
                     cmd.help_long = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
+                "help_md" => {
+                    cmd.help_md = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
                 "before_help" => {
                     cmd.before_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "before_long_help" => {
                     cmd.before_help_long =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "before_help_md" => {
+                    cmd.before_help_md =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "after_help" => {
@@ -306,6 +316,9 @@ impl SpecCommand {
                 "after_long_help" => {
                     cmd.after_help_long =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "after_help_md" => {
+                    cmd.after_help_md = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "subcommand_required" => {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
@@ -391,66 +404,103 @@ impl SpecCommand {
         usage.trim().to_string()
     }
     pub(crate) fn merge(&mut self, other: Self) {
-        if !other.name.is_empty() {
-            self.name = other.name;
+        // Destructured exhaustively (no `..`) so that adding a field to
+        // SpecCommand fails to compile until this decides what merging it means.
+        // Runtime-derived fields are explicitly ignored rather than skipped.
+        let Self {
+            name,
+            help,
+            help_long,
+            help_md,
+            before_help,
+            before_help_long,
+            before_help_md,
+            after_help,
+            after_help_long,
+            after_help_md,
+            args,
+            flags,
+            mounts,
+            aliases,
+            hidden_aliases,
+            examples,
+            hide,
+            subcommand_required,
+            restart_token,
+            subcommands,
+            complete,
+            deprecated,
+            effect,
+            // Recomputed from the merged command, never carried over.
+            full_cmd: _,
+            usage: _,
+            mounted: _,
+            flags_from_mount: _,
+            subcommand_lookup: _,
+        } = other;
+        if !name.is_empty() {
+            self.name = name;
         }
-        if other.help.is_some() {
-            self.help = other.help;
+        if help.is_some() {
+            self.help = help;
         }
-        if other.help_long.is_some() {
-            self.help_long = other.help_long;
+        if help_long.is_some() {
+            self.help_long = help_long;
         }
-        if other.help_md.is_some() {
-            self.help_md = other.help_md;
+        if help_md.is_some() {
+            self.help_md = help_md;
         }
-        if other.before_help.is_some() {
-            self.before_help = other.before_help;
+        if before_help.is_some() {
+            self.before_help = before_help;
         }
-        if other.before_help_long.is_some() {
-            self.before_help_long = other.before_help_long;
+        if before_help_long.is_some() {
+            self.before_help_long = before_help_long;
         }
-        if other.before_help_md.is_some() {
-            self.before_help_md = other.before_help_md;
+        if before_help_md.is_some() {
+            self.before_help_md = before_help_md;
         }
-        if other.after_help.is_some() {
-            self.after_help = other.after_help;
+        if after_help.is_some() {
+            self.after_help = after_help;
         }
-        if other.after_help_long.is_some() {
-            self.after_help_long = other.after_help_long;
+        if after_help_long.is_some() {
+            self.after_help_long = after_help_long;
         }
-        if other.after_help_md.is_some() {
-            self.after_help_md = other.after_help_md;
+        if after_help_md.is_some() {
+            self.after_help_md = after_help_md;
         }
-        if !other.args.is_empty() {
-            self.args = other.args;
+        if !args.is_empty() {
+            self.args = args;
         }
-        if !other.flags.is_empty() {
-            self.flags = other.flags;
+        if !flags.is_empty() {
+            self.flags = flags;
         }
-        if !other.mounts.is_empty() {
-            self.mounts = other.mounts;
+        if !mounts.is_empty() {
+            self.mounts = mounts;
         }
-        if !other.aliases.is_empty() {
-            self.aliases = other.aliases;
+        if !aliases.is_empty() {
+            self.aliases = aliases;
         }
-        if !other.hidden_aliases.is_empty() {
-            self.hidden_aliases = other.hidden_aliases;
+        if !hidden_aliases.is_empty() {
+            self.hidden_aliases = hidden_aliases;
         }
-        if !other.examples.is_empty() {
-            self.examples = other.examples;
+        if !examples.is_empty() {
+            self.examples = examples;
         }
-        self.hide = other.hide;
-        self.subcommand_required = other.subcommand_required;
-        if other.effect.is_some() {
-            self.effect = other.effect;
+        self.hide = hide;
+        self.subcommand_required = subcommand_required;
+        if effect.is_some() {
+            self.effect = effect;
         }
-        if other.restart_token.is_some() {
-            self.restart_token = other.restart_token;
+        if deprecated.is_some() {
+            self.deprecated = deprecated;
         }
-        for (name, cmd) in other.subcommands {
+        if restart_token.is_some() {
+            self.restart_token = restart_token;
+        }
+        for (name, cmd) in subcommands {
             self.subcommands.insert(name, cmd);
         }
-        for (name, complete) in other.complete {
+        for (name, complete) in complete {
             self.complete.insert(name, complete);
         }
     }
@@ -525,108 +575,147 @@ impl SpecCommand {
 
 impl From<&SpecCommand> for KdlNode {
     fn from(cmd: &SpecCommand) -> Self {
+        // Destructured exhaustively (no `..`) so that adding a field to
+        // SpecCommand fails to compile until this decides how to serialize it.
+        let SpecCommand {
+            name,
+            hide,
+            subcommand_required,
+            restart_token,
+            aliases,
+            hidden_aliases,
+            help,
+            help_long,
+            help_md,
+            before_help,
+            before_help_long,
+            before_help_md,
+            after_help,
+            after_help_long,
+            after_help_md,
+            deprecated,
+            effect,
+            flags,
+            args,
+            mounts,
+            subcommands,
+            complete,
+            examples,
+            // Derived from the spec rather than written by it.
+            full_cmd: _,
+            usage: _,
+            mounted: _,
+            flags_from_mount: _,
+            subcommand_lookup: _,
+        } = cmd;
         let mut node = Self::new("cmd");
-        node.entries_mut().push(cmd.name.clone().into());
-        if cmd.hide {
+        node.entries_mut().push(name.clone().into());
+        if *hide {
             node.entries_mut().push(KdlEntry::new_prop("hide", true));
         }
-        if cmd.subcommand_required {
+        if *subcommand_required {
             node.entries_mut()
                 .push(KdlEntry::new_prop("subcommand_required", true));
         }
-        if let Some(restart_token) = &cmd.restart_token {
+        if let Some(restart_token) = &restart_token {
             node.entries_mut()
                 .push(KdlEntry::new_prop("restart_token", restart_token.clone()));
         }
-        if !cmd.aliases.is_empty() {
-            let mut aliases = KdlNode::new("alias");
-            for alias in &cmd.aliases {
-                aliases.entries_mut().push(alias.clone().into());
+        if !aliases.is_empty() {
+            let mut alias_node = KdlNode::new("alias");
+            for alias in aliases {
+                alias_node.entries_mut().push(alias.clone().into());
             }
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
-            children.nodes_mut().push(aliases);
+            children.nodes_mut().push(alias_node);
         }
-        if !cmd.hidden_aliases.is_empty() {
-            let mut aliases = KdlNode::new("alias");
-            for alias in &cmd.hidden_aliases {
-                aliases.entries_mut().push(alias.clone().into());
+        if !hidden_aliases.is_empty() {
+            let mut alias_node = KdlNode::new("alias");
+            for alias in hidden_aliases {
+                alias_node.entries_mut().push(alias.clone().into());
             }
-            aliases.entries_mut().push(KdlEntry::new_prop("hide", true));
+            alias_node
+                .entries_mut()
+                .push(KdlEntry::new_prop("hide", true));
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
-            children.nodes_mut().push(aliases);
+            children.nodes_mut().push(alias_node);
         }
-        if let Some(help) = &cmd.help {
+        if let Some(help) = &help {
             node.entries_mut().push(string_entry(Some("help"), help));
         }
-        if let Some(help) = &cmd.help_long {
+        if let Some(help) = &help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("long_help");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(help) = &cmd.help_md {
+        if let Some(help) = &help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("help_md");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(help) = &cmd.before_help {
+        if let Some(help) = &before_help {
             node.entries_mut()
                 .push(string_entry(Some("before_help"), help));
         }
-        if let Some(help) = &cmd.before_help_long {
+        if let Some(help) = &before_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_long_help");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(help) = &cmd.before_help_md {
+        if let Some(help) = &before_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("before_help_md");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(help) = &cmd.after_help {
+        if let Some(help) = &after_help {
             node.entries_mut()
                 .push(string_entry(Some("after_help"), help));
         }
-        if let Some(help) = &cmd.after_help_long {
+        if let Some(help) = &after_help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_long_help");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(help) = &cmd.after_help_md {
+        if let Some(help) = &after_help_md {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             let mut node = KdlNode::new("after_help_md");
             node.push(string_entry(None, help));
             children.nodes_mut().push(node);
         }
-        if let Some(deprecated) = &cmd.deprecated {
+        if let Some(deprecated) = &deprecated {
             node.entries_mut()
                 .push(string_entry(Some("deprecated"), deprecated));
         }
-        if let Some(effect) = &cmd.effect {
+        if let Some(effect) = effect {
             node.entries_mut()
                 .push(string_entry(Some("effect"), effect.as_str()));
         }
-        for flag in &cmd.flags {
+        for flag in flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(flag.into());
         }
-        for arg in &cmd.args {
+        for arg in args {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(arg.into());
         }
-        for mount in &cmd.mounts {
+        for mount in mounts {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(mount.into());
         }
-        for cmd in cmd.subcommands.values() {
+        for cmd in subcommands.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(cmd.into());
         }
-        for complete in cmd.complete.values() {
+        for example in examples {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(example.into());
+        }
+        for complete in complete.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(complete.into());
         }
@@ -797,5 +886,137 @@ cmd "ls" effect="readonly"
             err.to_string().contains("Invalid usage config"),
             "unexpected error: {err}"
         );
+    }
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use crate::Spec;
+
+    fn uninstall(src: &str) -> crate::SpecCommand {
+        Spec::parse(&Default::default(), src)
+            .unwrap()
+            .cmd
+            .subcommands["uninstall"]
+            .clone()
+    }
+
+    /// An overlay that says nothing about deprecation must not un-deprecate a
+    /// command that already declared it.
+    #[test]
+    fn test_deprecated_survives_merge() {
+        let declared = uninstall(r#"cmd "uninstall" deprecated="use `remove`""#);
+        let silent = uninstall(r#"cmd "uninstall" help="Remove a tool""#);
+        let contradicting = uninstall(r#"cmd "uninstall" deprecated="gone in v3""#);
+
+        let mut cmd = declared.clone();
+        cmd.merge(silent);
+        assert_eq!(cmd.deprecated.as_deref(), Some("use `remove`"));
+
+        let mut cmd = declared;
+        cmd.merge(contradicting);
+        assert_eq!(cmd.deprecated.as_deref(), Some("gone in v3"));
+    }
+}
+
+#[cfg(test)]
+mod roundtrip_tests {
+    use crate::Spec;
+
+    /// Serializing a spec back to KDL and reparsing it must not lose anything.
+    ///
+    /// The parser is a match on node names, so exhaustive destructuring can't
+    /// catch a field the serializer knows about but the parser doesn't, or the
+    /// reverse. Comparing the serde representation covers every field without
+    /// this test having to enumerate them, so a new field is covered the day it
+    /// is added.
+    #[test]
+    fn test_spec_survives_a_kdl_roundtrip() {
+        let src = r#"
+name "My CLI"
+bin "mycli"
+about "does things"
+version "1.0.0"
+author "nobody"
+license "MIT"
+
+flag "-v --verbose" help="Verbose logging" global=#true count=#true
+arg "<dir>" help="Directory to use"
+
+cmd "install" help="Install a package" subcommand_required=#false {
+    alias "i"
+    alias "add" hide=#true
+    long_help "The long help for install"
+    help_md "The **markdown** help for install"
+    before_help "before"
+    before_long_help "The long before-help for install"
+    before_help_md "The **markdown** before-help for install"
+    after_help "after"
+    after_long_help "The long after-help for install"
+    after_help_md "The **markdown** after-help for install"
+    arg "<pkg>" help="Package to install"
+    flag "-f --force" help="Overwrite"
+    complete "pkg" run="mycli list --available" descriptions=#true
+    example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
+    example "mycli install bar"
+    cmd "from" help="Install from a source" {
+        arg "<src>"
+    }
+}
+cmd "wrapped" help="Wraps another CLI" {
+    mount run="mycli plugin usage-spec"
+}
+cmd "remove" help="Remove a package" deprecated="use `uninstall`" effect="destructive"
+cmd "run" restart_token=":::" help="Run tasks"
+cmd "hidden" hide=#true
+        "#;
+
+        let original = Spec::parse(&Default::default(), src).unwrap();
+        let reparsed = Spec::parse(&Default::default(), &original.to_string()).unwrap();
+
+        let original = serde_json::to_value(&original).unwrap();
+        let reparsed = serde_json::to_value(&reparsed).unwrap();
+        pretty_assertions::assert_eq!(original, reparsed);
+
+        // Equality is only meaningful if the fixture actually populated the
+        // fields, so guard against a future edit quietly emptying it out.
+        let install = &original["cmd"]["subcommands"]["install"];
+        for key in [
+            "help_long",
+            "help_md",
+            "before_help",
+            "before_help_long",
+            "before_help_md",
+            "after_help",
+            "after_help_long",
+            "after_help_md",
+            "deprecated",
+            "effect",
+            "restart_token",
+            "examples",
+            "complete",
+            "mounts",
+            "aliases",
+            "hidden_aliases",
+        ] {
+            let populated = match key {
+                // These sit on other commands in the fixture.
+                "deprecated" | "effect" => {
+                    original["cmd"]["subcommands"]["remove"].get(key).is_some()
+                }
+                "restart_token" => original["cmd"]["subcommands"]["run"].get(key).is_some(),
+                "mounts" => !original["cmd"]["subcommands"]["wrapped"]["mounts"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty(),
+                _ => match install.get(key) {
+                    Some(serde_json::Value::Array(a)) => !a.is_empty(),
+                    Some(serde_json::Value::Object(o)) => !o.is_empty(),
+                    Some(_) => true,
+                    None => false,
+                },
+            };
+            assert!(populated, "fixture does not exercise `{key}`");
+        }
     }
 }

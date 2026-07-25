@@ -41,6 +41,7 @@ pub struct SpecCommand {
     pub effect: Option<SpecCommandEffect>,
     pub hide: bool,
     pub subcommand_required: bool,
+    pub restart_token: Option<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
@@ -204,35 +205,67 @@ impl From<&crate::SpecCommand> for SpecCommand {
             })
             .collect();
 
+        // Destructured exhaustively (no `..`) so that adding a field to the spec
+        // model fails to compile until this decides whether docs need it.
+        let crate::SpecCommand {
+            full_cmd,
+            usage,
+            subcommands,
+            deprecated,
+            effect,
+            hide,
+            subcommand_required,
+            help,
+            help_long,
+            help_md,
+            name,
+            aliases,
+            hidden_aliases,
+            before_help,
+            before_help_long,
+            before_help_md,
+            after_help,
+            after_help_long,
+            after_help_md,
+            examples,
+            restart_token,
+            // Rendered above, or deliberately absent from the docs model.
+            args: _,
+            flags: _,
+            mounts: _,
+            complete: _,
+            mounted: _,
+            flags_from_mount: _,
+            subcommand_lookup: _,
+        } = cmd;
+
         Self {
-            full_cmd: cmd.full_cmd.clone(),
-            usage: cmd.usage.clone(),
-            subcommands: cmd
-                .subcommands
+            full_cmd: full_cmd.clone(),
+            usage: usage.clone(),
+            subcommands: subcommands
                 .iter()
                 .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
                 .collect(),
             args,
             flags,
-            // mounts: cmd.mounts.iter().map(SpecMount::from).collect(),
-            deprecated: cmd.deprecated.clone(),
-            effect: cmd.effect,
-            hide: cmd.hide,
-            subcommand_required: cmd.subcommand_required,
-            help: cmd.help.clone(),
-            help_long: cmd.help_long.clone(),
-            help_md: cmd.help_md.clone(),
-            name: cmd.name.clone(),
-            aliases: cmd.aliases.clone(),
-            hidden_aliases: cmd.hidden_aliases.clone(),
-            before_help: cmd.before_help.clone(),
-            before_help_long: cmd.before_help_long.clone(),
-            before_help_md: cmd.before_help_md.clone(),
-            after_help: cmd.after_help.clone(),
-            after_help_long: cmd.after_help_long.clone(),
-            after_help_md: cmd.after_help_md.clone(),
-            examples: cmd.examples.iter().map(SpecExample::from).collect(),
-            // complete: cmd.complete.clone(),
+            deprecated: deprecated.clone(),
+            effect: *effect,
+            hide: *hide,
+            subcommand_required: *subcommand_required,
+            restart_token: restart_token.clone(),
+            help: help.clone(),
+            help_long: help_long.clone(),
+            help_md: help_md.clone(),
+            name: name.clone(),
+            aliases: aliases.clone(),
+            hidden_aliases: hidden_aliases.clone(),
+            before_help: before_help.clone(),
+            before_help_long: before_help_long.clone(),
+            before_help_md: before_help_md.clone(),
+            after_help: after_help.clone(),
+            after_help_long: after_help_long.clone(),
+            after_help_md: after_help_md.clone(),
+            examples: examples.iter().map(SpecExample::from).collect(),
             rendered: false,
         }
     }
