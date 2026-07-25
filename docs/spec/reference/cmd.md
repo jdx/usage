@@ -102,6 +102,6 @@ cmd "task1" {
 ```
 
 `mycli run task1 --<tab>` offers only `task1`'s own flags, and `mycli run task1 --env <tab>` offers
-`dev stage prod` rather than the global's `<ENV>` value. Global flags are still recognized *before*
+`dev stage prod` rather than the global's `<ENV>` value. Global flags are still recognized _before_
 the mounted command (`mycli --env prod run task1`), where they also propagate to the mount command
 itself.
