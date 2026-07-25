@@ -51,3 +51,15 @@ flag "--file <file>" {
     """#
 }
 ```
+
+## `global`
+
+A `global` flag is recognized by the command that declares it and by everything below it, so
+`mycli --verbose run task` and `mycli run task --verbose` both work. It is also passed to any
+[`mount`](/spec/reference/cmd#mounting-dynamic-commands) reached after it, so the mount command
+can take it into account, and it is not offered inside a mounted command — see
+[Global flags and mounted commands](/spec/reference/cmd#global-flags-and-mounted-commands).
+
+A non-global flag belongs to the command that declares it, but may still appear before one of
+that command's subcommands (`mycli run --force task`): it is parsed there, just not inherited
+and not passed to mounts.

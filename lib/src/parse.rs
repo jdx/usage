@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
 use miette::bail;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use strum::EnumTryAs;
@@ -34,24 +34,18 @@ use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 fn merge_subcommand_flags(
     available: &mut BTreeMap<String, Arc<SpecFlag>>,
     new_flags: BTreeMap<String, Arc<SpecFlag>>,
-    prefix_flag_keys: &BTreeSet<String>,
     crossing_mount: bool,
 ) {
     // Keep only inherited global flags from the parent.
     available.retain(|_, f| f.global);
 
     if crossing_mount {
-        // A mounted command owns its flags outright. Aliases it does not declare (e.g. a
-        // global's short) stay inherited so prefix tokens keep parsing.
+        // A mounted command owns its flags outright, including names an inherited global also
+        // uses: a word after the mounted command belongs to the mounted program. Words before
+        // it keep resolving to the global they were read as, via `prefix_bindings`. Aliases the
+        // mounted command does not declare (e.g. a global's short) stay inherited.
         for (key, flag) in new_flags {
-            // Exception: a token already consumed as an inherited global before the mounted
-            // command (`mycli --env prod run task`) is still sitting in the input for Phase 2
-            // to re-parse, so that key has to keep resolving to the global.
-            let shadows_consumed_global =
-                prefix_flag_keys.contains(&key) && available.get(&key).is_some_and(|f| f.global);
-            if !shadows_consumed_global {
-                available.insert(key, flag);
-            }
+            available.insert(key, flag);
         }
         return;
     }
@@ -491,14 +485,18 @@ fn parse_partial_with_env(
     //   -> finds "run" subcommand, passes ["--verbose"] to its mount command
     //   -> then finds "task" as a subcommand of "run" (if it exists)
     //
-    // We only collect global flags because:
+    // We only collect global flags for mounts because:
     // - Non-global flags are specific to the current command, not subcommands
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_words: Vec<String> = vec![];
-    // Flag keys consumed here, i.e. seen before a subcommand. Unlike `prefix_words` these are
-    // kept for the whole scan: the tokens stay in `input` for Phase 2, so a mounted command
-    // must not take over one of these keys (see `merge_subcommand_flags`).
-    let mut prefix_flag_keys: BTreeSet<String> = BTreeSet::new();
+    // Which flag each word skipped here belongs to, aligned with the leading words left in
+    // `input`: `Some(flag)` for a flag word, `None` for its value (or anything unresolved).
+    //
+    // The words stay in `input` for Phase 2 to re-parse — that is how they reach `out.flags`
+    // and `as_env()` — but by then the recognized flags have changed, because each descent
+    // drops the parent's non-global flags and a mounted command may declare the same name as
+    // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
+    let mut prefix_bindings: VecDeque<Option<Arc<SpecFlag>>> = VecDeque::new();
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -512,7 +510,6 @@ fn parse_partial_with_env(
             merge_subcommand_flags(
                 &mut out.available_flags,
                 gather_flags(&subcommand),
-                &prefix_flag_keys,
                 subcommand.mounted,
             );
             // Remove subcommand from input
@@ -523,39 +520,36 @@ fn parse_partial_with_env(
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
         } else if input[idx].starts_with('-') {
-            // Check if this is a known flag and if it's global
-            let word = &input[idx];
-            let flag_key = get_flag_key(word);
+            // Check if this is a known flag
+            let word = input[idx].clone();
+            let flag_key = get_flag_key(&word);
 
-            if let Some(f) = out.available_flags.get(flag_key) {
-                // Only collect global flags for mount execution.
+            if let Some(f) = out.available_flags.get(flag_key).cloned() {
+                // Skip the flag and keep scanning. Both global and non-global flags may precede
+                // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
+                // stopping at one would hide the subcommand — and any mount on it — from the
+                // parse, leaving the subcommand name to be mis-read as a positional argument.
                 //
-                // We deliberately leave the global flag (and its value) in `input` so that
-                // Phase 2 re-parses it and records it in `out.flags`. That is how global flags
-                // reach `as_env()` for normal execution and for the env passed to mount scripts.
-                // Re-parsing is harmless as long as the flag stays recognized in
-                // `available_flags` (see `merge_subcommand_flags`): Phase 2 consumes it as a
-                // flag instead of mistaking it for a positional argument.
+                // Only globals are forwarded to mounts: a non-global flag belongs to the
+                // command that declared it, not to what is mounted below it.
+                prefix_bindings.push_back(Some(Arc::clone(&f)));
                 if f.global {
-                    prefix_flag_keys.insert(flag_key.to_string());
-                    prefix_words.push(input[idx].clone());
-                    idx += 1;
+                    prefix_words.push(word.clone());
+                }
+                idx += 1;
 
-                    // Only consume next word if flag takes an argument AND value isn't embedded
-                    // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
-                    if f.arg.is_some()
-                        && !word.contains('=')
-                        && idx < input.len()
-                        && !input[idx].starts_with('-')
-                    {
+                // Only consume next word if flag takes an argument AND value isn't embedded
+                // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
+                if f.arg.is_some()
+                    && !word.contains('=')
+                    && idx < input.len()
+                    && !input[idx].starts_with('-')
+                {
+                    if f.global {
                         prefix_words.push(input[idx].clone());
-                        idx += 1;
                     }
-                } else {
-                    // Non-global flag encountered - stop subcommand search
-                    // This prevents incorrect parsing like: "cmd --local-flag run"
-                    // where "run" might be mistaken for a subcommand
-                    break;
+                    prefix_bindings.push_back(None);
+                    idx += 1;
                 }
             } else {
                 // Unknown flag - stop looking for subcommands
@@ -574,7 +568,6 @@ fn parse_partial_with_env(
                         merge_subcommand_flags(
                             &mut out.available_flags,
                             gather_flags(&subcommand),
-                            &prefix_flag_keys,
                             subcommand.mounted,
                         );
                         out.cmds.push(subcommand.clone());
@@ -604,6 +597,9 @@ fn parse_partial_with_env(
 
     while !input.is_empty() {
         let mut w = input.pop_front().unwrap();
+        // The flag this word was read as in Phase 1, if it skipped it (see `prefix_bindings`).
+        // Words pushed back below get a `None` so the two queues stay aligned.
+        let binding = prefix_bindings.pop_front().flatten();
 
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
@@ -662,12 +658,13 @@ fn parse_partial_with_env(
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
-            if let Some(f) = out.available_flags.get(word) {
+            if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
                 if !val.is_empty() {
                     input.push_front(val.to_string());
+                    prefix_bindings.push_front(None);
                 }
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(Arc::clone(f));
@@ -696,9 +693,13 @@ fn parse_partial_with_env(
         // short flags
         if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
-            if let Some(f) = out.available_flags.get(&format!("-{short}")) {
+            if let Some(f) = binding
+                .as_ref()
+                .or_else(|| out.available_flags.get(&format!("-{short}")))
+            {
                 if w.len() > 2 {
                     input.push_front(format!("-{}", &w[2..]));
+                    prefix_bindings.push_front(None);
                     grouped_flag = true;
                 }
                 if f.arg.is_some() {
@@ -2202,11 +2203,11 @@ mod tests {
     }
 
     #[test]
-    fn test_mounted_cmd_does_not_take_over_consumed_prefix_flag() {
-        // A global consumed *before* the mounted command is left in the input for Phase 2, so
-        // that key has to keep resolving to the global even though the mounted command declares
-        // the same long name — otherwise the value would be validated against the mounted
-        // flag's choices and a legitimate global value would be rejected.
+    fn test_prefix_flag_keeps_the_flag_it_was_read_as() {
+        // A word before the mounted command is re-parsed by Phase 2, when the mounted command
+        // already owns the name. It has to stay bound to the flag Phase 1 read it as, or the
+        // global's value would be validated against the mounted flag's choices and a legitimate
+        // value would be rejected.
         let spec = mounted_task_flag_spec();
         let parsed = parse_partial(
             &spec,
@@ -2226,8 +2227,129 @@ mod tests {
             parsed.as_env().get("usage_env").map(String::as_str),
             Some("not-a-task-choice"),
         );
-        // The name is still offered, since the mounted command declares it too.
-        assert!(parsed.completion_flags().contains_key("--env"));
+
+        // The embedded-value form binds the same way.
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "--env=not-a-task-choice", "run", "mytask"]),
+        )
+        .unwrap();
+        assert!(parsed.errors.is_empty());
+        assert_eq!(
+            parsed.as_env().get("usage_env").map(String::as_str),
+            Some("not-a-task-choice"),
+        );
+
+        // Meanwhile a word *after* the mounted command belongs to the mounted flag, even when
+        // the same name was already used before it.
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "--env", "prod", "run", "mytask", "--env"]),
+        )
+        .unwrap();
+        let awaiting = parsed
+            .flag_awaiting_value
+            .first()
+            .expect("--env should await a value");
+        assert_eq!(
+            awaiting
+                .arg
+                .as_ref()
+                .and_then(|a| a.choices.as_ref())
+                .map(|c| c.choices.clone()),
+            Some(vec![
+                "dev".to_string(),
+                "stage".to_string(),
+                "prod".to_string()
+            ]),
+            "the mounted command's --env must own the name after the mounted command",
+        );
+    }
+
+    #[test]
+    fn test_non_global_flag_does_not_hide_subcommand() {
+        // A non-global flag may precede a subcommand (`mycli run --force task`). Phase 1 used to
+        // stop scanning at one, so the subcommand — and any mount on it — was never reached and
+        // its name was left to Phase 2 to mis-read as a positional: `unexpected word: mytask`.
+        let spec = mounted_task_flag_spec();
+
+        for words in [
+            // `run` declares `-f/--force` as non-global.
+            &["test", "run", "--force", "mytask"][..],
+            &["test", "run", "-f", "mytask"][..],
+            // Mixed with a global before the subcommand.
+            &["test", "-E", "prod", "run", "--force", "mytask"][..],
+        ] {
+            let parsed = parse_partial(&spec, &input(words)).unwrap();
+            assert_eq!(
+                parsed
+                    .cmds
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["test", "run", "mytask"],
+                "{words:?} should descend into the mounted command",
+            );
+            assert!(
+                parsed.args.is_empty(),
+                "{words:?} should not consume a positional, got {:?}",
+                parsed.args,
+            );
+            assert_eq!(
+                parsed.as_env().get("usage_force").map(String::as_str),
+                Some("true"),
+                "the non-global flag must still be recorded for {words:?}",
+            );
+        }
+
+        // A non-global flag that takes a value consumes it, rather than reading the value as the
+        // subcommand.
+        let mut run_cmd = SpecCommand::builder()
+            .name("run")
+            .flag(
+                SpecFlag::builder()
+                    .name("output")
+                    .short('o')
+                    .long("output")
+                    .arg(SpecArg::builder().name("mode").build())
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        run_cmd.subcommands.insert(
+            "task".to_string(),
+            SpecCommand::builder().name("task").build(),
+        );
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed =
+            parse_partial(&spec, &input(&["test", "run", "--output", "quiet", "task"])).unwrap();
+        assert_eq!(
+            parsed
+                .cmds
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["test", "run", "task"],
+        );
+        assert_eq!(
+            parsed.as_env().get("usage_output").map(String::as_str),
+            Some("quiet"),
+        );
+
+        // An unknown flag still stops the scan: it may take a value, so the next word cannot be
+        // assumed to be a subcommand. `run` takes no positional, so this stays an error.
+        assert_parse_err(
+            parse_partial(&spec, &input(&["test", "run", "--nope", "task"])),
+            "unexpected word: --nope",
+        );
     }
 
     #[test]
