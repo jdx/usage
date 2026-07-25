@@ -1,4 +1,5 @@
 use crate::docs::markdown::MarkdownRenderer;
+use crate::spec::effect::SpecCommandEffect;
 use crate::SpecChoices;
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -37,6 +38,7 @@ pub struct SpecCommand {
     pub flags: Vec<SpecFlag>,
     // pub mounts: Vec<SpecMount>,
     pub deprecated: Option<String>,
+    pub effect: Option<SpecCommandEffect>,
     pub hide: bool,
     pub subcommand_required: bool,
     pub help: Option<String>,
@@ -214,6 +216,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             flags,
             // mounts: cmd.mounts.iter().map(SpecMount::from).collect(),
             deprecated: cmd.deprecated.clone(),
+            effect: cmd.effect,
             hide: cmd.hide,
             subcommand_required: cmd.subcommand_required,
             help: cmd.help.clone(),

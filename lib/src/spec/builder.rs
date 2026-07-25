@@ -31,6 +31,7 @@
 //! ```
 
 use crate::spec::cmd::SpecExample;
+use crate::spec::effect::SpecCommandEffect;
 use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
 /// Builder for SpecFlag
@@ -461,6 +462,12 @@ impl SpecCommandBuilder {
     /// Set subcommand required
     pub fn subcommand_required(mut self, required: bool) -> Self {
         self.inner.subcommand_required = required;
+        self
+    }
+
+    /// Set what running this command does to the world
+    pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
+        self.inner.effect = Some(effect);
         self
     }
 
