@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.6.0](https://github.com/jdx/usage/compare/v3.5.7..v3.6.0) - 2026-07-25
+
+### 🚀 Features
+
+- **(spec)** add effect= to declare what a command does to the world by [@jdx](https://github.com/jdx) in [#739](https://github.com/jdx/usage/pull/739)
+
+### 🚜 Refactor
+
+- **(spec)** make missed SpecCommand fields a compile error, and fix the four that were already missed by [@jdx](https://github.com/jdx) in [#740](https://github.com/jdx/usage/pull/740)
+
 ## [3.5.7](https://github.com/jdx/usage/compare/v3.5.6..v3.5.7) - 2026-07-25
 
 ### 🐛 Bug Fixes
