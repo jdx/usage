@@ -481,9 +481,9 @@ impl SpecCommand {
         if effect.is_some() {
             self.effect = effect;
         }
-        // NOTE: `deprecated` is intentionally left out to preserve existing
-        // behavior; see the follow-up commit.
-        let _ = deprecated;
+        if deprecated.is_some() {
+            self.deprecated = deprecated;
+        }
         if restart_token.is_some() {
             self.restart_token = restart_token;
         }
@@ -875,5 +875,35 @@ cmd "ls" effect="readonly"
             err.to_string().contains("Invalid usage config"),
             "unexpected error: {err}"
         );
+    }
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use crate::Spec;
+
+    fn uninstall(src: &str) -> crate::SpecCommand {
+        Spec::parse(&Default::default(), src)
+            .unwrap()
+            .cmd
+            .subcommands["uninstall"]
+            .clone()
+    }
+
+    /// An overlay that says nothing about deprecation must not un-deprecate a
+    /// command that already declared it.
+    #[test]
+    fn test_deprecated_survives_merge() {
+        let declared = uninstall(r#"cmd "uninstall" deprecated="use `remove`""#);
+        let silent = uninstall(r#"cmd "uninstall" help="Remove a tool""#);
+        let contradicting = uninstall(r#"cmd "uninstall" deprecated="gone in v3""#);
+
+        let mut cmd = declared.clone();
+        cmd.merge(silent);
+        assert_eq!(cmd.deprecated.as_deref(), Some("use `remove`"));
+
+        let mut cmd = declared;
+        cmd.merge(contradicting);
+        assert_eq!(cmd.deprecated.as_deref(), Some("gone in v3"));
     }
 }
