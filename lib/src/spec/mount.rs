@@ -8,8 +8,16 @@ use crate::spec::context::ParsingContext;
 use crate::spec::helpers::{string_entry, NodeHelper};
 
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecMount {
     pub run: String,
+}
+
+impl SpecMount {
+    /// A mount that runs `run` to produce a spec for the subcommands here.
+    pub fn new(run: impl Into<String>) -> Self {
+        Self { run: run.into() }
+    }
 }
 
 impl SpecMount {

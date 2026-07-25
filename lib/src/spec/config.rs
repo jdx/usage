@@ -9,8 +9,18 @@ use crate::spec::data_types::SpecDataTypes;
 use crate::spec::helpers::{string_entry, NodeHelper};
 
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
+}
+
+impl SpecConfig {
+    /// Config properties keyed by their dotted path.
+    pub fn new(props: impl IntoIterator<Item = (String, SpecConfigProp)>) -> Self {
+        Self {
+            props: props.into_iter().collect(),
+        }
+    }
 }
 
 impl SpecConfig {
@@ -58,6 +68,7 @@ impl SpecConfig {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecConfigProp {
     pub default: Option<String>,
     pub default_note: Option<String>,
@@ -65,6 +76,31 @@ pub struct SpecConfigProp {
     pub env: Option<String>,
     pub help: Option<String>,
     pub long_help: Option<String>,
+}
+
+impl SpecConfigProp {
+    /// A config property. Every field is optional; set what applies.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Environment variable that sets this property.
+    pub fn env(mut self, env: impl Into<String>) -> Self {
+        self.env = Some(env.into());
+        self
+    }
+
+    /// Short help text.
+    pub fn help(mut self, help: impl Into<String>) -> Self {
+        self.help = Some(help.into());
+        self
+    }
+
+    /// Default value, rendered in docs.
+    pub fn default_value(mut self, default: impl Into<String>) -> Self {
+        self.default = Some(default.into());
+        self
+    }
 }
 
 impl SpecConfigProp {

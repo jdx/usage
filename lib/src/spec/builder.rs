@@ -205,6 +205,24 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Set the rendered usage string. `build` derives this when unset.
+    pub fn usage(mut self, usage: impl Into<String>) -> Self {
+        self.inner.usage = usage.into();
+        self
+    }
+
+    /// Set the first line of help text. Derived from `help` when unset.
+    pub fn help_first_line(mut self, text: impl Into<String>) -> Self {
+        self.inner.help_first_line = Some(text.into());
+        self
+    }
+
+    /// Raise the command's effect when this flag is supplied.
+    pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
+        self.inner.effect = Some(effect);
+        self
+    }
+
     /// Build the final SpecFlag
     #[must_use]
     pub fn build(mut self) -> SpecFlag {
@@ -346,6 +364,24 @@ impl SpecArgBuilder {
     pub fn choices_env(mut self, env: impl Into<String>) -> Self {
         let choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
         choices.set_env(Some(env.into()));
+        self
+    }
+
+    /// Set the rendered usage string. `build` derives this when unset.
+    pub fn usage(mut self, usage: impl Into<String>) -> Self {
+        self.inner.usage = usage.into();
+        self
+    }
+
+    /// Set the first line of help text. Derived from `help` when unset.
+    pub fn help_first_line(mut self, text: impl Into<String>) -> Self {
+        self.inner.help_first_line = Some(text.into());
+        self
+    }
+
+    /// Raise the command's effect when this argument is supplied.
+    pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
+        self.inner.effect = Some(effect);
         self
     }
 

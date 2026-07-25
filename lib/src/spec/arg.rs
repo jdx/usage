@@ -43,6 +43,7 @@ pub enum SpecDoubleDashChoices {
 ///     .build();
 /// ```
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecArg {
     /// Name of the argument (used in help text)
     pub name: String,

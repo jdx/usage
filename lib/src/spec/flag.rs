@@ -32,6 +32,7 @@ use crate::{string, SpecArg, SpecChoices};
 ///     .build();
 /// ```
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecFlag {
     /// Internal name for the flag (derived from long/short if not set)
     pub name: String,

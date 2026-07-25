@@ -165,6 +165,7 @@ impl Default for SpecCommand {
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
+#[non_exhaustive]
 pub struct SpecExample {
     pub code: String,
     pub header: Option<String>,
@@ -173,11 +174,30 @@ pub struct SpecExample {
 }
 
 impl SpecExample {
-    pub(crate) fn new(code: String) -> Self {
+    /// An example invocation shown in generated docs and help.
+    pub fn new(code: impl Into<String>) -> Self {
         Self {
-            code,
+            code: code.into(),
             ..Default::default()
         }
+    }
+
+    /// Heading shown above the example.
+    pub fn header(mut self, header: impl Into<String>) -> Self {
+        self.header = Some(header.into());
+        self
+    }
+
+    /// Prose shown with the example.
+    pub fn help(mut self, help: impl Into<String>) -> Self {
+        self.help = Some(help.into());
+        self
+    }
+
+    /// Language used for syntax highlighting.
+    pub fn lang(mut self, lang: impl Into<String>) -> Self {
+        self.lang = lang.into();
+        self
     }
 }
 

@@ -7,6 +7,7 @@ use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SpecComplete {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,6 +16,28 @@ pub struct SpecComplete {
     pub descriptions: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub type_: Option<String>,
+}
+
+impl SpecComplete {
+    /// A completer for the arg or flag named `name`.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Shell command whose output supplies the completions.
+    pub fn run(mut self, run: impl Into<String>) -> Self {
+        self.run = Some(run.into());
+        self
+    }
+
+    /// Whether the completer emits descriptions alongside values.
+    pub fn descriptions(mut self, descriptions: bool) -> Self {
+        self.descriptions = descriptions;
+        self
+    }
 }
 
 impl SpecComplete {
