@@ -1,6 +1,19 @@
 # Changelog
 
-## [3.5.6](https://github.com/jdx/usage/compare/v3.5.5..v3.5.6) - 2026-07-20
+## [3.5.7](https://github.com/jdx/usage/compare/v3.5.6..v3.5.7) - 2026-07-25
+
+### 🐛 Bug Fixes
+
+- **(parse)** don't leak the mounting CLI's flags into mounted commands; scan past non-global flags by [@jdx](https://github.com/jdx) in [#738](https://github.com/jdx/usage/pull/738)
+
+### 📦️ Dependency Updates
+
+- update jdx/mise-action action to v4.2.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#734](https://github.com/jdx/usage/pull/734)
+- update zizmorcore/zizmor-action action to v0.6.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#736](https://github.com/jdx/usage/pull/736)
+- update jdx/renovate-config digest to 5fee46e by [@renovate[bot]](https://github.com/renovate[bot]) in [#733](https://github.com/jdx/usage/pull/733)
+- update dependency cargo-binstall to v1.21.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#735](https://github.com/jdx/usage/pull/735)
+
+## [3.5.6](https://github.com/jdx/usage/compare/v3.5.5..v3.5.6) - 2026-07-21
 
 ### 🐛 Bug Fixes
 
