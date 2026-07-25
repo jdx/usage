@@ -41,6 +41,7 @@ pub struct SpecCommand {
     pub effect: Option<SpecCommandEffect>,
     pub hide: bool,
     pub subcommand_required: bool,
+    pub restart_token: Option<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
@@ -238,10 +239,6 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_lookup: _,
         } = cmd;
 
-        // NOTE: `restart_token` is intentionally dropped, preserving existing
-        // behavior; see the follow-up commit.
-        let _ = restart_token;
-
         Self {
             full_cmd: full_cmd.clone(),
             usage: usage.clone(),
@@ -255,6 +252,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             effect: *effect,
             hide: *hide,
             subcommand_required: *subcommand_required,
+            restart_token: restart_token.clone(),
             help: help.clone(),
             help_long: help_long.clone(),
             help_md: help_md.clone(),
