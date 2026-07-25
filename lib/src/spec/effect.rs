@@ -1,5 +1,3 @@
-use std::fmt::{self, Display};
-
 use serde::Serialize;
 use strum::{Display as StrumDisplay, EnumString};
 
@@ -54,19 +52,6 @@ impl SpecCommandEffect {
 
 /// The set of values accepted by `effect=`, for error messages.
 pub(crate) const EFFECT_VALUES: &str = "read, write, destructive";
-
-#[derive(Debug)]
-pub struct ParseEffectError(pub String);
-
-impl Display for ParseEffectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "unknown effect {:?}, expected one of: {EFFECT_VALUES}",
-            self.0
-        )
-    }
-}
 
 #[cfg(test)]
 mod tests {

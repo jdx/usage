@@ -11,3 +11,6 @@
 #/target
 megalinter-reports/
 tasks/fig/build
+
+# insta writes these while running tests locally
+*.pending-snap

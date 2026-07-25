@@ -88,11 +88,11 @@ cmd "use"       effect="write"       help="Install a tool and add it to the conf
 cmd "uninstall" effect="destructive" help="Remove a tool"
 ```
 
-| Effect         | Meaning                                                                              |
-| -------------- | ------------------------------------------------------------------------------------ |
-| `read`         | Only inspects state. Running it twice is the same as running it once.                |
-| `write`        | Creates or modifies state, but removes nothing the user cannot recreate.             |
-| `destructive`  | May delete or irreversibly overwrite something. Deserves a confirmation prompt.      |
+| Effect        | Meaning                                                                         |
+| ------------- | ------------------------------------------------------------------------------- |
+| `read`        | Only inspects state. Running it twice is the same as running it once.           |
+| `write`       | Creates or modifies state, but removes nothing the user cannot recreate.        |
+| `destructive` | May delete or irreversibly overwrite something. Deserves a confirmation prompt. |
 
 This is a coarse classification, not a permission model. It exists because
 several consumers keep reinventing the same distinction:
