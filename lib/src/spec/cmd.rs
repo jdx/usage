@@ -51,6 +51,17 @@ pub struct SpecCommand {
     pub deprecated: Option<String>,
     /// Whether to hide this command from help output
     pub hide: bool,
+    /// True when this command came from a [`SpecMount`], i.e. it describes another
+    /// program's CLI that was merged in at parse time.
+    ///
+    /// The flags of the commands *above* a mounted command belong to the mounting CLI,
+    /// not to the mounted program, so they are not offered in completions once a mounted
+    /// command has been reached. They stay recognized by the parser, since they may
+    /// legitimately appear *before* the mounted command on the command line.
+    ///
+    /// Runtime-only: it is derived from `mount` nodes and is not part of the spec syntax.
+    #[serde(skip)]
+    pub mounted: bool,
     /// Whether a subcommand must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
@@ -113,6 +124,7 @@ impl Default for SpecCommand {
             mounts: vec![],
             deprecated: None,
             hide: false,
+            mounted: false,
             subcommand_required: false,
             restart_token: None,
             help: None,
@@ -447,10 +459,23 @@ impl SpecCommand {
                 shell_words::join(tokens)
             };
             let output = sh(&cmd)?;
-            let spec: Spec = output.parse()?;
+            let mut spec: Spec = output.parse()?;
+            // The subcommands emitted by a mount describe another program, so mark them (and
+            // everything below them) as mounted. See `SpecCommand::mounted`.
+            for cmd in spec.cmd.subcommands.values_mut() {
+                cmd.mark_mounted();
+            }
             self.merge(spec.cmd);
         }
         Ok(())
+    }
+
+    /// Mark this command and all of its subcommands as coming from a mount.
+    fn mark_mounted(&mut self) {
+        self.mounted = true;
+        for cmd in self.subcommands.values_mut() {
+            cmd.mark_mounted();
+        }
     }
 }
 

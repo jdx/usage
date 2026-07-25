@@ -259,6 +259,60 @@ fn complete_word_mounted_orphan_short_flag_choices() {
 }
 
 #[test]
+fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
+    // Regression for jdx/mise#11282: the mounting CLI's global flags must not be offered
+    // inside a mounted command, and must not shadow the mounted command's own flags.
+    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
+    path.insert(
+        0,
+        env::current_dir()
+            .unwrap()
+            .join("..")
+            .join("target")
+            .join("debug"),
+    );
+    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
+    env::set_var("PATH", env::join_paths(path).unwrap());
+
+    // Only the mounted task's own flags are offered. Previously this also listed the root's
+    // `--env`/`--silent`, which the mounted program rejects.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "--"])
+        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+
+    // Shorts of the mounting CLI's globals (`-E`) are not offered either, only the task's.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "-"])
+        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+
+    // The task's `--env` wins over the root global of the same name, so its choices complete
+    // instead of the global's (previously: file completion from the global's `<ENV>` arg).
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "mytask", "--env", ""],
+    )
+    .stdout("dev\nstage\nprod\n");
+
+    // A non-colliding task flag is unaffected.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "mytask", "--bump", ""],
+    )
+    .stdout("auto\nmajor\nminor\npatch\n");
+
+    // The mounting CLI's flags still complete *before* the mounted command.
+    assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "--"]).stdout(
+        "--env\tSet the environment\n--force\tForce the tasks to run\n--silent\tSilent output\n",
+    );
+
+    // And a global before the task still parses: the task's arg choices complete after it,
+    // and the global's value reaches the mount (jdx/mise#10069 behavior is preserved).
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "-E", "prod", "run", "mytask", ""],
+    )
+    .stdout("alpha\nbeta\n");
+}
+
+#[test]
 fn complete_word_boolean_flags_dont_consume_subcommands() {
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
