@@ -701,9 +701,10 @@ impl From<&SpecCommand> for KdlNode {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(cmd.into());
         }
-        // NOTE: `examples` is intentionally not serialized, preserving existing
-        // behavior; see the follow-up commit.
-        let _ = examples;
+        for example in examples {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(example.into());
+        }
         for complete in complete.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(complete.into());
