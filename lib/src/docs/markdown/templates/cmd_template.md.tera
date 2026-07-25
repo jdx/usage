@@ -12,6 +12,9 @@
 {%- if cmd.aliases %}
 - **Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
 {%- endif %}
+{%- if cmd.effect %}
+- **Effect**: {% if cmd.effect == "read" %}read-only{% elif cmd.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
+{%- endif %}
 {%- if source_code_link %}
 - **Source code**: {{ source_code_link }}
 {%- endif %}

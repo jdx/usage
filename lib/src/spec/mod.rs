@@ -6,6 +6,7 @@ pub mod complete;
 pub mod config;
 mod context;
 pub mod data_types;
+pub mod effect;
 pub mod flag;
 pub mod helpers;
 pub mod mount;

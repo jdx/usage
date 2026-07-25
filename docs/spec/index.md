@@ -78,6 +78,44 @@ The priority over which is used (CLI flag, env var, config file, default) is the
 are defined,
 so in this example it will be "CLI flag > env var > config file > default".
 
+## Command effects
+
+A command can declare what running it does to the world:
+
+```kdl
+cmd "ls"        effect="read"        help="List installed tools"
+cmd "use"       effect="write"       help="Install a tool and add it to the config"
+cmd "uninstall" effect="destructive" help="Remove a tool"
+```
+
+| Effect        | Meaning                                                                         |
+| ------------- | ------------------------------------------------------------------------------- |
+| `read`        | Only inspects state. Running it twice is the same as running it once.           |
+| `write`       | Creates or modifies state, but removes nothing the user cannot recreate.        |
+| `destructive` | May delete or irreversibly overwrite something. Deserves a confirmation prompt. |
+
+This is a coarse classification, not a permission model. It exists because
+several consumers keep reinventing the same distinction:
+
+- generated documentation and `--help` can mark destructive commands
+- a wrapper script can require confirmation before running one
+- an AI coding agent can be handed an allowlist of read-only commands instead of
+  prompting on every invocation
+
+`effect` is **not inherited by subcommands**. `git remote` and
+`git remote remove` do different things, and quietly inheriting a parent's
+effect would make the least safe reading of a spec the default one. A command
+with no `effect` is unknown, not safe — consumers should treat the absence of a
+value as "ask".
+
+It can also be written as a child node, which is easier to generate:
+
+```kdl
+cmd "uninstall" {
+  effect "destructive"
+}
+```
+
 ## Compatibility
 
 Usage is not designed to model every possible CLI. It's generally designed for CLIs that follow

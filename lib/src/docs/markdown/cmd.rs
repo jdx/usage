@@ -16,6 +16,7 @@ impl MarkdownRenderer {
 mod tests {
     use crate::docs::markdown::renderer::MarkdownRenderer;
     use crate::test::SPEC_KITCHEN_SINK;
+    use crate::Spec;
     use insta::assert_snapshot;
 
     #[test]
@@ -111,6 +112,59 @@ mod tests {
         ## Subcommands
 
         - [`mycli plugin <SUBCOMMAND>`](/plugin.md)
+        ");
+    }
+
+    #[test]
+    fn test_render_markdown_cmd_effect() {
+        let spec: Spec = r#"
+name "mise"
+bin "mise"
+cmd "ls" effect="read" help="List installed tools"
+cmd "use" effect="write" help="Install a tool"
+cmd "uninstall" effect="destructive" help="Remove a tool"
+cmd "version" help="Show the version"
+        "#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+        let rendered = spec
+            .cmd
+            .subcommands
+            .values()
+            .map(|cmd| ctx.render_cmd(cmd).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        // Every effect value must render its own label, and a command without
+        // one must not render the line at all.
+        assert_snapshot!(rendered, @r"
+        # `mise ls`
+
+        - **Usage**: `mise ls`
+        - **Effect**: read-only
+
+        List installed tools
+
+        # `mise use`
+
+        - **Usage**: `mise use`
+        - **Effect**: modifies state
+
+        Install a tool
+
+        # `mise uninstall`
+
+        - **Usage**: `mise uninstall`
+        - **Effect**: destructive — may delete or irreversibly overwrite
+
+        Remove a tool
+
+        # `mise version`
+
+        - **Usage**: `mise version`
+
+        Show the version
         ");
     }
 }

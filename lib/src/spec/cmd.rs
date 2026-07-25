@@ -5,6 +5,7 @@ use crate::error::UsageErr;
 use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
+use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
@@ -49,6 +50,10 @@ pub struct SpecCommand {
     /// Deprecation message if this command is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    /// What running this command does to the world: read, write or destructive.
+    /// Not inherited by subcommands.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effect: Option<SpecCommandEffect>,
     /// Whether to hide this command from help output
     pub hide: bool,
     /// True when this command came from a [`SpecMount`], i.e. it describes another
@@ -131,6 +136,7 @@ impl Default for SpecCommand {
             flags: vec![],
             mounts: vec![],
             deprecated: None,
+            effect: None,
             hide: false,
             mounted: false,
             flags_from_mount: false,
@@ -221,6 +227,17 @@ impl SpecCommand {
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "effect" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => cmd.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
                 "restart_token" => cmd.restart_token = Some(v.ensure_string()?),
                 "deprecated" => {
                     cmd.deprecated = match v.value.as_bool() {
@@ -294,6 +311,18 @@ impl SpecCommand {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
+                "effect" => {
+                    let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
+                    let raw = arg.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => cmd.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            arg.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
                 "restart_token" => {
                     cmd.restart_token = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
                 }
@@ -412,6 +441,9 @@ impl SpecCommand {
         }
         self.hide = other.hide;
         self.subcommand_required = other.subcommand_required;
+        if other.effect.is_some() {
+            self.effect = other.effect;
+        }
         if other.restart_token.is_some() {
             self.restart_token = other.restart_token;
         }
@@ -574,6 +606,10 @@ impl From<&SpecCommand> for KdlNode {
             node.entries_mut()
                 .push(string_entry(Some("deprecated"), deprecated));
         }
+        if let Some(effect) = &cmd.effect {
+            node.entries_mut()
+                .push(string_entry(Some("effect"), effect.as_str()));
+        }
         for flag in &cmd.flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(flag.into());
@@ -642,5 +678,124 @@ impl From<&clap::Command> for SpecCommand {
 impl From<clap::Command> for Spec {
     fn from(cmd: clap::Command) -> Self {
         (&cmd).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::spec::effect::SpecCommandEffect;
+    use crate::Spec;
+    use insta::assert_snapshot;
+
+    #[test]
+    fn test_effect_prop_and_child_node() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+bin "mise"
+cmd "ls" effect="read"
+cmd "use" effect="write"
+cmd "uninstall" {
+    effect "destructive"
+}
+cmd "version"
+            "#,
+        )
+        .unwrap();
+
+        let cmds = &spec.cmd.subcommands;
+        assert_eq!(cmds["ls"].effect, Some(SpecCommandEffect::Read));
+        assert_eq!(cmds["use"].effect, Some(SpecCommandEffect::Write));
+        assert_eq!(
+            cmds["uninstall"].effect,
+            Some(SpecCommandEffect::Destructive)
+        );
+        // Unspecified stays unknown rather than defaulting to anything.
+        assert_eq!(cmds["version"].effect, None);
+    }
+
+    #[test]
+    fn test_effect_is_not_inherited_by_subcommands() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+bin "git"
+cmd "remote" effect="read" {
+    cmd "add" effect="write"
+    cmd "show"
+}
+            "#,
+        )
+        .unwrap();
+
+        let remote = &spec.cmd.subcommands["remote"];
+        assert_eq!(remote.effect, Some(SpecCommandEffect::Read));
+        assert_eq!(
+            remote.subcommands["add"].effect,
+            Some(SpecCommandEffect::Write)
+        );
+        assert_eq!(remote.subcommands["show"].effect, None);
+    }
+
+    #[test]
+    fn test_effect_roundtrips_through_kdl() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+bin "mise"
+cmd "ls" effect="read"
+cmd "uninstall" effect="destructive"
+            "#,
+        )
+        .unwrap();
+
+        assert_snapshot!(spec, @r#"
+        name mise
+        bin mise
+        cmd ls effect=read
+        cmd uninstall effect=destructive
+        "#);
+    }
+
+    /// `merge` is how included and mounted specs are composed onto a command.
+    /// It has to treat `effect` the way it treats every other optional field:
+    /// an overlay that says nothing must not erase what is already declared.
+    #[test]
+    fn test_effect_survives_merge() {
+        let cmd_with = |src: &str| {
+            Spec::parse(&Default::default(), src)
+                .unwrap()
+                .cmd
+                .subcommands["uninstall"]
+                .clone()
+        };
+
+        let declared = cmd_with(r#"cmd "uninstall" effect="destructive""#);
+        let silent = cmd_with(r#"cmd "uninstall" help="Remove a tool""#);
+        let contradicting = cmd_with(r#"cmd "uninstall" effect="write""#);
+
+        let mut cmd = declared.clone();
+        cmd.merge(silent);
+        assert_eq!(cmd.effect, Some(SpecCommandEffect::Destructive));
+
+        let mut cmd = declared;
+        cmd.merge(contradicting);
+        assert_eq!(cmd.effect, Some(SpecCommandEffect::Write));
+    }
+
+    #[test]
+    fn test_unknown_effect_is_an_error() {
+        let err = Spec::parse(
+            &Default::default(),
+            r#"
+bin "mise"
+cmd "ls" effect="readonly"
+            "#,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("Invalid usage config"),
+            "unexpected error: {err}"
+        );
     }
 }
