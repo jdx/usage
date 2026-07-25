@@ -949,16 +949,24 @@ cmd "install" help="Install a package" subcommand_required=#false {
     long_help "The long help for install"
     help_md "The **markdown** help for install"
     before_help "before"
+    before_long_help "The long before-help for install"
+    before_help_md "The **markdown** before-help for install"
     after_help "after"
+    after_long_help "The long after-help for install"
+    after_help_md "The **markdown** after-help for install"
     arg "<pkg>" help="Package to install"
     flag "-f --force" help="Overwrite"
+    complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"
     cmd "from" help="Install from a source" {
         arg "<src>"
     }
 }
-cmd "remove" help="Remove a package" deprecated="use `uninstall`"
+cmd "wrapped" help="Wraps another CLI" {
+    mount run="mycli plugin usage-spec"
+}
+cmd "remove" help="Remove a package" deprecated="use `uninstall`" effect="destructive"
 cmd "run" restart_token=":::" help="Run tasks"
 cmd "hidden" hide=#true
         "#;
@@ -969,5 +977,46 @@ cmd "hidden" hide=#true
         let original = serde_json::to_value(&original).unwrap();
         let reparsed = serde_json::to_value(&reparsed).unwrap();
         pretty_assertions::assert_eq!(original, reparsed);
+
+        // Equality is only meaningful if the fixture actually populated the
+        // fields, so guard against a future edit quietly emptying it out.
+        let install = &original["cmd"]["subcommands"]["install"];
+        for key in [
+            "help_long",
+            "help_md",
+            "before_help",
+            "before_help_long",
+            "before_help_md",
+            "after_help",
+            "after_help_long",
+            "after_help_md",
+            "deprecated",
+            "effect",
+            "restart_token",
+            "examples",
+            "complete",
+            "mounts",
+            "aliases",
+            "hidden_aliases",
+        ] {
+            let populated = match key {
+                // These sit on other commands in the fixture.
+                "deprecated" | "effect" => {
+                    original["cmd"]["subcommands"]["remove"].get(key).is_some()
+                }
+                "restart_token" => original["cmd"]["subcommands"]["run"].get(key).is_some(),
+                "mounts" => !original["cmd"]["subcommands"]["wrapped"]["mounts"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty(),
+                _ => match install.get(key) {
+                    Some(serde_json::Value::Array(a)) => !a.is_empty(),
+                    Some(serde_json::Value::Object(o)) => !o.is_empty(),
+                    Some(_) => true,
+                    None => false,
+                },
+            };
+            assert!(populated, "fixture does not exercise `{key}`");
+        }
     }
 }
