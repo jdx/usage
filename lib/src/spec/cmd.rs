@@ -296,11 +296,18 @@ impl SpecCommand {
                 "long_help" => {
                     cmd.help_long = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
+                "help_md" => {
+                    cmd.help_md = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
                 "before_help" => {
                     cmd.before_help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "before_long_help" => {
                     cmd.before_help_long =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "before_help_md" => {
+                    cmd.before_help_md =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "after_help" => {
@@ -309,6 +316,9 @@ impl SpecCommand {
                 "after_long_help" => {
                     cmd.after_help_long =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
+                "after_help_md" => {
+                    cmd.after_help_md = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "subcommand_required" => {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
