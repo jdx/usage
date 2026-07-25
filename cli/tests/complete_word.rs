@@ -327,6 +327,14 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
     )
     .stdout("dev\nstage\nprod\n");
 
+    // Inside the mounted tree the mounted program's own commands are ordinary commands: a
+    // global it declares is still offered in its subcommands, while the mounting CLI's are not.
+    assert_cmd(
+        "mounted-global-flag-leak.sh",
+        &["--", "run", "grouped", "leaf", "--"],
+    )
+    .stdout("--group-wide\tApplies to the whole group\n--leaf-only\tOnly on the leaf\n");
+
     // A NON-global flag of `run` before the task name must not hide the mounted command either
     // (`mise run --force build <TAB>` used to fail with `unexpected word: build`).
     assert_cmd(

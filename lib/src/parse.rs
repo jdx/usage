@@ -136,6 +136,20 @@ fn flag_keys(flag: &SpecFlag) -> Vec<String> {
     keys
 }
 
+/// The flags a command declares, keyed by each of their aliases.
+fn gather_flags(cmd: &SpecCommand) -> BTreeMap<String, Arc<SpecFlag>> {
+    cmd.flags
+        .iter()
+        .flat_map(|f| {
+            let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
+            flag_keys(&f)
+                .into_iter()
+                .map(|key| (key, Arc::clone(&f)))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 fn unique_flags<'a>(
     flags: impl IntoIterator<Item = &'a Arc<SpecFlag>>,
 ) -> impl Iterator<Item = &'a Arc<SpecFlag>> {
@@ -188,18 +202,19 @@ impl ParseOutput {
         let Some(boundary) = self.cmds.iter().position(|cmd| cmd.mounted) else {
             return self.available_flags.clone();
         };
-        // Re-run the descent from the mount boundary, which starts with no inherited flags.
-        let mut offered: BTreeMap<String, Arc<SpecFlag>> = BTreeMap::new();
-        for cmd in &self.cmds[boundary..] {
-            // Each descent drops the previous command's non-global flags, as in
-            // `merge_subcommand_flags`.
-            offered.retain(|_, f| f.global);
-            for flag in &cmd.flags {
-                let flag = Arc::new(flag.clone());
-                for key in flag_keys(&flag) {
-                    offered.insert(key, Arc::clone(&flag));
-                }
-            }
+        // A mount can also merge flags from its spec's root into the command it is mounted on
+        // (`SpecCommand::flags_from_mount`). Those describe the mounted program too, so the
+        // replay starts one level up to inherit its globals.
+        let start = match boundary.checked_sub(1) {
+            Some(prev) if self.cmds[prev].flags_from_mount => prev,
+            _ => boundary,
+        };
+        // Re-run the descent from there, which starts with no inherited flags. Below the
+        // boundary the mounted program's commands are ordinary commands, so the descents use
+        // the same merge as the real parse.
+        let mut offered = gather_flags(&self.cmds[start]);
+        for cmd in &self.cmds[start + 1..] {
+            merge_subcommand_flags(&mut offered, gather_flags(cmd), false);
         }
         offered
     }
@@ -453,19 +468,6 @@ fn parse_partial_with_env(
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
 
-    let gather_flags = |cmd: &SpecCommand| {
-        cmd.flags
-            .iter()
-            .flat_map(|f| {
-                let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
-                flag_keys(&f)
-                    .into_iter()
-                    .map(|key| (key, Arc::clone(&f)))
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    };
-
     let mut out = ParseOutput {
         cmd: spec.cmd.clone(),
         cmds: vec![spec.cmd.clone()],
@@ -507,10 +509,13 @@ fn parse_partial_with_env(
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&prefix_words)?;
+            // Only the *boundary* is a mount crossing: below it, the mounted program's own
+            // commands are ordinary commands relative to each other.
+            let crossing_mount = subcommand.mounted && !out.cmd.mounted;
             merge_subcommand_flags(
                 &mut out.available_flags,
                 gather_flags(&subcommand),
-                subcommand.mounted,
+                crossing_mount,
             );
             // Remove subcommand from input
             input.remove(idx);
@@ -565,10 +570,11 @@ fn parse_partial_with_env(
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
                         subcommand.mount(&prefix_words)?;
+                        let crossing_mount = subcommand.mounted && !out.cmd.mounted;
                         merge_subcommand_flags(
                             &mut out.available_flags,
                             gather_flags(&subcommand),
-                            subcommand.mounted,
+                            crossing_mount,
                         );
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
@@ -2137,6 +2143,131 @@ mod tests {
             cmd,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn test_mount_boundary_does_not_apply_inside_the_mounted_tree() {
+        // The mounted program's own commands are ordinary commands relative to each other, so
+        // descending *within* the mounted tree must follow the normal rules — including keeping
+        // an inherited global that a nested command re-declares as non-global (jdx/usage#649).
+        // Treating every level of the tree as a mount boundary let the re-declaration shadow the
+        // global, which the next descent's `retain(global)` then dropped entirely.
+        let deep = SpecCommand::builder().name("deep").build();
+        let mut sub = SpecCommand::builder()
+            .name("sub")
+            // Re-declares the mounted program's own global as non-global.
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        sub.subcommands.insert("deep".to_string(), deep);
+        let mut task = SpecCommand::builder()
+            .name("task")
+            .flag(
+                SpecFlag::builder()
+                    .name("cd")
+                    .short('C')
+                    .long("cd")
+                    .arg(SpecArg::builder().name("dir").build())
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        task.subcommands.insert("sub".to_string(), sub);
+        task.mark_mounted();
+
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("task".to_string(), task);
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "task", "sub", "deep"])).unwrap();
+        assert!(
+            parsed.available_flags.get("--cd").is_some_and(|f| f.global),
+            "the mounted program's own global must survive descents inside the mounted tree",
+        );
+        assert!(
+            parsed.completion_flags().contains_key("--cd"),
+            "and must still be offered there: it belongs to the mounted program",
+        );
+        assert!(
+            parsed.completion_flags().contains_key("-C"),
+            "including the short the nested command re-declared",
+        );
+    }
+
+    #[test]
+    fn test_mount_flags_merged_into_the_mounting_cmd_are_offered() {
+        // A mounted spec may declare flags on its own root, which `SpecCommand::merge` folds
+        // into the command the mount sits on. They belong to the mounted program, so they must
+        // be offered inside the mounted commands rather than filtered out with the mounting
+        // CLI's own flags.
+        let mut task = SpecCommand::builder()
+            .name("task")
+            .flag(
+                SpecFlag::builder()
+                    .name("bump")
+                    .long("bump")
+                    .global(false)
+                    .build(),
+            )
+            .build();
+        task.mark_mounted();
+
+        let mut run_cmd = SpecCommand::builder().name("run").build();
+        run_cmd.subcommands.insert("task".to_string(), task);
+        // What `mount()` leaves behind when the mounted spec's root declares flags.
+        run_cmd.flags = vec![
+            SpecFlag::builder()
+                .name("tglobal")
+                .long("tglobal")
+                .global(true)
+                .build(),
+            SpecFlag::builder()
+                .name("tlocal")
+                .long("tlocal")
+                .global(false)
+                .build(),
+        ];
+        run_cmd.flags_from_mount = true;
+
+        let mut cmd = SpecCommand::builder()
+            .name("test")
+            .flag(
+                SpecFlag::builder()
+                    .name("silent")
+                    .long("silent")
+                    .global(true)
+                    .build(),
+            )
+            .build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        };
+
+        let parsed = parse_partial(&spec, &input(&["test", "run", "task"])).unwrap();
+        assert_eq!(
+            parsed.completion_flags().keys().collect::<Vec<_>>(),
+            vec!["--bump", "--tglobal"],
+            "the mounted spec's root global belongs to the mounted program; the mounting CLI's \
+             `--silent` does not, and the mount's non-global root flag is not inherited",
+        );
     }
 
     #[test]

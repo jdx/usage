@@ -62,6 +62,14 @@ pub struct SpecCommand {
     /// Runtime-only: it is derived from `mount` nodes and is not part of the spec syntax.
     #[serde(skip)]
     pub mounted: bool,
+    /// True when a [`SpecMount`] brought flags of its own onto this command. A mounted spec's
+    /// root flags are merged into the command the mount sits on, *replacing* that command's
+    /// flags (see [`SpecCommand::merge`]), so when this is set every flag here describes the
+    /// mounted program and is offered inside the mounted commands accordingly.
+    ///
+    /// Runtime-only, like [`SpecCommand::mounted`].
+    #[serde(skip)]
+    pub flags_from_mount: bool,
     /// Whether a subcommand must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
@@ -125,6 +133,7 @@ impl Default for SpecCommand {
             deprecated: None,
             hide: false,
             mounted: false,
+            flags_from_mount: false,
             subcommand_required: false,
             restart_token: None,
             help: None,
@@ -465,13 +474,16 @@ impl SpecCommand {
             for cmd in spec.cmd.subcommands.values_mut() {
                 cmd.mark_mounted();
             }
+            // `merge` folds the mounted spec's root flags into this command; remember that they
+            // came from the mount. See `SpecCommand::flags_from_mount`.
+            self.flags_from_mount |= !spec.cmd.flags.is_empty();
             self.merge(spec.cmd);
         }
         Ok(())
     }
 
     /// Mark this command and all of its subcommands as coming from a mount.
-    fn mark_mounted(&mut self) {
+    pub(crate) fn mark_mounted(&mut self) {
         self.mounted = true;
         for cmd in self.subcommands.values_mut() {
             cmd.mark_mounted();

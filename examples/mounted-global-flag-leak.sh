@@ -45,6 +45,12 @@ cmd "mytask" {
     choices "alpha" "beta"
   }
 }
+cmd "grouped" help="A mounted task with subcommands of its own" {
+  flag "--group-wide" help="Applies to the whole group" global=#true
+  cmd "leaf" help="Nested inside the mounted command" {
+    flag "--leaf-only" help="Only on the leaf"
+  }
+}
 EOF
 	exit
 fi
