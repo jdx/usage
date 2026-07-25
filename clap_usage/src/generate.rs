@@ -9,7 +9,7 @@ use std::io::Write;
 ///
 /// ```no_run
 /// # use clap::Command;
-/// # use usage::SpecCommandEffect;
+/// # use clap_usage::usage::SpecCommandEffect;
 /// # let mut cmd = Command::new("mycli").subcommand(Command::new("rm"));
 /// let mut spec = clap_usage::spec(&mut cmd, "mycli");
 /// if let Some(rm) = spec.cmd.subcommands.get_mut("rm") {

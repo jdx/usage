@@ -1,5 +1,7 @@
 use clap::Command;
-use usage::SpecCommandEffect;
+// Deliberately reached through clap_usage, proving a consumer needs no
+// direct usage-lib dependency to annotate the spec it gets back.
+use clap_usage::usage::SpecCommandEffect;
 
 /// The reason `spec` exists: `generate` writes straight to a writer, so there
 /// is no way to set something clap cannot express, such as `effect=`.
