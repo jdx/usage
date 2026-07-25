@@ -9,11 +9,22 @@ use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SpecChoices {
     pub choices: Vec<String>,
     #[cfg(feature = "unstable_choices_env")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+}
+
+impl SpecChoices {
+    /// The set of values an arg or flag accepts.
+    pub fn new(choices: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            choices: choices.into_iter().map(Into::into).collect(),
+            ..Default::default()
+        }
+    }
 }
 
 impl SpecChoices {

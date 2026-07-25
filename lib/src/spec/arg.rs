@@ -7,6 +7,7 @@ use std::str::FromStr;
 use crate::error::UsageErr;
 use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
+use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecChoices};
@@ -42,6 +43,7 @@ pub enum SpecDoubleDashChoices {
 ///     .build();
 /// ```
 #[derive(Debug, Default, Clone, Serialize)]
+#[non_exhaustive]
 pub struct SpecArg {
     /// Name of the argument (used in help text)
     pub name: String,
@@ -80,6 +82,10 @@ pub struct SpecArg {
     /// Valid choices for this argument
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
+    /// Raises the effect of the command when this argument is supplied.
+    /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effect: Option<SpecCommandEffect>,
     /// Environment variable that can provide this argument's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
@@ -106,6 +112,17 @@ impl SpecArg {
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = vec![v.ensure_string()?],
+                "effect" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => arg.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
                 "env" => arg.env = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
@@ -116,6 +133,18 @@ impl SpecArg {
         for child in node.children() {
             match child.name() {
                 "choices" => arg.choices = Some(SpecChoices::parse(ctx, &child)?),
+                "effect" => {
+                    let a = child.arg(0)?;
+                    let raw = a.ensure_string()?;
+                    match raw.parse() {
+                        Ok(effect) => arg.effect = Some(effect),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            a.entry.span(),
+                            "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
                 "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
                 "default" => {
                     // Support both single value and multiple values
@@ -230,6 +259,9 @@ impl From<&SpecArg> for KdlNode {
         if let Some(env) = &arg.env {
             node.push(string_entry(Some("env"), env));
         }
+        if let Some(effect) = &arg.effect {
+            node.push(string_entry(Some("effect"), effect.as_str()));
+        }
         if let Some(choices) = &arg.choices {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(choices.into());
@@ -339,6 +371,7 @@ impl From<&clap::Arg> for SpecArg {
                 .map(|v| v.to_string_lossy().to_string())
                 .collect(),
             choices: None,
+            effect: None,
             env: None,
         };
         if !choices.is_empty() {
