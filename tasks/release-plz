@@ -2,6 +2,18 @@
 # shellcheck shell=bash
 set -euxo pipefail
 
+# clap_usage is versioned by hand and released on its own cadence, so check it
+# separately: the usage-lib release cycle below would otherwise never publish it.
+# It sat unpublished at 2.0.3 from 2025-01 to 2026-07 for exactly this reason.
+clap_usage_version="$(cargo pkgid clap_usage | cut -d# -f2 | cut -d@ -f2)"
+if ! curl -fsS https://index.crates.io/cl/ap/clap_usage |
+  grep -q "\"vers\":\"$clap_usage_version\""; then
+  echo "Releasing clap_usage $clap_usage_version"
+  if [ "${usage_dry_run:-}" != 1 ]; then
+    cargo publish -p clap_usage
+  fi
+fi
+
 released_versions="$(git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')"
 cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
 if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
@@ -15,11 +27,16 @@ if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
   exit 0
 fi
 
-version="$(git cliff --bumped-version)"
+version="$(git cliff --bumped-version --include-path 'lib/**' --include-path 'cli/**')"
+
+if [ "v$cur_version" == "$version" ]; then
+  echo "No usage-lib/usage-cli changes since $version; nothing to release"
+  exit 0
+fi
 
 if [ "${usage_dry_run:-}" == 1 ]; then
   echo "version: $version"
-  changelog="$(git cliff --bump --unreleased --strip all)"
+  changelog="$(git cliff --bump --unreleased --strip all --include-path 'lib/**' --include-path 'cli/**')"
   echo "changelog: $changelog"
   exit 0
 fi
