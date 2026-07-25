@@ -71,6 +71,13 @@ impl crate::SpecCommand {
     /// The effect of running this command with `flags` and `args` supplied,
     /// as the maximum of the command's own effect and theirs.
     ///
+    /// A flag contributes both its own effect and that of its value argument,
+    /// so `--output <file>` can declare the danger on either.
+    ///
+    /// Pass only what the command line actually supplied. Feeding in values
+    /// that came from defaults or the environment is safe — the result can
+    /// only be too high, never too low — but it will over-report.
+    ///
     /// Returns `None` when nothing involved declares an effect, which means
     /// "unknown" — consumers should treat that as "ask", not as safe.
     pub fn effect_of<'a>(
@@ -80,7 +87,8 @@ impl crate::SpecCommand {
     ) -> Option<SpecCommandEffect> {
         flags
             .into_iter()
-            .filter_map(|f| f.effect)
+            .flat_map(|f| [f.effect, f.arg.as_ref().and_then(|a| a.effect)])
+            .flatten()
             .chain(args.into_iter().filter_map(|a| a.effect))
             .chain(self.effect)
             .max()
@@ -161,6 +169,30 @@ cmd "quiet" {
 
         // Nothing declared anywhere stays unknown rather than becoming `read`.
         assert_eq!(spec.cmd.subcommands["quiet"].max_effect(), None);
+    }
+
+    /// A flag's value argument can carry the effect instead of the flag, and
+    /// the pessimistic bound has to see it or it under-reports danger.
+    #[test]
+    fn test_effect_on_a_flag_value_arg_counts() {
+        use crate::Spec;
+        let spec: Spec = r#"
+bin "x"
+cmd "write-to" effect="read" {
+    flag "--output <file>" {
+        arg "<file>" effect="destructive"
+    }
+}
+        "#
+        .parse()
+        .unwrap();
+        let cmd = &spec.cmd.subcommands["write-to"];
+        let output = cmd.flags.iter().find(|f| f.name == "output").unwrap();
+        assert_eq!(
+            cmd.effect_of(vec![output], vec![]),
+            Some(SpecCommandEffect::Destructive)
+        );
+        assert_eq!(cmd.max_effect(), Some(SpecCommandEffect::Destructive));
     }
 
     #[test]
