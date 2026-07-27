@@ -53,6 +53,15 @@ fn merge_subcommand_flags(
     // Cache the merged (global ∪ orphan-alias) flag per re-declared child so every alias key of
     // that flag ends up sharing one `Arc`. Keyed by the child `Arc`'s identity.
     let mut merged_cache: HashMap<usize, Arc<SpecFlag>> = HashMap::new();
+    // Maps each merged flag produced below back to the inherited global it was merged from, so
+    // the collision check can compare *origins*: a flag this loop already merged is not a
+    // different global, even though it is a different `Arc`.
+    let mut merged_origin: HashMap<usize, usize> = HashMap::new();
+    // The inherited global a flag stands for: itself, or — for a merged flag — its source global.
+    fn origin_of(merged_origin: &HashMap<usize, usize>, flag: &Arc<SpecFlag>) -> usize {
+        let ptr = Arc::as_ptr(flag) as usize;
+        *merged_origin.get(&ptr).unwrap_or(&ptr)
+    }
 
     // Iterate the *flattened* child map directly (one entry per alias key). This preserves the
     // map's existing intra-subcommand collision resolution: when two flags in the same command
@@ -84,10 +93,15 @@ fn merge_subcommand_flags(
             // orphan alias (e.g. `-r`) is already owned by some other global (e.g. an unrelated
             // `-r --restrict`), that is a genuine collision: keep the existing global, as global
             // precedence dictates, instead of stealing the alias for the merged flag.
-            if available
-                .get(&key)
-                .is_some_and(|existing| existing.global && !Arc::ptr_eq(existing, &global_flag))
-            {
+            //
+            // Compare origins, not `Arc`s: when the global has several aliases of its own, an
+            // earlier key of this same child already replaced some of them with the merged flag,
+            // which the lookups above may now resolve to. That is the same logical flag, so it
+            // must not read as a collision and leave this key on the pre-merge global.
+            let global_origin = origin_of(&merged_origin, &global_flag);
+            if available.get(&key).is_some_and(|existing| {
+                existing.global && origin_of(&merged_origin, existing) != global_origin
+            }) {
                 continue;
             }
             let merged = merged_cache
@@ -107,6 +121,7 @@ fn merge_subcommand_flags(
                     Arc::new(merged)
                 })
                 .clone();
+            merged_origin.insert(Arc::as_ptr(&merged) as usize, global_origin);
             available.insert(key, merged);
             continue;
         }
@@ -2063,6 +2078,54 @@ mod tests {
             .available_flags
             .get("--restrict")
             .is_some_and(|f| f.global));
+    }
+
+    #[test]
+    fn test_redeclared_global_aliases_share_one_flag() {
+        // A global declared with BOTH a short and a long, re-declared non-globally by a
+        // subcommand that adds a third alias. Every alias key must resolve to the SAME merged
+        // flag: the child's keys iterate in BTreeMap order (`--assume-yes`, `--yes`, `-y`), so by
+        // the time `-y` is reached the long already points at the merged flag. That merged flag is
+        // not a *different* inherited global, so the collision guard must not skip `-y` and leave
+        // it pointing at the pre-merge global (which lacks the added `assume-yes` alias).
+        let spec = r#"
+flag "-y --yes" global=#true effect="write"
+cmd "run" {
+    flag "-y --yes --assume-yes"
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+
+        for key in ["-y", "--yes", "--assume-yes"] {
+            let flag = parsed
+                .available_flags
+                .get(key)
+                .unwrap_or_else(|| panic!("{key} must be recognized after the descent"));
+            assert!(flag.global, "{key} must stay global after the descent");
+            assert_eq!(
+                flag.long,
+                vec!["yes".to_string(), "assume-yes".to_string()],
+                "{key} must resolve to the flag carrying every alias",
+            );
+            assert_eq!(flag.short, vec!['y'], "{key} must keep the global's short");
+        }
+
+        // One logical flag means one object: all three keys share a single `Arc`.
+        assert_eq!(
+            unique_flags(parsed.available_flags.values()).count(),
+            1,
+            "all aliases must point at one flag object, got {:?}",
+            parsed.available_flags,
+        );
+
+        // The global's effect survives the merge, so `-y` still marks the command as writing.
+        assert_eq!(
+            parsed.available_flags["-y"].effect,
+            Some(crate::SpecCommandEffect::Write),
+        );
     }
 
     /// Build a spec shaped like mise's post-mount structure for jdx/mise#11282: a root with
