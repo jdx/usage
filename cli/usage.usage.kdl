@@ -232,4 +232,5 @@ to properly escape and quote values with spaces in them.
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
 
+repository "https://github.com/jdx/usage"
 source_code_link_template "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs"
