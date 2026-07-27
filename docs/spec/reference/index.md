@@ -9,6 +9,7 @@ bin "mycli"          // the name of the binary
 version "1.0.0"      // the version of the CLI
 author "nobody"      // the author of the CLI
 license "MIT"        // SPDX license the CLI is released under
+repository "https://github.com/me/myproj" // where the source lives
 
 // help for -h
 before_help "before about"
@@ -29,6 +30,29 @@ source_code_link_template "https://github.com/me/myproj/blob/main/src/cli/{{path
 
 include file="./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
 ```
+
+## Repository
+
+The URL of the CLI's source repository:
+
+```kdl
+repository "https://github.com/jdx/mise"
+```
+
+This is the plain URL, not a template — the same value a `Cargo.toml`,
+`package.json` or `pyproject.toml` carries. It is available to documentation
+templates as `repository`, and it gives anything reading a spec out of context —
+a docs site, a registry, an agent handed a `.usage.kdl` file — a way to get back
+to the project.
+
+It is deliberately separate from `source_code_link_template` below. That one is a
+per-command deep link with a `{{path}}` placeholder, so recovering a repository
+URL from it means pattern-matching one forge's URL layout, and it is absent from
+most specs. Set both if you want both; neither implies the other.
+
+clap has no equivalent concept, so `clap_usage` cannot generate this. Declare it
+in an extra spec that is merged over the generated one — the same place
+`source_code_link_template` is set.
 
 ## Source Code Link Template
 

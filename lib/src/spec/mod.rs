@@ -42,6 +42,14 @@ pub struct Spec {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_code_link_template: Option<String>,
+    /// Where the CLI's source lives, e.g. `https://github.com/jdx/mise`.
+    ///
+    /// Distinct from [`Self::source_code_link_template`], which is a per-command
+    /// deep link with a `{{path}}` placeholder and is only usable for building
+    /// "view source" links in generated docs. Scraping a repository out of it
+    /// works for one forge and one URL layout and fails everywhere else.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,6 +163,7 @@ impl Spec {
                 "source_code_link_template" => {
                     schema.source_code_link_template = Some(node.arg(0)?.ensure_string()?)
                 }
+                "repository" => schema.repository = Some(node.arg(0)?.ensure_string()?),
                 "about" => schema.about = Some(node.arg(0)?.ensure_string()?),
                 "long_about" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_long" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
@@ -267,6 +276,7 @@ impl Spec {
         merge_str!(usage);
         merge_opt!(about);
         merge_opt!(source_code_link_template);
+        merge_opt!(repository);
         merge_opt!(version);
         merge_opt!(author);
         merge_opt!(about_long);
@@ -385,6 +395,11 @@ impl Display for Spec {
         if let Some(source_code_link_template) = &self.source_code_link_template {
             let mut node = KdlNode::new("source_code_link_template");
             node.push(string_entry(None, source_code_link_template));
+            nodes.push(node);
+        }
+        if let Some(repository) = &self.repository {
+            let mut node = KdlNode::new("repository");
+            node.push(string_entry(None, repository));
             nodes.push(node);
         }
         if let Some(about_md) = &self.about_md {
@@ -539,6 +554,48 @@ complete "file" run="ls" descriptions=#true
             }
         }
         "#);
+    }
+
+    #[test]
+    fn test_repository_round_trips() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+bin "mise"
+repository "https://github.com/jdx/mise"
+source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
+        "#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.repository.as_deref(),
+            Some("https://github.com/jdx/mise")
+        );
+        // A spec that is parsed and re-emitted must not lose it, which is the
+        // failure mode for every field added to this struct.
+        assert_snapshot!(spec, @r#"
+        name mise
+        bin mise
+        source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}}.rs"
+        repository "https://github.com/jdx/mise"
+        "#);
+    }
+
+    #[test]
+    fn test_repository_merges_like_the_other_optionals() {
+        // Extra specs are merged over a generated one, which is how a clap CLI
+        // declares anything clap has no concept of.
+        let mut generated = Spec::parse(&Default::default(), r#"bin "mise""#).unwrap();
+        let extra = Spec::parse(
+            &Default::default(),
+            r#"repository "https://github.com/jdx/mise""#,
+        )
+        .unwrap();
+        generated.merge(extra);
+        assert_eq!(
+            generated.repository.as_deref(),
+            Some("https://github.com/jdx/mise")
+        );
     }
 
     #[test]
