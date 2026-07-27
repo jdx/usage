@@ -3,6 +3,7 @@
 # `usage generate fig`
 
 - **Usage**: `usage generate fig [FLAGS]`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/fig.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/fig.rs)
 
 Generate Fig completion spec for Amazon Q / Fig
@@ -14,6 +15,8 @@ Generate Fig completion spec for Amazon Q / Fig
 A usage spec taken in as a file, use "-" to read from stdin
 
 ### `--out-file <OUT_FILE>`
+
+**Effect**: modifies state
 
 File path where the generated Fig spec will be saved
 

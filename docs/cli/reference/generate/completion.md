@@ -4,6 +4,7 @@
 
 - **Usage**: `usage generate completion [FLAGS] <SHELL> <BIN>`
 - **Aliases**: `c`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/completion.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/completion.rs)
 
 Generate shell completion scripts for bash, fish, nu, powershell, or zsh

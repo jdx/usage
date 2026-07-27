@@ -4,6 +4,7 @@
 
 - **Usage**: `usage generate markdown <FLAGS>`
 - **Aliases**: `md`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/markdown.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/markdown.rs)
 
 Generate markdown documentation from usage specs
@@ -24,9 +25,13 @@ Escape HTML in markdown
 
 ### `--out-dir <OUT_DIR>`
 
+**Effect**: modifies state
+
 Output markdown files to this directory (required when using --multi)
 
 ### `--out-file <OUT_FILE>`
+
+**Effect**: modifies state
 
 Output file path for single-file markdown generation
 

@@ -3,6 +3,7 @@
 # `usage generate sdk`
 
 - **Usage**: `usage generate sdk <FLAGS>`
+- **Effect**: modifies state
 - **Source code**: [`cli/src/cli/generate/sdk.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/sdk.rs)
 
 Generate a type-safe SDK from a usage spec

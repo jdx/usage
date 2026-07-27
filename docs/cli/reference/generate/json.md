@@ -3,6 +3,7 @@
 # `usage generate json`
 
 - **Usage**: `usage generate json [-f --file <FILE>] [--spec <SPEC>]`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/json.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/json.rs)
 
 Outputs a usage spec in json format

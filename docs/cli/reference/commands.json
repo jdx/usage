@@ -148,6 +148,7 @@
           }
         ],
         "mounts": [],
+        "effect": "read",
         "hide": false,
         "help": "Generate shell completion candidates for a partial command line",
         "help_long": "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.",
@@ -389,6 +390,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "help": "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
             "name": "completion",
@@ -436,6 +438,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "help": "Generate a shell init script that auto-completes any usage shebang script on $PATH",
             "help_long": "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.",
@@ -482,7 +485,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "effect": "write"
               },
               {
                 "name": "spec",
@@ -503,6 +507,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "help": "Generate Fig completion spec for Amazon Q / Fig",
             "name": "fig",
@@ -552,6 +557,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "help": "Outputs a usage spec in json format",
             "name": "json",
@@ -598,7 +604,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "effect": "write"
               },
               {
                 "name": "section",
@@ -621,6 +628,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "name": "manpage",
             "aliases": ["man"],
@@ -686,7 +694,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "effect": "write"
               },
               {
                 "name": "out-file",
@@ -703,7 +712,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "effect": "write"
               },
               {
                 "name": "replace-pre-with-code-fences",
@@ -734,6 +744,7 @@
               }
             ],
             "mounts": [],
+            "effect": "read",
             "hide": false,
             "help": "Generate markdown documentation from usage specs",
             "name": "markdown",
@@ -839,6 +850,7 @@
               }
             ],
             "mounts": [],
+            "effect": "write",
             "hide": false,
             "help": "Generate a type-safe SDK from a usage spec",
             "name": "sdk",
@@ -850,6 +862,7 @@
         "args": [],
         "flags": [],
         "mounts": [],
+        "effect": "read",
         "hide": false,
         "subcommand_required": true,
         "help": "Generate completions, documentation, and other artifacts from usage specs",
@@ -907,6 +920,7 @@
           }
         ],
         "mounts": [],
+        "effect": "read",
         "hide": false,
         "help": "Lint a usage spec file for common issues",
         "name": "lint",
@@ -975,6 +989,7 @@
         "args": [],
         "flags": [],
         "mounts": [],
+        "effect": "read",
         "hide": false,
         "help": "Show the companies sponsoring usage and the jdx.dev open source tools",
         "name": "sponsors",
@@ -1075,5 +1090,6 @@
   "complete": {},
   "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
   "repository": "https://github.com/jdx/usage",
-  "about": "CLI for working with usage-based CLIs"
+  "about": "CLI for working with usage-based CLIs",
+  "min_usage_version": "4.0"
 }

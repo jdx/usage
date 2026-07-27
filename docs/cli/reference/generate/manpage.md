@@ -4,6 +4,7 @@
 
 - **Usage**: `usage generate manpage <FLAGS>`
 - **Aliases**: `man`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/manpage.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/manpage.rs)
 
 ## Flags
@@ -13,6 +14,8 @@
 A usage spec taken in as a file, use "-" to read from stdin
 
 ### `-o --out-file <OUT_FILE>`
+
+**Effect**: modifies state
 
 Output file path (defaults to stdout)
 

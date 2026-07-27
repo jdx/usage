@@ -3,6 +3,7 @@
 # `usage sponsors`
 
 - **Usage**: `usage sponsors`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/sponsors.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/sponsors.rs)
 
 Show the companies sponsoring usage and the jdx.dev open source tools
