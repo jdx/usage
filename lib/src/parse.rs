@@ -104,9 +104,9 @@ fn merge_subcommand_flags(
             }) {
                 continue;
             }
-            let merged = merged_cache
-                .entry(Arc::as_ptr(&flag) as usize)
-                .or_insert_with(|| {
+            let merged = match merged_cache.get(&(Arc::as_ptr(&flag) as usize)) {
+                Some(merged) => merged.clone(),
+                None => {
                     let mut merged = (*global_flag).clone();
                     for s in &flag.short {
                         if !merged.short.contains(s) {
@@ -118,10 +118,22 @@ fn merge_subcommand_flags(
                             merged.long.push(l.clone());
                         }
                     }
-                    Arc::new(merged)
-                })
-                .clone();
-            merged_origin.insert(Arc::as_ptr(&merged) as usize, global_origin);
+                    let merged = Arc::new(merged);
+                    merged_cache.insert(Arc::as_ptr(&flag) as usize, Arc::clone(&merged));
+                    merged_origin.insert(Arc::as_ptr(&merged) as usize, global_origin);
+                    // Rebind the global's *other* aliases onto the merged flag. The loop only
+                    // visits keys the child declared, so an alias the child left out (the `-y` of
+                    // a `-y --yes` global re-declared as just `--yes`) would otherwise keep
+                    // pointing at the pre-merge flag and miss the aliases just unioned in. One
+                    // logical flag must be one object under every key it answers to.
+                    for existing in available.values_mut() {
+                        if origin_of(&merged_origin, existing) == global_origin {
+                            *existing = Arc::clone(&merged);
+                        }
+                    }
+                    merged
+                }
+            };
             available.insert(key, merged);
             continue;
         }
@@ -2125,6 +2137,49 @@ cmd "run" {
         assert_eq!(
             parsed.available_flags["-y"].effect,
             Some(crate::SpecCommandEffect::Write),
+        );
+    }
+
+    #[test]
+    fn test_partially_redeclared_global_keeps_all_aliases_on_one_flag() {
+        // Same one-flag-one-object requirement as above, but the child re-declares only ONE of
+        // the global's three aliases (`--yes`, not `-y`/`--confirm`) while adding a new one. The
+        // aliases the child omits are never visited by the merge loop, so they must be rebound to
+        // the merged flag explicitly — otherwise `-y` and `--confirm` keep pointing at the
+        // pre-merge global and miss the added `assume-yes`.
+        let spec = r#"
+flag "-y --yes --confirm" global=#true
+cmd "run" {
+    flag "--yes --assume-yes"
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+
+        for key in ["-y", "--yes", "--confirm", "--assume-yes"] {
+            let flag = parsed
+                .available_flags
+                .get(key)
+                .unwrap_or_else(|| panic!("{key} must be recognized after the descent"));
+            assert!(flag.global, "{key} must stay global after the descent");
+            assert_eq!(
+                flag.long,
+                vec![
+                    "yes".to_string(),
+                    "confirm".to_string(),
+                    "assume-yes".to_string()
+                ],
+                "{key} must resolve to the flag carrying every alias",
+            );
+        }
+
+        assert_eq!(
+            unique_flags(parsed.available_flags.values()).count(),
+            1,
+            "all aliases must point at one flag object, got {:?}",
+            parsed.available_flags,
         );
     }
 
