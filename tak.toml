@@ -1,0 +1,28 @@
+# Instruction-counted benchmarks, measured by tak (https://github.com/jdx/tak).
+#
+# usage is the one tool here whose real work is a pure function: read a KDL
+# spec, generate output. That makes it the most representative subject of the
+# family — no network, no state, and the thing being measured is what the tool
+# is for. Hermeticity was checked with the proxy pointed at a dead port.
+#
+# `--version` is deliberately absent. It measures clap rather than usage.
+
+# The fixed cost of any invocation. Reading the generators against this
+# separates "usage got slower to start" from "generation got slower".
+[bench.startup]
+cmd = ["./target/release/usage", "--help"]
+
+# Generate the docs for usage's own committed spec: parse ~10KB of KDL, walk the
+# command tree, render markdown. This is the hot path for every project that
+# runs `usage g` in its docs build.
+[bench.markdown]
+cmd = [
+  "./target/release/usage",
+  "g",
+  "markdown",
+  "-mf",
+  "cli/usage.usage.kdl",
+  "--out-dir",
+  "/tmp/tak-usage-docs",
+]
+runs = 10
