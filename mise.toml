@@ -3,6 +3,10 @@ CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
 [tools]
+# Pinned rather than "latest" because tak is the measuring instrument: an
+# upgrade that changes how it samples would land in the series as a step change
+# in usage's numbers, indistinguishable from a real regression. Bump deliberately.
+"github:jdx/tak" = "0.0.4"
 actionlint = "latest"
 aube = "latest"
 communique = "latest"
@@ -127,3 +131,17 @@ includes = ['tasks']
 
 [tasks.install-dev]
 run = "cargo install --path cli --debug"
+
+# Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
+# without it tak reports wall clock only and says so, so this still works on
+# macOS where there is no usable cachegrind.
+[tasks.perf]
+dir = "{{config_root}}"
+run = ["cargo build --release", "tak run"]
+
+# Same measurement, appended to refs/notes/tak for this commit. Run by the
+# `perf` workflow on every push to main; the notes are the history. Safe to run
+# locally — nothing leaves the machine until `tak push`.
+[tasks."perf:record"]
+dir = "{{config_root}}"
+run = ["cargo build --release", "tak run --record"]
