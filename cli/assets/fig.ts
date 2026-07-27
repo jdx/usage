@@ -538,8 +538,7 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: ["-f", "--file"],
-          description:
-            'Usage spec file, or "-" to read the spec from stdin before serving',
+          description: 'Usage spec file (not "-": stdin is the MCP transport)',
           isRepeatable: false,
           args: {
             name: "file",

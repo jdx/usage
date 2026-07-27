@@ -15,7 +15,7 @@ clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
 
 ### `-f --file <FILE>`
 
-Usage spec file, or "-" to read the spec from stdin before serving
+Usage spec file (not "-": stdin is the MCP transport)
 
 ### `-s --spec <SPEC>`
 

@@ -937,8 +937,8 @@
           {
             "name": "file",
             "usage": "-f --file <FILE>",
-            "help": "Usage spec file, or \"-\" to read the spec from stdin before serving",
-            "help_first_line": "Usage spec file, or \"-\" to read the spec from stdin before serving",
+            "help": "Usage spec file (not \"-\": stdin is the MCP transport)",
+            "help_first_line": "Usage spec file (not \"-\": stdin is the MCP transport)",
             "short": ["f"],
             "long": ["file"],
             "hide": false,

@@ -211,7 +211,7 @@ Serve a usage spec over the Model Context Protocol
 Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
 clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
 """#
-    flag "-f --file" help="Usage spec file, or \"-\" to read the spec from stdin before serving" {
+    flag "-f --file" help="Usage spec file (not \"-\": stdin is the MCP transport)" {
         arg <FILE>
     }
     flag "-s --spec" help="Raw string spec input" {
