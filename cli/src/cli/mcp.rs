@@ -13,6 +13,7 @@
 //! alike and inherit protocol details — version negotiation, pagination,
 //! cancellation, schema generation — rather than each reimplementing a subset.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -128,8 +129,12 @@ impl SpecServer {
         &self,
         Parameters(DescribeCommandParams { command }): Parameters<DescribeCommandParams>,
     ) -> std::result::Result<CallToolResult, ErrorData> {
-        match find_command(&self.spec, &command) {
-            Some(cmd) => Ok(json_result(describe(&self.spec, cmd))),
+        // Hidden commands are described on request even though `list_commands`
+        // omits them. An agent that names one already knows it exists; refusing
+        // would only mean it runs the thing without knowing the effect. The
+        // response says `"hidden": true` so the caller can weigh that.
+        match find_chain(&self.spec, &command) {
+            Some(chain) => Ok(json_result(describe(&self.spec, &chain))),
             // A command the caller invented is their mistake, not a protocol
             // failure, so it comes back as a tool error they can recover from.
             None => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
@@ -184,18 +189,43 @@ fn list_commands(spec: &Spec, include_hidden: bool) -> Vec<Value> {
 }
 
 /// Resolve a space-separated path, following aliases as a user would.
-fn find_command<'a>(spec: &'a Spec, path: &str) -> Option<&'a SpecCommand> {
-    let mut cur = &spec.cmd;
-    let mut found = None;
+///
+/// Returns the whole chain from the root down to the match, because the
+/// ancestors are not decoration: their `global` flags are part of what the
+/// command accepts.
+fn find_chain<'a>(spec: &'a Spec, path: &str) -> Option<Vec<&'a SpecCommand>> {
+    let mut chain = vec![&spec.cmd];
     for segment in path.split_whitespace() {
-        let next = cur.find_subcommand(segment)?;
-        found = Some(next);
-        cur = next;
+        chain.push(chain.last().unwrap().find_subcommand(segment)?);
     }
-    found
+    // Just the root means the caller passed no path, which is not a command.
+    (chain.len() > 1).then_some(chain)
 }
 
-fn describe(spec: &Spec, cmd: &SpecCommand) -> Value {
+/// Every flag the command accepts: its own, then `global` flags inherited from
+/// ancestors.
+///
+/// usage resolves globals while parsing an invocation rather than copying them
+/// onto each subcommand, so `cmd.flags` alone is short by exactly the options
+/// an agent is most likely to reach for — and by their effects.
+fn flags_for(chain: &[&SpecCommand]) -> Vec<Value> {
+    let (cmd, ancestors) = chain.split_last().expect("chain is never empty");
+    let mut seen: HashSet<&str> = cmd.flags.iter().map(|f| f.name.as_str()).collect();
+    let mut out: Vec<Value> = cmd.flags.iter().map(|f| describe_flag(f, false)).collect();
+    // Nearest ancestor first, so a closer redefinition shadows a farther one
+    // the same way the parser resolves it.
+    for ancestor in ancestors.iter().rev() {
+        for flag in ancestor.flags.iter().filter(|f| f.global) {
+            if seen.insert(&flag.name) {
+                out.push(describe_flag(flag, true));
+            }
+        }
+    }
+    out
+}
+
+fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
+    let cmd = chain.last().expect("chain is never empty");
     json!({
         "command": format!("{} {}", spec.bin, cmd.full_cmd.join(" ")).trim(),
         "usage": cmd.usage,
@@ -205,7 +235,7 @@ fn describe(spec: &Spec, cmd: &SpecCommand) -> Value {
         "hidden": cmd.hide,
         "effect": cmd.effect.map(|e| e.as_str()),
         "args": cmd.args.iter().map(describe_arg).collect::<Vec<_>>(),
-        "flags": cmd.flags.iter().map(describe_flag).collect::<Vec<_>>(),
+        "flags": flags_for(chain),
         "subcommands": cmd.subcommands.keys().collect::<Vec<_>>(),
     })
 }
@@ -221,7 +251,7 @@ fn describe_arg(arg: &SpecArg) -> Value {
     })
 }
 
-fn describe_flag(flag: &SpecFlag) -> Value {
+fn describe_flag(flag: &SpecFlag, inherited: bool) -> Value {
     json!({
         "name": flag.name,
         "short": flag.short.iter().map(|c| format!("-{c}")).collect::<Vec<_>>(),
@@ -230,6 +260,9 @@ fn describe_flag(flag: &SpecFlag) -> Value {
         "effect": flag.effect.map(|e| e.as_str()),
         "hidden": flag.hide,
         "global": flag.global,
+        // Declared by an ancestor rather than this command. Accepted either
+        // way; the distinction only matters when reading the source spec.
+        "inherited": inherited,
         "arg": flag.arg.as_ref().map(describe_arg),
     })
 }
@@ -241,12 +274,16 @@ mod tests {
     const SPEC: &str = r#"
 name "pitchfork"
 bin "pitchfork"
+flag "-v --verbose" global=#true help="Verbose logging"
+flag "-y --yes" global=#true effect="write" help="Skip confirmation"
+flag "--not-global" help="Root only"
 cmd "logs" effect="read" help="Displays logs" {
     alias "l"
     flag "-c --clear" effect="destructive" help="Delete logs"
     flag "-t --tail" help="Follow"
 }
 cmd "daemons" help="Manage daemons" {
+    flag "-y --yes" help="Shadows the global one"
     cmd "remove" effect="destructive" help="Remove a daemon"
 }
 cmd "internal" hide=#true {
@@ -298,10 +335,23 @@ cmd "start" help="Runs a daemon"
         assert!(by_path("start")["effect"].is_null());
     }
 
+    fn described(spec: &Spec, path: &str) -> Value {
+        describe(spec, &find_chain(spec, path).unwrap())
+    }
+
+    fn flag<'a>(out: &'a Value, name: &str) -> &'a Value {
+        out["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["name"] == name)
+            .unwrap_or_else(|| panic!("no flag {name}"))
+    }
+
     #[test]
     fn describe_reports_flag_effects() {
         let spec = spec();
-        let out = describe(&spec, find_command(&spec, "logs").unwrap());
+        let out = described(&spec, "logs");
         assert_eq!(out["effect"], "read");
         assert_eq!(out["command"], "pitchfork logs");
         assert_eq!(out["aliases"][0], "l");
@@ -321,19 +371,65 @@ cmd "start" help="Runs a daemon"
     fn nested_paths_and_aliases_resolve() {
         let spec = spec();
         assert_eq!(
-            find_command(&spec, "daemons remove")
-                .unwrap()
-                .help
-                .as_deref(),
-            Some("Remove a daemon")
+            described(&spec, "daemons remove")["help"],
+            "Remove a daemon"
         );
         // `l` is an alias for `logs`, and an agent may well have seen it.
-        assert_eq!(
-            find_command(&spec, "l").unwrap().help.as_deref(),
-            Some("Displays logs")
-        );
-        assert!(find_command(&spec, "nope").is_none());
-        assert!(find_command(&spec, "logs nope").is_none());
+        assert_eq!(described(&spec, "l")["help"], "Displays logs");
+        assert!(find_chain(&spec, "nope").is_none());
+        assert!(find_chain(&spec, "logs nope").is_none());
+        // The root on its own is not a command anyone can be told about.
+        assert!(find_chain(&spec, "").is_none());
+    }
+
+    #[test]
+    fn inherited_global_flags_are_included() {
+        // usage resolves globals when parsing an invocation instead of copying
+        // them onto each subcommand, so reporting only `cmd.flags` would tell
+        // an agent that `--yes` does not exist on a command that accepts it.
+        let spec = spec();
+        let out = described(&spec, "daemons remove");
+
+        let verbose = flag(&out, "verbose");
+        assert_eq!(verbose["inherited"], true);
+        assert_eq!(verbose["global"], true);
+
+        // Inherited flags carry their effect, which is the whole point.
+        let yes = flag(&out, "yes");
+        assert_eq!(yes["effect"], "write");
+
+        // A root flag that is not global is not inherited.
+        assert!(!out["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["name"] == "not-global"));
+    }
+
+    #[test]
+    fn a_nearer_definition_shadows_an_inherited_one() {
+        // `daemons` redefines `--yes` without an effect. The parser resolves to
+        // the nearer flag, so reporting the global's `write` would be a lie.
+        let spec = spec();
+        let out = described(&spec, "daemons");
+        let yes: Vec<_> = out["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["name"] == "yes")
+            .collect();
+        assert_eq!(yes.len(), 1, "{yes:?}");
+        assert_eq!(yes[0]["inherited"], false);
+        assert!(yes[0]["effect"].is_null());
+    }
+
+    #[test]
+    fn a_hidden_command_can_still_be_described() {
+        // `list_commands` omits it, but an agent that names one already knows
+        // it exists. Refusing would only mean running it without the effect.
+        let spec = spec();
+        let out = described(&spec, "internal child");
+        assert_eq!(out["command"], "pitchfork internal child");
     }
 
     #[test]
