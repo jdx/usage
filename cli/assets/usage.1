@@ -75,6 +75,12 @@ Generate a type\-safe SDK from a usage spec
 \fBlint\fR
 Lint a usage spec file for common issues
 .TP
+\fBmcp\fR
+Serve a usage spec over the Model Context Protocol
+.RS
+\fIAliases: \fRmcp\-server
+.RE
+.TP
 \fBpowershell\fR
 Execute a shell script with the specified shell
 .TP
@@ -359,6 +365,22 @@ Treat warnings as errors
 .TP
 \fB<FILE>\fR
 A usage spec file to lint, use "\-" to read from stdin
+.SH "USAGE MCP"
+Serve a usage spec over the Model Context Protocol
+
+Reads JSON\-RPC over stdin and writes responses to stdout, which is how MCP
+clients launch a local server. Point one at `usage mcp \-f mycli.usage.kdl`.
+.PP
+\fBUsage:\fR usage mcp [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+Usage spec file, or "\-" to read the spec from stdin before serving
+.TP
+\fB\-s, \-\-spec\fR \fI<SPEC>\fR
+Raw string spec input
 .SH "USAGE POWERSHELL"
 Execute a shell script with the specified shell
 

@@ -6,6 +6,7 @@ mod complete_word;
 mod exec;
 pub(crate) mod generate;
 mod lint;
+mod mcp;
 mod shell;
 mod sponsors;
 
@@ -33,6 +34,7 @@ enum Command {
     Fish(shell::Shell),
     Generate(generate::Generate),
     Lint(lint::Lint),
+    Mcp(mcp::Mcp),
     #[clap(name = "powershell", about = "Execute a shell script using PowerShell")]
     PowerShell(shell::Shell),
     Sponsors(sponsors::Sponsors),
@@ -55,6 +57,7 @@ impl Cli {
             Command::Exec(mut cmd) => cmd.run(),
             Command::CompleteWord(cmd) => cmd.run(),
             Command::Lint(cmd) => cmd.run(),
+            Command::Mcp(cmd) => cmd.run(),
             Command::Sponsors(cmd) => cmd.run(),
         }
     }

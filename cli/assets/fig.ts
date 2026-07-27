@@ -533,6 +533,30 @@ const completionSpec: Fig.Spec = {
       },
     },
     {
+      name: ["mcp", "mcp-server"],
+      description: "Serve a usage spec over the Model Context Protocol",
+      options: [
+        {
+          name: ["-f", "--file"],
+          description:
+            'Usage spec file, or "-" to read the spec from stdin before serving',
+          isRepeatable: false,
+          args: {
+            name: "file",
+            template: "filepaths",
+          },
+        },
+        {
+          name: ["-s", "--spec"],
+          description: "Raw string spec input",
+          isRepeatable: false,
+          args: {
+            name: "spec",
+          },
+        },
+      ],
+    },
+    {
       name: "powershell",
       description: "Execute a shell script using PowerShell",
       options: [
