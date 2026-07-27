@@ -4,6 +4,7 @@
 
 - **Usage**: `usage generate <SUBCOMMAND>`
 - **Aliases**: `g`
+- **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate.rs)
 
 Generate completions, documentation, and other artifacts from usage specs

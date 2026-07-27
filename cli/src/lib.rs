@@ -8,6 +8,7 @@ use miette::Result;
 pub use cli::Cli;
 
 mod cli;
+mod command_effects;
 pub mod env;
 mod usage_spec;
 
