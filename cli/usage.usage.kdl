@@ -203,7 +203,7 @@ cmd lint help="Lint a usage spec file for common issues" effect=read {
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
-cmd mcp help="Serve a usage spec over the Model Context Protocol" {
+cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
     alias mcp-server
     long_help #"""
 Serve a usage spec over the Model Context Protocol

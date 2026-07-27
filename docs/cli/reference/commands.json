@@ -970,6 +970,7 @@
           }
         ],
         "mounts": [],
+        "effect": "read",
         "hide": false,
         "help": "Serve a usage spec over the Model Context Protocol",
         "help_long": "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.",

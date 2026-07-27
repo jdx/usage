@@ -34,6 +34,10 @@ const EFFECTS: &[(&str, SpecCommandEffect)] = &[
     // to stdout, so every invocation writes a directory.
     ("generate sdk", Write),
     ("lint", Read),
+    // Long-running, but every tool it serves only reads the spec it was given.
+    // Unlike `mise mcp`, which is unclassified because it serves a tool that
+    // runs tasks, nothing here can act on the CLI it describes.
+    ("mcp", Read),
     ("sponsors", Read),
 ];
 

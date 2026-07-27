@@ -193,11 +193,21 @@ fn list_commands(spec: &Spec, include_hidden: bool) -> Vec<Value> {
 /// ancestors are not decoration: their `global` flags are part of what the
 /// command accepts.
 fn find_chain<'a>(spec: &'a Spec, path: &str) -> Option<Vec<&'a SpecCommand>> {
+    let mut segments = path.split_whitespace().peekable();
+
+    // An agent that has seen the CLI in a shell will write the whole line, and
+    // a leading binary name is not a subcommand. Only skipped when the root has
+    // no subcommand by that name, so a CLI with a `usage usage` keeps working.
+    if segments.peek() == Some(&spec.bin.as_str()) && spec.cmd.find_subcommand(&spec.bin).is_none()
+    {
+        segments.next();
+    }
+
     let mut chain = vec![&spec.cmd];
-    for segment in path.split_whitespace() {
+    for segment in segments {
         chain.push(chain.last().unwrap().find_subcommand(segment)?);
     }
-    // Just the root means the caller passed no path, which is not a command.
+    // Just the root means the caller named no command, or named only the bin.
     (chain.len() > 1).then_some(chain)
 }
 
@@ -220,7 +230,12 @@ fn flags_for(chain: &[&SpecCommand]) -> Vec<Value> {
 fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
     let cmd = chain.last().expect("chain is never empty");
     json!({
-        "command": format!("{} {}", spec.bin, cmd.full_cmd.join(" ")).trim(),
+        // The path without the binary, which is what `list_commands` emits and
+        // what this tool takes back. Prefixing the bin here made the two ends
+        // disagree, so a path copied out of one response was rejected by the
+        // other. `bin` is reported alongside, as `list_commands` does.
+        "command": cmd.full_cmd.join(" "),
+        "bin": spec.bin,
         "usage": cmd.usage,
         "help": cmd.help,
         "long_help": cmd.help_long,
@@ -347,7 +362,8 @@ cmd "start" help="Runs a daemon"
         let spec = spec();
         let out = described(&spec, "logs");
         assert_eq!(out["effect"], "read");
-        assert_eq!(out["command"], "pitchfork logs");
+        assert_eq!(out["command"], "logs");
+        assert_eq!(out["bin"], "pitchfork");
         assert_eq!(out["aliases"][0], "l");
 
         let flags = out["flags"].as_array().unwrap();
@@ -424,12 +440,47 @@ cmd "start" help="Runs a daemon"
     }
 
     #[test]
+    fn a_path_from_one_tool_is_accepted_by_the_other() {
+        // `list_commands` emits paths without the binary. Every one of them
+        // must resolve here, or an agent doing the obvious thing — read the
+        // list, describe an entry — gets a tool error on a command that exists.
+        let spec = spec();
+        for row in list_commands(&spec, true) {
+            let path = row["command"].as_str().unwrap();
+            let out = described(&spec, path);
+            assert_eq!(out["command"], path, "round trip failed for {path:?}");
+        }
+    }
+
+    #[test]
+    fn a_leading_binary_name_is_tolerated() {
+        // An agent that has seen the CLI in a shell writes the whole line.
+        let spec = spec();
+        assert_eq!(
+            described(&spec, "pitchfork daemons remove")["command"],
+            "daemons remove"
+        );
+        // The bin alone names no command.
+        assert!(find_chain(&spec, "pitchfork").is_none());
+    }
+
+    #[test]
+    fn a_subcommand_sharing_the_binarys_name_still_resolves() {
+        // The skip must not eat a real command. `usage usage` is not
+        // hypothetical — a CLI that describes itself is exactly this shape.
+        let spec: Spec = "bin \"usage\"\ncmd \"usage\" help=\"self\""
+            .parse()
+            .unwrap();
+        assert_eq!(described(&spec, "usage")["help"], "self");
+    }
+
+    #[test]
     fn a_hidden_command_can_still_be_described() {
         // `list_commands` omits it, but an agent that names one already knows
         // it exists. Refusing would only mean running it without the effect.
         let spec = spec();
         let out = described(&spec, "internal child");
-        assert_eq!(out["command"], "pitchfork internal child");
+        assert_eq!(out["command"], "internal child");
     }
 
     #[test]
