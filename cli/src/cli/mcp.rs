@@ -13,7 +13,6 @@
 //! alike and inherit protocol details — version negotiation, pagination,
 //! cancellation, schema generation — rather than each reimplementing a subset.
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -202,26 +201,20 @@ fn find_chain<'a>(spec: &'a Spec, path: &str) -> Option<Vec<&'a SpecCommand>> {
     (chain.len() > 1).then_some(chain)
 }
 
-/// Every flag the command accepts: its own, then `global` flags inherited from
-/// ancestors.
+/// Every flag the command accepts, including `global` ones from its ancestors.
 ///
-/// usage resolves globals while parsing an invocation rather than copying them
-/// onto each subcommand, so `cmd.flags` alone is short by exactly the options
-/// an agent is most likely to reach for — and by their effects.
+/// Delegated to `usage::available_flags` rather than walked here. usage resolves
+/// globals while parsing an invocation instead of copying them onto each
+/// subcommand, so `cmd.flags` alone is short by exactly the options an agent
+/// reaches for — and the merge rules are subtle enough (a non-global
+/// re-declaration of a global's long name keeps the *global's* effect, not the
+/// local one) that a second implementation would state the effect wrongly,
+/// which is the one thing this server must not do.
 fn flags_for(chain: &[&SpecCommand]) -> Vec<Value> {
-    let (cmd, ancestors) = chain.split_last().expect("chain is never empty");
-    let mut seen: HashSet<&str> = cmd.flags.iter().map(|f| f.name.as_str()).collect();
-    let mut out: Vec<Value> = cmd.flags.iter().map(|f| describe_flag(f, false)).collect();
-    // Nearest ancestor first, so a closer redefinition shadows a farther one
-    // the same way the parser resolves it.
-    for ancestor in ancestors.iter().rev() {
-        for flag in ancestor.flags.iter().filter(|f| f.global) {
-            if seen.insert(&flag.name) {
-                out.push(describe_flag(flag, true));
-            }
-        }
-    }
-    out
+    usage::available_flags(chain)
+        .iter()
+        .map(|f| describe_flag(f))
+        .collect()
 }
 
 fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
@@ -251,7 +244,7 @@ fn describe_arg(arg: &SpecArg) -> Value {
     })
 }
 
-fn describe_flag(flag: &SpecFlag, inherited: bool) -> Value {
+fn describe_flag(flag: &SpecFlag) -> Value {
     json!({
         "name": flag.name,
         "short": flag.short.iter().map(|c| format!("-{c}")).collect::<Vec<_>>(),
@@ -259,10 +252,11 @@ fn describe_flag(flag: &SpecFlag, inherited: bool) -> Value {
         "help": flag.help,
         "effect": flag.effect.map(|e| e.as_str()),
         "hidden": flag.hide,
+        // Accepted by every subcommand, so it may appear anywhere in the line.
+        // There is no separate "inherited" flag on the output: a subcommand
+        // that re-declares a global is describing that same global, not a
+        // local flag that shadows it.
         "global": flag.global,
-        // Declared by an ancestor rather than this command. Accepted either
-        // way; the distinction only matters when reading the source spec.
-        "inherited": inherited,
         "arg": flag.arg.as_ref().map(describe_arg),
     })
 }
@@ -390,15 +384,11 @@ cmd "start" help="Runs a daemon"
         let spec = spec();
         let out = described(&spec, "daemons remove");
 
-        let verbose = flag(&out, "verbose");
-        assert_eq!(verbose["inherited"], true);
-        assert_eq!(verbose["global"], true);
-
+        assert_eq!(flag(&out, "verbose")["global"], true);
         // Inherited flags carry their effect, which is the whole point.
-        let yes = flag(&out, "yes");
-        assert_eq!(yes["effect"], "write");
+        assert_eq!(flag(&out, "yes")["effect"], "write");
 
-        // A root flag that is not global is not inherited.
+        // A root flag that is not global is not accepted down here.
         assert!(!out["flags"]
             .as_array()
             .unwrap()
@@ -407,9 +397,12 @@ cmd "start" help="Runs a daemon"
     }
 
     #[test]
-    fn a_nearer_definition_shadows_an_inherited_one() {
-        // `daemons` redefines `--yes` without an effect. The parser resolves to
-        // the nearer flag, so reporting the global's `write` would be a lie.
+    fn a_re_declared_global_keeps_the_globals_effect() {
+        // `daemons` re-declares `-y --yes` without `global` or an effect. That
+        // is the same logical flag, not a local one shadowing it: the parser
+        // keeps the global's declaration and unions in the extra aliases. A
+        // hand-rolled "nearest wins" would report `effect: null` here, telling
+        // an agent that `--yes` is free of consequence when it is not.
         let spec = spec();
         let out = described(&spec, "daemons");
         let yes: Vec<_> = out["flags"]
@@ -419,8 +412,15 @@ cmd "start" help="Runs a daemon"
             .filter(|f| f["name"] == "yes")
             .collect();
         assert_eq!(yes.len(), 1, "{yes:?}");
-        assert_eq!(yes[0]["inherited"], false);
-        assert!(yes[0]["effect"].is_null());
+        assert_eq!(yes[0]["effect"], "write");
+        assert_eq!(yes[0]["global"], true);
+    }
+
+    #[test]
+    fn a_local_only_flag_is_reported_as_local() {
+        let spec = spec();
+        let out = described(&spec, "logs");
+        assert_eq!(flag(&out, "tail")["global"], false);
     }
 
     #[test]
