@@ -203,6 +203,21 @@ cmd lint help="Lint a usage spec file for common issues" effect=read {
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
+cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
+    alias mcp-server
+    long_help #"""
+Serve a usage spec over the Model Context Protocol
+
+Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
+clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
+"""#
+    flag "-f --file" help="Usage spec file (not \"-\": stdin is the MCP transport)" {
+        arg <FILE>
+    }
+    flag "-s --spec" help="Raw string spec input" {
+        arg <SPEC>
+    }
+}
 cmd powershell help="Execute a shell script using PowerShell" {
     long_help #"""
 Execute a shell script with the specified shell

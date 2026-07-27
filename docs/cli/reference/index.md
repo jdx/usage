@@ -35,6 +35,7 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
 - [`usage generate sdk <FLAGS>`](/cli/reference/generate/sdk.md)
 - [`usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`](/cli/reference/lint.md)
+- [`usage mcp [-f --file <FILE>] [-s --spec <SPEC>]`](/cli/reference/mcp.md)
 - [`usage powershell [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/powershell.md)
 - [`usage sponsors`](/cli/reference/sponsors.md)
 - [`usage zsh [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/zsh.md)

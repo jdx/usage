@@ -928,6 +928,57 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "mcp": {
+        "full_cmd": ["mcp"],
+        "usage": "mcp [-f --file <FILE>] [-s --spec <SPEC>]",
+        "subcommands": {},
+        "args": [],
+        "flags": [
+          {
+            "name": "file",
+            "usage": "-f --file <FILE>",
+            "help": "Usage spec file (not \"-\": stdin is the MCP transport)",
+            "help_first_line": "Usage spec file (not \"-\": stdin is the MCP transport)",
+            "short": ["f"],
+            "long": ["file"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FILE",
+              "usage": "<FILE>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            }
+          },
+          {
+            "name": "spec",
+            "usage": "-s --spec <SPEC>",
+            "help": "Raw string spec input",
+            "help_first_line": "Raw string spec input",
+            "short": ["s"],
+            "long": ["spec"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "SPEC",
+              "usage": "<SPEC>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            }
+          }
+        ],
+        "mounts": [],
+        "effect": "read",
+        "hide": false,
+        "help": "Serve a usage spec over the Model Context Protocol",
+        "help_long": "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.",
+        "name": "mcp",
+        "aliases": ["mcp-server"],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "powershell": {
         "full_cmd": ["powershell"],
         "usage": "powershell [-h] [--help] <SCRIPT> [ARGS]…",

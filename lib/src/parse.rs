@@ -159,6 +159,44 @@ fn unique_flags<'a>(
         .filter(move |flag| seen.insert(Arc::as_ptr(flag) as usize))
 }
 
+/// Every flag a command accepts, resolved the way parsing an invocation of it
+/// resolves them.
+///
+/// `chain` runs from the root command (`spec.cmd`) down to the command in
+/// question; an empty chain yields no flags.
+///
+/// This is not "the command's flags plus its ancestors' globals". A subcommand
+/// that re-declares a global's long name is describing the *same* flag rather
+/// than a new one, so the global's help, argument and effect survive and only
+/// the re-declaration's extra aliases are added — see
+/// [`merge_subcommand_flags`]. Anything that reports a command's flags without
+/// going through this will disagree with what the parser actually accepts.
+pub fn available_flags(chain: &[&SpecCommand]) -> Vec<Arc<SpecFlag>> {
+    let Some((root, rest)) = chain.split_first() else {
+        return vec![];
+    };
+    let mut available = gather_flags(root);
+    for cmd in rest {
+        merge_subcommand_flags(&mut available, gather_flags(cmd), false);
+    }
+
+    // Deduplicating by `Arc` identity is not enough. When a child re-declares a
+    // global that has both a short and a long, the merged flag is written under
+    // the long key while the short key keeps pointing at the pre-merge `Arc` —
+    // two objects for one logical flag. That is harmless for parsing, which
+    // looks flags up by key, but a caller listing flags would see it twice.
+    //
+    // Names break the tie because a long key always sorts before a short one
+    // (`--x` < `-y` at the second byte), so the merged declaration is the one
+    // reached first. Two genuinely distinct flags sharing a name is a spec bug
+    // that `usage lint` reports as a duplicate flag.
+    let mut seen_names = HashSet::new();
+    unique_flags(available.values())
+        .filter(|f| seen_names.insert(f.name.clone()))
+        .cloned()
+        .collect()
+}
+
 /// Extract the flag key from a flag word for lookup in available_flags map
 /// Handles both long flags (--flag, --flag=value) and short flags (-f)
 fn get_flag_key(word: &str) -> &str {
@@ -3351,5 +3389,111 @@ flag "-a --args <ARGS>"
         let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
 
         assert_eq!(flag_string_value(&parsed, "working-dir"), "estroy");
+    }
+
+    /// `available_flags` has to agree with what an actual parse accepts, since
+    /// its whole reason to exist is answering that question without one.
+    mod available_flags {
+        use super::*;
+
+        fn spec() -> Spec {
+            r#"
+bin "test"
+flag "-v --verbose" global=#true
+flag "--raw" global=#true effect="write"
+flag "--local-only"
+cmd "run" {
+    flag "-r --raw"
+    flag "-w --watch"
+    cmd "once"
+}
+"#
+            .parse::<Spec>()
+            .unwrap()
+        }
+
+        fn chain<'a>(spec: &'a Spec, path: &[&str]) -> Vec<&'a SpecCommand> {
+            let mut chain = vec![&spec.cmd];
+            for segment in path {
+                chain.push(chain.last().unwrap().find_subcommand(segment).unwrap());
+            }
+            chain
+        }
+
+        fn names(spec: &Spec, path: &[&str]) -> Vec<String> {
+            let mut names: Vec<_> = available_flags(&chain(spec, path))
+                .iter()
+                .map(|f| f.name.clone())
+                .collect();
+            names.sort();
+            names
+        }
+
+        #[test]
+        fn an_empty_chain_yields_nothing() {
+            assert!(available_flags(&[]).is_empty());
+        }
+
+        #[test]
+        fn the_root_gets_its_own_flags() {
+            let spec = spec();
+            assert_eq!(names(&spec, &[]), ["local-only", "raw", "verbose"]);
+        }
+
+        #[test]
+        fn a_subcommand_keeps_globals_and_drops_local_only_ancestors() {
+            let spec = spec();
+            assert_eq!(names(&spec, &["run"]), ["raw", "verbose", "watch"]);
+        }
+
+        #[test]
+        fn a_re_declared_global_is_listed_once() {
+            // The merge can leave the long key on the merged flag and the short
+            // key on the pre-merge one. Same flag; it must not be listed twice.
+            let spec = r#"
+bin "test"
+flag "-y --yes" global=#true effect="write"
+cmd "rm" {
+    flag "-y --yes"
+}
+"#
+            .parse::<Spec>()
+            .unwrap();
+            let flags = available_flags(&chain(&spec, &["rm"]));
+            assert_eq!(flags.len(), 1, "{flags:?}");
+            assert_eq!(flags[0].effect.map(|e| e.as_str()), Some("write"));
+        }
+
+        #[test]
+        fn a_re_declared_global_keeps_the_globals_declaration() {
+            // `run` re-declares the long-only global `--raw` as `-r --raw`
+            // without `global`. That is the same flag: the global's `effect`
+            // survives, the orphan short is unioned in, and it stays global.
+            let spec = spec();
+            let flags = available_flags(&chain(&spec, &["run"]));
+            let raw = flags.iter().find(|f| f.name == "raw").unwrap();
+            assert!(raw.global);
+            assert_eq!(raw.effect.map(|e| e.as_str()), Some("write"));
+            assert_eq!(raw.short, ['r']);
+        }
+
+        #[test]
+        fn it_matches_what_a_parse_accepts() {
+            // The invariant. If these ever disagree, one of them is lying to a
+            // caller about which flags a command takes.
+            let spec = spec();
+            for path in [vec![], vec!["run"], vec!["run", "once"]] {
+                let argv = std::iter::once("test".to_string())
+                    .chain(path.iter().map(|s| s.to_string()))
+                    .collect::<Vec<_>>();
+                let parsed = parse_partial(&spec, &argv).unwrap();
+
+                let mut from_parse: Vec<_> = unique_flags(parsed.available_flags.values())
+                    .map(|f| f.name.clone())
+                    .collect();
+                from_parse.sort();
+                assert_eq!(names(&spec, &path), from_parse, "path {path:?}");
+            }
+        }
     }
 }
