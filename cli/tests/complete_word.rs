@@ -16,6 +16,31 @@ fn complete_word_completer() {
 }
 
 #[test]
+fn complete_word_variadic_arg_reuses_completer() {
+    assert_cmd("variadic-completion.usage.kdl", &["--", "variadic", ""]).stdout("foo\nbar\n");
+    assert_cmd(
+        "variadic-completion.usage.kdl",
+        &["--", "variadic", "foo", ""],
+    )
+    .stdout("foo\nbar\n");
+}
+
+#[test]
+fn complete_word_variadic_arg_respects_var_max() {
+    assert_cmd("variadic-completion.usage.kdl", &["--", "bounded", ""]).stdout("foo\nbar\n");
+    assert_cmd(
+        "variadic-completion.usage.kdl",
+        &["--", "bounded", "foo", ""],
+    )
+    .stdout("foo\nbar\n");
+    assert_cmd(
+        "variadic-completion.usage.kdl",
+        &["--", "bounded", "foo", "bar", ""],
+    )
+    .stdout(contains("Cargo.toml"));
+}
+
+#[test]
 fn complete_word_subcommands() {
     assert_cmd("basic.usage.kdl", &["plugins", "install"]).stdout(contains("install"));
 }

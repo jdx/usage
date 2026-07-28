@@ -1,0 +1,9 @@
+cmd variadic {
+    arg "[ITEM]…" var=#true required=#false
+}
+
+cmd bounded {
+    arg "[ITEM]…" var=#true var_max=2 required=#false
+}
+
+complete "item" run="printf 'foo\nbar\n'"

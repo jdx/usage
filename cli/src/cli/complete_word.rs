@@ -12,6 +12,7 @@ use std::sync::LazyLock;
 use xx::process::check_status;
 use xx::{regex, XXError, XXResult};
 
+use usage::parse::{ParseOutput, ParseValue};
 use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 
 use crate::cli::generate;
@@ -143,7 +144,7 @@ impl CompleteWord {
             self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?
         } else {
             let mut choices = vec![];
-            if let Some(arg) = parsed.cmd.args.get(parsed.args.len()) {
+            if let Some(arg) = next_arg_for_completion(&parsed) {
                 has_explicit_choices = arg.choices.is_some();
                 choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
             }
@@ -372,6 +373,23 @@ impl CompleteWord {
             .sorted()
             .collect()
     }
+}
+
+fn next_arg_for_completion(parsed: &ParseOutput) -> Option<&SpecArg> {
+    parsed.cmd.args.iter().find(|arg| {
+        let parsed_value = parsed
+            .args
+            .iter()
+            .find_map(|(parsed_arg, value)| (parsed_arg.name == arg.name).then_some(value));
+
+        match parsed_value {
+            Some(ParseValue::MultiString(values)) if arg.var => {
+                values.len() < arg.var_max.unwrap_or(usize::MAX)
+            }
+            Some(_) => false,
+            None => true,
+        }
+    })
 }
 
 /// Wrap a completion value in single quotes if any character would otherwise
