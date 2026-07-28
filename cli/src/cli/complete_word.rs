@@ -377,9 +377,10 @@ impl CompleteWord {
 
 fn next_arg_for_completion(parsed: &ParseOutput) -> Option<&SpecArg> {
     parsed.cmd.args.iter().find(|arg| {
-        let parsed_value = parsed.args.iter().find_map(|(parsed_arg, value)| {
-            (parsed_arg.name == arg.name).then_some(value)
-        });
+        let parsed_value = parsed
+            .args
+            .iter()
+            .find_map(|(parsed_arg, value)| (parsed_arg.name == arg.name).then_some(value));
 
         match parsed_value {
             Some(ParseValue::MultiString(values)) if arg.var => {
