@@ -18,6 +18,16 @@ fn skip_if_shell_missing(shell: &str) -> bool {
     true
 }
 
+/// Path to a checked-in generated completion under `cli/assets/completions/`.
+/// These are what users actually source, so the shell-function collision tests
+/// assert against them rather than a freshly generated stand-in.
+fn checked_in_completion(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("completions")
+        .join(name)
+}
+
 /// Helper to run usage complete-word and return stdout
 fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&str]) -> String {
     let mut args = vec![
@@ -1368,6 +1378,334 @@ echo "[foo]" (complete -C 'ex --f')
     assert!(
         stdout.contains("--foo"),
         "expected --foo for `--f`, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+// ---------------------------------------------------------------------------
+// Shell-function collision tests.
+//
+// Two distinct ways a shell function can defeat the "is the usage CLI
+// installed?" logic:
+//
+//   1. Function only, no executable. `type -p` (bash) and `type -q` (fish)
+//      both succeed on a function, so the guard passed and the failure
+//      surfaced later as something unrelated. `type -P` searches $PATH only.
+//      oh-my-bash defines a `usage` function, which is how this was found.
+//
+//   2. Function shadowing a real executable. The guard is satisfied honestly,
+//      but a bare `usage --usage-spec` still resolves to the function, so the
+//      spec file gets filled with the function's output. The shipped
+//      completions call `command usage` to bypass function lookup.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_bash_guard_rejects_shell_function_masquerading_as_cli() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_guard_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    // `--usage-bin` names a probe that cannot be on $PATH, so the shell
+    // function defined below is the only thing that could satisfy the guard.
+    let output = Command::new(&usage_bin)
+        .args([
+            "generate",
+            "completion",
+            "bash",
+            "testcli",
+            "--usage-bin",
+            "usage_guard_probe",
+            "--usage-cmd",
+            "command usage_guard_probe --usage-spec",
+        ])
+        .output()
+        .expect("Failed to generate bash completion");
+    let comp_file = temp_dir.join("testcli.bash");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+usage_guard_probe() {{ echo "I am a function"; }}
+source "{comp}"
+_testcli testcli "" testcli 1
+echo "GUARD_EXIT=$?"
+"#,
+        comp = comp_file.display(),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("bash")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run bash guard test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("GUARD_EXIT=1"),
+        "guard should return 1 when only a shell function shadows the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("usage_guard_probe CLI not found"),
+        "guard should explain the CLI is missing.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_bash_self_completion_uses_executable_not_shadowing_function() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_shadow_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    // The real usage binary is on $PATH *and* a `usage` function is defined,
+    // so the guard passes legitimately — only the spec call can go wrong.
+    // bash-completion isn't loaded here; stub the three helpers so the spec
+    // write is the only thing under test.
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{cache}"
+usage() {{ echo "FUNCTION_MARKER"; }}
+_comp_initialize() {{ return 0; }}
+_comp_compgen() {{ return 0; }}
+_comp_ltrim_colon_completions() {{ return 0; }}
+source "{asset}"
+_usage usage "" usage 1
+echo "SPEC_BEGIN"
+cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
+"#,
+        usage_dir = usage_bin.parent().unwrap().display(),
+        cache = temp_dir.display(),
+        asset = checked_in_completion("usage.bash").display(),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("bash")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run bash shadow test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        !stdout.contains("FUNCTION_MARKER"),
+        "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stdout.contains("bin usage"),
+        "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_bash_init_guard_rejects_shell_function() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, init_script) =
+        stage_init_test_env(&usage_bin, "bash", "bash_guard_init");
+
+    // $PATH deliberately omits the usage binary. A pre-registered `complete -D`
+    // handler gives us a positive signal: the init handler must chain to it
+    // rather than dispatch to a `usage` that is only a shell function.
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{bin_dir}:/usr/bin:/bin"
+usage() {{ echo "I am a function"; }}
+_test_chained_handler() {{ echo "FELL_THROUGH"; }}
+complete -D -F _test_chained_handler
+source "{init_script}"
+
+COMP_WORDS=(ex "")
+COMP_CWORD=1
+COMPREPLY=()
+_usage_default_complete ex "" ex
+echo "INIT_EXIT=$?"
+"#,
+        bin_dir = bin_dir.display(),
+        init_script = init_script.display(),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("bash")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run bash init guard test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("FELL_THROUGH"),
+        "init handler should chain to the previous default handler instead of dispatching to a shell function.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("command not found"),
+        "init handler dispatched to a missing CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_fish_guard_rejects_shell_function_masquerading_as_cli() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_fish_guard_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let output = Command::new(&usage_bin)
+        .args([
+            "generate",
+            "completion",
+            "fish",
+            "testcli",
+            "--usage-bin",
+            "usage_guard_probe",
+            "--usage-cmd",
+            "command usage_guard_probe --usage-spec",
+        ])
+        .output()
+        .expect("Failed to generate fish completion");
+    let comp_file = temp_dir.join("testcli.fish");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env fish
+function usage_guard_probe
+    echo "I am a function"
+end
+source "{comp}"
+echo "[completions]" (complete -c testcli | string collect)
+"#,
+        comp = comp_file.display(),
+    );
+    let script_file = temp_dir.join("test.fish");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("fish")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run fish guard test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stderr.contains("usage_guard_probe CLI not found"),
+        "guard should explain the CLI is missing.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stdout.contains("[completions]") && !stdout.contains("complete-word"),
+        "no completion should be registered when the CLI is absent.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_fish_self_completion_uses_executable_not_shadowing_function() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_fish_shadow_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env fish
+set -gx PATH "{usage_dir}" /usr/bin /bin
+set -gx XDG_CACHE_HOME "{cache}"
+function usage
+    echo "FUNCTION_MARKER"
+end
+source "{asset}"
+echo "SPEC_BEGIN"
+cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
+"#,
+        usage_dir = usage_bin.parent().unwrap().display(),
+        cache = temp_dir.display(),
+        asset = checked_in_completion("usage.fish").display(),
+    );
+    let script_file = temp_dir.join("test.fish");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("fish")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run fish shadow test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        !stdout.contains("FUNCTION_MARKER"),
+        "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stdout.contains("bin usage"),
+        "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_fish_init_guard_rejects_shell_function() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, init_script) =
+        stage_init_test_env(&usage_bin, "fish", "fish_guard_init");
+
+    // $PATH omits the usage binary but still holds the `ex` shebang script, so
+    // the scan would register `ex` if the guard let a shell function through.
+    let test_script = format!(
+        r#"#!/usr/bin/env fish
+set -gx PATH "{bin_dir}" /usr/bin /bin
+function usage
+    echo "I am a function"
+end
+source "{init_script}"
+echo "[registered]" (complete -c ex | string collect)
+"#,
+        bin_dir = bin_dir.display(),
+        init_script = init_script.display(),
+    );
+    let script_file = temp_dir.join("test.fish");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("fish")
+        .arg(script_file.to_str().unwrap())
+        .output()
+        .expect("Failed to run fish init guard test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("[registered]") && !stdout.contains("complete-word"),
+        "init scan should register nothing when only a shell function shadows the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);

@@ -37,7 +37,7 @@ _usage_default_complete() {
     if [[ -n "$cmdpath" && -f "$cmdpath" ]]; then
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
-            if type -p usage &> /dev/null; then
+            if type -P usage &> /dev/null; then
                 local IFS=$'\n'
                 # shellcheck disable=SC2207
                 COMPREPLY=( $(command usage complete-word --shell bash -f "$cmdpath" --cword="$COMP_CWORD" -- "${COMP_WORDS[@]}") )

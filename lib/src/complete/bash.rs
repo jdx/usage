@@ -23,7 +23,7 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     };
     out.push(format!(
         r#"_{bin_snake}() {{
-    if ! type -p {usage_bin} &> /dev/null; then
+    if ! type -P {usage_bin} &> /dev/null; then
         echo >&2
         echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
         echo "See https://usage.jdx.dev for more information." >&2
@@ -149,7 +149,7 @@ _usage_default_complete() {{
     if [[ -n "$cmdpath" && -f "$cmdpath" ]]; then
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
-            if type -p {usage_bin} &> /dev/null; then
+            if type -P {usage_bin} &> /dev/null; then
                 local IFS=$'\n'
                 # shellcheck disable=SC2207
                 COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}") )

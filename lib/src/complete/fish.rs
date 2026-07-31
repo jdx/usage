@@ -20,7 +20,7 @@ pub fn complete_fish(opts: &CompleteOptions) -> String {
         format!(
             r#"
 # if "{usage_bin}" is not installed show an error
-if ! type -p {usage_bin} &> /dev/null
+if ! type -P {usage_bin} &> /dev/null
     echo >&2
     echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
     echo "See https://usage.jdx.dev for more information." >&2
@@ -111,7 +111,9 @@ pub fn complete_fish_init(usage_bin: &str) -> String {
 # shebang.
 
 function __usage_register_shebang_completions
-    if not type -q {usage_bin}
+    # `type -P` (not `-q`/`-p`) so a shell function named `{usage_bin}` can't
+    # satisfy the check — only a real executable on $PATH does.
+    if not type -P {usage_bin} &> /dev/null
         return 0
     end
     # `commandline -x` (fish 3.4+) tokenizes quoted/complex arguments more

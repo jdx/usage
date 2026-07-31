@@ -8,7 +8,9 @@ expression: "complete_fish_init(\"usage\")"
 # shebang.
 
 function __usage_register_shebang_completions
-    if not type -q usage
+    # `type -P` (not `-q`/`-p`) so a shell function named `usage` can't
+    # satisfy the check — only a real executable on $PATH does.
+    if not type -P usage &> /dev/null
         return 0
     end
     # `commandline -x` (fish 3.4+) tokenizes quoted/complex arguments more
