@@ -20,7 +20,7 @@ pub fn complete_fish(opts: &CompleteOptions) -> String {
         format!(
             r#"
 # if "{usage_bin}" is not installed show an error
-if ! type -p {usage_bin} &> /dev/null
+if ! type -P {usage_bin} &> /dev/null
     echo >&2
     echo "Error: {usage_bin} CLI not found. This is required for completions to work in {bin}." >&2
     echo "See https://usage.jdx.dev for more information." >&2
