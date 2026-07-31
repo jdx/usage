@@ -111,7 +111,9 @@ pub fn complete_fish_init(usage_bin: &str) -> String {
 # shebang.
 
 function __usage_register_shebang_completions
-    if not type -q {usage_bin}
+    # `type -P` (not `-q`/`-p`) so a shell function named `{usage_bin}` can't
+    # satisfy the check — only a real executable on $PATH does.
+    if not type -P {usage_bin} &> /dev/null
         return 0
     end
     # `commandline -x` (fish 3.4+) tokenizes quoted/complex arguments more

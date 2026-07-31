@@ -12,7 +12,7 @@ _usage() {
     local spec_dir="${XDG_CACHE_HOME:-$HOME/.cache}/usage"
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage__usage_spec_usage.spec"
-    usage --usage-spec >| "$spec_file"
+    command usage --usage-spec >| "$spec_file"
     # shellcheck disable=SC2207
 	_comp_compgen -- -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}")"
 	_comp_ltrim_colon_completions "$cur"

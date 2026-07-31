@@ -10,7 +10,7 @@ end
 set -l spec_dir (if set -q XDG_CACHE_HOME; echo $XDG_CACHE_HOME; else; echo $HOME/.cache; end)/usage
 test -d "$spec_dir"; or mkdir -p -m 700 "$spec_dir"
 set -l spec_file "$spec_dir/usage__usage_spec_usage.spec"
-usage --usage-spec | string collect > "$spec_file"
+command usage --usage-spec | string collect > "$spec_file"
 
 set -l tokens
 if commandline -x >/dev/null 2>&1
