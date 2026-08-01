@@ -27,6 +27,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
+  TAK_RUNNER: bamboo-v2-ubuntu24.04-x64-30vcpu-24gb-rust1.97.1
 
 jobs:
   measure:
@@ -34,7 +35,7 @@ jobs:
     # Pinned to one runner class on purpose. Absolute instruction counts shift
     # between machine types by more than a real regression does, so a series
     # that wanders between runners is unreadable.
-    runs-on: ubuntu-latest
+    runs-on: bamboo-perf
     timeout-minutes: 30
     permissions:
       contents: write # pushing refs/notes/tak is a write to this repository
