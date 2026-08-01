@@ -2048,11 +2048,11 @@ mod tests {
         // (d) Negative case: a purely-local flag that shares nothing with a global is NOT
         // promoted/merged — it is correctly dropped when descending into the mount.
         assert!(
-            parsed.available_flags.get("-f").is_none(),
+            !parsed.available_flags.contains_key("-f"),
             "purely-local -f must not be promoted onto a global",
         );
         assert!(
-            parsed.available_flags.get("--force").is_none(),
+            !parsed.available_flags.contains_key("--force"),
             "purely-local --force must not be promoted onto a global",
         );
 

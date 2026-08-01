@@ -1012,14 +1012,12 @@ cmd other help="Another subcommand"
     let lines: Vec<&str> = output.lines().collect();
 
     assert!(
-        lines.iter().any(|l| *l == "sub\tA subcommand\tsub"),
+        lines.contains(&"sub\tA subcommand\tsub"),
         "Expected 'sub\\tA subcommand\\tsub' in zsh output, got: {:?}",
         lines
     );
     assert!(
-        lines
-            .iter()
-            .any(|l| *l == "other\tAnother subcommand\tother"),
+        lines.contains(&"other\tAnother subcommand\tother"),
         "Expected 'other\\tAnother subcommand\\tother' in zsh output, got: {:?}",
         lines
     );
