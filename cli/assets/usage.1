@@ -258,7 +258,7 @@ Generate Fig completion spec for Amazon Q / Fig
 A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
-File path where the generated Fig spec will be saved
+File path where the generated Fig spec will be saved, or "\-" for stdout
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
@@ -285,7 +285,7 @@ raw string spec input
 A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-o, \-\-out\-file\fR \fI<OUT_FILE>\fR
-Output file path (defaults to stdout)
+Output file path, or "\-" for stdout (default)
 .TP
 \fB\-s, \-\-section\fR \fI<SECTION>\fR
 Manual section number (default: 1)
@@ -315,7 +315,7 @@ Escape HTML in markdown
 Output markdown files to this directory (required when using \-\-multi)
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
-Output file path for single\-file markdown generation
+Output file path for single\-file markdown generation, or "\-" for stdout (default)
 .TP
 \fB\-\-replace\-pre\-with\-code\-fences\fR
 Replace `<pre>` tags with markdown code fences

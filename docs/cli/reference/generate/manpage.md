@@ -17,7 +17,7 @@ A usage spec taken in as a file, use "-" to read from stdin
 
 **Effect**: modifies state
 
-Output file path (defaults to stdout)
+Output file path, or "-" for stdout (default)
 
 ### `-s --section <SECTION>`
 

@@ -52,7 +52,7 @@ pub struct Fig {
     #[clap(short, long)]
     file: Option<PathBuf>,
 
-    /// File path where the generated Fig spec will be saved
+    /// File path where the generated Fig spec will be saved, or "-" for stdout
     #[clap(long, value_hint = clap::ValueHint::FilePath)]
     out_file: Option<PathBuf>,
 
@@ -355,8 +355,7 @@ impl FigCommand {
 impl Fig {
     pub fn run(&self) -> miette::Result<()> {
         let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
-            println!("writing to {}", path.display());
-            xx::file::write(path, format!("{}\n", md.trim()))?;
+            generate::write_or_stdout(Some(path), &format!("{}\n", md.trim()))?;
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
@@ -394,6 +393,10 @@ impl Fig {
                 )
             });
 
+        // Only the file path wraps the spec in the prescript/postscript that make it usable
+        // on its own; bare `usage g fig` prints the spec object alone. `--out-file -` follows
+        // the file path, since it means "the bytes a file would have received". Whether the
+        // two should agree is a separate question, left alone here.
         if let Some(path) = &self.out_file {
             let prescript = if let Some(source_file) = &self.file {
                 let source_label = if source_file.as_os_str() == "-" {

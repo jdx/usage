@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::parse_file_or_stdin;
+use super::{parse_file_or_stdin, write_or_stdout};
 use clap::Args;
 use usage::docs::manpage::ManpageRenderer;
 
@@ -11,7 +11,7 @@ pub struct Manpage {
     #[clap(short, long)]
     file: PathBuf,
 
-    /// Output file path (defaults to stdout)
+    /// Output file path, or "-" for stdout (default)
     #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
     out_file: Option<PathBuf>,
 
@@ -32,12 +32,7 @@ impl Manpage {
         let renderer = ManpageRenderer::new(spec).with_section(self.section);
         let manpage = renderer.render()?;
 
-        if let Some(out_file) = &self.out_file {
-            println!("writing to {}", out_file.display());
-            xx::file::write(out_file, &manpage)?;
-        } else {
-            print!("{}", manpage);
-        }
+        write_or_stdout(self.out_file.as_deref(), &manpage)?;
 
         Ok(())
     }

@@ -98,6 +98,21 @@ fn test_generate_manpage_output_to_file() {
 }
 
 #[test]
+fn test_generate_manpage_out_file_dash_is_stdout() {
+    let run = |args: &[&str]| {
+        let mut cmd = usage_cmd();
+        cmd.args(["generate", "manpage", "-f"]);
+        cmd.arg(example_path("basic.usage.kdl"));
+        cmd.args(args);
+        let output = cmd.output().unwrap();
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    assert_eq!(run(&[]), run(&["-o", "-"]));
+}
+
+#[test]
 fn test_manpage_output_first_50_lines() {
     // Test first 50 lines of mise manpage to avoid huge snapshot
     let mut cmd = usage_cmd();

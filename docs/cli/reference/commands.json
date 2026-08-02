@@ -473,8 +473,8 @@
               {
                 "name": "out-file",
                 "usage": "--out-file <OUT_FILE>",
-                "help": "File path where the generated Fig spec will be saved",
-                "help_first_line": "File path where the generated Fig spec will be saved",
+                "help": "File path where the generated Fig spec will be saved, or \"-\" for stdout",
+                "help_first_line": "File path where the generated Fig spec will be saved, or \"-\" for stdout",
                 "short": [],
                 "long": ["out-file"],
                 "hide": false,
@@ -592,8 +592,8 @@
               {
                 "name": "out-file",
                 "usage": "-o --out-file <OUT_FILE>",
-                "help": "Output file path (defaults to stdout)",
-                "help_first_line": "Output file path (defaults to stdout)",
+                "help": "Output file path, or \"-\" for stdout (default)",
+                "help_first_line": "Output file path, or \"-\" for stdout (default)",
                 "short": ["o"],
                 "long": ["out-file"],
                 "hide": false,
@@ -700,8 +700,8 @@
               {
                 "name": "out-file",
                 "usage": "--out-file <OUT_FILE>",
-                "help": "Output file path for single-file markdown generation",
-                "help_first_line": "Output file path for single-file markdown generation",
+                "help": "Output file path for single-file markdown generation, or \"-\" for stdout (default)",
+                "help_first_line": "Output file path for single-file markdown generation, or \"-\" for stdout (default)",
                 "short": [],
                 "long": ["out-file"],
                 "hide": false,

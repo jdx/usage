@@ -324,7 +324,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--out-file",
               description:
-                "File path where the generated Fig spec will be saved",
+                'File path where the generated Fig spec will be saved, or "-" for stdout',
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -380,7 +380,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: ["-o", "--out-file"],
-              description: "Output file path (defaults to stdout)",
+              description: 'Output file path, or "-" for stdout (default)',
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -434,7 +434,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--out-file",
               description:
-                "Output file path for single-file markdown generation",
+                'Output file path for single-file markdown generation, or "-" for stdout (default)',
               isRepeatable: false,
               args: {
                 name: "out_file",
