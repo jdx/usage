@@ -18,7 +18,7 @@ A usage spec taken in as a file, use "-" to read from stdin
 
 **Effect**: modifies state
 
-File path where the generated Fig spec will be saved
+File path where the generated Fig spec will be saved, or "-" for stdout
 
 ### `--spec <SPEC>`
 

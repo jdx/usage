@@ -177,7 +177,8 @@ fn test_generate_markdown_basic() {
         out_file.to_str().unwrap(),
     ]);
 
-    cmd.assert().success();
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
 
     // Verify file was created
     assert!(out_file.exists());
@@ -186,25 +187,65 @@ fn test_generate_markdown_basic() {
     let content = fs::read_to_string(&out_file).unwrap();
     assert!(content.contains("# `basic.usage.kdl`"));
 
+    // The progress line belongs on stderr; on stdout it lands inside the document whenever
+    // the document is going to stdout.
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!stdout.contains("writing to"), "stdout was: {stdout:?}");
+    assert!(stderr.contains("writing to"), "stderr was: {stderr:?}");
+
     // Clean up
     std::fs::remove_file(&out_file).unwrap();
 }
 
+fn markdown_stdout(args: &[&str]) -> String {
+    let mut cmd = usage_cmd();
+    cmd.args(["generate", "markdown", "-f"]);
+    cmd.arg(example_path("with-examples.usage.kdl"));
+    cmd.args(args);
+
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
+    String::from_utf8(output.stdout).unwrap()
+}
+
 #[test]
 fn test_markdown_snapshot_with_examples() {
+    insta::assert_snapshot!(markdown_stdout(&["--out-file", "-"]));
+}
+
+#[test]
+fn test_markdown_stdout_when_out_file_omitted() {
+    // The two spellings of "stdout" have to agree; `--out-file -` exists for callers that
+    // build the path in a variable.
+    assert_eq!(markdown_stdout(&[]), markdown_stdout(&["--out-file", "-"]));
+}
+
+#[test]
+fn test_markdown_out_file_dash_writes_no_file() {
+    // The bug this guards: `--out-file` was resolved as a path unconditionally, and
+    // `xx::file::write` creates the parent directory before writing. `/dev/stdout` therefore
+    // produced a real `C:\dev\stdout` on Windows; `-` would likewise leave a file named `-`.
+    let dir = std::env::temp_dir().join(format!("usage_md_dash_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+
     let mut cmd = usage_cmd();
-    cmd.args([
+    cmd.current_dir(&dir).args([
         "generate",
         "markdown",
         "-f",
         &example_path("with-examples.usage.kdl"),
         "--out-file",
-        "/dev/stdout",
+        "-",
     ]);
+    cmd.assert().success();
 
-    let output = cmd.output().unwrap();
-    assert!(output.status.success());
+    let leftovers: Vec<_> = fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert!(leftovers.is_empty(), "wrote files: {leftovers:?}");
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    insta::assert_snapshot!(stdout);
+    fs::remove_dir_all(&dir).unwrap();
 }

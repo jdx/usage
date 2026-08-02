@@ -33,7 +33,7 @@ Output markdown files to this directory (required when using --multi)
 
 **Effect**: modifies state
 
-Output file path for single-file markdown generation
+Output file path for single-file markdown generation, or "-" for stdout (default)
 
 ### `--replace-pre-with-code-fences`
 
