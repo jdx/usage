@@ -69,7 +69,7 @@ run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]
-run = 'cargo clippy --all --all-features -- -D warnings'
+run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
