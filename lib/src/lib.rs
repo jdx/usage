@@ -26,7 +26,7 @@ pub use error::Result;
 pub mod docs;
 pub mod parse;
 pub mod sdk;
-pub(crate) mod sh;
+pub mod sh;
 pub(crate) mod string;
 #[cfg(test)]
 mod test;
