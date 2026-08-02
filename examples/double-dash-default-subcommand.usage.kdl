@@ -1,0 +1,14 @@
+// A `default_subcommand` whose first arg requires `--`.
+//
+// Root-level completion also offers that arg, on a separate code path from the one the
+// parser's cursor uses, so the `double_dash="required"` rule has to hold there too.
+// Kept apart from `double-dash.usage.kdl` because `default_subcommand` is spec-level and
+// would change what every command in that fixture completes to.
+
+default_subcommand "run"
+
+cmd "run" {
+    arg "[-- target]" required=#false {
+        choices "alpha" "beta"
+    }
+}

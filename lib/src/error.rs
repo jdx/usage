@@ -26,6 +26,9 @@ pub enum UsageErr {
     #[error("Missing required arg: <{0}>")]
     MissingArg(String),
 
+    #[error("Argument <{0}> can only be set after a `--` separator")]
+    ArgRequiresDoubleDash(String),
+
     #[error("{0}")]
     Help(String),
 

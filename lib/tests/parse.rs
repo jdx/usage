@@ -299,6 +299,117 @@ variadic_flag_choices_err:
     args="--level debug --level invalid --level error",
     expected=r#"Invalid choice for option level: invalid, expected one of debug, info, warn, error"#,
 
+double_dash_required_missing_separator:
+    spec=r#"arg "[file]" double_dash="required""#,
+    args="test.txt",
+    expected=r#"Argument <file> can only be set after a `--` separator"#,
+
+double_dash_required_with_separator:
+    spec=r#"arg "[file]" double_dash="required""#,
+    args="-- test.txt",
+    expected=r#"{"usage_file": "test.txt"}"#,
+
+double_dash_required_absent_ok:
+    spec=r#"arg "[file]" double_dash="required""#,
+    args="",
+    expected=r#"{}"#,
+
+// `[-- file]` is shorthand for double_dash="required"
+double_dash_required_shorthand:
+    spec=r#"arg "[-- file]""#,
+    args="test.txt",
+    expected=r#"Argument <file> can only be set after a `--` separator"#,
+
+double_dash_required_shorthand_with_separator:
+    spec=r#"arg "[-- file]""#,
+    args="-- test.txt",
+    expected=r#"{"usage_file": "test.txt"}"#,
+
+// One mistake, one message: the arg is never filled, but it must not also be
+// reported as missing.
+double_dash_required_and_required_single_error:
+    spec=r#"arg "<-- file>""#,
+    args="test.txt",
+    expected=r#"Argument <file> can only be set after a `--` separator"#,
+
+double_dash_required_and_required_missing:
+    spec=r#"arg "<-- file>""#,
+    args="",
+    expected=r#"Missing required arg: <file>"#,
+
+// A variadic arg is offered every remaining word; it reports the violation once.
+double_dash_required_var_reports_once:
+    spec=r#"arg "[-- files]...""#,
+    args="a b c",
+    expected=r#"Argument <files> can only be set after a `--` separator"#,
+
+double_dash_required_var_with_separator:
+    spec=r#"arg "[-- files]...""#,
+    args="-- a b c",
+    expected=r#"{"usage_files": "a b c"}"#,
+
+double_dash_required_after_positional:
+    spec=r#"
+    arg "<task>"
+    arg "[-- run]..."
+    "#,
+    args="mytask -- echo hi",
+    expected=r#"{"usage_run": "echo hi", "usage_task": "mytask"}"#,
+
+double_dash_required_after_positional_no_separator:
+    spec=r#"
+    arg "<task>"
+    arg "[-- run]..."
+    "#,
+    args="mytask echo hi",
+    expected=r#"Argument <run> can only be set after a `--` separator"#,
+
+// Flag parsing stays off after the separator, so the arg gets the literal word.
+double_dash_required_captures_flags_after_separator:
+    spec=r#"
+    flag "--verbose"
+    arg "[-- file]"
+    "#,
+    args="-- --verbose",
+    expected=r#"{"usage_file": "--verbose"}"#,
+
+// The choices check must not fire for a word the double-dash rule already rejected.
+double_dash_required_choices_not_validated:
+    spec=r#"arg "[-- shell]" {
+    choices "bash" "zsh"
+}"#,
+    args="tcsh",
+    expected=r#"Argument <shell> can only be set after a `--` separator"#,
+
+// An explicit `--` routes the rest to the arg that requires it, even past a
+// greedy variadic that would otherwise swallow everything.
+double_dash_routes_past_greedy_var:
+    spec=r#"
+    arg "[args]..."
+    arg "[-- last]..."
+    "#,
+    args="a -- b",
+    expected=r#"{"usage_args": "a", "usage_last": "b"}"#,
+
+double_dash_routes_with_empty_leading_var:
+    spec=r#"
+    arg "[args]..."
+    arg "[-- last]..."
+    "#,
+    args="-- b",
+    expected=r#"{"usage_last": "b"}"#,
+
+// double_dash="optional" (the default) is unaffected in either direction.
+double_dash_optional_without_separator:
+    spec=r#"arg "[file]""#,
+    args="test.txt",
+    expected=r#"{"usage_file": "test.txt"}"#,
+
+double_dash_optional_with_separator:
+    spec=r#"arg "[file]""#,
+    args="-- test.txt",
+    expected=r#"{"usage_file": "test.txt"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true

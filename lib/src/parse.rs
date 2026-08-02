@@ -252,6 +252,19 @@ pub struct ParseOutput {
     pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
     pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
+    /// The positional argument the next word would have filled, i.e. where the parser's
+    /// cursor stopped. `None` once every argument is satisfied.
+    ///
+    /// Completions need exactly this: the parser already accounts for `var_max`, for
+    /// `restart_token` rewinds, and for the jump an explicit `--` performs onto a
+    /// `double_dash="required"` argument, so re-deriving it from `args` would disagree.
+    pub next_arg: Option<Arc<SpecArg>>,
+    /// Whether an explicit `--` was consumed *as a separator*.
+    ///
+    /// A `--` that `double_dash="preserve"` keeps as a value does not count: it is a value
+    /// of the variadic argument collecting it, not a separator, so it does not unlock a
+    /// `double_dash="required"` argument.
+    pub double_dash_seen: bool,
 }
 
 impl ParseOutput {
@@ -350,7 +363,13 @@ impl<'a> Parser<'a> {
         };
 
         // Apply env vars and defaults for args
-        for arg in out.cmd.args.iter().skip(out.args.len()) {
+        //
+        // Not `skip(out.args.len())`: an explicit `--` can jump the parser's cursor past an arg
+        // that stayed empty, leaving a gap that makes the fill count a wrong starting offset.
+        for arg in out.cmd.args.iter() {
+            if out.args.contains_key(arg) {
+                continue;
+            }
             if let Some(env_var) = arg.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
                     validate_choice_value(
@@ -541,6 +560,8 @@ fn parse_partial_with_env(
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: vec![],
         errors: vec![],
+        next_arg: None,
+        double_dash_seen: false,
     };
 
     // Phase 1: Scan for subcommands and collect global flags
@@ -662,9 +683,21 @@ fn parse_partial_with_env(
     //
     // Now that we've identified all subcommands and executed their mounts,
     // we can parse the remaining arguments, flags, and their values.
-    let mut next_arg = out.cmd.args.first();
+
+    // The cursor into `out.cmd.args`, kept as an index rather than a reference because an
+    // explicit `--` may jump it *past* arguments that stay empty (see the `w == "--"` arm).
+    // With such a gap `out.args.len()` no longer equals the cursor, so anything asking "is this
+    // argument filled?" has to consult `out.args` by key instead of counting.
+    let mut next_arg_idx: usize = 0;
     let mut enable_flags = true;
     let mut grouped_flag = false;
+    // Whether an explicit `--` has been consumed *as a separator* (as opposed to being kept as a
+    // value by `double_dash="preserve"`). Args declared `double_dash="required"` only accept
+    // words that come after it — see `report_double_dash_violation`.
+    let mut seen_double_dash = false;
+    // Args already reported as having been offered a word before the `--` they require, so a
+    // variadic one does not report the same violation for every word it is offered.
+    let mut double_dash_violations: HashSet<String> = HashSet::new();
 
     while !input.is_empty() {
         let mut w = input.pop_front().unwrap();
@@ -676,12 +709,15 @@ fn parse_partial_with_env(
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
         if let Some(ref restart_token) = out.cmd.restart_token {
             if w == *restart_token {
-                // Reset argument parsing state for a fresh command invocation
+                // Reset argument parsing state for a fresh command invocation, keeping the
+                // flags. `double_dash_violations` is deliberately *not* cleared: `out.errors`
+                // is not cleared here either, so clearing it would let one arg report the same
+                // violation once per invocation.
                 out.args.clear();
-                next_arg = out.cmd.args.first();
+                next_arg_idx = 0;
                 out.flag_awaiting_value.clear(); // Clear any pending flag values
                 enable_flags = true; // Reset -- separator effect
-                                     // Keep flags and continue parsing
+                seen_double_dash = false; // The next invocation needs its own `--`
                 continue;
             }
         }
@@ -692,14 +728,39 @@ fn parse_partial_with_env(
 
             // Only preserve the double dash token if we're collecting values for a variadic arg
             // in double_dash == `preserve` mode
-            let should_preserve = next_arg
+            let should_preserve = out
+                .cmd
+                .args
+                .get(next_arg_idx)
                 .map(|arg| arg.var && arg.double_dash == SpecDoubleDashChoices::Preserve)
                 .unwrap_or(false);
 
             if should_preserve {
-                // Fall through to arg parsing
+                // Fall through to arg parsing. This `--` is a *value*, not a separator, so it
+                // neither counts as one nor unlocks a `double_dash="required"` arg.
             } else {
-                // Default behavior, skip the token
+                seen_double_dash = true;
+
+                // Everything after an explicit `--` belongs to the arg that requires one, so
+                // jump the cursor there — past any earlier arg, including a greedy variadic
+                // that would otherwise swallow the rest. This mirrors clap's `Arg::last(true)`,
+                // which is what `double_dash="required"` is generated from. Specs without such
+                // an arg find nothing and keep the cursor where it was.
+                let target = out.cmd.args.iter().position(|arg| {
+                    arg.double_dash == SpecDoubleDashChoices::Required
+                        && !out.args.contains_key(arg)
+                });
+                if let Some(target) = target {
+                    // Forward only. An unfilled required arg declared *before* the cursor is
+                    // left where it is rather than rewound to — words already assigned to
+                    // later args would have to be taken back for that to mean anything, and
+                    // the arg keeps its `MissingArg`. `double_dash="required"` mirrors clap's
+                    // `Arg::last(true)`, which is the final positional, so a spec that puts
+                    // one ahead of others is already outside what this models.
+                    if target > next_arg_idx {
+                        next_arg_idx = target;
+                    }
+                }
                 continue;
             }
         }
@@ -720,6 +781,7 @@ fn parse_partial_with_env(
                 custom_env,
             )?;
             if should_return {
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok(out);
             }
             continue;
@@ -757,6 +819,7 @@ fn parse_partial_with_env(
             if is_help_arg(spec, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok(out);
             }
         }
@@ -793,6 +856,7 @@ fn parse_partial_with_env(
             if is_help_arg(spec, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok(out);
             }
             if grouped_flag {
@@ -812,12 +876,23 @@ fn parse_partial_with_env(
                 custom_env,
             )?;
             if should_return {
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok(out);
             }
             continue;
         }
 
-        if let Some(arg) = next_arg {
+        if let Some(arg) = out.cmd.args.get(next_arg_idx) {
+            // Before anything else: an arg that requires `--` accepts nothing until one has been
+            // seen. Checking ahead of `validate_choices` keeps a discarded word from also being
+            // reported as an invalid choice, and from reaching that function's help escape.
+            if arg.double_dash == SpecDoubleDashChoices::Required && !seen_double_dash {
+                report_double_dash_violation(arg, &mut out.errors, &mut double_dash_violations);
+                // Drop the word without filling the arg or advancing the cursor: every later
+                // word hits the same arg and is rejected the same way, so the parse still ends
+                // in an error rather than in `unexpected word`.
+                continue;
+            }
             if validate_choices(
                 spec,
                 &out.cmd,
@@ -827,6 +902,7 @@ fn parse_partial_with_env(
                 arg.choices.as_ref(),
                 custom_env,
             )? {
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok(out);
             }
             if arg.var {
@@ -838,24 +914,36 @@ fn parse_partial_with_env(
                     .unwrap();
                 arr.push(w);
                 if arr.len() >= arg.var_max.unwrap_or(usize::MAX) {
-                    next_arg = out.cmd.args.get(out.args.len());
+                    next_arg_idx += 1;
                 }
             } else {
                 out.args
                     .insert(Arc::new(arg.clone()), ParseValue::String(w));
-                next_arg = out.cmd.args.get(out.args.len());
+                next_arg_idx += 1;
             }
             continue;
         }
         if is_help_arg(spec, &w) {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
+            record_cursor(&mut out, next_arg_idx, seen_double_dash);
             return Ok(out);
         }
         bail!("unexpected word: {w}");
     }
 
-    for arg in out.cmd.args.iter().skip(out.args.len()) {
+    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+
+    // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
+    // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
+    for arg in out.cmd.args.iter() {
+        if out.args.contains_key(arg) {
+            continue;
+        }
+        // Already reported as needing a `--`; one mistake should not yield two messages.
+        if double_dash_violations.contains(&arg.name) {
+            continue;
+        }
         if arg.required && arg.default.is_empty() {
             // Check if there's an env var available (custom env map takes precedence)
             let has_env = arg.env.as_ref().is_some_and(|e| {
@@ -1086,6 +1174,30 @@ fn validate_choice_values(
         validate_choice_value(target, value, choices, custom_env)?;
     }
     Ok(())
+}
+
+/// Publish where Phase 2 left its positional cursor, so callers that do not re-run the parse —
+/// completions, above all — agree with it. Called on every exit from the loop, including the
+/// early ones that render help, where the cursor is still the useful answer.
+fn record_cursor(out: &mut ParseOutput, next_arg_idx: usize, seen_double_dash: bool) {
+    out.next_arg = out.cmd.args.get(next_arg_idx).cloned().map(Arc::new);
+    out.double_dash_seen = seen_double_dash;
+}
+
+/// Record that `arg` was handed a word before the `--` it requires.
+///
+/// A variadic arg would otherwise report the same mistake once per word it was offered, so the
+/// message is emitted only the first time each arg is seen. The set is also what suppresses the
+/// `MissingArg` that a `required` + `double_dash="required"` arg would otherwise collect at the
+/// end of the parse.
+fn report_double_dash_violation(
+    arg: &SpecArg,
+    errors: &mut Vec<UsageErr>,
+    violations: &mut HashSet<String>,
+) {
+    if violations.insert(arg.name.clone()) {
+        errors.push(UsageErr::ArgRequiresDoubleDash(arg.name.clone()));
+    }
 }
 
 fn is_help_arg(spec: &Spec, w: &str) -> bool {
@@ -3127,6 +3239,236 @@ cmd "run" {
         let extra_arg = parsed.args.keys().find(|a| a.name == "extra_args").unwrap();
         let extra_value = parsed.args.get(extra_arg).unwrap();
         assert_eq!(extra_value.to_string(), "-- arg1 -- --foo");
+    }
+
+    fn spec_with_args(args: impl IntoIterator<Item = SpecArg>) -> Spec {
+        let cmd = SpecCommand::builder().name("test").args(args).build();
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    fn arg_value(parsed: &ParseOutput, name: &str) -> String {
+        let arg = parsed
+            .args
+            .keys()
+            .find(|a| a.name == name)
+            .unwrap_or_else(|| panic!("expected arg {name} to be parsed"));
+        parsed.args.get(arg).unwrap().to_string()
+    }
+
+    fn required_arg(name: &str) -> SpecArg {
+        SpecArg::builder()
+            .name(name)
+            .var(true)
+            .required(false)
+            .double_dash(SpecDoubleDashChoices::Required)
+            .build()
+    }
+
+    #[test]
+    fn test_double_dash_required_reports_error_once_for_variadic() {
+        // A variadic arg is offered every remaining word, but the mistake is one mistake.
+        let spec = spec_with_args([required_arg("files")]);
+
+        let parsed = parse_partial(&spec, &input(&["test", "a", "b", "c"])).unwrap();
+
+        assert!(parsed.args.is_empty());
+        assert_eq!(parsed.errors.len(), 1);
+        assert!(
+            matches!(&parsed.errors[0], UsageErr::ArgRequiresDoubleDash(name) if name == "files")
+        );
+    }
+
+    #[test]
+    fn test_double_dash_required_suppresses_missing_arg() {
+        // The arg is never filled, so the end-of-parse check would also call it missing.
+        let spec = spec_with_args([SpecArg::builder()
+            .name("file")
+            .required(true)
+            .double_dash(SpecDoubleDashChoices::Required)
+            .build()]);
+
+        let parsed = parse_partial(&spec, &input(&["test", "x"])).unwrap();
+
+        assert_eq!(parsed.errors.len(), 1);
+        assert!(matches!(
+            &parsed.errors[0],
+            UsageErr::ArgRequiresDoubleDash(_)
+        ));
+        // The cursor stays put, so a completion keeps offering the same arg.
+        assert_eq!(
+            parsed.next_arg.as_ref().map(|a| a.name.as_str()),
+            Some("file")
+        );
+        assert!(!parsed.double_dash_seen);
+    }
+
+    #[test]
+    fn test_double_dash_routes_to_required_arg() {
+        // Everything after `--` belongs to the arg that requires it, even though the greedy
+        // variadic before it would otherwise swallow the rest (clap's `Arg::last(true)`).
+        let spec = spec_with_args([
+            SpecArg::builder()
+                .name("tool")
+                .var(true)
+                .required(false)
+                .build(),
+            required_arg("command"),
+        ]);
+
+        let parsed = parse(&spec, &input(&["test", "node@20", "--", "node", "app.js"])).unwrap();
+
+        assert_eq!(arg_value(&parsed, "tool"), "node@20");
+        assert_eq!(arg_value(&parsed, "command"), "node app.js");
+        assert!(parsed.double_dash_seen);
+    }
+
+    #[test]
+    fn test_double_dash_routes_with_gap_reports_missing_arg() {
+        // Jumping the cursor leaves `tool` empty even though `command` is filled, so the
+        // "is it filled?" check cannot be a count of how many args were filled.
+        let spec = spec_with_args([
+            SpecArg::builder()
+                .name("tool")
+                .var(true)
+                .required(true)
+                .build(),
+            required_arg("command"),
+        ]);
+
+        let parsed = parse_partial(&spec, &input(&["test", "--", "ls"])).unwrap();
+
+        assert_eq!(arg_value(&parsed, "command"), "ls");
+        assert!(parsed.args.keys().all(|a| a.name != "tool"));
+        assert!(parsed
+            .errors
+            .iter()
+            .any(|e| matches!(e, UsageErr::MissingArg(name) if name == "tool")));
+    }
+
+    #[test]
+    fn test_double_dash_gap_applies_defaults() {
+        // Same gap, seen from `Parser::parse`: the skipped arg still gets its default.
+        let spec = spec_with_args([
+            SpecArg::builder()
+                .name("tool")
+                .var(true)
+                .required(false)
+                .default_value("node@20")
+                .build(),
+            required_arg("command"),
+        ]);
+
+        let parsed = parse(&spec, &input(&["test", "--", "ls"])).unwrap();
+
+        assert_eq!(arg_value(&parsed, "command"), "ls");
+        assert_eq!(arg_value(&parsed, "tool"), "node@20");
+    }
+
+    fn spec_with_restart_token_and_required_arg() -> Spec {
+        let run_cmd = SpecCommand::builder()
+            .name("run")
+            .arg(SpecArg::builder().name("task").build())
+            .arg(required_arg("run_args"))
+            .restart_token(":::".to_string())
+            .build();
+        let mut cmd = SpecCommand::builder().name("test").build();
+        cmd.subcommands.insert("run".to_string(), run_cmd);
+        Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            cmd,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_double_dash_required_restart_token_resets_separator() {
+        // The `--` before `:::` belongs to the previous invocation only.
+        let spec = spec_with_restart_token_and_required_arg();
+
+        let parsed = parse_partial(
+            &spec,
+            &input(&["test", "run", "task1", "--", "a", ":::", "task2", "b"]),
+        )
+        .unwrap();
+
+        assert_eq!(arg_value(&parsed, "task"), "task2");
+        assert!(parsed.args.keys().all(|a| a.name != "run_args"));
+        // Reported once even though the arg was violated after already succeeding once.
+        assert_eq!(
+            parsed
+                .errors
+                .iter()
+                .filter(|e| matches!(e, UsageErr::ArgRequiresDoubleDash(_)))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_double_dash_required_restart_token_accepts_new_separator() {
+        let spec = spec_with_restart_token_and_required_arg();
+
+        let parsed = parse(
+            &spec,
+            &input(&["test", "run", "task1", "--", "a", ":::", "task2", "--", "c"]),
+        )
+        .unwrap();
+
+        assert_eq!(arg_value(&parsed, "task"), "task2");
+        assert_eq!(arg_value(&parsed, "run_args"), "c");
+    }
+
+    #[test]
+    fn test_double_dash_preserve_is_not_a_separator() {
+        // A `--` that `preserve` keeps is a *value* of that arg, so it must not unlock the
+        // arg that requires a separator. Deliberate: one token cannot be both.
+        let spec = spec_with_args([
+            SpecArg::builder()
+                .name("kept")
+                .var(true)
+                .var_max(1)
+                .required(false)
+                .double_dash(SpecDoubleDashChoices::Preserve)
+                .build(),
+            required_arg("rest"),
+        ]);
+
+        let parsed = parse_partial(&spec, &input(&["test", "--", "x"])).unwrap();
+
+        assert_eq!(arg_value(&parsed, "kept"), "--");
+        assert!(parsed.args.keys().all(|a| a.name != "rest"));
+        assert!(!parsed.double_dash_seen);
+        assert_eq!(parsed.errors.len(), 1);
+    }
+
+    #[test]
+    fn test_double_dash_required_does_not_bail_in_parse_partial() {
+        // Completions parse half-typed command lines; they must still get a result.
+        let spec = spec_with_args([required_arg("file")]);
+
+        assert!(parse_partial(&spec, &input(&["test", "x"])).is_ok());
+        assert!(parse(&spec, &input(&["test", "x"])).is_err());
+    }
+
+    #[test]
+    fn test_double_dash_without_required_arg_does_not_move_cursor() {
+        // Specs with no `double_dash="required"` arg are untouched by the jump.
+        let spec = spec_with_args([
+            SpecArg::builder().name("first").required(false).build(),
+            SpecArg::builder().name("second").required(false).build(),
+        ]);
+
+        let parsed = parse(&spec, &input(&["test", "--", "a", "b"])).unwrap();
+
+        assert_eq!(arg_value(&parsed, "first"), "a");
+        assert_eq!(arg_value(&parsed, "second"), "b");
+        assert!(parsed.next_arg.is_none());
     }
 
     #[test]
