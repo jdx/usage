@@ -1,6 +1,24 @@
 # Changelog
 
-## [4.1.0](https://github.com/jdx/usage/compare/v4.0.0..v4.1.0) - 2026-07-28
+## [5.0.0](https://github.com/jdx/usage/compare/v4.1.0..v5.0.0) - 2026-08-02
+
+### 🚀 Features
+
+- **(cli)** allow overriding the shell program with USAGE_SHELL_<SHELL> by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#767](https://github.com/jdx/usage/pull/767)
+
+### 🐛 Bug Fixes
+
+- **(cli)** forward parsed args to WSL bash via WSLENV on windows by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#764](https://github.com/jdx/usage/pull/764)
+- **(cli)** let generate markdown write to stdout by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#766](https://github.com/jdx/usage/pull/766)
+- **(complete)** use `type -P` so the CLI-presence guard ignores shell functions by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#760](https://github.com/jdx/usage/pull/760)
+- **(parse)** enforce double_dash="required" for positional args by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#762](https://github.com/jdx/usage/pull/762)
+- **(windows)** run `run=` scripts with sh when available by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#765](https://github.com/jdx/usage/pull/765)
+
+### 🎨 Styling
+
+- fix clippy and deprecation warnings in test and bench targets by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#763](https://github.com/jdx/usage/pull/763)
+
+## [4.1.0](https://github.com/jdx/usage/compare/v4.0.0..v4.1.0) - 2026-07-30
 
 ### 🚀 Features
 
