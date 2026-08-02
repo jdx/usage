@@ -8,6 +8,8 @@ use miette::IntoDiagnostic;
 
 use usage::Spec;
 
+use crate::env;
+
 /// Execute a shell script with the specified shell
 ///
 /// Typically, this will be called by a script's shebang.
@@ -60,9 +62,7 @@ impl Shell {
             .collect_vec();
         cmd.args(&args);
 
-        for (key, val) in &parsed.as_env() {
-            cmd.env(key, val);
-        }
+        env::apply_parsed_env(&mut cmd, &parsed.as_env());
 
         let result = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
 
