@@ -50,8 +50,42 @@ arg "<env>" {
 arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 
 // double-dash behavior
-arg "<file>" double_dash="required" // arg must be passed after a double dash (e.g. mycli -- file.txt)
-arg "<file>" double_dash="optional" // arg may be passed after a double dash (e.g. mycli -- file.txt or mycli file.txt)
-arg "<file>..." double_dash="automatic" // once arg is passed, behave as if a double dash was passed (e.g. mycli file.txt --filewithdash)
+arg "<file>" double_dash="required" // arg only accepts values after a double dash; `mycli file.txt` is an error, `mycli -- file.txt` is not
+arg "<-- file>"                     // shorthand for double_dash="required" (also `arg "[-- file]"`, `arg "<-- files>..."`)
+arg "<file>" double_dash="optional" // arg may be passed after a double dash (e.g. mycli -- file.txt or mycli file.txt) — the default
+arg "<file>..." double_dash="automatic" // once arg is passed, behave as if a double dash was passed (e.g. mycli file.txt --filewithdash) — not yet enforced by the parser
 arg "<args>..." double_dash="preserve" // preserve double dashes as args (e.g. mycli arg1 -- arg2 -- arg3)
 ```
+
+## Double-Dash Behavior
+
+`double_dash="required"` is enforced while parsing, so the three points below are
+what a caller of your CLI actually sees.
+
+**The arg is unreachable until a `--` is typed.** A word offered to it beforehand is
+rejected with ``Argument <file> can only be set after a `--` separator``, and the value
+is not assigned. A variadic arg reports this once, not once per word, and an arg that
+is both `required` and `double_dash="required"` reports only this — not also
+`Missing required arg`.
+
+**Everything after the `--` is routed to that arg**, jumping past earlier args —
+including a greedy variadic that would otherwise swallow the rest. This matches
+clap's [`Arg::last(true)`](https://docs.rs/clap/latest/clap/struct.Arg.html#method.last),
+which is what specs generated from clap map to `double_dash="required"`.
+
+```kdl
+arg "[tool]..."
+arg "[-- command]..."
+// mycli node@20 -- node app.js  =>  tool=[node@20], command=[node, app.js]
+// mycli -- ls                   =>  tool=[],        command=[ls]
+```
+
+**Flag parsing stops at the `--`**, as usual, so `mycli -- --verbose` gives the arg the
+literal string `--verbose` rather than setting a `--verbose` flag.
+
+Two interactions are worth calling out:
+
+- A `--` that `double_dash="preserve"` keeps as a value is a _value_, not a separator.
+  It does not unlock a `double_dash="required"` arg — one token cannot be both.
+- A command's `restart_token` starts a fresh invocation, which resets the separator.
+  Each invocation after the token needs its own `--`.

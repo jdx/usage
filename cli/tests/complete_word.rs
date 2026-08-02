@@ -1,6 +1,7 @@
 use assert_cmd::assert::Assert;
 use assert_cmd::cargo;
 use std::env;
+use std::fs;
 use std::process::Command;
 
 use assert_cmd::prelude::*;
@@ -51,6 +52,101 @@ fn complete_word_variadic_arg_reuses_completer() {
         &["--", "variadic", "foo", ""],
     )
     .stdout("foo\nbar\n");
+}
+
+#[test]
+fn complete_word_double_dash_required_offers_the_separator() {
+    // The parser rejects anything given to a `double_dash="required"` arg before `--`, so
+    // there is exactly one useful thing to complete there.
+    assert_cmd("double-dash.usage.kdl", &["--", "separator", ""]).stdout("--\n");
+    // Once the separator is in, the arg completes normally.
+    assert_cmd("double-dash.usage.kdl", &["--", "separator", "--", ""]).stdout("alpha\nbeta\n");
+}
+
+#[test]
+fn complete_word_double_dash_stops_flag_completion() {
+    // Before the separator, a dash-prefixed token completes to flags as usual...
+    assert_cmd("double-dash.usage.kdl", &["--", "separator", "--v"]).stdout(contains("--verbose"));
+    // ...and after it there are no flags left to complete: the parser reads everything past
+    // `--` as a positional value, so offering `--verbose` would suggest something it would
+    // hand to <target> verbatim.
+    assert_cmd("double-dash.usage.kdl", &["--", "separator", "--", "--v"]).stdout("");
+}
+
+#[test]
+fn complete_word_double_dash_keeps_file_fallback_for_dash_prefixed_values() {
+    // A dash-prefixed word means a flag before the separator and a value after it, so path
+    // completion has to be withheld in the first case and offered in the second. Needs a file
+    // whose name starts with `-` to tell the two apart, hence the scratch directory.
+    let dir = std::env::temp_dir().join(format!("usage_dash_file_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("-dashed.txt"), "").unwrap();
+
+    let spec = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("examples")
+        .join("double-dash.usage.kdl");
+    let run = |args: &[&str]| {
+        let mut c = Command::new(cargo::cargo_bin!("usage"));
+        c.current_dir(&dir)
+            .args(["cw", "--shell", "fish", "-f"])
+            .arg(&spec)
+            .arg("mycli")
+            .args(args);
+        String::from_utf8(c.output().unwrap().stdout).unwrap()
+    };
+
+    // The leading `--` is clap's own escape, so the words start after it.
+    assert!(
+        !run(&["--", "paths", "-d"]).contains("-dashed.txt"),
+        "before `--`, `-d` is a flag prefix"
+    );
+    assert!(
+        run(&["--", "paths", "--", "-d"]).contains("-dashed.txt"),
+        "after `--`, `-d` is the start of a value"
+    );
+
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn complete_word_double_dash_applies_after_a_restart_token() {
+    // A restart_token starts a fresh invocation, so the separator has to be typed again.
+    assert_cmd(
+        "double-dash.usage.kdl",
+        &["--", "restarted", "--", "alpha", ":::", ""],
+    )
+    .stdout("--\n");
+    assert_cmd(
+        "double-dash.usage.kdl",
+        &["--", "restarted", "--", "alpha", ":::", "--", ""],
+    )
+    .stdout("alpha\nbeta\n");
+}
+
+#[test]
+fn complete_word_double_dash_applies_to_a_default_subcommand() {
+    // Root-level completion reaches the default subcommand's first arg by its own path.
+    assert_cmd("double-dash-default-subcommand.usage.kdl", &["--", ""])
+        .stdout(contains("--\n"))
+        .stdout(contains("alpha").not());
+    assert_cmd(
+        "double-dash-default-subcommand.usage.kdl",
+        &["--", "--", ""],
+    )
+    .stdout(contains("alpha"))
+    .stdout(contains("beta"));
+}
+
+#[test]
+fn complete_word_double_dash_routes_past_greedy_variadic() {
+    // Before the separator the greedy variadic is still the target...
+    assert_cmd("double-dash.usage.kdl", &["--", "routed", ""]).stdout("one\ntwo\n");
+    assert_cmd("double-dash.usage.kdl", &["--", "routed", "one", ""]).stdout("one\ntwo\n");
+    // ...and after it the completion follows the parser onto the arg that required it.
+    assert_cmd("double-dash.usage.kdl", &["--", "routed", "one", "--", ""]).stdout("alpha\nbeta\n");
 }
 
 #[test]

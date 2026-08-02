@@ -1,0 +1,37 @@
+// `double_dash="required"` args, spelled with the `[-- name]` shorthand.
+//
+// Choices rather than a `complete` runner so the completions are resolved in-process
+// and the fixture works on every platform.
+
+// A greedy variadic sits in front of the arg that requires `--`, so reaching the
+// latter depends on the separator moving the parser's cursor past the former.
+cmd routed {
+    arg "[args]…" var=#true required=#false {
+        choices "one" "two"
+    }
+    arg "[-- last]…" var=#true required=#false {
+        choices "alpha" "beta"
+    }
+}
+
+// Nothing can be given to <target> until a `--` shows up. The name avoids `file`/`dir`,
+// which are completed as paths regardless of their choices.
+cmd separator {
+    flag --verbose help="Not a flag once `--` has been typed"
+    arg "[-- target]" required=#false {
+        choices "alpha" "beta"
+    }
+}
+
+// No choices, so completion falls back to paths — including for a dash-prefixed word,
+// which past the separator is a value rather than a flag.
+cmd paths {
+    arg "[-- target]" required=#false
+}
+
+// A `restart_token` begins a fresh invocation, which needs its own `--`.
+cmd restarted restart_token=":::" {
+    arg "[-- target]" required=#false {
+        choices "alpha" "beta"
+    }
+}

@@ -10,9 +10,8 @@ use miette::IntoDiagnostic;
 use std::sync::LazyLock;
 use xx::regex;
 
-use usage::parse::{ParseOutput, ParseValue};
 use usage::sh::sh;
-use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
+use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecDoubleDashChoices, SpecFlag};
 
 use crate::cli::generate;
 
@@ -119,13 +118,16 @@ impl CompleteWord {
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
         let flags = parsed.completion_flags();
-        let mut choices = if ctoken == "-" {
+        // An explicit `--` stops the parser reading flags, so past one there is no such thing
+        // as a flag to complete — a dash-prefixed word is a positional value.
+        let flags_possible = !parsed.double_dash_seen;
+        let mut choices = if flags_possible && ctoken == "-" {
             let shorts = self.complete_short_flag_names(&flags, "");
             let longs = self.complete_long_flag_names(&flags, "");
             shorts.into_iter().chain(longs).collect::<Vec<_>>()
-        } else if ctoken.starts_with("--") {
+        } else if flags_possible && ctoken.starts_with("--") {
             self.complete_long_flag_names(&flags, &ctoken)
-        } else if ctoken.starts_with('-') {
+        } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
         } else if after_restart_token {
             // After a restart_token, complete from the first arg of the current command
@@ -133,8 +135,16 @@ impl CompleteWord {
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.first() {
-                has_explicit_choices = arg.choices.is_some();
-                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
+                let (found, constrained) = self.complete_positional(
+                    &ctx,
+                    spec,
+                    &parsed.cmd,
+                    arg,
+                    &ctoken,
+                    parsed.double_dash_seen,
+                )?;
+                has_explicit_choices = constrained;
+                choices.extend(found);
             }
             choices
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
@@ -143,9 +153,17 @@ impl CompleteWord {
             self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?
         } else {
             let mut choices = vec![];
-            if let Some(arg) = next_arg_for_completion(&parsed) {
-                has_explicit_choices = arg.choices.is_some();
-                choices.extend(self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?);
+            if let Some(arg) = parsed.next_arg.as_deref() {
+                let (found, constrained) = self.complete_positional(
+                    &ctx,
+                    spec,
+                    &parsed.cmd,
+                    arg,
+                    &ctoken,
+                    parsed.double_dash_seen,
+                )?;
+                has_explicit_choices = constrained;
+                choices.extend(found);
             }
             if !parsed.cmd.subcommands.is_empty() {
                 choices.extend(self.complete_subcommands(&parsed.cmd, &ctoken));
@@ -154,23 +172,37 @@ impl CompleteWord {
             if parsed.cmd.name == spec.cmd.name {
                 if let Some(default_name) = &spec.default_subcommand {
                     if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
-                        // Include completions from default subcommand's first arg
+                        // Include completions from default subcommand's first arg.
+                        //
+                        // The `constrained` half is dropped on purpose: unlike the two call
+                        // sites above, this arg belongs to a *different* command and is only
+                        // a guess that the user means to elide the subcommand name. Letting
+                        // its choices set `has_explicit_choices` would suppress the root
+                        // command's own file fallback whenever the token failed to match
+                        // them — see `complete_word_default_subcommand_choices_do_not_block_
+                        // root_file_fallback`. The `double_dash="required"` rule does apply,
+                        // which is why this goes through the helper at all.
                         if let Some(arg) = default_cmd.args.first() {
-                            choices.extend(self.complete_arg(
+                            let (found, _) = self.complete_positional(
                                 &ctx,
                                 spec,
                                 default_cmd,
                                 arg,
                                 &ctoken,
-                            )?);
+                                parsed.double_dash_seen,
+                            )?;
+                            choices.extend(found);
                         }
                     }
                 }
             }
             choices
         };
-        // Fallback to file completions if nothing is known about this argument and it's not a flag
-        if choices.is_empty() && !ctoken.starts_with('-') && !has_explicit_choices {
+        // Fallback to file completions if nothing is known about this argument and it's not a
+        // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
+        // `-input` still gets completed there.
+        let looks_like_a_flag = flags_possible && ctoken.starts_with('-');
+        if choices.is_empty() && !looks_like_a_flag && !has_explicit_choices {
             let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             let files = self.complete_path(&cwd, &ctoken, |_| true);
             choices = files.into_iter().map(|n| (n, String::new())).collect();
@@ -256,6 +288,36 @@ impl CompleteWord {
             _ => vec![],
         };
         names.into_iter().map(|n| (n, String::new())).collect()
+    }
+
+    /// Completions for a positional argument, under the rule the parser enforces for
+    /// `double_dash="required"`: nothing reaches such an argument until an explicit `--` has
+    /// been typed, so before that the separator is the only useful candidate.
+    ///
+    /// Every path that completes a positional goes through here — the one at the parser's
+    /// cursor, the first argument after a `restart_token`, and the default subcommand's — so
+    /// the rule cannot be honoured in one and forgotten in another.
+    ///
+    /// The second return value says whether the argument constrains what may go there, which
+    /// is what suppresses the file-path fallback.
+    fn complete_positional(
+        &self,
+        ctx: &tera::Context,
+        spec: &Spec,
+        cmd: &SpecCommand,
+        arg: &SpecArg,
+        ctoken: &str,
+        double_dash_seen: bool,
+    ) -> miette::Result<(Vec<(String, String)>, bool)> {
+        if arg.double_dash == SpecDoubleDashChoices::Required && !double_dash_seen {
+            // No filename is valid here either, so the fallback stays off.
+            let separator = ctoken.is_empty().then(|| ("--".to_string(), String::new()));
+            return Ok((separator.into_iter().collect(), true));
+        }
+        Ok((
+            self.complete_arg(ctx, spec, cmd, arg, ctoken)?,
+            arg.choices.is_some(),
+        ))
     }
 
     fn complete_arg(
@@ -372,23 +434,6 @@ impl CompleteWord {
             .sorted()
             .collect()
     }
-}
-
-fn next_arg_for_completion(parsed: &ParseOutput) -> Option<&SpecArg> {
-    parsed.cmd.args.iter().find(|arg| {
-        let parsed_value = parsed
-            .args
-            .iter()
-            .find_map(|(parsed_arg, value)| (parsed_arg.name == arg.name).then_some(value));
-
-        match parsed_value {
-            Some(ParseValue::MultiString(values)) if arg.var => {
-                values.len() < arg.var_max.unwrap_or(usize::MAX)
-            }
-            Some(_) => false,
-            None => true,
-        }
-    })
 }
 
 /// Wrap a completion value in single quotes if any character would otherwise
