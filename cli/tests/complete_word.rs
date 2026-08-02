@@ -2,6 +2,7 @@ use assert_cmd::assert::Assert;
 use assert_cmd::cargo;
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 
 use assert_cmd::prelude::*;
@@ -20,20 +21,46 @@ use predicates::str::contains;
 /// The probe runs a script and checks that it exited cleanly, rather than only that something
 /// spawned. On Windows `sh` can resolve to a program that starts and then fails, which would
 /// otherwise read as a working shell and put the tests back in the confusing state above.
+///
+/// `sh` starting is necessary but not sufficient, so a fixture is run as well. Its shebang is
+/// `usage bash`, and on Windows the two need not be the same family: `sh` can be Git Bash while
+/// a bare `bash` is the WSL launcher that System32 puts ahead of `PATH`, which cannot open the
+/// absolute path `sh` hands its shebang. Probing only `sh` reported such a machine as usable
+/// and left these tests failing rather than skipping. `USAGE_SHELL_BASH` is the way out, and
+/// the probe sees it because the fixture runs through `usage bash` too.
 fn skip_if_posix_shell_missing() -> bool {
-    let usable = Command::new("sh")
+    let sh_runs = Command::new("sh")
         .arg("-c")
         .arg("exit 0")
         .output()
         .is_ok_and(|out| out.status.success());
-    if usable {
+    if sh_runs && mount_fixture_runs() {
         return false;
     }
     if env::var("CI").is_ok_and(|v| !v.is_empty()) {
-        panic!("no usable POSIX shell (`sh`) but CI is set — refusing to skip");
+        panic!("no shell that can run the mount fixtures but CI is set — refusing to skip");
     }
-    eprintln!("Skipping test - no usable POSIX shell (`sh`)");
+    eprintln!("Skipping test - no shell that can run the mount fixtures");
     true
+}
+
+/// Whether a mount fixture actually runs, given as the absolute path `sh` would hand it.
+fn mount_fixture_runs() -> bool {
+    // Built from `CARGO_MANIFEST_DIR`, not `fs::canonicalize`. On Windows canonicalize returns
+    // a `\\?\`-prefixed path, which usage cannot open — the probe would then fail on the shape
+    // of the path rather than on the shell, and every mount test would skip on a machine where
+    // they work perfectly well.
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("examples")
+        .join("mounted.sh");
+    Command::new(cargo::cargo_bin!("usage"))
+        .arg("bash")
+        .arg(fixture)
+        .arg("--mount")
+        .output()
+        .is_ok_and(|out| out.status.success())
 }
 
 #[test]

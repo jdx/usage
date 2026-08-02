@@ -1,21 +1,144 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Returns `true` if the test should be skipped because the shell is not
-/// installed. Panics under `CI=1` (or any non-empty `CI`) to prevent silent
-/// false-positives in CI: if a shell is missing in CI it's a configuration
-/// bug, not an excuse to skip the test.
+/// The program to run for `shell`, honouring the same `USAGE_SHELL_<SHELL>` override the CLI
+/// itself reads (`shell_program_override` in `cli/src/env.rs`).
+///
+/// It matters on Windows, where the executable search order puts the system directory ahead of
+/// `PATH` and installing WSL puts `bash.exe` there — so a bare `bash` is the WSL launcher,
+/// which cannot open the Windows paths these tests write. Pointing the variable at a real bash
+/// is what makes them runnable. Unset, which is every other platform, means the bare name.
+fn shell_program(shell: &str) -> String {
+    env::var(format!("USAGE_SHELL_{}", shell.to_ascii_uppercase()))
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| shell.to_string())
+}
+
+/// A path as a POSIX shell will read it.
+///
+/// These tests interpolate paths into script bodies — `source "{}"`, `export PATH="{}:$PATH"` —
+/// where a Windows `\` is an escape character rather than a separator, so `C:\Users\x` arrives
+/// as `C:Usersx`. Every shell that can run these scripts accepts `/` instead, and on Unix this
+/// changes nothing.
+fn sh_path(path: &Path) -> String {
+    path.display().to_string().replace('\\', "/")
+}
+
+/// A path as it must appear inside the shell's `$PATH`.
+///
+/// `$PATH` is colon-separated, so a Windows `C:/Users/…` splits into `C` and `/Users/…` and
+/// neither resolves — a test that puts a directory there would silently look somewhere else.
+/// The POSIX-flavoured shells that can run these scripts on Windows (Git Bash, MSYS2, Cygwin)
+/// all ship `cygpath`, and only they know whether the answer is `/c/…`, `/cygdrive/c/…` or a
+/// mount point set in fstab. Asking through `shell` rather than spawning `cygpath` directly
+/// finds the one that belongs to the shell actually in use, which need not be on Windows' own
+/// `PATH`.
+///
+/// Off Windows, and if the conversion is unavailable, the path is already what `$PATH` wants.
+fn path_var_entry(shell: &str, path: &Path) -> String {
+    if !cfg!(windows) {
+        return sh_path(path);
+    }
+    Command::new(shell_program(shell))
+        .args(["-c", "cygpath -u \"$1\"", "--"])
+        .arg(sh_path(path))
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_string())
+        .filter(|converted| !converted.is_empty())
+        .unwrap_or_else(|| sh_path(path))
+}
+
+/// Run `script` under `shell`, giving up after `secs` seconds.
+///
+/// `timeout` is spelled the same wherever these shells live, but spawning it directly walks
+/// into the trap this whole file is about: Windows keeps an unrelated `timeout.exe` in the
+/// system directory — a sleep, not a watchdog — and the search order puts it first. Going
+/// through the shell resolves the one on *its* `PATH`, and reuses the program the guard
+/// probed rather than a second, possibly different one.
+fn run_with_timeout(shell: &str, secs: u32, script: &Path) -> std::io::Result<Output> {
+    let program = shell_program(shell);
+    Command::new(&program)
+        .arg("-c")
+        .arg(format!("timeout {secs} \"$0\" \"$1\""))
+        .arg(&program)
+        .arg(sh_path(script))
+        .output()
+}
+
+/// Returns `true` if the test should be skipped because the shell cannot run a script.
+///
+/// Not "is it installed": a WSL `bash` on Windows answers `--version` perfectly well and then
+/// fails to open the very files these tests hand it, which is how five bash tests came to fail
+/// there rather than skip. Running a script from a temp directory is the precondition every
+/// test in this file actually needs, so that is what gets checked.
+///
+/// It probes `shell_program(shell)`, which is also what every test here spawns — the guard and
+/// the thing it guards must be the same executable, or an override would be honoured by one and
+/// not the other.
+///
+/// Panics under `CI=1` (or any non-empty `CI`) to prevent silent false-positives in CI: if a
+/// shell is unusable in CI it's a configuration bug, not an excuse to skip the test.
 fn skip_if_shell_missing(shell: &str) -> bool {
-    if Command::new(shell).arg("--version").output().is_ok() {
+    if shell_can_run_a_script(shell) {
         return false;
     }
     if env::var("CI").is_ok_and(|v| !v.is_empty()) {
-        panic!("shell `{shell}` not installed but CI is set — refusing to skip");
+        panic!("shell `{shell}` cannot run a script but CI is set — refusing to skip");
     }
-    eprintln!("Skipping {shell} test - {shell} shell not installed");
+    eprintln!(
+        "Skipping {shell} test - `{}` cannot run a script from {}",
+        shell_program(shell),
+        env::temp_dir().display()
+    );
     true
+}
+
+fn shell_can_run_a_script(shell: &str) -> bool {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let dir = env::temp_dir().join(format!(
+        "usage_shell_probe_{}_{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    if fs::create_dir_all(&dir).is_err() {
+        return false;
+    }
+    // `echo ok` is the one thing bash, zsh, fish and pwsh all spell the same way. pwsh is the
+    // only one that insists on the extension.
+    let script = dir.join(if shell == "pwsh" {
+        "probe.ps1"
+    } else {
+        "probe"
+    });
+    let usable = fs::write(&script, "echo ok\n").is_ok()
+        && script_command(shell, &script).output().is_ok_and(|out| {
+            out.status.success() && String::from_utf8_lossy(&out.stdout).trim() == "ok"
+        });
+    let _ = fs::remove_dir_all(&dir);
+    usable
+}
+
+/// The command that runs `script` under `shell`.
+///
+/// One place, because the probe above and the tests it guards have to agree on more than the
+/// program: a guard that invokes the shell differently can call a working shell unusable, or
+/// miss one that is. pwsh is where they would have diverged — it needs `-File` to take a script
+/// path at all, and `-NoProfile -NonInteractive` so a developer's profile cannot add output or
+/// a prompt to a run whose stdout is being compared.
+fn script_command(shell: &str, script: &Path) -> Command {
+    let mut cmd = Command::new(shell_program(shell));
+    if shell == "pwsh" {
+        cmd.args(["-NoProfile", "-NonInteractive", "-File"]);
+    }
+    cmd.arg(sh_path(script));
+    cmd
 }
 
 /// Path to a checked-in generated completion under `cli/assets/completions/`.
@@ -196,17 +319,16 @@ end
 
 echo "COMPLETION_TEST_DONE"
 "#,
-        usage_bin.parent().unwrap().to_str().unwrap(),
-        comp_file.to_str().unwrap(),
-        temp_dir.to_str().unwrap()
+        sh_path(usage_bin.parent().unwrap()),
+        sh_path(&comp_file),
+        sh_path(&temp_dir)
     );
 
     let script_file = temp_dir.join("test.fish");
     fs::write(&script_file, &test_script).unwrap();
 
     // Execute the test in fish
-    let result = Command::new("fish")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("fish", &script_file)
         .output()
         .expect("Failed to run fish test");
 
@@ -384,17 +506,16 @@ fi
 
 echo "COMPLETION_TEST_DONE"
 "#,
-        usage_bin.parent().unwrap().to_str().unwrap(),
-        comp_file.to_str().unwrap(),
-        temp_dir.to_str().unwrap()
+        path_var_entry("bash", usage_bin.parent().unwrap()),
+        sh_path(&comp_file),
+        sh_path(&temp_dir)
     );
 
     let script_file = temp_dir.join("test.sh");
     fs::write(&script_file, &test_script).unwrap();
 
     // Execute the test
-    let result = Command::new("bash")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("bash", &script_file)
         .output()
         .expect("Failed to run bash test");
 
@@ -539,21 +660,16 @@ zpty -d comptest
 
 echo "COMPLETION_TEST_DONE"
 "#,
-        usage_bin.parent().unwrap().to_str().unwrap(),
-        temp_dir.to_str().unwrap(),
-        comp_file.to_str().unwrap()
+        path_var_entry("zsh", usage_bin.parent().unwrap()),
+        sh_path(&temp_dir),
+        sh_path(&comp_file)
     );
 
     let script_file = temp_dir.join("test.zsh");
     fs::write(&script_file, &test_script).unwrap();
 
-    // Execute the test with a timeout
-    let result = Command::new("timeout")
-        .arg("5") // 5 second timeout
-        .arg("zsh")
-        .arg(script_file.to_str().unwrap())
-        .output()
-        .expect("Failed to run zsh test");
+    // Execute the test with a timeout: the script drives a pty, which can hang.
+    let result = run_with_timeout("zsh", 5, &script_file).expect("Failed to run zsh test");
 
     let stdout = String::from_utf8_lossy(&result.stdout);
     let stderr = String::from_utf8_lossy(&result.stderr);
@@ -727,16 +843,15 @@ words=(testcli "")
 CURRENT=2
 _testcli
 "#,
-        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
-        tmp = temp_dir.to_str().unwrap(),
-        comp = comp_file.to_str().unwrap(),
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        comp = sh_path(&comp_file),
     );
 
     let script_file = temp_dir.join("test.zsh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("zsh")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("zsh", &script_file)
         .output()
         .expect("Failed to run zsh test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -815,16 +930,15 @@ words=(testcli d)
 CURRENT=2
 _testcli
 "#,
-        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
-        tmp = temp_dir.to_str().unwrap(),
-        comp = comp_file.to_str().unwrap(),
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        comp = sh_path(&comp_file),
     );
 
     let script_file = temp_dir.join("test.zsh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("zsh")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("zsh", &script_file)
         .output()
         .expect("Failed to run zsh test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -949,19 +1063,17 @@ if ($flagStr -match "verbose" -or $flagStr -match "-v") {{
 
 Write-Host "COMPLETION_TEST_DONE"
 "#,
-        usage_bin.parent().unwrap().to_str().unwrap(),
-        temp_dir.to_str().unwrap(),
-        comp_file.to_str().unwrap(),
-        spec_file.to_str().unwrap()
+        sh_path(usage_bin.parent().unwrap()),
+        sh_path(&temp_dir),
+        sh_path(&comp_file),
+        sh_path(&spec_file)
     );
 
     let script_file = temp_dir.join("test.ps1");
     fs::write(&script_file, &test_script).unwrap();
 
     // Execute the test in PowerShell
-    let result = Command::new("pwsh")
-        .args(["-NoProfile", "-NonInteractive", "-File"])
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("pwsh", &script_file)
         .output()
         .expect("Failed to run pwsh - PowerShell Core must be installed for this test");
 
@@ -1099,15 +1211,14 @@ run_case empty 1 ex ""
 run_case dashes 1 ex "--"
 run_case foo 1 ex "--f"
 "#,
-        bin_dir = bin_dir.display(),
-        usage_dir = usage_bin.parent().unwrap().display(),
-        init_script = init_script.display(),
+        bin_dir = path_var_entry("bash", &bin_dir),
+        usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
+        init_script = sh_path(&init_script),
     );
     let script_file = temp_dir.join("test.sh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("bash")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("bash", &script_file)
         .output()
         .expect("Failed to run bash init test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1177,15 +1288,14 @@ words=(plain "")
 CURRENT=2
 _usage_default_complete
 "#,
-        bin_dir = bin_dir.display(),
-        usage_dir = usage_bin.parent().unwrap().display(),
-        init_script = init_script.display(),
+        bin_dir = path_var_entry("zsh", &bin_dir),
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        init_script = sh_path(&init_script),
     );
     let script_file = temp_dir.join("test.zsh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("zsh")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("zsh", &script_file)
         .output()
         .expect("Failed to run zsh init test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1281,17 +1391,16 @@ words=(testcli "")
 CURRENT=2
 _usage_default_complete
 "#,
-        bin_dir = bin_dir.to_str().unwrap(),
-        usage_dir = usage_bin.parent().unwrap().to_str().unwrap(),
-        tmp = temp_dir.to_str().unwrap(),
-        init = init_script.to_str().unwrap(),
+        bin_dir = path_var_entry("zsh", &bin_dir),
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        init = sh_path(&init_script),
     );
 
     let script_file = temp_dir.join("test.zsh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("zsh")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("zsh", &script_file)
         .output()
         .expect("Failed to run zsh init test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1346,15 +1455,14 @@ echo "[registered] ex"
 echo "[empty]" (complete -C 'ex ')
 echo "[foo]" (complete -C 'ex --f')
 "#,
-        bin_dir = bin_dir.display(),
-        usage_dir = usage_bin.parent().unwrap().display(),
-        init_script = init_script.display(),
+        bin_dir = sh_path(&bin_dir),
+        usage_dir = sh_path(usage_bin.parent().unwrap()),
+        init_script = sh_path(&init_script),
     );
     let script_file = temp_dir.join("test.fish");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("fish")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("fish", &script_file)
         .output()
         .expect("Failed to run fish init test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1433,13 +1541,12 @@ source "{comp}"
 _testcli testcli "" testcli 1
 echo "GUARD_EXIT=$?"
 "#,
-        comp = comp_file.display(),
+        comp = sh_path(&comp_file),
     );
     let script_file = temp_dir.join("test.sh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("bash")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("bash", &script_file)
         .output()
         .expect("Failed to run bash guard test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1484,15 +1591,14 @@ _usage usage "" usage 1
 echo "SPEC_BEGIN"
 cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
 "#,
-        usage_dir = usage_bin.parent().unwrap().display(),
-        cache = temp_dir.display(),
-        asset = checked_in_completion("usage.bash").display(),
+        usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
+        cache = sh_path(&temp_dir),
+        asset = sh_path(&checked_in_completion("usage.bash")),
     );
     let script_file = temp_dir.join("test.sh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("bash")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("bash", &script_file)
         .output()
         .expect("Failed to run bash shadow test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1537,14 +1643,13 @@ COMPREPLY=()
 _usage_default_complete ex "" ex
 echo "INIT_EXIT=$?"
 "#,
-        bin_dir = bin_dir.display(),
-        init_script = init_script.display(),
+        bin_dir = path_var_entry("bash", &bin_dir),
+        init_script = sh_path(&init_script),
     );
     let script_file = temp_dir.join("test.sh");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("bash")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("bash", &script_file)
         .output()
         .expect("Failed to run bash init guard test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1596,13 +1701,12 @@ end
 source "{comp}"
 echo "[completions]" (complete -c testcli | string collect)
 "#,
-        comp = comp_file.display(),
+        comp = sh_path(&comp_file),
     );
     let script_file = temp_dir.join("test.fish");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("fish")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("fish", &script_file)
         .output()
         .expect("Failed to run fish guard test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1641,15 +1745,14 @@ source "{asset}"
 echo "SPEC_BEGIN"
 cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
 "#,
-        usage_dir = usage_bin.parent().unwrap().display(),
-        cache = temp_dir.display(),
-        asset = checked_in_completion("usage.fish").display(),
+        usage_dir = sh_path(usage_bin.parent().unwrap()),
+        cache = sh_path(&temp_dir),
+        asset = sh_path(&checked_in_completion("usage.fish")),
     );
     let script_file = temp_dir.join("test.fish");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("fish")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("fish", &script_file)
         .output()
         .expect("Failed to run fish shadow test");
     let stdout = String::from_utf8_lossy(&result.stdout);
@@ -1688,14 +1791,13 @@ end
 source "{init_script}"
 echo "[registered]" (complete -c ex | string collect)
 "#,
-        bin_dir = bin_dir.display(),
-        init_script = init_script.display(),
+        bin_dir = sh_path(&bin_dir),
+        init_script = sh_path(&init_script),
     );
     let script_file = temp_dir.join("test.fish");
     fs::write(&script_file, &test_script).unwrap();
 
-    let result = Command::new("fish")
-        .arg(script_file.to_str().unwrap())
+    let result = script_command("fish", &script_file)
         .output()
         .expect("Failed to run fish init guard test");
     let stdout = String::from_utf8_lossy(&result.stdout);

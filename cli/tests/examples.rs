@@ -1,26 +1,18 @@
 use assert_cmd::cargo;
 use assert_cmd::prelude::*;
 use predicates::str::contains;
-use std::{env, process::Command};
+use std::process::Command;
 
 /// Test that examples/test-empty-defaults.sh runs successfully and demonstrates
 /// the correct behavior of default="" vs no default
 #[test]
 fn test_empty_defaults_example() {
-    // Set up PATH to include the usage binary
-    let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
-    path.insert(
-        0,
-        env::current_dir()
-            .unwrap()
-            .join("..")
-            .join("target")
-            .join("debug"),
-    );
-    path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-
-    let mut cmd = Command::new("../examples/test-empty-defaults.sh");
-    cmd.env("PATH", env::join_paths(path).unwrap());
+    // Through `usage bash`, like every other test here, rather than spawning the script and
+    // letting its `#!/usr/bin/env -S usage bash` shebang do the work. Windows cannot execute a
+    // `.sh` at all — the spawn fails with os error 193 before the shebang is ever read — and
+    // going through the binary also drops the PATH juggling that let the shebang find `usage`.
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args(["bash", "../examples/test-empty-defaults.sh"]);
 
     let assert = cmd.assert().success();
 
