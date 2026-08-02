@@ -106,6 +106,36 @@ pub fn append_to_wslenv<'a>(
     entries.join(":")
 }
 
+/// Keyed by the *program* rather than the subcommand, because that is what the value names.
+/// `usage powershell` runs `pwsh`, so its variable is `USAGE_SHELL_PWSH`.
+pub fn shell_var_name(shell: &str) -> String {
+    format!("USAGE_SHELL_{}", shell.to_ascii_uppercase())
+}
+
+/// The shell program to run in place of `shell`, if one was configured.
+///
+/// `None` means run `shell` as before. The value is a program path or a name to look up on
+/// `PATH` — not a command line: shells on Windows live at paths like
+/// `C:\Program Files\Git\bin\bash.exe`, and treating the value as a command line would make
+/// usage responsible for quoting rules it has no reason to own. `Command` passes the program
+/// and each argument separately, so a path with spaces needs no quoting.
+///
+/// An empty or blank value reads as unset, matching the `FOO= cmd` convention for switching
+/// something off. Nothing checks that the program exists: the value need not be an absolute
+/// path, so deciding would mean reimplementing `PATH`, `PATHEXT` and permission lookup, and
+/// racing the spawn that follows. A bad value surfaces as a spawn error naming it.
+///
+/// `lookup` is injected rather than read from the environment so this stays testable without
+/// mutating process-wide state — the same shape as `parse_partial_with_env` in usage-lib.
+pub fn shell_program_override(
+    shell: &str,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Option<String> {
+    let value = lookup(&shell_var_name(shell))?;
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,5 +257,68 @@ mod tests {
                 "as_env produced a key that cannot go in WSLENV: {key}"
             );
         }
+    }
+
+    fn from(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> + use<> {
+        let pairs: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect();
+        move |key| {
+            pairs
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.to_string())
+        }
+    }
+
+    #[test]
+    fn shell_var_names_cover_every_shell_subcommand() {
+        // These are the four programs `Cli::run` dispatches to; `powershell` runs `pwsh`.
+        assert_eq!(shell_var_name("bash"), "USAGE_SHELL_BASH");
+        assert_eq!(shell_var_name("zsh"), "USAGE_SHELL_ZSH");
+        assert_eq!(shell_var_name("fish"), "USAGE_SHELL_FISH");
+        assert_eq!(shell_var_name("pwsh"), "USAGE_SHELL_PWSH");
+    }
+
+    #[test]
+    fn unset_means_no_override() {
+        assert_eq!(shell_program_override("bash", from(&[])), None);
+    }
+
+    #[test]
+    fn a_blank_value_means_no_override() {
+        for blank in ["", "   ", "\t"] {
+            assert_eq!(
+                shell_program_override("bash", from(&[("USAGE_SHELL_BASH", blank)])),
+                None,
+                "blank value {blank:?} should read as unset"
+            );
+        }
+    }
+
+    #[test]
+    fn surrounding_whitespace_is_trimmed() {
+        assert_eq!(
+            shell_program_override("bash", from(&[("USAGE_SHELL_BASH", "  /usr/bin/bash  ")])),
+            Some("/usr/bin/bash".to_string())
+        );
+    }
+
+    #[test]
+    fn a_path_with_spaces_survives_intact() {
+        let path = r"C:\Program Files\Git\bin\bash.exe";
+        assert_eq!(
+            shell_program_override("bash", from(&[("USAGE_SHELL_BASH", path)])),
+            Some(path.to_string())
+        );
+    }
+
+    #[test]
+    fn another_shells_variable_is_not_picked_up() {
+        assert_eq!(
+            shell_program_override("bash", from(&[("USAGE_SHELL_ZSH", "/bin/zsh")])),
+            None
+        );
     }
 }

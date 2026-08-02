@@ -105,3 +105,53 @@ by spaces. If an arg itself has a space, then it will have quotes around it. Thi
 by [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html). For now,
 this is not customizable behavior. It would be possible to
 support [alternatives](https://github.com/jdx/usage/issues/189) though.
+
+## Windows
+
+`usage bash ./mycli` runs whatever `bash` Windows resolves to, and the executable search order
+there puts the system directory ahead of `PATH`. Installing WSL puts `bash.exe` in that
+directory, so on such a machine `bash` is the WSL launcher no matter what else is installed —
+and WSL cannot open a Windows path:
+
+```console
+$ usage bash C:/work/mycli
+/bin/bash: C:/work/mycli: No such file or directory
+```
+
+Two ways out. Passing the script by a **relative path** works, because the launcher translates
+the working directory. Or name the shell you actually meant:
+
+```batch
+:: Command Prompt
+set USAGE_SHELL_BASH=C:\Program Files\Git\bin\bash.exe
+```
+
+```powershell
+# PowerShell
+$env:USAGE_SHELL_BASH = 'C:\Program Files\Git\bin\bash.exe'
+```
+
+Each shell subcommand reads the variable for the program it runs:
+
+| Command            | Variable           |
+| ------------------ | ------------------ |
+| `usage bash`       | `USAGE_SHELL_BASH` |
+| `usage zsh`        | `USAGE_SHELL_ZSH`  |
+| `usage fish`       | `USAGE_SHELL_FISH` |
+| `usage powershell` | `USAGE_SHELL_PWSH` |
+
+`usage powershell` runs `pwsh`, so its variable is named for that — which also lets you point it
+at `powershell.exe` on a machine that only has Windows PowerShell.
+
+The value is a program: an absolute path, or a name to look up on `PATH`. It is not a command
+line, so it takes no arguments and needs no quoting even where the path contains spaces. An
+empty or whitespace-only value reads the same as an unset one. The variable is inherited by the
+script, so a script
+that invokes `usage` again gets the same shell.
+
+`usage exec` needs none of this — it already names the interpreter, so a shebang can point
+straight at one:
+
+```bash
+#!/usr/bin/env -S usage exec "C:/msys64/usr/bin/bash.exe"
+```
