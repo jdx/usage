@@ -2,6 +2,7 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
 #[derive(Error, Diagnostic, Debug)]
+#[non_exhaustive]
 pub enum UsageErr {
     #[error("Invalid flag `{token}`: {reason}")]
     InvalidFlag {

@@ -238,6 +238,7 @@ fn get_flag_key(word: &str) -> &str {
     }
 }
 
+#[non_exhaustive]
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
