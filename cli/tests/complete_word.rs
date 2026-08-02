@@ -7,6 +7,34 @@ use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use predicates::str::contains;
 
+/// Returns `true` if the test should be skipped because there is no usable POSIX shell.
+/// Panics under `CI` (any non-empty value) so a missing shell there is a configuration bug
+/// rather than a silent pass.
+///
+/// The mount fixtures are `#!/usr/bin/env -S usage bash` scripts, so `mount run=` can only
+/// work where `sh` can start them. Without this guard, Windows machines with no POSIX shell
+/// fall through to the `cmd /c` path, which hands a `.sh` to whatever program is registered
+/// for the extension — an editor window per test rather than a failure.
+///
+/// The probe runs a script and checks that it exited cleanly, rather than only that something
+/// spawned. On Windows `sh` can resolve to a program that starts and then fails, which would
+/// otherwise read as a working shell and put the tests back in the confusing state above.
+fn skip_if_posix_shell_missing() -> bool {
+    let usable = Command::new("sh")
+        .arg("-c")
+        .arg("exit 0")
+        .output()
+        .is_ok_and(|out| out.status.success());
+    if usable {
+        return false;
+    }
+    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+        panic!("no usable POSIX shell (`sh`) but CI is set — refusing to skip");
+    }
+    eprintln!("Skipping test - no usable POSIX shell (`sh`)");
+    true
+}
+
 #[test]
 fn complete_word_completer() {
     assert_cmd("basic.usage.kdl", &["plugins", "install", "pl"])
@@ -132,6 +160,9 @@ fn complete_word_arg_completer() {
 
 #[test]
 fn complete_word_mounted() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -150,6 +181,9 @@ fn complete_word_mounted() {
 
 #[test]
 fn complete_word_mounted_with_global_flags() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -191,6 +225,9 @@ fn complete_word_mounted_global_flag_choices() {
     // Regression for the parser-side root cause referenced by jdx/mise#10069:
     // a value-taking global flag placed before a mounted subcommand must not leak its
     // consumed tokens into the mounted task's `choices` positional arg.
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -242,6 +279,9 @@ fn complete_word_mounted_orphan_short_flag_choices() {
     // Completing a mounted task with the short in front must return the task's choices rather
     // than bailing with "unexpected word" / "Invalid choice" (which mise worked around by
     // promoting the short back to global).
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -287,6 +327,9 @@ fn complete_word_mounted_orphan_short_flag_choices() {
 fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
     // Regression for jdx/mise#11282: the mounting CLI's global flags must not be offered
     // inside a mounted command, and must not shadow the mounted command's own flags.
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -376,6 +419,9 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
 
 #[test]
 fn complete_word_boolean_flags_dont_consume_subcommands() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -410,6 +456,9 @@ fn complete_word_boolean_flags_dont_consume_subcommands() {
 
 #[test]
 fn complete_word_non_global_flags_do_not_stop_search() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,
@@ -439,6 +488,9 @@ fn complete_word_non_global_flags_do_not_stop_search() {
 
 #[test]
 fn complete_word_mixed_global_flags() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
     let mut path = env::split_paths(&env::var("PATH").unwrap()).collect::<Vec<_>>();
     path.insert(
         0,

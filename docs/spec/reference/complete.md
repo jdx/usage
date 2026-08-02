@@ -51,3 +51,16 @@ complete "four" run="echo {{ words | slice(start=-4) | join(sep='\"\n\"') }}"
 ```
 
 Here we just use simple commands like `ls` and `echo` but these words could be passed to any command.
+
+## Which shell runs `run`
+
+`run` is executed with `sh -c`, so it is a POSIX shell command line: pipelines, `;` sequences
+and shell builtins all work.
+
+On Windows a POSIX shell is not guaranteed. usage still runs `sh -c` when `sh` is on `PATH`
+(Git for Windows provides it), and falls back to `cmd /c` when it is not. `cmd` cannot run any
+of the above — it only handles a plain command invocation — so a spec that targets Windows
+should either keep `run` to a single command or state that it needs a POSIX shell.
+
+The script is run with stdin closed and stderr inherited, and with `__USAGE` set to the usage
+version so a script can tell it was invoked by usage.

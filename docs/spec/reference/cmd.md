@@ -78,6 +78,11 @@ Now when using completion with usage, if the user types `mycli run <tab><tab>`, 
 call `mycli mount-usage-tasks` and merge the emitted usage into the `run` command and display the
 task commands as if they were statically defined in the usage spec.
 
+`mount run` is executed the same way as [`complete`'s `run`](./complete.md#which-shell-runs-run):
+`sh -c`, falling back to `cmd /c` on Windows when there is no `sh` on `PATH`. A mount pointing at
+a shebang script therefore needs a POSIX shell to be available; one that invokes a program
+directly, like `mycli mount-usage-tasks` above, works either way.
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under
