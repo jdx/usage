@@ -9,16 +9,27 @@ set -euxo pipefail
 # It depends on usage-lib at the workspace version, so it can only be published
 # once that version is on crates.io — hence a function called in dependency
 # order rather than a block at the top of the script.
-publish_clap_usage_if_needed() {
-  local version
-  version="$(cargo pkgid clap_usage | cut -d# -f2 | cut -d@ -f2)"
-  if curl -fsS https://index.crates.io/cl/ap/clap_usage |
-    grep -q "\"vers\":\"$version\""; then
+crate_version_is_published() {
+  local crate="$1" version="$2" index_path
+  case "${#crate}" in
+  1) index_path="1/$crate" ;;
+  2) index_path="2/$crate" ;;
+  3) index_path="3/${crate:0:1}/$crate" ;;
+  *) index_path="${crate:0:2}/${crate:2:2}/$crate" ;;
+  esac
+  curl -fsS "https://index.crates.io/$index_path" |
+    grep -q "\"vers\":\"$version\""
+}
+
+publish_crate_if_needed() {
+  local crate="$1" version
+  version="$(cargo pkgid "$crate" | cut -d# -f2 | cut -d@ -f2)"
+  if crate_version_is_published "$crate" "$version"; then
     return
   fi
-  echo "Releasing clap_usage $version"
+  echo "Releasing $crate $version"
   if [ "${usage_dry_run:-}" != 1 ]; then
-    cargo publish -p clap_usage
+    cargo publish -p "$crate"
   fi
 }
 
@@ -27,9 +38,9 @@ cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
 if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
   echo "Releasing $cur_version"
   if [ "${usage_dry_run:-}" != 1 ]; then
-    cargo publish -p usage-lib
-    publish_clap_usage_if_needed
-    cargo publish -p usage-cli
+    publish_crate_if_needed usage-lib
+    publish_crate_if_needed clap_usage
+    publish_crate_if_needed usage-cli
     git tag "v$cur_version"
     git push --tags
   fi
@@ -38,7 +49,7 @@ fi
 
 # usage-lib's current version is already released, so clap_usage's dependency
 # is satisfied; catch it up if it is behind.
-publish_clap_usage_if_needed
+publish_crate_if_needed clap_usage
 
 version="$(git cliff --bumped-version --include-path 'lib/**' --include-path 'cli/**')"
 
