@@ -85,7 +85,7 @@ impl Spec {
     ///
     /// Automatically detects whether the file is:
     /// - A `.kdl` or `.usage.kdl` file containing a raw spec
-    /// - A script file with embedded `# USAGE:` comments
+    /// - A script file with embedded `#USAGE` comments
     ///
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
@@ -107,13 +107,12 @@ impl Spec {
     }
     /// Parse a spec from a script file's embedded USAGE comments.
     ///
-    /// Extracts the spec from comment lines starting with `# USAGE:` or `// USAGE:`.
+    /// Extracts the spec from comment lines marked with `#USAGE`, `//USAGE`,
+    /// `::USAGE`, or their `[USAGE]` variants.
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
-        let raw = extract_usage_from_comments(&file::read_to_string(file)?);
-        let ctx = ParsingContext::new(file, &raw);
-        let mut spec = Self::parse(&ctx, &raw)?;
+        let mut spec = Self::parse_script_with_path(&file::read_to_string(file)?, file)?;
         if spec.bin.is_empty() {
             spec.bin = file
                 .file_name()
@@ -125,6 +124,22 @@ impl Spec {
             spec.name.clone_from(&spec.bin);
         }
         Ok(spec)
+    }
+
+    /// Parse a spec from a script string's embedded USAGE comments.
+    ///
+    /// Extracts the spec from comment lines marked with `#USAGE`, `//USAGE`,
+    /// `::USAGE`, or their `[USAGE]` variants. Unlike [`Self::parse_script`],
+    /// this function cannot infer `bin` or `name` from a filename.
+    #[must_use = "parsing result should be used"]
+    pub fn parse_script_str(input: &str) -> Result<Spec, UsageErr> {
+        Self::parse_script_with_path(input, Path::new(""))
+    }
+
+    fn parse_script_with_path(input: &str, file: &Path) -> Result<Spec, UsageErr> {
+        let raw = extract_usage_from_comments(input);
+        let ctx = ParsingContext::new(file, &raw);
+        Self::parse(&ctx, &raw)
     }
 
     #[deprecated]
@@ -981,5 +996,23 @@ example "demo --version"
             output.contains("example \"demo --help\" header=\"Getting help\" help=\"Show help\"")
         );
         assert!(output.contains("example \"demo --version\""));
+    }
+
+    #[test]
+    fn test_parse_script_str() {
+        let spec = Spec::parse_script_str(
+            r#"
+#!/bin/bash
+#USAGE bin "test"
+#USAGE flag "--foo" help="test"
+echo "hello"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(spec.bin, "test");
+        assert_eq!(spec.name, "test");
+        assert_eq!(spec.cmd.flags.len(), 1);
+        assert_eq!(spec.cmd.flags[0].long, ["foo"]);
     }
 }
