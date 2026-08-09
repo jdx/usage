@@ -90,10 +90,17 @@ impl Spec {
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_file(file: &Path) -> Result<Spec, UsageErr> {
+        Self::parse_file_with_metadata_inference(file, true)
+    }
+
+    fn parse_file_with_metadata_inference(
+        file: &Path,
+        infer_metadata_from_filename: bool,
+    ) -> Result<Spec, UsageErr> {
         let spec = split_script(file)?;
         let ctx = ParsingContext::new(file, &spec);
         let mut schema = Self::parse(&ctx, &spec)?;
-        if schema.bin.is_empty() {
+        if infer_metadata_from_filename && schema.bin.is_empty() {
             schema.bin = file
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -252,7 +259,7 @@ impl Spec {
                         false => file.to_path_buf(),
                     };
                     info!("include: {}", file.display());
-                    let other = Self::parse_file(&file)?;
+                    let other = Self::parse_file_with_metadata_inference(&file, false)?;
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
@@ -1031,5 +1038,20 @@ echo "hello"
             }
             err => panic!("unexpected error: {err:?}"),
         }
+    }
+
+    #[test]
+    fn test_include_does_not_infer_metadata_from_included_filename() {
+        let dir = tempfile::tempdir().unwrap();
+        let included = dir.path().join("overrides.usage.kdl");
+        let root = dir.path().join("my-script.usage.kdl");
+        std::fs::write(&included, "").unwrap();
+        std::fs::write(&root, "include file=\"./overrides.usage.kdl\"\n").unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+
+        assert_eq!(spec.name, "my-script.usage.kdl");
+        assert_eq!(spec.bin, "my-script.usage.kdl");
+        assert!(spec.cmd.name.is_empty());
     }
 }
