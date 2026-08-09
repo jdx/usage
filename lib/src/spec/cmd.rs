@@ -1003,6 +1003,14 @@ cmd "hidden" hide=#true
         // Equality is only meaningful if the fixture actually populated the
         // fields, so guard against a future edit quietly emptying it out.
         let install = &original["cmd"]["subcommands"]["install"];
+        let purge = install["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|flag| flag["name"] == "purge")
+            .unwrap();
+        assert_eq!(purge["overrides"], serde_json::json!(["-f"]));
+        assert_eq!(purge["required_unless"], serde_json::json!(["--keep"]));
         for key in [
             "help_long",
             "help_md",

@@ -243,11 +243,6 @@ pub struct ParseOutput {
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
-    /// Flags removed because they lost an `overrides` relationship.
-    ///
-    /// These names are retained so defaults and environment values do not restore an
-    /// overridden flag after command-line parsing.
-    pub overridden_flags: HashSet<String>,
     /// Every flag the parser recognizes at this point, keyed by each of its aliases
     /// (`--long`, `-s`, negations).
     ///
@@ -356,7 +351,7 @@ impl<'a> Parser<'a> {
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
         let custom_env = self.env.as_ref();
-        let mut out = parse_partial_with_env(self.spec, input, custom_env)?;
+        let (mut out, overridden_flags) = parse_partial_with_env(self.spec, input, custom_env)?;
         trace!("{out:?}");
 
         let get_env = |key: &str| -> Option<String> {
@@ -420,7 +415,7 @@ impl<'a> Parser<'a> {
 
         // Apply env vars and defaults for flags
         for flag in out.available_flags.values() {
-            if out.flags.contains_key(flag) || out.overridden_flags.contains(&flag.name) {
+            if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
             if let Some(env_var) = flag.env.as_ref() {
@@ -544,7 +539,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    parse_partial_with_env(spec, input, None)
+    parse_partial_with_env(spec, input, None).map(|(out, _)| out)
 }
 
 /// Internal version of parse_partial that accepts an optional custom env map.
@@ -552,7 +547,7 @@ fn parse_partial_with_env(
     spec: &Spec,
     input: &[String],
     custom_env: Option<&HashMap<String, String>>,
-) -> Result<ParseOutput, miette::Error> {
+) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     input.pop_front();
@@ -562,13 +557,15 @@ fn parse_partial_with_env(
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
         flags: IndexMap::new(),
-        overridden_flags: HashSet::new(),
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: vec![],
         errors: vec![],
         next_arg: None,
         double_dash_seen: false,
     };
+    // Keep this internal so adding relationship support remains semver-compatible. The full
+    // parser uses it to prevent defaults and environment values from restoring overridden flags.
+    let mut overridden_flags = HashSet::new();
 
     // Phase 1: Scan for subcommands and collect global flags
     //
@@ -582,7 +579,7 @@ fn parse_partial_with_env(
     // We only collect global flags for mounts because:
     // - Non-global flags are specific to the current command, not subcommands
     // - Global flags affect all commands and should be passed to mount points
-    let mut prefix_words: Vec<String> = vec![];
+    let mut prefix_flags: Vec<(Arc<SpecFlag>, Vec<String>)> = vec![];
     // Which flag each word skipped here belongs to, aligned with the leading words left in
     // `input`: `Some(flag)` for a flag word, `None` for its value (or anything unresolved).
     //
@@ -600,7 +597,7 @@ fn parse_partial_with_env(
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
-            subcommand.mount(&prefix_words)?;
+            subcommand.mount(&mount_prefix_words(&prefix_flags))?;
             // Only the *boundary* is a mount crossing: below it, the mounted program's own
             // commands are ordinary commands relative to each other.
             let crossing_mount = subcommand.mounted && !out.cmd.mounted;
@@ -613,7 +610,7 @@ fn parse_partial_with_env(
             input.remove(idx);
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
-            prefix_words.clear();
+            prefix_flags.clear();
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
         } else if input[idx].starts_with('-') {
@@ -630,9 +627,7 @@ fn parse_partial_with_env(
                 // Only globals are forwarded to mounts: a non-global flag belongs to the
                 // command that declared it, not to what is mounted below it.
                 prefix_bindings.push_back(Some(Arc::clone(&f)));
-                if f.global {
-                    prefix_words.push(word.clone());
-                }
+                let mut forwarded = f.global.then(|| vec![word.clone()]);
                 idx += 1;
 
                 // Only consume next word if flag takes an argument AND value isn't embedded
@@ -642,11 +637,15 @@ fn parse_partial_with_env(
                     && idx < input.len()
                     && !input[idx].starts_with('-')
                 {
-                    if f.global {
-                        prefix_words.push(input[idx].clone());
+                    if let Some(words) = forwarded.as_mut() {
+                        words.push(input[idx].clone());
                     }
                     prefix_bindings.push_back(None);
                     idx += 1;
+                }
+                if let Some(words) = forwarded {
+                    apply_prefix_flag_overrides(&mut prefix_flags, Arc::clone(&f));
+                    prefix_flags.push((f, words));
                 }
             } else {
                 // Unknown flag - stop looking for subcommands
@@ -661,7 +660,7 @@ fn parse_partial_with_env(
                     if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
-                        subcommand.mount(&prefix_words)?;
+                        subcommand.mount(&mount_prefix_words(&prefix_flags))?;
                         let crossing_mount = subcommand.mounted && !out.cmd.mounted;
                         merge_subcommand_flags(
                             &mut out.available_flags,
@@ -670,7 +669,7 @@ fn parse_partial_with_env(
                         );
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
-                        prefix_words.clear();
+                        prefix_flags.clear();
                         used_default_subcommand = true;
                         // Continue the loop to check if this word is a subcommand of the
                         // default subcommand (e.g., a task name added via mount).
@@ -788,7 +787,7 @@ fn parse_partial_with_env(
             )?;
             if should_return {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok(out);
+                return Ok((out, overridden_flags));
             }
             continue;
         }
@@ -802,7 +801,8 @@ fn parse_partial_with_env(
                     f,
                     &out.available_flags,
                     &mut out.flags,
-                    &mut out.overridden_flags,
+                    &mut out.flag_awaiting_value,
+                    &mut overridden_flags,
                 );
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
@@ -832,7 +832,7 @@ fn parse_partial_with_env(
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok(out);
+                return Ok((out, overridden_flags));
             }
         }
 
@@ -847,7 +847,8 @@ fn parse_partial_with_env(
                     f,
                     &out.available_flags,
                     &mut out.flags,
-                    &mut out.overridden_flags,
+                    &mut out.flag_awaiting_value,
+                    &mut overridden_flags,
                 );
                 if w.len() > 2 {
                     input.push_front(format!("-{}", &w[2..]));
@@ -875,7 +876,7 @@ fn parse_partial_with_env(
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok(out);
+                return Ok((out, overridden_flags));
             }
             if grouped_flag {
                 grouped_flag = false;
@@ -895,7 +896,7 @@ fn parse_partial_with_env(
             )?;
             if should_return {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok(out);
+                return Ok((out, overridden_flags));
             }
             continue;
         }
@@ -921,7 +922,7 @@ fn parse_partial_with_env(
                 custom_env,
             )? {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok(out);
+                return Ok((out, overridden_flags));
             }
             if arg.var {
                 let arr = out
@@ -945,7 +946,7 @@ fn parse_partial_with_env(
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
-            return Ok(out);
+            return Ok((out, overridden_flags));
         }
         bail!("unexpected word: {w}");
     }
@@ -964,10 +965,10 @@ fn parse_partial_with_env(
         }
         if arg.required && arg.default.is_empty() {
             // Check if there's an env var available (custom env map takes precedence)
-            let has_env = arg.env.as_ref().is_some_and(|e| {
-                custom_env.map(|env| env.contains_key(e)).unwrap_or(false)
-                    || std::env::var(e).is_ok()
-            });
+            let has_env = arg
+                .env
+                .as_ref()
+                .is_some_and(|env_var| env_contains(custom_env, env_var));
             if !has_env {
                 out.errors.push(UsageErr::MissingArg(arg.name.clone()));
             }
@@ -975,7 +976,7 @@ fn parse_partial_with_env(
     }
 
     for flag in unique_flags(out.available_flags.values()) {
-        if out.flags.contains_key(flag) || out.overridden_flags.contains(&flag.name) {
+        if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
             continue;
         }
         let has_default =
@@ -984,12 +985,11 @@ fn parse_partial_with_env(
         let required_if = flag
             .required_if
             .iter()
-            .any(|selector| selector_is_explicit(selector, &out, custom_env));
+            .any(|selector| selector_is_explicit(selector, &out, &overridden_flags, custom_env));
         let required_unless = !flag.required_unless.is_empty()
-            && !flag
-                .required_unless
-                .iter()
-                .any(|selector| selector_is_explicit(selector, &out, custom_env));
+            && !flag.required_unless.iter().any(|selector| {
+                selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+            });
         if (flag.required || required_if || required_unless) && !has_default && !has_env {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
@@ -1050,7 +1050,7 @@ fn parse_partial_with_env(
         }
     }
 
-    Ok(out)
+    Ok((out, overridden_flags))
 }
 
 fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {
@@ -1064,18 +1064,38 @@ fn flags_override(overrider: &SpecFlag, overridden: &SpecFlag) -> bool {
         .any(|selector| flag_matches_selector(overridden, selector))
 }
 
+fn apply_prefix_flag_overrides(
+    prefix_flags: &mut Vec<(Arc<SpecFlag>, Vec<String>)>,
+    flag: Arc<SpecFlag>,
+) {
+    prefix_flags
+        .retain(|(other, _)| !(flags_override(&flag, other) || flags_override(other, &flag)));
+}
+
+fn mount_prefix_words(prefix_flags: &[(Arc<SpecFlag>, Vec<String>)]) -> Vec<String> {
+    prefix_flags
+        .iter()
+        .flat_map(|(_, words)| words.iter().cloned())
+        .collect()
+}
+
+fn env_contains(custom_env: Option<&HashMap<String, String>>, env_var: &str) -> bool {
+    match custom_env {
+        Some(env) => env.contains_key(env_var),
+        None => std::env::var(env_var).is_ok(),
+    }
+}
+
 fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -> bool {
-    flag.env.as_ref().is_some_and(|env_var| {
-        custom_env
-            .map(|env| env.contains_key(env_var))
-            .unwrap_or(false)
-            || std::env::var(env_var).is_ok()
-    })
+    flag.env
+        .as_ref()
+        .is_some_and(|env_var| env_contains(custom_env, env_var))
 }
 
 fn selector_is_explicit(
     selector: &str,
     out: &ParseOutput,
+    overridden_flags: &HashSet<String>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
     out.available_flags
@@ -1083,7 +1103,7 @@ fn selector_is_explicit(
         .chain(out.flags.keys())
         .any(|flag| {
             flag_matches_selector(flag, selector)
-                && !out.overridden_flags.contains(&flag.name)
+                && !overridden_flags.contains(&flag.name)
                 && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
         })
 }
@@ -1092,6 +1112,7 @@ fn apply_flag_overrides(
     flag: &Arc<SpecFlag>,
     available_flags: &BTreeMap<String, Arc<SpecFlag>>,
     parsed_flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    pending_flags: &mut Vec<Arc<SpecFlag>>,
     overridden_flags: &mut HashSet<String>,
 ) {
     let overridden_names: HashSet<String> = available_flags
@@ -1102,6 +1123,7 @@ fn apply_flag_overrides(
         .collect();
 
     parsed_flags.retain(|parsed, _| !overridden_names.contains(&parsed.name));
+    pending_flags.retain(|pending| !overridden_names.contains(&pending.name));
     overridden_flags.extend(overridden_names);
     // An explicit occurrence always restores this flag, including self-overrides.
     overridden_flags.remove(&flag.name);
@@ -1478,12 +1500,54 @@ flag "--file <file>" overrides="--stdin"
         let file_wins = parse(&spec, &input(&["test", "--stdin", "--file", "input.txt"])).unwrap();
         assert_eq!(file_wins.flags.len(), 1);
         assert_eq!(flag_string_value(&file_wins, "file"), "input.txt");
-        assert!(file_wins.overridden_flags.contains("stdin"));
+        assert!(!file_wins.flags.keys().any(|flag| flag.name == "stdin"));
 
         let stdin_wins = parse(&spec, &input(&["test", "--file", "input.txt", "--stdin"])).unwrap();
         assert_eq!(stdin_wins.flags.len(), 1);
         assert!(stdin_wins.flags.keys().any(|flag| flag.name == "stdin"));
-        assert!(stdin_wins.overridden_flags.contains("file"));
+        assert!(!stdin_wins.flags.keys().any(|flag| flag.name == "file"));
+    }
+
+    #[test]
+    fn test_flag_override_clears_pending_value() {
+        let spec: Spec = r#"
+flag "--file <file>" overrides="--stdin"
+flag "--stdin"
+arg "[input]"
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--file", "--stdin", "input.txt"])).unwrap();
+        assert_eq!(parsed.flags.len(), 1);
+        assert!(parsed.flags.keys().any(|flag| flag.name == "stdin"));
+        assert_eq!(first_string_value(&parsed), "input.txt");
+    }
+
+    #[test]
+    fn test_mount_prefix_applies_flag_overrides() {
+        let stdin = Arc::new(
+            SpecFlag::builder()
+                .name("stdin")
+                .long("stdin")
+                .global(true)
+                .build(),
+        );
+        let file = Arc::new(
+            SpecFlag::builder()
+                .name("file")
+                .long("file")
+                .arg(SpecArg::builder().name("file").build())
+                .global(true)
+                .overrides_with(vec!["--stdin".to_string()])
+                .build(),
+        );
+        let mut prefix_flags = vec![(stdin, vec!["--stdin".to_string()])];
+
+        apply_prefix_flag_overrides(&mut prefix_flags, Arc::clone(&file));
+        prefix_flags.push((file, vec!["--file".to_string(), "input.txt".to_string()]));
+
+        assert_eq!(mount_prefix_words(&prefix_flags), ["--file", "input.txt"]);
     }
 
     #[test]
@@ -1572,6 +1636,17 @@ flag "--file <file>" required_if="--dir" required_unless="--stdin"
             "Missing required flag: --file <file>",
         );
         parse_with_env(&spec, &["test"], &[("USE_STDIN", "true")]).unwrap();
+    }
+
+    #[test]
+    fn test_custom_env_does_not_fall_back_to_process_env() {
+        assert!(std::env::var("PATH").is_ok());
+        let spec: Spec = r#"flag "--file <file>" env="PATH" required=#true"#.parse().unwrap();
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[]),
+            "Missing required flag: --file <file>",
+        );
     }
 
     #[test]
