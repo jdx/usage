@@ -150,12 +150,17 @@ pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
     }
 
     // Lint the root command
-    lint_command(&spec.cmd, &[], &mut issues);
+    lint_command(&spec.cmd, &[], spec.about.is_some(), &mut issues);
 
     issues
 }
 
-fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
+fn lint_command(
+    cmd: &SpecCommand,
+    path: &[&str],
+    has_root_about: bool,
+    issues: &mut Vec<LintIssue>,
+) {
     let cmd_path = if path.is_empty() {
         cmd.name.clone()
     } else {
@@ -163,7 +168,7 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
     };
 
     // Check for missing command help
-    if cmd.help.is_none() && !cmd.name.is_empty() {
+    if cmd.help.is_none() && !has_root_about && !cmd.name.is_empty() {
         issues.push(LintIssue {
             severity: Severity::Info,
             code: "missing-cmd-help".to_string(),
@@ -282,7 +287,7 @@ fn lint_command(cmd: &SpecCommand, path: &[&str], issues: &mut Vec<LintIssue>) {
         .chain(std::iter::once(cmd.name.as_str()))
         .collect();
     for subcmd in cmd.subcommands.values() {
-        lint_command(subcmd, &new_path, issues);
+        lint_command(subcmd, &new_path, false, issues);
     }
 }
 
@@ -454,6 +459,7 @@ arg "<required>" help="required arg"
         let spec: Spec = r#"
 name "test"
 bin "test"
+about "A test CLI"
 flag "-v --verbose" help="Enable verbose output"
 arg "<input>" help="Input file"
 cmd "sub" help="A subcommand" {
@@ -464,8 +470,29 @@ cmd "sub" help="A subcommand" {
         .unwrap();
 
         let issues = lint_spec(&spec);
-        // Should only have info-level issues (missing-cmd-help for root)
-        assert!(issues.iter().all(|i| i.severity == Severity::Info));
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_lint_uses_about_as_root_command_help() {
+        let spec: Spec = r#"
+name "test"
+about "A test CLI"
+cmd "documented" help="A documented subcommand"
+cmd "undocumented"
+        "#
+        .parse()
+        .unwrap();
+
+        let missing_help: Vec<_> = lint_spec(&spec)
+            .into_iter()
+            .filter(|issue| issue.code == "missing-cmd-help")
+            .collect();
+        assert_eq!(missing_help.len(), 1);
+        assert_eq!(
+            missing_help[0].location.as_deref(),
+            Some("cmd test undocumented")
+        );
     }
 
     #[test]
