@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.1.0](https://github.com/jdx/usage/compare/v5.0.0..v5.1.0) - 2026-08-09
+
+### 🚀 Features
+
+- **(spec)** parse usage comments from strings by [@jdx](https://github.com/jdx) in [#782](https://github.com/jdx/usage/pull/782)
+
+### 🐛 Bug Fixes
+
+- **(spec)** avoid inferred metadata from included specs by [@jdx](https://github.com/jdx) in [#786](https://github.com/jdx/usage/pull/786)
+
+### 🧪 Testing
+
+- **(windows)** make the suite runnable on Windows by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#771](https://github.com/jdx/usage/pull/771)
+
+### 📦️ Dependency Updates
+
+- update rust crate rmcp to v3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#780](https://github.com/jdx/usage/pull/780)
+
 ## [5.0.0](https://github.com/jdx/usage/compare/v4.1.0..v5.0.0) - 2026-08-02
 
 ### 🚀 Features

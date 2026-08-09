@@ -2,7 +2,7 @@
 min_usage_version "4.0"
 name usage-cli
 bin usage
-version "5.0.0"
+version "5.1.0"
 about "CLI for working with usage-based CLIs"
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
