@@ -145,6 +145,42 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Add a flag whose presence makes this flag required
+    pub fn required_if(mut self, flag: impl Into<String>) -> Self {
+        self.inner.required_if.push(flag.into());
+        self
+    }
+
+    /// Add flags whose presence makes this flag required
+    pub fn required_if_any<I, S>(mut self, flags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_if
+            .extend(flags.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add a flag whose absence makes this flag required
+    pub fn required_unless(mut self, flag: impl Into<String>) -> Self {
+        self.inner.required_unless.push(flag.into());
+        self
+    }
+
+    /// Add flags where the absence of all of them makes this flag required
+    pub fn required_unless_any<I, S>(mut self, flags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_unless
+            .extend(flags.into_iter().map(Into::into));
+        self
+    }
+
     /// Set as global (available to subcommands)
     pub fn global(mut self, is_global: bool) -> Self {
         self.inner.global = is_global;
@@ -190,6 +226,24 @@ impl SpecFlagBuilder {
     /// Set negate string
     pub fn negate(mut self, negate: impl Into<String>) -> Self {
         self.inner.negate = Some(negate.into());
+        self
+    }
+
+    /// Add a flag that this flag mutually overrides
+    pub fn override_with(mut self, flag: impl Into<String>) -> Self {
+        self.inner.overrides.push(flag.into());
+        self
+    }
+
+    /// Add flags that this flag mutually overrides
+    pub fn overrides_with<I, S>(mut self, flags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .overrides
+            .extend(flags.into_iter().map(Into::into));
         self
     }
 

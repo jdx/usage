@@ -57,6 +57,12 @@ pub struct SpecFlag {
     /// Whether this flag must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
+    /// Flags whose presence makes this flag required
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if: Vec<String>,
+    /// Flags whose absence makes this flag required
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_unless: Vec<String>,
     /// Deprecation message if this flag is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
@@ -85,6 +91,9 @@ pub struct SpecFlag {
     /// Negation prefix (e.g., "no-" for --no-verbose)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub negate: Option<String>,
+    /// Flags that this flag mutually overrides; the last one provided wins
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<String>,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -110,6 +119,8 @@ impl SpecFlag {
                 "help_long" => flag.help_long = Some(v.ensure_string()?),
                 "help_md" => flag.help_md = Some(v.ensure_string()?),
                 "required" => flag.required = v.ensure_bool()?,
+                "required_if" => flag.required_if = vec![v.ensure_string()?],
+                "required_unless" => flag.required_unless = vec![v.ensure_string()?],
                 "var" => flag.var = v.ensure_bool()?,
                 "var_min" => flag.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = v.ensure_usize().map(Some)?,
@@ -133,6 +144,7 @@ impl SpecFlag {
                     flag.default = vec![default_value];
                 }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
+                "overrides" => flag.overrides = vec![v.ensure_string()?],
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -159,6 +171,20 @@ impl SpecFlag {
                 "help_long" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => flag.help_md = Some(child.arg(0)?.ensure_string()?),
                 "required" => flag.required = child.arg(0)?.ensure_bool()?,
+                "required_if" => {
+                    flag.required_if = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
+                }
+                "required_unless" => {
+                    flag.required_unless = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
+                }
                 "var" => flag.var = child.arg(0)?.ensure_bool()?,
                 "var_min" => flag.var_min = child.arg(0)?.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = child.arg(0)?.ensure_usize().map(Some)?,
@@ -208,6 +234,13 @@ impl SpecFlag {
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
+                "overrides" => {
+                    flag.overrides = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
+                }
                 "choices" => {
                     if let Some(arg) = &mut flag.arg {
                         arg.choices = Some(SpecChoices::parse(ctx, &child)?);
@@ -309,6 +342,8 @@ impl From<&SpecFlag> for KdlNode {
         if flag.required {
             node.push(KdlEntry::new_prop("required", true));
         }
+        serialize_flag_list(&mut node, "required_if", &flag.required_if);
+        serialize_flag_list(&mut node, "required_unless", &flag.required_unless);
         if flag.var {
             node.push(KdlEntry::new_prop("var", true));
         }
@@ -332,6 +367,16 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
+        }
+        if flag.overrides.len() == 1 {
+            node.push(string_entry(Some("overrides"), &flag.overrides[0]));
+        } else if !flag.overrides.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut overrides = KdlNode::new("overrides");
+            for target in &flag.overrides {
+                overrides.push(string_entry(None, target));
+            }
+            children.nodes_mut().push(overrides);
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
@@ -373,6 +418,19 @@ impl From<&SpecFlag> for KdlNode {
             }
         }
         node
+    }
+}
+
+fn serialize_flag_list(node: &mut KdlNode, name: &str, flags: &[String]) {
+    if flags.len() == 1 {
+        node.push(string_entry(Some(name), &flags[0]));
+    } else if !flags.is_empty() {
+        let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+        let mut list = KdlNode::new(name);
+        for flag in flags {
+            list.push(string_entry(None, flag));
+        }
+        children.nodes_mut().push(list);
     }
 }
 
@@ -479,6 +537,8 @@ impl From<&clap::Arg> for SpecFlag {
             short,
             long,
             required,
+            required_if: vec![],
+            required_unless: vec![],
             help,
             help_long,
             help_md: None,
@@ -493,6 +553,7 @@ impl From<&clap::Arg> for SpecFlag {
             default,
             deprecated: None,
             negate: None,
+            overrides: vec![],
             // clap has no way to express this; consumers set it on the derived
             // spec (see the effect docs).
             effect: None,
@@ -645,6 +706,51 @@ flag "--verbose" {
 
         let verbose_flag = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
         assert_eq!(verbose_flag.env, Some("MYCLI_VERBOSE".to_string()));
+    }
+
+    #[test]
+    fn test_flag_with_overrides() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--file <file>" overrides="--stdin"
+flag "--format <format>" {
+    overrides "--json" "--yaml"
+}
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(spec.cmd.flags[0].overrides, ["--stdin"]);
+        assert_eq!(spec.cmd.flags[1].overrides, ["--json", "--yaml"]);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].overrides, ["--stdin"]);
+        assert_eq!(reparsed.cmd.flags[1].overrides, ["--json", "--yaml"]);
+    }
+
+    #[test]
+    fn test_flag_with_conditional_requirements() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+flag "--file <file>" required_if="--dir"
+flag "--output <output>" {
+    required_unless "--stdout" "--check"
+}
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(spec.cmd.flags[0].required_if, ["--dir"]);
+        assert_eq!(spec.cmd.flags[1].required_unless, ["--stdout", "--check"]);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].required_if, ["--dir"]);
+        assert_eq!(
+            reparsed.cmd.flags[1].required_unless,
+            ["--stdout", "--check"]
+        );
     }
 
     #[test]

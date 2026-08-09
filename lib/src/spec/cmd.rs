@@ -977,7 +977,7 @@ cmd "install" help="Install a package" subcommand_required=#false {
     arg "<pkg>" help="Package to install"
     arg "[dest]" effect="write"
     flag "-f --force" help="Overwrite"
-    flag "--purge" effect="destructive"
+    flag "--purge" effect="destructive" overrides="-f" required_unless="--keep"
     complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"

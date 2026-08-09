@@ -23,14 +23,13 @@ flag "--color" negate="--no-color" default=#true // $usage_color=#true by defaul
                                                  // --no-color will set $usage_color=#false
 
 flag "--color" env="MYCLI_COLOR" // flag can be backed by an env var
-flag "--color" config="ui.color" // flag can be backed by a config file
 
 flag "--file <file>"  // args named "<file>" will be completed as files
 flag "--dir <dir>"    // args named "<dir>" will be completed as directories
 
 flag "--file <file>" required_if="--dir"     // if --dir is set, --file must also be set
 flag "--file <file>" required_unless="--dir" // either --file or --dir must be present
-flag "--file <file>" overrides="--stdin"     // if --file is set, previous --stdin will be ignored
+flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
 
 flag "--shell <shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices

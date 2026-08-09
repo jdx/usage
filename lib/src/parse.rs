@@ -243,6 +243,11 @@ pub struct ParseOutput {
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
+    /// Flags removed because they lost an `overrides` relationship.
+    ///
+    /// These names are retained so defaults and environment values do not restore an
+    /// overridden flag after command-line parsing.
+    pub overridden_flags: HashSet<String>,
     /// Every flag the parser recognizes at this point, keyed by each of its aliases
     /// (`--long`, `-s`, negations).
     ///
@@ -415,7 +420,7 @@ impl<'a> Parser<'a> {
 
         // Apply env vars and defaults for flags
         for flag in out.available_flags.values() {
-            if out.flags.contains_key(flag) {
+            if out.flags.contains_key(flag) || out.overridden_flags.contains(&flag.name) {
                 continue;
             }
             if let Some(env_var) = flag.env.as_ref() {
@@ -557,6 +562,7 @@ fn parse_partial_with_env(
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
         flags: IndexMap::new(),
+        overridden_flags: HashSet::new(),
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: vec![],
         errors: vec![],
@@ -792,6 +798,12 @@ fn parse_partial_with_env(
             grouped_flag = false;
             let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
+                apply_flag_overrides(
+                    f,
+                    &out.available_flags,
+                    &mut out.flags,
+                    &mut out.overridden_flags,
+                );
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
@@ -831,6 +843,12 @@ fn parse_partial_with_env(
                 .as_ref()
                 .or_else(|| out.available_flags.get(&format!("-{short}")))
             {
+                apply_flag_overrides(
+                    f,
+                    &out.available_flags,
+                    &mut out.flags,
+                    &mut out.overridden_flags,
+                );
                 if w.len() > 2 {
                     input.push_front(format!("-{}", &w[2..]));
                     prefix_bindings.push_front(None);
@@ -957,16 +975,22 @@ fn parse_partial_with_env(
     }
 
     for flag in unique_flags(out.available_flags.values()) {
-        if out.flags.contains_key(flag) {
+        if out.flags.contains_key(flag) || out.overridden_flags.contains(&flag.name) {
             continue;
         }
         let has_default =
             !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
-        // Check if there's an env var available (custom env map takes precedence)
-        let has_env = flag.env.as_ref().is_some_and(|e| {
-            custom_env.map(|env| env.contains_key(e)).unwrap_or(false) || std::env::var(e).is_ok()
-        });
-        if flag.required && !has_default && !has_env {
+        let has_env = flag_has_env(flag, custom_env);
+        let required_if = flag
+            .required_if
+            .iter()
+            .any(|selector| selector_is_explicit(selector, &out, custom_env));
+        let required_unless = !flag.required_unless.is_empty()
+            && !flag
+                .required_unless
+                .iter()
+                .any(|selector| selector_is_explicit(selector, &out, custom_env));
+        if (flag.required || required_if || required_unless) && !has_default && !has_env {
             out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
         }
     }
@@ -1027,6 +1051,60 @@ fn parse_partial_with_env(
     }
 
     Ok(out)
+}
+
+fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {
+    flag.name == selector || flag_keys(flag).iter().any(|key| key == selector)
+}
+
+fn flags_override(overrider: &SpecFlag, overridden: &SpecFlag) -> bool {
+    overrider
+        .overrides
+        .iter()
+        .any(|selector| flag_matches_selector(overridden, selector))
+}
+
+fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -> bool {
+    flag.env.as_ref().is_some_and(|env_var| {
+        custom_env
+            .map(|env| env.contains_key(env_var))
+            .unwrap_or(false)
+            || std::env::var(env_var).is_ok()
+    })
+}
+
+fn selector_is_explicit(
+    selector: &str,
+    out: &ParseOutput,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    out.available_flags
+        .values()
+        .chain(out.flags.keys())
+        .any(|flag| {
+            flag_matches_selector(flag, selector)
+                && !out.overridden_flags.contains(&flag.name)
+                && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+        })
+}
+
+fn apply_flag_overrides(
+    flag: &Arc<SpecFlag>,
+    available_flags: &BTreeMap<String, Arc<SpecFlag>>,
+    parsed_flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    overridden_flags: &mut HashSet<String>,
+) {
+    let overridden_names: HashSet<String> = available_flags
+        .values()
+        .chain(parsed_flags.keys())
+        .filter(|other| flags_override(flag, other) || flags_override(other, flag))
+        .map(|other| other.name.clone())
+        .collect();
+
+    parsed_flags.retain(|parsed, _| !overridden_names.contains(&parsed.name));
+    overridden_flags.extend(overridden_names);
+    // An explicit occurrence always restores this flag, including self-overrides.
+    overridden_flags.remove(&flag.name);
 }
 
 #[cfg(feature = "docs")]
@@ -1386,6 +1464,142 @@ mod tests {
         assert_eq!(parsed.args.len(), 1);
         assert_eq!(parsed.flags.len(), 1);
         assert_eq!(parsed.available_flags.len(), 1);
+    }
+
+    #[test]
+    fn test_flag_overrides_last_occurrence_wins() {
+        let spec: Spec = r#"
+flag "--stdin" default=#true
+flag "--file <file>" overrides="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        let file_wins = parse(&spec, &input(&["test", "--stdin", "--file", "input.txt"])).unwrap();
+        assert_eq!(file_wins.flags.len(), 1);
+        assert_eq!(flag_string_value(&file_wins, "file"), "input.txt");
+        assert!(file_wins.overridden_flags.contains("stdin"));
+
+        let stdin_wins = parse(&spec, &input(&["test", "--file", "input.txt", "--stdin"])).unwrap();
+        assert_eq!(stdin_wins.flags.len(), 1);
+        assert!(stdin_wins.flags.keys().any(|flag| flag.name == "stdin"));
+        assert!(stdin_wins.overridden_flags.contains("file"));
+    }
+
+    #[test]
+    fn test_flag_override_suppresses_env_value() {
+        let spec: Spec = r#"
+flag "--stdin" env="USE_STDIN"
+flag "--file <file>" overrides="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = parse_with_env(
+            &spec,
+            &["test", "--file", "input.txt"],
+            &[("USE_STDIN", "true")],
+        )
+        .unwrap();
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "file"), "input.txt");
+    }
+
+    #[test]
+    fn test_flag_override_suppresses_required_check() {
+        let spec: Spec = r#"
+flag "--stdin" required=#true
+flag "--file <file>" overrides="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--file", "input.txt"])).unwrap();
+        assert_eq!(parsed.flags.len(), 1);
+        assert_eq!(flag_string_value(&parsed, "file"), "input.txt");
+    }
+
+    #[test]
+    fn test_flag_required_if() {
+        let spec: Spec = r#"
+flag "--dir <dir>"
+flag "--file <file>" required_if="--dir"
+        "#
+        .parse()
+        .unwrap();
+
+        parse(&spec, &input(&["test"])).unwrap();
+        assert_parse_err(
+            parse(&spec, &input(&["test", "--dir", "src"])),
+            "Missing required flag: --file <file>",
+        );
+        parse(
+            &spec,
+            &input(&["test", "--dir", "src", "--file", "input.txt"]),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_flag_required_unless() {
+        let spec: Spec = r#"
+flag "--stdin"
+flag "--file <file>" required_unless="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        assert_parse_err(
+            parse(&spec, &input(&["test"])),
+            "Missing required flag: --file <file>",
+        );
+        parse(&spec, &input(&["test", "--stdin"])).unwrap();
+        parse(&spec, &input(&["test", "--file", "input.txt"])).unwrap();
+    }
+
+    #[test]
+    fn test_conditional_requirements_treat_env_as_explicit() {
+        let spec: Spec = r#"
+flag "--dir <dir>" env="INPUT_DIR"
+flag "--stdin" env="USE_STDIN"
+flag "--file <file>" required_if="--dir" required_unless="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        assert_parse_err(
+            parse_with_env(&spec, &["test"], &[("INPUT_DIR", "src")]),
+            "Missing required flag: --file <file>",
+        );
+        parse_with_env(&spec, &["test"], &[("USE_STDIN", "true")]).unwrap();
+    }
+
+    #[test]
+    fn test_conditional_requirements_ignore_defaults_on_condition_flags() {
+        let spec: Spec = r#"
+flag "--dir <dir>" default="src"
+flag "--file <file>" required_if="--dir"
+        "#
+        .parse()
+        .unwrap();
+
+        parse(&spec, &input(&["test"])).unwrap();
+    }
+
+    #[test]
+    fn test_conditional_requirements_see_overridden_flags_as_absent() {
+        let spec: Spec = r#"
+flag "--stdin"
+flag "--dir <dir>" overrides="--stdin"
+flag "--file <file>" required_unless="--stdin"
+        "#
+        .parse()
+        .unwrap();
+
+        assert_parse_err(
+            parse(&spec, &input(&["test", "--stdin", "--dir", "src"])),
+            "Missing required flag: --file <file>",
+        );
     }
 
     #[test]
