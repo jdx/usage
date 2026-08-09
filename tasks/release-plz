@@ -51,7 +51,11 @@ fi
 # is satisfied; catch it up if it is behind.
 publish_crate_if_needed clap_usage
 
-version="$(git cliff --bumped-version --include-path 'lib/**' --include-path 'cli/**')"
+# Anchor the range before filtering paths. A release tag may point at a commit that only
+# changes root release files; letting the path filter hide that tag can make cliff propose
+# a version lower than the one already published.
+release_range="v$cur_version..HEAD"
+version="$(git cliff "$release_range" --bumped-version --include-path 'lib/**' --include-path 'cli/**')"
 
 if [ "v$cur_version" == "$version" ]; then
   echo "No usage-lib/usage-cli changes since $version; nothing to release"
@@ -60,17 +64,17 @@ fi
 
 if [ "${usage_dry_run:-}" == 1 ]; then
   echo "version: $version"
-  changelog="$(git cliff --bump --unreleased --strip all --include-path 'lib/**' --include-path 'cli/**')"
+  changelog="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**')"
   echo "changelog: $changelog"
   exit 0
 fi
 
 # Generate changelog using git-cliff (LLM editorialization happens in release.yml after merge)
-git cliff --bump -o CHANGELOG.md --include-path 'lib/**' --include-path 'cli/**'
+git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md --include-path 'lib/**' --include-path 'cli/**'
 
 # Get the unreleased notes for PR body
 # Strip version header since PR title already has version
-PR_BODY="$(git cliff --bump --unreleased --strip all --include-path 'lib/**' --include-path 'cli/**' | tail -n +3)"
+PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' | tail -n +3)"
 
 cargo set-version "${version#v}" --exclude clap_usage
 mise run render
