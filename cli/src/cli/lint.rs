@@ -128,16 +128,6 @@ impl Lint {
 pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
     let mut issues = Vec::new();
 
-    // Check spec-level issues
-    if spec.bin.is_empty() && spec.name.is_empty() {
-        issues.push(LintIssue {
-            severity: Severity::Warning,
-            code: "missing-name".to_string(),
-            message: "Spec has no name or bin defined".to_string(),
-            location: None,
-        });
-    }
-
     // Check default_subcommand reference
     if let Some(default_subcmd) = &spec.default_subcommand {
         if !spec.cmd.subcommands.contains_key(default_subcmd) {
@@ -392,6 +382,14 @@ arg "<input>"
         let issues = lint_spec(&spec);
         assert!(issues.iter().any(|i| i.code == "missing-flag-help"));
         assert!(issues.iter().any(|i| i.code == "missing-arg-help"));
+    }
+
+    #[test]
+    fn test_lint_allows_missing_name_and_bin() {
+        let spec: Spec = r#"arg "<file>" help="The file to process""#.parse().unwrap();
+
+        let issues = lint_spec(&spec);
+        assert!(issues.is_empty());
     }
 
     #[test]
