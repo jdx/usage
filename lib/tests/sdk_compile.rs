@@ -118,14 +118,18 @@ fn test_python_sdk_imports() {
 
     // Validate syntax + imports for each module
     for module in &["types", "client", "runtime"] {
+        // The directory arrives as argv rather than inside the source. Interpolated into the
+        // string literal it used to sit in, a Windows path is read by Python's lexer first:
+        // `C:\Users\RUNNER~1\...` fails to even parse, because `\U` starts a unicode escape.
+        // Passing it as an argument keeps the path away from any escaping rules at all.
         let result = Command::new("python3")
             .args([
                 "-c",
                 &format!(
-                    "import sys; sys.path.insert(0, '{}'); from mytool_sdk.{module} import *",
-                    dir.path().display()
+                    "import sys; sys.path.insert(0, sys.argv[1]); from mytool_sdk.{module} import *"
                 ),
             ])
+            .arg(dir.path())
             .output()
             .expect("Failed to run python3");
 
