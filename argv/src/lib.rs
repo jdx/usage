@@ -222,8 +222,9 @@ pub enum Event<'t, 'v> {
 /// here would allocate on the way to reporting that nothing was allocated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error<'t, 'v> {
-    /// A flag-like token matched no flag in scope. For a short bundle this is
-    /// the offending byte, and the whole token is rejected.
+    /// A flag-like token matched no flag in scope. `token` is the whole token as
+    /// typed, so a bundle containing an unrecognized letter reports `-fz` rather
+    /// than the letter alone — which is also the unit in which it is rejected.
     UnknownFlag { token: &'v [u8] },
     /// A flag that needs a value did not get one, either because the command
     /// line ended or because the next token was flag-like.
@@ -261,6 +262,9 @@ pub struct Parser<'t, 'v> {
     depth: usize,
     /// Bytes left in a short-flag bundle, if one is partly read.
     bundle: &'v [u8],
+    /// The whole token the current bundle came from, so an error raised part way
+    /// through it can still name what the user typed.
+    bundle_token: &'v [u8],
     /// A variadic flag that is still collecting values.
     collecting: Option<&'t Flag<'t>>,
     /// Which of `cmd.args` is next to fill.
@@ -286,6 +290,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             ancestors: [None; MAX_DEPTH],
             depth: 0,
             bundle: &[],
+            bundle_token: &[],
             collecting: None,
             arg_pos: 0,
             arg_filled: false,
@@ -308,7 +313,13 @@ impl<'t, 'v> Parser<'t, 'v> {
     ///
     /// Returns `None` when `argv` is exhausted. An `Err` is terminal: the parse
     /// stops there, since continuing past a token that could not be understood
-    /// would only produce bindings derived from a guess.
+    /// would only produce bindings derived from a guess. Events already yielded
+    /// before an error are therefore not a partial result to be used — a caller
+    /// that assigned them into fields should discard the whole attempt.
+    ///
+    /// One case is stronger than that, because the grammar demands it: a short
+    /// bundle containing an unrecognized letter yields the error *instead of*, not
+    /// after, the letters that did match.
     #[allow(clippy::should_implement_trait)] // not an Iterator: items borrow from self's tables
     pub fn next_event(&mut self) -> Option<Result<Event<'t, 'v>, Error<'t, 'v>>> {
         if self.done {
@@ -376,7 +387,15 @@ impl<'t, 'v> Parser<'t, 'v> {
             if token.starts_with(b"--") {
                 return Some(self.long_flag(token));
             }
+            // Check the whole bundle before emitting anything from it. Events go
+            // out one at a time, so discovering an unknown letter half way
+            // through would mean the earlier letters had already been applied —
+            // and the grammar rejects the entire token, not the tail of it.
+            if let Err(e) = self.check_bundle(token) {
+                return Some(Err(e));
+            }
             self.bundle = &token[1..];
+            self.bundle_token = token;
             return Some(self.short_flag());
         }
 
@@ -420,16 +439,34 @@ impl<'t, 'v> Parser<'t, 'v> {
         Err(Error::UnknownFlag { token })
     }
 
+    /// Walk a short-flag token without binding anything, to find out whether all
+    /// of it is recognized.
+    ///
+    /// Scanning stops at the first letter whose flag takes a value, because
+    /// everything after it is that value rather than more letters.
+    fn check_bundle(&self, token: &'v [u8]) -> Result<(), Error<'t, 'v>> {
+        let mut rest = &token[1..];
+        while let Some((&byte, tail)) = rest.split_first() {
+            match self.find_short(byte) {
+                None => return Err(Error::UnknownFlag { token }),
+                Some(flag) if flag.takes_value => return Ok(()),
+                Some(_) => rest = tail,
+            }
+        }
+        Ok(())
+    }
+
     fn short_flag(&mut self) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
         let byte = self.bundle[0];
         let rest = &self.bundle[1..];
 
         let Some(flag) = self.find_short(byte) else {
-            // Reject the whole token rather than applying the letters that did
-            // match: a partly-applied bundle is worse than a rejected one.
+            // check_bundle already rejected any token containing an unrecognized
+            // letter, so this is unreachable — but a parser should report rather
+            // than panic if that ever stops being true.
             self.bundle = &[];
             return Err(Error::UnknownFlag {
-                token: &self.bundle[..0],
+                token: self.bundle_token,
             });
         };
 
@@ -992,6 +1029,33 @@ mod tests {
         };
         let a = argv(["a", "b"]);
         assert_eq!(parse(&ONE, &a), Err(Error::UnexpectedArg { token: b"b" }));
+    }
+
+    #[test]
+    fn unknown_letter_rejects_the_whole_bundle() {
+        // `-f` is real and `-z` is not. The first event must be the error: if the
+        // flag event came out first, a caller would have applied `-f` from a
+        // command line that was rejected.
+        let a = argv(["-fz"]);
+        let mut parser = Parser::new(&ROOT, &a);
+        assert_eq!(
+            parser.next_event(),
+            Some(Err(Error::UnknownFlag { token: b"-fz" })),
+            "an unknown letter must reject the token before any of it is applied"
+        );
+        assert!(parser.next_event().is_none());
+    }
+
+    #[test]
+    fn unknown_short_error_names_the_whole_token() {
+        for (tokens, want) in [(["-z"], &b"-z"[..]), (["-fz"], &b"-fz"[..])] {
+            let a = argv(tokens);
+            assert_eq!(
+                parse(&ROOT, &a),
+                Err(Error::UnknownFlag { token: want }),
+                "{tokens:?}"
+            );
+        }
     }
 
     #[test]
