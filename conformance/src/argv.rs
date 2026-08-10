@@ -270,6 +270,7 @@ fn build(cmd: &SpecCommand) -> &'static Command<'static> {
                 double_dash: match a.double_dash {
                     usage::SpecDoubleDashChoices::Required => DoubleDash::Required,
                     usage::SpecDoubleDashChoices::Preserve => DoubleDash::Preserve,
+                    usage::SpecDoubleDashChoices::Automatic => DoubleDash::Automatic,
                     _ => DoubleDash::Optional,
                 },
             }))

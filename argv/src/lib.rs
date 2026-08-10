@@ -192,6 +192,10 @@ pub enum DoubleDash {
     Required,
     /// A `--` is kept as a value rather than consumed as a separator.
     Preserve,
+    /// Once the argument takes a value, behave as if a `--` had been given, so
+    /// the rest of the command line is values. A wrapper can then forward flags
+    /// without its caller typing the separator.
+    Automatic,
 }
 
 /// Something the parser bound.
@@ -493,6 +497,11 @@ impl<'t, 'v> Parser<'t, 'v> {
         }
 
         self.arg_filled = true;
+        // An `automatic` argument stops flag interpretation from here on, as
+        // though the caller had typed the separator themselves.
+        if arg.double_dash == DoubleDash::Automatic {
+            self.double_dash = true;
+        }
         // A variadic keeps taking values, so the cursor stays put.
         if !arg.var {
             self.arg_pos += 1;
@@ -934,6 +943,44 @@ mod tests {
             })
             .collect();
         assert_eq!(values, vec![&b"a"[..], &b"--"[..], &b"b"[..]]);
+    }
+
+    #[test]
+    fn double_dash_automatic_stops_flag_interpretation() {
+        static FILES: Arg = Arg {
+            key: 22,
+            name: "files",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static AUTO: Command = Command {
+            name: "ex",
+            flags: &[&FORCE],
+            args: &[&FILES],
+            ..Command::EMPTY
+        };
+
+        // The flag before the first value is still a flag; the one after it is a
+        // value.
+        let a = argv(["-f", "one", "--force"]);
+        assert_eq!(
+            parse(&AUTO, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &FORCE,
+                    value: None,
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &FILES,
+                    value: b"one"
+                },
+                Event::Arg {
+                    arg: &FILES,
+                    value: b"--force"
+                },
+            ]
+        );
     }
 
     #[test]

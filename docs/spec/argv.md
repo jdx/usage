@@ -245,7 +245,7 @@ Any implementation in any language can run these. In this repository,
 `cargo test -p usage-conformance` runs them against both usage-lib and
 [usage-argv](https://github.com/jdx/usage/tree/main/argv).
 
-usage-argv answers 61 of the 83 vectors. The other 22 turn on something decided
+usage-argv answers 62 of the 86 vectors. The other 24 turn on something decided
 after the last token is read — `required`, `choices`, `env` fallback, defaults,
 `var_min` and `var_max`, `overrides` — which needs to know a value's type and so
 belongs to the layer above a binding parser. Those are reported as out of scope
