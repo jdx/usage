@@ -1976,6 +1976,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
+name = "usage-argv"
+version = "0.0.0"
+
+[[package]]
 name = "usage-cli"
 version = "5.1.0"
 dependencies = [
@@ -2012,6 +2016,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "usage-argv",
  "usage-lib",
 ]
 
