@@ -16,7 +16,13 @@ use serde::{Deserialize, Serialize};
 pub mod reference;
 
 /// One `corpus/*.json` file: a themed group of vectors.
+///
+/// Unknown fields are rejected throughout the corpus types. A misspelled
+/// `reference` would otherwise default to [`Reference::Agrees`], and a misspelled
+/// `flags` would become an empty expectation — both of which would let a
+/// malformed vector load and pass while testing nothing.
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct VectorFile {
     /// Which part of the grammar this file covers, e.g. `"short-flags"`.
     pub section: String,
@@ -28,6 +34,7 @@ pub struct VectorFile {
 
 /// A single case: parse `argv` against `spec` and you must get `expect`.
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Vector {
     /// Stable identifier, unique across the corpus. Failures and
     /// cross-implementation reports quote it, so renaming one breaks anybody
@@ -71,6 +78,7 @@ pub enum Expect {
 /// token that set it, so `-j`, `--jobs`, and `JOBS=8` all land under `jobs`.
 /// Anything left unset is omitted rather than recorded as null.
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Parsed {
     /// The subcommand path selected, outermost first; empty for the root.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -140,10 +148,17 @@ pub enum Reference {
 /// Load every `*.json` file in a corpus directory, sorted by file name.
 pub fn load(dir: impl AsRef<Path>) -> Result<Vec<VectorFile>, String> {
     let dir = dir.as_ref();
+    // An unreadable entry is an error rather than something to skip: silently
+    // dropping one would let CI validate a partial corpus and still pass.
     let mut paths: Vec<_> = std::fs::read_dir(dir)
         .map_err(|e| format!("reading {}: {e}", dir.display()))?
-        .filter_map(Result::ok)
-        .map(|e| e.path())
+        .map(|entry| {
+            entry
+                .map(|e| e.path())
+                .map_err(|e| format!("reading an entry of {}: {e}", dir.display()))
+        })
+        .collect::<Result<Vec<_>, String>>()?
+        .into_iter()
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .collect();
     paths.sort();

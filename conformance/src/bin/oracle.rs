@@ -72,7 +72,7 @@ fn main() -> Result<(), String> {
             }
         };
         println!("{mark} {section}/{id}");
-        if !agrees {
+        if agrees != declared {
             println!("       expected: {expect}");
             println!("       observed: {observed}");
         }

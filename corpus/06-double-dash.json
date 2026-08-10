@@ -67,10 +67,20 @@
     },
     {
       "id": "dd-preserve-keeps-separator-as-value",
-      "doc": "With `double_dash=\"preserve\"`, the separator is kept as a value instead of being consumed — needed by CLIs that pass along command lines containing their own separators.",
+      "doc": "With `double_dash=\"preserve\"`, the separator is kept as a value instead of being consumed \u2014 needed by CLIs that pass along command lines containing their own separators.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<args>...\" double_dash=\"preserve\"\n",
       "argv": ["a", "--", "b"],
       "expect": { "ok": { "args": { "args": ["a", "--", "b"] } } }
+    },
+    {
+      "id": "dd-automatic-behaves-as-if-separated",
+      "doc": "With `double_dash=\"automatic\"`, the first value an argument takes stops flag interpretation for everything after it, so a wrapper can forward flags without the caller typing `--`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<files>...\" double_dash=\"automatic\"\n",
+      "argv": ["a", "--force"],
+      "expect": { "ok": { "args": { "files": ["a", "--force"] } } },
+      "reference": {
+        "diverges": "usage-lib binds `force` as a flag and gives the argument only `a`. The spec reference documents this mode as not yet enforced by the parser, so this vector describes the intent it will be held to."
+      }
     }
   ]
 }

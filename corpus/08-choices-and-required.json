@@ -1,6 +1,6 @@
 {
   "section": "choices-and-required",
-  "about": "Constraints checked after binding: declared choices, required flags, and the relationships between flags. These do not affect which token binds where, only whether the result is accepted.",
+  "about": "Constraints checked after binding: declared choices, required flags, variadic bounds, and the relationships between flags. These do not affect which token binds where, only whether the result is accepted.",
   "vectors": [
     {
       "id": "choice-valid",
@@ -64,6 +64,20 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" overrides=\"--stdin\"\nflag \"--stdin\" overrides=\"--file\"\n",
       "argv": ["--stdin", "--file", "a.txt"],
       "expect": { "ok": { "flags": { "file": "a.txt" } } }
+    },
+    {
+      "id": "flag-var-too-few",
+      "doc": "`var_min` is enforced for a repeatable flag, not only for positionals.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_min=2\n",
+      "argv": ["--include", "a"],
+      "expect": { "error": "var_too_few" }
+    },
+    {
+      "id": "flag-var-too-many",
+      "doc": "`var_max` is likewise enforced for a repeatable flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_max=1\n",
+      "argv": ["--include", "a", "--include", "b"],
+      "expect": { "error": "var_too_many" }
     }
   ]
 }
