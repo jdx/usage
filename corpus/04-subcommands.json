@@ -1,0 +1,79 @@
+{
+  "section": "subcommands",
+  "about": "How a command is selected. The first word that is not a flag or a flag's value is matched against the current command's subcommands; a match descends, and parsing continues against the new command.",
+  "vectors": [
+    {
+      "id": "cmd-select",
+      "doc": "A word matching a subcommand name selects it.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\"\n",
+      "argv": ["install"],
+      "expect": { "ok": { "cmd": ["install"] } }
+    },
+    {
+      "id": "cmd-alias",
+      "doc": "An alias selects the same command, and the path records the canonical name rather than the alias typed.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  alias \"i\"\n}\n",
+      "argv": ["i"],
+      "expect": { "ok": { "cmd": ["install"] } }
+    },
+    {
+      "id": "cmd-nested",
+      "doc": "Descent continues as long as words keep matching subcommands.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"settings\" {\n  cmd \"set\"\n}\n",
+      "argv": ["settings", "set"],
+      "expect": { "ok": { "cmd": ["settings", "set"] } }
+    },
+    {
+      "id": "cmd-flag-after",
+      "doc": "A subcommand's own flags are recognized after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  flag \"-f --force\"\n}\n",
+      "argv": ["install", "--force"],
+      "expect": { "ok": { "cmd": ["install"], "flags": { "force": true } } }
+    },
+    {
+      "id": "cmd-flag-before",
+      "doc": "A parent's flag may appear before the subcommand word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-q --quiet\"\ncmd \"install\"\n",
+      "argv": ["--quiet", "install"],
+      "expect": { "ok": { "cmd": ["install"], "flags": { "quiet": true } } }
+    },
+    {
+      "id": "cmd-arg-of-subcommand",
+      "doc": "Positionals declared on the subcommand are filled from the words after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  arg \"<tool>\"\n}\n",
+      "argv": ["install", "node@20"],
+      "expect": { "ok": { "cmd": ["install"], "args": { "tool": "node@20" } } }
+    },
+    {
+      "id": "cmd-unknown-is-arg-when-arg-declared",
+      "doc": "A word that matches no subcommand falls through to the command's own positionals. This is what lets a CLI accept both `ex install` and `ex ./some-file` when it declares an argument alongside its subcommands.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[target]\"\ncmd \"install\"\n",
+      "argv": ["other"],
+      "expect": { "ok": { "args": { "target": "other" } } }
+    },
+    {
+      "id": "cmd-name-wins-over-arg",
+      "doc": "When a word could be either a subcommand or a positional value, the subcommand wins. A CLI that declares both cannot be given a positional whose text equals a subcommand name — mise documents exactly this hazard for tasks that share a name with a command.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[target]\"\ncmd \"install\"\n",
+      "argv": ["install"],
+      "expect": { "ok": { "cmd": ["install"] } }
+    },
+    {
+      "id": "cmd-only-first-word-routes",
+      "doc": "Once a positional has consumed a word, a later word matching a subcommand name does not route: subcommand selection happens at the point of descent, not anywhere in the command line.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<target>\"\narg \"[second]\"\ncmd \"install\"\n",
+      "argv": ["other", "install"],
+      "expect": { "ok": { "args": { "target": "other", "second": "install" } } }
+    },
+    {
+      "id": "cmd-parent-flag-not-inherited",
+      "doc": "A parent flag that is not `global` is not accepted after descending into a subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-q --quiet\"\ncmd \"install\"\n",
+      "argv": ["install", "--quiet"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib agrees the flag is not inherited, but reports `unexpected_arg` because the unrecognized flag becomes a positional first."
+      }
+    }
+  ]
+}

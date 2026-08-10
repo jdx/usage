@@ -1,0 +1,69 @@
+{
+  "section": "choices-and-required",
+  "about": "Constraints checked after binding: declared choices, required flags, and the relationships between flags. These do not affect which token binds where, only whether the result is accepted.",
+  "vectors": [
+    {
+      "id": "choice-valid",
+      "doc": "A value among the declared choices is accepted.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\" \"fish\"\n}\n",
+      "argv": ["--shell", "zsh"],
+      "expect": { "ok": { "flags": { "shell": "zsh" } } }
+    },
+    {
+      "id": "choice-invalid",
+      "doc": "A value outside the declared choices is rejected.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\" \"fish\"\n}\n",
+      "argv": ["--shell", "csh"],
+      "expect": { "error": "invalid_choice" }
+    },
+    {
+      "id": "choice-is-case-sensitive",
+      "doc": "Choices match exactly. Case-insensitive matching would have to be declared, not assumed.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\"\n}\n",
+      "argv": ["--shell", "ZSH"],
+      "expect": { "error": "invalid_choice" }
+    },
+    {
+      "id": "choice-on-arg",
+      "doc": "Positionals carry choices too.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<shell>\" {\n  choices \"bash\" \"zsh\"\n}\n",
+      "argv": ["bash"],
+      "expect": { "ok": { "args": { "shell": "bash" } } }
+    },
+    {
+      "id": "required-flag-present",
+      "doc": "A required flag that is given parses normally.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required=#true\n",
+      "argv": ["--file", "a.txt"],
+      "expect": { "ok": { "flags": { "file": "a.txt" } } }
+    },
+    {
+      "id": "required-flag-missing",
+      "doc": "A required flag that is absent is an error.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required=#true\n",
+      "argv": [],
+      "expect": { "error": "missing_required_flag" }
+    },
+    {
+      "id": "required-unless-satisfied-by-other",
+      "doc": "`required_unless` is satisfied when the named alternative is present.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required_unless=\"--stdin\"\nflag \"--stdin\"\n",
+      "argv": ["--stdin"],
+      "expect": { "ok": { "flags": { "stdin": true } } }
+    },
+    {
+      "id": "required-unless-unsatisfied",
+      "doc": "With neither flag present, the requirement stands.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required_unless=\"--stdin\"\nflag \"--stdin\"\n",
+      "argv": [],
+      "expect": { "error": "missing_required_flag" }
+    },
+    {
+      "id": "overrides-last-wins",
+      "doc": "Two flags that override each other leave only the last one given.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" overrides=\"--stdin\"\nflag \"--stdin\" overrides=\"--file\"\n",
+      "argv": ["--stdin", "--file", "a.txt"],
+      "expect": { "ok": { "flags": { "file": "a.txt" } } }
+    }
+  ]
+}

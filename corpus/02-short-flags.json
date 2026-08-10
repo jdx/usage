@@ -1,0 +1,109 @@
+{
+  "section": "short-flags",
+  "about": "How `-x` tokens bind. A short flag taking a value accepts it attached, attached after `=`, or as the following word. Several value-less shorts may be bundled in one token.",
+  "vectors": [
+    {
+      "id": "short-boolean",
+      "doc": "A short alias sets the flag it belongs to, recorded under the flag's name.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\n",
+      "argv": ["-f"],
+      "expect": { "ok": { "flags": { "force": true } } }
+    },
+    {
+      "id": "short-value-detached",
+      "doc": "`-j 8` binds the following word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j", "8"],
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
+    },
+    {
+      "id": "short-value-attached",
+      "doc": "`-j8` binds the rest of the token. mise relies on this for `-C/tmp` and `-Edev`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j8"],
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
+    },
+    {
+      "id": "short-value-attached-path",
+      "doc": "An attached value keeps every character after the flag letter, including leading slashes and equals-free punctuation.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-C --cd <dir>\"\n",
+      "argv": ["-C/tmp/x"],
+      "expect": { "ok": { "flags": { "cd": "/tmp/x" } } }
+    },
+    {
+      "id": "short-value-equals",
+      "doc": "`-j=8` binds `8`, not `=8`. A single leading `=` is a separator, matching the long form.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j=8"],
+      "expect": { "ok": { "flags": { "jobs": "8" } } },
+      "reference": {
+        "diverges": "usage-lib binds `=8`, keeping the separator as part of the value."
+      }
+    },
+    {
+      "id": "short-value-missing",
+      "doc": "A value-taking short at the end of the command line is an error.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j"],
+      "expect": { "error": "missing_flag_value" },
+      "reference": {
+        "diverges": "usage-lib parses successfully and binds nothing, as it does for the long form."
+      }
+    },
+    {
+      "id": "short-bundle",
+      "doc": "Value-less shorts may share a token: `-ab` sets both.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\nflag \"-b --brief\"\n",
+      "argv": ["-ab"],
+      "expect": { "ok": { "flags": { "all": true, "brief": true } } }
+    },
+    {
+      "id": "short-bundle-then-value",
+      "doc": "A bundle may end with a value-taking short, which then consumes the remainder of the token.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-aj8"],
+      "expect": { "ok": { "flags": { "all": true, "jobs": "8" } } }
+    },
+    {
+      "id": "short-bundle-unknown-letter",
+      "doc": "An unrecognized letter anywhere in a bundle fails the whole token.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\n",
+      "argv": ["-az"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib reports `unexpected_arg`: the whole token falls through to positionals, so `-a` is not applied either."
+      }
+    },
+    {
+      "id": "short-count",
+      "doc": "A `count` flag records how many times it appeared, so `-vvv` is three.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" count=#true\n",
+      "argv": ["-vvv"],
+      "expect": { "ok": { "flags": { "verbose": [true, true, true] } } }
+    },
+    {
+      "id": "short-count-separate-tokens",
+      "doc": "The same count reached through separate tokens gives the same result.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" count=#true\n",
+      "argv": ["-v", "-v"],
+      "expect": { "ok": { "flags": { "verbose": [true, true] } } }
+    },
+    {
+      "id": "bare-dash-is-positional",
+      "doc": "A lone `-` is a value, conventionally meaning stdin, not a flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
+      "argv": ["-"],
+      "expect": { "ok": { "args": { "file": "-" } } }
+    },
+    {
+      "id": "short-unknown",
+      "doc": "An unrecognized short flag is an error rather than a positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
+      "argv": ["-z"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib binds `-z` to the positional `file`, the same fall-through described in `long-unknown`."
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "section": "env-and-defaults",
+  "about": "Where a value comes from when the command line does not supply one. The command line wins, then the environment, then the declared default. None of these change which tokens bind where — they only fill what argv left empty.",
+  "vectors": [
+    {
+      "id": "env-fills-absent-flag",
+      "doc": "A flag backed by an env var takes its value when the flag is absent.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\"\n",
+      "argv": [],
+      "env": { "EX_JOBS": "4" },
+      "expect": { "ok": { "flags": { "jobs": "4" } } }
+    },
+    {
+      "id": "argv-beats-env",
+      "doc": "An explicit flag wins over the environment.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\"\n",
+      "argv": ["--jobs", "8"],
+      "env": { "EX_JOBS": "4" },
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
+    },
+    {
+      "id": "env-unset-falls-to-default",
+      "doc": "With the env var unset, the declared default applies.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
+      "argv": [],
+      "expect": { "ok": { "flags": { "jobs": "1" } } }
+    },
+    {
+      "id": "env-beats-default",
+      "doc": "The environment wins over the default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
+      "argv": [],
+      "env": { "EX_JOBS": "4" },
+      "expect": { "ok": { "flags": { "jobs": "4" } } }
+    },
+    {
+      "id": "env-empty-string-counts-as-set",
+      "doc": "An env var set to the empty string is set. Treating empty as unset would make `EX_JOBS=` mean something different from every other empty value in the grammar.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
+      "argv": [],
+      "env": { "EX_JOBS": "" },
+      "expect": { "ok": { "flags": { "jobs": "" } } }
+    },
+    {
+      "id": "default-fills-absent-arg",
+      "doc": "Defaults work the same way for positionals.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\" default=\"out.txt\"\n",
+      "argv": [],
+      "expect": { "ok": { "args": { "file": "out.txt" } } }
+    },
+    {
+      "id": "env-fills-absent-arg",
+      "doc": "An env-backed positional is filled from the environment when no word reaches it.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\" env=\"EX_FILE\"\n",
+      "argv": [],
+      "env": { "EX_FILE": "from-env.txt" },
+      "expect": { "ok": { "args": { "file": "from-env.txt" } } }
+    },
+    {
+      "id": "env-does-not-satisfy-required-arg-position",
+      "doc": "An env-backed required positional is satisfied by the environment, so the command line need not supply it.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\" env=\"EX_FILE\"\n",
+      "argv": [],
+      "env": { "EX_FILE": "x.txt" },
+      "expect": { "ok": { "args": { "file": "x.txt" } } }
+    }
+  ]
+}
