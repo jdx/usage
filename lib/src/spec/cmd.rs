@@ -977,7 +977,7 @@ cmd "install" help="Install a package" subcommand_required=#false {
     arg "<pkg>" help="Package to install"
     arg "[dest]" effect="write"
     flag "-f --force" help="Overwrite"
-    flag "--purge" effect="destructive"
+    flag "--purge" effect="destructive" overrides="-f" required_unless="--keep"
     complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"
@@ -1003,6 +1003,14 @@ cmd "hidden" hide=#true
         // Equality is only meaningful if the fixture actually populated the
         // fields, so guard against a future edit quietly emptying it out.
         let install = &original["cmd"]["subcommands"]["install"];
+        let purge = install["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|flag| flag["name"] == "purge")
+            .unwrap();
+        assert_eq!(purge["overrides"], serde_json::json!(["-f"]));
+        assert_eq!(purge["required_unless"], serde_json::json!(["--keep"]));
         for key in [
             "help_long",
             "help_md",
