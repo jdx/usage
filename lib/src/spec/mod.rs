@@ -204,6 +204,10 @@ impl Spec {
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
                 "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
+                // The root is a command like any other, so it can discover its own
+                // subcommands by running something. A CLI whose top-level commands
+                // come from plugins has no other way to say so.
+                "mount" => schema.cmd.mounts.push(crate::SpecMount::parse(ctx, &node)?),
                 "cmd" => {
                     let node: SpecCommand = SpecCommand::parse(ctx, &node)?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
@@ -488,6 +492,11 @@ impl Display for Spec {
         }
         for arg in self.cmd.args.iter() {
             nodes.push(arg.into());
+        }
+        // Written here rather than by SpecCommand, because the root's own nodes
+        // live at the top level of the document instead of inside a `cmd` block.
+        for mount in self.cmd.mounts.iter() {
+            nodes.push(mount.into());
         }
         for example in self.examples.iter() {
             nodes.push(example.into());

@@ -83,6 +83,23 @@ task commands as if they were statically defined in the usage spec.
 a shebang script therefore needs a POSIX shell to be available; one that invokes a program
 directly, like `mycli mount-usage-tasks` above, works either way.
 
+### Mounting at the top level
+
+A `mount` also works as a top-level node, for a CLI whose _own_ commands are
+discovered rather than declared — one whose subcommands come from plugins, say:
+
+```kdl
+name "mycli"
+bin "mycli"
+cmd "install"
+mount run="mycli plugin-commands"
+```
+
+The root's mount runs only when a _word_ matches nothing already declared, so
+`mycli install` costs nothing extra and only `mycli something-from-a-plugin` pays
+for discovery. Flags never trigger it — `mycli --help` does not run your mount
+command — so declaring the commands you know about keeps the common path free.
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

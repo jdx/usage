@@ -424,6 +424,11 @@ impl SpecCommand {
         usage.trim().to_string()
     }
     pub(crate) fn merge(&mut self, other: Self) {
+        // Merging can add subcommands and aliases, and `find_subcommand` memoizes
+        // its lookup into a OnceLock — so the cache has to go, or a name that
+        // arrived here would not be findable. This worked before only because
+        // mounting happened to precede the first lookup on a given command.
+        self.subcommand_lookup = OnceLock::new();
         // Destructured exhaustively (no `..`) so that adding a field to
         // SpecCommand fails to compile until this decides what merging it means.
         // Runtime-derived fields are explicitly ignored rather than skipped.

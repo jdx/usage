@@ -351,7 +351,12 @@ impl<'a> Parser<'a> {
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
         let custom_env = self.env.as_ref();
-        let (mut out, overridden_flags) = parse_partial_with_env(self.spec, input, custom_env)?;
+        let (mut out, overridden_flags) = parse_partial_with_env(
+            self.spec,
+            input,
+            custom_env,
+            MountTiming::WhenAWordIsUnknown,
+        )?;
         trace!("{out:?}");
 
         // A flag still waiting for a value never got one, so the command line ended
@@ -565,14 +570,28 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    parse_partial_with_env(spec, input, None).map(|(out, _)| out)
+    parse_partial_with_env(spec, input, None, MountTiming::Eager).map(|(out, _)| out)
 }
 
 /// Internal version of parse_partial that accepts an optional custom env map.
+/// When a command's own `mount` runs, for the root — which nothing descends into.
+///
+/// A completion has to know every command before it can offer one, even with
+/// nothing typed yet, so it resolves up front. An execution knows the word it was
+/// given, so it only pays for discovery when that word matches nothing declared —
+/// and a CLI that declares its commands and mounts a few more does not spawn a
+/// process on every invocation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MountTiming {
+    Eager,
+    WhenAWordIsUnknown,
+}
+
 fn parse_partial_with_env(
     spec: &Spec,
     input: &[String],
     custom_env: Option<&HashMap<String, String>>,
+    mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
@@ -618,8 +637,60 @@ fn parse_partial_with_env(
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
     let mut used_default_subcommand = false;
+    // Whether the command in scope has had its own mounts run. A mount on the root
+    // is the case that needs this: a subcommand's mounts are run when the parser
+    // descends into it, but nothing descends into the root.
+    let mut mounts_resolved = false;
+    // A completion needs the whole command list before it can offer anything, and
+    // `mycli <tab>` has no word to trigger discovery with — so waiting for one would
+    // mean a root mount never contributed to the very thing it exists for.
+    //
+    // The default-subcommand gate applies here too, and has to: offering a discovered
+    // command that a real parse would hand to the default instead would be worse than
+    // not offering it. A root mount under a `default_subcommand` that does not say
+    // `overrides_default` therefore contributes nothing anywhere, which is what
+    // "the default outranks discovery" means.
+    let default_outranks_mounts =
+        spec.default_subcommand.is_some() && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+    if mount_timing == MountTiming::Eager && !default_outranks_mounts && !out.cmd.mounts.is_empty()
+    {
+        mounts_resolved = true;
+        let mut mounted = out.cmd.clone();
+        mounted.mount(&[])?;
+        merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+        if let Some(last) = out.cmds.last_mut() {
+            *last = mounted.clone();
+        }
+        out.cmd = mounted;
+    }
 
     while idx < input.len() {
+        // Only for a word that could name a command, and only when it matches
+        // nothing already declared. A CLI that declares its commands and mounts more
+        // does not spawn a process for every invocation, and a flag — `--help`, or
+        // anything unrecognized — never triggers discovery at all, which it would
+        // otherwise do simply by not being a subcommand.
+        // A declared `default_subcommand` already says what an unmatched word means,
+        // and it costs nothing — so discovery waits behind it unless a mount asks to
+        // outrank it. Without this, a task runner would spawn its discovery process
+        // once per task invocation.
+        let default_catches_it = spec.default_subcommand.is_some()
+            && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+        if !mounts_resolved
+            && !out.cmd.mounts.is_empty()
+            && !default_catches_it
+            && !input[idx].starts_with('-')
+            && out.cmd.find_subcommand(&input[idx]).is_none()
+        {
+            mounts_resolved = true;
+            let mut mounted = out.cmd.clone();
+            mounted.mount(&mount_prefix_words(&prefix_flags))?;
+            merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+            if let Some(last) = out.cmds.last_mut() {
+                *last = mounted.clone();
+            }
+            out.cmd = mounted;
+        }
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
@@ -636,6 +707,8 @@ fn parse_partial_with_env(
             input.remove(idx);
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
+            // A descent already ran the new command's mounts, above.
+            mounts_resolved = true;
             prefix_flags.clear();
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
@@ -696,6 +769,9 @@ fn parse_partial_with_env(
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
                         prefix_flags.clear();
+                        // This descent ran the new command's mounts, so lazy
+                        // discovery must not run them a second time.
+                        mounts_resolved = true;
                         used_default_subcommand = true;
                         // Continue the loop to check if this word is a subcommand of the
                         // default subcommand (e.g., a task name added via mount).
@@ -1566,6 +1642,173 @@ arg "[input]"
         assert_eq!(parsed.flags.len(), 1);
         assert!(parsed.flags.keys().any(|flag| flag.name == "stdin"));
         assert_eq!(first_string_value(&parsed), "input.txt");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_mount_on_the_root_discovers_subcommands() {
+        // The root is a command like any other, so it can find its own subcommands
+        // by running something. Uses `echo` rather than a fixture because resolving
+        // a mount is what is being tested.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="echo 'cmd \"discovered\"'"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn completion_sees_root_mounted_commands_with_nothing_typed() {
+        // The case a root mount exists for. `mycli <tab>` has no word to trigger
+        // discovery with, so a completion has to resolve up front or the mounted
+        // commands are never offered.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="echo 'cmd \"discovered\"'"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse_partial(&spec, &["ex".to_string()]).unwrap();
+        assert!(
+            out.cmd.subcommands.contains_key("discovered"),
+            "a completion should see mounted commands; got {:?}",
+            out.cmd.subcommands.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn completion_and_execution_agree_about_discovery() {
+        // Offering a command that a real parse would hand to the default instead is
+        // worse than not offering it, so the gate applies to both paths. The mount
+        // fails if it runs, which is how both halves are checked at once.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse_partial(&spec, &["ex".to_string()]).unwrap();
+        assert!(
+            !out.cmd.subcommands.contains_key("discovered"),
+            "a completion must not offer what execution will not route"
+        );
+
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_default_subcommand_outranks_discovery() {
+        // The default already says what an unmatched word means, and says it for
+        // free. The mount fails if it runs, so parsing proves discovery was skipped.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_mount_may_ask_to_outrank_the_default() {
+        // Opting in, and paying for it: discovery runs first, so a discovered
+        // command wins over the fallback.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="echo 'cmd \"discovered\"'" overrides_default=#true
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "discovered");
+
+        // A word it does not know still reaches the default.
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_flag_does_not_run_the_mount() {
+        // A flag matches no subcommand, which would have been enough to trigger
+        // discovery — so `ex --help` spawned a process. The mount fails if it runs,
+        // so parsing at all is the proof that it did not.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--verbose"
+cmd "declared"
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "--verbose".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "ex");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_declared_subcommand_does_not_run_the_mount() {
+        // The mount would fail if it ran, so this parsing at all is the proof that
+        // discovery is skipped when the word is already known. Worth pinning: a root
+        // mount that resolved eagerly would spawn a process on every invocation.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "declared".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "declared");
+    }
+
+    #[test]
+    fn a_root_mount_survives_being_written_out() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nmount run=\"ex plugins --usage\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.mounts.len(), 1);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.mounts.len(), 1, "written:\n{spec}");
+        assert_eq!(reparsed.cmd.mounts[0].run, "ex plugins --usage");
     }
 
     #[test]
