@@ -65,6 +65,9 @@
 //!
 //! # What this version does not do
 //!
+//! Published early on purpose, so it can be used and argued with — but these are
+//! real limits, not omissions from the docs.
+//!
 //! - **Subcommands.** One command per struct for now.
 //! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
 //!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a

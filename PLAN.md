@@ -89,8 +89,9 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       allocations on success _and_ failure, proved by a counting allocator rather
       than asserted. Answers the binding vectors, including every one where
       usage-lib diverges from the grammar.
-- [x] **Released on the shared version** (#798) — an ordinary member of the
-      workspace rather than a 0.0.0 curiosity outside the release cycle.
+- [x] **Released on the shared version** (#798, #803) — `usage-argv` and
+      `usage-derive` are ordinary members of the workspace at the shared version
+      rather than 0.0.0 curiosities outside the release cycle.
 - [x] **Repeatable vs. variadic flags, and `double_dash_seen`** (#799) — a
       repeatable flag was greedy enough to eat a positional, and `automatic` mode
       reported a separator nobody typed.

@@ -1,10 +1,6 @@
 [package]
 name = "usage-derive"
 description = "Derive macro that compiles a CLI definition into parse tables and a usage spec"
-# Not published yet: it cannot express subcommands, and a CLI framework that
-# cannot do that is not one anybody should depend on by accident. The version
-# tracks the workspace so it is ready to publish the moment it can.
-publish = false
 version = "5.1.0"
 edition = "2021"
 rust-version = "1.80.0"
@@ -16,6 +12,10 @@ license = { workspace = true }
 
 [lib]
 proc-macro = true
+
+[package.metadata.release]
+shared-version = true
+release = true
 
 [dependencies]
 proc-macro2 = "1"
