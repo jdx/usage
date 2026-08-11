@@ -24,7 +24,11 @@ quote = "1"
 # needs the newer API, and matching what is there avoids a second copy.
 syn = { version = "3", features = ["full"] }
 
-# The generated code refers to usage-argv, so the doc examples need it in scope to
-# compile. Not a real dependency: this crate emits tokens and links nothing.
-[dev-dependencies]
-usage-argv = { workspace = true, features = ["spec"] }
+# No dependency on usage-argv, not even for tests. This crate emits tokens and
+# links nothing, and dev-depending on the runtime it emits code for creates a cycle
+# at publish time: `cargo publish` resolves dev-dependencies against the registry,
+# so a feature added to usage-argv within a version makes this crate unpublishable
+# until the version bumps. serde_derive avoids the same trap the same way.
+#
+# The crate-level example is therefore `ignore`d here and compiled for real in
+# conformance/tests/derive.rs, which is where the derive is tested anyway.

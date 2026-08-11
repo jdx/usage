@@ -7,7 +7,11 @@
 //! to build before a parse can start — and a successful parse touches only the
 //! first of the three.
 //!
-//! ```
+//! Not compiled here, because this crate deliberately does not depend on
+//! usage-argv — see the note in its `Cargo.toml`. The same example runs as a test
+//! in `conformance/tests/derive.rs`, as `the_crate_level_example_from_the_docs`.
+//!
+//! ```ignore
 //! # use usage_derive::Cli;
 //! /// A tool that does things
 //! #[derive(Cli)]
