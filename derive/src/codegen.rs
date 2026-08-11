@@ -66,82 +66,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let about = option_str(cli.about.as_deref());
     let long_about = option_str(cli.long_about.as_deref());
 
-    // The field holding this command's subcommands, if it declares any. Its type is
-    // reached through the `Subcommands` trait, since the derive cannot see the enum.
-    let subcommand = cli.fields.iter().find_map(|f| match &f.kind {
-        Kind::Subcommand { ty, .. } => Some((f, ty)),
-        _ => None,
-    });
-    let (sub_commands, sub_metas) = match subcommand {
-        Some((_, ty)) => {
-            let ty = in_module(ty);
-            (
-                quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::COMMANDS,),
-                quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::METAS,),
-            )
-        }
-        None => (quote!(), quote!()),
-    };
-    let (sub_init, sub_route, sub_build) = match subcommand {
-        Some((field, ty)) => {
-            let ident = &field.ident;
-            let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
-            (
-                quote! {
-                    let mut __usage_sub =
-                        <<#ty as ::usage_argv::spec::Subcommands>::Partial as
-                            ::std::default::Default>::default();
-                    // `None` rather than a reserved key: nothing has to be true about
-                    // the number space for "no subcommand was given" to be sayable.
-                    let mut __usage_selected: ::std::option::Option<u64> =
-                        ::std::option::Option::None;
-                },
-                quote! {
-                    if let ::usage_argv::Event::Command(__usage_cmd) = &__usage_event {
-                        __usage_selected = ::std::option::Option::Some(__usage_cmd.key);
-                    }
-                    <#ty as ::usage_argv::spec::Subcommands>::apply(
-                        &mut __usage_sub,
-                        &__usage_event,
-                    );
-                },
-                {
-                    // Only the command that was reached is judged, and a command that
-                    // was required has to be reported if it was not.
-                    let selected = quote! {
-                        match __usage_selected {
-                            ::std::option::Option::Some(__usage_key) => {
-                                <#ty as ::usage_argv::spec::Subcommands>::check(
-                                    &mut __usage_sub,
-                                    __usage_key,
-                                )?;
-                                <#ty as ::usage_argv::spec::Subcommands>::select(
-                                    __usage_sub,
-                                    __usage_key,
-                                )
-                            }
-                            ::std::option::Option::None => ::std::option::Option::None,
-                        }
-                    };
-                    if optional {
-                        quote!(#ident: #selected,)
-                    } else {
-                        quote! {
-                            #ident: match #selected {
-                                ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
-                                ::std::option::Option::None => {
-                                    return ::std::result::Result::Err(
-                                        ::usage_argv::Error::MissingSubcommand,
-                                    );
-                                }
-                            },
-                        }
-                    }
-                },
-            )
-        }
-        None => (quote!(), quote!(), quote!()),
-    };
+    // The same wiring a nested command uses: the root differs only in how it is
+    // entered, so it does not get its own copy.
+    let parts = subcommand_parts(cli);
+    let sub_commands = parts
+        .as_ref()
+        .map(|p| p.commands.clone())
+        .unwrap_or_default();
+    let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
+    let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
@@ -217,6 +150,18 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #partial
             #apply
 
+            /// Everything decided after the last token.
+            ///
+            /// In the module rather than beside the parse, so every reference it makes
+            /// to the user's own types sits at one consistent scope — the root and a
+            /// nested command generate the same code here.
+            pub fn check<'t, 'v>(
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                #post
+                ::std::result::Result::Ok(())
+            }
+
             pub static SPEC: Spec = Spec {
                 name: #name,
                 bin: #bin,
@@ -257,21 +202,18 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 use #module::Partial;
 
                 #defaults
-                #sub_init
 
                 let mut __usage_parser = ::usage_argv::Parser::new(Self::command(), argv);
                 while let ::std::option::Option::Some(__usage_event) =
                     __usage_parser.next_event()
                 {
-                    let __usage_event = __usage_event?;
-                    // This command's own fields first. Keys are unique across the
-                    // CLI, so anything it does not claim belongs to a subcommand.
-                    if !#module::apply(&mut partial, &__usage_event) {
-                        #sub_route
-                    }
+                    // `apply` handles this command's own fields and routes anything
+                    // else into its subcommands, which is why a nested command needs
+                    // nothing extra here.
+                    #module::apply(&mut partial, &__usage_event?);
                 }
 
-                #post
+                #module::check(&mut partial)?;
 
                 ::std::result::Result::Ok(Self {
                     #sub_build
@@ -556,6 +498,9 @@ fn option_str(value: Option<&str>) -> TokenStream {
 /// subcommand cannot use locals in the root's parse function, because the root
 /// cannot see its fields.
 fn partial_struct(cli: &Cli) -> TokenStream {
+    let sub = subcommand_parts(cli)
+        .map(|p| p.partial_fields)
+        .unwrap_or_default();
     let fields = cli.fields.iter().filter_map(|f| {
         if matches!(f.kind, Kind::Subcommand { .. }) {
             // Its values live in the enum's own partial.
@@ -581,10 +526,12 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 
     // `Default` rather than a generated `new`: every accumulator type has one, and
     // a default that says "nothing was given" is what a partial starts as.
+    // `Default` is not derived once a subcommand is in play: the nested partial has
+    // its own starting values, which `start` puts in place.
     quote! {
-        #[derive(Default)]
         pub struct Partial {
             #(#fields)*
+            #sub
         }
     }
 }
@@ -594,6 +541,20 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 /// A declared `default` has to be in place before parsing starts, since nothing
 /// later distinguishes "the default" from "what the user typed".
 fn partial_defaults(cli: &Cli) -> TokenStream {
+    let sub_starts = subcommand_parts(cli)
+        .map(|p| p.partial_starts)
+        .unwrap_or_default();
+    let plain = cli.fields.iter().filter_map(|f| {
+        if matches!(f.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let ident = &f.ident;
+        let given = format_ident!("__given_{}", ident);
+        Some(quote! {
+            #ident: ::std::default::Default::default(),
+            #given: false,
+        })
+    });
     let assignments = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let default = f.default.as_deref()?;
@@ -612,13 +573,17 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
         })
     });
     quote! {
-        let mut partial = Partial::default();
+        let mut partial = Partial {
+            #(#plain)*
+            #sub_starts
+        };
         #(#assignments)*
     }
 }
 
 /// Take one event and say whether it belonged to this command.
 fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
+    let route = subcommand_parts(cli).map(|p| p.route).unwrap_or_default();
     let flags: Vec<&Field> = cli
         .fields
         .iter()
@@ -638,6 +603,7 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
             event: &::usage_argv::Event<'_, '_>,
         ) -> bool {
             use ::usage_argv::Event;
+            #route
             // Each arm evaluates to whether it claimed the event, rather than
             // returning: a command with no flags of its own would otherwise have every
             // arm diverge, leaving an unreachable tail.
@@ -665,6 +631,110 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
             }
         }
     }
+}
+
+/// What a command with subcommands needs, wherever it sits in the tree.
+///
+/// The root and a nested command differ only in how they are entered, so they share
+/// this: the tables to splice, the state to carry, how an event is routed, and how
+/// the field is finally built.
+struct SubcommandParts {
+    /// `subcommands:` for the `Command` table.
+    commands: TokenStream,
+    /// `subcommands:` for the `CommandMeta`.
+    metas: TokenStream,
+    /// Fields the partial needs to carry.
+    partial_fields: TokenStream,
+    /// Their starting values.
+    partial_starts: TokenStream,
+    /// Routing an event that this command did not claim.
+    route: TokenStream,
+    /// Checking whichever subcommand was selected.
+    check: TokenStream,
+    /// Building the field.
+    build: TokenStream,
+}
+
+fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
+    let (field, ty) = cli.fields.iter().find_map(|f| match &f.kind {
+        Kind::Subcommand { ty, .. } => Some((f, ty)),
+        _ => None,
+    })?;
+    let ident = &field.ident;
+    let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
+    let in_mod = in_module(ty);
+
+    let selected = quote! {
+        match partial.__usage_selected {
+            ::std::option::Option::Some(__usage_key) => {
+                <#ty as ::usage_argv::spec::Subcommands>::select(
+                    partial.__usage_sub,
+                    __usage_key,
+                )?
+            }
+            ::std::option::Option::None => ::std::option::Option::None,
+        }
+    };
+    let build = if optional {
+        quote!(#ident: #selected,)
+    } else {
+        quote! {
+            #ident: match #selected {
+                ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
+                ::std::option::Option::None => {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::MissingSubcommand,
+                    );
+                }
+            },
+        }
+    };
+
+    Some(SubcommandParts {
+        commands: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS,),
+        metas: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::METAS,),
+        partial_fields: quote! {
+            pub __usage_sub: <#in_mod as ::usage_argv::spec::Subcommands>::Partial,
+            /// Which of this command's subcommands was reached, if any.
+            pub __usage_selected: ::std::option::Option<u64>,
+        },
+        partial_starts: quote! {
+            __usage_sub: ::std::default::Default::default(),
+            __usage_selected: ::std::option::Option::None,
+        },
+        // `route` and `check` are emitted inside the generated module, so they name
+        // the user's enum through `super::`; `build` sits in the impl beside it and
+        // names it directly.
+        route: quote! {
+            // A command word only counts as *this* command's if one of its own
+            // subcommands answers to it: a deeper descent belongs to whoever owns
+            // that command, and recording it here would make the wrong variant look
+            // selected.
+            if let ::usage_argv::Event::Command(__usage_cmd) = event {
+                if <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS
+                    .iter()
+                    .any(|candidate| candidate.key == __usage_cmd.key)
+                {
+                    partial.__usage_selected = ::std::option::Option::Some(__usage_cmd.key);
+                }
+            }
+            if <#in_mod as ::usage_argv::spec::Subcommands>::apply(
+                &mut partial.__usage_sub,
+                event,
+            ) {
+                return true;
+            }
+        },
+        check: quote! {
+            if let ::std::option::Option::Some(__usage_key) = partial.__usage_selected {
+                <#in_mod as ::usage_argv::spec::Subcommands>::check(
+                    &mut partial.__usage_sub,
+                    __usage_key,
+                )?;
+            }
+        },
+        build,
+    })
 }
 
 /// A subcommand's argument struct: tables, metadata, and the trait that lets a
@@ -711,10 +781,21 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli, base);
     let post = post_binding(cli);
-    let field_finals = cli.fields.iter().map(|f| {
-        let ident = &f.ident;
-        quote!(#ident: partial.#ident)
-    });
+    let parts = subcommand_parts(cli);
+    let sub_commands = parts
+        .as_ref()
+        .map(|p| p.commands.clone())
+        .unwrap_or_default();
+    let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
+    let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
+    let field_finals = cli
+        .fields
+        .iter()
+        .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
+        .map(|f| {
+            let ident = &f.ident;
+            quote!(#ident: partial.#ident)
+        });
 
     quote! {
         #[doc(hidden)]
@@ -739,6 +820,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 key: #command_key,
                 flags: &[#(#flag_refs),*],
                 args: &[#(#arg_refs),*],
+                #sub_commands
                 ..Command::EMPTY
             };
 
@@ -751,6 +833,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 flags: &[#(#flag_meta_refs),*],
                 args: &[#(#arg_meta_refs),*],
+                #sub_metas
                 ..CommandMeta::EMPTY
             };
 
@@ -809,8 +892,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 #module::check(partial)
             }
 
-            fn build(partial: Self::Partial) -> Self {
-                Self { #(#field_finals),* }
+            fn build<'t, 'v>(
+                partial: Self::Partial,
+            ) -> ::std::result::Result<Self, ::usage_argv::Error<'t, 'v>> {
+                ::std::result::Result::Ok(Self {
+                    #sub_build
+                    #(#field_finals),*
+                })
             }
         }
     }
@@ -914,9 +1002,11 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         quote! {
             if key == <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.key {
-                return ::std::option::Option::Some(
-                    #ident::#variant(<#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)),
-                );
+                return ::std::result::Result::Ok(::std::option::Option::Some(
+                    #ident::#variant(
+                        <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?,
+                    ),
+                ));
             }
         }
     });
@@ -971,9 +1061,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 ::std::result::Result::Ok(())
             }
 
-            fn select(partial: Self::Partial, key: u64) -> ::std::option::Option<Self> {
+            fn select<'t, 'v>(
+                partial: Self::Partial,
+                key: u64,
+            ) -> ::std::result::Result<
+                ::std::option::Option<Self>,
+                ::usage_argv::Error<'t, 'v>,
+            > {
                 #(#selects)*
-                ::std::option::Option::None
+                ::std::result::Result::Ok(::std::option::Option::None)
             }
         }
     }
@@ -986,6 +1082,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 /// come last, because they judge a value however it arrived, including one that came
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
+    let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
     let env_fallbacks = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
@@ -1118,5 +1215,27 @@ fn post_binding(cli: &Cli) -> TokenStream {
         #(#required_checks)*
         #(#choice_checks)*
         #(#bound_checks)*
+        #sub_check
+    }
+}
+
+#[cfg(test)]
+mod in_module_tests {
+    use super::in_module;
+
+    fn rendered(ty: &str) -> String {
+        in_module(&syn::parse_str::<syn::Type>(ty).unwrap())
+            .to_string()
+            .replace(' ', "")
+    }
+
+    #[test]
+    fn a_path_is_qualified_for_the_generated_module() {
+        assert_eq!(rendered("Commands"), "super::Commands");
+        assert_eq!(rendered("cmds::Commands"), "super::cmds::Commands");
+        assert_eq!(rendered("crate::cmds::Commands"), "crate::cmds::Commands");
+        assert_eq!(rendered("::other::Commands"), "::other::Commands");
+        assert_eq!(rendered("self::Commands"), "super::Commands");
+        assert_eq!(rendered("super::Commands"), "super::super::Commands");
     }
 }

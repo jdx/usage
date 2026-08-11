@@ -747,7 +747,11 @@ fn quoted(value: &str) -> String {
 pub trait CommandArgs: Sized {
     /// Values collected so far. Partly-filled by construction, since a parse can
     /// stop early.
-    type Partial: Default;
+    ///
+    /// No `Default` bound: [`CommandArgs::start`] is what produces a fresh one,
+    /// because a command with subcommands of its own has nested state that a derived
+    /// `Default` cannot set up.
+    type Partial;
 
     /// The parse tables for this command.
     ///
@@ -786,7 +790,10 @@ pub trait CommandArgs: Sized {
     }
 
     /// Build the struct from what was collected.
-    fn build(partial: Self::Partial) -> Self;
+    ///
+    /// Fallible because a command can require a subcommand of its own, and "none was
+    /// given" is only knowable here — at the point where the value has to exist.
+    fn build<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
 }
 
 /// An enum whose variants are a command's subcommands.
@@ -815,8 +822,11 @@ pub trait Subcommands: Sized {
     /// Build the variant whose command was selected, by its [`Command::key`].
     ///
     /// `None` when no variant was selected, which a caller reads as "no subcommand
-    /// was given".
-    fn select(partial: Self::Partial, key: u64) -> Option<Self>;
+    /// was given". An `Err` comes from building the variant that *was* selected.
+    fn select<'t, 'v>(
+        partial: Self::Partial,
+        key: u64,
+    ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
 }
 
 #[cfg(test)]
