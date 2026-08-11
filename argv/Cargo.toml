@@ -1,11 +1,7 @@
 [package]
 name = "usage-argv"
 description = "Zero-allocation argv parser for usage specs"
-# Not published yet. The name is reserved on crates.io at 0.0.0; publishing
-# resumes from here once there is a parser worth depending on. Deliberately
-# outside the shared-version release cycle, like clap_usage.
-publish = false
-version = "0.0.0"
+version = "5.1.0"
 edition = "2021"
 rust-version = "1.80.0"
 homepage = { workspace = true }
@@ -17,3 +13,7 @@ license = { workspace = true }
 # No dependencies, and none are wanted. This crate is what runs on every
 # invocation of every CLI built on it.
 [dependencies]
+
+[package.metadata.release]
+shared-version = true
+release = true
