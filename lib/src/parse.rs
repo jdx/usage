@@ -718,7 +718,19 @@ fn parse_partial_with_env(
             let word = input[idx].clone();
             let flag_key = get_flag_key(&word);
 
-            if let Some(f) = out.available_flags.get(flag_key).cloned() {
+            // A short token keys on its first letter, so `-az` would be recorded as
+            // `-a` and its tail left over. Check the whole token here, where it is
+            // first read: a token containing an unrecognized letter is not a bundle,
+            // and recording it as one is what let `-a` be applied from a token that
+            // never named it.
+            let is_bundle =
+                word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
+            if let Some(f) = out
+                .available_flags
+                .get(flag_key)
+                .cloned()
+                .filter(|_| is_bundle)
+            {
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
                 // stopping at one would hide the subcommand — and any mount on it — from the
@@ -953,7 +965,25 @@ fn parse_partial_with_env(
         }
 
         // short flags
-        if enable_flags && w.starts_with('-') && w.len() > 1 {
+        //
+        // A fresh token is checked whole before any of it is applied: `-az` with only
+        // `-a` declared is not a bundle at all, so it must not set `a` on the way to
+        // discovering that `z` names nothing. A grouped continuation is exempt — its
+        // token was already checked when it arrived.
+        if enable_flags
+            && !grouped_flag
+            // A word phase 1 already resolved to a flag needs no re-checking, and
+            // the flags in scope have changed since, so re-checking would be wrong.
+            && binding.is_none()
+            && w.starts_with('-')
+            && w.len() > 1
+            && is_flag_like(&w)
+            && !short_bundle_is_known(&out.available_flags, &w)
+        {
+            // Refused if this command asked for that; otherwise it carries on below
+            // as one word, with none of its letters applied.
+            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
+        } else if enable_flags && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = binding
                 .as_ref()
@@ -1284,6 +1314,21 @@ impl<'a> ChoiceTarget<'a> {
     }
 }
 
+/// Whether every letter of a short token names a flag in scope.
+///
+/// Scanning stops at the first letter whose flag takes a value, because everything
+/// after it is that value rather than more letters.
+fn short_bundle_is_known(available: &BTreeMap<String, Arc<SpecFlag>>, token: &str) -> bool {
+    for c in token.chars().skip(1) {
+        match available.get(&format!("-{c}")) {
+            None => return false,
+            Some(f) if f.arg.is_some() => return true,
+            Some(_) => {}
+        }
+    }
+    true
+}
+
 /// Refuse a flag-like token that named nothing, if this command asked for that.
 ///
 /// Called from the flag branches, where the lookup has just failed and nothing from
@@ -1327,16 +1372,16 @@ fn effective_unknown_flags(spec: &Spec, path: &[SpecCommand]) -> UnknownFlags {
 }
 
 /// Whether a token would be read as a flag, for the purpose of rejecting unknown
-/// ones. A lone `-` is a value by convention, and a negative number is a value
-/// because no CLI could accept `--offset -1` otherwise.
+/// ones.
+///
+/// A lone `-` is a value by convention, and a negative number is a value because no
+/// CLI could accept `--offset -1` otherwise. The number has to actually be one:
+/// treating anything after a digit as numeric would let `-1x` slip past a CLI that
+/// asked for unknown flags to be refused.
 fn is_flag_like(token: &str) -> bool {
-    let mut chars = token.chars();
-    if chars.next() != Some('-') {
-        return false;
-    }
-    match chars.next() {
-        None => false,
-        Some(c) => !c.is_ascii_digit(),
+    match token.strip_prefix('-') {
+        None | Some("") => false,
+        Some(rest) => rest.parse::<f64>().is_err(),
     }
 }
 

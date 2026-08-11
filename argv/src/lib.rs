@@ -679,9 +679,28 @@ fn bytes<'v>(s: &'v &'v OsStr) -> &'v [u8] {
 /// without which no CLI could accept `--offset -1`.
 fn is_flag_like(token: &[u8]) -> bool {
     match token {
-        [b'-', rest @ ..] if !rest.is_empty() => !rest[0].is_ascii_digit(),
+        [b'-', rest @ ..] if !rest.is_empty() => !is_number(rest),
         _ => false,
     }
+}
+
+/// Whether the text after a `-` is a number, so `-1` and `-2.5` are values while
+/// `-1x` is a flag-shaped token that names nothing.
+///
+/// Written out rather than deferred to `f64::from_str` because this runs on the hot
+/// path and a parse would have to go through `str`, which means a UTF-8 check on a
+/// slice that has already been decided by its bytes.
+fn is_number(rest: &[u8]) -> bool {
+    let mut seen_digit = false;
+    let mut seen_dot = false;
+    for &b in rest {
+        match b {
+            b'0'..=b'9' => seen_digit = true,
+            b'.' if !seen_dot => seen_dot = true,
+            _ => return false,
+        }
+    }
+    seen_digit
 }
 
 #[cfg(test)]

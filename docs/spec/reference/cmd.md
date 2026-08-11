@@ -135,7 +135,7 @@ cmd "exec" unknown_flags="value"    // except here, which forwards a command lin
 The nearest command that states a preference wins, then the spec, then `value`.
 Unlike [`effect`](#effect), this is inherited: it describes how a command line is
 read rather than what a command does. See
-[the argv grammar](/spec/argv#unrecognized-flags) for the reasoning and the cost.
+[the argv grammar](../argv.md#unrecognized-flags) for the reasoning and the cost.
 
 ### Global flags and mounted commands
 

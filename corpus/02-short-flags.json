@@ -66,6 +66,13 @@
       "expect": { "error": "unexpected_arg" }
     },
     {
+      "id": "short-bundle-unknown-letter-applies-nothing",
+      "doc": "The same rejection, seen from the side that matters: with an argument free to take the token, `-a` must still be unset. A token containing an unrecognized letter was never a bundle, so none of its letters apply \u2014 the previous vector cannot show this, because both readings produce the same error.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\narg \"[file]\"\n",
+      "argv": ["-az"],
+      "expect": { "ok": { "args": { "file": "-az" } } }
+    },
+    {
       "id": "short-count",
       "doc": "A `count` flag records how many times it appeared, so `-vvv` is three.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" count=#true\n",
@@ -98,6 +105,13 @@
       "doc": "Refusing unknown flags, an unrecognized letter fails the whole token rather than applying the letters before it \u2014 a partly-applied bundle would be worse than a rejected one.",
       "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"-a --all\"\n",
       "argv": ["-az"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-digit-token-that-is-not-a-number",
+      "doc": "`-1x` is not a number, so it is a flag-shaped token that names nothing \u2014 a CLI refusing unknown flags hears about it rather than having it slip through as a value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[file]\"\n",
+      "argv": ["-1x"],
       "expect": { "error": "unknown_flag" }
     }
   ]

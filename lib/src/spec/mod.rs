@@ -335,6 +335,7 @@ impl Spec {
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
+        merge_opt!(unknown_flags);
         merge_extend!(complete);
         merge_extend!(examples);
 
