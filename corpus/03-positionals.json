@@ -14,7 +14,8 @@
       "doc": "A required argument with nothing to fill it is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
       "argv": [],
-      "expect": { "error": "missing_required_arg" }
+      "expect": { "error": "missing_required_arg" },
+      "layer": "post-binding"
     },
     {
       "id": "arg-optional-absent",
@@ -75,7 +76,8 @@
       "doc": "`var_min` is enforced: too few values is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>\" var=#true var_min=2\n",
       "argv": ["a"],
-      "expect": { "error": "var_too_few" }
+      "expect": { "error": "var_too_few" },
+      "layer": "post-binding"
     },
     {
       "id": "arg-variadic-max",
@@ -85,7 +87,8 @@
       "expect": { "error": "var_too_many" },
       "reference": {
         "diverges": "usage-lib reports `unexpected_arg`. The outcome is the same rejection; the distinct code is what tells a caller the limit was a `var_max` rather than an absent argument."
-      }
+      },
+      "layer": "post-binding"
     },
     {
       "id": "arg-value-looks-like-negative-number",
