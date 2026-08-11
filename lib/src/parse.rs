@@ -618,7 +618,16 @@ fn parse_partial_with_env(
     // A completion needs the whole command list before it can offer anything, and
     // `mycli <tab>` has no word to trigger discovery with — so waiting for one would
     // mean a root mount never contributed to the very thing it exists for.
-    if mount_timing == MountTiming::Eager && !out.cmd.mounts.is_empty() {
+    //
+    // The default-subcommand gate applies here too, and has to: offering a discovered
+    // command that a real parse would hand to the default instead would be worse than
+    // not offering it. A root mount under a `default_subcommand` that does not say
+    // `overrides_default` therefore contributes nothing anywhere, which is what
+    // "the default outranks discovery" means.
+    let default_outranks_mounts =
+        spec.default_subcommand.is_some() && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+    if mount_timing == MountTiming::Eager && !default_outranks_mounts && !out.cmd.mounts.is_empty()
+    {
         mounts_resolved = true;
         let mut mounted = out.cmd.clone();
         mounted.mount(&[])?;
@@ -1631,6 +1640,34 @@ mount run="echo 'cmd \"discovered\"'"
             "a completion should see mounted commands; got {:?}",
             out.cmd.subcommands.keys().collect::<Vec<_>>()
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn completion_and_execution_agree_about_discovery() {
+        // Offering a command that a real parse would hand to the default instead is
+        // worse than not offering it, so the gate applies to both paths. The mount
+        // fails if it runs, which is how both halves are checked at once.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse_partial(&spec, &["ex".to_string()]).unwrap();
+        assert!(
+            !out.cmd.subcommands.contains_key("discovered"),
+            "a completion must not offer what execution will not route"
+        );
+
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
     }
 
     #[cfg(unix)]
