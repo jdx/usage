@@ -90,7 +90,8 @@ quirk of this grammar; the way to end the run explicitly is `--`.
 
 A flag declared `var` without a variadic argument is the other shape: it takes
 one value per occurrence and may be repeated, so `--include a --include b`
-collects two.
+collects two. The distinction matters — `--include a b` gives a _repeatable_ flag
+only `a`, leaving `b` to a positional, while a _variadic_ one takes both.
 
 ## Short flags
 
@@ -245,7 +246,7 @@ Any implementation in any language can run these. In this repository,
 `cargo test -p usage-conformance` runs them against both usage-lib and
 [usage-argv](https://github.com/jdx/usage/tree/main/argv).
 
-usage-argv answers 62 of the 86 vectors. The other 24 turn on something decided
+usage-argv answers 63 of the 87 vectors. The other 24 turn on something decided
 after the last token is read — `required`, `choices`, `env` fallback, defaults,
 `var_min` and `var_max`, `overrides` — which needs to know a value's type and so
 belongs to the layer above a binding parser. Those are reported as out of scope
@@ -261,7 +262,7 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-Today usage-lib diverges on 16 of 86 vectors, from four causes:
+Today usage-lib diverges on 16 of 87 vectors, from four causes:
 
 **Unrecognized flags fall through to positionals.** `ex --wat` binds `--wat` to
 an argument if one is free, and reports `unexpected_arg` if not. This accounts

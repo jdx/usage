@@ -1,6 +1,6 @@
 {
   "section": "long-flags",
-  "about": "How `--name` tokens bind. Long names match exactly — there is no abbreviation inference — and a value may be attached with `=` or given as the following word.",
+  "about": "How `--name` tokens bind. Long names match exactly \u2014 there is no abbreviation inference \u2014 and a value may be attached with `=` or given as the following word.",
   "vectors": [
     {
       "id": "long-boolean-present",
@@ -91,7 +91,7 @@
       "argv": ["--wat"],
       "expect": { "error": "unknown_flag" },
       "reference": {
-        "diverges": "usage-lib binds `--wat` to the positional `file`. This is the root of several other divergences here: unrecognized flags fall through to positionals, so they surface as `unexpected_arg` — or as no error at all — rather than as `unknown_flag`."
+        "diverges": "usage-lib binds `--wat` to the positional `file`. This is the root of several other divergences here: unrecognized flags fall through to positionals, so they surface as `unexpected_arg` \u2014 or as no error at all \u2014 rather than as `unknown_flag`."
       }
     },
     {
@@ -119,6 +119,15 @@
       "expect": { "ok": { "flags": { "include": ["a", "b"] } } },
       "reference": {
         "diverges": "usage-lib reports `unexpected_arg` for the second value. The spec reference documents this form, so the gap is in the parser rather than in the declaration."
+      }
+    },
+    {
+      "id": "long-repeatable-flag-is-not-greedy",
+      "doc": "A `var` flag whose argument is not variadic takes exactly one value per occurrence. It is repetition, not greed, so the word after its value is still available to a positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true\narg \"[target]\"\n",
+      "argv": ["--include", "a", "b"],
+      "expect": {
+        "ok": { "flags": { "include": ["a"] }, "args": { "target": "b" } }
       }
     },
     {
