@@ -30,10 +30,7 @@
       "doc": "Only the first `--` separates; a later one is an ordinary value, since flag interpretation has already stopped.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<rest>...\"\n",
       "argv": ["--", "a", "--", "b"],
-      "expect": { "ok": { "args": { "rest": ["a", "--", "b"] } } },
-      "reference": {
-        "diverges": "usage-lib drops the second separator, yielding `[\"a\", \"b\"]`. A CLI forwarding a command line that contains its own `--` would have it silently removed."
-      }
+      "expect": { "ok": { "args": { "rest": ["a", "--", "b"] } } }
     },
     {
       "id": "dd-variadic-collects-everything-after",
@@ -80,6 +77,15 @@
       "expect": { "ok": { "args": { "files": ["a", "--force"] } } },
       "reference": {
         "diverges": "usage-lib binds `force` as a flag and gives the argument only `a`. The spec reference documents this mode as not yet enforced by the parser, so this vector describes the intent it will be held to."
+      }
+    },
+    {
+      "id": "dd-trailing-separator-is-a-value",
+      "doc": "A separator at the very end is a value too, since flag parsing stopped at the first one. This is the command line from the report that first raised it: `-- hello -- goodbye --`.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<args>...\"\n",
+      "argv": ["--", "hello", "--", "goodbye", "--"],
+      "expect": {
+        "ok": { "args": { "args": ["hello", "--", "goodbye", "--"] } }
       }
     }
   ]
