@@ -351,7 +351,12 @@ impl<'a> Parser<'a> {
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
         let custom_env = self.env.as_ref();
-        let (mut out, overridden_flags) = parse_partial_with_env(self.spec, input, custom_env)?;
+        let (mut out, overridden_flags) = parse_partial_with_env(
+            self.spec,
+            input,
+            custom_env,
+            MountTiming::WhenAWordIsUnknown,
+        )?;
         trace!("{out:?}");
 
         let get_env = |key: &str| -> Option<String> {
@@ -539,14 +544,28 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    parse_partial_with_env(spec, input, None).map(|(out, _)| out)
+    parse_partial_with_env(spec, input, None, MountTiming::Eager).map(|(out, _)| out)
 }
 
 /// Internal version of parse_partial that accepts an optional custom env map.
+/// When a command's own `mount` runs, for the root — which nothing descends into.
+///
+/// A completion has to know every command before it can offer one, even with
+/// nothing typed yet, so it resolves up front. An execution knows the word it was
+/// given, so it only pays for discovery when that word matches nothing declared —
+/// and a CLI that declares its commands and mounts a few more does not spawn a
+/// process on every invocation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MountTiming {
+    Eager,
+    WhenAWordIsUnknown,
+}
+
 fn parse_partial_with_env(
     spec: &Spec,
     input: &[String],
     custom_env: Option<&HashMap<String, String>>,
+    mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
@@ -596,6 +615,19 @@ fn parse_partial_with_env(
     // is the case that needs this: a subcommand's mounts are run when the parser
     // descends into it, but nothing descends into the root.
     let mut mounts_resolved = false;
+    // A completion needs the whole command list before it can offer anything, and
+    // `mycli <tab>` has no word to trigger discovery with — so waiting for one would
+    // mean a root mount never contributed to the very thing it exists for.
+    if mount_timing == MountTiming::Eager && !out.cmd.mounts.is_empty() {
+        mounts_resolved = true;
+        let mut mounted = out.cmd.clone();
+        mounted.mount(&[])?;
+        merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+        if let Some(last) = out.cmds.last_mut() {
+            *last = mounted.clone();
+        }
+        out.cmd = mounted;
+    }
 
     while idx < input.len() {
         // Only for a word that could name a command, and only when it matches
@@ -1569,6 +1601,29 @@ mount run="echo 'cmd \"discovered\"'"
 
         let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn completion_sees_root_mounted_commands_with_nothing_typed() {
+        // The case a root mount exists for. `mycli <tab>` has no word to trigger
+        // discovery with, so a completion has to resolve up front or the mounted
+        // commands are never offered.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="echo 'cmd \"discovered\"'"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse_partial(&spec, &["ex".to_string()]).unwrap();
+        assert!(
+            out.cmd.subcommands.contains_key("discovered"),
+            "a completion should see mounted commands; got {:?}",
+            out.cmd.subcommands.keys().collect::<Vec<_>>()
+        );
     }
 
     #[cfg(unix)]
