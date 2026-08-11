@@ -364,19 +364,6 @@ fn write_command(
             })
         )?;
     }
-    // Written only where it changes, since the spec inherits it: the tables hold the
-    // effective value per command, so the same value as the enclosing one says nothing.
-    let unknown_flags = meta.cmd.unknown_flags;
-    if unknown_flags != inherited_unknown_flags {
-        write!(
-            out,
-            " unknown_flags={}",
-            quoted(match unknown_flags {
-                UnknownFlags::Value => "value",
-                UnknownFlags::Error => "error",
-            })
-        )?;
-    }
     if let Some(token) = meta.restart_token {
         write!(out, " restart_token={}", quoted(token))?;
     }
@@ -770,14 +757,29 @@ mod tests {
         let mut out = String::new();
         write_body(&mut out, &ROOT_META, 0).unwrap();
 
-        // `build` matches the root, so it stays quiet; `exec` differs, so it says so.
+        // Counted rather than checked with `contains`, which is how a duplicated
+        // write survived review: `unknown_flags="value" unknown_flags="value"` contains
+        // the string it was checked for. A KDL node carrying the same property twice
+        // keeps only the last, so once is the whole point.
+        let line = |name: &str| -> String {
+            out.lines()
+                .map(str::trim)
+                .find(|l| l.starts_with(&format!(r#"cmd "{name}""#)))
+                .unwrap_or_else(|| panic!("no `{name}` command was written:\n{out}"))
+                .to_string()
+        };
+
+        let build = line("build");
         assert!(
-            out.contains(r#"cmd "build""#) && !out.contains(r#"cmd "build" unknown_flags"#),
-            "a matching subcommand should not repeat the setting:\n{out}"
+            !build.contains("unknown_flags"),
+            "a subcommand matching the enclosing command should not repeat it: {build}"
         );
-        assert!(
-            out.contains(r#"cmd "exec" unknown_flags="value""#),
-            "a differing subcommand has to declare it:\n{out}"
+
+        let exec = line("exec");
+        assert_eq!(
+            exec.matches(r#"unknown_flags="value""#).count(),
+            1,
+            "a differing subcommand declares it exactly once: {exec}"
         );
     }
 

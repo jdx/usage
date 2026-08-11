@@ -31,10 +31,12 @@ A token is **flag-like** when it begins with `-`, is longer than one character,
 and is not a negative number. So `--force`, `-f`, and `-abc` are flag-like; `-`,
 `-1`, `-2.5`, and `-1e5` are not.
 
-A number here means digits, at most one `.`, and an optional exponent —
-deliberately narrower than what a float parser accepts, since `-inf` is far
-likelier to be a misspelled flag than a number somebody meant to pass. `-1x` and
-`-1e` are not numbers either, and so name flags that do not exist.
+A number here means digits, at most one `.`, and optionally an exponent — `e` or
+`E`, an optional `+` or `-`, then at least one digit. So `-1`, `-2.5`, `-1e5`, and
+`-1.5e-3` are values. It is deliberately narrower than what a float parser
+accepts: `-inf` and `-NaN` parse as floats but are far likelier to be misspelled
+flags than numbers somebody meant to pass. `-1x` and `-1e` are not numbers either,
+and so name flags that do not exist.
 
 ## Reading a command line
 
@@ -168,7 +170,7 @@ forward them at every level.
 Even when refusing, a lone `-` and a negative number stay values — neither is a
 misspelled flag, and without the second `--offset -1` could not be written. oclif
 made exactly this mistake when it switched to refusing unknown flags, and had to
-add the number case back afterwards.
+add the number case back afterward.
 
 ## Positional arguments
 
