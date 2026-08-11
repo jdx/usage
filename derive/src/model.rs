@@ -64,6 +64,17 @@ pub enum Kind {
         /// A `--` is required before this argument's value.
         double_dash_required: bool,
     },
+    /// Holds the enum whose variants are this command's subcommands.
+    ///
+    /// The type is carried rather than resolved, because the derive cannot see the
+    /// enum's definition: the generated code names it through the
+    /// [`Subcommands`](usage_argv::spec::Subcommands) trait, which is also how it
+    /// reaches the type that accumulates a subcommand's values.
+    Subcommand {
+        /// The enum's type, as written. Always reached through `Option<T>` for now,
+        /// so there is nothing to record about optionality.
+        ty: syn::Type,
+    },
 }
 
 /// What the field's Rust type says about how many values it holds.
@@ -174,6 +185,7 @@ impl Cli {
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
         let mut variadic_arg: Option<Span> = None;
+        let mut subcommand_field: Option<Span> = None;
 
         for field in &self.fields {
             match &field.kind {
@@ -222,6 +234,19 @@ impl Cli {
                         variadic_arg = Some(field.span);
                     }
                 }
+                Kind::Subcommand { .. } => {
+                    // At most one: two would each claim the word that selects a
+                    // command, and only the first could ever be filled.
+                    if let Some(first) = subcommand_field {
+                        return Err(dup(
+                            field.span,
+                            first,
+                            "a command has one set of subcommands, so only one field \
+                             can hold them",
+                        ));
+                    }
+                    subcommand_field = Some(field.span);
+                }
             }
         }
         Ok(())
@@ -235,6 +260,69 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 }
 
 impl Field {
+    /// A field marked `#[usage(subcommand)]`, if this is one.
+    fn subcommand(
+        field: &syn::Field,
+        ident: &syn::Ident,
+        span: proc_macro2::Span,
+    ) -> syn::Result<Option<Self>> {
+        let mut is_subcommand = false;
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                if ident_of(&meta.path().clone()) == "subcommand" {
+                    if !matches!(meta, Meta::Path(_)) {
+                        return Err(syn::Error::new_spanned(
+                            meta.path(),
+                            "`subcommand` takes no value: the enum it holds is the \
+                             field's type",
+                        ));
+                    }
+                    is_subcommand = true;
+                }
+            }
+        }
+        if !is_subcommand {
+            return Ok(None);
+        }
+
+        // `Option<T>` says the subcommand may be left out. A bare `T` cannot be
+        // satisfied by this version — nothing yet reports "a subcommand is
+        // required", which is a post-binding question.
+        let name = type_name(&field.ty);
+        let (ty, _optional) = match name
+            .strip_prefix("Option<")
+            .and_then(|rest| rest.strip_suffix('>'))
+        {
+            Some(inner) => (syn::parse_str::<Type>(inner)?, true),
+            None => {
+                return Err(syn::Error::new(
+                    span,
+                    "a `subcommand` field has to be `Option<T>` for now: a missing \
+                     subcommand is a required-ness question, and that layer does not \
+                     exist yet",
+                ));
+            }
+        };
+
+        Ok(Some(Field {
+            ident: ident.clone(),
+            ty: field.ty.clone(),
+            name: to_kebab(&ident.to_string()),
+            kind: Kind::Subcommand { ty },
+            // A subcommand field holds a command, not a value, so none of what
+            // describes a value applies to it.
+            shape: Shape::Bool,
+            help: None,
+            long_help: None,
+            env: None,
+            default: None,
+            help_heading: None,
+            hide: false,
+            repeatable: false,
+            span,
+        }))
+    }
+
     fn from_field(field: &syn::Field) -> syn::Result<Self> {
         let ident = field
             .ident
@@ -242,6 +330,12 @@ impl Field {
             .expect("named fields were checked by the caller");
         let span = field.span();
         let (help, long_help) = doc_comment(&field.attrs)?;
+
+        // A subcommand field is neither a flag nor an argument, and shares none of
+        // their options, so it is recognized before any of them are read.
+        if let Some(subcommand) = Self::subcommand(field, &ident, span)? {
+            return Ok(subcommand);
+        }
 
         let mut name = to_kebab(&ident.to_string());
         let mut longs: Vec<String> = Vec::new();
@@ -750,4 +844,135 @@ fn to_kebab(s: &str) -> String {
 
 fn strip_dashes(s: &str) -> String {
     s.trim_start_matches('-').to_string()
+}
+
+/// An enum whose variants are a command's subcommands.
+pub struct Subcommands {
+    pub ident: syn::Ident,
+    pub variants: Vec<Variant>,
+}
+
+/// One variant: a command name and the struct holding its flags and arguments.
+pub struct Variant {
+    pub ident: syn::Ident,
+    /// The command name, which is the variant name in kebab-case unless `name`
+    /// says otherwise.
+    pub name: String,
+    /// The struct the variant wraps.
+    pub ty: Type,
+    pub help: Option<String>,
+    pub long_help: Option<String>,
+}
+
+impl Subcommands {
+    pub fn from_input(input: &DeriveInput) -> syn::Result<Self> {
+        let Data::Enum(data) = &input.data else {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "usage::Subcommands describes a set of subcommands, so it needs an enum",
+            ));
+        };
+        if !input.generics.params.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.generics,
+                "usage::Subcommands does not support generic parameters: the generated \
+                 tables are `static`",
+            ));
+        }
+
+        let variants = data
+            .variants
+            .iter()
+            .map(Variant::from_variant)
+            .collect::<syn::Result<Vec<_>>>()?;
+
+        let mut seen: Vec<(&str, Span)> = Vec::new();
+        for variant in &variants {
+            if let Some((_, first)) = seen.iter().find(|(n, _)| *n == variant.name) {
+                return Err(dup(
+                    variant.ty.span(),
+                    *first,
+                    &format!("two variants are both called `{}`", variant.name),
+                ));
+            }
+            seen.push((&variant.name, variant.ty.span()));
+        }
+
+        // Two variants cannot wrap the same struct. A command's values are collected
+        // into the struct that declares them, and its fields' keys come from that
+        // struct — so two commands sharing one would collect into whichever was
+        // reached first, and choosing between them would be a coin toss. Rejected
+        // rather than silently misbound.
+        let mut types: Vec<(String, Span)> = Vec::new();
+        for variant in &variants {
+            let rendered = type_name(&variant.ty);
+            if let Some((_, first)) = types.iter().find(|(t, _)| *t == rendered) {
+                return Err(dup(
+                    variant.ty.span(),
+                    *first,
+                    &format!(
+                        "two variants both wrap `{rendered}`, and a command collects \
+                         into the struct that declares it — so give each command its \
+                         own struct, even if the fields are identical"
+                    ),
+                ));
+            }
+            types.push((rendered, variant.ty.span()));
+        }
+
+        Ok(Subcommands {
+            ident: input.ident.clone(),
+            variants,
+        })
+    }
+}
+
+impl Variant {
+    fn from_variant(variant: &syn::Variant) -> syn::Result<Self> {
+        let (help, long_help) = doc_comment(&variant.attrs)?;
+        let mut name = to_kebab(&variant.ident.to_string());
+
+        for attr in attrs(&variant.attrs) {
+            for meta in nested(attr)? {
+                let path = meta.path().clone();
+                match ident_of(&path).as_str() {
+                    "name" => name = strip_dashes(&string_value(&meta)?),
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            format!(
+                                "unknown option `{other}` on a variant; a subcommand \
+                                 variant takes `name` here, and its description comes \
+                                 from the doc comment"
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // One unnamed field, holding the struct that declares the command's flags
+        // and arguments. A variant with no fields would have nothing to parse into,
+        // and named fields would make the variant itself the struct — which is a
+        // second way to say the same thing.
+        let ty = match &variant.fields {
+            Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => unnamed.unnamed[0].ty.clone(),
+            other => {
+                return Err(syn::Error::new_spanned(
+                    other,
+                    "a subcommand variant wraps exactly one struct, as in \
+                     `Install(Install)`: that struct is where its flags and arguments \
+                     are declared",
+                ));
+            }
+        };
+
+        Ok(Variant {
+            ident: variant.ident.clone(),
+            name,
+            ty,
+            help,
+            long_help,
+        })
+    }
 }

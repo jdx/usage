@@ -44,6 +44,48 @@
 //! assert!(Cli::to_kdl().contains(r#"flag "-j --jobs""#));
 //! ```
 //!
+//! # Subcommands
+//!
+//! A field marked `subcommand` holds an enum whose variants each wrap a struct:
+//!
+//! ```ignore
+//! #[derive(Cli)]
+//! #[usage(bin = "ex")]
+//! struct Ex {
+//!     #[usage(short = 'v', long, global)]
+//!     verbose: bool,
+//!     #[usage(subcommand)]
+//!     command: Option<Commands>,
+//! }
+//!
+//! #[derive(Subcommands)]
+//! enum Commands {
+//!     /// Install a tool
+//!     Install(Install),
+//!     /// Run a task
+//!     #[usage(name = "run")]
+//!     RunTask(Run),
+//! }
+//!
+//! /// Install a tool
+//! #[derive(Args)]
+//! struct Install {
+//!     #[usage(short = 'f', long)]
+//!     force: bool,
+//!     tools: Vec<String>,
+//! }
+//! ```
+//!
+//! The three derives cannot see each other — a macro sees one item — so the tables
+//! are joined through two traits, [`usage_argv::spec::CommandArgs`] and
+//! [`usage_argv::spec::Subcommands`], whose associated consts a parent splices into
+//! its own `static` tables. Nothing is assembled at run time.
+//!
+//! Keys carry a hash of the type they came from, which is how independently
+//! expanded macros avoid handing two fields the same one. `Spec::to_kdl` asserts the
+//! tree has no duplicates, so a collision fails a test rather than binding the wrong
+//! field.
+//!
 //! # Declaring
 //!
 //! A field with `long` or `short` is a flag; anything else is a positional
@@ -72,7 +114,11 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **Subcommands.** One command per struct for now.
+//! - **A required subcommand.** A `subcommand` field has to be `Option<T>`:
+//!   reporting that one was needed is a required-ness question, and that layer does
+//!   not exist yet.
+//! - **Nesting deeper than one level.** A subcommand's own subcommands need the
+//!   `Args` struct to carry a `subcommand` field too, which it does not yet.
 //! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
 //!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a
 //!   compile error rather than a surprise, because converting a value is also
@@ -96,6 +142,35 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
         Ok(cli) => codegen::emit(&cli).into(),
         // Reporting the error as tokens rather than panicking is what puts it on
         // the offending line instead of on the derive.
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Compile a struct into one subcommand's flags and arguments.
+///
+/// Used on the struct a [`Subcommands`] variant wraps. It generates the same
+/// tables and metadata as [`Cli`], minus the program-level parts a subcommand does
+/// not have — a name, a version, an entry point — plus the trait a parent uses to
+/// route events into it.
+#[proc_macro_derive(Args, attributes(usage))]
+pub fn derive_args(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match model::Cli::from_input(&input) {
+        Ok(cli) => codegen::emit_args(&cli).into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Compile an enum into a set of subcommands.
+///
+/// Each variant wraps a struct deriving [`Args`], which is where that command's
+/// flags and arguments are declared. A field holding this enum is marked
+/// `#[usage(subcommand)]`.
+#[proc_macro_derive(Subcommands, attributes(usage))]
+pub fn derive_subcommands(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match model::Subcommands::from_input(&input) {
+        Ok(subs) => codegen::emit_subcommands(&subs).into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
