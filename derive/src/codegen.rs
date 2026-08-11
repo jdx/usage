@@ -39,7 +39,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         _ => quote!(::usage_argv::UnknownFlags::Value),
     };
 
-    let base = key_base(&ident.to_string());
+    let base = key_base(&cli.fingerprint);
     let root_key = base | KIND_COMMAND;
     let flag_tables = flags
         .iter()
@@ -158,6 +158,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
             pub fn check<'t, 'v>(
                 partial: &mut Partial,
             ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                // Read unconditionally: a command that declares nothing to check would
+                // otherwise leave the parameter unused in the user's crate, where
+                // nobody can silence it.
+                let _ = &partial;
                 #post
                 ::std::result::Result::Ok(())
             }
@@ -400,14 +404,15 @@ const KIND_COMMAND: u64 = 2 << 30;
 /// The high half of every key a type's fields get.
 ///
 /// Two macro expansions cannot see each other, so a shared counter is not available:
-/// keys carry a hash of the type they came from instead. A parse dispatches on the
-/// key, so two type names would have to collide in 32 bits to bind the wrong field,
-/// and `Spec::to_kdl` asserts the tree has no duplicates.
-fn key_base(type_name: &str) -> u64 {
+/// keys carry a hash of the declaration they came from instead. The whole item, not
+/// just its name — a macro cannot see a module path, so two same-named structs in
+/// different modules would otherwise hash alike. Two types now have to be identical
+/// to collide, and `Spec::to_kdl` asserts the tree holds no duplicates either way.
+fn key_base(fingerprint: &str) -> u64 {
     // FNV-1a, spelled out rather than taken from a `Hasher`, which is not guaranteed
     // to be stable between compilations — and these end up baked into generated code.
     let mut hash: u32 = 0x811c_9dc5;
-    for byte in type_name.as_bytes() {
+    for byte in fingerprint.as_bytes() {
         hash ^= *byte as u32;
         hash = hash.wrapping_mul(0x0100_0193);
     }
@@ -524,10 +529,9 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         Some(quote!(pub #ident: #ty, pub #given: bool,))
     });
 
-    // `Default` rather than a generated `new`: every accumulator type has one, and
-    // a default that says "nothing was given" is what a partial starts as.
-    // `Default` is not derived once a subcommand is in play: the nested partial has
-    // its own starting values, which `start` puts in place.
+    // No derived `Default`: `start` is what produces a fresh partial, because a
+    // declared default has to be in place before parsing begins and nested state has
+    // its own starting values.
     quote! {
         pub struct Partial {
             #(#fields)*
@@ -742,7 +746,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let module = format_ident!("__usage_args_{}", ident.to_string().to_lowercase());
-    let base = key_base(&ident.to_string());
+    let base = key_base(&cli.fingerprint);
     let command_key = base | KIND_COMMAND;
 
     let flags: Vec<&Field> = cli
@@ -863,6 +867,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             pub fn check<'t, 'v>(
                 partial: &mut Partial,
             ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                // Read unconditionally: a command that declares nothing to check would
+                // otherwise leave the parameter unused in the user's crate, where
+                // nobody can silence it.
+                let _ = &partial;
                 #post
                 ::std::result::Result::Ok(())
             }

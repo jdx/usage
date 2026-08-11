@@ -167,3 +167,67 @@ fn the_spec_nests_the_same_way() {
 fn the_emitted_spec_reads_like_a_handwritten_one() {
     insta::assert_snapshot!(Ex::to_kdl());
 }
+
+/// Two commands whose argument structs share a Rust type *name*, in different
+/// modules. Keys are derived from the whole declaration rather than the name, so
+/// these do not collide — hashing the name alone gave both structs the same key and
+/// selected the wrong command.
+mod add {
+    /// Add something
+    #[derive(usage_derive::Args)]
+    pub struct Op {
+        /// What to add
+        pub target: String,
+    }
+}
+
+mod remove {
+    /// Remove something
+    #[derive(usage_derive::Args)]
+    pub struct Op {
+        /// What to remove
+        pub target: String,
+        /// Whether to force it
+        #[usage(long)]
+        pub force: bool,
+    }
+}
+
+#[derive(Cli)]
+#[usage(bin = "same")]
+struct Same {
+    #[usage(subcommand)]
+    command: SameCommands,
+}
+
+#[derive(Subcommands)]
+enum SameCommands {
+    /// Add something
+    #[usage(name = "add")]
+    Add(add::Op),
+    /// Remove something
+    #[usage(name = "remove")]
+    Remove(remove::Op),
+}
+
+#[test]
+fn same_named_structs_in_different_modules_do_not_collide() {
+    let a = argv(["remove", "x", "--force"]);
+    let same = Same::parse_from(&a).expect("should parse");
+    let SameCommands::Remove(op) = same.command else {
+        panic!("expected remove, which means the keys collided");
+    };
+    assert_eq!(op.target, "x");
+    assert!(op.force);
+
+    let a = argv(["add", "y"]);
+    let same = Same::parse_from(&a).expect("should parse");
+    let SameCommands::Add(op) = same.command else {
+        panic!("expected add");
+    };
+    assert_eq!(op.target, "y");
+
+    // `to_kdl` asserts the tree holds no duplicate keys, so this would panic in debug
+    // if the two still shared one.
+    assert!(Same::to_kdl().contains(r#"cmd "remove""#));
+}
