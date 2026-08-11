@@ -12,5 +12,9 @@
 megalinter-reports/
 tasks/fig/build
 
-# insta writes these while running tests locally
+# insta writes these while running tests locally. Both spellings: it uses
+# .pending-snap for inline snapshots and .snap.new for file ones, and only the
+# first was ignored — which is how a pending snapshot for a deleted test got
+# committed.
 *.pending-snap
+*.snap.new
