@@ -39,6 +39,8 @@ flag "--env <env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
 }
 
+flag "--filter <pattern>" help_heading="Filtering" // group this flag under a heading in help output
+
 flag "--file <file>" long_help="longer help for --help (as opposed to -h)"
 // this is equivalent to the above but preferred when a lot of space is needed
 flag "--file <file>" {

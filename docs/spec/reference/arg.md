@@ -47,6 +47,8 @@ arg "<env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
 }
 
+arg "<file>" help_heading="Input" // group this arg under a heading in help output
+
 arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 
 // double-dash behavior

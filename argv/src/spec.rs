@@ -18,9 +18,8 @@
 //!
 //! Everything here lowers into the spec without loss, which is deliberate: a
 //! field the spec cannot express would make the emitted KDL a summary rather than
-//! a definition. Grouping flags under a heading in help output is the one thing a
-//! CLI might want that has no spec node today, so it is absent here rather than
-//! quietly dropped on the way out — the spec would have to gain it first.
+//! a definition. When something is missing the spec gains it first —
+//! `help_heading` went in that way.
 //!
 use core::fmt::Write as _;
 
@@ -121,6 +120,9 @@ pub struct FlagMeta<'a> {
     pub overrides: &'a [&'a str],
     /// Flags that make this one unnecessary.
     pub required_unless: &'a [&'a str],
+    /// Heading to list this flag under in help output. Presentational: it groups
+    /// a long flag list into sections and changes nothing about parsing.
+    pub help_heading: Option<&'a str>,
     pub effect: Option<Effect>,
 }
 
@@ -142,6 +144,7 @@ impl FlagMeta<'_> {
         var_max: None,
         overrides: &[],
         required_unless: &[],
+        help_heading: None,
         effect: None,
     };
 }
@@ -162,6 +165,8 @@ pub struct ArgMeta<'a> {
     pub hide: bool,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// Heading to list this argument under in help output.
+    pub help_heading: Option<&'a str>,
 }
 
 impl ArgMeta<'_> {
@@ -177,6 +182,7 @@ impl ArgMeta<'_> {
         hide: false,
         var_min: None,
         var_max: None,
+        help_heading: None,
     };
 }
 
@@ -410,6 +416,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         // name, since that is what a token is matched against.
         write!(out, " negate={}", quoted(&format!("--{negate}")))?;
     }
+    if let Some(heading) = meta.help_heading {
+        write!(out, " help_heading={}", quoted(heading))?;
+    }
     if let Some(effect) = meta.effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
@@ -493,6 +502,9 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
             DoubleDash::Optional => unreachable!("excluded by the branch above"),
         };
         write!(out, " double_dash={}", quoted(mode))?;
+    }
+    if let Some(heading) = meta.help_heading {
+        write!(out, " help_heading={}", quoted(heading))?;
     }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;

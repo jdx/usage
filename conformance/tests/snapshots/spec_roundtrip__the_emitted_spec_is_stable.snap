@@ -9,7 +9,7 @@ about "does things"
 long_about "Does things, at length."
 default_subcommand "run"
 example "ex a.txt" header="Basic" help="the simplest thing"
-flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true env="EX_JOBS" default="4" {
+flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading="Performance" env="EX_JOBS" default="4" {
     long_help "More about jobs.\nOn two lines."
     arg "<n>"
 }
@@ -35,7 +35,7 @@ flag "--paths" {
     }
     arg "<path>"
 }
-arg "[file]" help="the file" env="EX_FILE" default="a.txt"
+arg "[file]" help="the file" help_heading="Input" env="EX_FILE" default="a.txt"
 cmd "install" help="install a tool" effect="write" {
     alias "i"
     alias "add" hide=#true

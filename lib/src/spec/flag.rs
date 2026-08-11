@@ -101,6 +101,14 @@ pub struct SpecFlag {
     /// Environment variable that can set this flag's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+    /// Heading this flag is listed under in help output.
+    ///
+    /// Purely presentational: it groups a long flag list into sections rather
+    /// than changing how anything parses. A CLI with dozens of flags — mise
+    /// groups its `watch` passthrough arguments this way — is unreadable without
+    /// it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_heading: Option<String>,
 }
 
 impl SpecFlag {
@@ -157,6 +165,7 @@ impl SpecFlag {
                     }
                 }
                 "env" => flag.env = v.ensure_string().map(Some)?,
+                "help_heading" => flag.help_heading = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
         }
@@ -234,6 +243,9 @@ impl SpecFlag {
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
+                "help_heading" => {
+                    flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
                 "overrides" => {
                     flag.overrides = child
                         .ensure_arg_len(1..)?
@@ -380,6 +392,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
+        }
+        if let Some(help_heading) = &flag.help_heading {
+            node.push(string_entry(Some("help_heading"), help_heading));
         }
         if let Some(effect) = &flag.effect {
             node.push(string_entry(Some("effect"), effect.as_str()));
@@ -558,6 +573,7 @@ impl From<&clap::Arg> for SpecFlag {
             // spec (see the effect docs).
             effect: None,
             env: None,
+            help_heading: c.get_help_heading().map(|s| s.to_string()),
         };
         if c.is_allow_hyphen_values_set() {
             if let Some(arg) = &mut flag.arg {
@@ -683,6 +699,62 @@ mod tests {
             vec!["--keep".to_string(), "--dry-run".to_string()]
         );
         assert_eq!(flag.help_long.as_deref(), Some("Colored.\u{1b}[0m Text."));
+    }
+
+    #[test]
+    fn help_heading_round_trips() {
+        // Both spellings: a property, and a child node for when the text is long.
+        let spec: Spec = r#"
+flag "--filter <pattern>" help_heading="Filtering"
+flag "--exclude <pattern>" {
+  help_heading "Filtering"
+}
+arg "<file>" help_heading="Input"
+"#
+        .parse()
+        .unwrap();
+        assert_eq!(spec.cmd.flags[0].help_heading.as_deref(), Some("Filtering"));
+        assert_eq!(spec.cmd.flags[1].help_heading.as_deref(), Some("Filtering"));
+        assert_eq!(spec.cmd.args[0].help_heading.as_deref(), Some("Input"));
+
+        // And it survives being written back out.
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(
+            reparsed.cmd.flags[0].help_heading.as_deref(),
+            Some("Filtering")
+        );
+        assert_eq!(reparsed.cmd.args[0].help_heading.as_deref(), Some("Input"));
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn help_heading_comes_across_from_clap() {
+        // clap has had help_heading for years and the bridge was dropping it, so
+        // a CLI that grouped its flags lost the grouping on the way into a spec.
+        let cmd = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("filter")
+                    .long("filter")
+                    .help_heading("Filtering"),
+            )
+            .arg(clap::Arg::new("plain").long("plain"));
+        let spec: Spec = (&cmd).into();
+
+        let filter = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "filter")
+            .expect("--filter should be in the spec");
+        assert_eq!(filter.help_heading.as_deref(), Some("Filtering"));
+
+        let plain = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "plain")
+            .expect("--plain should be in the spec");
+        assert_eq!(plain.help_heading, None);
     }
 
     #[test]

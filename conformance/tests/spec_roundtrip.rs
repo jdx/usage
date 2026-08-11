@@ -241,6 +241,7 @@ static ROOT_META: CommandMeta = CommandMeta {
             value_name: Some("n"),
             env: Some("EX_JOBS"),
             default: &["4"],
+            help_heading: Some("Performance"),
             ..FlagMeta::EMPTY
         },
         FlagMeta {
@@ -299,6 +300,7 @@ static ROOT_META: CommandMeta = CommandMeta {
         env: Some("EX_FILE"),
         default: &["a.txt"],
         required: false,
+        help_heading: Some("Input"),
         ..ArgMeta::EMPTY
     }],
     subcommands: &[
@@ -522,6 +524,21 @@ fn effects_mounts_restart_tokens_and_examples_survive() {
     let run = spec.cmd.subcommands.get("run").unwrap();
     assert_eq!(run.restart_token.as_deref(), Some(":::"));
     assert_eq!(run.mounts.len(), 1, "run should declare a mount");
+}
+
+#[test]
+fn a_help_heading_survives() {
+    let spec = parsed();
+    let jobs = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|f| f.name == "jobs")
+        .expect("--jobs should be in the spec");
+    assert_eq!(jobs.help_heading.as_deref(), Some("Performance"));
+
+    // Positionals can be grouped too, since the spec field is on both.
+    assert_eq!(spec.cmd.args[0].help_heading.as_deref(), Some("Input"));
 }
 
 #[test]
