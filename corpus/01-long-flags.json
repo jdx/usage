@@ -42,10 +42,14 @@
       "doc": "`--flag=` binds the empty string. Present-but-empty is a different state from absent, and only the attached form can express it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
       "argv": ["--jobs="],
-      "expect": { "ok": { "flags": { "jobs": "" } } },
-      "reference": {
-        "diverges": "usage-lib binds nothing, collapsing `--jobs=` into the same result as omitting the flag."
-      }
+      "expect": { "ok": { "flags": { "jobs": "" } } }
+    },
+    {
+      "id": "long-boolean-with-empty-attached-value",
+      "doc": "`--force=` on a flag that holds no value leaves nothing behind. An empty value means something only to a flag that takes one, and a stray empty word would otherwise be read as a positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[file]\"\n",
+      "argv": ["--force="],
+      "expect": { "ok": { "flags": { "force": true } } }
     },
     {
       "id": "long-value-attached-flaglike",
@@ -62,20 +66,14 @@
       "doc": "A flag needing a value that ends the command line is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
       "argv": ["--jobs"],
-      "expect": { "error": "missing_flag_value" },
-      "reference": {
-        "diverges": "usage-lib parses successfully and binds nothing, so `ex --jobs` silently does what `ex` does."
-      }
+      "expect": { "error": "missing_flag_value" }
     },
     {
       "id": "long-value-rejects-flaglike-next-word",
       "doc": "A detached value must not itself look like a flag, so a forgotten value is reported rather than swallowed. Use the attached form to pass a value that begins with a dash.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
       "argv": ["--jobs", "--force"],
-      "expect": { "error": "missing_flag_value" },
-      "reference": {
-        "diverges": "usage-lib binds `force` and leaves `jobs` unset without reporting anything."
-      }
+      "expect": { "error": "missing_flag_value" }
     },
     {
       "id": "long-value-accepts-negative-number",

@@ -217,13 +217,18 @@ how a fix gets verified — including telling you to delete the label afterwards
 
 - [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. This is the
-      root of most of the recorded divergences.
-- [ ] A flag missing its value is dropped silently: `ex --jobs` parses fine and
-      binds nothing, so a forgotten value looks like a working command.
-- [ ] `=` is kept in attached short values, so `-j=8` binds `=8`.
+      root of most of the recorded divergences. **Needs a decision**: mise parses
+      task arguments with this parser at run time, so rejecting an undeclared flag
+      would change what a task accepts, not just what a completion offers.
+- [x] A flag missing its value is dropped silently — now an error, in `parse` but
+      not `parse_partial`, since a half-typed flag is exactly what a completion is
+      asked about.
+- [x] `=` is kept in attached short values, so `-j=8` binds `=8`.
 - [ ] A repeated `--` is eaten, so a forwarded command line containing its own
-      separator is altered in transit.
-- [ ] `--jobs=` binds nothing rather than the empty string.
+      separator is altered in transit. **Needs a decision**: an existing test
+      asserts this, and `double_dash="preserve"` is the declared way to keep
+      separators, which may make it intentional.
+- [x] `--jobs=` binds nothing rather than the empty string.
 - [ ] A flag with a variadic argument rejects its second value, though
       [the flag reference](https://usage.jdx.dev/spec/reference/flag) documents the
       form.

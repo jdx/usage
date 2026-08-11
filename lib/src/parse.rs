@@ -354,6 +354,32 @@ impl<'a> Parser<'a> {
         let (mut out, overridden_flags) = parse_partial_with_env(self.spec, input, custom_env)?;
         trace!("{out:?}");
 
+        // A flag still waiting for a value never got one, so the command line ended
+        // mid-flag. `parse_partial` leaves this for completions to look at — a
+        // half-typed `--jobs ` is exactly what a completion is asked about — but a
+        // full parse has nothing left to wait for, and dropping the flag silently
+        // made a forgotten value look like a working command.
+        if let Some(flag) = out.flag_awaiting_value.first() {
+            let token = flag
+                .long
+                .first()
+                .map(|l| format!("--{l}"))
+                .or_else(|| flag.short.first().map(|s| format!("-{s}")))
+                .unwrap_or_else(|| flag.name.clone());
+            let rendered = input.join(" ");
+            let span = rendered
+                .rfind(&token)
+                .map(|at| (at, token.len()))
+                .unwrap_or((0, 0));
+            return Err(UsageErr::InvalidFlag {
+                token,
+                reason: "requires an argument".to_string(),
+                span: span.into(),
+                input: rendered,
+            }
+            .into());
+        }
+
         let get_env = |key: &str| -> Option<String> {
             if let Some(env_map) = custom_env {
                 env_map.get(key).cloned()
@@ -798,7 +824,11 @@ fn parse_partial_with_env(
         // long flags
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
-            let (word, val) = w.split_once('=').unwrap_or_else(|| (&w, ""));
+            // `Some` only when an `=` was actually written, so `--jobs=` can supply
+            // an empty value while `--jobs` supplies none. Collapsing the two lost
+            // the flag entirely.
+            let split = w.split_once('=');
+            let (word, val) = split.unwrap_or((&w, ""));
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
                 apply_flag_overrides(
                     f,
@@ -810,7 +840,12 @@ fn parse_partial_with_env(
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
-                if !val.is_empty() {
+                // An empty value only means something to a flag that takes one:
+                // `--jobs=` is an empty string, while `--force=` has nothing to give
+                // a flag that holds no value, and queueing it would leave a stray
+                // empty word to be read as a positional. A non-empty value on such a
+                // flag is left as it was, which is its own question.
+                if (split.is_some() && f.arg.is_some()) || !val.is_empty() {
                     input.push_front(val.to_string());
                     prefix_bindings.push_front(None);
                 }
@@ -884,6 +919,12 @@ fn parse_partial_with_env(
             if grouped_flag {
                 grouped_flag = false;
                 w.remove(0);
+                // What is left is a short flag's attached value, and one `=` between
+                // the letter and the value is a separator: `-j=8` means 8. Only one,
+                // so `-j==8` still means `=8`.
+                if !out.flag_awaiting_value.is_empty() && w.starts_with('=') {
+                    w.remove(0);
+                }
             }
         }
 
