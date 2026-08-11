@@ -346,6 +346,19 @@ impl Field {
                 ),
             ));
         }
+        // Whitespace and control characters cannot survive the round trip either:
+        // the spec writes a flag's forms as a space-delimited string, so `-\t`
+        // becomes an unreadable declaration rather than a flag.
+        if let Some(short) = shorts.iter().find(|c| c.is_whitespace() || c.is_control()) {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "`short = {short:?}` cannot be written: a spec spells a flag's \
+                     forms as a space-delimited string, so whitespace and control \
+                     characters have nowhere to go"
+                ),
+            ));
+        }
         if let Some(short) = shorts.iter().find(|c| matches!(c, '-' | '=')) {
             let why = if *short == '-' {
                 "`--` is the separator that ends flag parsing"
