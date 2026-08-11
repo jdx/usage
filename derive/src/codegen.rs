@@ -367,6 +367,10 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let hide = field.hide;
     let count = field.shape == Shape::Count;
     let repeatable = field.repeatable;
+    // Same rule as an argument: a `String` has nowhere to put "absent". The runtime
+    // check already enforced it; the spec has to say it too, or docs and completions
+    // describe a different CLI from the one that runs.
+    let required = field.shape == Shape::Required;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
 
@@ -381,6 +385,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
+            required: #required,
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
@@ -997,15 +1002,27 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     "" | "0" | "false" | "no" | "off"
                 );
             },
-            // A count from the environment would be a number, not an occurrence
-            // count; nothing needs it yet.
-            Shape::Count => quote!(let _ = value;),
+            // A number, since the environment cannot repeat a flag: `EX_VERBOSE=3`
+            // is how you say `-vvv`. An unparseable value leaves the field alone
+            // rather than being counted as given.
+            Shape::Count => {
+                let ty = &f.ty;
+                quote! {
+                    match value.parse::<#ty>() {
+                        ::std::result::Result::Ok(count) => partial.#ident = count,
+                        ::std::result::Result::Err(_) => continue_unset = true,
+                    }
+                }
+            }
         };
         Some(quote! {
             if !partial.#given {
                 if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
+                    let mut continue_unset = false;
                     #assign
-                    partial.#given = true;
+                    if !continue_unset {
+                        partial.#given = true;
+                    }
                 }
             }
         })

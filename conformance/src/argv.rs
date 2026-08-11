@@ -149,13 +149,11 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         // The parser cannot raise these — they come from the layer above it, which
         // this harness does not exercise: it builds tables from a spec rather than
         // from a derived struct.
-        Error::MissingRequired { .. }
-        | Error::InvalidChoice { .. }
-        | Error::VarTooFew { .. }
-        | Error::VarTooMany { .. }
-        | Error::MissingSubcommand => {
-            unreachable!("a post-binding error cannot come out of the parser")
-        }
+        // Everything else comes from the layer above the parser, which this harness
+        // does not exercise: it builds tables from a spec rather than from a derived
+        // struct. A wildcard rather than a list, because `Error` is `non_exhaustive`
+        // — recognizing a new failure should not break this file.
+        other => unreachable!("the parser cannot raise {other:?}"),
     }
 }
 

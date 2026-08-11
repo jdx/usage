@@ -26,11 +26,8 @@ struct Ex {
     #[usage(long, var_min = 1, var_max = 2)]
     include: Vec<String>,
     /// Where to write
-    #[usage(long, env = "EX_OUT")]
+    #[usage(long)]
     out: Option<String>,
-    /// Colorize
-    #[usage(long, env = "EX_COLOR")]
-    color: bool,
     /// What to act on
     target: String,
 }
@@ -54,6 +51,13 @@ fn an_empty_value_still_counts_as_given() {
     let a = argv(["--out=", "x"]);
     let ex = Ex::parse_from(&a).expect("should parse");
     assert_eq!(ex.out.as_deref(), Some(""));
+}
+
+#[test]
+fn a_field_with_no_env_is_unaffected_by_the_environment() {
+    // The environment cases live in their own test binary; nothing here reads it.
+    let a = argv(["x"]);
+    assert!(Ex::parse_from(&a).expect("should parse").out.is_none());
 }
 
 #[test]
@@ -95,33 +99,6 @@ fn a_bound_is_only_checked_when_the_flag_was_used() {
     let a = argv(["x"]);
     let ex = Ex::parse_from(&a).expect("an unused flag has no values to count");
     assert!(ex.include.is_empty());
-}
-
-#[test]
-fn the_environment_fills_what_argv_left_out() {
-    // Serialized by construction: these run in one test because the environment is
-    // process-wide, and a sibling test setting the same variable would race.
-    unsafe { std::env::set_var("EX_OUT", "from-env") };
-    let a = argv(["x"]);
-    let ex = Ex::parse_from(&a).expect("should parse");
-    assert_eq!(ex.out.as_deref(), Some("from-env"));
-
-    // What argv says wins over the environment.
-    let a = argv(["--out", "from-argv", "x"]);
-    let ex = Ex::parse_from(&a).expect("should parse");
-    assert_eq!(ex.out.as_deref(), Some("from-argv"));
-
-    // A switch reads as on for anything but a spelling of "off".
-    unsafe { std::env::set_var("EX_COLOR", "1") };
-    let a = argv(["x"]);
-    assert!(Ex::parse_from(&a).expect("should parse").color);
-
-    unsafe { std::env::set_var("EX_COLOR", "false") };
-    let a = argv(["x"]);
-    assert!(!Ex::parse_from(&a).expect("should parse").color);
-
-    unsafe { std::env::remove_var("EX_OUT") };
-    unsafe { std::env::remove_var("EX_COLOR") };
 }
 
 /// A CLI whose subcommand is required

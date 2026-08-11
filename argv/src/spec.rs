@@ -778,7 +778,12 @@ pub trait CommandArgs: Sized {
     /// Separate from [`CommandArgs::build`] because only the command that was
     /// actually reached is judged — a flag that `install` requires says nothing
     /// about an invocation that ran `run`.
-    fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>>;
+    /// Defaulted, so a hand-written implementation with nothing to check is not
+    /// forced to say so — and adding a check to the derive does not break one.
+    fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = partial;
+        Ok(())
+    }
 
     /// Build the struct from what was collected.
     fn build(partial: Self::Partial) -> Self;

@@ -268,7 +268,11 @@ pub enum Event<'t, 'v> {
 /// Carries the offending token so a caller can render a good message, but no
 /// message of its own: rendering belongs to a cold path, and building a string
 /// here would allocate on the way to reporting that nothing was allocated.
+///
+/// `non_exhaustive`, because an error enum grows: a caller matching on it needs a
+/// fallback arm so that recognizing a new failure is never a breaking change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error<'t, 'v> {
     /// A flag-like token matched no flag in scope. `token` is the whole token as
     /// typed, so a bundle containing an unrecognized letter reports `-fz` rather
