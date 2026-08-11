@@ -9,6 +9,7 @@ use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
+use crate::spec::unknown_flags::UnknownFlags;
 use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -54,6 +55,14 @@ pub struct SpecCommand {
     /// Not inherited by subcommands.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effect: Option<SpecCommandEffect>,
+    /// What to do here with a flag-like token that names no declared flag.
+    ///
+    /// Unset means "whatever encloses this command decided" — the nearest command
+    /// above that set one, or failing that the spec, or failing that
+    /// [`UnknownFlags::Value`]. Unlike [`SpecCommandEffect`] this *is* inherited,
+    /// because it describes how a command line is read rather than what a command
+    /// does, and a CLI that forwards options generally forwards them everywhere.
+    pub unknown_flags: Option<UnknownFlags>,
     /// Whether to hide this command from help output
     pub hide: bool,
     /// True when this command came from a [`SpecMount`], i.e. it describes another
@@ -140,6 +149,7 @@ impl Default for SpecCommand {
             mounts: vec![],
             deprecated: None,
             effect: None,
+            unknown_flags: None,
             hide: false,
             mounted: false,
             flags_from_mount: false,
@@ -250,6 +260,18 @@ impl SpecCommand {
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "unknown_flags" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(mode) => cmd.unknown_flags = Some(mode),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported unknown_flags {raw}, expected one of: {}",
+                            crate::spec::unknown_flags::UNKNOWN_FLAGS_VALUES
+                        ),
+                    }
+                }
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -456,6 +478,7 @@ impl SpecCommand {
             complete,
             deprecated,
             effect,
+            unknown_flags,
             // Recomputed from the merged command, never carried over.
             full_cmd: _,
             usage: _,
@@ -515,6 +538,9 @@ impl SpecCommand {
         self.subcommand_required = subcommand_required;
         if effect.is_some() {
             self.effect = effect;
+        }
+        if unknown_flags.is_some() {
+            self.unknown_flags = unknown_flags;
         }
         if deprecated.is_some() {
             self.deprecated = deprecated;
@@ -607,6 +633,7 @@ impl From<&SpecCommand> for KdlNode {
             hide,
             subcommand_required,
             restart_token,
+            unknown_flags,
             aliases,
             hidden_aliases,
             help,
@@ -719,6 +746,10 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(effect) = effect {
             node.entries_mut()
                 .push(string_entry(Some("effect"), effect.as_str()));
+        }
+        if let Some(unknown_flags) = unknown_flags {
+            node.entries_mut()
+                .push(string_entry(Some("unknown_flags"), unknown_flags.as_str()));
         }
         for flag in flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

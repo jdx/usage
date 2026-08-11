@@ -53,7 +53,7 @@
     },
     {
       "id": "cmd-name-wins-over-arg",
-      "doc": "When a word could be either a subcommand or a positional value, the subcommand wins. A CLI that declares both cannot be given a positional whose text equals a subcommand name — mise documents exactly this hazard for tasks that share a name with a command.",
+      "doc": "When a word could be either a subcommand or a positional value, the subcommand wins. A CLI that declares both cannot be given a positional whose text equals a subcommand name \u2014 mise documents exactly this hazard for tasks that share a name with a command.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[target]\"\ncmd \"install\"\n",
       "argv": ["install"],
       "expect": { "ok": { "cmd": ["install"] } }
@@ -67,13 +67,17 @@
     },
     {
       "id": "cmd-parent-flag-not-inherited",
-      "doc": "A parent flag that is not `global` is not accepted after descending into a subcommand.",
+      "doc": "A parent flag that is not `global` is not a flag after descending into a subcommand \u2014 the token becomes a word there, and this subcommand declares no argument to hold one.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-q --quiet\"\ncmd \"install\"\n",
       "argv": ["install", "--quiet"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib agrees the flag is not inherited, but reports `unexpected_arg` because the unrecognized flag becomes a positional first."
-      }
+      "expect": { "error": "unexpected_arg" }
+    },
+    {
+      "id": "cmd-may-override-the-cli-wide-unknown-flags",
+      "doc": "The setting is inherited but overridable, so a CLI can refuse unknown flags everywhere except the one command that forwards a command line to something else.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ncmd \"exec\" unknown_flags=\"value\" {\n  arg \"[rest]...\"\n}\n",
+      "argv": ["exec", "--wat"],
+      "expect": { "ok": { "cmd": ["exec"], "args": { "rest": ["--wat"] } } }
     }
   ]
 }

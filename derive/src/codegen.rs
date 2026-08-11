@@ -32,6 +32,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
 
+    // Resolved here rather than at parse time: the tables hold the effective value,
+    // and with one command per struct there is nothing above it to inherit from yet.
+    let unknown_flags = match cli.unknown_flags.as_deref() {
+        Some("error") => quote!(::usage_argv::UnknownFlags::Error),
+        _ => quote!(::usage_argv::UnknownFlags::Value),
+    };
+
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
     let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
     let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
@@ -77,6 +84,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #(#arg_tables)*
 
             pub static ROOT: Command = Command {
+                unknown_flags: #unknown_flags,
                 name: #name,
                 flags: &[#(#flag_refs),*],
                 args: &[#(#arg_refs),*],

@@ -60,13 +60,17 @@
     },
     {
       "id": "short-bundle-unknown-letter",
-      "doc": "An unrecognized letter anywhere in a bundle fails the whole token.",
+      "doc": "A token containing an unrecognized letter is not a bundle at all, so none of its letters are applied \u2014 `-az` does not set `-a`. Here it becomes a word, and there is no argument to hold it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\n",
       "argv": ["-az"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib reports `unexpected_arg`: the whole token falls through to positionals, so `-a` is not applied either."
-      }
+      "expect": { "error": "unexpected_arg" }
+    },
+    {
+      "id": "short-bundle-unknown-letter-applies-nothing",
+      "doc": "The same rejection, seen from the side that matters: with an argument free to take the token, `-a` must still be unset. A token containing an unrecognized letter was never a bundle, so none of its letters apply \u2014 the previous vector cannot show this, because both readings produce the same error.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\narg \"[file]\"\n",
+      "argv": ["-az"],
+      "expect": { "ok": { "args": { "file": "-az" } } }
     },
     {
       "id": "short-count",
@@ -91,13 +95,52 @@
     },
     {
       "id": "short-unknown",
-      "doc": "An unrecognized short flag is an error rather than a positional.",
+      "doc": "An unrecognized short flag is a word too, for the same reason as the long form.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
       "argv": ["-z"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib binds `-z` to the positional `file`, the same fall-through described in `long-unknown`."
-      }
+      "expect": { "ok": { "args": { "file": "-z" } } }
+    },
+    {
+      "id": "unknown-flags-error-rejects-a-whole-bundle",
+      "doc": "Refusing unknown flags, an unrecognized letter fails the whole token rather than applying the letters before it \u2014 a partly-applied bundle would be worse than a rejected one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"-a --all\"\n",
+      "argv": ["-az"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-digit-token-that-is-not-a-number",
+      "doc": "`-1x` is not a number, so it is a flag-shaped token that names nothing \u2014 a CLI refusing unknown flags hears about it rather than having it slip through as a value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[file]\"\n",
+      "argv": ["-1x"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-exponent-number-is-a-value",
+      "doc": "`-1e5` is a number, so it is a value even where unknown flags are refused. The two parsers disagreed about this when one used a float parse and the other a hand-written scanner, which is why the edges are pinned here.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1e5"],
+      "expect": { "ok": { "args": { "offset": "-1e5" } } }
+    },
+    {
+      "id": "short-fractional-exponent-is-a-value",
+      "doc": "A signed exponent on a fraction is still a number.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1.5e-3"],
+      "expect": { "ok": { "args": { "offset": "-1.5e-3" } } }
+    },
+    {
+      "id": "short-infinity-is-not-a-number-here",
+      "doc": "`-inf` parses as a float but is not treated as one: a token like that is far likelier to be a misspelled flag than a number somebody meant to pass, so a CLI refusing unknown flags hears about it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-inf"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-bare-exponent-is-not-a-number",
+      "doc": "An exponent needs digits of its own, so `-1e` names nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1e"],
+      "expect": { "error": "unknown_flag" }
     }
   ]
 }

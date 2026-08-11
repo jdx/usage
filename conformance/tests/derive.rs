@@ -226,14 +226,46 @@ fn positionals_fill_in_order_and_the_variadic_takes_the_rest() {
     assert_eq!(ex.rest, ["two", "three"]);
 }
 
+/// A CLI that owns every flag it accepts, which is the usual case for a Rust
+/// binary — as opposed to a script forwarding options to something else.
+#[derive(Cli, Debug)]
+#[usage(unknown_flags = "error")]
+struct Strict {
+    /// Overwrite
+    #[usage(long)]
+    force: bool,
+    /// The file
+    file: String,
+}
+
 #[test]
-fn a_typo_is_reported_rather_than_bound() {
+fn a_typo_is_a_value_by_default() {
+    // The default: an unrecognized flag is data, because a spec is often parsing a
+    // command line whose flags belong to something else.
     let a = argv(["--forse", "x.txt"]);
-    let err = Ex::parse_from(&a).expect_err("an unknown flag should not parse");
+    let ex = Ex::parse_from(&a).expect("should parse");
+    assert_eq!(ex.file, "--forse");
+    assert_eq!(ex.rest, ["x.txt"]);
+}
+
+#[test]
+fn a_typo_is_reported_when_the_cli_owns_its_flags() {
+    let a = argv(["--forse", "x.txt"]);
+    let err = Strict::parse_from(&a).expect_err("an unknown flag should not parse");
     assert!(
         matches!(err, usage_argv::Error::UnknownFlag { token } if token == b"--forse"),
         "got {err:?}"
     );
+
+    // And the choice reaches the spec, so docs and completions see it too.
+    let spec: LibSpec = Strict::to_kdl().parse().expect("valid spec");
+    assert_eq!(spec.unknown_flags, Some(usage::UnknownFlags::Error));
+
+    // A flag it does know still works, so strictness has not broken the parse.
+    let a = argv(["--force", "x.txt"]);
+    let strict = Strict::parse_from(&a).expect("should parse");
+    assert!(strict.force);
+    assert_eq!(strict.file, "x.txt");
 }
 
 #[test]

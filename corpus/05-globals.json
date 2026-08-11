@@ -34,13 +34,10 @@
     },
     {
       "id": "global-declared-on-subcommand-not-visible-at-root",
-      "doc": "`global` propagates downward only. A flag declared global on a subcommand is not accepted before that subcommand is reached.",
+      "doc": "`global` propagates downward only. A flag declared global on a subcommand is not a flag before that subcommand is reached, so the token is a word \u2014 and the root declares no argument to hold one.",
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  flag \"-f --force\" global=#true\n}\n",
       "argv": ["--force", "install"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib agrees the flag is not visible here, but reports `unexpected_arg` for the same fall-through reason."
-      }
+      "expect": { "error": "unexpected_arg" }
     },
     {
       "id": "global-shadowed-by-subcommand-flag",
