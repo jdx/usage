@@ -480,3 +480,45 @@ fn reaching_the_tables_is_free() {
         "the tables should be one static, not a build"
     );
 }
+
+/// The crate-level example from usage-derive's documentation, kept here because
+/// that crate cannot dev-depend on usage-argv without making itself unpublishable
+/// — see the note in `derive/Cargo.toml`. If this changes, change the docs too.
+mod docs_example {
+    use super::argv;
+    use usage_derive::Cli;
+
+    /// A tool that does things
+    #[derive(Cli)]
+    #[usage(bin = "ex", version = "1.0")]
+    struct Cli {
+        /// How many jobs to run at once
+        #[usage(short = 'j', long, env = "EX_JOBS", default = "4")]
+        jobs: Option<String>,
+
+        /// Print more
+        #[usage(short = 'v', long, count)]
+        verbose: u8,
+
+        /// Colorize output
+        #[usage(long, negate = "--no-color", default = "true")]
+        color: bool,
+
+        /// Files to process
+        files: Vec<String>,
+    }
+
+    #[test]
+    fn the_crate_level_example_from_the_docs() {
+        let a = argv(["-j8", "--no-color", "a.txt"]);
+        let cli = Cli::parse_from(&a).unwrap();
+        assert_eq!(cli.jobs.as_deref(), Some("8"));
+        assert!(!cli.color);
+        assert_eq!(cli.files, ["a.txt"]);
+        assert_eq!(cli.verbose, 0);
+
+        // The same declaration is also the spec, which is what generates docs,
+        // manpages, and completions.
+        assert!(Cli::to_kdl().contains(r#"flag "-j --jobs""#));
+    }
+}
