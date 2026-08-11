@@ -37,6 +37,10 @@ pub struct SpecCommand {
     pub subcommands: IndexMap<String, SpecCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
+    /// `flags`, partitioned by `help_heading`. Same flags, same order.
+    pub flag_groups: Vec<Group<SpecFlag>>,
+    /// `args`, partitioned by `help_heading`.
+    pub arg_groups: Vec<Group<SpecArg>>,
     // pub mounts: Vec<SpecMount>,
     pub deprecated: Option<String>,
     pub effect: Option<SpecCommandEffect>,
@@ -84,11 +88,49 @@ pub struct SpecFlag {
     pub default: Vec<String>,
     pub negate: Option<String>,
     pub env: Option<String>,
+    pub help_heading: Option<String>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
     pub help_is_multiline: bool,
     pub usage_col_width: usize,
+}
+
+/// Flags or arguments that share a heading, in the order the headings first
+/// appear.
+///
+/// Grouping happens here rather than in a template because the template language
+/// cannot do it: Tera can filter by an attribute's value but not partition on one,
+/// and "everything without a heading" is not expressible as a filter. The
+/// ungrouped entries come first with `heading` unset, which is what a renderer
+/// shows under its default title.
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct Group<T> {
+    pub heading: Option<String>,
+    pub items: Vec<T>,
+}
+
+/// Partition by heading, keeping declaration order within each group and putting
+/// the unheaded entries first.
+fn group_by_heading<T: Clone>(
+    items: &[T],
+    heading_of: impl Fn(&T) -> Option<&str>,
+) -> Vec<Group<T>> {
+    let mut groups: Vec<Group<T>> = Vec::new();
+    // The unheaded group exists only if something lands in it, so a CLI that
+    // gives every flag a heading does not render an empty default section.
+    for item in items {
+        let heading = heading_of(item).map(|h| h.to_string());
+        match groups.iter_mut().find(|g| g.heading == heading) {
+            Some(group) => group.items.push(item.clone()),
+            None => groups.push(Group {
+                heading,
+                items: vec![item.clone()],
+            }),
+        }
+    }
+    groups.sort_by_key(|g| g.heading.is_some());
+    groups
 }
 
 #[derive(Debug, Default, Serialize, Clone)]
@@ -116,6 +158,7 @@ pub struct SpecArg {
     pub default: Vec<String>,
     pub choices: Option<SpecChoices>,
     pub env: Option<String>,
+    pub help_heading: Option<String>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
@@ -249,6 +292,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 .iter()
                 .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
                 .collect(),
+            flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
+            arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
             args,
             flags,
             deprecated: deprecated.clone(),
@@ -302,6 +347,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             default: flag.default.clone(),
             negate: flag.negate.clone(),
             env: flag.env.clone(),
+            help_heading: flag.help_heading.clone(),
             rendered: false,
             help_rendered: None,
             help_is_multiline: false,
@@ -339,6 +385,7 @@ impl From<&crate::SpecArg> for SpecArg {
             default: arg.default.clone(),
             choices: arg.choices.clone(),
             env: arg.env.clone(),
+            help_heading: arg.help_heading.clone(),
             rendered: false,
             help_rendered: None,
             help_is_multiline: false,
@@ -402,9 +449,21 @@ impl SpecCommand {
         for example in &mut self.examples {
             example.render_md(renderer);
         }
+        // Regroup from the freshly rendered lists. The groups hold clones, so
+        // grouping before this point would publish copies without their rendered
+        // markdown — which is exactly what happened the first time.
+        self.regroup();
         for cmd in self.subcommands.values_mut() {
             cmd.render_md(renderer);
         }
+    }
+
+    /// Rebuild the grouped views from `flags` and `args`.
+    ///
+    /// Anything that mutates either list has to call this, or the groups go stale.
+    fn regroup(&mut self) {
+        self.flag_groups = group_by_heading(&self.flags, |f| f.help_heading.as_deref());
+        self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
     }
 }
 

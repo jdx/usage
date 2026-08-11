@@ -128,9 +128,9 @@ carrying them rather than being worked around.
 - [x] **`help_heading`** — grouping flags under a heading in help output. Now a
       spec field on both flags and arguments, and the clap bridge no longer drops
       it, which it had been doing for every CLI that groups its flags.
-- [ ] **Rendering headings** — the spec can express a heading and nothing displays
-      one yet. Grouping flags in help and markdown output needs the docs models and
-      the templates to change, which is its own PR.
+- [x] **Rendering headings** — help output and generated markdown both group by
+      heading now. Unheaded entries keep the default section and come first, and a
+      heading with nothing visible in it produces no section.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate

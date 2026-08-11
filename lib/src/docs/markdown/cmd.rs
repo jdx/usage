@@ -167,4 +167,51 @@ cmd "version" help="Show the version"
         Show the version
         ");
     }
+
+    #[test]
+    fn test_render_markdown_groups_by_heading() {
+        let spec: Spec = r#"
+bin "mycli"
+flag "--verbose" help="Verbose output"
+flag "--filter <pattern>" help="Only matching" help_heading="Filtering"
+flag "--hidden-one" help="Not shown" help_heading="Filtering" hide=#true
+arg "<file>" help="The file"
+arg "<mode>" help="How to run" help_heading="Behaviour"
+"#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+
+        // Each heading becomes its own section, hidden entries stay out, and a
+        // heading whose every entry is hidden produces no section at all.
+        assert_snapshot!(ctx.render_cmd(&spec.cmd).unwrap(), @"
+        # `mycli`
+
+        - **Usage**: `mycli [--verbose] [--filter <pattern>] <file> <mode>`
+
+        ## Arguments
+
+        ### `<file>`
+
+        The file
+
+        ## Behaviour
+
+        ### `<mode>`
+
+        How to run
+
+        ## Flags
+
+        ### `--verbose`
+
+        Verbose output
+
+        ## Filtering
+
+        ### `--filter <pattern>`
+
+        Only matching
+        ");
+    }
 }
