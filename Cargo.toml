@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "argv",
+    "derive",
     "clap_usage",
     "cli",
     "conformance",
@@ -19,6 +20,7 @@ license = "MIT"
 clap_usage = { path = "./clap_usage", version = "5.0.0" }
 usage-cli = { path = "./cli" }
 usage-argv = { path = "./argv", version = "5.1.0" }
+usage-derive = { path = "./derive" }
 usage-lib = { path = "./lib", version = "5.1.0", features = ["clap"] }
 
 [workspace.metadata.release]

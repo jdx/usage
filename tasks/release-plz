@@ -88,7 +88,7 @@ cargo update
 aube update
 mise run lint-fix
 git add \
-  {./,argv/,cli/,lib/}Cargo.* \
+  {./,argv/,cli/,derive/,lib/}Cargo.* \
   package.json aube-lock.yaml \
   cli/usage.usage.kdl \
   docs/cli/reference/* \

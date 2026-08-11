@@ -1,0 +1,30 @@
+[package]
+name = "usage-derive"
+description = "Derive macro that compiles a CLI definition into parse tables and a usage spec"
+# Not published yet: it cannot express subcommands, and a CLI framework that
+# cannot do that is not one anybody should depend on by accident. The version
+# tracks the workspace so it is ready to publish the moment it can.
+publish = false
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+# syn 2 rather than 3, which is already in the tree via clap_derive: nothing here
+# needs the newer API, and matching what is there avoids a second copy.
+syn = { version = "2", features = ["full"] }
+
+# The generated code refers to usage-argv, so the doc examples need it in scope to
+# compile. Not a real dependency: this crate emits tokens and links nothing.
+[dev-dependencies]
+usage-argv = { workspace = true, features = ["spec"] }
