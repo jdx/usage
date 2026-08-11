@@ -1,0 +1,53 @@
+{
+  "section": "global-flags",
+  "about": "A `global` flag is recognized by the command that declares it and by everything beneath it, so it may appear before or after any subcommand word.",
+  "vectors": [
+    {
+      "id": "global-before-subcommand",
+      "doc": "A global flag declared at the root works before the subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" global=#true\ncmd \"install\"\n",
+      "argv": ["--verbose", "install"],
+      "expect": { "ok": { "cmd": ["install"], "flags": { "verbose": true } } }
+    },
+    {
+      "id": "global-after-subcommand",
+      "doc": "The same flag works after the subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" global=#true\ncmd \"install\"\n",
+      "argv": ["install", "--verbose"],
+      "expect": { "ok": { "cmd": ["install"], "flags": { "verbose": true } } }
+    },
+    {
+      "id": "global-with-value-after-subcommand",
+      "doc": "A global flag that takes a value binds it the same way at any depth.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-C --cd <dir>\" global=#true\ncmd \"install\"\n",
+      "argv": ["install", "-C", "/tmp"],
+      "expect": { "ok": { "cmd": ["install"], "flags": { "cd": "/tmp" } } }
+    },
+    {
+      "id": "global-at-depth-two",
+      "doc": "Inheritance is not limited to one level.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" global=#true\ncmd \"settings\" {\n  cmd \"set\"\n}\n",
+      "argv": ["settings", "set", "--verbose"],
+      "expect": {
+        "ok": { "cmd": ["settings", "set"], "flags": { "verbose": true } }
+      }
+    },
+    {
+      "id": "global-declared-on-subcommand-not-visible-at-root",
+      "doc": "`global` propagates downward only. A flag declared global on a subcommand is not accepted before that subcommand is reached.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  flag \"-f --force\" global=#true\n}\n",
+      "argv": ["--force", "install"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib agrees the flag is not visible here, but reports `unexpected_arg` for the same fall-through reason."
+      }
+    },
+    {
+      "id": "global-shadowed-by-subcommand-flag",
+      "doc": "A subcommand may declare its own flag with the same name as an inherited global; below that point the subcommand's flag is the one that binds. mise does this deliberately, redeclaring several root globals on `run` with different shorts.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\" global=#true\ncmd \"run\" {\n  flag \"-j --jobs <n>\"\n}\n",
+      "argv": ["run", "--jobs", "4"],
+      "expect": { "ok": { "cmd": ["run"], "flags": { "jobs": "4" } } }
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "section": "double-dash",
+  "about": "A bare `--` stops flag interpretation: everything after it is a value, however much it looks like a flag. Arguments can also require, or preserve, the separator.",
+  "vectors": [
+    {
+      "id": "dd-protects-flaglike-value",
+      "doc": "After `--`, a flag-looking word binds as a value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<file>\"\n",
+      "argv": ["--", "--force"],
+      "expect": { "ok": { "args": { "file": "--force" } } }
+    },
+    {
+      "id": "dd-flags-before-still-parse",
+      "doc": "Flags before the separator parse normally.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<file>\"\n",
+      "argv": ["--force", "--", "-x"],
+      "expect": {
+        "ok": { "flags": { "force": true }, "args": { "file": "-x" } }
+      }
+    },
+    {
+      "id": "dd-consumed-not-a-value",
+      "doc": "The separator itself is consumed rather than bound to an argument.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<a>\"\narg \"[b]\"\n",
+      "argv": ["--", "one"],
+      "expect": { "ok": { "args": { "a": "one" } } }
+    },
+    {
+      "id": "dd-second-is-a-value",
+      "doc": "Only the first `--` separates; a later one is an ordinary value, since flag interpretation has already stopped.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<rest>...\"\n",
+      "argv": ["--", "a", "--", "b"],
+      "expect": { "ok": { "args": { "rest": ["a", "--", "b"] } } },
+      "reference": {
+        "diverges": "usage-lib drops the second separator, yielding `[\"a\", \"b\"]`. A CLI forwarding a command line that contains its own `--` would have it silently removed."
+      }
+    },
+    {
+      "id": "dd-variadic-collects-everything-after",
+      "doc": "A variadic after the separator collects the whole tail verbatim, which is how a wrapper CLI forwards an inner command line untouched.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<cmd>...\"\n",
+      "argv": ["--", "npm", "run", "test", "--force"],
+      "expect": {
+        "ok": { "args": { "cmd": ["npm", "run", "test", "--force"] } }
+      }
+    },
+    {
+      "id": "dd-required-satisfied",
+      "doc": "An argument declared `double_dash=\"required\"` accepts a value once the separator has been given.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<-- cmd>\"\n",
+      "argv": ["--", "ls"],
+      "expect": { "ok": { "args": { "cmd": "ls" } } }
+    },
+    {
+      "id": "dd-required-rejected-without-separator",
+      "doc": "The same argument rejects a value given before the separator.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<-- cmd>\"\n",
+      "argv": ["ls"],
+      "expect": { "error": "arg_requires_double_dash" }
+    },
+    {
+      "id": "dd-optional-accepts-either-side",
+      "doc": "The default, `double_dash=\"optional\"`, accepts a value on either side of the separator.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
+      "argv": ["a.txt"],
+      "expect": { "ok": { "args": { "file": "a.txt" } } }
+    },
+    {
+      "id": "dd-preserve-keeps-separator-as-value",
+      "doc": "With `double_dash=\"preserve\"`, the separator is kept as a value instead of being consumed \u2014 needed by CLIs that pass along command lines containing their own separators.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<args>...\" double_dash=\"preserve\"\n",
+      "argv": ["a", "--", "b"],
+      "expect": { "ok": { "args": { "args": ["a", "--", "b"] } } }
+    },
+    {
+      "id": "dd-automatic-behaves-as-if-separated",
+      "doc": "With `double_dash=\"automatic\"`, the first value an argument takes stops flag interpretation for everything after it, so a wrapper can forward flags without the caller typing `--`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<files>...\" double_dash=\"automatic\"\n",
+      "argv": ["a", "--force"],
+      "expect": { "ok": { "args": { "files": ["a", "--force"] } } },
+      "reference": {
+        "diverges": "usage-lib binds `force` as a flag and gives the argument only `a`. The spec reference documents this mode as not yet enforced by the parser, so this vector describes the intent it will be held to."
+      }
+    }
+  ]
+}

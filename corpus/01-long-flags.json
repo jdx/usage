@@ -1,0 +1,139 @@
+{
+  "section": "long-flags",
+  "about": "How `--name` tokens bind. Long names match exactly — there is no abbreviation inference — and a value may be attached with `=` or given as the following word.",
+  "vectors": [
+    {
+      "id": "long-boolean-present",
+      "doc": "A flag with no argument binds true when present.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
+      "argv": ["--force"],
+      "expect": { "ok": { "flags": { "force": true } } }
+    },
+    {
+      "id": "long-boolean-absent",
+      "doc": "An absent boolean flag is not bound at all, rather than bound false.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
+      "argv": [],
+      "expect": { "ok": {} }
+    },
+    {
+      "id": "long-value-attached",
+      "doc": "`--flag=value` binds the text after the first `=`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs=8"],
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
+    },
+    {
+      "id": "long-value-detached",
+      "doc": "`--flag value` binds the following word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs", "8"],
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
+    },
+    {
+      "id": "long-value-attached-keeps-later-equals",
+      "doc": "Only the first `=` separates; the rest belongs to the value, so `--set=a=b` yields `a=b`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--set <kv>\"\n",
+      "argv": ["--set=a=b"],
+      "expect": { "ok": { "flags": { "set": "a=b" } } }
+    },
+    {
+      "id": "long-value-attached-empty",
+      "doc": "`--flag=` binds the empty string. Present-but-empty is a different state from absent, and only the attached form can express it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs="],
+      "expect": { "ok": { "flags": { "jobs": "" } } },
+      "reference": {
+        "diverges": "usage-lib binds nothing, collapsing `--jobs=` into the same result as omitting the flag."
+      }
+    },
+    {
+      "id": "long-value-attached-flaglike",
+      "doc": "An attached value binds even when it looks like a flag: `=` has already settled where the value came from.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
+      "argv": ["--jobs=--force"],
+      "expect": { "ok": { "flags": { "jobs": "--force" } } },
+      "reference": {
+        "diverges": "usage-lib binds `force` instead and leaves `jobs` unset, treating the attached value as a separate flag token."
+      }
+    },
+    {
+      "id": "long-value-missing",
+      "doc": "A flag needing a value that ends the command line is an error.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs"],
+      "expect": { "error": "missing_flag_value" },
+      "reference": {
+        "diverges": "usage-lib parses successfully and binds nothing, so `ex --jobs` silently does what `ex` does."
+      }
+    },
+    {
+      "id": "long-value-rejects-flaglike-next-word",
+      "doc": "A detached value must not itself look like a flag, so a forgotten value is reported rather than swallowed. Use the attached form to pass a value that begins with a dash.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
+      "argv": ["--jobs", "--force"],
+      "expect": { "error": "missing_flag_value" },
+      "reference": {
+        "diverges": "usage-lib binds `force` and leaves `jobs` unset without reporting anything."
+      }
+    },
+    {
+      "id": "long-value-accepts-negative-number",
+      "doc": "A negative number is a value, not a flag, so it may be given detached. Without this exception no CLI could accept `--offset -1`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--offset <n>\"\n",
+      "argv": ["--offset", "-1"],
+      "expect": { "ok": { "flags": { "offset": "-1" } } }
+    },
+    {
+      "id": "long-unknown",
+      "doc": "An unrecognized long flag is an error, even when the command has a positional that could have held it. Otherwise a typo becomes data.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[file]\"\n",
+      "argv": ["--wat"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib binds `--wat` to the positional `file`. This is the root of several other divergences here: unrecognized flags fall through to positionals, so they surface as `unexpected_arg` — or as no error at all — rather than as `unknown_flag`."
+      }
+    },
+    {
+      "id": "long-no-abbreviation",
+      "doc": "A unique prefix of a long name is not accepted. Abbreviation inference makes adding a flag a breaking change for anyone who typed a prefix that was unique until now, so the grammar has none.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
+      "argv": ["--for"],
+      "expect": { "error": "unknown_flag" },
+      "reference": {
+        "diverges": "usage-lib also refuses the abbreviation, but reports `unexpected_arg`: `--for` becomes a positional, and the command has none."
+      }
+    },
+    {
+      "id": "long-repeated-var",
+      "doc": "A `var` flag collects each occurrence in order.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true\n",
+      "argv": ["--include", "a", "--include", "b"],
+      "expect": { "ok": { "flags": { "include": ["a", "b"] } } }
+    },
+    {
+      "id": "long-variadic-flag-arg",
+      "doc": "A flag whose argument is variadic takes several values from one occurrence, which is what the trailing ellipsis in `<pattern>...` declares.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>...\"\n",
+      "argv": ["--include", "a", "b"],
+      "expect": { "ok": { "flags": { "include": ["a", "b"] } } },
+      "reference": {
+        "diverges": "usage-lib reports `unexpected_arg` for the second value. The spec reference documents this form, so the gap is in the parser rather than in the declaration."
+      }
+    },
+    {
+      "id": "long-negation",
+      "doc": "A flag with `negate` binds false when the negating form is used.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
+      "argv": ["--no-color"],
+      "expect": { "ok": { "flags": { "color": false } } }
+    },
+    {
+      "id": "long-negation-default",
+      "doc": "With neither form given, a negatable flag takes its declared default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
+      "argv": [],
+      "expect": { "ok": { "flags": { "color": true } } }
+    }
+  ]
+}

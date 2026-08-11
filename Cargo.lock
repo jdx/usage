@@ -2007,6 +2007,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "usage-conformance"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "usage-lib",
+]
+
+[[package]]
 name = "usage-lib"
 version = "5.1.0"
 dependencies = [
