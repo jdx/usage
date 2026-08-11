@@ -308,6 +308,33 @@ fn a_cli_with_only_a_flag_works() {
     assert_eq!(spec.cmd.flags.len(), 1);
 }
 
+/// An explicit `long` written with its dashes is the natural mistake, and would
+/// have produced a flag no command line could reach.
+#[derive(Cli)]
+struct Dashed {
+    /// Colorize output
+    #[usage(long = "--color", negate = "--no-color", default = "true")]
+    color: bool,
+}
+
+#[test]
+fn an_explicit_long_may_be_written_with_dashes() {
+    let a = argv(["--no-color"]);
+    let cli = Dashed::parse_from(&a).expect("should parse");
+    assert!(!cli.color);
+
+    let a = argv(["--color"]);
+    let cli = Dashed::parse_from(&a).expect("should parse");
+    assert!(cli.color);
+
+    // And the spec records it the way a spec does, without the dashes on the long
+    // form and with them on the negation.
+    let spec: LibSpec = Dashed::to_kdl().parse().expect("should be a valid spec");
+    let color = &spec.cmd.flags[0];
+    assert_eq!(color.long, vec!["color".to_string()]);
+    assert_eq!(color.negate.as_deref(), Some("--no-color"));
+}
+
 #[test]
 fn reaching_the_tables_is_free() {
     // The point of the whole exercise: `command()` hands back a `static`, so there

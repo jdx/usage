@@ -247,7 +247,10 @@ impl Field {
                     "long" => match &meta {
                         Meta::Path(_) => longs.push(name.clone()),
                         _ => {
-                            longs.push(string_value(&meta)?);
+                            // Stored without dashes, because that is what a token is
+                            // matched against once its `--` has been taken off. Left
+                            // verbatim, `long = "--no-color"` would be unreachable.
+                            longs.push(strip_dashes(&string_value(&meta)?));
                             explicit_long = true;
                         }
                     },
@@ -318,6 +321,29 @@ impl Field {
                      one byte. Use an ASCII letter, and give the long form the \
                      descriptive name"
                 ),
+            ));
+        }
+        // Some ASCII characters cannot reach a flag at all, because the grammar
+        // spends them on something else first.
+        if let Some(short) = shorts.iter().find(|c| c.is_ascii_digit()) {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "`short = '{short}'` can never be given: `-{short}` reads as a \
+                     negative number, which the grammar treats as a value so that \
+                     `--offset -1` works"
+                ),
+            ));
+        }
+        if let Some(short) = shorts.iter().find(|c| matches!(c, '-' | '=')) {
+            let why = if *short == '-' {
+                "`--` is the separator that ends flag parsing"
+            } else {
+                "`=` separates a short flag from its value, as in `-j=8`"
+            };
+            return Err(syn::Error::new(
+                span,
+                format!("`short = '{short}'` can never be given: {why}"),
             ));
         }
 
