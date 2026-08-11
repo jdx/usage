@@ -592,8 +592,29 @@ fn parse_partial_with_env(
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
     let mut used_default_subcommand = false;
+    // Whether the command in scope has had its own mounts run. A mount on the root
+    // is the case that needs this: a subcommand's mounts are run when the parser
+    // descends into it, but nothing descends into the root.
+    let mut mounts_resolved = false;
 
     while idx < input.len() {
+        // Only when a word matches nothing already declared, so a CLI that declares
+        // its commands *and* mounts more does not spawn a process for every
+        // invocation. Discovery is the expensive part, and this pays for it only
+        // when the answer might come from there.
+        if !mounts_resolved
+            && !out.cmd.mounts.is_empty()
+            && out.cmd.find_subcommand(&input[idx]).is_none()
+        {
+            mounts_resolved = true;
+            let mut mounted = out.cmd.clone();
+            mounted.mount(&mount_prefix_words(&prefix_flags))?;
+            merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+            if let Some(last) = out.cmds.last_mut() {
+                *last = mounted.clone();
+            }
+            out.cmd = mounted;
+        }
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
@@ -610,6 +631,8 @@ fn parse_partial_with_env(
             input.remove(idx);
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
+            // A descent already ran the new command's mounts, above.
+            mounts_resolved = true;
             prefix_flags.clear();
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
@@ -1522,6 +1545,56 @@ arg "[input]"
         assert_eq!(parsed.flags.len(), 1);
         assert!(parsed.flags.keys().any(|flag| flag.name == "stdin"));
         assert_eq!(first_string_value(&parsed), "input.txt");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_mount_on_the_root_discovers_subcommands() {
+        // The root is a command like any other, so it can find its own subcommands
+        // by running something. Uses `echo` rather than a fixture because resolving
+        // a mount is what is being tested.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="echo 'cmd \"discovered\"'"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_declared_subcommand_does_not_run_the_mount() {
+        // The mount would fail if it ran, so this parsing at all is the proof that
+        // discovery is skipped when the word is already known. Worth pinning: a root
+        // mount that resolved eagerly would spawn a process on every invocation.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "declared"
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "declared".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "declared");
+    }
+
+    #[test]
+    fn a_root_mount_survives_being_written_out() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nmount run=\"ex plugins --usage\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.mounts.len(), 1);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.mounts.len(), 1, "written:\n{spec}");
+        assert_eq!(reparsed.cmd.mounts[0].run, "ex plugins --usage");
     }
 
     #[test]
