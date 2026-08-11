@@ -14,6 +14,11 @@ license = { workspace = true }
 # invocation of every CLI built on it.
 [dependencies]
 
+[features]
+# Cold-path metadata and spec emission. Off by default so a CLI that wants only
+# a parser does not carry it.
+spec = []
+
 [package.metadata.release]
 shared-version = true
 release = true

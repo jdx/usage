@@ -1,0 +1,63 @@
+---
+source: conformance/tests/spec_roundtrip.rs
+expression: SPEC.to_kdl()
+---
+name "ex"
+bin "ex"
+version "1.2.3"
+about "does things"
+long_about "Does things, at length."
+default_subcommand "run"
+example "ex a.txt" header="Basic" help="the simplest thing"
+flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true env="EX_JOBS" default="4" {
+    long_help "More about jobs.\nOn two lines."
+    arg "<n>"
+}
+flag "--color" help="colorize output" negate="--no-color" default="true"
+flag "-v --verbose" hide=#true count=#true
+flag "--include" help="patterns to include" var=#true var_min=1 var_max=5 overrides="--exclude" {
+    arg "<pattern>..."
+}
+flag "--shell" required=#true {
+    required_unless "--jobs" "--color"
+    arg "<shell>" {
+        choices "bash" "zsh" "fish"
+    }
+}
+flag "--prune" help="delete anything unused" effect="destructive" {
+    long_help "Deletes things.\u{1b}[0m Carefully."
+    overrides "--keep" "--dry-run"
+}
+flag "--paths" {
+    default {
+        "/usr/bin"
+        "/usr/local/bin"
+    }
+    arg "<path>"
+}
+arg "[file]" help="the file" env="EX_FILE" default="a.txt"
+cmd "install" help="install a tool" effect="write" {
+    alias "i"
+    alias "add" hide=#true
+    long_help "Installs a tool.\n\nTakes a while."
+    example "ex install node@20" help="install a specific version"
+    flag "-f --force" help="overwrite an existing install"
+    arg "<tool>" help="the tool to install"
+}
+cmd "settings" help="manage settings" {
+    cmd "set" help="set a value" {
+        arg "<mode>" {
+            choices "on" "off"
+        }
+    }
+}
+cmd "run" help="run a task" restart_token=":::" {
+    mount run="ex tasks --usage"
+    arg "[args]..." double_dash="preserve"
+}
+cmd "exec" help="run a command" effect="destructive" {
+    arg "<cmd>..." double_dash="required"
+}
+cmd "watch" help="watch files" hide=#true {
+    arg "[files]..." double_dash="automatic"
+}

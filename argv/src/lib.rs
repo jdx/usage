@@ -64,11 +64,21 @@
 //! know a value's type, so they belong to the layer that owns the target struct.
 //! Keeping them out is what makes this loop small.
 //!
+//! # Features
+//!
+//! - `spec` — a parallel tree of cold metadata (help text, choices, defaults,
+//!   effects) and a writer that emits it as a usage spec. Off by default: a
+//!   successful parse never reads any of it, so a CLI that only wants a parser
+//!   should not compile it.
+//!
 //! [the argv grammar]: https://usage.jdx.dev/spec/argv
 
 #![forbid(unsafe_code)]
 
 use std::ffi::OsStr;
+
+#[cfg(feature = "spec")]
+pub mod spec;
 
 /// How deep a command tree this parser will descend.
 ///

@@ -21,6 +21,40 @@ fn raw_multiline_hash_count(value: &str) -> usize {
     max_count + 1
 }
 
+/// A KDL quoted string, with everything that has to be escaped, escaped.
+fn escape_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{{{:x}}}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// An entry format that keeps a literal representation as written.
+fn quoted_format(value_repr: &str) -> KdlEntryFormat {
+    KdlEntryFormat {
+        value_repr: value_repr.to_string(),
+        leading: " ".into(),
+        trailing: "".into(),
+        after_ty: "".into(),
+        before_ty_name: "".into(),
+        after_ty_name: "".into(),
+        after_key: "".into(),
+        after_eq: "".into(),
+        autoformat_keep: true,
+    }
+}
+
 /// Create a KdlEntry for a string value, using KDL raw multiline string syntax (`#"""..."""#`)
 /// when the value contains newlines. The number of `#` characters is automatically determined
 /// to ensure the value can be embedded safely.
@@ -29,6 +63,25 @@ pub(crate) fn string_entry(key: Option<&str>, value: &str) -> KdlEntry {
         Some(k) => KdlEntry::new_prop(k, KdlValue::String(value.to_string())),
         None => KdlEntry::new(KdlValue::String(value.to_string())),
     };
+    // Two kinds of value the kdl crate renders in a form this crate cannot read
+    // back. Both produced specs that failed to reparse, which the argv round-trip
+    // tests caught.
+    //
+    // A node argument starting with a dash: KDL reads `overrides "--keep"` but not
+    // `overrides --keep`. Properties are left alone, since `negate=--no-color`
+    // renders and parses today and quoting it would rewrite every committed spec
+    // for no gain.
+    let dashed_argument = key.is_none() && value.starts_with('-');
+    // A control character other than a newline or tab, which KDL requires as an
+    // escape rather than a literal. Help text really does contain these: a CLI that
+    // colors its help has an escape character in the middle of it.
+    let has_control = value
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t');
+    if dashed_argument || has_control {
+        entry.set_format(quoted_format(&escape_string(value)));
+        return entry;
+    }
     if value.contains('\n') {
         let n = raw_multiline_hash_count(value);
         let hashes = "#".repeat(n);
