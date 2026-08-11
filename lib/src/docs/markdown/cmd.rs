@@ -214,4 +214,48 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
         Only matching
         ");
     }
+
+    #[test]
+    fn test_render_markdown_groups_global_flags_too() {
+        // Global flags are rendered in their own section, which used to come from
+        // the flat list and so ignored headings that help output honored.
+        let spec: Spec = r#"
+bin "mycli"
+flag "--verbose" help="Verbose output" global=#true
+flag "--filter <pattern>" help="Only matching" help_heading="Filtering" global=#true
+flag "--local-one" help="Not global"
+cmd "sub" help="a subcommand"
+"#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+
+        assert_snapshot!(ctx.render_cmd(&spec.cmd).unwrap(), @"
+        # `mycli`
+
+        - **Usage**: `mycli [FLAGS] <SUBCOMMAND>`
+
+        ## Global Flags
+
+        ### `--verbose`
+
+        Verbose output
+
+        ## Filtering
+
+        ### `--filter <pattern>`
+
+        Only matching
+
+        ## Flags
+
+        ### `--local-one`
+
+        Not global
+
+        ## Subcommands
+
+        - [`mycli sub`](/sub.md)
+        ");
+    }
 }
