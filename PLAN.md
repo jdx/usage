@@ -129,6 +129,10 @@ carrying them rather than being worked around.
       it and mise uses it (in `watch`, for its vendored watchexec arguments), and
       the metadata tree deliberately omits it rather than dropping it silently on
       the way out.
+- [ ] **A mount on the root command** — the spec accepts `mount` only inside a
+      `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
+      something cannot say so. Worth deciding whether that is a gap or a deliberate
+      restriction.
 
 ### Then: what a CLI framework has to have
 

@@ -60,6 +60,10 @@ pub struct CommandMeta<'a> {
     /// 330-entry table to bolt it on afterwards.
     pub effect: Option<Effect>,
     /// A command to run at parse time to discover further subcommands.
+    ///
+    /// Only meaningful on a subcommand. The spec accepts `mount` inside a `cmd`
+    /// block and nowhere else, so setting this on the root is a mistake that
+    /// [`Spec::to_kdl`] catches in debug builds.
     pub mount: Option<&'a str>,
     /// A token that starts a fresh invocation of this command, such as mise's
     /// `:::`.
@@ -233,9 +237,17 @@ impl Spec<'_> {
         }
         // The root's own nodes sit at the top level rather than inside a `cmd`
         // block, so they are written here instead of by write_command.
-        if let Some(mount) = self.root.mount {
-            writeln!(out, "mount run={}", quoted(mount))?;
-        }
+        //
+        // A mount is the exception: the spec only accepts one inside a `cmd`
+        // block, so a root mount is not expressible. Emitting it anyway would
+        // produce a document that does not parse, and dropping it quietly is the
+        // lossiness this module claims not to have — so it fails loudly in debug
+        // builds instead, and PLAN.md carries it as a possible spec extension.
+        debug_assert!(
+            self.root.mount.is_none(),
+            "a mount on the root command cannot be written: the spec accepts \
+             `mount` only inside a `cmd` block"
+        );
         for example in self.root.examples {
             write_example(out, example, 0)?;
         }
