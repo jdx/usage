@@ -225,6 +225,7 @@ impl Field {
         let mut name = to_kebab(&ident.to_string());
         let mut longs: Vec<String> = Vec::new();
         let mut shorts: Vec<char> = Vec::new();
+        let mut bare_shorts = 0usize;
         let mut negate = None;
         let mut global = false;
         let mut repeatable = false;
@@ -256,12 +257,13 @@ impl Field {
                             explicit_long = true;
                         }
                     },
-                    "short" => shorts.push(match &meta {
-                        Meta::Path(_) => name.chars().next().ok_or_else(|| {
-                            syn::Error::new_spanned(&path, "the field name is empty")
-                        })?,
-                        _ => char_value(&meta)?,
-                    }),
+                    // Resolved after the loop, for the same reason a bare `long` is:
+                    // `short` written before `name = "…"` would otherwise take the
+                    // field's first letter rather than the renamed one's.
+                    "short" => match &meta {
+                        Meta::Path(_) => bare_shorts += 1,
+                        _ => shorts.push(char_value(&meta)?),
+                    },
                     "negate" => negate = Some(strip_dashes(&string_value(&meta)?)),
                     "global" => global = flag_value(&meta)?,
                     // Two different things, deliberately spelled the way a spec
@@ -305,12 +307,19 @@ impl Field {
             }
         }
 
-        // A bare `long` written before `name` would have captured the field name
-        // rather than the renamed one, so resolve it once everything is read.
+        // A bare `long` or `short` written before `name` would have captured the
+        // field name rather than the renamed one, so resolve both once everything
+        // has been read.
         if !explicit_long {
             for long in &mut longs {
                 *long = name.clone();
             }
+        }
+        for _ in 0..bare_shorts {
+            let first = name.chars().next().ok_or_else(|| {
+                syn::Error::new(span, "`short` needs a name to take its first letter from")
+            })?;
+            shorts.insert(0, first);
         }
 
         // A short form is matched as a single byte, so a multi-byte character
@@ -386,10 +395,20 @@ impl Field {
             ));
         }
 
-        // A `Vec` flag collects, so it is repeatable whether or not it says so.
-        let repeatable = repeatable || (is_flag && shape == Shape::Many);
+        // A `Vec` flag collects, so it is repeatable whether or not it says so —
+        // unless it is `variadic`, which is the other way of collecting. Emitting
+        // both would claim a flag is repeatable *and* that its argument is variadic,
+        // which the grammar treats as two different things.
+        let repeatable = repeatable || (is_flag && shape == Shape::Many && !variadic);
 
         let kind = if is_flag {
+            if variadic && shape != Shape::Many {
+                return Err(syn::Error::new(
+                    span,
+                    "a `variadic` flag takes several values from one occurrence, so the \
+                     field has to be a `Vec`; anything else would keep only the last",
+                ));
+            }
             if negate.is_some() && shape != Shape::Bool {
                 return Err(syn::Error::new(
                     span,

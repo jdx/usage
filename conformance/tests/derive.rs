@@ -120,6 +120,62 @@ fn a_repeatable_flag_leaves_the_next_word_alone() {
 }
 
 #[test]
+fn a_bare_short_uses_the_renamed_name() {
+    // `short` is written before `name`, and the two names start with different
+    // letters — which is the only way to tell the bug from a coincidence.
+    #[derive(Cli)]
+    struct Renamed {
+        /// Say less
+        #[usage(short, name = "quiet", long)]
+        verbose: bool,
+    }
+
+    let a = argv(["-q"]);
+    assert!(
+        Renamed::parse_from(&a)
+            .expect("-q should be the short form")
+            .verbose,
+        "the short comes from the renamed name"
+    );
+
+    let a = argv(["-v"]);
+    assert!(
+        Renamed::parse_from(&a).is_err(),
+        "-v is the field's letter, which is not what was declared"
+    );
+
+    let spec: LibSpec = Renamed::to_kdl().parse().expect("valid spec");
+    assert_eq!(spec.cmd.flags[0].short, vec!['q']);
+    assert_eq!(spec.cmd.flags[0].long, vec!["quiet".to_string()]);
+}
+
+#[test]
+fn a_variadic_flag_is_not_also_repeatable() {
+    // Two different claims: `var` says the flag may be repeated, a variadic
+    // argument says one occurrence keeps taking values. Emitting both would
+    // contradict the grammar.
+    let spec: LibSpec = Repeat::to_kdl().parse().expect("valid spec");
+    let exclude = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|f| f.name == "exclude")
+        .expect("--exclude should be in the spec");
+    assert!(!exclude.var, "a variadic flag is not marked repeatable");
+    assert!(
+        exclude.arg.as_ref().is_some_and(|a| a.var),
+        "its argument is the variadic one"
+    );
+
+    let include = spec.cmd.flags.iter().find(|f| f.name == "include").unwrap();
+    assert!(include.var, "a repeatable flag is marked repeatable");
+    assert!(
+        include.arg.as_ref().is_some_and(|a| !a.var),
+        "and its argument takes one value"
+    );
+}
+
+#[test]
 fn a_variadic_flag_takes_several_values() {
     let a = argv(["--exclude", "a", "b", "--", "t"]);
     let cli = Repeat::parse_from(&a).expect("should parse");
