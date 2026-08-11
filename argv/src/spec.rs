@@ -772,6 +772,14 @@ pub trait CommandArgs: Sized {
     /// for whoever owns it rather than mistaken for a local field.
     fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
 
+    /// Everything this command decides after the last token: required-ness,
+    /// choices, and how many values a variadic got.
+    ///
+    /// Separate from [`CommandArgs::build`] because only the command that was
+    /// actually reached is judged — a flag that `install` requires says nothing
+    /// about an invocation that ran `run`.
+    fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>>;
+
     /// Build the struct from what was collected.
     fn build(partial: Self::Partial) -> Self;
 }
@@ -792,6 +800,12 @@ pub trait Subcommands: Sized {
 
     /// Take one event, and say whether it belonged to one of these commands.
     fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+
+    /// Check the selected command's requirements, and nothing else's.
+    ///
+    /// A flag that `install` requires says nothing about an invocation that ran
+    /// `run`, so only the command that was actually reached is judged.
+    fn check<'t, 'v>(partial: &mut Self::Partial, key: u64) -> Result<(), crate::Error<'t, 'v>>;
 
     /// Build the variant whose command was selected, by its [`Command::key`].
     ///

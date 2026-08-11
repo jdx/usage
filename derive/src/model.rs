@@ -39,6 +39,11 @@ pub struct Field {
     pub env: Option<String>,
     pub default: Option<String>,
     pub help_heading: Option<String>,
+    /// The values this may take. Checked after the parse, since a choice list is
+    /// about what a value *means* rather than which token it came from.
+    pub choices: Vec<String>,
+    pub var_min: Option<usize>,
+    pub var_max: Option<usize>,
     pub hide: bool,
     /// Whether the flag may be given more than once, taking one value each time.
     ///
@@ -71,9 +76,12 @@ pub enum Kind {
     /// [`Subcommands`](usage_argv::spec::Subcommands) trait, which is also how it
     /// reaches the type that accumulates a subcommand's values.
     Subcommand {
-        /// The enum's type, as written. Always reached through `Option<T>` for now,
-        /// so there is nothing to record about optionality.
+        /// The enum's type, as written.
         ty: syn::Type,
+        /// Whether the field is `Option<T>`, and so may be left unfilled. A bare `T`
+        /// says a subcommand is required, which is reported once the last token has
+        /// been read.
+        optional: bool,
     },
 }
 
@@ -288,27 +296,21 @@ impl Field {
         // `Option<T>` says the subcommand may be left out. A bare `T` cannot be
         // satisfied by this version — nothing yet reports "a subcommand is
         // required", which is a post-binding question.
+        // `Option<T>` may be left unfilled; a bare `T` requires one.
         let name = type_name(&field.ty);
-        let (ty, _optional) = match name
+        let (ty, optional) = match name
             .strip_prefix("Option<")
             .and_then(|rest| rest.strip_suffix('>'))
         {
             Some(inner) => (syn::parse_str::<Type>(inner)?, true),
-            None => {
-                return Err(syn::Error::new(
-                    span,
-                    "a `subcommand` field has to be `Option<T>` for now: a missing \
-                     subcommand is a required-ness question, and that layer does not \
-                     exist yet",
-                ));
-            }
+            None => (field.ty.clone(), false),
         };
 
         Ok(Some(Field {
             ident: ident.clone(),
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
-            kind: Kind::Subcommand { ty },
+            kind: Kind::Subcommand { ty, optional },
             // A subcommand field holds a command, not a value, so none of what
             // describes a value applies to it.
             shape: Shape::Bool,
@@ -317,6 +319,9 @@ impl Field {
             env: None,
             default: None,
             help_heading: None,
+            choices: Vec::new(),
+            var_min: None,
+            var_max: None,
             hide: false,
             repeatable: false,
             span,
@@ -353,6 +358,9 @@ impl Field {
         let mut help_heading = None;
         let mut hide = false;
         let mut is_arg = false;
+        let mut choices: Vec<String> = Vec::new();
+        let mut var_min: Option<usize> = None;
+        let mut var_max: Option<usize> = None;
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -389,6 +397,31 @@ impl Field {
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
                     "env" => env = Some(string_value(&meta)?),
+                    // `choices("a", "b")` rather than one comma-joined string, so a
+                    // value containing a comma is expressible.
+                    "choices" => {
+                        let Meta::List(list) = &meta else {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`choices` takes a list, as in `choices(\"bash\", \"zsh\")`",
+                            ));
+                        };
+                        choices = list
+                            .parse_args_with(
+                                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+                            )?
+                            .into_iter()
+                            .map(|lit| lit.value())
+                            .collect();
+                        if choices.is_empty() {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`choices` with nothing in it would accept nothing",
+                            ));
+                        }
+                    }
+                    "var_min" => var_min = Some(int_value(&meta)?),
+                    "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "double_dash" => {
@@ -531,6 +564,41 @@ impl Field {
                 _ => {}
             }
         }
+        if !choices.is_empty() && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "a `bool` or counting field has no value to check against `choices`",
+            ));
+        }
+        if let (Some(min), Some(max)) = (var_min, var_max) {
+            if min > max {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "`var_min = {min}` is more than `var_max = {max}`, so nothing \
+                             could satisfy both"
+                    ),
+                ));
+            }
+        }
+        if (var_min.is_some() || var_max.is_some()) && shape != Shape::Many {
+            return Err(syn::Error::new(
+                span,
+                "`var_min` and `var_max` count values, so the field has to be a `Vec`",
+            ));
+        }
+        if let Some(default) = &default {
+            if !choices.is_empty() && !choices.iter().any(|c| c == default) {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "the default `{default}` is not one of this field's choices, so \
+                         it could never be valid"
+                    ),
+                ));
+            }
+        }
+
         let is_flag = !longs.is_empty() || !shorts.is_empty();
         if is_flag && is_arg {
             return Err(syn::Error::new(
@@ -634,6 +702,9 @@ impl Field {
             env,
             default,
             help_heading,
+            choices,
+            var_min,
+            var_max,
             hide,
             repeatable,
             span,
@@ -736,6 +807,19 @@ fn string_value(meta: &Meta) -> syn::Result<String> {
         other => Err(syn::Error::new_spanned(
             other,
             "expected a string, as in `long = \"jobs\"`",
+        )),
+    }
+}
+
+fn int_value(meta: &Meta) -> syn::Result<usize> {
+    let value = &meta.require_name_value()?.value;
+    match value {
+        Expr::Lit(ExprLit {
+            lit: Lit::Int(i), ..
+        }) => i.base10_parse(),
+        other => Err(syn::Error::new_spanned(
+            other,
+            "expected a whole number, as in `var_min = 1`",
         )),
     }
 }

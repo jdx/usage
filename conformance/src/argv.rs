@@ -146,6 +146,16 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         Error::UnexpectedArg { .. } => ErrorCode::UnexpectedArg,
         Error::ArgRequiresDoubleDash { .. } => ErrorCode::ArgRequiresDoubleDash,
         Error::TooDeep => panic!("no corpus spec is anywhere near MAX_DEPTH"),
+        // The parser cannot raise these — they come from the layer above it, which
+        // this harness does not exercise: it builds tables from a spec rather than
+        // from a derived struct.
+        Error::MissingRequired { .. }
+        | Error::InvalidChoice { .. }
+        | Error::VarTooFew { .. }
+        | Error::VarTooMany { .. }
+        | Error::MissingSubcommand => {
+            unreachable!("a post-binding error cannot come out of the parser")
+        }
     }
 }
 
