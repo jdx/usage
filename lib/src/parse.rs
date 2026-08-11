@@ -635,8 +635,15 @@ fn parse_partial_with_env(
         // does not spawn a process for every invocation, and a flag — `--help`, or
         // anything unrecognized — never triggers discovery at all, which it would
         // otherwise do simply by not being a subcommand.
+        // A declared `default_subcommand` already says what an unmatched word means,
+        // and it costs nothing — so discovery waits behind it unless a mount asks to
+        // outrank it. Without this, a task runner would spawn its discovery process
+        // once per task invocation.
+        let default_catches_it = spec.default_subcommand.is_some()
+            && !out.cmd.mounts.iter().any(|m| m.overrides_default);
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
+            && !default_catches_it
             && !input[idx].starts_with('-')
             && out.cmd.find_subcommand(&input[idx]).is_none()
         {
@@ -1624,6 +1631,52 @@ mount run="echo 'cmd \"discovered\"'"
             "a completion should see mounted commands; got {:?}",
             out.cmd.subcommands.keys().collect::<Vec<_>>()
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_default_subcommand_outranks_discovery() {
+        // The default already says what an unmatched word means, and says it for
+        // free. The mount fails if it runs, so parsing proves discovery was skipped.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_mount_may_ask_to_outrank_the_default() {
+        // Opting in, and paying for it: discovery runs first, so a discovered
+        // command wins over the fallback.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+  arg "<task>"
+}
+mount run="echo 'cmd \"discovered\"'" overrides_default=#true
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "discovered");
+
+        // A word it does not know still reaches the default.
+        let out = parse(&spec, &["ex".to_string(), "mytask".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "run");
     }
 
     #[cfg(unix)]
