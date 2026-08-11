@@ -1,0 +1,1080 @@
+//! A zero-allocation argv parser for [usage](https://usage.jdx.dev) specs.
+//!
+//! This crate implements the binding rules of [the argv grammar]: which token
+//! becomes which flag or argument, when a word selects a subcommand, and what
+//! is an error. It does so without building a command tree, without allocating,
+//! and in one pass.
+//!
+//! It is the runtime half of a compiled parser. The tables it reads are meant to
+//! be emitted by a derive macro as `static` data, so that starting a parse costs
+//! nothing at all: there is no construction step to pay for, only the walk over
+//! `argv`.
+//!
+//! # Shape of the API
+//!
+//! Parsing yields [`Event`]s rather than a map. A map would have to allocate,
+//! and would then have to be read back out again — whereas generated code can
+//! assign an event straight into a struct field. This is the same reason serde
+//! deserializes into your type instead of into a `Value`.
+//!
+//! ```
+//! use usage_argv::{Arg, Command, Event, Flag, Parser};
+//!
+//! static FORCE: Flag = Flag { key: 0, longs: &["force"], shorts: b"f", ..Flag::BOOL };
+//! static FILE: Arg = Arg { key: 1, ..Arg::REQUIRED };
+//! static ROOT: Command = Command {
+//!     name: "ex",
+//!     flags: &[&FORCE],
+//!     args: &[&FILE],
+//!     ..Command::EMPTY
+//! };
+//!
+//! let argv = ["--force", "a.txt"].map(std::ffi::OsStr::new);
+//! let mut parser = Parser::new(&ROOT, &argv);
+//!
+//! let mut force = false;
+//! let mut file = None;
+//! while let Some(event) = parser.next_event() {
+//!     match event.expect("valid command line") {
+//!         Event::Flag { flag, .. } if flag.key == 0 => force = true,
+//!         Event::Arg { value, .. } => file = Some(value),
+//!         _ => {}
+//!     }
+//! }
+//! assert!(force);
+//! assert_eq!(file, Some(&b"a.txt"[..]));
+//! ```
+//!
+//! # Values are bytes
+//!
+//! An [`Event`] carries `&[u8]`, borrowed from `argv`. Converting to `&str` is
+//! the caller's step ([`as_str`]), and it is the right place for the only
+//! failure a value can have: a command line that is not valid UTF-8 still
+//! *parses* — flags match, subcommands route — and only the values that are
+//! actually looked at can fail to convert.
+//!
+//! Slicing an `OsStr` into `&str` pieces safely is not possible without
+//! allocating or `unsafe`, and this crate forbids `unsafe`. Bytes are what is
+//! left, and they turn out to be the honest interface anyway.
+//!
+//! # What this crate does not do
+//!
+//! Only binding. Required-ness, `choices`, `env` fallback, defaults, `var_min`
+//! and `var_max` are all decided *after* the last token is read, and they need to
+//! know a value's type, so they belong to the layer that owns the target struct.
+//! Keeping them out is what makes this loop small.
+//!
+//! [the argv grammar]: https://usage.jdx.dev/spec/argv
+
+#![forbid(unsafe_code)]
+
+use std::ffi::OsStr;
+
+/// How deep a command tree this parser will descend.
+///
+/// The ancestor chain is kept in a fixed-size array so that a parse allocates
+/// nothing; this is that array's size. mise, the largest usage CLI, is four
+/// levels deep.
+pub const MAX_DEPTH: usize = 16;
+
+/// A command: its flags, its positional arguments, and its subcommands.
+///
+/// Every field is a borrowed slice so that a derive can emit the whole tree as
+/// `static` data. Use `..Command::EMPTY` to fill in the parts you do not need.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Command<'a> {
+    /// The canonical name, used to select this command.
+    pub name: &'a str,
+    /// Alternative names that also select it.
+    pub aliases: &'a [&'a str],
+    pub flags: &'a [&'a Flag<'a>],
+    /// Positional arguments, in the order they are filled.
+    pub args: &'a [&'a Arg<'a>],
+    pub subcommands: &'a [&'a Command<'a>],
+    /// Caller-assigned identifier, echoed back in [`Event::Command`].
+    pub key: u32,
+}
+
+impl Command<'_> {
+    /// A command with nothing declared, for use with struct update syntax.
+    pub const EMPTY: Command<'static> = Command {
+        name: "",
+        aliases: &[],
+        flags: &[],
+        args: &[],
+        subcommands: &[],
+        key: 0,
+    };
+}
+
+/// A flag, addressed by any of its long or short forms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Flag<'a> {
+    /// Caller-assigned identifier, echoed back in [`Event::Flag`]. This is how
+    /// generated code knows which field to assign without any string comparison.
+    pub key: u32,
+    /// Unused by binding, kept so a table entry can carry its own name for
+    /// diagnostics.
+    pub name: &'a str,
+    /// Long forms, written without the leading `--`.
+    pub longs: &'a [&'a str],
+    /// Short forms, as single bytes.
+    pub shorts: &'a [u8],
+    /// A long form that sets the flag to false, written without the `--`.
+    pub negate: Option<&'a str>,
+    /// Whether the flag takes a value.
+    pub takes_value: bool,
+    /// Whether the flag's value is variadic: one occurrence keeps taking values
+    /// until a flag-like token or the end of the command line.
+    pub var: bool,
+    /// Whether the flag is recognized by every command beneath the one that
+    /// declares it.
+    pub global: bool,
+}
+
+impl Flag<'_> {
+    /// A value-less flag, for use with struct update syntax.
+    pub const BOOL: Flag<'static> = Flag {
+        key: 0,
+        name: "",
+        longs: &[],
+        shorts: &[],
+        negate: None,
+        takes_value: false,
+        var: false,
+        global: false,
+    };
+
+    /// A flag that takes a value, for use with struct update syntax.
+    pub const VALUE: Flag<'static> = Flag {
+        takes_value: true,
+        ..Flag::BOOL
+    };
+}
+
+/// A positional argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Arg<'a> {
+    /// Caller-assigned identifier, echoed back in [`Event::Arg`].
+    pub key: u32,
+    /// Whether this argument keeps taking values once it has one.
+    pub var: bool,
+    /// This argument's relationship to the `--` separator.
+    pub double_dash: DoubleDash,
+    /// Unused by binding, kept so a table entry can carry its own name for
+    /// diagnostics.
+    pub name: &'a str,
+}
+
+impl Arg<'_> {
+    /// A single-value argument, for use with struct update syntax.
+    pub const REQUIRED: Arg<'static> = Arg {
+        key: 0,
+        var: false,
+        double_dash: DoubleDash::Optional,
+        name: "",
+    };
+
+    /// A variadic argument, for use with struct update syntax.
+    pub const VAR: Arg<'static> = Arg {
+        var: true,
+        ..Arg::REQUIRED
+    };
+}
+
+/// How an argument relates to the `--` separator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DoubleDash {
+    /// Values may appear on either side of a `--`.
+    #[default]
+    Optional,
+    /// Values are accepted only after a `--`.
+    Required,
+    /// A `--` is kept as a value rather than consumed as a separator.
+    Preserve,
+    /// Once the argument takes a value, behave as if a `--` had been given, so
+    /// the rest of the command line is values. A wrapper can then forward flags
+    /// without its caller typing the separator.
+    Automatic,
+}
+
+/// Something the parser bound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Event<'t, 'v> {
+    /// A subcommand was selected; parsing continues inside it.
+    Command(&'t Command<'t>),
+    /// A flag was given. `value` is `Some` for a flag that takes one, and
+    /// `negated` is true when the flag was set through its `negate` form.
+    Flag {
+        flag: &'t Flag<'t>,
+        value: Option<&'v [u8]>,
+        negated: bool,
+    },
+    /// A word was bound to a positional argument. A variadic argument produces
+    /// one event per value.
+    Arg { arg: &'t Arg<'t>, value: &'v [u8] },
+}
+
+/// A binding failure.
+///
+/// Carries the offending token so a caller can render a good message, but no
+/// message of its own: rendering belongs to a cold path, and building a string
+/// here would allocate on the way to reporting that nothing was allocated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error<'t, 'v> {
+    /// A flag-like token matched no flag in scope. `token` is the whole token as
+    /// typed, so a bundle containing an unrecognized letter reports `-fz` rather
+    /// than the letter alone — which is also the unit in which it is rejected.
+    UnknownFlag { token: &'v [u8] },
+    /// A flag that needs a value did not get one, either because the command
+    /// line ended or because the next token was flag-like.
+    MissingFlagValue { flag: &'t Flag<'t> },
+    /// A word arrived with no argument left to hold it.
+    UnexpectedArg { token: &'v [u8] },
+    /// A word was offered to a `double_dash = "required"` argument before any
+    /// `--` had been seen.
+    ArgRequiresDoubleDash { arg: &'t Arg<'t> },
+    /// The command tree is deeper than [`MAX_DEPTH`].
+    TooDeep,
+}
+
+/// Interpret a value as UTF-8.
+///
+/// The parser hands back bytes borrowed from `argv`; this is the conversion most
+/// callers want, and the point at which a non-UTF-8 command line is rejected —
+/// but only for the values actually inspected.
+pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
+    std::str::from_utf8(value)
+}
+
+/// A single-pass parse over `argv`.
+///
+/// Created with [`Parser::new`] and driven with [`Parser::next_event`].
+pub struct Parser<'t, 'v> {
+    argv: &'v [&'v OsStr],
+    /// Index of the next token to read.
+    pos: usize,
+    /// The command currently in scope.
+    cmd: &'t Command<'t>,
+    /// The chain above `cmd`, used to find inherited global flags. Fixed size so
+    /// that nothing is allocated.
+    ancestors: [Option<&'t Command<'t>>; MAX_DEPTH],
+    depth: usize,
+    /// Bytes left in a short-flag bundle, if one is partly read.
+    bundle: &'v [u8],
+    /// The whole token the current bundle came from, so an error raised part way
+    /// through it can still name what the user typed.
+    bundle_token: &'v [u8],
+    /// A variadic flag that is still collecting values.
+    collecting: Option<&'t Flag<'t>>,
+    /// Which of `cmd.args` is next to fill.
+    arg_pos: usize,
+    /// Whether any word has been bound to a positional of `cmd`. Once one has,
+    /// no further word can select a subcommand.
+    arg_filled: bool,
+    /// Whether a `--` has been consumed as a separator.
+    double_dash: bool,
+    /// Set once a fatal error has been reported, so iteration stops.
+    done: bool,
+}
+
+impl<'t, 'v> Parser<'t, 'v> {
+    /// Begin parsing `argv` against `root`.
+    ///
+    /// `argv` excludes the program name.
+    pub fn new(root: &'t Command<'t>, argv: &'v [&'v OsStr]) -> Self {
+        Parser {
+            argv,
+            pos: 0,
+            cmd: root,
+            ancestors: [None; MAX_DEPTH],
+            depth: 0,
+            bundle: &[],
+            bundle_token: &[],
+            collecting: None,
+            arg_pos: 0,
+            arg_filled: false,
+            double_dash: false,
+            done: false,
+        }
+    }
+
+    /// The command in scope: the root, or the deepest subcommand selected so far.
+    pub fn command(&self) -> &'t Command<'t> {
+        self.cmd
+    }
+
+    /// Whether a `--` has been consumed as a separator.
+    pub fn double_dash_seen(&self) -> bool {
+        self.double_dash
+    }
+
+    /// Read the next event.
+    ///
+    /// Returns `None` when `argv` is exhausted. An `Err` is terminal: the parse
+    /// stops there, since continuing past a token that could not be understood
+    /// would only produce bindings derived from a guess. Events already yielded
+    /// before an error are therefore not a partial result to be used — a caller
+    /// that assigned them into fields should discard the whole attempt.
+    ///
+    /// One case is stronger than that, because the grammar demands it: a short
+    /// bundle containing an unrecognized letter yields the error *instead of*, not
+    /// after, the letters that did match.
+    #[allow(clippy::should_implement_trait)] // not an Iterator: items borrow from self's tables
+    pub fn next_event(&mut self) -> Option<Result<Event<'t, 'v>, Error<'t, 'v>>> {
+        if self.done {
+            return None;
+        }
+        let event = self.step();
+        if let Some(Err(_)) = event {
+            self.done = true;
+        }
+        event
+    }
+
+    fn step(&mut self) -> Option<Result<Event<'t, 'v>, Error<'t, 'v>>> {
+        // A partly-read short bundle takes priority: its remaining bytes are
+        // still part of the token being processed.
+        if !self.bundle.is_empty() {
+            return Some(self.short_flag());
+        }
+
+        // A variadic flag keeps claiming tokens until one of them could be
+        // something else.
+        if let Some(flag) = self.collecting {
+            match self.argv.get(self.pos) {
+                Some(next) if !is_flag_like(bytes(next)) && bytes(next) != b"--" => {
+                    self.pos += 1;
+                    return Some(Ok(Event::Flag {
+                        flag,
+                        value: Some(bytes(next)),
+                        negated: false,
+                    }));
+                }
+                _ => self.collecting = None,
+            }
+        }
+
+        let token = bytes(self.argv.get(self.pos)?);
+        self.pos += 1;
+
+        if self.double_dash {
+            return Some(self.word(token));
+        }
+
+        if token == b"--" {
+            // `preserve` wants the separator itself as a value, so ask the
+            // argument that would receive it before treating it as syntax.
+            if self
+                .next_arg()
+                .is_some_and(|a| a.double_dash == DoubleDash::Preserve)
+            {
+                return Some(self.word(token));
+            }
+            self.double_dash = true;
+            // An explicit separator unlocks any argument that required one, even
+            // if earlier arguments are still unfilled.
+            if let Some(idx) = self.cmd.args[self.arg_pos..]
+                .iter()
+                .position(|a| a.double_dash == DoubleDash::Required)
+            {
+                self.arg_pos += idx;
+            }
+            return self.step();
+        }
+
+        if is_flag_like(token) {
+            if token.starts_with(b"--") {
+                return Some(self.long_flag(token));
+            }
+            // Check the whole bundle before emitting anything from it. Events go
+            // out one at a time, so discovering an unknown letter half way
+            // through would mean the earlier letters had already been applied —
+            // and the grammar rejects the entire token, not the tail of it.
+            if let Err(e) = self.check_bundle(token) {
+                return Some(Err(e));
+            }
+            self.bundle = &token[1..];
+            self.bundle_token = token;
+            return Some(self.short_flag());
+        }
+
+        Some(self.word(token))
+    }
+
+    fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+        let body = &token[2..];
+        let (name, attached) = match body.iter().position(|&b| b == b'=') {
+            Some(i) => (&body[..i], Some(&body[i + 1..])),
+            None => (body, None),
+        };
+
+        if let Some(flag) = self.find_long(name) {
+            let value = if flag.takes_value {
+                Some(match attached {
+                    Some(v) => v,
+                    None => self.take_detached_value(flag)?,
+                })
+            } else {
+                None
+            };
+            if flag.var {
+                self.collecting = Some(flag);
+            }
+            return Ok(Event::Flag {
+                flag,
+                value,
+                negated: false,
+            });
+        }
+
+        if let Some(flag) = self.find_negation(name) {
+            return Ok(Event::Flag {
+                flag,
+                value: None,
+                negated: true,
+            });
+        }
+
+        Err(Error::UnknownFlag { token })
+    }
+
+    /// Walk a short-flag token without binding anything, to find out whether all
+    /// of it is recognized.
+    ///
+    /// Scanning stops at the first letter whose flag takes a value, because
+    /// everything after it is that value rather than more letters.
+    fn check_bundle(&self, token: &'v [u8]) -> Result<(), Error<'t, 'v>> {
+        let mut rest = &token[1..];
+        while let Some((&byte, tail)) = rest.split_first() {
+            match self.find_short(byte) {
+                None => return Err(Error::UnknownFlag { token }),
+                Some(flag) if flag.takes_value => return Ok(()),
+                Some(_) => rest = tail,
+            }
+        }
+        Ok(())
+    }
+
+    fn short_flag(&mut self) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+        let byte = self.bundle[0];
+        let rest = &self.bundle[1..];
+
+        let Some(flag) = self.find_short(byte) else {
+            // check_bundle already rejected any token containing an unrecognized
+            // letter, so this is unreachable — but a parser should report rather
+            // than panic if that ever stops being true.
+            self.bundle = &[];
+            return Err(Error::UnknownFlag {
+                token: self.bundle_token,
+            });
+        };
+
+        if !flag.takes_value {
+            self.bundle = rest;
+            return Ok(Event::Flag {
+                flag,
+                value: None,
+                negated: false,
+            });
+        }
+
+        // A value-taking short ends the token: everything after it is the value,
+        // less one separating `=`.
+        self.bundle = &[];
+        let value = if rest.is_empty() {
+            self.take_detached_value(flag)?
+        } else if rest[0] == b'=' {
+            &rest[1..]
+        } else {
+            rest
+        };
+        if flag.var {
+            self.collecting = Some(flag);
+        }
+        Ok(Event::Flag {
+            flag,
+            value: Some(value),
+            negated: false,
+        })
+    }
+
+    /// Take the following token as a flag's value.
+    ///
+    /// Refuses a flag-like token: `--jobs --force` is far more likely a forgotten
+    /// value than a deliberate one, and the attached form is available for the
+    /// deliberate case.
+    fn take_detached_value(&mut self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
+        match self.argv.get(self.pos) {
+            Some(next) if !is_flag_like(bytes(next)) => {
+                self.pos += 1;
+                Ok(bytes(next))
+            }
+            _ => Err(Error::MissingFlagValue { flag }),
+        }
+    }
+
+    fn word(&mut self, token: &'v [u8]) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+        // Subcommands are only matched where descent is still possible: once a
+        // positional of this command has taken a word, a later word that happens
+        // to equal a subcommand name is just a value.
+        if !self.arg_filled && !self.double_dash {
+            if let Some(sub) = self.find_subcommand(token) {
+                self.descend(sub)?;
+                return Ok(Event::Command(sub));
+            }
+        }
+
+        let Some(arg) = self.next_arg() else {
+            return Err(Error::UnexpectedArg { token });
+        };
+
+        if arg.double_dash == DoubleDash::Required && !self.double_dash {
+            return Err(Error::ArgRequiresDoubleDash { arg });
+        }
+
+        self.arg_filled = true;
+        // An `automatic` argument stops flag interpretation from here on, as
+        // though the caller had typed the separator themselves.
+        if arg.double_dash == DoubleDash::Automatic {
+            self.double_dash = true;
+        }
+        // A variadic keeps taking values, so the cursor stays put.
+        if !arg.var {
+            self.arg_pos += 1;
+        }
+        Ok(Event::Arg { arg, value: token })
+    }
+
+    fn descend(&mut self, sub: &'t Command<'t>) -> Result<(), Error<'t, 'v>> {
+        if self.depth >= MAX_DEPTH {
+            return Err(Error::TooDeep);
+        }
+        self.ancestors[self.depth] = Some(self.cmd);
+        self.depth += 1;
+        self.cmd = sub;
+        self.arg_pos = 0;
+        self.arg_filled = false;
+        Ok(())
+    }
+
+    fn next_arg(&self) -> Option<&'t Arg<'t>> {
+        self.cmd.args.get(self.arg_pos).copied()
+    }
+
+    /// Flags in scope: this command's own, then any ancestor's globals.
+    ///
+    /// Own flags come first so that a subcommand redeclaring an inherited name
+    /// shadows it, which is what mise relies on when it redeclares root globals
+    /// on `run` with different shorts.
+    fn in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
+        let own = self.cmd.flags.iter().copied();
+        let inherited = self.ancestors[..self.depth]
+            .iter()
+            .rev()
+            .filter_map(|c| *c)
+            .flat_map(|c| c.flags.iter().copied())
+            .filter(|f| f.global);
+        own.chain(inherited)
+    }
+
+    fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
+        self.in_scope()
+            .find(|f| f.longs.iter().any(|l| l.as_bytes() == name))
+    }
+
+    fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
+        self.in_scope()
+            .find(|f| f.negate.is_some_and(|n| n.as_bytes() == name))
+    }
+
+    fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
+        self.in_scope().find(|f| f.shorts.contains(&byte))
+    }
+
+    fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
+        self.cmd
+            .subcommands
+            .iter()
+            .copied()
+            .find(|c| c.name.as_bytes() == name || c.aliases.iter().any(|a| a.as_bytes() == name))
+    }
+}
+
+/// View a token as bytes.
+///
+/// `as_encoded_bytes` is a plain accessor with no conversion and no allocation.
+/// It is only the reverse direction that needs `unsafe`, which is why values
+/// come back as bytes.
+fn bytes<'v>(s: &'v &'v OsStr) -> &'v [u8] {
+    s.as_encoded_bytes()
+}
+
+/// Whether a token should be read as a flag.
+///
+/// `-` alone is a value, conventionally stdin. A negative number is a value too,
+/// without which no CLI could accept `--offset -1`.
+fn is_flag_like(token: &[u8]) -> bool {
+    match token {
+        [b'-', rest @ ..] if !rest.is_empty() => !rest[0].is_ascii_digit(),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static FORCE: Flag = Flag {
+        key: 1,
+        longs: &["force"],
+        shorts: b"f",
+        ..Flag::BOOL
+    };
+    static JOBS: Flag = Flag {
+        key: 2,
+        longs: &["jobs"],
+        shorts: b"j",
+        ..Flag::VALUE
+    };
+    static COLOR: Flag = Flag {
+        key: 3,
+        longs: &["color"],
+        negate: Some("no-color"),
+        ..Flag::BOOL
+    };
+    static VERBOSE: Flag = Flag {
+        key: 4,
+        longs: &["verbose"],
+        shorts: b"v",
+        global: true,
+        ..Flag::BOOL
+    };
+    static FILE: Arg = Arg {
+        key: 10,
+        name: "file",
+        ..Arg::REQUIRED
+    };
+    static REST: Arg = Arg {
+        key: 11,
+        name: "rest",
+        ..Arg::VAR
+    };
+    static INSTALL: Command = Command {
+        name: "install",
+        aliases: &["i"],
+        flags: &[&FORCE],
+        key: 100,
+        ..Command::EMPTY
+    };
+    static ROOT: Command = Command {
+        name: "ex",
+        flags: &[&FORCE, &JOBS, &COLOR, &VERBOSE],
+        args: &[&FILE, &REST],
+        subcommands: &[&INSTALL],
+        ..Command::EMPTY
+    };
+
+    /// Collect every event, or the first error.
+    fn parse<'t, 'v>(
+        root: &'t Command<'t>,
+        argv: &'v [&'v OsStr],
+    ) -> Result<Vec<Event<'t, 'v>>, Error<'t, 'v>> {
+        let mut parser = Parser::new(root, argv);
+        let mut events = Vec::new();
+        while let Some(event) = parser.next_event() {
+            events.push(event?);
+        }
+        Ok(events)
+    }
+
+    fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
+        tokens.map(OsStr::new)
+    }
+
+    #[test]
+    fn long_boolean() {
+        let a = argv(["--force"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &FORCE,
+                value: None,
+                negated: false
+            }]
+        );
+    }
+
+    #[test]
+    fn long_value_forms() {
+        for tokens in [vec!["--jobs=8"], vec!["--jobs", "8"]] {
+            let a: Vec<&OsStr> = tokens.iter().map(|t| OsStr::new(*t)).collect();
+            assert_eq!(
+                parse(&ROOT, &a).unwrap(),
+                vec![Event::Flag {
+                    flag: &JOBS,
+                    value: Some(b"8"),
+                    negated: false
+                }],
+                "{tokens:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn long_value_keeps_later_equals() {
+        let a = argv(["--jobs=a=b"]);
+        let Event::Flag { value, .. } = parse(&ROOT, &a).unwrap()[0] else {
+            panic!("expected a flag");
+        };
+        assert_eq!(value, Some(&b"a=b"[..]));
+    }
+
+    #[test]
+    fn long_value_attached_empty_is_empty_not_absent() {
+        let a = argv(["--jobs="]);
+        let Event::Flag { value, .. } = parse(&ROOT, &a).unwrap()[0] else {
+            panic!("expected a flag");
+        };
+        assert_eq!(value, Some(&b""[..]));
+    }
+
+    #[test]
+    fn long_value_refuses_flaglike_next_word() {
+        let a = argv(["--jobs", "--force"]);
+        assert_eq!(
+            parse(&ROOT, &a),
+            Err(Error::MissingFlagValue { flag: &JOBS })
+        );
+    }
+
+    #[test]
+    fn long_value_accepts_negative_number() {
+        let a = argv(["--jobs", "-1"]);
+        let Event::Flag { value, .. } = parse(&ROOT, &a).unwrap()[0] else {
+            panic!("expected a flag");
+        };
+        assert_eq!(value, Some(&b"-1"[..]));
+    }
+
+    #[test]
+    fn no_abbreviation() {
+        let a = argv(["--forc"]);
+        assert!(matches!(
+            parse(&ROOT, &a),
+            Err(Error::UnknownFlag { token: b"--forc" })
+        ));
+    }
+
+    #[test]
+    fn negation() {
+        let a = argv(["--no-color"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &COLOR,
+                value: None,
+                negated: true
+            }]
+        );
+    }
+
+    #[test]
+    fn short_bundle_and_attached_value() {
+        let a = argv(["-fj8"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &FORCE,
+                    value: None,
+                    negated: false
+                },
+                Event::Flag {
+                    flag: &JOBS,
+                    value: Some(b"8"),
+                    negated: false
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn short_value_strips_one_equals() {
+        for (tokens, want) in [(["-j=8"], &b"8"[..]), (["-j==8"], &b"=8"[..])] {
+            let a = argv(tokens);
+            let Event::Flag { value, .. } = parse(&ROOT, &a).unwrap()[0] else {
+                panic!("expected a flag");
+            };
+            assert_eq!(value, Some(want), "{tokens:?}");
+        }
+    }
+
+    #[test]
+    fn bare_dash_is_a_value() {
+        let a = argv(["-"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Arg {
+                arg: &FILE,
+                value: b"-"
+            }]
+        );
+    }
+
+    #[test]
+    fn positionals_then_variadic() {
+        let a = argv(["one", "two", "three"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"one"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"two"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"three"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn subcommand_and_alias_route_the_same() {
+        for token in ["install", "i"] {
+            let a = argv([token]);
+            assert_eq!(
+                parse(&ROOT, &a).unwrap(),
+                vec![Event::Command(&INSTALL)],
+                "{token}"
+            );
+        }
+    }
+
+    #[test]
+    fn subcommand_only_routes_before_a_positional_is_filled() {
+        let a = argv(["other", "install"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"other"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"install"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn globals_are_inherited_but_plain_flags_are_not() {
+        let a = argv(["install", "--verbose"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Command(&INSTALL),
+                Event::Flag {
+                    flag: &VERBOSE,
+                    value: None,
+                    negated: false
+                }
+            ]
+        );
+
+        // `--jobs` belongs to the root and is not global.
+        let a = argv(["install", "--jobs", "8"]);
+        assert!(matches!(parse(&ROOT, &a), Err(Error::UnknownFlag { .. })));
+    }
+
+    #[test]
+    fn double_dash_protects_flaglike_values() {
+        let a = argv(["--", "--force", "-x"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"--force"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"-x"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn second_double_dash_is_a_value() {
+        let a = argv(["--", "a", "--", "b"]);
+        let values: Vec<&[u8]> = parse(&ROOT, &a)
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                Event::Arg { value, .. } => Some(*value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(values, vec![&b"a"[..], &b"--"[..], &b"b"[..]]);
+    }
+
+    #[test]
+    fn double_dash_required_arg() {
+        static CMD: Arg = Arg {
+            key: 20,
+            name: "cmd",
+            double_dash: DoubleDash::Required,
+            ..Arg::REQUIRED
+        };
+        static EXEC: Command = Command {
+            name: "ex",
+            args: &[&CMD],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--", "ls"]);
+        assert_eq!(
+            parse(&EXEC, &a).unwrap(),
+            vec![Event::Arg {
+                arg: &CMD,
+                value: b"ls"
+            }]
+        );
+
+        let a = argv(["ls"]);
+        assert_eq!(
+            parse(&EXEC, &a),
+            Err(Error::ArgRequiresDoubleDash { arg: &CMD })
+        );
+    }
+
+    #[test]
+    fn double_dash_preserve_keeps_the_separator() {
+        static ARGS: Arg = Arg {
+            key: 21,
+            name: "args",
+            double_dash: DoubleDash::Preserve,
+            ..Arg::VAR
+        };
+        static WRAP: Command = Command {
+            name: "ex",
+            args: &[&ARGS],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["a", "--", "b"]);
+        let values: Vec<&[u8]> = parse(&WRAP, &a)
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                Event::Arg { value, .. } => Some(*value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(values, vec![&b"a"[..], &b"--"[..], &b"b"[..]]);
+    }
+
+    #[test]
+    fn double_dash_automatic_stops_flag_interpretation() {
+        static FILES: Arg = Arg {
+            key: 22,
+            name: "files",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static AUTO: Command = Command {
+            name: "ex",
+            flags: &[&FORCE],
+            args: &[&FILES],
+            ..Command::EMPTY
+        };
+
+        // The flag before the first value is still a flag; the one after it is a
+        // value.
+        let a = argv(["-f", "one", "--force"]);
+        assert_eq!(
+            parse(&AUTO, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &FORCE,
+                    value: None,
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &FILES,
+                    value: b"one"
+                },
+                Event::Arg {
+                    arg: &FILES,
+                    value: b"--force"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn too_many_words() {
+        static ONE: Command = Command {
+            name: "ex",
+            args: &[&FILE],
+            ..Command::EMPTY
+        };
+        let a = argv(["a", "b"]);
+        assert_eq!(parse(&ONE, &a), Err(Error::UnexpectedArg { token: b"b" }));
+    }
+
+    #[test]
+    fn unknown_letter_rejects_the_whole_bundle() {
+        // `-f` is real and `-z` is not. The first event must be the error: if the
+        // flag event came out first, a caller would have applied `-f` from a
+        // command line that was rejected.
+        let a = argv(["-fz"]);
+        let mut parser = Parser::new(&ROOT, &a);
+        assert_eq!(
+            parser.next_event(),
+            Some(Err(Error::UnknownFlag { token: b"-fz" })),
+            "an unknown letter must reject the token before any of it is applied"
+        );
+        assert!(parser.next_event().is_none());
+    }
+
+    #[test]
+    fn unknown_short_error_names_the_whole_token() {
+        for (tokens, want) in [(["-z"], &b"-z"[..]), (["-fz"], &b"-fz"[..])] {
+            let a = argv(tokens);
+            assert_eq!(
+                parse(&ROOT, &a),
+                Err(Error::UnknownFlag { token: want }),
+                "{tokens:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn errors_are_terminal() {
+        let a = argv(["--wat", "--force"]);
+        let mut parser = Parser::new(&ROOT, &a);
+        assert!(parser.next_event().unwrap().is_err());
+        assert!(parser.next_event().is_none());
+    }
+
+    #[test]
+    fn non_utf8_values_still_parse() {
+        // A value that is not valid UTF-8 binds; only converting it fails, and
+        // only if a caller asks.
+        let raw = OsStr::new("--force");
+        let a = [raw];
+        assert!(parse(&ROOT, &a).is_ok());
+
+        assert!(as_str(b"ok").is_ok());
+        assert!(as_str(&[0xff, 0xfe]).is_err());
+    }
+}

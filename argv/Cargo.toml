@@ -1,0 +1,19 @@
+[package]
+name = "usage-argv"
+description = "Zero-allocation argv parser for usage specs"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# No dependencies, and none are wanted. This crate is what runs on every
+# invocation of every CLI built on it.
+[dependencies]
+
+[package.metadata.release]
+shared-version = true
+release = true

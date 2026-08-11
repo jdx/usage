@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+pub mod argv;
 pub mod reference;
 
 /// One `corpus/*.json` file: a themed group of vectors.

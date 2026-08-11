@@ -77,6 +77,21 @@ the value was forgotten. To pass a value that begins with a dash, attach it:
 
 A flag needing a value that ends the command line is an error.
 
+### Flags that take several values
+
+A flag whose argument is variadic (`--include <pattern>...`) keeps taking values
+from one occurrence: it consumes following tokens until one is flag-like, or a
+`--` arrives, or the command line ends. So `--include a b` gives it both, while
+`--include a --force` gives it only `a`.
+
+This is greedy, and a command that declares both a variadic flag and positionals
+will find the flag eating them. That is inherent to the feature rather than a
+quirk of this grammar; the way to end the run explicitly is `--`.
+
+A flag declared `var` without a variadic argument is the other shape: it takes
+one value per occurrence and may be repeated, so `--include a --include b`
+collects two.
+
 ## Short flags
 
 A token beginning with a single `-` is one or more short flags. Letters are read
@@ -227,7 +242,15 @@ Vectors that set `env` carry their own environment. The harness never reads the
 process environment, so no vector's result can depend on the machine running it.
 
 Any implementation in any language can run these. In this repository,
-`cargo test -p usage-conformance` does.
+`cargo test -p usage-conformance` runs them against both usage-lib and
+[usage-argv](https://github.com/jdx/usage/tree/main/argv).
+
+usage-argv answers 62 of the 86 vectors. The other 24 turn on something decided
+after the last token is read — `required`, `choices`, `env` fallback, defaults,
+`var_min` and `var_max`, `overrides` — which needs to know a value's type and so
+belongs to the layer above a binding parser. Those are reported as out of scope
+rather than as failures, and the count is asserted so the exempt set cannot
+quietly grow.
 
 ## Where the reference implementation differs
 
