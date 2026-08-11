@@ -413,6 +413,61 @@ fn an_explicit_long_may_be_written_with_dashes() {
     assert_eq!(color.negate.as_deref(), Some("--no-color"));
 }
 
+/// Field names that collide with everything the generated code needs. A parser
+/// people actually use will meet a field called `text` or `argv` eventually.
+#[derive(Cli)]
+struct Hostile {
+    /// A field named after a helper
+    #[usage(long)]
+    text: bool,
+    /// And another
+    #[usage(long)]
+    value_text: bool,
+    /// And the parser itself
+    #[usage(long)]
+    parser: bool,
+    /// And the input
+    #[usage(long)]
+    argv: bool,
+    /// And the loop variable
+    #[usage(long)]
+    event: bool,
+    /// And the raw args
+    raw: String,
+}
+
+#[test]
+fn field_names_cannot_collide_with_generated_code() {
+    let a = argv(["--text", "--parser", "--event", "x"]);
+    let cli = Hostile::parse_from(&a).expect("should parse");
+    assert!(cli.text);
+    assert!(cli.parser);
+    assert!(cli.event);
+    assert!(!cli.value_text);
+    assert!(!cli.argv);
+    assert_eq!(cli.raw, "x");
+}
+
+/// A CamelCase struct name becomes a kebab-case command name, since that is what a
+/// CLI is called on a command line.
+#[derive(Cli)]
+struct MyLittleCli {
+    /// What to do
+    target: String,
+}
+
+#[test]
+fn a_camel_case_struct_name_is_kebab_cased() {
+    let spec: LibSpec = MyLittleCli::to_kdl().parse().expect("valid spec");
+    assert_eq!(spec.name, "my-little-cli");
+    assert_eq!(spec.bin, "my-little-cli");
+
+    // And it still parses, so the field is not just decoration.
+    let a = argv(["something"]);
+    let cli = MyLittleCli::parse_from(&a).expect("should parse");
+    assert_eq!(cli.target, "something");
+}
+
 #[test]
 fn reaching_the_tables_is_free() {
     // The point of the whole exercise: `command()` hands back a `static`, so there

@@ -57,9 +57,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let field_inits = cli.fields.iter().map(field_init);
     let flag_arms = flags.iter().enumerate().map(|(i, f)| flag_arm(i, f));
     let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f));
+    // `field: local` rather than the shorthand, because the locals are prefixed:
+    // a field called `text` or `parser` would otherwise collide with something the
+    // generated code needs.
     let field_finals = cli.fields.iter().map(|f| {
         let ident = &f.ident;
-        quote!(#ident)
+        let local = local_ident(f);
+        quote!(#ident: #local)
     });
 
     quote! {
@@ -133,18 +137,22 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // what mise already does with its own argv. Rejecting a non-UTF-8
                 // value needs an error type for value conversion, and that arrives
                 // with typed fields.
-                fn text(value: &[u8]) -> ::std::string::String {
+                fn __usage_text(value: &[u8]) -> ::std::string::String {
                     ::std::string::String::from_utf8_lossy(value).into_owned()
                 }
-                fn value_text(value: ::std::option::Option<&[u8]>) -> ::std::string::String {
-                    value.map(text).unwrap_or_default()
+                fn __usage_value_text(
+                    value: ::std::option::Option<&[u8]>,
+                ) -> ::std::string::String {
+                    value.map(__usage_text).unwrap_or_default()
                 }
 
                 #(#field_inits)*
 
-                let mut parser = ::usage_argv::Parser::new(Self::command(), argv);
-                while let ::std::option::Option::Some(event) = parser.next_event() {
-                    match event? {
+                let mut __usage_parser = ::usage_argv::Parser::new(Self::command(), argv);
+                while let ::std::option::Option::Some(__usage_event) =
+                    __usage_parser.next_event()
+                {
+                    match __usage_event? {
                         Event::Flag { flag, value, negated } => {
                             // Both are `Copy`, and a CLI with no boolean flag would
                             // otherwise leave one of them unread.
@@ -174,14 +182,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             /// Parse the process's own arguments.
             pub fn parse() -> ::std::result::Result<Self, ::std::string::String> {
-                let raw: ::std::vec::Vec<::std::ffi::OsString> =
+                let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                     ::std::env::args_os().skip(1).collect();
-                let argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    raw.iter().map(|a| a.as_os_str()).collect();
+                let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
+                    __usage_raw.iter().map(|a| a.as_os_str()).collect();
                 // The error borrows argv, so it cannot outlive this function;
                 // rendering it here is what makes the signature usable. Better
                 // diagnostics are a separate piece of work.
-                Self::parse_from(&argv).map_err(|e| ::std::format!("{e:?}"))
+                Self::parse_from(&__usage_argv).map_err(|e| ::std::format!("{e:?}"))
             }
         }
     }
@@ -309,9 +317,17 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
     }
 }
 
+/// The name of the local a field accumulates into.
+///
+/// Prefixed, so a field called `text`, `parser`, or `argv` cannot shadow anything
+/// the generated code relies on.
+fn local_ident(field: &Field) -> proc_macro2::Ident {
+    format_ident!("__usage_field_{}", field.ident)
+}
+
 /// The local each field accumulates into while parsing.
 fn field_init(field: &Field) -> TokenStream {
-    let ident = &field.ident;
+    let ident = local_ident(field);
     match field.shape {
         Shape::Bool => {
             // A negatable flag's default is whatever `default` says, since
@@ -344,7 +360,7 @@ fn field_init(field: &Field) -> TokenStream {
 
 fn flag_arm(i: usize, field: &Field) -> TokenStream {
     let key = i as u32;
-    let ident = &field.ident;
+    let ident = local_ident(field);
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(#ident = !negated;),
@@ -352,10 +368,10 @@ fn flag_arm(i: usize, field: &Field) -> TokenStream {
         // panic in debug and wrap to zero in release.
         Shape::Count => quote!(#ident = #ident.saturating_add(1);),
         Shape::Optional => quote! {
-            #ident = ::std::option::Option::Some(value_text(value));
+            #ident = ::std::option::Option::Some(__usage_value_text(value));
         },
-        Shape::Required => quote!(#ident = value_text(value);),
-        Shape::Many => quote!(#ident.push(value_text(value));),
+        Shape::Required => quote!(#ident = __usage_value_text(value);),
+        Shape::Many => quote!(#ident.push(__usage_value_text(value));),
     };
     quote! {
         #key => { #body }
@@ -364,13 +380,13 @@ fn flag_arm(i: usize, field: &Field) -> TokenStream {
 
 fn arg_arm(i: usize, field: &Field) -> TokenStream {
     let key = i as u32;
-    let ident = &field.ident;
+    let ident = local_ident(field);
     let body = match field.shape {
-        Shape::Many => quote!(#ident.push(text(value));),
+        Shape::Many => quote!(#ident.push(__usage_text(value));),
         Shape::Optional => quote! {
-            #ident = ::std::option::Option::Some(text(value));
+            #ident = ::std::option::Option::Some(__usage_text(value));
         },
-        _ => quote!(#ident = text(value);),
+        _ => quote!(#ident = __usage_text(value);),
     };
     quote! {
         #key => { #body }

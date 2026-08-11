@@ -224,6 +224,7 @@ impl Field {
 
         let mut name = to_kebab(&ident.to_string());
         let mut longs: Vec<String> = Vec::new();
+        let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
         let mut bare_shorts = 0usize;
         let mut negate = None;
@@ -237,7 +238,6 @@ impl Field {
         let mut help_heading = None;
         let mut hide = false;
         let mut is_arg = false;
-        let mut explicit_long = false;
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -247,15 +247,14 @@ impl Field {
                     // or into a long form derived from it.
                     "name" => name = strip_dashes(&string_value(&meta)?),
                     // Bare `long` takes the field name; `long = "x"` overrides it.
+                    // A bare `long` is counted and resolved after the loop, so it
+                    // picks up a `name` written later. Explicit ones are stored
+                    // without dashes, because that is what a token is matched against
+                    // once its `--` has been taken off: left verbatim,
+                    // `long = "--no-color"` would be unreachable.
                     "long" => match &meta {
-                        Meta::Path(_) => longs.push(name.clone()),
-                        _ => {
-                            // Stored without dashes, because that is what a token is
-                            // matched against once its `--` has been taken off. Left
-                            // verbatim, `long = "--no-color"` would be unreachable.
-                            longs.push(strip_dashes(&string_value(&meta)?));
-                            explicit_long = true;
-                        }
+                        Meta::Path(_) => bare_longs += 1,
+                        _ => longs.push(strip_dashes(&string_value(&meta)?)),
                     },
                     // Resolved after the loop, for the same reason a bare `long` is:
                     // `short` written before `name = "…"` would otherwise take the
@@ -309,17 +308,32 @@ impl Field {
 
         // A bare `long` or `short` written before `name` would have captured the
         // field name rather than the renamed one, so resolve both once everything
-        // has been read.
-        if !explicit_long {
-            for long in &mut longs {
-                *long = name.clone();
-            }
+        // has been read. Counted rather than rewritten, so a field carrying both a
+        // bare and an explicit form keeps each.
+        for _ in 0..bare_longs {
+            longs.insert(0, name.clone());
         }
         for _ in 0..bare_shorts {
             let first = name.chars().next().ok_or_else(|| {
                 syn::Error::new(span, "`short` needs a name to take its first letter from")
             })?;
             shorts.insert(0, first);
+        }
+
+        if name.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "`name` is empty once its dashes are removed, and a flag needs \
+                 something to be called",
+            ));
+        }
+        if let Some(empty) = longs.iter().find(|l| l.is_empty()) {
+            let _ = empty;
+            return Err(syn::Error::new(
+                span,
+                "a `long` of only dashes leaves nothing to match: `--` ends flag \
+                 parsing, so it can never name a flag",
+            ));
         }
 
         // A short form is matched as a single byte, so a multi-byte character
@@ -372,6 +386,36 @@ impl Field {
         }
 
         let shape = Shape::from_type(&field.ty, count, span)?;
+        // The spec records a default and the generated code applies it; anything it
+        // cannot apply would be documented and then ignored.
+        if let Some(value) = &default {
+            match shape {
+                Shape::Bool if value != "true" && value != "false" => {
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "a `bool` field is on or off, so `default = \"{value}\"` \
+                             cannot be applied; write \"true\" or \"false\""
+                        ),
+                    ));
+                }
+                Shape::Count => {
+                    return Err(syn::Error::new(
+                        span,
+                        "a `count` field starts at zero, so a default has nothing to \
+                         say",
+                    ));
+                }
+                Shape::Many => {
+                    return Err(syn::Error::new(
+                        span,
+                        "a default for a collecting field is not applied yet, so it \
+                         would be documented and then ignored",
+                    ));
+                }
+                _ => {}
+            }
+        }
         let is_flag = !longs.is_empty() || !shorts.is_empty();
         if is_flag && is_arg {
             return Err(syn::Error::new(
@@ -415,6 +459,14 @@ impl Field {
         let repeatable = repeatable || (is_flag && shape == Shape::Many && !variadic);
 
         let kind = if is_flag {
+            if variadic && repeatable {
+                return Err(syn::Error::new(
+                    span,
+                    "`var` and `variadic` are two different ways to collect values — \
+                     repeated occurrences, or one occurrence taking several — so a \
+                     flag declares one or the other",
+                ));
+            }
             if variadic && shape != Shape::Many {
                 return Err(syn::Error::new(
                     span,
@@ -441,6 +493,14 @@ impl Field {
                     span,
                     "`global` describes a flag that subcommands inherit; a positional \
                      argument belongs to one command",
+                ));
+            }
+            if shape == Shape::Bool {
+                return Err(syn::Error::new(
+                    span,
+                    "a positional argument holds the word it is given, so a `bool` \
+                     field has nowhere to put it; add a `long` to make it a flag, or \
+                     use `String`",
                 ));
             }
             Kind::Arg {
@@ -649,8 +709,22 @@ fn doc_comment(attrs: &[Attribute]) -> syn::Result<(Option<String>, Option<Strin
     Ok((short, long))
 }
 
+/// `my_flag` and `MyCli` both become `my-cli`-shaped names.
 fn to_kebab(s: &str) -> String {
-    s.replace('_', "-")
+    let mut out = String::with_capacity(s.len() + 4);
+    for (i, ch) in s.chars().enumerate() {
+        if ch == '_' {
+            out.push('-');
+        } else if ch.is_uppercase() {
+            if i > 0 {
+                out.push('-');
+            }
+            out.extend(ch.to_lowercase());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 fn strip_dashes(s: &str) -> String {
