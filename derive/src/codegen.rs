@@ -261,7 +261,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     };
     let hide = field.hide;
     let count = field.shape == Shape::Count;
-    let repeatable = field.shape == Shape::Many;
+    let repeatable = field.repeatable;
 
     quote! {
         pub static #name: FlagMeta = FlagMeta {
@@ -319,7 +319,11 @@ fn field_init(field: &Field) -> TokenStream {
             let start = field.default.as_deref() == Some("true");
             quote!(let mut #ident = #start;)
         }
-        Shape::Count => quote!(let mut #ident = 0;),
+        Shape::Count => {
+            // Typed, so `saturating_add` below resolves to the field's own integer.
+            let ty = &field.ty;
+            quote!(let mut #ident: #ty = 0;)
+        }
         Shape::Optional => {
             let default = match field.default.as_deref() {
                 Some(d) => quote!(::std::option::Option::Some(#d.to_string())),
@@ -344,7 +348,9 @@ fn flag_arm(i: usize, field: &Field) -> TokenStream {
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(#ident = !negated;),
-        Shape::Count => quote!(#ident += 1;),
+        // Saturating, because a `u8` field given 256 occurrences would otherwise
+        // panic in debug and wrap to zero in release.
+        Shape::Count => quote!(#ident = #ident.saturating_add(1);),
         Shape::Optional => quote! {
             #ident = ::std::option::Option::Some(value_text(value));
         },

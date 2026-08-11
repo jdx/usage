@@ -23,6 +23,9 @@ pub struct Cli {
 /// One field, resolved to the thing it declares.
 pub struct Field {
     pub ident: syn::Ident,
+    /// The declared type, needed so a counting field's accumulator is the same
+    /// integer the struct holds rather than an inferred one.
+    pub ty: Type,
     /// The spec name, which is the field name with underscores turned into
     /// dashes, unless `name` says otherwise.
     pub name: String,
@@ -34,6 +37,12 @@ pub struct Field {
     pub default: Option<String>,
     pub help_heading: Option<String>,
     pub hide: bool,
+    /// Whether the flag may be given more than once, taking one value each time.
+    ///
+    /// Distinct from [`Kind::Flag::variadic`], which is one occurrence taking
+    /// several values. Conflating the two makes a merely repeatable flag greedy
+    /// enough to eat a positional — the same mistake the conformance harness made.
+    pub repeatable: bool,
     pub span: Span,
 }
 
@@ -44,7 +53,8 @@ pub enum Kind {
         shorts: Vec<char>,
         negate: Option<String>,
         global: bool,
-        /// One occurrence takes several values.
+        /// One occurrence keeps taking values, as `--include <pattern>...` does in
+        /// a spec. Greedy: it stops only at a flag-like token or `--`.
         variadic: bool,
     },
     Arg {
@@ -89,6 +99,15 @@ impl Cli {
                  argument is called",
             ));
         };
+
+        if !input.generics.params.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.generics,
+                "usage::Cli does not support generic parameters: the generated tables \
+                 are `static` and every field has to be a concrete type it can bind a \
+                 command-line value to",
+            ));
+        }
 
         let (about, long_about) = doc_comment(&input.attrs)?;
         let mut cli = Cli {
@@ -137,8 +156,16 @@ impl Cli {
 
         for field in &self.fields {
             match &field.kind {
-                Kind::Flag { longs, shorts, .. } => {
-                    for long in longs {
+                Kind::Flag {
+                    longs,
+                    shorts,
+                    negate,
+                    ..
+                } => {
+                    // A negation is another long form, so it collides like one. Left
+                    // unchecked, two flags could answer to the same token and only
+                    // the first would ever be reached.
+                    for long in longs.iter().chain(negate.iter()) {
                         if let Some((_, first)) = seen_long.iter().find(|(l, _)| l == long) {
                             return Err(dup(
                                 field.span,
@@ -200,6 +227,7 @@ impl Field {
         let mut shorts: Vec<char> = Vec::new();
         let mut negate = None;
         let mut global = false;
+        let mut repeatable = false;
         let mut variadic = false;
         let mut count = false;
         let mut double_dash_required = false;
@@ -231,7 +259,11 @@ impl Field {
                     }),
                     "negate" => negate = Some(strip_dashes(&string_value(&meta)?)),
                     "global" => global = flag_value(&meta)?,
-                    "var" => variadic = flag_value(&meta)?,
+                    // Two different things, deliberately spelled the way a spec
+                    // spells them: `var` is a flag that may be repeated, `variadic`
+                    // is one occurrence that keeps taking values.
+                    "var" => repeatable = flag_value(&meta)?,
+                    "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
@@ -258,9 +290,9 @@ impl Field {
                             path,
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `long`, \
-                                 `short`, `negate`, `global`, `var`, `count`, `hide`, \
-                                 `arg`, `env`, `default`, `help_heading`, and \
-                                 `double_dash`"
+                                 `short`, `negate`, `global`, `var`, `variadic`, \
+                                 `count`, `hide`, `arg`, `env`, `default`, \
+                                 `help_heading`, and `double_dash`"
                             ),
                         ));
                     }
@@ -274,6 +306,19 @@ impl Field {
             for long in &mut longs {
                 *long = name.clone();
             }
+        }
+
+        // A short form is matched as a single byte, so a multi-byte character
+        // could never be recognized. Better to say so than to truncate it.
+        if let Some(short) = shorts.iter().find(|c| !c.is_ascii()) {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "`short = '{short}'` is not ASCII, and a short flag is matched as \
+                     one byte. Use an ASCII letter, and give the long form the \
+                     descriptive name"
+                ),
+            ));
         }
 
         let shape = Shape::from_type(&field.ty, count, span)?;
@@ -292,12 +337,29 @@ impl Field {
                  `long` or a `short`",
             ));
         }
+        if !is_flag && repeatable {
+            return Err(syn::Error::new(
+                span,
+                "`var` describes a flag that may be repeated; a positional argument \
+                 that takes several values is a `Vec` field",
+            ));
+        }
+        if !is_flag && variadic {
+            return Err(syn::Error::new(
+                span,
+                "`variadic` describes a flag whose one occurrence keeps taking values; \
+                 a positional argument that takes several values is a `Vec` field",
+            ));
+        }
         if !is_flag && negate.is_some() {
             return Err(syn::Error::new(
                 span,
                 "`negate` names a second long form, so the field needs a `long`",
             ));
         }
+
+        // A `Vec` flag collects, so it is repeatable whether or not it says so.
+        let repeatable = repeatable || (is_flag && shape == Shape::Many);
 
         let kind = if is_flag {
             if negate.is_some() && shape != Shape::Bool {
@@ -328,6 +390,7 @@ impl Field {
 
         Ok(Field {
             ident,
+            ty: field.ty.clone(),
             name,
             kind,
             shape,
@@ -337,6 +400,7 @@ impl Field {
             default,
             help_heading,
             hide,
+            repeatable,
             span,
         })
     }

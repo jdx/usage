@@ -53,7 +53,8 @@
 //! | `name = "x"` | the name used in the spec and in help output |
 //! | `negate = "--no-x"` | a second long form that sets a `bool` false |
 //! | `count` | count occurrences instead of collecting values |
-//! | `var` | one occurrence keeps taking values |
+//! | `var` | the flag may be repeated, taking one value each time |
+//! | `variadic` | one occurrence keeps taking values, until a flag-like token or `--` |
 //! | `global` | subcommands inherit the flag |
 //! | `env = "X"` | an environment variable that can supply the value |
 //! | `default = "x"` | the value when the command line does not supply one |

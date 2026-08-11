@@ -95,6 +95,58 @@ fn flags_bind_in_every_form() {
     assert_eq!(ex.file, "x.txt");
 }
 
+/// The distinction #799 fixed in the harness, now pinned in the derive: a
+/// repeatable flag takes one value per occurrence, and must not swallow the word
+/// after it. My first version of this derive got it wrong, and the original test
+/// missed it by always writing `--include` twice.
+#[derive(Cli)]
+struct Repeat {
+    /// Patterns, one per occurrence
+    #[usage(long, var)]
+    include: Vec<String>,
+    /// Patterns, several at once
+    #[usage(long, variadic)]
+    exclude: Vec<String>,
+    /// Where to work
+    target: String,
+}
+
+#[test]
+fn a_repeatable_flag_leaves_the_next_word_alone() {
+    let a = argv(["--include", "a", "b"]);
+    let cli = Repeat::parse_from(&a).expect("should parse");
+    assert_eq!(cli.include, ["a"], "one value per occurrence");
+    assert_eq!(cli.target, "b", "the next word is still the positional's");
+}
+
+#[test]
+fn a_variadic_flag_takes_several_values() {
+    let a = argv(["--exclude", "a", "b", "--", "t"]);
+    let cli = Repeat::parse_from(&a).expect("should parse");
+    assert_eq!(cli.exclude, ["a", "b"], "greedy until the separator");
+    assert_eq!(cli.target, "t");
+}
+
+#[test]
+fn a_repeatable_flag_still_repeats() {
+    let a = argv(["--include", "a", "--include=b", "t"]);
+    let cli = Repeat::parse_from(&a).expect("should parse");
+    assert_eq!(cli.include, ["a", "b"]);
+    assert_eq!(cli.target, "t");
+}
+
+#[test]
+fn a_count_saturates_rather_than_overflowing() {
+    // A `u8` given more than 255 occurrences would otherwise panic in debug and
+    // wrap to zero in release.
+    let tokens = vec!["-v"; 300];
+    let raw: Vec<&OsStr> = tokens.iter().map(|t| OsStr::new(*t)).collect();
+    let mut with_file = raw.clone();
+    with_file.push(OsStr::new("x.txt"));
+    let ex = Ex::parse_from(&with_file).expect("should parse");
+    assert_eq!(ex.verbose, u8::MAX);
+}
+
 #[test]
 fn a_hidden_flag_still_works() {
     // Hidden means absent from help and docs, not unusable.
