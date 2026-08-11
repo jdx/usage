@@ -253,7 +253,10 @@ fn build(cmd: &SpecCommand) -> &'static Command<'static> {
                 // the bare name.
                 negate: f.negate.as_ref().map(|n| leak(n.trim_start_matches('-'))),
                 takes_value: f.arg.is_some(),
-                var: f.var || f.arg.as_ref().is_some_and(|a| a.var),
+                // Only a variadic *argument* is greedy. A `var` flag with a
+                // single-value argument is repeatable instead: one value per
+                // occurrence, which the parser gets by not collecting.
+                variadic: f.arg.as_ref().is_some_and(|a| a.var),
                 global: f.global,
             }))
         })

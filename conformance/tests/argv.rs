@@ -13,7 +13,7 @@ use usage_conformance::argv::{run, Outcome};
 use usage_conformance::{load, Expect, Reference, Vector};
 
 /// Vectors that exercise binding, which is what usage-argv implements.
-const IN_SCOPE: usize = 62;
+const IN_SCOPE: usize = 63;
 
 fn corpus() -> Vec<Vector> {
     let files = load(usage_conformance::corpus_dir()).expect("corpus should load");

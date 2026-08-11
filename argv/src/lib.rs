@@ -124,9 +124,15 @@ pub struct Flag<'a> {
     pub negate: Option<&'a str>,
     /// Whether the flag takes a value.
     pub takes_value: bool,
-    /// Whether the flag's value is variadic: one occurrence keeps taking values
-    /// until a flag-like token or the end of the command line.
-    pub var: bool,
+    /// Whether one occurrence of this flag keeps taking values, until a flag-like
+    /// token or the end of the command line.
+    ///
+    /// This is the spec's variadic flag *argument* (`--include <pattern>...`). It
+    /// is not the spec's flag-level `var=#true`, which means the flag may be
+    /// repeated and takes one value each time — repetition needs nothing from the
+    /// parser, since it already reports every occurrence separately. Conflating
+    /// the two makes a merely repeatable flag greedy enough to eat a positional.
+    pub variadic: bool,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -141,7 +147,7 @@ impl Flag<'_> {
         shorts: &[],
         negate: None,
         takes_value: false,
-        var: false,
+        variadic: false,
         global: false,
     };
 
@@ -272,8 +278,17 @@ pub struct Parser<'t, 'v> {
     /// Whether any word has been bound to a positional of `cmd`. Once one has,
     /// no further word can select a subcommand.
     arg_filled: bool,
-    /// Whether a `--` has been consumed as a separator.
-    double_dash: bool,
+    /// Whether flag interpretation has stopped. A `--` does this, and so does an
+    /// `automatic` argument taking a value.
+    flags_stopped: bool,
+    /// Whether a `--` was actually consumed as a separator.
+    ///
+    /// Tracked apart from `flags_stopped` because the two can differ: an
+    /// `automatic` argument stops flag interpretation without any separator being
+    /// typed, and a `preserve` argument keeps one as a value rather than
+    /// consuming it. Callers asking this question want to know what the user
+    /// wrote, not what state the parser reached.
+    separator_seen: bool,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
 }
@@ -294,7 +309,8 @@ impl<'t, 'v> Parser<'t, 'v> {
             collecting: None,
             arg_pos: 0,
             arg_filled: false,
-            double_dash: false,
+            flags_stopped: false,
+            separator_seen: false,
             done: false,
         }
     }
@@ -304,9 +320,13 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.cmd
     }
 
-    /// Whether a `--` has been consumed as a separator.
+    /// Whether a `--` was consumed as a separator.
+    ///
+    /// False when flag interpretation stopped for another reason, such as an
+    /// `automatic` argument taking a value, and false for a `--` that a
+    /// `preserve` argument kept as a value.
     pub fn double_dash_seen(&self) -> bool {
-        self.double_dash
+        self.separator_seen
     }
 
     /// Read the next event.
@@ -358,7 +378,7 @@ impl<'t, 'v> Parser<'t, 'v> {
         let token = bytes(self.argv.get(self.pos)?);
         self.pos += 1;
 
-        if self.double_dash {
+        if self.flags_stopped {
             return Some(self.word(token));
         }
 
@@ -371,7 +391,8 @@ impl<'t, 'v> Parser<'t, 'v> {
             {
                 return Some(self.word(token));
             }
-            self.double_dash = true;
+            self.flags_stopped = true;
+            self.separator_seen = true;
             // An explicit separator unlocks any argument that required one, even
             // if earlier arguments are still unfilled.
             if let Some(idx) = self.cmd.args[self.arg_pos..]
@@ -418,7 +439,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             } else {
                 None
             };
-            if flag.var {
+            if flag.variadic {
                 self.collecting = Some(flag);
             }
             return Ok(Event::Flag {
@@ -489,7 +510,7 @@ impl<'t, 'v> Parser<'t, 'v> {
         } else {
             rest
         };
-        if flag.var {
+        if flag.variadic {
             self.collecting = Some(flag);
         }
         Ok(Event::Flag {
@@ -518,7 +539,7 @@ impl<'t, 'v> Parser<'t, 'v> {
         // Subcommands are only matched where descent is still possible: once a
         // positional of this command has taken a word, a later word that happens
         // to equal a subcommand name is just a value.
-        if !self.arg_filled && !self.double_dash {
+        if !self.arg_filled && !self.flags_stopped {
             if let Some(sub) = self.find_subcommand(token) {
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
@@ -529,7 +550,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             return Err(Error::UnexpectedArg { token });
         };
 
-        if arg.double_dash == DoubleDash::Required && !self.double_dash {
+        if arg.double_dash == DoubleDash::Required && !self.separator_seen {
             return Err(Error::ArgRequiresDoubleDash { arg });
         }
 
@@ -537,7 +558,7 @@ impl<'t, 'v> Parser<'t, 'v> {
         // An `automatic` argument stops flag interpretation from here on, as
         // though the caller had typed the separator themselves.
         if arg.double_dash == DoubleDash::Automatic {
-            self.double_dash = true;
+            self.flags_stopped = true;
         }
         // A variadic keeps taking values, so the cursor stays put.
         if !arg.var {
@@ -924,6 +945,99 @@ mod tests {
             })
             .collect();
         assert_eq!(values, vec![&b"a"[..], &b"--"[..], &b"b"[..]]);
+    }
+
+    #[test]
+    fn variadic_flag_collects_until_a_flaglike_token() {
+        static INCLUDE: Flag = Flag {
+            key: 5,
+            name: "include",
+            longs: &["include"],
+            shorts: b"i",
+            takes_value: true,
+            variadic: true,
+            ..Flag::BOOL
+        };
+        static GREEDY: Command = Command {
+            name: "ex",
+            flags: &[&INCLUDE, &FORCE],
+            args: &[&FILE],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--include", "x", "y", "--force"]);
+        assert_eq!(
+            parse(&GREEDY, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &INCLUDE,
+                    value: Some(b"x"),
+                    negated: false
+                },
+                Event::Flag {
+                    flag: &INCLUDE,
+                    value: Some(b"y"),
+                    negated: false
+                },
+                Event::Flag {
+                    flag: &FORCE,
+                    value: None,
+                    negated: false
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_non_variadic_flag_leaves_the_next_word_alone() {
+        // The counterpart to the test above: a flag that takes one value must not
+        // swallow the word after it, which would silently steal a positional.
+        let a = argv(["--jobs", "8", "keep-me"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &JOBS,
+                    value: Some(b"8"),
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"keep-me"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn double_dash_seen_means_a_separator_was_typed() {
+        static FILES: Arg = Arg {
+            key: 23,
+            name: "files",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static AUTO: Command = Command {
+            name: "ex",
+            flags: &[&FORCE],
+            args: &[&FILES],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--", "x"]);
+        let mut parser = Parser::new(&ROOT, &a);
+        while parser.next_event().is_some() {}
+        assert!(parser.double_dash_seen(), "a real separator was consumed");
+
+        // `automatic` stops flag interpretation without a separator being typed,
+        // and reporting one would be a lie to any caller that forwards argv.
+        let a = argv(["x", "--force"]);
+        let mut parser = Parser::new(&AUTO, &a);
+        while parser.next_event().is_some() {}
+        assert!(
+            !parser.double_dash_seen(),
+            "automatic mode must not claim a separator was given"
+        );
     }
 
     #[test]
