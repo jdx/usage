@@ -231,6 +231,14 @@ impl Spec<'_> {
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
+        // The root's own nodes sit at the top level rather than inside a `cmd`
+        // block, so they are written here instead of by write_command.
+        if let Some(mount) = self.root.mount {
+            writeln!(out, "mount run={}", quoted(mount))?;
+        }
+        for example in self.root.examples {
+            write_example(out, example, 0)?;
+        }
         write_body(out, self.root, 0)
     }
 }
@@ -303,20 +311,25 @@ fn write_command(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
         writeln!(out, "mount run={}", quoted(mount))?;
     }
     for example in meta.examples {
-        indent(out, inner)?;
-        write!(out, "example {}", quoted(example.code))?;
-        if let Some(header) = example.header {
-            write!(out, " header={}", quoted(header))?;
-        }
-        if let Some(help) = example.help {
-            write!(out, " help={}", quoted(help))?;
-        }
-        out.push('\n');
+        write_example(out, example, inner)?;
     }
     write_body(out, meta, inner)?;
 
     indent(out, depth)?;
     out.push_str("}\n");
+    Ok(())
+}
+
+fn write_example(out: &mut String, example: &Example<'_>, depth: usize) -> core::fmt::Result {
+    indent(out, depth)?;
+    write!(out, "example {}", quoted(example.code))?;
+    if let Some(header) = example.header {
+        write!(out, " header={}", quoted(header))?;
+    }
+    if let Some(help) = example.help {
+        write!(out, " help={}", quoted(help))?;
+    }
+    out.push('\n');
     Ok(())
 }
 
@@ -353,12 +366,13 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         // name, since that is what a token is matched against.
         write!(out, " negate={}", quoted(&format!("--{negate}")))?;
     }
+    if let Some(effect) = meta.effect {
+        write!(out, " effect={}", quoted(effect.as_str()))?;
+    }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
-    for default in meta.default {
-        write!(out, " default={}", quoted(default))?;
-    }
+    write_single_default(out, meta.default)?;
     for overrides in meta.overrides {
         write!(out, " overrides={}", quoted(overrides))?;
     }
@@ -366,8 +380,10 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         write!(out, " required_unless={}", quoted(required_unless))?;
     }
 
-    let has_children =
-        meta.long_help.is_some() || meta.flag.takes_value || !meta.choices.is_empty();
+    let has_children = meta.long_help.is_some()
+        || meta.flag.takes_value
+        || !meta.choices.is_empty()
+        || meta.default.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -379,6 +395,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
+    write_many_defaults(out, meta.default, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let name = meta.value_name.unwrap_or(meta.flag.name);
@@ -436,11 +453,10 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
-    for default in meta.default {
-        write!(out, " default={}", quoted(default))?;
-    }
+    write_single_default(out, meta.default)?;
 
-    let has_children = meta.long_help.is_some() || !meta.choices.is_empty();
+    let has_children =
+        meta.long_help.is_some() || !meta.choices.is_empty() || meta.default.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -452,7 +468,36 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
+    write_many_defaults(out, meta.default, inner)?;
     write_choices(out, meta.choices, inner)?;
+    indent(out, depth)?;
+    out.push_str("}\n");
+    Ok(())
+}
+
+/// A lone default goes on the node as a property.
+///
+/// Several cannot: KDL properties are unique per node, so `default="a"
+/// default="b"` keeps only the last one. Those go in a child block instead, which
+/// is what [`write_many_defaults`] emits.
+fn write_single_default(out: &mut String, defaults: &[&str]) -> core::fmt::Result {
+    if let [only] = defaults {
+        write!(out, " default={}", quoted(only))?;
+    }
+    Ok(())
+}
+
+/// Several defaults, as `default { "a"; "b" }`.
+fn write_many_defaults(out: &mut String, defaults: &[&str], depth: usize) -> core::fmt::Result {
+    if defaults.len() < 2 {
+        return Ok(());
+    }
+    indent(out, depth)?;
+    out.push_str("default {\n");
+    for value in defaults {
+        indent(out, depth + 1)?;
+        writeln!(out, "{}", quoted(value))?;
+    }
     indent(out, depth)?;
     out.push_str("}\n");
     Ok(())

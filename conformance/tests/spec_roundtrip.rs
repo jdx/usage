@@ -57,6 +57,18 @@ static FORCE: Flag = Flag {
     shorts: b"f",
     ..Flag::BOOL
 };
+static PRUNE: Flag = Flag {
+    key: 7,
+    name: "prune",
+    longs: &["prune"],
+    ..Flag::BOOL
+};
+static PATHS: Flag = Flag {
+    key: 8,
+    name: "paths",
+    longs: &["paths"],
+    ..Flag::VALUE
+};
 
 static FILE: Arg = Arg {
     key: 10,
@@ -132,7 +144,7 @@ static WATCH: Command = Command {
 };
 static ROOT: Command = Command {
     name: "ex",
-    flags: &[&JOBS, &COLOR, &VERBOSE, &INCLUDE, &SHELL],
+    flags: &[&JOBS, &COLOR, &VERBOSE, &INCLUDE, &SHELL, &PRUNE, &PATHS],
     args: &[&FILE],
     subcommands: &[&INSTALL, &SETTINGS, &RUN, &EXEC, &WATCH],
     key: 106,
@@ -214,6 +226,13 @@ static WATCH_META: CommandMeta = CommandMeta {
 };
 static ROOT_META: CommandMeta = CommandMeta {
     cmd: &ROOT,
+    // The root's own examples live at the top level of the document rather than
+    // inside a `cmd` block, which is easy to forget when writing it out.
+    examples: &[Example {
+        code: "ex a.txt",
+        header: Some("Basic"),
+        help: Some("the simplest thing"),
+    }],
     flags: &[
         FlagMeta {
             flag: &JOBS,
@@ -251,6 +270,21 @@ static ROOT_META: CommandMeta = CommandMeta {
             required: true,
             required_unless: &["--jobs"],
             choices: &["bash", "zsh", "fish"],
+            ..FlagMeta::EMPTY
+        },
+        // A flag that destroys something: the effect belongs on the flag, not
+        // only on the command.
+        FlagMeta {
+            flag: &PRUNE,
+            help: Some("delete anything unused"),
+            effect: Some(Effect::Destructive),
+            ..FlagMeta::EMPTY
+        },
+        // More than one default, which cannot be written as a property.
+        FlagMeta {
+            flag: &PATHS,
+            value_name: Some("path"),
+            default: &["/usr/bin", "/usr/local/bin"],
             ..FlagMeta::EMPTY
         },
     ],
@@ -480,6 +514,51 @@ fn effects_mounts_restart_tokens_and_examples_survive() {
     let run = spec.cmd.subcommands.get("run").unwrap();
     assert_eq!(run.restart_token.as_deref(), Some(":::"));
     assert_eq!(run.mounts.len(), 1, "run should declare a mount");
+}
+
+#[test]
+fn a_flag_can_carry_an_effect() {
+    use usage::SpecCommandEffect as Eff;
+    let spec = parsed();
+    let prune = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|f| f.name == "prune")
+        .expect("--prune should be in the spec");
+    assert!(matches!(prune.effect, Some(Eff::Destructive)));
+}
+
+#[test]
+fn several_defaults_all_survive() {
+    // KDL properties are unique per node, so writing these as `default="a"
+    // default="b"` would keep only the last. They need a child block.
+    let spec = parsed();
+    let paths = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|f| f.name == "paths")
+        .expect("--paths should be in the spec");
+    assert_eq!(
+        paths.default,
+        vec!["/usr/bin".to_string(), "/usr/local/bin".to_string()]
+    );
+}
+
+#[test]
+fn root_level_examples_survive() {
+    let spec = parsed();
+    // A top-level `example` node lands on the spec itself rather than on its root
+    // command, which is worth pinning: writing it into the root's `cmd` block
+    // instead would put it somewhere nothing reads.
+    assert_eq!(
+        spec.examples.len(),
+        1,
+        "the root's examples belong at the top level of the document"
+    );
+    assert_eq!(spec.examples[0].code, "ex a.txt");
+    assert_eq!(spec.examples[0].header.as_deref(), Some("Basic"));
 }
 
 #[test]
