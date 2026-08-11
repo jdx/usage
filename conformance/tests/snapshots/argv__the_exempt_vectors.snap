@@ -1,0 +1,28 @@
+---
+source: conformance/tests/argv.rs
+expression: "exempt.join(\"\\n\")"
+---
+arg-required-missing: required args are checked after binding
+arg-variadic-max: var_min and var_max are checked after binding
+arg-variadic-min: var_min and var_max are checked after binding
+argv-beats-env: env fallback is applied after binding
+choice-invalid: choices are validated after binding
+choice-is-case-sensitive: choices are validated after binding
+choice-on-arg: choices are validated after binding
+choice-valid: choices are validated after binding
+default-fills-absent-arg: defaults are applied after binding
+env-beats-default: defaults are applied after binding
+env-does-not-satisfy-required-arg-position: env fallback is applied after binding
+env-empty-string-counts-as-set: defaults are applied after binding
+env-fills-absent-arg: env fallback is applied after binding
+env-fills-absent-flag: env fallback is applied after binding
+env-unset-falls-to-default: defaults are applied after binding
+flag-var-too-few: var_min and var_max are checked after binding
+flag-var-too-many: var_min and var_max are checked after binding
+long-negation-default: defaults are applied after binding
+long-negation: defaults are applied after binding
+overrides-last-wins: overrides are resolved after binding
+required-flag-missing: required flags are checked after binding
+required-flag-present: requirements are checked after binding
+required-unless-satisfied-by-other: requirements are checked after binding
+required-unless-unsatisfied: required flags are checked after binding
