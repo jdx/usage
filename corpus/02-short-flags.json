@@ -113,6 +113,34 @@
       "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[file]\"\n",
       "argv": ["-1x"],
       "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-exponent-number-is-a-value",
+      "doc": "`-1e5` is a number, so it is a value even where unknown flags are refused. The two parsers disagreed about this when one used a float parse and the other a hand-written scanner, which is why the edges are pinned here.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1e5"],
+      "expect": { "ok": { "args": { "offset": "-1e5" } } }
+    },
+    {
+      "id": "short-fractional-exponent-is-a-value",
+      "doc": "A signed exponent on a fraction is still a number.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1.5e-3"],
+      "expect": { "ok": { "args": { "offset": "-1.5e-3" } } }
+    },
+    {
+      "id": "short-infinity-is-not-a-number-here",
+      "doc": "`-inf` parses as a float but is not treated as one: a token like that is far likelier to be a misspelled flag than a number somebody meant to pass, so a CLI refusing unknown flags hears about it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-inf"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "short-bare-exponent-is-not-a-number",
+      "doc": "An exponent needs digits of its own, so `-1e` names nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1e"],
+      "expect": { "error": "unknown_flag" }
     }
   ]
 }

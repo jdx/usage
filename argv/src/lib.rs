@@ -684,23 +684,50 @@ fn is_flag_like(token: &[u8]) -> bool {
     }
 }
 
-/// Whether the text after a `-` is a number, so `-1` and `-2.5` are values while
-/// `-1x` is a flag-shaped token that names nothing.
+/// Whether the text after a `-` is a number, so `-1`, `-2.5`, and `-1e5` are values
+/// while `-1x` is a flag-shaped token that names nothing.
+///
+/// Digits, at most one `.`, and an optional exponent. Deliberately narrower than
+/// `f64::from_str`, which also accepts `inf` and `NaN` — `-inf` is far likelier to be
+/// a misspelled flag than a number somebody meant to pass.
+///
+/// usage-lib applies the same rule, and the corpus pins the edges so the two cannot
+/// drift apart: they disagreed about `-1e5` when this was a hand-rolled scanner on
+/// one side and a float parse on the other.
 ///
 /// Written out rather than deferred to `f64::from_str` because this runs on the hot
-/// path and a parse would have to go through `str`, which means a UTF-8 check on a
-/// slice that has already been decided by its bytes.
+/// path, and a parse would mean a UTF-8 check on a slice already decided by its
+/// bytes.
 fn is_number(rest: &[u8]) -> bool {
+    let (mantissa, exponent) = match rest.iter().position(|b| matches!(b, b'e' | b'E')) {
+        Some(at) => (&rest[..at], Some(&rest[at + 1..])),
+        None => (rest, None),
+    };
+
     let mut seen_digit = false;
     let mut seen_dot = false;
-    for &b in rest {
+    for &b in mantissa {
         match b {
             b'0'..=b'9' => seen_digit = true,
             b'.' if !seen_dot => seen_dot = true,
             _ => return false,
         }
     }
-    seen_digit
+    if !seen_digit {
+        return false;
+    }
+
+    match exponent {
+        None => true,
+        // An exponent needs digits of its own, and may carry a sign.
+        Some(exp) => {
+            let digits = exp
+                .strip_prefix(b"+")
+                .or_else(|| exp.strip_prefix(b"-"))
+                .unwrap_or(exp);
+            !digits.is_empty() && digits.iter().all(|b| b.is_ascii_digit())
+        }
+    }
 }
 
 #[cfg(test)]

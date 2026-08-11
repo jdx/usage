@@ -1381,7 +1381,44 @@ fn effective_unknown_flags(spec: &Spec, path: &[SpecCommand]) -> UnknownFlags {
 fn is_flag_like(token: &str) -> bool {
     match token.strip_prefix('-') {
         None | Some("") => false,
-        Some(rest) => rest.parse::<f64>().is_err(),
+        Some(rest) => !is_number(rest),
+    }
+}
+
+/// Digits, at most one `.`, and an optional exponent.
+///
+/// Spelled out rather than deferred to `f64::from_str`, which also accepts `inf` and
+/// `NaN`: `-inf` is far likelier to be a misspelled flag than a number somebody meant
+/// to pass. usage-argv implements the same rule, and the corpus pins the edges — the
+/// two disagreed about `-1e5` when one used a float parse and the other did not.
+fn is_number(rest: &str) -> bool {
+    let (mantissa, exponent) = match rest.find(['e', 'E']) {
+        Some(at) => (&rest[..at], Some(&rest[at + 1..])),
+        None => (rest, None),
+    };
+
+    let mut seen_digit = false;
+    let mut seen_dot = false;
+    for c in mantissa.chars() {
+        match c {
+            '0'..='9' => seen_digit = true,
+            '.' if !seen_dot => seen_dot = true,
+            _ => return false,
+        }
+    }
+    if !seen_digit {
+        return false;
+    }
+
+    match exponent {
+        None => true,
+        Some(exp) => {
+            let digits = exp
+                .strip_prefix('+')
+                .or_else(|| exp.strip_prefix('-'))
+                .unwrap_or(exp);
+            !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit())
+        }
     }
 }
 

@@ -28,8 +28,13 @@ A **command line** is the tokens after the program name. `mycli install -f x`
 has three.
 
 A token is **flag-like** when it begins with `-`, is longer than one character,
-and is not a negative number (`-` followed by a digit). So `--force`, `-f`, and
-`-abc` are flag-like; `-`, `-1`, and `-2.5` are not.
+and is not a negative number. So `--force`, `-f`, and `-abc` are flag-like; `-`,
+`-1`, `-2.5`, and `-1e5` are not.
+
+A number here means digits, at most one `.`, and an optional exponent —
+deliberately narrower than what a float parser accepts, since `-inf` is far
+likelier to be a misspelled flag than a number somebody meant to pass. `-1x` and
+`-1e` are not numbers either, and so name flags that do not exist.
 
 ## Reading a command line
 
