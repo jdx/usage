@@ -97,14 +97,16 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
 
 ### Next: the derive
 
-- [ ] **Static metadata tables** — a second, cold table holding what the hot one
+- [x] **Static metadata tables** — a second, cold tree holding what the hot one
       deliberately omits: help and long help, about text, hidden-ness, visible and
-      hidden aliases, value names and hints, `choices`, defaults, `env`, effects,
-      mounts, examples. Separate from the parse tables so the hot path keeps its
-      cache locality.
-- [ ] **KDL emission** — write the spec from those tables without depending on
-      usage-lib, which pulls kdl, miette, tera, and regex. Verified by
-      round-tripping the output through `Spec::from_str` and comparing.
+      hidden aliases, value names, `choices`, defaults, `env`, effects, mounts,
+      restart tokens, examples. Behind the `spec` feature, and each entry borrows
+      the parse-table entry it describes, so names have one definition and cannot
+      drift.
+- [x] **KDL emission** — `Spec::to_kdl`, written by hand so the crate keeps having
+      no dependencies. Verified by parsing the output back with usage-lib and
+      checking the resulting spec field by field, then rendering it through the
+      markdown and manpage generators an adopter's docs build actually uses.
 - [ ] **`usage-derive` v0** — flags, positionals, subcommands, doc-comment help
       (first paragraph short, whole block long), spec emission. Usage-native
       attributes mirroring the KDL vocabulary rather than a clap dialect.
@@ -116,6 +118,17 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       defaults, `var_min`/`var_max`, `overrides`. These need a value's type, so
       they belong with the derive rather than in the parser. Closes the 24 corpus
       vectors usage-argv reports as out of scope.
+
+### Spec gaps found on the way
+
+Each of these is a thing a CLI wants to say that the spec has no way to record.
+Per the canonicality rule the spec gets extended first, so these block the derive
+carrying them rather than being worked around.
+
+- [ ] **`help_heading`** — grouping flags under a heading in help output. clap has
+      it and mise uses it (in `watch`, for its vendored watchexec arguments), and
+      the metadata tree deliberately omits it rather than dropping it silently on
+      the way out.
 
 ### Then: what a CLI framework has to have
 
