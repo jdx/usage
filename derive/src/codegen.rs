@@ -406,8 +406,14 @@ const KIND_COMMAND: u64 = 2 << 30;
 /// Two macro expansions cannot see each other, so a shared counter is not available:
 /// keys carry a hash of the declaration they came from instead. The whole item, not
 /// just its name — a macro cannot see a module path, so two same-named structs in
-/// different modules would otherwise hash alike. Two types now have to be identical
-/// to collide, and `Spec::to_kdl` asserts the tree holds no duplicates either way.
+/// different modules would otherwise hash alike.
+///
+/// Two byte-identical declarations in different modules still hash alike, and that
+/// residue is deliberately harmless rather than fixed: a key only chooses which arm
+/// to jump to, and each arm then checks that the event came from *its* table. So a
+/// collision means an event goes unclaimed, never misbound. `Spec::to_kdl` also
+/// asserts the tree holds no duplicates, which turns it into a failed test rather
+/// than a puzzle.
 fn key_base(fingerprint: &str) -> u64 {
     // FNV-1a, spelled out rather than taken from a `Hasher`, which is not guaranteed
     // to be stable between compilations — and these end up baked into generated code.
@@ -467,8 +473,18 @@ fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         Shape::Required => quote!(partial.#ident = __usage_value_text(value);),
         Shape::Many => quote!(partial.#ident.push(__usage_value_text(value));),
     };
+    let table = format_ident!("FLAG_{i}");
     quote! {
-        #key => { #body partial.#given = true; true }
+        // The key gets us to the right arm in one jump; the identity check makes a
+        // collision harmless rather than wrong. Two identical declarations in
+        // different modules hash alike — a macro cannot see a module path — and
+        // without this, one command's flag would fill another's field. `static` items
+        // have distinct addresses, so this is exact.
+        #key if ::core::ptr::eq(*flag, &#table) => {
+            #body
+            partial.#given = true;
+            true
+        }
     }
 }
 
@@ -483,8 +499,13 @@ fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         },
         _ => quote!(partial.#ident = __usage_text(value);),
     };
+    let table = format_ident!("ARG_{i}");
     quote! {
-        #key => { #body partial.#given = true; true }
+        #key if ::core::ptr::eq(*arg, &#table) => {
+            #body
+            partial.#given = true;
+            true
+        }
     }
 }
 

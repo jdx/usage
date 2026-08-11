@@ -85,8 +85,11 @@
 //! `subcommand` field exactly as the root does, to any depth, and generates the same
 //! code for it. mise reaches four levels, so one was never going to be enough.
 //!
-//! Keys carry a hash of the type they came from, which is how independently
-//! expanded macros avoid handing two fields the same one. `Spec::to_kdl` asserts the
+//! Keys carry a hash of the declaration they came from, which is how independently
+//! expanded macros avoid handing two fields the same one. A key chooses which arm to
+//! jump to and the arm then verifies the event came from its own table, so even two
+//! identical declarations in different modules cannot misbind — the event simply goes
+//! unclaimed, and `Spec::to_kdl` asserts the tree holds no duplicate keys. `Spec::to_kdl` asserts the
 //! tree has no duplicates, so a collision fails a test rather than binding the wrong
 //! field.
 //!
