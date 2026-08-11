@@ -6,7 +6,9 @@
 //!
 //! Vectors that turn on something decided after the last token — `required`,
 //! `choices`, `env`, defaults, `var_min`/`var_max`, `overrides` — are out of scope
-//! for this crate by design, and [`the_exempt_vectors`] is the record of which.
+//! for this crate by design, and each says so itself with `layer: "post-binding"`.
+//! Which ones those are is therefore a fact in the corpus rather than a number or a
+//! snapshot asserted over here.
 //!
 //! Corpus well-formedness is checked once, in `reference.rs`, rather than again
 //! here.
@@ -42,28 +44,6 @@ fn every_binding_vector_passes() {
         failures.len(),
         failures.join("\n  - ")
     );
-}
-
-/// Which vectors usage-argv does not answer, and the reason each gives.
-///
-/// A snapshot rather than a count. A count asserts something nobody can check by
-/// reading it, and it collides whenever two changes touch the corpus — two pull
-/// requests each adding an ordinary vector both passed alone and broke `main`
-/// together, because each saw only its own increment. A list fails as a reviewable
-/// diff naming the vector that changed sides, which is the thing actually worth
-/// knowing, and adding an ordinary vector does not touch it at all.
-#[test]
-fn the_exempt_vectors() {
-    let mut exempt: Vec<String> = corpus()
-        .iter()
-        .filter_map(|vector| match run(vector) {
-            Outcome::OutOfScope(reason) => Some(format!("{}: {reason}", vector.id)),
-            _ => None,
-        })
-        .collect();
-    exempt.sort();
-
-    insta::assert_snapshot!(exempt.join("\n"));
 }
 
 #[test]

@@ -61,6 +61,31 @@ pub struct Vector {
     /// compatibility matrix any new implementation has to read.
     #[serde(default)]
     pub reference: Reference,
+    /// Which layer of a parser answers this vector.
+    ///
+    /// Declared rather than inferred. The harness used to guess by looking for a
+    /// post-binding feature anywhere in the spec, which exempted vectors whose
+    /// expectation was an ordinary binding — `--no-color` binds false whatever else
+    /// that flag declares. Saying it per vector is also what another implementation
+    /// needs: it should be told which vectors apply to the layer it implements
+    /// rather than working it out from the spec.
+    #[serde(default)]
+    pub layer: Layer,
+}
+
+/// Which layer of a parser a vector is a question for.
+#[derive(Debug, Default, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum Layer {
+    /// Which token becomes which flag or argument. Answerable while reading argv,
+    /// and every implementation is expected to answer these.
+    #[default]
+    Binding,
+    /// Decided once the last token has been read: `required`, `choices`, `env`
+    /// fallback, defaults, `var_min`/`var_max`, `overrides`. These need a value's
+    /// type, so a binding-only parser leaves them to the layer that owns the target
+    /// struct.
+    PostBinding,
 }
 
 /// The result of a parse: a binding, or a class of failure.

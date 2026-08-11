@@ -298,12 +298,16 @@ Any implementation in any language can run these. In this repository,
 `cargo test -p usage-conformance` runs them against both usage-lib and
 [usage-argv](https://github.com/jdx/usage/tree/main/argv).
 
-usage-argv answers 63 of the 87 vectors. The other 24 turn on something decided
-after the last token is read — `required`, `choices`, `env` fallback, defaults,
-`var_min` and `var_max`, `overrides` — which needs to know a value's type and so
-belongs to the layer above a binding parser. Those are reported as out of scope
-rather than as failures, and the count is asserted so the exempt set cannot
-quietly grow.
+Each vector says which layer of a parser it is a question for. Most are
+`binding` — which token becomes which flag or argument — and a parser that reads
+argv is expected to answer all of those. The rest are `post-binding`: `required`,
+`choices`, `env` fallback, defaults, `var_min`/`var_max`, and `overrides` are
+decided once the last token has been read, and need to know a value's type, so a
+binding-only parser leaves them to the layer that owns the target struct.
+
+That is declared per vector rather than worked out from the spec, because an
+implementation should be told which vectors apply to it. usage-lib answers every
+vector; usage-argv answers the binding ones.
 
 ## Where the reference implementation differs
 

@@ -72,6 +72,24 @@ If you are implementing the grammar elsewhere, treat `expect` as the target and
 read the `diverges` notes as the compatibility risks you inherit if you copy
 usage-lib's behavior instead.
 
+## `layer`
+
+Which layer of a parser the vector is a question for, and therefore whether your
+implementation is expected to answer it.
+
+`binding` — the default, and most of them — is about which token becomes which flag
+or argument. Any parser that reads argv should answer these.
+
+`post-binding` is decided once the last token has been read: `required`, `choices`,
+`env` fallback, defaults, `var_min`/`var_max`, `overrides`. They need to know a
+value's type, so a parser that only binds tokens can skip them and leave them to
+whatever owns the target type.
+
+It is stated per vector rather than left to be inferred from the spec. A vector
+whose spec declares `choices` can still be an ordinary binding question — `--shell
+zsh` binds `zsh` whatever the choice list says — and guessing from the declaration
+exempted vectors nobody meant to exempt.
+
 ## Running them
 
 In this repository:

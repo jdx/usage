@@ -1,0 +1,23 @@
+---
+source: conformance/tests/argv.rs
+assertion_line: 66
+expression: "exempt.join(\"\\n\")"
+---
+arg-required-missing: decided after the last token is read, so it belongs to the layer that owns the target struct
+arg-variadic-max: decided after the last token is read, so it belongs to the layer that owns the target struct
+arg-variadic-min: decided after the last token is read, so it belongs to the layer that owns the target struct
+choice-invalid: decided after the last token is read, so it belongs to the layer that owns the target struct
+choice-is-case-sensitive: decided after the last token is read, so it belongs to the layer that owns the target struct
+default-fills-absent-arg: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-beats-default: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-does-not-satisfy-required-arg-position: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-empty-string-counts-as-set: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-fills-absent-arg: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-fills-absent-flag: decided after the last token is read, so it belongs to the layer that owns the target struct
+env-unset-falls-to-default: decided after the last token is read, so it belongs to the layer that owns the target struct
+flag-var-too-few: decided after the last token is read, so it belongs to the layer that owns the target struct
+flag-var-too-many: decided after the last token is read, so it belongs to the layer that owns the target struct
+long-negation-default: decided after the last token is read, so it belongs to the layer that owns the target struct
+overrides-last-wins: decided after the last token is read, so it belongs to the layer that owns the target struct
+required-flag-missing: decided after the last token is read, so it belongs to the layer that owns the target struct
+required-unless-unsatisfied: decided after the last token is read, so it belongs to the layer that owns the target struct

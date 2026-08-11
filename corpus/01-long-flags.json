@@ -134,7 +134,8 @@
       "doc": "With neither form given, a negatable flag takes its declared default.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
       "argv": [],
-      "expect": { "ok": { "flags": { "color": true } } }
+      "expect": { "ok": { "flags": { "color": true } } },
+      "layer": "post-binding"
     },
     {
       "id": "unknown-flags-error-rejects-the-token",

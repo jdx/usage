@@ -20,12 +20,12 @@
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Spec, SpecCommand};
 use usage_argv::{
     Arg, Command, DoubleDash, Error, Event, Flag, Parser, UnknownFlags as ArgvUnknownFlags,
 };
 
-use crate::{ErrorCode, Expect, Parsed, Value, Vector};
+use crate::{ErrorCode, Expect, Layer, Parsed, Value, Vector};
 
 /// What usage-argv did with a vector.
 #[derive(Debug, PartialEq, Eq)]
@@ -56,7 +56,7 @@ pub fn run(vector: &Vector) -> Outcome {
         Err(e) => return Outcome::BadSpec(e.to_string()),
     };
 
-    if let Some(reason) = out_of_scope(&spec, &vector.expect) {
+    if let Some(reason) = out_of_scope(vector) {
         return Outcome::OutOfScope(reason);
     }
 
@@ -183,72 +183,18 @@ fn collect_multi(cmd: &SpecCommand, out: &mut BTreeMap<String, Multi>) {
 }
 
 /// Why a vector is not usage-argv's to answer, if it isn't.
-fn out_of_scope(spec: &Spec, expect: &Expect) -> Option<&'static str> {
-    if let Expect::Error(code) = expect {
-        match code {
-            ErrorCode::MissingRequiredFlag => {
-                return Some("required flags are checked after binding")
-            }
-            ErrorCode::MissingRequiredArg => {
-                return Some("required args are checked after binding")
-            }
-            ErrorCode::InvalidChoice => return Some("choices are validated after binding"),
-            ErrorCode::VarTooFew | ErrorCode::VarTooMany => {
-                return Some("var_min and var_max are checked after binding");
-            }
-            _ => {}
-        }
+///
+/// The vector says so. This used to be inferred by looking for a post-binding
+/// feature anywhere in the spec, which exempted vectors whose expectation was an
+/// ordinary binding: `--no-color` binds false whatever else that flag declares.
+fn out_of_scope(vector: &Vector) -> Option<&'static str> {
+    match vector.layer {
+        Layer::Binding => None,
+        Layer::PostBinding => Some(
+            "decided after the last token is read, so it belongs to the layer that \
+             owns the target struct",
+        ),
     }
-    declares_post_binding(&spec.cmd)
-}
-
-fn declares_post_binding(cmd: &SpecCommand) -> Option<&'static str> {
-    for flag in &cmd.flags {
-        if let Some(reason) = flag_post_binding(flag) {
-            return Some(reason);
-        }
-    }
-    for arg in &cmd.args {
-        if let Some(reason) = arg_post_binding(arg) {
-            return Some(reason);
-        }
-    }
-    cmd.subcommands.values().find_map(declares_post_binding)
-}
-
-fn flag_post_binding(flag: &SpecFlag) -> Option<&'static str> {
-    if !flag.default.is_empty() {
-        return Some("defaults are applied after binding");
-    }
-    if flag.env.is_some() {
-        return Some("env fallback is applied after binding");
-    }
-    if !flag.overrides.is_empty() {
-        return Some("overrides are resolved after binding");
-    }
-    if flag.required || !flag.required_if.is_empty() || !flag.required_unless.is_empty() {
-        return Some("requirements are checked after binding");
-    }
-    if flag.var_min.is_some() || flag.var_max.is_some() {
-        return Some("var_min and var_max are checked after binding");
-    }
-    flag.arg.as_ref().and_then(arg_post_binding)
-}
-
-fn arg_post_binding(arg: &SpecArg) -> Option<&'static str> {
-    if !arg.default.is_empty() {
-        return Some("defaults are applied after binding");
-    }
-    if arg.env.is_some() {
-        return Some("env fallback is applied after binding");
-    }
-    if arg.choices.is_some() {
-        return Some("choices are validated after binding");
-    }
-    if arg.var_min.is_some() || arg.var_max.is_some() {
-        return Some("var_min and var_max are checked after binding");
-    }
-    None
 }
 
 /// Build leaked tables mirroring a spec command.

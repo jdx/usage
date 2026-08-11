@@ -1,6 +1,6 @@
 {
   "section": "env-and-defaults",
-  "about": "Where a value comes from when the command line does not supply one. The command line wins, then the environment, then the declared default. None of these change which tokens bind where — they only fill what argv left empty.",
+  "about": "Where a value comes from when the command line does not supply one. The command line wins, then the environment, then the declared default. None of these change which tokens bind where \u2014 they only fill what argv left empty.",
   "vectors": [
     {
       "id": "env-fills-absent-flag",
@@ -8,7 +8,8 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\"\n",
       "argv": [],
       "env": { "EX_JOBS": "4" },
-      "expect": { "ok": { "flags": { "jobs": "4" } } }
+      "expect": { "ok": { "flags": { "jobs": "4" } } },
+      "layer": "post-binding"
     },
     {
       "id": "argv-beats-env",
@@ -23,7 +24,8 @@
       "doc": "With the env var unset, the declared default applies.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
       "argv": [],
-      "expect": { "ok": { "flags": { "jobs": "1" } } }
+      "expect": { "ok": { "flags": { "jobs": "1" } } },
+      "layer": "post-binding"
     },
     {
       "id": "env-beats-default",
@@ -31,7 +33,8 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
       "argv": [],
       "env": { "EX_JOBS": "4" },
-      "expect": { "ok": { "flags": { "jobs": "4" } } }
+      "expect": { "ok": { "flags": { "jobs": "4" } } },
+      "layer": "post-binding"
     },
     {
       "id": "env-empty-string-counts-as-set",
@@ -39,14 +42,16 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" default=\"1\"\n",
       "argv": [],
       "env": { "EX_JOBS": "" },
-      "expect": { "ok": { "flags": { "jobs": "" } } }
+      "expect": { "ok": { "flags": { "jobs": "" } } },
+      "layer": "post-binding"
     },
     {
       "id": "default-fills-absent-arg",
       "doc": "Defaults work the same way for positionals.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\" default=\"out.txt\"\n",
       "argv": [],
-      "expect": { "ok": { "args": { "file": "out.txt" } } }
+      "expect": { "ok": { "args": { "file": "out.txt" } } },
+      "layer": "post-binding"
     },
     {
       "id": "env-fills-absent-arg",
@@ -54,7 +59,8 @@
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\" env=\"EX_FILE\"\n",
       "argv": [],
       "env": { "EX_FILE": "from-env.txt" },
-      "expect": { "ok": { "args": { "file": "from-env.txt" } } }
+      "expect": { "ok": { "args": { "file": "from-env.txt" } } },
+      "layer": "post-binding"
     },
     {
       "id": "env-does-not-satisfy-required-arg-position",
@@ -62,7 +68,8 @@
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\" env=\"EX_FILE\"\n",
       "argv": [],
       "env": { "EX_FILE": "x.txt" },
-      "expect": { "ok": { "args": { "file": "x.txt" } } }
+      "expect": { "ok": { "args": { "file": "x.txt" } } },
+      "layer": "post-binding"
     }
   ]
 }
