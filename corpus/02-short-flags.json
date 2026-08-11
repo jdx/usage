@@ -35,20 +35,14 @@
       "doc": "`-j=8` binds `8`, not `=8`. A single leading `=` is a separator, matching the long form.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
       "argv": ["-j=8"],
-      "expect": { "ok": { "flags": { "jobs": "8" } } },
-      "reference": {
-        "diverges": "usage-lib binds `=8`, keeping the separator as part of the value."
-      }
+      "expect": { "ok": { "flags": { "jobs": "8" } } }
     },
     {
       "id": "short-value-missing",
       "doc": "A value-taking short at the end of the command line is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
       "argv": ["-j"],
-      "expect": { "error": "missing_flag_value" },
-      "reference": {
-        "diverges": "usage-lib parses successfully and binds nothing, as it does for the long form."
-      }
+      "expect": { "error": "missing_flag_value" }
     },
     {
       "id": "short-bundle",

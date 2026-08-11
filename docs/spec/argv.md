@@ -262,21 +262,18 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-Today usage-lib diverges on 16 of 87 vectors, from four causes:
+Today usage-lib diverges on 11 of 87 vectors, from three causes:
 
 **Unrecognized flags fall through to positionals.** `ex --wat` binds `--wat` to
 an argument if one is free, and reports `unexpected_arg` if not. This accounts
 for most of the divergences, including the ones where the grammar and usage-lib
 agree a flag is out of scope but disagree about which error to report.
 
-**A flag missing its value is dropped silently.** `ex --jobs` parses
-successfully with nothing bound, so a forgotten value looks like a working
-command. `ex --jobs --force` likewise binds `force` and leaves `jobs` unset.
-
-**`=` is kept in attached short values.** `-j=8` binds `=8` rather than `8`.
-
 **Repeated `--` is eaten.** A second separator is dropped rather than kept as a
-value, so a forwarded command line containing `--` is altered in transit.
+value, so a forwarded command line containing `--` is altered in transit. Note
+that `double_dash="preserve"` exists precisely to keep separators, which makes
+this arguably a deliberate design choice rather than a bug — see
+[Open questions](#open-questions).
 
 Three smaller gaps: `--jobs=` binds nothing rather than the empty string; a flag
 with a variadic argument (`--include <pattern>...`, which the

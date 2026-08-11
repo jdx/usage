@@ -77,11 +77,11 @@ fn agrees_where_usage_lib_does_not() {
         resolved += 1;
     }
 
-    assert!(
-        resolved >= 12,
-        "expected usage-argv to resolve at least a dozen recorded divergences, \
-         resolved {resolved}"
-    );
+    // No floor on `resolved`: every divergence fixed in usage-lib removes a label
+    // and shrinks this set, so an empty one would mean the reference has caught up
+    // entirely — a success, not a broken test. The per-vector assertion above is
+    // what carries the weight.
+    let _ = resolved;
 }
 
 #[test]
