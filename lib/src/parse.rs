@@ -837,7 +837,12 @@ fn parse_partial_with_env(
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
-                if split.is_some() {
+                // An empty value only means something to a flag that takes one:
+                // `--jobs=` is an empty string, while `--force=` has nothing to give
+                // a flag that holds no value, and queueing it would leave a stray
+                // empty word to be read as a positional. A non-empty value on such a
+                // flag is left as it was, which is its own question.
+                if (split.is_some() && f.arg.is_some()) || !val.is_empty() {
                     input.push_front(val.to_string());
                     prefix_bindings.push_front(None);
                 }

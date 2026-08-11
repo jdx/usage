@@ -45,6 +45,13 @@
       "expect": { "ok": { "flags": { "jobs": "" } } }
     },
     {
+      "id": "long-boolean-with-empty-attached-value",
+      "doc": "`--force=` on a flag that holds no value leaves nothing behind. An empty value means something only to a flag that takes one, and a stray empty word would otherwise be read as a positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[file]\"\n",
+      "argv": ["--force="],
+      "expect": { "ok": { "flags": { "force": true } } }
+    },
+    {
       "id": "long-value-attached-flaglike",
       "doc": "An attached value binds even when it looks like a flag: `=` has already settled where the value came from.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
