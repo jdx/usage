@@ -85,6 +85,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let (sub_init, sub_route, sub_build) = match subcommand {
         Some((field, ty)) => {
             let ident = &field.ident;
+            let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
             (
                 quote! {
                     let mut __usage_sub =
@@ -104,16 +105,38 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         &__usage_event,
                     );
                 },
-                quote! {
-                    #ident: match __usage_selected {
-                        ::std::option::Option::Some(__usage_key) => {
-                            <#ty as ::usage_argv::spec::Subcommands>::select(
-                                __usage_sub,
-                                __usage_key,
-                            )
+                {
+                    // Only the command that was reached is judged, and a command that
+                    // was required has to be reported if it was not.
+                    let selected = quote! {
+                        match __usage_selected {
+                            ::std::option::Option::Some(__usage_key) => {
+                                <#ty as ::usage_argv::spec::Subcommands>::check(
+                                    &mut __usage_sub,
+                                    __usage_key,
+                                )?;
+                                <#ty as ::usage_argv::spec::Subcommands>::select(
+                                    __usage_sub,
+                                    __usage_key,
+                                )
+                            }
+                            ::std::option::Option::None => ::std::option::Option::None,
                         }
-                        ::std::option::Option::None => ::std::option::Option::None,
-                    },
+                    };
+                    if optional {
+                        quote!(#ident: #selected,)
+                    } else {
+                        quote! {
+                            #ident: match #selected {
+                                ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
+                                ::std::option::Option::None => {
+                                    return ::std::result::Result::Err(
+                                        ::usage_argv::Error::MissingSubcommand,
+                                    );
+                                }
+                            },
+                        }
+                    }
                 },
             )
         }
@@ -123,6 +146,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli, base);
+    let post = post_binding(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
     // generated code needs.
@@ -137,7 +161,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     quote! {
         #[doc(hidden)]
-        #[allow(non_upper_case_globals, non_snake_case, unused_imports)]
+        #[allow(
+            non_upper_case_globals,
+            non_snake_case,
+            unused_imports,
+            // Fires when a metadata struct happens to be fully specified. `..EMPTY`
+            // is kept on purpose: it is what lets usage-argv gain a metadata field
+            // without breaking every crate that derives.
+            clippy::needless_update
+        )]
         mod #module {
             use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
             use ::usage_argv::{Arg, Command, DoubleDash, Flag};
@@ -239,6 +271,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     }
                 }
 
+                #post
+
                 ::std::result::Result::Ok(Self {
                     #sub_build
                     #(#field_finals),*
@@ -333,6 +367,12 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let hide = field.hide;
     let count = field.shape == Shape::Count;
     let repeatable = field.repeatable;
+    // Same rule as an argument: a `String` has nowhere to put "absent". The runtime
+    // check already enforced it; the spec has to say it too, or docs and completions
+    // describe a different CLI from the one that runs.
+    let required = field.shape == Shape::Required;
+    let choices = choices_tokens(field);
+    let (var_min, var_max) = bounds_tokens(field);
 
     quote! {
         pub static #name: FlagMeta = FlagMeta {
@@ -345,6 +385,10 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
+            required: #required,
+            choices: #choices,
+            var_min: #var_min,
+            var_max: #var_max,
             ..FlagMeta::EMPTY
         };
     }
@@ -364,6 +408,8 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
     let hide = field.hide;
     // `String` must be filled; `Option` and `Vec` need not be.
     let required = field.shape == Shape::Required;
+    let choices = choices_tokens(field);
+    let (var_min, var_max) = bounds_tokens(field);
 
     quote! {
         pub static #name: ArgMeta = ArgMeta {
@@ -375,9 +421,27 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
             help_heading: #help_heading,
             hide: #hide,
             required: #required,
+            choices: #choices,
+            var_min: #var_min,
+            var_max: #var_max,
             ..ArgMeta::EMPTY
         };
     }
+}
+
+/// A field's declared choices, as the metadata holds them.
+fn choices_tokens(field: &Field) -> TokenStream {
+    let choices = &field.choices;
+    quote!(&[#(#choices),*])
+}
+
+/// A field's declared bounds, as the metadata holds them.
+fn bounds_tokens(field: &Field) -> (TokenStream, TokenStream) {
+    let render = |bound: Option<usize>| match bound {
+        Some(n) => quote!(::std::option::Option::Some(#n)),
+        None => quote!(::std::option::Option::None),
+    };
+    (render(field.var_min), render(field.var_max))
 }
 
 /// Which kind of thing a key belongs to, in the bits above its index.
@@ -443,6 +507,7 @@ fn in_module(ty: &syn::Type) -> TokenStream {
 fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
     let key = base | KIND_FLAG | i as u64;
     let ident = &field.ident;
+    let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(partial.#ident = !negated;),
@@ -456,13 +521,14 @@ fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         Shape::Many => quote!(partial.#ident.push(__usage_value_text(value));),
     };
     quote! {
-        #key => { #body true }
+        #key => { #body partial.#given = true; true }
     }
 }
 
 fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
     let key = base | KIND_ARG | i as u64;
     let ident = &field.ident;
+    let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
         Shape::Many => quote!(partial.#ident.push(__usage_text(value));),
         Shape::Optional => quote! {
@@ -471,7 +537,7 @@ fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         _ => quote!(partial.#ident = __usage_text(value);),
     };
     quote! {
-        #key => { #body true }
+        #key => { #body partial.#given = true; true }
     }
 }
 
@@ -506,7 +572,11 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             Shape::Required => quote!(::std::string::String),
             Shape::Many => quote!(::std::vec::Vec<::std::string::String>),
         };
-        Some(quote!(pub #ident: #ty,))
+        let given = format_ident!("__given_{}", ident);
+        // Whether a token supplied this, as opposed to a default sitting in it: an
+        // empty string is a value somebody typed, and `--jobs=` has to be able to
+        // mean it.
+        Some(quote!(pub #ident: #ty, pub #given: bool,))
     });
 
     // `Default` rather than a generated `new`: every accumulator type has one, and
@@ -640,6 +710,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli, base);
+    let post = post_binding(cli);
     let field_finals = cli.fields.iter().map(|f| {
         let ident = &f.ident;
         quote!(#ident: partial.#ident)
@@ -647,7 +718,15 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
     quote! {
         #[doc(hidden)]
-        #[allow(non_upper_case_globals, non_snake_case, unused_imports)]
+        #[allow(
+            non_upper_case_globals,
+            non_snake_case,
+            unused_imports,
+            // Fires when a metadata struct happens to be fully specified. `..EMPTY`
+            // is kept on purpose: it is what lets usage-argv gain a metadata field
+            // without breaking every crate that derives.
+            clippy::needless_update
+        )]
         mod #module {
             use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta};
             use ::usage_argv::{Arg, Command, DoubleDash, Flag};
@@ -692,6 +771,18 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 #defaults
                 partial
             }
+
+            /// Everything decided after the last token, for this command.
+            ///
+            /// Separate from `build` because only the *selected* command's
+            /// requirements apply: a flag that `install` requires says nothing about
+            /// an invocation that ran `run`.
+            pub fn check<'t, 'v>(
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                #post
+                ::std::result::Result::Ok(())
+            }
         }
 
         impl ::usage_argv::spec::CommandArgs for #ident {
@@ -710,6 +801,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 event: &::usage_argv::Event<'_, '_>,
             ) -> bool {
                 #module::apply(partial, event)
+            }
+
+            fn check<'t, 'v>(
+                partial: &mut Self::Partial,
+            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                #module::check(partial)
             }
 
             fn build(partial: Self::Partial) -> Self {
@@ -802,6 +899,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     });
     // Matched on the command's key rather than its name, so selecting a variant is
     // an integer comparison and cannot be confused by an alias.
+    let checks = subs.variants.iter().enumerate().map(|(i, v)| {
+        let field = format_ident!("v{i}");
+        let ty = &v.ty;
+        quote! {
+            if key == <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.key {
+                return <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#field);
+            }
+        }
+    });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
         let variant = &v.ident;
@@ -817,7 +923,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 
     quote! {
         #[doc(hidden)]
-        #[allow(non_upper_case_globals, non_snake_case, unused_imports)]
+        #[allow(
+            non_upper_case_globals,
+            non_snake_case,
+            unused_imports,
+            // Fires when a metadata struct happens to be fully specified. `..EMPTY`
+            // is kept on purpose: it is what lets usage-argv gain a metadata field
+            // without breaking every crate that derives.
+            clippy::needless_update
+        )]
         mod #module {
             pub struct Partial {
                 #(#partial_fields)*
@@ -849,10 +963,160 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 false
             }
 
+            fn check<'t, 'v>(
+                partial: &mut Self::Partial,
+                key: u64,
+            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                #(#checks)*
+                ::std::result::Result::Ok(())
+            }
+
             fn select(partial: Self::Partial, key: u64) -> ::std::option::Option<Self> {
                 #(#selects)*
                 ::std::option::Option::None
             }
         }
+    }
+}
+
+/// Everything decided once the last token has been read.
+///
+/// Ordered deliberately. The environment fills what argv left out, so it runs
+/// before required-ness — a flag with `env` set is not missing. Choices and bounds
+/// come last, because they judge a value however it arrived, including one that came
+/// from the environment or a default.
+fn post_binding(cli: &Cli) -> TokenStream {
+    let env_fallbacks = cli.fields.iter().filter_map(|f| {
+        let ident = &f.ident;
+        let given = format_ident!("__given_{}", ident);
+        let var = f.env.as_deref()?;
+        let assign = match f.shape {
+            Shape::Optional => quote!(partial.#ident = ::std::option::Option::Some(value);),
+            Shape::Required => quote!(partial.#ident = value;),
+            Shape::Many => quote!(partial.#ident.push(value);),
+            // A switch reads as on for anything but the spellings of "off", which is
+            // what every tool that takes a boolean from the environment settles on.
+            Shape::Bool => quote! {
+                partial.#ident = !matches!(
+                    value.as_str(),
+                    "" | "0" | "false" | "no" | "off"
+                );
+            },
+            // A number, since the environment cannot repeat a flag: `EX_VERBOSE=3`
+            // is how you say `-vvv`. An unparseable value leaves the field alone
+            // rather than being counted as given.
+            Shape::Count => {
+                let ty = &f.ty;
+                quote! {
+                    match value.parse::<#ty>() {
+                        ::std::result::Result::Ok(count) => partial.#ident = count,
+                        ::std::result::Result::Err(_) => continue_unset = true,
+                    }
+                }
+            }
+        };
+        Some(quote! {
+            if !partial.#given {
+                if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
+                    let mut continue_unset = false;
+                    #assign
+                    if !continue_unset {
+                        partial.#given = true;
+                    }
+                }
+            }
+        })
+    });
+
+    let required_checks = cli.fields.iter().filter_map(|f| {
+        // A `String` has nowhere to put "absent", so the type is the declaration.
+        // Anything with a default or an environment variable is already filled.
+        if f.shape != Shape::Required || f.default.is_some() {
+            return None;
+        }
+        let given = format_ident!("__given_{}", f.ident);
+        let name = &f.name;
+        Some(quote! {
+            if !partial.#given {
+                return ::std::result::Result::Err(
+                    ::usage_argv::Error::MissingRequired { name: #name },
+                );
+            }
+        })
+    });
+
+    let choice_checks = cli.fields.iter().filter_map(|f| {
+        if f.choices.is_empty() {
+            return None;
+        }
+        let ident = &f.ident;
+        let name = &f.name;
+        let choices = &f.choices;
+        let values = match f.shape {
+            Shape::Optional => quote!(partial.#ident.iter()),
+            Shape::Required => quote!(::std::iter::once(&partial.#ident)),
+            Shape::Many => quote!(partial.#ident.iter()),
+            // Rejected in the model: there is no value to check.
+            Shape::Bool | Shape::Count => return None,
+        };
+        Some(quote! {
+            for value in #values {
+                if ![#(#choices),*].contains(&value.as_str()) {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::InvalidChoice {
+                            name: #name,
+                            choices: &[#(#choices),*],
+                        },
+                    );
+                }
+            }
+        })
+    });
+
+    let bound_checks = cli.fields.iter().filter_map(|f| {
+        if f.var_min.is_none() && f.var_max.is_none() {
+            return None;
+        }
+        let ident = &f.ident;
+        let name = &f.name;
+        let min = match f.var_min {
+            Some(min) => quote! {
+                if got < #min {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::VarTooFew { name: #name, min: #min, got },
+                    );
+                }
+            },
+            None => quote!(),
+        };
+        let max = match f.var_max {
+            Some(max) => quote! {
+                if got > #max {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::VarTooMany { name: #name, max: #max, got },
+                    );
+                }
+            },
+            None => quote!(),
+        };
+        let given = format_ident!("__given_{}", ident);
+        Some(quote! {
+            // Only when the field was used. A bound says "if you give values, give
+            // this many" — reading an unused optional flag as a violation would make
+            // `var_min` a second way to spell required-ness, and there would then be
+            // no way to say "at least two, if you use it at all".
+            if partial.#given {
+                let got = partial.#ident.len();
+                #min
+                #max
+            }
+        })
+    });
+
+    quote! {
+        #(#env_fallbacks)*
+        #(#required_checks)*
+        #(#choice_checks)*
+        #(#bound_checks)*
     }
 }

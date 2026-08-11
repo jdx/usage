@@ -268,7 +268,11 @@ pub enum Event<'t, 'v> {
 /// Carries the offending token so a caller can render a good message, but no
 /// message of its own: rendering belongs to a cold path, and building a string
 /// here would allocate on the way to reporting that nothing was allocated.
+///
+/// `non_exhaustive`, because an error enum grows: a caller matching on it needs a
+/// fallback arm so that recognizing a new failure is never a breaking change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error<'t, 'v> {
     /// A flag-like token matched no flag in scope. `token` is the whole token as
     /// typed, so a bundle containing an unrecognized letter reports `-fz` rather
@@ -284,6 +288,39 @@ pub enum Error<'t, 'v> {
     ArgRequiresDoubleDash { arg: &'t Arg<'t> },
     /// The command tree is deeper than [`MAX_DEPTH`].
     TooDeep,
+
+    // The rest are raised *after* the parse, by whoever owns the target type: they
+    // need to know a value's declared type, which the parser deliberately does not.
+    // They share this enum so that a caller has one error to handle rather than two.
+    /// Something the command requires was never given.
+    MissingRequired {
+        /// The flag or argument's name, as the spec calls it.
+        name: &'t str,
+    },
+    /// A value was given that is not among the declared choices.
+    ///
+    /// Carries the choices rather than the offending value: rendering the value means
+    /// owning it, and an error that allocates on a path this crate promises not to
+    /// allocate on would be a poor trade for a better message. Diagnostics are a
+    /// separate layer.
+    InvalidChoice {
+        name: &'t str,
+        choices: &'t [&'t str],
+    },
+    /// Fewer values than `var_min`.
+    VarTooFew {
+        name: &'t str,
+        min: usize,
+        got: usize,
+    },
+    /// More values than `var_max`.
+    VarTooMany {
+        name: &'t str,
+        max: usize,
+        got: usize,
+    },
+    /// A subcommand was required, and none was given.
+    MissingSubcommand,
 }
 
 /// Interpret a value as UTF-8.

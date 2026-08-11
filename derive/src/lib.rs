@@ -86,6 +86,30 @@
 //! tree has no duplicates, so a collision fails a test rather than binding the wrong
 //! field.
 //!
+//! # What is decided after the parse
+//!
+//! The parser binds tokens. Whether what it bound is *acceptable* needs to know the
+//! declared type, so the generated code checks that once the last token has been
+//! read, in an order that is deliberate:
+//!
+//! 1. **The environment** fills what argv left out, for a field with `env`.
+//! 2. **Required-ness**, which the type states: a `String` has nowhere to put
+//!    "absent", so it must be given — unless a default or the environment already
+//!    filled it.
+//! 3. **`choices`** and **`var_min`/`var_max`**, which judge a value however it
+//!    arrived, including from the environment or a default.
+//!
+//! Only the command that actually ran is judged. A flag that `install` requires says
+//! nothing about an invocation of `run`.
+//!
+//! Bounds constrain the values a field was *given*: an unused optional flag is
+//! absent, not a violation, or `var_min` would be a second way to spell
+//! required-ness and there would be no way to say "at least two, if you use it".
+//!
+//! Contradictions are refused at compile time rather than at run time — `choices` on
+//! a `bool`, a `var_min` above its `var_max`, a bound on something that is not a
+//! `Vec`, or a default that is not one of the choices.
+//!
 //! # Declaring
 //!
 //! A field with `long` or `short` is a flag; anything else is a positional
@@ -114,11 +138,14 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **A required subcommand.** A `subcommand` field has to be `Option<T>`:
-//!   reporting that one was needed is a required-ness question, and that layer does
-//!   not exist yet.
 //! - **Nesting deeper than one level.** A subcommand's own subcommands need the
 //!   `Args` struct to carry a `subcommand` field too, which it does not yet.
+//! - **`overrides` and `required_unless`.** Both are about one flag's effect on
+//!   another, which needs to know the order they arrived in; nothing records that
+//!   yet.
+//! - **Typed values.** Everything is text: a field is a `String`, an
+//!   `Option<String>`, a `Vec<String>`, a `bool`, or a counting integer. Parsing
+//!   into a richer type needs an error for a value that will not convert.
 //! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
 //!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a
 //!   compile error rather than a surprise, because converting a value is also

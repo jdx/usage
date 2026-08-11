@@ -146,6 +146,14 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         Error::UnexpectedArg { .. } => ErrorCode::UnexpectedArg,
         Error::ArgRequiresDoubleDash { .. } => ErrorCode::ArgRequiresDoubleDash,
         Error::TooDeep => panic!("no corpus spec is anywhere near MAX_DEPTH"),
+        // The parser cannot raise these — they come from the layer above it, which
+        // this harness does not exercise: it builds tables from a spec rather than
+        // from a derived struct.
+        // Everything else comes from the layer above the parser, which this harness
+        // does not exercise: it builds tables from a spec rather than from a derived
+        // struct. A wildcard rather than a list, because `Error` is `non_exhaustive`
+        // — recognizing a new failure should not break this file.
+        other => unreachable!("the parser cannot raise {other:?}"),
     }
 }
 
