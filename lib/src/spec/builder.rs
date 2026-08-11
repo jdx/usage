@@ -248,6 +248,12 @@ impl SpecFlagBuilder {
     }
 
     /// Set environment variable name
+    /// Heading to list this under in help output.
+    pub fn help_heading(mut self, help_heading: impl Into<String>) -> Self {
+        self.inner.help_heading = Some(help_heading.into());
+        self
+    }
+
     pub fn env(mut self, env: impl Into<String>) -> Self {
         self.inner.env = Some(env.into());
         self
@@ -387,6 +393,12 @@ impl SpecArgBuilder {
     }
 
     /// Set environment variable name
+    /// Heading to list this under in help output.
+    pub fn help_heading(mut self, help_heading: impl Into<String>) -> Self {
+        self.inner.help_heading = Some(help_heading.into());
+        self
+    }
+
     pub fn env(mut self, env: impl Into<String>) -> Self {
         self.inner.env = Some(env.into());
         self

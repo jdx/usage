@@ -89,6 +89,10 @@ pub struct SpecArg {
     /// Environment variable that can provide this argument's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+    /// Heading this argument is listed under in help output. Presentational only,
+    /// like the flag field of the same name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_heading: Option<String>,
 }
 
 impl SpecArg {
@@ -124,6 +128,7 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = v.ensure_string().map(Some)?,
+                "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
         }
@@ -146,6 +151,9 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
+                "help_heading" => {
+                    arg.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
                 "default" => {
                     // Support both single value and multiple values
                     // default "bar"            -> vec!["bar"]
@@ -258,6 +266,9 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(env) = &arg.env {
             node.push(string_entry(Some("env"), env));
+        }
+        if let Some(help_heading) = &arg.help_heading {
+            node.push(string_entry(Some("help_heading"), help_heading));
         }
         if let Some(effect) = &arg.effect {
             node.push(string_entry(Some("effect"), effect.as_str()));
@@ -373,6 +384,7 @@ impl From<&clap::Arg> for SpecArg {
             choices: None,
             effect: None,
             env: None,
+            help_heading: arg.get_help_heading().map(|s| s.to_string()),
         };
         if !choices.is_empty() {
             arg.choices = Some(SpecChoices {

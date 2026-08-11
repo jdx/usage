@@ -33,10 +33,10 @@ Commands:
     Print this message or the help of the given subcommand(s)
 {%- endif %}
 
-{%- if cmd.args %}
+{%- for group in cmd.arg_groups %}
 
-Arguments:
-{%- for arg in cmd.args %}
+{{ group.heading | default(value="Arguments") }}:
+{%- for arg in group.items %}
 {%- if arg.help_rendered %}
   {{ arg.usage | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
 {%- if arg.help_is_multiline %}
@@ -62,12 +62,12 @@ Arguments:
     (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
-{%- endif %}
+{%- endfor %}
 
-{%- if cmd.flags %}
+{%- for group in cmd.flag_groups %}
 
-Flags:
-{%- for flag in cmd.flags %}
+{{ group.heading | default(value="Flags") }}:
+{%- for flag in group.items %}
 {%- if flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
 {%- if flag.help_is_multiline %}
@@ -91,7 +91,7 @@ Flags:
     [env: {{ flag.env }}]
 {%- endif %}
 {%- endfor %}
-{%- endif %}
+{%- endfor %}
 
 {%- if cmd.examples %}
 

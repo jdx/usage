@@ -62,6 +62,60 @@ mod tests {
     use insta::assert_snapshot;
 
     #[test]
+    fn test_render_help_groups_by_heading() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--verbose" help="Verbose output"
+flag "--filter <pattern>" help="Only matching" help_heading="Filtering"
+flag "--exclude <pattern>" help="Skip matching" help_heading="Filtering"
+flag "--jobs <n>" help="How many at once" help_heading="Performance"
+arg "<file>" help="The file"
+arg "<mode>" help="How to run" help_heading="Behaviour"
+        "# }
+        .unwrap();
+
+        // Unheaded entries keep the default title and come first; each heading
+        // then gets its own section, in the order the headings first appear.
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [FLAGS] <file> <mode>
+
+        Arguments:
+          <file>  The file
+
+        Behaviour:
+          <mode>  How to run
+
+        Flags:
+          --verbose  Verbose output
+
+        Filtering:
+          --filter <pattern>  Only matching
+          --exclude <pattern>  Skip matching
+
+        Performance:
+          --jobs <n>  How many at once
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_only_headed_flags() {
+        // No default section when nothing lands in it: a CLI that gives every
+        // flag a heading should not get an empty "Flags:".
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--filter <pattern>" help="Only matching" help_heading="Filtering"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: testcli [--filter <pattern>]
+
+        Filtering:
+          --filter <pattern>  Only matching
+        ");
+    }
+
+    #[test]
     fn test_render_help_with_env() {
         let spec = crate::spec! { r#"
 bin "testcli"

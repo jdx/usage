@@ -34,38 +34,54 @@
 {%- set global_flags = [] %}
 {%- endif %}
 
-{%- if args %}
+{%- for arg_group in cmd.arg_groups %}
+{%- set group_args = arg_group.items | filter(attribute="hide", value=false) %}
+{%- if group_args %}
 
-{{ "#" | repeat(count=header_level) }}# Arguments
+{{ "#" | repeat(count=header_level) }}# {{ arg_group.heading | default(value="Arguments") }}
 
-{%- for arg in args %}
+{%- for arg in group_args %}
 
 {{ "#" | repeat(count=header_level) }}## `{{ arg.usage }}`
 {%- include "arg_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
+{%- endfor %}
 
-{%- if global_flags %}
+{%- for flag_group in cmd.flag_groups %}
+{%- set visible = flag_group.items | filter(attribute="hide", value=false) %}
+{%- set group_globals = visible | filter(attribute="global", value=true) %}
+{#- A heading beats the default title, so a grouped global flag lands in the same
+    section it does in help output rather than in a generic "Global Flags". #}
+{%- if cmd.subcommands and group_globals %}
 
-{{ "#" | repeat(count=header_level) }}# Global Flags
+{{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Global Flags") }}
 
-{%- for flag in global_flags %}
+{%- for flag in group_globals %}
 
 {{ "#" | repeat(count=header_level) }}## `{{ flag.usage }}`
 {%- include "flag_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
+{%- endfor %}
 
-{%- if local_flags %}
+{%- for flag_group in cmd.flag_groups %}
+{%- set visible = flag_group.items | filter(attribute="hide", value=false) %}
+{%- set group_flags = visible | filter(attribute="global", value=false) %}
+{%- if not cmd.subcommands %}
+{%- set group_flags = visible %}
+{%- endif %}
+{%- if group_flags %}
 
-{{ "#" | repeat(count=header_level) }}# Flags
+{{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Flags") }}
 
-{%- for flag in local_flags %}
+{%- for flag in group_flags %}
 
 {{ "#" | repeat(count=header_level) }}## `{{ flag.usage }}`
 {%- include "flag_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
+{%- endfor %}
 
 {%- if cmd.examples %}
 
