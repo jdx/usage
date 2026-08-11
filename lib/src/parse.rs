@@ -727,8 +727,11 @@ fn parse_partial_with_env(
             }
         }
 
-        if w == "--" {
-            // Always disable flag parsing after seeing a "--" token
+        // Only while flags are still being read. Once a `--` has done its job, a
+        // second one is an ordinary value: every parser worth comparing against
+        // keeps it (POSIX getopt, argparse, clap, commander, yargs), and jdx/usage#229
+        // was a user reporting the old behavior as the bug it is.
+        if w == "--" && enable_flags {
             enable_flags = false;
 
             // Only preserve the double dash token if we're collecting values for a variadic arg
@@ -3374,7 +3377,10 @@ cmd "run" {
 
     #[test]
     fn test_double_dashes_without_preserve() {
-        // Test that variadic args WITHOUT `preserve` skip "--" tokens (default behavior)
+        // Only the first `--` is a separator; a later one is a value, because flag
+        // parsing has already stopped and there is nothing left for it to do.
+        // `preserve` is about the *first* one — see the test below, where none is
+        // consumed at all.
         let run_cmd = SpecCommand::builder()
             .name("run")
             .arg(SpecArg::builder().name("args").var(true).build())
@@ -3389,7 +3395,7 @@ cmd "run" {
             ..Default::default()
         };
 
-        // "test run arg1 -- arg2 -- arg3" - all double dashes should be skipped
+        // "test run arg1 -- arg2 -- arg3": the first separates, the second is a value
         let input = vec![
             "test".to_string(),
             "run".to_string(),
@@ -3403,7 +3409,7 @@ cmd "run" {
 
         let args_arg = parsed.args.keys().find(|a| a.name == "args").unwrap();
         let value = parsed.args.get(args_arg).unwrap();
-        assert_eq!(value.to_string(), "arg1 arg2 arg3");
+        assert_eq!(value.to_string(), "arg1 arg2 -- arg3");
     }
 
     #[test]
