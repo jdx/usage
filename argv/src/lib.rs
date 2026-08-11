@@ -105,7 +105,14 @@ pub struct Command<'a> {
     /// [`UnknownFlags`].
     pub unknown_flags: UnknownFlags,
     /// Caller-assigned identifier, echoed back in [`Event::Command`].
-    pub key: u32,
+    ///
+    /// Wide enough for a derive to make these unique without coordination: two
+    /// macro expansions cannot see each other, so the generated keys carry a hash
+    /// of the type they came from in the high half and a per-type index in the low
+    /// half. A parse dispatches on this, so a collision would bind the wrong field
+    /// — [`Spec::to_kdl`](crate::spec::Spec::to_kdl) checks the tree for duplicates
+    /// in debug builds.
+    pub key: u64,
 }
 
 impl Command<'_> {
@@ -126,7 +133,8 @@ impl Command<'_> {
 pub struct Flag<'a> {
     /// Caller-assigned identifier, echoed back in [`Event::Flag`]. This is how
     /// generated code knows which field to assign without any string comparison.
-    pub key: u32,
+    /// See [`Command::key`] on why it is this wide.
+    pub key: u64,
     /// Unused by binding, kept so a table entry can carry its own name for
     /// diagnostics.
     pub name: &'a str,
@@ -175,8 +183,9 @@ impl Flag<'_> {
 /// A positional argument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Arg<'a> {
-    /// Caller-assigned identifier, echoed back in [`Event::Arg`].
-    pub key: u32,
+    /// Caller-assigned identifier, echoed back in [`Event::Arg`]. See
+    /// [`Command::key`] on why it is this wide.
+    pub key: u64,
     /// Whether this argument keeps taking values once it has one.
     pub var: bool,
     /// This argument's relationship to the `--` separator.

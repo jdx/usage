@@ -26,6 +26,30 @@ use core::fmt::Write as _;
 use crate::UnknownFlags;
 use crate::{Arg, Command, DoubleDash, Flag};
 
+/// The first key that appears twice anywhere in a command tree, if any.
+///
+/// Keys are what a parse dispatches on, and a derive assigns them without being able
+/// to see other expansions — it hashes the type name to keep them apart. That makes
+/// a collision astronomically unlikely rather than impossible, so it is checked
+/// where a CLI is written out, which every adopter does in a test.
+fn duplicate_key(cmd: &Command<'_>) -> Option<u64> {
+    let mut keys = std::vec::Vec::new();
+    collect_keys(cmd, &mut keys);
+    keys.sort_unstable();
+    keys.windows(2)
+        .find(|pair| pair[0] == pair[1])
+        .map(|pair| pair[0])
+}
+
+fn collect_keys(cmd: &Command<'_>, keys: &mut std::vec::Vec<u64>) {
+    keys.push(cmd.key);
+    keys.extend(cmd.flags.iter().map(|f| f.key));
+    keys.extend(cmd.args.iter().map(|a| a.key));
+    for sub in cmd.subcommands {
+        collect_keys(sub, keys);
+    }
+}
+
 /// A whole CLI: the root command plus what describes the program itself.
 #[derive(Debug, Clone, Copy)]
 pub struct Spec<'a> {
@@ -220,6 +244,13 @@ impl Effect {
 impl Spec<'_> {
     /// Write this CLI as a usage spec, in KDL.
     pub fn to_kdl(&self) -> String {
+        debug_assert!(
+            duplicate_key(self.root.cmd).is_none(),
+            "two things in this CLI share a key ({:?}), so a parse would bind the \
+             wrong one. A derive builds keys from a hash of the type they came from, \
+             so this means two type names collided.",
+            duplicate_key(self.root.cmd)
+        );
         let mut out = String::new();
         // Unwrap-free: writing into a String cannot fail, and `write!` returning
         // Result is an artifact of the trait rather than a real outcome.
@@ -705,6 +736,68 @@ fn quoted(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// A struct that describes one command's flags and arguments.
+///
+/// Implemented by the derive on a subcommand's argument struct. The root's
+/// generated parse needs to name the type that accumulates a subcommand's values
+/// while parsing, and cannot know which module the derive put it in — an
+/// associated type is how it names it regardless.
+pub trait CommandArgs: Sized {
+    /// Values collected so far. Partly-filled by construction, since a parse can
+    /// stop early.
+    type Partial: Default;
+
+    /// The parse tables for this command.
+    ///
+    /// A const rather than a method, because a parent splices it into its own
+    /// `static` tables and a method call is not allowed there. That is the whole
+    /// reason this trait exists: the tables stay static all the way down, so
+    /// nothing is built at run time to start a parse.
+    const COMMAND: &'static Command<'static>;
+
+    /// The metadata for this command.
+    const META: &'static CommandMeta<'static>;
+
+    /// A partial with any declared defaults already in place.
+    ///
+    /// Not `Default::default()`, because a default has to be there before parsing
+    /// starts: nothing afterwards distinguishes it from what the user typed.
+    fn start() -> Self::Partial;
+
+    /// Take one event, and say whether it belonged to this command.
+    ///
+    /// Keys are unique across a CLI, so an event that is not this command's is left
+    /// for whoever owns it rather than mistaken for a local field.
+    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+
+    /// Build the struct from what was collected.
+    fn build(partial: Self::Partial) -> Self;
+}
+
+/// An enum whose variants are a command's subcommands.
+///
+/// Implemented by the derive on the enum a `subcommand` field holds.
+pub trait Subcommands: Sized {
+    /// Values collected for whichever variant is being filled.
+    type Partial: Default;
+
+    /// The parse tables for the variants, to splice into the parent command's
+    /// `static` tables — hence a const. See [`CommandArgs::COMMAND`].
+    const COMMANDS: &'static [&'static Command<'static>];
+
+    /// The metadata for the variants, in the same order.
+    const METAS: &'static [&'static CommandMeta<'static>];
+
+    /// Take one event, and say whether it belonged to one of these commands.
+    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+
+    /// Build the variant whose command was selected, by its [`Command::key`].
+    ///
+    /// `None` when no variant was selected, which a caller reads as "no subcommand
+    /// was given".
+    fn select(partial: Self::Partial, key: u64) -> Option<Self>;
 }
 
 #[cfg(test)]
