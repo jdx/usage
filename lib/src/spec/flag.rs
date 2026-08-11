@@ -659,6 +659,33 @@ mod tests {
     }
 
     #[test]
+    fn a_serialized_spec_can_always_be_read_back() {
+        // Both of these produced KDL that this crate could not reparse: a node
+        // argument beginning with a dash was rendered bare, and a control character
+        // was rendered literally. Help text carries the second whenever a CLI
+        // colors its output.
+        let spec: Spec = "flag \"--shell <s>\" {\n  required_unless \"--jobs\" \"--color\"\n  overrides \"--keep\" \"--dry-run\"\n  long_help \"Colored.\\u{1b}[0m Text.\"\n}\n"
+            .parse()
+            .unwrap();
+
+        let serialized = spec.to_string();
+        let reparsed: Spec = serialized
+            .parse()
+            .unwrap_or_else(|e| panic!("a serialized spec should reparse: {e}\n\n{serialized}"));
+
+        let flag = &reparsed.cmd.flags[0];
+        assert_eq!(
+            flag.required_unless,
+            vec!["--jobs".to_string(), "--color".to_string()]
+        );
+        assert_eq!(
+            flag.overrides,
+            vec!["--keep".to_string(), "--dry-run".to_string()]
+        );
+        assert_eq!(flag.help_long.as_deref(), Some("Colored.\u{1b}[0m Text."));
+    }
+
+    #[test]
     fn test_flag_with_env() {
         let spec = Spec::parse(
             &Default::default(),

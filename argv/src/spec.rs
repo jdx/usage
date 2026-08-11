@@ -226,10 +226,13 @@ impl Spec<'_> {
         if let Some(version) = self.version {
             prop(out, "version", version)?;
         }
-        if let Some(about) = self.about {
+        // A description may be given on the spec or on its root command — a derive
+        // naturally has one doc comment and no reason to care which field it lands
+        // in — so either is written, the spec's first.
+        if let Some(about) = self.about.or(self.root.about) {
             prop(out, "about", about)?;
         }
-        if let Some(long_about) = self.long_about {
+        if let Some(long_about) = self.long_about.or(self.root.long_about) {
             prop(out, "long_about", long_about)?;
         }
         if let Some(default_subcommand) = self.default_subcommand {
@@ -248,6 +251,18 @@ impl Spec<'_> {
             "a mount on the root command cannot be written: the spec accepts \
              `mount` only inside a `cmd` block"
         );
+        // The same is true of everything else that lives on a `cmd` node. Setting
+        // one on the root is a mistake, and silently dropping it is the lossiness
+        // this module claims not to have.
+        debug_assert!(
+            self.root.effect.is_none()
+                && !self.root.hide
+                && self.root.restart_token.is_none()
+                && self.root.cmd.aliases.is_empty()
+                && self.root.hidden_aliases.is_empty(),
+            "the root command cannot carry an effect, hide, a restart token, or \
+             aliases: the spec accepts those only inside a `cmd` block"
+        );
         for example in self.root.examples {
             write_example(out, example, 0)?;
         }
@@ -260,6 +275,23 @@ impl Spec<'_> {
 /// Separate from [`write_command`] because the root's contents sit at the top
 /// level of the document rather than inside a `cmd` node.
 fn write_body(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+    // Indexing by metadata position below cannot see a table entry with no
+    // metadata, which would be silently unwritten. Check the lengths first.
+    debug_assert_eq!(
+        meta.cmd.flags.len(),
+        meta.flags.len(),
+        "every flag in the parse table needs metadata, or it will not be written"
+    );
+    debug_assert_eq!(
+        meta.cmd.args.len(),
+        meta.args.len(),
+        "every argument in the parse table needs metadata"
+    );
+    debug_assert_eq!(
+        meta.cmd.subcommands.len(),
+        meta.subcommands.len(),
+        "every subcommand in the parse table needs metadata"
+    );
     for (i, flag) in meta.flags.iter().enumerate() {
         // The two tables are written in the same order by construction, so a
         // mismatch means a table was edited without its metadata.
@@ -385,17 +417,15 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         write!(out, " env={}", quoted(env))?;
     }
     write_single_default(out, meta.default)?;
-    for overrides in meta.overrides {
-        write!(out, " overrides={}", quoted(overrides))?;
-    }
-    for required_unless in meta.required_unless {
-        write!(out, " required_unless={}", quoted(required_unless))?;
-    }
+    write_single_list(out, "overrides", meta.overrides)?;
+    write_single_list(out, "required_unless", meta.required_unless)?;
 
     let has_children = meta.long_help.is_some()
         || meta.flag.takes_value
         || !meta.choices.is_empty()
-        || meta.default.len() > 1;
+        || meta.default.len() > 1
+        || meta.overrides.len() > 1
+        || meta.required_unless.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -408,6 +438,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
     write_many_defaults(out, meta.default, inner)?;
+    write_many_list(out, "overrides", meta.overrides, inner)?;
+    write_many_list(out, "required_unless", meta.required_unless, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let name = meta.value_name.unwrap_or(meta.flag.name);
@@ -484,6 +516,37 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     write_choices(out, meta.choices, inner)?;
     indent(out, depth)?;
     out.push_str("}\n");
+    Ok(())
+}
+
+/// A lone value goes on the node as a property; see [`write_many_list`] for why
+/// several cannot.
+fn write_single_list(out: &mut String, key: &str, values: &[&str]) -> core::fmt::Result {
+    if let [only] = values {
+        write!(out, " {key}={}", quoted(only))?;
+    }
+    Ok(())
+}
+
+/// Several values, as `overrides "a" "b"`.
+///
+/// The same trap as defaults: `overrides="a" overrides="b"` is one node with a
+/// property set twice, and only the last one survives.
+fn write_many_list(
+    out: &mut String,
+    key: &str,
+    values: &[&str],
+    depth: usize,
+) -> core::fmt::Result {
+    if values.len() < 2 {
+        return Ok(());
+    }
+    indent(out, depth)?;
+    write!(out, "{key}")?;
+    for value in values {
+        write!(out, " {}", quoted(value))?;
+    }
+    out.push('\n');
     Ok(())
 }
 
@@ -593,6 +656,12 @@ fn quoted(value: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
+            // KDL forbids other literal control characters in a quoted string, and
+            // help text really does contain them: a CLI that colors its help with
+            // ANSI codes has an escape character in the middle of it.
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{{{:x}}}", c as u32);
+            }
             c => out.push(c),
         }
     }

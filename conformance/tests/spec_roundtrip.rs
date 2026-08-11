@@ -268,7 +268,8 @@ static ROOT_META: CommandMeta = CommandMeta {
         FlagMeta {
             flag: &SHELL,
             required: true,
-            required_unless: &["--jobs"],
+            // Two of them, which cannot be written as repeated properties.
+            required_unless: &["--jobs", "--color"],
             choices: &["bash", "zsh", "fish"],
             ..FlagMeta::EMPTY
         },
@@ -277,7 +278,11 @@ static ROOT_META: CommandMeta = CommandMeta {
         FlagMeta {
             flag: &PRUNE,
             help: Some("delete anything unused"),
+            // A control character, which KDL will not take literally. Help text
+            // really does contain these: ANSI-colored help has an escape in it.
+            long_help: Some("Deletes things.\u{1b}[0m Carefully."),
             effect: Some(Effect::Destructive),
+            overrides: &["--keep", "--dry-run"],
             ..FlagMeta::EMPTY
         },
         // More than one default, which cannot be written as a property.
@@ -417,7 +422,10 @@ fn choices_survive_on_both_flags_and_args() {
         .expect("--shell should declare choices");
     assert_eq!(choices.choices, vec!["bash", "zsh", "fish"]);
     assert!(shell.required);
-    assert_eq!(shell.required_unless, vec!["--jobs".to_string()]);
+    assert_eq!(
+        shell.required_unless,
+        vec!["--jobs".to_string(), "--color".to_string()]
+    );
 
     let set = spec
         .cmd
@@ -569,16 +577,61 @@ fn the_emitted_spec_is_stable() {
 }
 
 #[test]
-fn reparsing_our_own_output_is_a_fixed_point() {
-    // usage-lib's own serializer, fed our spec, must produce something that means
-    // the same thing — which catches a writer that happens to parse but drops
-    // something on the way through.
+fn usage_lib_can_reserialize_what_we_emit() {
+    // A weaker claim than it looks, and worth being honest about: this shows
+    // usage-lib's serializer is a fixed point on our input. It cannot catch a
+    // field we never wrote, because the field would be missing from both sides.
+    // Loss is caught by the field-by-field assertions above and by the counts
+    // below.
     let once = parsed();
     let twice: LibSpec = once
         .to_string()
         .parse()
         .expect("usage-lib should reparse its own output");
     assert_eq!(once.to_string(), twice.to_string());
+}
+
+#[test]
+fn nothing_is_dropped_on_the_way_out() {
+    // Counts, so an entry the writer skips entirely shows up here rather than in
+    // whichever assertion happened to name it.
+    let spec = parsed();
+    assert_eq!(
+        spec.cmd.flags.len(),
+        ROOT.flags.len(),
+        "every declared flag should reach the spec"
+    );
+    assert_eq!(
+        spec.cmd.args.len(),
+        ROOT.args.len(),
+        "every declared argument should reach the spec"
+    );
+    assert_eq!(
+        spec.cmd.subcommands.len(),
+        ROOT.subcommands.len(),
+        "every declared subcommand should reach the spec"
+    );
+
+    // And one level down, since nesting is where a writer tends to lose things.
+    let settings = spec.cmd.subcommands.get("settings").unwrap();
+    assert_eq!(settings.subcommands.len(), 1);
+
+    let shell = spec.cmd.flags.iter().find(|f| f.name == "shell").unwrap();
+    assert_eq!(
+        shell.required_unless,
+        vec!["--jobs".to_string(), "--color".to_string()],
+        "several values need a child node, or all but the last are lost"
+    );
+    let prune = spec.cmd.flags.iter().find(|f| f.name == "prune").unwrap();
+    assert_eq!(
+        prune.overrides,
+        vec!["--keep".to_string(), "--dry-run".to_string()]
+    );
+    assert_eq!(
+        prune.help_long.as_deref(),
+        Some("Deletes things.\u{1b}[0m Carefully."),
+        "a control character has to survive being escaped and read back"
+    );
 }
 
 #[test]

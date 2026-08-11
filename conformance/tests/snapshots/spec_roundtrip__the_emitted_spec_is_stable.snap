@@ -18,12 +18,16 @@ flag "-v --verbose" hide=#true count=#true
 flag "--include" help="patterns to include" var=#true var_min=1 var_max=5 overrides="--exclude" {
     arg "<pattern>..."
 }
-flag "--shell" required=#true required_unless="--jobs" {
+flag "--shell" required=#true {
+    required_unless "--jobs" "--color"
     arg "<shell>" {
         choices "bash" "zsh" "fish"
     }
 }
-flag "--prune" help="delete anything unused" effect="destructive"
+flag "--prune" help="delete anything unused" effect="destructive" {
+    long_help "Deletes things.\u{1b}[0m Carefully."
+    overrides "--keep" "--dry-run"
+}
 flag "--paths" {
     default {
         "/usr/bin"
