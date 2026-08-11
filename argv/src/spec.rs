@@ -23,6 +23,7 @@
 //!
 use core::fmt::Write as _;
 
+use crate::UnknownFlags;
 use crate::{Arg, Command, DoubleDash, Flag};
 
 /// A whole CLI: the root command plus what describes the program itself.
@@ -240,6 +241,11 @@ impl Spec<'_> {
         }
         if let Some(long_about) = self.long_about.or(self.root.long_about) {
             prop(out, "long_about", long_about)?;
+        }
+        // Written only when it is not the default, so an ordinary spec stays quiet
+        // about it.
+        if self.root.cmd.unknown_flags == UnknownFlags::Error {
+            prop(out, "unknown_flags", "error")?;
         }
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;

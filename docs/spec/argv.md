@@ -46,7 +46,8 @@ At each token, in order:
 2. If the token is exactly `--`, flag interpretation stops. The token is consumed
    and is not itself a value.
 3. If the token is flag-like, it is matched as a flag ([long](#long-flags) or
-   [short](#short-flags)). No match is an error.
+   [short](#short-flags)). If nothing matches, see
+   [unrecognized flags](#unrecognized-flags).
 4. Otherwise the token is a word: it selects a [subcommand](#subcommands) if one
    matches, and is otherwise offered to the command's
    [positional arguments](#positional-arguments).
@@ -58,7 +59,8 @@ A token beginning with `--` is a long flag. The name is the text up to the first
 
 **Names match exactly.** `--for` does not match `--force`. Abbreviation
 inference is deliberately absent: it makes adding a flag a breaking change for
-anyone who typed a prefix that was unique until the new flag arrived.
+anyone who typed a prefix that was unique until the new flag arrived. A prefix
+that matches nothing is then an [unrecognized flag](#unrecognized-flags).
 
 For a flag that takes a value, the value comes from one of two forms:
 
@@ -115,10 +117,53 @@ makes `-C/tmp` and `-Edev` work.
 One `=` immediately after the letter is a separator, matching the long form. Only
 one: `-j==8` is a value of `=8`.
 
-An unrecognized letter fails the whole token, including any letters before it. A
-partially applied bundle would be worse than a rejected one.
+A token containing an unrecognized letter is not a bundle at all, so none of its
+letters are applied: `-az` does not set `-a` on the way to discovering that `z`
+names nothing. What happens to the token instead is described under
+[unrecognized flags](#unrecognized-flags).
 
 `-` alone is not a flag. It is a value, conventionally meaning stdin.
+
+## Unrecognized flags
+
+A flag-like token that names no flag in scope **becomes a word**, and is offered to
+the positional arguments like any other. With nothing left to hold it, that is an
+`unexpected_arg` — the same error an extra word produces, rather than a special one
+about flags.
+
+This is where the grammar parts company with every comparable parser. clap,
+argparse, commander, oclif v2+, and POSIX `getopt` all reject the token. They are
+right for what they do, which is parse _their own_ argv, where a dash-word can only
+be a flag or a typo. A usage spec is also used to parse command lines whose flags it
+does not own:
+
+- a shell script run through `usage exec`, forwarding options to a tool it wraps
+- a task's arguments, where the task script is the authority on what it accepts
+- a completion, asked about a line that is still half-typed
+
+In all three, a token the spec has not heard of is far more likely to be data in
+transit than a mistake, and refusing it would break the wrapper for everyone who
+did not enumerate the flags of the program behind it.
+
+The cost is real and worth stating plainly: a misspelled `--hekp` becomes an
+argument instead of an error, and whether it does depends on whether a positional
+is free to take it. A CLI that owns all of its flags can have the stricter reading
+by asking:
+
+```kdl
+unknown_flags "error"     // for the whole CLI
+cmd "exec" unknown_flags="value"   // except here, which forwards a command line
+```
+
+Unlike `effect`, this **is** inherited: the nearest enclosing command that states a
+preference wins, then the spec, then `value`. It describes how a command line is
+read rather than what a command does, and a CLI that forwards options tends to
+forward them at every level.
+
+Even when refusing, a lone `-` and a negative number stay values — neither is a
+misspelled flag, and without the second `--offset -1` could not be written. oclif
+made exactly this mistake when it switched to refusing unknown flags, and had to
+add the number case back afterwards.
 
 ## Positional arguments
 

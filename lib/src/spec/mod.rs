@@ -10,6 +10,7 @@ pub mod effect;
 pub mod flag;
 pub mod helpers;
 pub mod mount;
+pub mod unknown_flags;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
@@ -78,6 +79,9 @@ pub struct Spec {
     /// This enables "naked" command syntax like `mise foo` instead of `mise run foo`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_subcommand: Option<String>,
+    /// What to do with a flag-like token that names no declared flag, for the whole
+    /// CLI. A command may override it; see [`SpecCommand::unknown_flags`].
+    pub unknown_flags: Option<crate::spec::unknown_flags::UnknownFlags>,
 }
 
 impl Spec {
@@ -222,6 +226,18 @@ impl Spec {
                     let v = node.arg(0)?.ensure_string()?;
                     check_usage_version(&v);
                     schema.min_usage_version = Some(v);
+                }
+                "unknown_flags" => {
+                    let raw = node.arg(0)?.ensure_string()?;
+                    match raw.parse() {
+                        Ok(mode) => schema.unknown_flags = Some(mode),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            node.span(),
+                            "unsupported unknown_flags {raw}, expected one of: {}",
+                            crate::spec::unknown_flags::UNKNOWN_FLAGS_VALUES
+                        ),
+                    }
                 }
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
@@ -475,6 +491,11 @@ impl Display for Spec {
         if let Some(min_usage_version) = &self.min_usage_version {
             let mut node = KdlNode::new("min_usage_version");
             node.push(string_entry(None, min_usage_version));
+            nodes.push(node);
+        }
+        if let Some(unknown_flags) = &self.unknown_flags {
+            let mut node = KdlNode::new("unknown_flags");
+            node.push(string_entry(None, unknown_flags.as_str()));
             nodes.push(node);
         }
         if let Some(default_subcommand) = &self.default_subcommand {

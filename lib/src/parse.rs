@@ -12,6 +12,7 @@ use strum::EnumTryAs;
 use crate::docs;
 use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
+use crate::spec::unknown_flags::UnknownFlags;
 use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
 /// Merge a subcommand's flags into the currently available flags when descending
@@ -948,6 +949,7 @@ fn parse_partial_with_env(
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
             }
+            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
         }
 
         // short flags
@@ -992,6 +994,7 @@ fn parse_partial_with_env(
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
             }
+            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
             if grouped_flag {
                 grouped_flag = false;
                 w.remove(0);
@@ -1278,6 +1281,62 @@ impl<'a> ChoiceTarget<'a> {
             kind: "option",
             name: &flag.name,
         }
+    }
+}
+
+/// Refuse a flag-like token that named nothing, if this command asked for that.
+///
+/// Called from the flag branches, where the lookup has just failed and nothing from
+/// the token has been applied yet — so a bundle like `-az` is refused whole rather
+/// than after setting `-a`.
+fn reject_unknown_flag_if_asked(
+    spec: &Spec,
+    path: &[SpecCommand],
+    token: &str,
+) -> Result<(), UsageErr> {
+    // A lone `-` is a value by convention and a negative number is a value because
+    // no CLI could accept `--offset -1` otherwise. Both reach the short-flag branch
+    // and neither is a misspelled flag, so neither is refused. oclif made exactly
+    // this mistake when it switched to refusing unknown flags, and had to add the
+    // number case back.
+    if !is_flag_like(token) {
+        return Ok(());
+    }
+    if effective_unknown_flags(spec, path) != UnknownFlags::Error {
+        return Ok(());
+    }
+    Err(UsageErr::InvalidFlag {
+        token: token.to_string(),
+        reason: "no such flag".to_string(),
+        span: (0, 0).into(),
+        input: token.to_string(),
+    })
+}
+
+/// Whether a flag-like token that matches nothing is a value or an error, here.
+///
+/// The nearest enclosing command that stated a preference wins, then the spec,
+/// then the default. Inherited, unlike `effect`: it describes how a command line
+/// is read, and a CLI that forwards options tends to forward them at every level.
+fn effective_unknown_flags(spec: &Spec, path: &[SpecCommand]) -> UnknownFlags {
+    path.iter()
+        .rev()
+        .find_map(|cmd| cmd.unknown_flags)
+        .or(spec.unknown_flags)
+        .unwrap_or_default()
+}
+
+/// Whether a token would be read as a flag, for the purpose of rejecting unknown
+/// ones. A lone `-` is a value by convention, and a negative number is a value
+/// because no CLI could accept `--offset -1` otherwise.
+fn is_flag_like(token: &str) -> bool {
+    let mut chars = token.chars();
+    if chars.next() != Some('-') {
+        return false;
+    }
+    match chars.next() {
+        None => false,
+        Some(c) => !c.is_ascii_digit(),
     }
 }
 
@@ -2388,6 +2447,90 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn unknown_flags_are_values_by_default() {
+        // The default, and the reason it is the default: a spec often parses a
+        // command line whose flags belong to something else.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[rest]...\"\n"
+            .parse()
+            .unwrap();
+        let out = parse(
+            &spec,
+            &["ex".to_string(), "--wat".to_string(), "x".to_string()],
+        )
+        .unwrap();
+        let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
+        assert_eq!(out.args[rest].to_string(), "--wat x");
+    }
+
+    #[test]
+    fn unknown_flags_can_be_rejected_for_the_whole_cli() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\narg \"[rest]...\"\n"
+                .parse()
+                .unwrap();
+        let err = parse(&spec, &["ex".to_string(), "--wat".to_string()]).unwrap_err();
+        assert!(
+            err.to_string().contains("--wat"),
+            "the message should name the token: {err}"
+        );
+
+        // A negative number is still a value, which is the carve-out oclif had to
+        // add back after making this its default.
+        let out = parse(&spec, &["ex".to_string(), "-1".to_string()]).unwrap();
+        let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
+        assert_eq!(out.args[rest].to_string(), "-1");
+    }
+
+    #[test]
+    fn a_command_may_override_the_cli_wide_setting() {
+        // Strict overall, lenient for the one command that forwards options.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+unknown_flags "error"
+cmd "exec" unknown_flags="value" {
+  arg "[rest]..."
+}
+cmd "build" {
+  arg "[rest]..."
+}
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(
+            &spec,
+            &["ex".to_string(), "exec".to_string(), "--wat".to_string()],
+        )
+        .unwrap();
+        let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
+        assert_eq!(out.args[rest].to_string(), "--wat");
+
+        assert!(
+            parse(
+                &spec,
+                &["ex".to_string(), "build".to_string(), "--wat".to_string()]
+            )
+            .is_err(),
+            "a command that says nothing inherits the CLI's choice"
+        );
+    }
+
+    #[test]
+    fn the_setting_survives_a_round_trip() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ncmd \"x\" unknown_flags=\"value\"\n"
+                .parse()
+                .unwrap();
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.unknown_flags, Some(UnknownFlags::Error));
+        assert_eq!(
+            reparsed.cmd.subcommands["x"].unknown_flags,
+            Some(UnknownFlags::Value)
+        );
     }
 
     #[test]

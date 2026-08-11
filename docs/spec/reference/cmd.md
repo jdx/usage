@@ -121,6 +121,22 @@ completion offering a command that running would hand to the default subcommand
 instead is worse than not offering it. So a root mount under a `default_subcommand`
 contributes nothing anywhere until it asks to outrank it.
 
+### Unknown flags
+
+A flag-like token that names no flag becomes a word, offered to the positionals like
+any other — because a spec often parses a command line whose flags belong to
+something else. A command that owns all of its flags can refuse them instead:
+
+```kdl
+unknown_flags "error"               // for the whole CLI
+cmd "exec" unknown_flags="value"    // except here, which forwards a command line
+```
+
+The nearest command that states a preference wins, then the spec, then `value`.
+Unlike [`effect`](#effect), this is inherited: it describes how a command line is
+read rather than what a command does. See
+[the argv grammar](/spec/argv#unrecognized-flags) for the reasoning and the cost.
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

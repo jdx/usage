@@ -60,13 +60,10 @@
     },
     {
       "id": "short-bundle-unknown-letter",
-      "doc": "An unrecognized letter anywhere in a bundle fails the whole token.",
+      "doc": "A token containing an unrecognized letter is not a bundle at all, so none of its letters are applied \u2014 `-az` does not set `-a`. Here it becomes a word, and there is no argument to hold it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\n",
       "argv": ["-az"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib reports `unexpected_arg`: the whole token falls through to positionals, so `-a` is not applied either."
-      }
+      "expect": { "error": "unexpected_arg" }
     },
     {
       "id": "short-count",
@@ -91,13 +88,17 @@
     },
     {
       "id": "short-unknown",
-      "doc": "An unrecognized short flag is an error rather than a positional.",
+      "doc": "An unrecognized short flag is a word too, for the same reason as the long form.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
       "argv": ["-z"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib binds `-z` to the positional `file`, the same fall-through described in `long-unknown`."
-      }
+      "expect": { "ok": { "args": { "file": "-z" } } }
+    },
+    {
+      "id": "unknown-flags-error-rejects-a-whole-bundle",
+      "doc": "Refusing unknown flags, an unrecognized letter fails the whole token rather than applying the letters before it \u2014 a partly-applied bundle would be worse than a rejected one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"-a --all\"\n",
+      "argv": ["-az"],
+      "expect": { "error": "unknown_flag" }
     }
   ]
 }

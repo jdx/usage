@@ -17,6 +17,9 @@ pub struct Cli {
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
+    /// Whether a flag-like token that names no flag is a value or an error. Unset
+    /// means the spec's default, which is `value`.
+    pub unknown_flags: Option<String>,
     pub fields: Vec<Field>,
 }
 
@@ -117,6 +120,7 @@ impl Cli {
             version: None,
             about,
             long_about,
+            unknown_flags: None,
             fields: Vec::new(),
         };
 
@@ -127,13 +131,30 @@ impl Cli {
                     "name" => cli.name = string_value(&meta)?,
                     "bin" => cli.bin = Some(string_value(&meta)?),
                     "version" => cli.version = Some(string_value(&meta)?),
+                    // A Rust CLI usually owns every flag it accepts, which is the
+                    // case the stricter reading is for — but it is still opt-in,
+                    // since a wrapper forwarding options wants the default.
+                    "unknown_flags" => {
+                        let mode = string_value(&meta)?;
+                        if mode != "value" && mode != "error" {
+                            return Err(syn::Error::new_spanned(
+                                &path,
+                                format!(
+                                    "`unknown_flags = \"{mode}\"` is not a mode; write \
+                                     \"value\" to pass an unrecognized flag on to the \
+                                     positionals, or \"error\" to refuse it"
+                                ),
+                            ));
+                        }
+                        cli.unknown_flags = Some(mode);
+                    }
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, and `version` here, and the description \
-                                 comes from the doc comment"
+                                 `name`, `bin`, `version`, and `unknown_flags` here, \
+                                 and the description comes from the doc comment"
                             ),
                         ));
                     }

@@ -101,6 +101,9 @@ pub struct Command<'a> {
     /// Positional arguments, in the order they are filled.
     pub args: &'a [&'a Arg<'a>],
     pub subcommands: &'a [&'a Command<'a>],
+    /// What an unrecognized flag-like token means here. Already resolved — see
+    /// [`UnknownFlags`].
+    pub unknown_flags: UnknownFlags,
     /// Caller-assigned identifier, echoed back in [`Event::Command`].
     pub key: u32,
 }
@@ -113,6 +116,7 @@ impl Command<'_> {
         flags: &[],
         args: &[],
         subcommands: &[],
+        unknown_flags: UnknownFlags::Value,
         key: 0,
     };
 }
@@ -196,6 +200,25 @@ impl Arg<'_> {
         var: true,
         ..Arg::REQUIRED
     };
+}
+
+/// What to do with a flag-like token that names no flag in scope.
+///
+/// The default is [`UnknownFlags::Value`]: the token carries on to the positional
+/// arguments, because a spec is often parsing a command line whose flags belong to
+/// something else — a wrapped tool, a task script. A CLI that owns all of its
+/// flags declares [`UnknownFlags::Error`] and gets typo detection instead.
+///
+/// Stored per command and already resolved: inheritance is a question for whoever
+/// builds the tables, and answering it at compile time keeps it out of the parse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UnknownFlags {
+    /// Offer the token to the positionals. If none can take it, it is an
+    /// unexpected argument.
+    #[default]
+    Value,
+    /// Reject the token.
+    Error,
 }
 
 /// How an argument relates to the `--` separator.
@@ -422,8 +445,13 @@ impl<'t, 'v> Parser<'t, 'v> {
             // out one at a time, so discovering an unknown letter half way
             // through would mean the earlier letters had already been applied —
             // and the grammar rejects the entire token, not the tail of it.
-            if let Err(e) = self.check_bundle(token) {
-                return Some(Err(e));
+            match self.check_bundle(token) {
+                Ok(()) => {}
+                // Unrecognized, so it is a word unless this command wants it refused.
+                Err(e) if self.cmd.unknown_flags == UnknownFlags::Error => {
+                    return Some(Err(e));
+                }
+                Err(_) => return Some(self.word(token)),
             }
             self.bundle = &token[1..];
             self.bundle_token = token;
@@ -467,7 +495,11 @@ impl<'t, 'v> Parser<'t, 'v> {
             });
         }
 
-        Err(Error::UnknownFlag { token })
+        if self.cmd.unknown_flags == UnknownFlags::Error {
+            return Err(Error::UnknownFlag { token });
+        }
+        // Not a flag here, so it is a word like any other.
+        self.word(token)
     }
 
     /// Walk a short-flag token without binding anything, to find out whether all
@@ -698,6 +730,25 @@ mod tests {
         key: 100,
         ..Command::EMPTY
     };
+    /// Same shape as ROOT, but a CLI that owns all of its flags. The subcommand
+    /// carries the setting too: the tables hold it already resolved, because
+    /// inheritance is the table builder's job rather than the parser's.
+    static STRICT_INSTALL: Command = Command {
+        name: "install",
+        aliases: &["i"],
+        flags: &[&FORCE],
+        unknown_flags: UnknownFlags::Error,
+        key: 100,
+        ..Command::EMPTY
+    };
+    static STRICT: Command = Command {
+        name: "ex",
+        flags: &[&FORCE, &JOBS, &COLOR, &VERBOSE],
+        args: &[&FILE, &REST],
+        subcommands: &[&STRICT_INSTALL],
+        unknown_flags: UnknownFlags::Error,
+        ..Command::EMPTY
+    };
     static ROOT: Command = Command {
         name: "ex",
         flags: &[&FORCE, &JOBS, &COLOR, &VERBOSE],
@@ -790,11 +841,55 @@ mod tests {
 
     #[test]
     fn no_abbreviation() {
+        // A prefix names no flag, so by default it is a value like any other word.
         let a = argv(["--forc"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Arg {
+                arg: &FILE,
+                value: b"--forc"
+            }]
+        );
+
+        // And a CLI that owns its flags hears about it, which is the whole reason
+        // the strict mode exists.
         assert!(matches!(
-            parse(&ROOT, &a),
+            parse(&STRICT, &a),
             Err(Error::UnknownFlag { token: b"--forc" })
         ));
+    }
+
+    #[test]
+    fn an_unknown_flag_is_a_value_by_default() {
+        // The default, and the case it is for: a command line being forwarded to
+        // something whose flags this spec does not know.
+        let a = argv(["--wat", "keep"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"--wat"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"keep"
+                },
+            ]
+        );
+
+        // With nowhere to put it, it is an unexpected argument — the same error an
+        // extra word gets, rather than a special one about flags.
+        static ONE: Command = Command {
+            name: "ex",
+            args: &[&FILE],
+            ..Command::EMPTY
+        };
+        let a = argv(["a", "--wat"]);
+        assert_eq!(
+            parse(&ONE, &a),
+            Err(Error::UnexpectedArg { token: b"--wat" })
+        );
     }
 
     #[test]
@@ -920,9 +1015,16 @@ mod tests {
             ]
         );
 
-        // `--jobs` belongs to the root and is not global.
+        // `--jobs` belongs to the root and is not global, so it is not a flag here.
+        // Strictly that is an unknown flag; leniently it is a word, and `install`
+        // declares no argument to hold one — either way it is never read as the
+        // root's flag, which is what this test is about.
         let a = argv(["install", "--jobs", "8"]);
-        assert!(matches!(parse(&ROOT, &a), Err(Error::UnknownFlag { .. })));
+        assert!(matches!(parse(&STRICT, &a), Err(Error::UnknownFlag { .. })));
+        assert!(matches!(
+            parse(&ROOT, &a),
+            Err(Error::UnexpectedArg { token: b"--jobs" })
+        ));
     }
 
     #[test]
@@ -1161,13 +1263,24 @@ mod tests {
         // flag event came out first, a caller would have applied `-f` from a
         // command line that was rejected.
         let a = argv(["-fz"]);
-        let mut parser = Parser::new(&ROOT, &a);
+        let mut parser = Parser::new(&STRICT, &a);
         assert_eq!(
             parser.next_event(),
             Some(Err(Error::UnknownFlag { token: b"-fz" })),
             "an unknown letter must reject the token before any of it is applied"
         );
         assert!(parser.next_event().is_none());
+
+        // Leniently, the same token is a value — and `-f` is *not* applied, since
+        // the token was never a bundle at all.
+        let a = argv(["-fz"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Arg {
+                arg: &FILE,
+                value: b"-fz"
+            }]
+        );
     }
 
     #[test]
@@ -1175,7 +1288,7 @@ mod tests {
         for (tokens, want) in [(["-z"], &b"-z"[..]), (["-fz"], &b"-fz"[..])] {
             let a = argv(tokens);
             assert_eq!(
-                parse(&ROOT, &a),
+                parse(&STRICT, &a),
                 Err(Error::UnknownFlag { token: want }),
                 "{tokens:?}"
             );
@@ -1185,7 +1298,7 @@ mod tests {
     #[test]
     fn errors_are_terminal() {
         let a = argv(["--wat", "--force"]);
-        let mut parser = Parser::new(&ROOT, &a);
+        let mut parser = Parser::new(&STRICT, &a);
         assert!(parser.next_event().unwrap().is_err());
         assert!(parser.next_event().is_none());
     }

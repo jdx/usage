@@ -84,23 +84,17 @@
     },
     {
       "id": "long-unknown",
-      "doc": "An unrecognized long flag is an error, even when the command has a positional that could have held it. Otherwise a typo becomes data.",
+      "doc": "An unrecognized long flag is offered to the positionals like any other word. A spec is often parsing a command line whose flags belong to something else, so a token it has not heard of is more likely data in transit than a mistake.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[file]\"\n",
       "argv": ["--wat"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib binds `--wat` to the positional `file`. This is the root of several other divergences here: unrecognized flags fall through to positionals, so they surface as `unexpected_arg` \u2014 or as no error at all \u2014 rather than as `unknown_flag`."
-      }
+      "expect": { "ok": { "args": { "file": "--wat" } } }
     },
     {
       "id": "long-no-abbreviation",
-      "doc": "A unique prefix of a long name is not accepted. Abbreviation inference makes adding a flag a breaking change for anyone who typed a prefix that was unique until now, so the grammar has none.",
+      "doc": "A unique prefix of a long name is not accepted as the flag. Abbreviation inference makes adding a flag a breaking change for anyone who typed a prefix that was unique until now, so the grammar has none \u2014 the token becomes a word, and here there is no argument to hold it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
       "argv": ["--for"],
-      "expect": { "error": "unknown_flag" },
-      "reference": {
-        "diverges": "usage-lib also refuses the abbreviation, but reports `unexpected_arg`: `--for` becomes a positional, and the command has none."
-      }
+      "expect": { "error": "unexpected_arg" }
     },
     {
       "id": "long-repeated-var",
@@ -141,6 +135,20 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
       "argv": [],
       "expect": { "ok": { "flags": { "color": true } } }
+    },
+    {
+      "id": "unknown-flags-error-rejects-the-token",
+      "doc": "A CLI that owns all of its flags declares `unknown_flags \"error\"` and gets typo detection: the token is refused rather than passed along as data.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\narg \"[file]\"\n",
+      "argv": ["--wat"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "unknown-flags-error-still-takes-negative-numbers",
+      "doc": "Even when refusing unknown flags, a negative number is a value. This is the carve-out oclif had to add back after making rejection its default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "argv": ["-1"],
+      "expect": { "ok": { "args": { "offset": "-1" } } }
     }
   ]
 }

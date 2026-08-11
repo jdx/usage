@@ -21,7 +21,9 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
-use usage_argv::{Arg, Command, DoubleDash, Error, Event, Flag, Parser};
+use usage_argv::{
+    Arg, Command, DoubleDash, Error, Event, Flag, Parser, UnknownFlags as ArgvUnknownFlags,
+};
 
 use crate::{ErrorCode, Expect, Parsed, Value, Vector};
 
@@ -58,7 +60,12 @@ pub fn run(vector: &Vector) -> Outcome {
         return Outcome::OutOfScope(reason);
     }
 
-    let root = build(&spec.cmd);
+    // Inheritance is resolved here, not in the parser: usage-argv's tables hold the
+    // effective value per command, which is what a derive would emit.
+    let root = build(
+        &spec.cmd,
+        convert_unknown_flags(spec.unknown_flags.unwrap_or_default()),
+    );
     let argv: Vec<&'static OsStr> = vector
         .argv
         .iter()
@@ -139,6 +146,14 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         Error::UnexpectedArg { .. } => ErrorCode::UnexpectedArg,
         Error::ArgRequiresDoubleDash { .. } => ErrorCode::ArgRequiresDoubleDash,
         Error::TooDeep => panic!("no corpus spec is anywhere near MAX_DEPTH"),
+    }
+}
+
+/// The spec's spelling of the setting, in the parser's terms.
+fn convert_unknown_flags(mode: usage::UnknownFlags) -> ArgvUnknownFlags {
+    match mode {
+        usage::UnknownFlags::Value => ArgvUnknownFlags::Value,
+        usage::UnknownFlags::Error => ArgvUnknownFlags::Error,
     }
 }
 
@@ -237,7 +252,17 @@ fn arg_post_binding(arg: &SpecArg) -> Option<&'static str> {
 }
 
 /// Build leaked tables mirroring a spec command.
-fn build(cmd: &SpecCommand) -> &'static Command<'static> {
+///
+/// `inherited_unknown_flags` is the effective setting from above, which a command
+/// that states nothing keeps and passes down.
+fn build(
+    cmd: &SpecCommand,
+    inherited_unknown_flags: ArgvUnknownFlags,
+) -> &'static Command<'static> {
+    let unknown_flags = cmd
+        .unknown_flags
+        .map(convert_unknown_flags)
+        .unwrap_or(inherited_unknown_flags);
     let flags: Vec<&'static Flag<'static>> = cmd
         .flags
         .iter()
@@ -280,7 +305,11 @@ fn build(cmd: &SpecCommand) -> &'static Command<'static> {
         })
         .collect();
 
-    let subcommands: Vec<&'static Command<'static>> = cmd.subcommands.values().map(build).collect();
+    let subcommands: Vec<&'static Command<'static>> = cmd
+        .subcommands
+        .values()
+        .map(|sub| build(sub, unknown_flags))
+        .collect();
 
     let aliases: Vec<&'static str> = cmd
         .aliases
@@ -295,6 +324,7 @@ fn build(cmd: &SpecCommand) -> &'static Command<'static> {
         flags: Box::leak(flags.into_boxed_slice()),
         args: Box::leak(args.into_boxed_slice()),
         subcommands: Box::leak(subcommands.into_boxed_slice()),
+        unknown_flags,
         key: 0,
     }))
 }
