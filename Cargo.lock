@@ -2018,7 +2018,18 @@ dependencies = [
  "serde",
  "serde_json",
  "usage-argv",
+ "usage-derive",
  "usage-lib",
+]
+
+[[package]]
+name = "usage-derive"
+version = "5.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "usage-argv",
 ]
 
 [[package]]

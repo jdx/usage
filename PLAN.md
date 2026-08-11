@@ -89,8 +89,9 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       allocations on success _and_ failure, proved by a counting allocator rather
       than asserted. Answers the binding vectors, including every one where
       usage-lib diverges from the grammar.
-- [x] **Released on the shared version** (#798) — an ordinary member of the
-      workspace rather than a 0.0.0 curiosity outside the release cycle.
+- [x] **Released on the shared version** (#798, #803) — `usage-argv` and
+      `usage-derive` are ordinary members of the workspace at the shared version
+      rather than 0.0.0 curiosities outside the release cycle.
 - [x] **Repeatable vs. variadic flags, and `double_dash_seen`** (#799) — a
       repeatable flag was greedy enough to eat a positional, and `automatic` mode
       reported a separator nobody typed.
@@ -107,9 +108,17 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       no dependencies. Verified by parsing the output back with usage-lib and
       checking the resulting spec field by field, then rendering it through the
       markdown and manpage generators an adopter's docs build actually uses.
-- [ ] **`usage-derive` v0** — flags, positionals, subcommands, doc-comment help
-      (first paragraph short, whole block long), spec emission. Usage-native
-      attributes mirroring the KDL vocabulary rather than a clap dialect.
+- [x] **`usage-derive` v0** — flags, positionals, doc-comment help (first
+      paragraph short, whole block long), and spec emission, from usage-native
+      attributes. Unsupported field types are a compile error rather than a
+      surprise, and the messages point at the offending field.
+- [ ] **Subcommands in the derive** — one command per struct today. Needs an enum
+      of variants, cross-type table references, and a nested command path through
+      the parse function.
+- [ ] **Typed values** — fields are text today (`String`, `Option<String>`,
+      `Vec<String>`, `bool`, counting integers). Parsing into other types needs an
+      error type for value conversion, which is also where `env`, required-ness,
+      and `choices` get enforced — see the post-binding layer below.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,

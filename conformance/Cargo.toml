@@ -19,6 +19,7 @@ usage-lib = { workspace = true }
 
 [dev-dependencies]
 insta = "1"
+usage-derive = { workspace = true }
 
 [[bin]]
 name = "oracle"
