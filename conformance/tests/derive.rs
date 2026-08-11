@@ -317,6 +317,28 @@ struct Dashed {
     color: bool,
 }
 
+/// A dashed `name` with a bare `long` derived an unreachable long form, since a
+/// token has its dashes taken off before matching.
+#[derive(Cli)]
+struct DashedName {
+    /// Colorize output
+    #[usage(name = "--color", long)]
+    c: bool,
+}
+
+#[test]
+fn a_dashed_name_is_normalized_too() {
+    let a = argv(["--color"]);
+    let cli = DashedName::parse_from(&a).expect("should parse");
+    assert!(cli.c);
+
+    let spec: LibSpec = DashedName::to_kdl()
+        .parse()
+        .expect("should be a valid spec");
+    assert_eq!(spec.cmd.flags[0].name, "color");
+    assert_eq!(spec.cmd.flags[0].long, vec!["color".to_string()]);
+}
+
 #[test]
 fn an_explicit_long_may_be_written_with_dashes() {
     let a = argv(["--no-color"]);

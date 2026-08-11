@@ -242,7 +242,9 @@ impl Field {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
-                    "name" => name = string_value(&meta)?,
+                    // Stripped, so a dashed spelling cannot leak into the spec name
+                    // or into a long form derived from it.
+                    "name" => name = strip_dashes(&string_value(&meta)?),
                     // Bare `long` takes the field name; `long = "x"` overrides it.
                     "long" => match &meta {
                         Meta::Path(_) => longs.push(name.clone()),
