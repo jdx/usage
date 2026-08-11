@@ -90,11 +90,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     let mut __usage_sub =
                         <<#ty as ::usage_argv::spec::Subcommands>::Partial as
                             ::std::default::Default>::default();
-                    let mut __usage_selected: u64 = 0;
+                    // `None` rather than a reserved key: nothing has to be true about
+                    // the number space for "no subcommand was given" to be sayable.
+                    let mut __usage_selected: ::std::option::Option<u64> =
+                        ::std::option::Option::None;
                 },
                 quote! {
                     if let ::usage_argv::Event::Command(__usage_cmd) = &__usage_event {
-                        __usage_selected = __usage_cmd.key;
+                        __usage_selected = ::std::option::Option::Some(__usage_cmd.key);
                     }
                     <#ty as ::usage_argv::spec::Subcommands>::apply(
                         &mut __usage_sub,
@@ -102,10 +105,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     );
                 },
                 quote! {
-                    #ident: <#ty as ::usage_argv::spec::Subcommands>::select(
-                        __usage_sub,
-                        __usage_selected,
-                    ),
+                    #ident: match __usage_selected {
+                        ::std::option::Option::Some(__usage_key) => {
+                            <#ty as ::usage_argv::spec::Subcommands>::select(
+                                __usage_sub,
+                                __usage_key,
+                            )
+                        }
+                        ::std::option::Option::None => ::std::option::Option::None,
+                    },
                 },
             )
         }
@@ -407,9 +415,28 @@ fn key_base(type_name: &str) -> u64 {
 /// type has to say `super::`. An absolute path already resolves from anywhere and is
 /// left alone.
 fn in_module(ty: &syn::Type) -> TokenStream {
-    match ty {
-        syn::Type::Path(path) if path.path.leading_colon.is_none() => quote!(super::#ty),
-        _ => quote!(#ty),
+    let syn::Type::Path(path) = ty else {
+        return quote!(#ty);
+    };
+    // Already absolute, or rooted at the crate: resolves the same from anywhere.
+    if path.path.leading_colon.is_some() {
+        return quote!(#ty);
+    }
+    let mut segments = path.path.segments.iter();
+    match segments.next().map(|s| s.ident.to_string()).as_deref() {
+        Some("crate") => quote!(#ty),
+        // `self` and `super` are relative to where the user wrote them, which is one
+        // level out from the generated module — so each shifts by one.
+        Some("self") => {
+            let rest = segments;
+            quote!(super::#(#rest)::*)
+        }
+        Some("super") => {
+            let rest = segments;
+            quote!(super::super::#(#rest)::*)
+        }
+        // A relative path, which the generated module is one level below.
+        _ => quote!(super::#ty),
     }
 }
 
@@ -429,7 +456,7 @@ fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         Shape::Many => quote!(partial.#ident.push(__usage_value_text(value));),
     };
     quote! {
-        #key => { #body }
+        #key => { #body true }
     }
 }
 
@@ -444,7 +471,7 @@ fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         _ => quote!(partial.#ident = __usage_text(value);),
     };
     quote! {
-        #key => { #body }
+        #key => { #body true }
     }
 }
 
@@ -541,6 +568,9 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
             event: &::usage_argv::Event<'_, '_>,
         ) -> bool {
             use ::usage_argv::Event;
+            // Each arm evaluates to whether it claimed the event, rather than
+            // returning: a command with no flags of its own would otherwise have every
+            // arm diverge, leaving an unreachable tail.
             match event {
                 Event::Flag { flag, value, negated } => {
                     let (value, negated) = (*value, *negated);
@@ -548,7 +578,7 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
                     match flag.key {
                         #(#flag_arms)*
                         // Another command's flag, left for whoever owns it.
-                        _ => return false,
+                        _ => false,
                     }
                 }
                 Event::Arg { arg, value } => {
@@ -556,14 +586,13 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
                     let _ = value;
                     match arg.key {
                         #(#arg_arms)*
-                        _ => return false,
+                        _ => false,
                     }
                 }
                 // Descending is the caller's business: it is what decides which
                 // command's fields the following events belong to.
-                Event::Command(_) => return false,
+                Event::Command(_) => false,
             }
-            true
         }
     }
 }
@@ -717,39 +746,59 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
-    let commands = subs.variants.iter().map(|v| {
-        let ty = &v.ty;
-        quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND)
+    // The enum is where the command set is declared, so the variant names the
+    // command — its own kebab-case name, or whatever `name` says. Splicing the
+    // struct's table unchanged would have used the *struct's* name instead, which
+    // only looks right when the two happen to match.
+    let command_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
+        let name = format_ident!("COMMAND_{i}");
+        let ty = in_module(&v.ty);
+        let cmd_name = &v.name;
+        quote! {
+            pub static #name: ::usage_argv::Command = ::usage_argv::Command {
+                name: #cmd_name,
+                ..*<#ty as ::usage_argv::spec::CommandArgs>::COMMAND
+            };
+        }
+    });
+    let commands = (0..subs.variants.len()).map(|i| {
+        let name = format_ident!("COMMAND_{i}");
+        quote!(&#module::#name)
     });
     // A doc comment on the variant wins over the struct's, since that is where a
     // reader of the enum expects to describe the command — and ignoring it would lose
     // the description without saying so. Overriding one field of the struct's
     // metadata is possible in a const, so the tables stay static.
-    let meta_overrides = subs.variants.iter().enumerate().filter_map(|(i, v)| {
+    let meta_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
         let name = format_ident!("META_{i}");
+        let cmd = format_ident!("COMMAND_{i}");
         let ty = in_module(&v.ty);
-        let about = option_str(v.help.as_deref());
-        let long_about = option_str(v.long_help.as_deref());
-        v.help.as_ref().map(|_| {
-            quote! {
-                pub static #name: ::usage_argv::spec::CommandMeta =
-                    ::usage_argv::spec::CommandMeta {
-                        about: #about,
-                        long_about: #long_about,
-                        ..*<#ty as ::usage_argv::spec::CommandArgs>::META
-                    };
-            }
-        })
-    });
-    let metas = subs.variants.iter().enumerate().map(|(i, v)| {
-        let ty = &v.ty;
-        match v.help {
-            Some(_) => {
-                let name = format_ident!("META_{i}");
-                quote!(&#module::#name)
-            }
-            None => quote!(<#ty as ::usage_argv::spec::CommandArgs>::META),
+        // A doc comment on the variant wins over the struct's, since that is where a
+        // reader of the enum expects to describe the command. Absent one, the
+        // struct's own description carries through.
+        let (about, long_about) = match &v.help {
+            Some(_) => (
+                option_str(v.help.as_deref()),
+                option_str(v.long_help.as_deref()),
+            ),
+            None => (
+                quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.about),
+                quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.long_about),
+            ),
+        };
+        quote! {
+            pub static #name: ::usage_argv::spec::CommandMeta =
+                ::usage_argv::spec::CommandMeta {
+                    cmd: &#cmd,
+                    about: #about,
+                    long_about: #long_about,
+                    ..*<#ty as ::usage_argv::spec::CommandArgs>::META
+                };
         }
+    });
+    let metas = (0..subs.variants.len()).map(|i| {
+        let name = format_ident!("META_{i}");
+        quote!(&#module::#name)
     });
     // Matched on the command's key rather than its name, so selecting a variant is
     // an integer comparison and cannot be confused by an alias.
@@ -780,6 +829,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 }
             }
 
+            #(#command_overrides)*
             #(#meta_overrides)*
         }
 

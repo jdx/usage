@@ -46,6 +46,79 @@ struct Run {
     task: String,
 }
 
+/// A second CLI where the variant's name and the struct's differ, and where one
+/// argument struct is shared by two variants. The first version passed its tests by
+/// coincidence: `RunTask(Run)` named its command `run` either way.
+#[derive(Cli)]
+#[usage(bin = "two")]
+struct Two {
+    #[usage(subcommand)]
+    command: Option<TwoCommands>,
+}
+
+#[derive(Subcommands)]
+enum TwoCommands {
+    /// Add a thing
+    #[usage(name = "add")]
+    Install(AddArgs),
+    /// Remove a thing
+    #[usage(name = "remove")]
+    Uninstall(RemoveArgs),
+}
+
+/// The struct's description, which the variant's overrides
+#[derive(Args)]
+struct AddArgs {
+    /// What to add
+    target: String,
+}
+
+/// Also overridden
+#[derive(Args)]
+struct RemoveArgs {
+    /// What to remove
+    target: String,
+}
+
+#[test]
+fn the_variant_names_the_command_not_the_struct() {
+    let a = argv(["add", "x"]);
+    let two = Two::parse_from(&a).expect("`add` should route");
+    assert!(matches!(two.command, Some(TwoCommands::Install(_))));
+
+    // And the struct's own name is not a command at all.
+    let a = argv(["shared", "x"]);
+    assert!(
+        Two::parse_from(&a).is_err(),
+        "the struct's name should not select anything"
+    );
+
+    let spec: LibSpec = Two::to_kdl().parse().expect("valid spec");
+    let mut names: Vec<&str> = spec.cmd.subcommands.keys().map(String::as_str).collect();
+    names.sort();
+    assert_eq!(names, ["add", "remove"]);
+}
+
+#[test]
+fn each_command_collects_into_its_own_struct() {
+    // Two variants wrapping one struct is refused at compile time, because a
+    // command's values go into the struct that declares them: sharing one would
+    // collect into whichever command was reached first. Each here has its own.
+    let a = argv(["remove", "y"]);
+    let two = Two::parse_from(&a).expect("`remove` should route");
+    let Some(TwoCommands::Uninstall(args)) = two.command else {
+        panic!("expected the remove command");
+    };
+    assert_eq!(args.target, "y");
+
+    let a = argv(["add", "x"]);
+    let two = Two::parse_from(&a).expect("`add` should route");
+    let Some(TwoCommands::Install(args)) = two.command else {
+        panic!("expected the add command");
+    };
+    assert_eq!(args.target, "x");
+}
+
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
 }
