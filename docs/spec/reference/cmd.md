@@ -95,10 +95,31 @@ cmd "install"
 mount run="mycli plugin-commands"
 ```
 
-The root's mount runs only when a _word_ matches nothing already declared, so
-`mycli install` costs nothing extra and only `mycli something-from-a-plugin` pays
-for discovery. Flags never trigger it — `mycli --help` does not run your mount
-command — so declaring the commands you know about keeps the common path free.
+Resolving a mount runs a process, so when the root's mount runs depends on what is
+asking for it:
+
+| asking                          | when it runs                                                                                                                                          |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a completion, or rendering help | up front — both need the whole command list, and `mycli <tab>` has no word to go on                                                                   |
+| a parse                         | only when a word matches nothing already declared, so `mycli install` costs nothing extra and only `mycli something-from-a-plugin` pays for discovery |
+| a parse, for a flag             | never                                                                                                                                                 |
+
+Declaring the commands you know about therefore keeps ordinary invocations free,
+while completions still see everything.
+
+A `default_subcommand` outranks discovery, because it already says what an unmatched
+word means and costs nothing to consult. Without that, a CLI that routes unknown
+words to a task runner would spawn its discovery process once per task. A mount can
+ask to win anyway:
+
+```kdl
+mount run="mycli plugin-commands" overrides_default=#true
+```
+
+That setting applies to completions as much as to parses, and deliberately: a
+completion offering a command that running would hand to the default subcommand
+instead is worse than not offering it. So a root mount under a `default_subcommand`
+contributes nothing anywhere until it asks to outrank it.
 
 ### Global flags and mounted commands
 
