@@ -95,10 +95,10 @@ cmd "install"
 mount run="mycli plugin-commands"
 ```
 
-The root's mount runs only when a word matches nothing already declared, so
+The root's mount runs only when a _word_ matches nothing already declared, so
 `mycli install` costs nothing extra and only `mycli something-from-a-plugin` pays
-for discovery. Declaring the commands you know about therefore keeps the common
-path free.
+for discovery. Flags never trigger it — `mycli --help` does not run your mount
+command — so declaring the commands you know about keeps the common path free.
 
 ### Global flags and mounted commands
 

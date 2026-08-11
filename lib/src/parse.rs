@@ -598,12 +598,14 @@ fn parse_partial_with_env(
     let mut mounts_resolved = false;
 
     while idx < input.len() {
-        // Only when a word matches nothing already declared, so a CLI that declares
-        // its commands *and* mounts more does not spawn a process for every
-        // invocation. Discovery is the expensive part, and this pays for it only
-        // when the answer might come from there.
+        // Only for a word that could name a command, and only when it matches
+        // nothing already declared. A CLI that declares its commands and mounts more
+        // does not spawn a process for every invocation, and a flag — `--help`, or
+        // anything unrecognized — never triggers discovery at all, which it would
+        // otherwise do simply by not being a subcommand.
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
+            && !input[idx].starts_with('-')
             && out.cmd.find_subcommand(&input[idx]).is_none()
         {
             mounts_resolved = true;
@@ -693,6 +695,9 @@ fn parse_partial_with_env(
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
                         prefix_flags.clear();
+                        // This descent ran the new command's mounts, so lazy
+                        // discovery must not run them a second time.
+                        mounts_resolved = true;
                         used_default_subcommand = true;
                         // Continue the loop to check if this word is a subcommand of the
                         // default subcommand (e.g., a task name added via mount).
@@ -1564,6 +1569,26 @@ mount run="echo 'cmd \"discovered\"'"
 
         let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_flag_does_not_run_the_mount() {
+        // A flag matches no subcommand, which would have been enough to trigger
+        // discovery — so `ex --help` spawned a process. The mount fails if it runs,
+        // so parsing at all is the proof that it did not.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--verbose"
+cmd "declared"
+mount run="exit 1"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &["ex".to_string(), "--verbose".to_string()]).unwrap();
+        assert_eq!(out.cmd.name, "ex");
     }
 
     #[cfg(unix)]
