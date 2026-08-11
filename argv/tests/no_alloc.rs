@@ -10,19 +10,39 @@
 //! benchmark threshold would catch it as reliably as this does.
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::ffi::OsStr;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use usage_argv::{Arg, Command, DoubleDash, Event, Flag, Parser};
 
 struct Counting;
 
-static ARMED: AtomicBool = AtomicBool::new(false);
+thread_local! {
+    /// Armed per thread, not globally: the test harness runs each test on its own
+    /// thread while the main thread waits, prints, and collects results — and a
+    /// global flag counted *its* allocations too. That made this test fail
+    /// intermittently depending on timing, which coverage instrumentation was
+    /// enough to change.
+    ///
+    /// `const`-initialized so reading it cannot allocate, which inside a global
+    /// allocator would recurse.
+    static ARMED: Cell<bool> = const { Cell::new(false) };
+}
+
 static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether the calling thread is the one being measured.
+///
+/// `try_with` rather than `with`: during thread teardown the local is gone, and
+/// an allocation then must not panic.
+fn armed() -> bool {
+    ARMED.try_with(Cell::get).unwrap_or(false)
+}
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if ARMED.load(Ordering::Relaxed) {
+        if armed() {
             ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
         }
         unsafe { System.alloc(layout) }
@@ -33,7 +53,7 @@ unsafe impl GlobalAlloc for Counting {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        if ARMED.load(Ordering::Relaxed) {
+        if armed() {
             ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
         }
         unsafe { System.realloc(ptr, layout, new_size) }
@@ -43,18 +63,16 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static ALLOCATOR: Counting = Counting;
 
-/// Run `f` with the counter armed, and report how many allocations it made.
+/// Run `f` with this thread's counter armed, and report how many allocations it
+/// made.
 ///
-/// The counter is global, so anything allocating on another thread while it is
-/// armed would be counted here. That is why this file holds exactly one
-/// `#[test]`: the test harness gives each test its own thread, and a sibling test
-/// building a `Vec` was enough to make this report phantom allocations. One test
-/// means one thread means the count belongs to the parse.
+/// Only this thread is counted, so neither a sibling test nor the harness itself
+/// can contribute — both of which have produced phantom allocations here.
 fn count_allocations(f: impl FnOnce()) -> usize {
     ALLOCATIONS.store(0, Ordering::Relaxed);
-    ARMED.store(true, Ordering::Relaxed);
+    ARMED.with(|a| a.set(true));
     f();
-    ARMED.store(false, Ordering::Relaxed);
+    ARMED.with(|a| a.set(false));
     ALLOCATIONS.load(Ordering::Relaxed)
 }
 
