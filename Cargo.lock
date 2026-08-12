@@ -789,7 +789,9 @@ dependencies = [
 name = "gate"
 version = "0.0.0"
 dependencies = [
+ "clap",
  "shadow-mise",
+ "shadow-mise-clap",
  "usage-argv",
 ]
 
@@ -1633,6 +1635,13 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+]
+
+[[package]]
+name = "shadow-mise-clap"
+version = "0.0.0"
+dependencies = [
+ "clap",
 ]
 
 [[package]]

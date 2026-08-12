@@ -10,5 +10,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+clap = { version = "4", features = ["derive", "env"] }
 shadow-mise = { path = "../shadows/mise" }
+shadow-mise-clap = { path = "../shadows/mise-clap" }
 usage-argv = { path = "../../argv" }

@@ -140,7 +140,10 @@ run = "cargo install --path cli --debug"
 # read the diff when the derive's vocabulary changes.
 [tasks."gen-shadow"]
 dir = "{{config_root}}"
-run = "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise"
+run = [
+    "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise usage",
+    "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
+]
 
 # Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
 # without it tak reports wall clock only and says so, so this still works on
