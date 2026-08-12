@@ -251,9 +251,11 @@ fn test_markdown_out_file_dash_writes_no_file() {
 }
 
 #[test]
-fn test_source_code_links_for_multi_word_commands_exist() {
-    // A hyphenated command like `complete-word` lives in `complete_word.rs`; linking it as
-    // `complete-word.rs` is a 404 on GitHub, and nothing but the file system can catch it.
+fn test_source_code_links_exist() {
+    // A command's path is not its file's path: `complete-word` lives in `complete_word.rs`,
+    // `generate` in `generate/mod.rs`, and `bash` in `shell.rs`, which it shares with the
+    // three other shells. Each of those is a 404 on GitHub when the template gets it wrong,
+    // and nothing but the file system can catch it.
     let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -290,27 +292,31 @@ fn test_source_code_links_for_multi_word_commands_exist() {
             continue;
         };
         let path = rest.split_once("`]").expect("malformed source code link").0;
-        // Single-word commands are linked from the same template, but several of them
-        // legitimately live elsewhere (`usage bash` is served by `shell.rs`), so only the
-        // hyphen-to-underscore mapping is asserted here.
-        let is_multi_word = cur_cmd
-            .split_whitespace()
-            .next_back()
-            .unwrap_or("")
-            .contains('-');
-        if !is_multi_word {
-            continue;
-        }
         assert!(
             repo_root.join(path).is_file(),
             "`{cur_cmd}` links to {path}, which does not exist"
         );
-        checked.push(cur_cmd.clone());
+        checked.push((cur_cmd.clone(), path.to_string()));
     }
+    // Every command carries a link, so a scrape that suddenly matches almost nothing means
+    // the document changed shape and the assertions above went blind.
     assert!(
-        checked.len() >= 2,
-        "expected to check several multi-word commands, checked {checked:?}"
+        checked.len() >= 10,
+        "expected a link for every command, checked {checked:?}"
     );
+    // Existence alone can't tell a correct mapping from a coincidence, and each of the three
+    // rules in the template is currently carried by only part of the spec. Name one command
+    // per rule so that dropping a rule fails here rather than in a reader's browser.
+    for (cmd, file) in [
+        ("usage complete-word", "cli/src/cli/complete_word.rs"),
+        ("usage generate", "cli/src/cli/generate/mod.rs"),
+        ("usage bash", "cli/src/cli/shell.rs"),
+    ] {
+        assert!(
+            checked.contains(&(cmd.to_string(), file.to_string())),
+            "expected `{cmd}` to link to {file}, checked {checked:?}"
+        );
+    }
 
     fs::remove_file(&out_file).unwrap();
 }

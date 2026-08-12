@@ -1158,7 +1158,7 @@
   "version": "5.1.0",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
-  "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{ path | replace(from='-', to='_') }}.rs",
+  "source_code_link_template": "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}",
   "repository": "https://github.com/jdx/usage",
   "about": "CLI for working with usage-based CLIs",
   "min_usage_version": "4.0",
