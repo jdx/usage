@@ -1,0 +1,303 @@
+---
+source: lib/src/spec/config.rs
+expression: "serde_json::to_string_pretty(&spec.config).unwrap()"
+---
+{
+  "props": {
+    "ci": {
+      "default": null,
+      "default_note": null,
+      "data_type": "boolean",
+      "value_type": {
+        "kind": "base",
+        "of": "bool"
+      },
+      "env": "CI",
+      "envs": [
+        "CI"
+      ],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [],
+      "merge": "replace",
+      "scope": "env",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": true,
+      "since": null,
+      "parse": null,
+      "writes_to": null,
+      "examples": [],
+      "default_list": [],
+      "extensions": [
+        [
+          "mise.rust_type",
+          "BoolOrString"
+        ],
+        [
+          "mise.rc",
+          true
+        ]
+      ]
+    },
+    "exclude": {
+      "default": null,
+      "default_note": null,
+      "data_type": "null",
+      "value_type": {
+        "kind": "list",
+        "of": {
+          "kind": "base",
+          "of": "string"
+        }
+      },
+      "env": "HK_EXCLUDE",
+      "envs": [
+        "HK_EXCLUDE"
+      ],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [],
+      "merge": "union",
+      "scope": "any",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": false,
+      "since": null,
+      "parse": null,
+      "writes_to": null,
+      "examples": [],
+      "default_list": [
+        "target",
+        "node_modules"
+      ],
+      "extensions": []
+    },
+    "jobs": {
+      "default": 0,
+      "default_note": "0 = auto-detect",
+      "data_type": "integer",
+      "value_type": {
+        "kind": "base",
+        "of": "uint"
+      },
+      "env": "HK_JOBS",
+      "envs": [
+        "HK_JOBS",
+        "HK_JOB"
+      ],
+      "cli": [
+        "--jobs",
+        "-j"
+      ],
+      "bindings": {
+        "git": [
+          "hk.jobs"
+        ],
+        "pkl": [
+          "jobs",
+          "defaults.jobs"
+        ]
+      },
+      "help": "Number of parallel jobs",
+      "long_help": null,
+      "help_heading": "Performance",
+      "choices": [],
+      "merge": "replace",
+      "scope": "any",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": false,
+      "since": "1.0.0",
+      "parse": null,
+      "writes_to": null,
+      "examples": [
+        "hk check --jobs 4"
+      ],
+      "default_list": [],
+      "extensions": []
+    },
+    "old.key": {
+      "default": null,
+      "default_note": null,
+      "data_type": "null",
+      "value_type": null,
+      "env": null,
+      "envs": [],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [],
+      "merge": "replace",
+      "scope": "any",
+      "deprecated": "Use new.key",
+      "deprecated_warn_at": "2026.12.0",
+      "deprecated_remove_at": "2027.12.0",
+      "renamed_to": "new.key",
+      "hide": false,
+      "since": null,
+      "parse": null,
+      "writes_to": null,
+      "examples": [],
+      "default_list": [],
+      "extensions": []
+    },
+    "stash": {
+      "default": null,
+      "default_note": null,
+      "data_type": "string",
+      "value_type": {
+        "kind": "base",
+        "of": "string"
+      },
+      "env": null,
+      "envs": [],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [
+        {
+          "value": "git",
+          "help": "Use `git stash`"
+        },
+        {
+          "value": "none",
+          "help": "No stashing"
+        }
+      ],
+      "merge": "replace",
+      "scope": "any",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": false,
+      "since": null,
+      "parse": null,
+      "writes_to": null,
+      "examples": [],
+      "default_list": [],
+      "extensions": []
+    },
+    "trusted": {
+      "default": null,
+      "default_note": null,
+      "data_type": "boolean",
+      "value_type": {
+        "kind": "base",
+        "of": "bool"
+      },
+      "env": null,
+      "envs": [],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [],
+      "merge": "replace",
+      "scope": "global",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": false,
+      "since": null,
+      "parse": null,
+      "writes_to": null,
+      "examples": [],
+      "default_list": [],
+      "extensions": []
+    },
+    "urls": {
+      "default": null,
+      "default_note": null,
+      "data_type": "null",
+      "value_type": {
+        "kind": "map",
+        "of": [
+          "string",
+          {
+            "kind": "base",
+            "of": "url"
+          }
+        ]
+      },
+      "env": null,
+      "envs": [],
+      "cli": [],
+      "bindings": {},
+      "help": null,
+      "long_help": null,
+      "help_heading": null,
+      "choices": [],
+      "merge": "replace",
+      "scope": "any",
+      "deprecated": null,
+      "deprecated_warn_at": null,
+      "deprecated_remove_at": null,
+      "renamed_to": null,
+      "hide": false,
+      "since": null,
+      "parse": "list_by_comma",
+      "writes_to": "npmrc",
+      "examples": [],
+      "default_list": [],
+      "extensions": []
+    }
+  },
+  "sources": {
+    "git": {
+      "name": "git config",
+      "doc_hint": "git config `{key}`",
+      "set_hint": "git config {key} {value}"
+    },
+    "pkl": {
+      "name": "hk.pkl",
+      "doc_hint": null,
+      "set_hint": null
+    }
+  },
+  "files": [
+    {
+      "path": "/etc/hk/config.pkl",
+      "findup": false,
+      "scope": "system",
+      "format": null
+    },
+    {
+      "path": "~/.config/hk/config.pkl",
+      "findup": false,
+      "scope": "global",
+      "format": null
+    },
+    {
+      "path": "hk.pkl",
+      "findup": true,
+      "scope": "project",
+      "format": null
+    },
+    {
+      "path": ".hkrc",
+      "findup": false,
+      "scope": "project",
+      "format": "ini"
+    }
+  ]
+}

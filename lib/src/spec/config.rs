@@ -4,9 +4,10 @@ use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::UsageErr;
+use crate::spec::config_type::SpecConfigType;
 use crate::spec::context::ParsingContext;
 use crate::spec::data_types::SpecDataTypes;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{string_entry, NodeHelper, ParseEntry};
 
 /// A config property's value, as declared.
 ///
@@ -95,6 +96,16 @@ impl SpecConfigValue {
         }
     }
 
+    /// This value as a bare node argument.
+    fn to_kdl_arg(&self) -> KdlEntry {
+        match self {
+            Self::Bool(b) => KdlEntry::new(*b),
+            Self::Int(i) => KdlEntry::new(kdl::KdlValue::Integer(*i as i128)),
+            Self::Float(f) => KdlEntry::new(*f),
+            Self::String(s) => string_entry(None, s),
+        }
+    }
+
     /// The same value read as the type the prop declares.
     ///
     /// A spec may write the value as a string and the type as a number —
@@ -175,10 +186,133 @@ impl From<String> for SpecConfigValue {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct SpecConfig {
     pub props: BTreeMap<String, SpecConfigProp>,
+    /// Source kinds this CLI reads that usage knows nothing about — a git config, a pkl
+    /// file, an `.npmrc`. Declared so docs can say where a setting comes from without
+    /// usage having to understand the source itself.
+    pub sources: BTreeMap<String, SpecConfigSource>,
+    /// Config file locations, in ascending precedence: the last one named wins. This is
+    /// the rc-style chain that docs have to describe and a resolver has to walk.
+    pub files: Vec<SpecConfigFile>,
+}
+
+/// A source kind's display metadata.
+///
+/// usage never reads a git config or an `.npmrc`; it renders what the spec says about
+/// them. `{key}` and `{value}` in a hint are substituted with the setting's key in that
+/// source and the value being set.
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct SpecConfigSource {
+    /// What to call it in prose: "git config", "hk.pkl".
+    pub name: Option<String>,
+    /// How to describe reading a setting from it: "git config `{key}`".
+    pub doc_hint: Option<String>,
+    /// How to describe writing one: "git config {key} {value}".
+    pub set_hint: Option<String>,
+}
+
+/// Where a config file lives, and how it is found.
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct SpecConfigFile {
+    pub path: String,
+    /// Whether to look for this name in the current directory and every parent.
+    pub findup: bool,
+    /// Which class of file this is. `Project` files are the ones a repository can carry,
+    /// and so the ones a `scope="global"` setting refuses to be read from.
+    pub scope: SpecConfigFileScope,
+    /// The format, when the extension does not say: "toml", "json", "ini".
+    pub format: Option<String>,
+}
+
+/// Which class of file a location belongs to.
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    strum::Display,
+    strum::EnumString,
+    strum::VariantNames,
+    Serialize,
+)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum SpecConfigFileScope {
+    /// Somewhere a repository can carry — the least trusted.
+    #[default]
+    Project,
+    /// The user's own configuration.
+    Global,
+    /// Installed by whoever administers the machine.
+    System,
+}
+
+/// How values for one property combine across sources.
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    strum::Display,
+    strum::EnumString,
+    strum::VariantNames,
+    Serialize,
+)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum SpecConfigMerge {
+    /// The highest-precedence source wins outright.
+    #[default]
+    Replace,
+    /// Collections from every source are concatenated, keeping first position.
+    Union,
+    /// Maps are merged key by key.
+    Deep,
+}
+
+/// Which sources a property may be read from.
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    strum::Display,
+    strum::EnumString,
+    strum::VariantNames,
+    Serialize,
+)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum SpecConfigScope {
+    /// Any declared source.
+    #[default]
+    Any,
+    /// Only files a repository cannot supply, and the environment or command line.
+    ///
+    /// mise treats this as a security property — a checked-in file must not be able to
+    /// change it — which is why it is declared here rather than left to each tool.
+    Global,
+    /// Never from a file: the environment or the command line only.
+    Env,
+}
+
+/// One of a property's allowed values.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct SpecConfigChoice {
+    pub value: SpecConfigValue,
+    pub help: Option<String>,
 }
 
 impl SpecConfig {
@@ -186,6 +320,7 @@ impl SpecConfig {
     pub fn new(props: impl IntoIterator<Item = (String, SpecConfigProp)>) -> Self {
         Self {
             props: props.into_iter().collect(),
+            ..Default::default()
         }
     }
 }
@@ -194,53 +329,46 @@ impl SpecConfig {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut config = Self::default();
         for node in node.children() {
-            node.ensure_arg_len(1..=1)?;
             match node.name() {
                 "prop" => {
-                    let key = node.arg(0)?;
-                    let key = key.ensure_string()?.to_string();
-                    // A `prop` with children used to parse and lose them: the loop below
-                    // reads properties only, so `prop "a" { prop "b" }` kept `a` and
-                    // dropped `b` without a word. Nesting is spelled with a dotted key.
-                    if let Some(children) = node.node.children() {
-                        if let Some(child) = children.nodes().first() {
-                            bail_parse!(
-                                ctx,
-                                child.name().span(),
-                                "config props cannot nest; write the key as \"a.b\""
-                            );
-                        }
-                    }
-                    let mut prop = SpecConfigProp::default();
+                    node.ensure_arg_len(1..=1)?;
+                    let key = node.arg(0)?.ensure_string()?.to_string();
+                    let prop = SpecConfigProp::parse(ctx, &node)?;
+                    config.props.insert(key, prop);
+                }
+                "source" => {
+                    node.ensure_arg_len(1..=1)?;
+                    let kind = node.arg(0)?.ensure_string()?.to_string();
+                    let mut source = SpecConfigSource::default();
                     for (k, v) in node.props() {
                         match k {
-                            "default" => {
-                                prop.default = match SpecConfigValue::from_kdl(v.value) {
-                                    Ok(value) => value,
-                                    Err(err) => {
-                                        bail_parse!(ctx, v.entry.span(), "{}", err.describe())
-                                    }
-                                }
+                            "name" => source.name = Some(v.ensure_string()?),
+                            "doc_hint" => source.doc_hint = Some(v.ensure_string()?),
+                            "set_hint" => source.set_hint = Some(v.ensure_string()?),
+                            k => {
+                                bail_parse!(ctx, node.span(), "unsupported config source key {k}")
                             }
-                            "default_note" => prop.default_note = Some(v.ensure_string()?),
-                            "data_type" => prop.data_type = v.ensure_string()?.parse()?,
-                            "env" => prop.env = v.ensure_string()?.to_string().into(),
-                            "help" => prop.help = v.ensure_string()?.to_string().into(),
-                            "long_help" => prop.long_help = v.ensure_string()?.to_string().into(),
-                            k => bail_parse!(ctx, node.span(), "unsupported config prop key {k}"),
                         }
                     }
-                    // After the loop, not inside it: `data_type` may be written after
-                    // `default` on the same node, and the declared type is what decides how
-                    // the value is read.
-                    prop.default = match prop.default.map(|v| v.coerced_to(prop.data_type)) {
-                        None => None,
-                        Some(Ok(value)) => Some(value),
-                        Some(Err(err)) => {
-                            bail_parse!(ctx, node.span(), "{}", err.describe())
-                        }
+                    refuse_children(ctx, &node, "source")?;
+                    config.sources.insert(kind, source);
+                }
+                "file" => {
+                    node.ensure_arg_len(1..=1)?;
+                    let mut file = SpecConfigFile {
+                        path: node.arg(0)?.ensure_string()?.to_string(),
+                        ..Default::default()
                     };
-                    config.props.insert(key, prop);
+                    for (k, v) in node.props() {
+                        match k {
+                            "findup" => file.findup = v.ensure_bool()?,
+                            "scope" => file.scope = parse_enum(ctx, &node, "scope", &v)?,
+                            "format" => file.format = Some(v.ensure_string()?),
+                            k => bail_parse!(ctx, node.span(), "unsupported config file key {k}"),
+                        }
+                    }
+                    refuse_children(ctx, &node, "file")?;
+                    config.files.push(file);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported config key {k}"),
             }
@@ -266,15 +394,56 @@ impl SpecConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct SpecConfigProp {
     pub default: Option<SpecConfigValue>,
     pub default_note: Option<String>,
+    /// The old five-value type, kept so a spec written against it still means what it said.
+    ///
+    /// `type` is the one to write now; this is set from it where the two overlap, so a
+    /// consumer reading either sees the same thing.
     pub data_type: SpecDataTypes,
+    /// The type, in the expression grammar: `list<string>`, `option<path>`, `bool|string`.
+    pub value_type: Option<SpecConfigType>,
+    /// The first environment variable, kept for the specs that wrote `env=`.
     pub env: Option<String>,
+    /// Every environment variable that sets this, highest precedence first.
+    pub envs: Vec<String>,
+    /// Flags that set this, as declared elsewhere in the spec.
+    pub cli: Vec<String>,
+    /// Keys this setting has in a custom source kind, by kind name.
+    pub bindings: BTreeMap<String, Vec<String>>,
     pub help: Option<String>,
     pub long_help: Option<String>,
+    /// The section to list this under in generated docs.
+    pub help_heading: Option<String>,
+    pub choices: Vec<SpecConfigChoice>,
+    pub merge: SpecConfigMerge,
+    pub scope: SpecConfigScope,
+    pub deprecated: Option<String>,
+    pub deprecated_warn_at: Option<String>,
+    pub deprecated_remove_at: Option<String>,
+    /// The property that replaces this one, so a value arriving under the old name can be
+    /// folded into the new one rather than ignored.
+    pub renamed_to: Option<String>,
+    /// Keep it out of docs and completions.
+    pub hide: bool,
+    /// The version that introduced it.
+    pub since: Option<String>,
+    /// A named parser for turning one string into this type — `list_by_comma` and friends.
+    /// Vocabulary rather than code, so any implementation can honor it.
+    pub parse: Option<String>,
+    /// Where `config set` should write this, when it is not the usual file.
+    pub writes_to: Option<String>,
+    pub examples: Vec<String>,
+    /// A list-valued default, which cannot be written as a single property.
+    pub default_list: Vec<String>,
+    /// Anything a tool needs to carry that usage does not interpret.
+    ///
+    /// Preserved in order and written back out, so a registry with tool-private metadata
+    /// (`mise.rust_type`, `aube.npm_shared`) round-trips through the spec untouched.
+    pub extensions: Vec<(String, SpecConfigValue)>,
 }
 
 impl SpecConfigProp {
@@ -311,16 +480,26 @@ impl SpecConfigProp {
         if let Some(default) = &self.default {
             node.push(default.to_kdl_entry("default"));
         }
-        // Written, unlike before: a type that is parsed and not serialized is a type that
-        // survives exactly one hop.
-        if self.data_type != SpecDataTypes::Null {
-            node.push(string_entry(Some("data_type"), &self.data_type.to_string()));
+        // The grammar spelling when there is one, the old five-value name otherwise: a
+        // spec that said `data_type` keeps saying it, and one that says `type` keeps the
+        // richer type it declared. Either way it is written, unlike before — a type parsed
+        // and not serialized survives exactly one hop.
+        match &self.value_type {
+            Some(ty) => node.push(string_entry(Some("type"), &ty.to_string())),
+            None if self.data_type != SpecDataTypes::Null => {
+                node.push(string_entry(Some("data_type"), &self.data_type.to_string()));
+            }
+            None => {}
         }
         if let Some(default_note) = &self.default_note {
             node.push(string_entry(Some("default_note"), default_note));
         }
-        if let Some(env) = &self.env {
-            node.push(string_entry(Some("env"), env));
+        // Only when it is the whole story: several go in a child node, and writing both
+        // would say it twice.
+        if self.envs.len() <= 1 {
+            if let Some(env) = &self.env {
+                node.push(string_entry(Some("env"), env));
+            }
         }
         if let Some(help) = &self.help {
             node.push(string_entry(Some("help"), help));
@@ -328,8 +507,323 @@ impl SpecConfigProp {
         if let Some(long_help) = &self.long_help {
             node.push(string_entry(Some("long_help"), long_help));
         }
+        if let Some(heading) = &self.help_heading {
+            node.push(string_entry(Some("help_heading"), heading));
+        }
+        if self.merge != SpecConfigMerge::default() {
+            node.push(string_entry(Some("merge"), &self.merge.to_string()));
+        }
+        if self.scope != SpecConfigScope::default() {
+            node.push(string_entry(Some("scope"), &self.scope.to_string()));
+        }
+        if let Some(deprecated) = &self.deprecated {
+            node.push(string_entry(Some("deprecated"), deprecated));
+        }
+        if let Some(at) = &self.deprecated_warn_at {
+            node.push(string_entry(Some("deprecated_warn_at"), at));
+        }
+        if let Some(at) = &self.deprecated_remove_at {
+            node.push(string_entry(Some("deprecated_remove_at"), at));
+        }
+        if let Some(renamed) = &self.renamed_to {
+            node.push(string_entry(Some("renamed_to"), renamed));
+        }
+        if self.hide {
+            node.push(KdlEntry::new_prop("hide", true));
+        }
+        if let Some(since) = &self.since {
+            node.push(string_entry(Some("since"), since));
+        }
+        if let Some(parse) = &self.parse {
+            node.push(string_entry(Some("parse"), parse));
+        }
+        if let Some(writes_to) = &self.writes_to {
+            node.push(string_entry(Some("writes_to"), writes_to));
+        }
+
+        let mut children = KdlDocument::new();
+        if self.envs.len() > 1 {
+            children.nodes_mut().push(string_list("env", &self.envs));
+        }
+        if !self.cli.is_empty() {
+            children.nodes_mut().push(string_list("cli", &self.cli));
+        }
+        if !self.default_list.is_empty() {
+            children
+                .nodes_mut()
+                .push(string_list("default", &self.default_list));
+        }
+        for (kind, keys) in &self.bindings {
+            let mut node = KdlNode::new("source");
+            node.push(string_entry(None, kind));
+            for key in keys {
+                node.push(string_entry(None, key));
+            }
+            children.nodes_mut().push(node);
+        }
+        if !self.choices.is_empty() {
+            let mut block = KdlNode::new("choices");
+            let mut inner = KdlDocument::new();
+            for choice in &self.choices {
+                let mut node = KdlNode::new("choice");
+                node.push(choice.value.to_kdl_arg());
+                if let Some(help) = &choice.help {
+                    node.push(string_entry(Some("help"), help));
+                }
+                inner.nodes_mut().push(node);
+            }
+            block.set_children(inner);
+            children.nodes_mut().push(block);
+        }
+        for example in &self.examples {
+            children
+                .nodes_mut()
+                .push(string_list("example", std::slice::from_ref(example)));
+        }
+        for (key, value) in &self.extensions {
+            let mut node = KdlNode::new("x");
+            node.push(string_entry(None, key));
+            node.push(value.to_kdl_arg());
+            children.nodes_mut().push(node);
+        }
+        if !children.nodes().is_empty() {
+            node.set_children(children);
+        }
         node
     }
+}
+
+/// The old five-value type a grammar type corresponds to, where one does.
+///
+/// A composite — `list<string>`, `map<…>` — has no counterpart, so it reads as `Null`:
+/// truthful about what the old vocabulary could say.
+fn data_type_of(ty: &SpecConfigType) -> SpecDataTypes {
+    use crate::spec::config_type::Base;
+    // A union has no counterpart among the old five values, so it gets `Null` like every
+    // other composite. Running it through `simplified()` made `bool|string` claim to be
+    // `Boolean`, and that legacy field drives how a default is read — so a `bool|string`
+    // whose default was the string `"true"` came back as a boolean, contradicting the very
+    // `value_type` that produced it.
+    if matches!(ty, SpecConfigType::Union(_)) {
+        return SpecDataTypes::Null;
+    }
+    match ty.simplified() {
+        SpecConfigType::Base(Base::Bool) => SpecDataTypes::Boolean,
+        SpecConfigType::Base(Base::String) => SpecDataTypes::String,
+        SpecConfigType::Base(Base::Int | Base::Uint) => SpecDataTypes::Integer,
+        SpecConfigType::Base(Base::Float) => SpecDataTypes::Float,
+        _ => SpecDataTypes::Null,
+    }
+}
+
+/// Refuse a child block on a node that has no children in its vocabulary.
+///
+/// `source` and `file` are properties only. They checked their properties and never looked at
+/// their children, so a nested block was dropped in silence — which contradicts the rule the
+/// rest of this block follows, and `prop` already enforces: vocabulary this version does not
+/// know is refused rather than half-read, because half-read is how a spec means one thing here
+/// and another somewhere else.
+fn refuse_children(
+    ctx: &ParsingContext,
+    node: &NodeHelper,
+    name: &'static str,
+) -> Result<(), UsageErr> {
+    if let Some(child) = node.children().into_iter().next() {
+        bail_parse!(
+            ctx,
+            child.node.name().span(),
+            "a config {name} takes properties, not a block"
+        );
+    }
+    Ok(())
+}
+
+/// A node whose arguments are strings: `cli "--jobs" "-j"`.
+fn string_list(name: &str, values: &[String]) -> KdlNode {
+    let mut node = KdlNode::new(name);
+    for value in values {
+        node.push(string_entry(None, value));
+    }
+    node
+}
+
+impl SpecConfigProp {
+    fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
+        let mut prop = Self::default();
+        for (k, v) in node.props() {
+            match k {
+                "default" => {
+                    prop.default = match SpecConfigValue::from_kdl(v.value) {
+                        Ok(value) => value,
+                        Err(err) => bail_parse!(ctx, v.entry.span(), "{}", err.describe()),
+                    }
+                }
+                "default_note" => prop.default_note = Some(v.ensure_string()?),
+                // `data_type` was the old spelling and stays readable; `type` is the
+                // grammar, and setting either fills the other in where they overlap.
+                "data_type" | "type" => {
+                    let ty: SpecConfigType = v.ensure_string()?.parse()?;
+                    // From the parsed type rather than its text: the grammar spells a
+                    // boolean `bool` and the old enum spells it `boolean`, so reading the
+                    // text twice loses it on the way back out.
+                    prop.data_type = data_type_of(&ty);
+                    prop.value_type = Some(ty);
+                }
+                "env" => prop.env = Some(v.ensure_string()?),
+                "help" => prop.help = Some(v.ensure_string()?),
+                "long_help" => prop.long_help = Some(v.ensure_string()?),
+                "help_heading" => prop.help_heading = Some(v.ensure_string()?),
+                "merge" => prop.merge = parse_enum(ctx, node, "merge", &v)?,
+                "scope" => prop.scope = parse_enum(ctx, node, "scope", &v)?,
+                "deprecated" => prop.deprecated = Some(v.ensure_string()?),
+                "deprecated_warn_at" => prop.deprecated_warn_at = Some(v.ensure_string()?),
+                "deprecated_remove_at" => prop.deprecated_remove_at = Some(v.ensure_string()?),
+                "renamed_to" => prop.renamed_to = Some(v.ensure_string()?),
+                "hide" => prop.hide = v.ensure_bool()?,
+                "since" => prop.since = Some(v.ensure_string()?),
+                "parse" => prop.parse = Some(v.ensure_string()?),
+                "writes_to" => prop.writes_to = Some(v.ensure_string()?),
+                k => bail_parse!(ctx, node.span(), "unsupported config prop key {k}"),
+            }
+        }
+
+        for child in node.children() {
+            match child.name() {
+                // The mistake worth naming: it used to parse and lose the inner prop.
+                "prop" => bail_parse!(
+                    ctx,
+                    child.node.name().span(),
+                    "config props cannot nest; write the key as \"a.b\""
+                ),
+                // Where several values, or prose, would not fit on the node.
+                "env" => prop.envs = string_args(&child)?,
+                "cli" => prop.cli = string_args(&child)?,
+                "example" => prop.examples.extend(string_args(&child)?),
+                "long_help" => {
+                    child.ensure_arg_len(1..=1)?;
+                    prop.long_help = Some(child.arg(0)?.ensure_string()?.to_string());
+                }
+                "default" => {
+                    // A list default, which cannot be written as one property.
+                    prop.default_list = string_args(&child)?;
+                }
+                "source" => {
+                    // `source "git" "hk.jobs" "hk.check"` — this setting's keys in a kind
+                    // declared at the top of the block.
+                    child.ensure_arg_len(1..)?;
+                    let mut args = string_args(&child)?;
+                    let kind = args.remove(0);
+                    prop.bindings.entry(kind).or_default().extend(args);
+                }
+                "choices" => {
+                    for choice in child.children() {
+                        if choice.name() != "choice" {
+                            bail_parse!(
+                                ctx,
+                                choice.node.name().span(),
+                                "a choices block holds `choice` nodes"
+                            );
+                        }
+                        choice.ensure_arg_len(1..=1)?;
+                        let value = match SpecConfigValue::from_kdl(choice.arg(0)?.value) {
+                            Ok(Some(value)) => value,
+                            Ok(None) => bail_parse!(ctx, choice.span(), "a choice needs a value"),
+                            // Same reasons, said about a choice rather than a default: a
+                            // number too large to carry, or one nothing can render.
+                            Err(err) => {
+                                bail_parse!(ctx, choice.span(), "choice: {}", err.describe())
+                            }
+                        };
+                        let mut help = None;
+                        for (k, v) in choice.props() {
+                            match k {
+                                "help" => help = Some(v.ensure_string()?),
+                                k => bail_parse!(ctx, choice.span(), "unsupported choice key {k}"),
+                            }
+                        }
+                        prop.choices.push(SpecConfigChoice { value, help });
+                    }
+                }
+                "x" => {
+                    // The escape hatch: kept in order, written back out, interpreted by
+                    // nobody here.
+                    child.ensure_arg_len(2..=2)?;
+                    let key = child.arg(0)?.ensure_string()?.to_string();
+                    let value = match SpecConfigValue::from_kdl(child.arg(1)?.value) {
+                        Ok(Some(value)) => value,
+                        Ok(None) => SpecConfigValue::String(String::new()),
+                        Err(err) => {
+                            bail_parse!(ctx, child.span(), "extension value: {}", err.describe())
+                        }
+                    };
+                    prop.extensions.push((key, value));
+                }
+                k => bail_parse!(
+                    ctx,
+                    child.node.name().span(),
+                    "unsupported config prop node {k}"
+                ),
+            }
+        }
+
+        // After both loops: `type` may be written after `default`, and the declared type is
+        // what decides how the value is read.
+        let declared = prop.data_type;
+        prop.default = match prop.default.map(|v| v.coerced_to(declared)) {
+            None => None,
+            Some(Ok(value)) => Some(value),
+            Some(Err(err)) => bail_parse!(ctx, node.span(), "{}", err.describe()),
+        };
+        // One env spelling, two ways to write it, and they must never disagree. `env=` is
+        // shorthand for a one-element list, so both forms feed `envs` in the order they were
+        // written and `env` is always its first entry.
+        //
+        // Syncing only when one side was empty left a prop that wrote *both* with two fields
+        // saying different things — `usage g json` exposing the pair, and a writer that picks
+        // between them by list length, so one of the values disappeared on a round trip.
+        if let Some(env) = prop.env.take() {
+            if !prop.envs.contains(&env) {
+                prop.envs.insert(0, env);
+            }
+        }
+        prop.env = prop.envs.first().cloned();
+        Ok(prop)
+    }
+}
+
+/// Every argument of a node, as strings.
+fn string_args(node: &NodeHelper) -> Result<Vec<String>, UsageErr> {
+    node.node
+        .entries()
+        .iter()
+        .filter(|e| e.name().is_none())
+        .map(|e| match e.value() {
+            kdl::KdlValue::String(s) => Ok(s.clone()),
+            other => Ok(other.to_string()),
+        })
+        .collect()
+}
+
+/// An enum-valued property, with the accepted spellings in the error.
+fn parse_enum<T>(
+    ctx: &ParsingContext,
+    node: &NodeHelper,
+    key: &str,
+    value: &ParseEntry<'_>,
+) -> Result<T, UsageErr>
+where
+    T: std::str::FromStr + strum::VariantNames,
+{
+    let text = value.ensure_string()?;
+    text.parse().map_err(|_| {
+        ctx.build_err(
+            format!(
+                "`{text}` is not a {key}; the choices are {}",
+                T::VARIANTS.join(", ")
+            ),
+            (node.span().offset(), node.span().len()).into(),
+        )
+    })
 }
 
 impl Default for SpecConfigProp {
@@ -338,9 +832,28 @@ impl Default for SpecConfigProp {
             default: None,
             default_note: None,
             data_type: SpecDataTypes::Null,
+            value_type: None,
             env: None,
+            envs: Vec::new(),
+            cli: Vec::new(),
+            bindings: BTreeMap::new(),
             help: None,
             long_help: None,
+            help_heading: None,
+            choices: Vec::new(),
+            merge: SpecConfigMerge::default(),
+            scope: SpecConfigScope::default(),
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            renamed_to: None,
+            hide: false,
+            since: None,
+            parse: None,
+            writes_to: None,
+            examples: Vec::new(),
+            default_list: Vec::new(),
+            extensions: Vec::new(),
         }
     }
 }
@@ -348,8 +861,39 @@ impl Default for SpecConfigProp {
 impl From<&SpecConfig> for KdlNode {
     fn from(config: &SpecConfig) -> Self {
         let mut node = KdlNode::new("config");
+        let doc = node.children_mut().get_or_insert_with(KdlDocument::new);
+        // Declarations first, then locations, then the settings — the order the reference
+        // page describes them in, so a written file reads like the documentation.
+        for (kind, source) in &config.sources {
+            let mut node = KdlNode::new("source");
+            node.push(string_entry(None, kind));
+            if let Some(name) = &source.name {
+                node.push(string_entry(Some("name"), name));
+            }
+            if let Some(hint) = &source.doc_hint {
+                node.push(string_entry(Some("doc_hint"), hint));
+            }
+            if let Some(hint) = &source.set_hint {
+                node.push(string_entry(Some("set_hint"), hint));
+            }
+            doc.nodes_mut().push(node);
+        }
+        // In order: a file list is a precedence chain, so the order is the meaning.
+        for file in &config.files {
+            let mut node = KdlNode::new("file");
+            node.push(string_entry(None, &file.path));
+            if file.findup {
+                node.push(KdlEntry::new_prop("findup", true));
+            }
+            if file.scope != SpecConfigFileScope::default() {
+                node.push(string_entry(Some("scope"), &file.scope.to_string()));
+            }
+            if let Some(format) = &file.format {
+                node.push(string_entry(Some("format"), format));
+            }
+            doc.nodes_mut().push(node);
+        }
         for (key, prop) in &config.props {
-            let doc = node.children_mut().get_or_insert_with(KdlDocument::new);
             doc.nodes_mut().push(prop.to_kdl_node(key.to_string()));
         }
         node
@@ -371,7 +915,7 @@ mod tests {
         }
     }
 
-    use super::SpecConfigValue;
+    use super::{SpecConfigMerge, SpecConfigScope, SpecConfigValue};
     use crate::Spec;
     use insta::assert_snapshot;
 
@@ -631,6 +1175,150 @@ config {
             spec.config.props["shell"].default,
             Some(SpecConfigValue::String("true".into()))
         );
+    }
+
+    /// Every node kind the vocabulary has, written and read back.
+    ///
+    /// The spec is the interchange between authoring and everything that consumes it, so
+    /// anything it cannot write out is something a tool would lose by saving its own file.
+    #[test]
+    fn the_whole_vocabulary_survives_a_round_trip() {
+        let spec: Spec = r##"
+name "hk"
+bin "hk"
+config {
+    source "git" name="git config" doc_hint="git config `{key}`" set_hint="git config {key} {value}"
+    source "pkl" name="hk.pkl"
+    file "/etc/hk/config.pkl" scope="system"
+    file "~/.config/hk/config.pkl" scope="global"
+    file "hk.pkl" findup=#true
+    file ".hkrc" format="ini"
+    prop "jobs" type="uint" default=0 default_note="0 = auto-detect" \
+        help="Number of parallel jobs" since="1.0.0" help_heading="Performance" {
+        cli "--jobs" "-j"
+        env "HK_JOBS" "HK_JOB"
+        source "git" "hk.jobs"
+        source "pkl" "jobs" "defaults.jobs"
+        example "hk check --jobs 4"
+    }
+    prop "exclude" type="list<string>" merge="union" {
+        default "target" "node_modules"
+        env "HK_EXCLUDE"
+    }
+    prop "stash" type="string" {
+        choices {
+            choice "git" help="Use `git stash`"
+            choice "none" help="No stashing"
+        }
+    }
+    prop "trusted" type="bool" scope="global"
+    prop "ci" type="bool" hide=#true scope="env" {
+        env "CI"
+        x "mise.rust_type" "BoolOrString"
+        x "mise.rc" #true
+    }
+    prop "old.key" deprecated="Use new.key" renamed_to="new.key" \
+        deprecated_warn_at="2026.12.0" deprecated_remove_at="2027.12.0"
+    prop "urls" type="map<string, url>" parse="list_by_comma" writes_to="npmrc"
+}
+"##
+        .parse()
+        .unwrap();
+
+        let written = spec.to_string();
+        let back: Spec = written
+            .parse()
+            .unwrap_or_else(|e| panic!("re-reading what we wrote: {e}\n{written}"));
+
+        assert_eq!(back.config.sources, spec.config.sources, "{written}");
+        assert_eq!(back.config.files, spec.config.files, "{written}");
+        assert_eq!(
+            back.config.props.keys().collect::<Vec<_>>(),
+            spec.config.props.keys().collect::<Vec<_>>(),
+            "{written}"
+        );
+        for (key, before) in &spec.config.props {
+            let after = &back.config.props[key];
+            assert_eq!(after, before, "{key} changed on the way out:\n{written}");
+        }
+
+        // And the pieces that are easy to write and forget to read.
+        let jobs = &spec.config.props["jobs"];
+        assert_eq!(jobs.cli, ["--jobs", "-j"]);
+        assert_eq!(jobs.envs, ["HK_JOBS", "HK_JOB"]);
+        assert_eq!(
+            jobs.env.as_deref(),
+            Some("HK_JOBS"),
+            "the first of the list"
+        );
+        assert_eq!(jobs.bindings["pkl"], ["jobs", "defaults.jobs"]);
+        assert_eq!(jobs.examples, ["hk check --jobs 4"]);
+        assert_eq!(jobs.help_heading.as_deref(), Some("Performance"));
+        assert_eq!(spec.config.props["exclude"].merge, SpecConfigMerge::Union);
+        assert_eq!(
+            spec.config.props["exclude"].default_list,
+            ["target", "node_modules"]
+        );
+        assert_eq!(spec.config.props["stash"].choices.len(), 2);
+        assert_eq!(
+            spec.config.props["stash"].choices[0].help.as_deref(),
+            Some("Use `git stash`")
+        );
+        assert_eq!(spec.config.props["trusted"].scope, SpecConfigScope::Global);
+        assert_eq!(spec.config.props["ci"].scope, SpecConfigScope::Env);
+        assert!(spec.config.props["ci"].hide);
+        assert_eq!(
+            spec.config.props["ci"].extensions,
+            [
+                (
+                    "mise.rust_type".to_string(),
+                    SpecConfigValue::String("BoolOrString".into())
+                ),
+                ("mise.rc".to_string(), SpecConfigValue::Bool(true)),
+            ]
+        );
+        assert_eq!(
+            spec.config.props["old.key"].renamed_to.as_deref(),
+            Some("new.key")
+        );
+        assert_eq!(
+            spec.config.props["urls"]
+                .value_type
+                .as_ref()
+                .map(|t| t.to_string()),
+            Some("map<string, url>".to_string())
+        );
+        assert_eq!(
+            spec.config.props["urls"].parse.as_deref(),
+            Some("list_by_comma")
+        );
+        assert_eq!(
+            spec.config.props["urls"].writes_to.as_deref(),
+            Some("npmrc")
+        );
+
+        // The serialized model, committed: this is what `usage g json` hands to a docs
+        // pipeline, a schema generator, or an implementation in another language, and it is
+        // the artifact a port can diff against rather than reading this file.
+        assert_snapshot!(serde_json::to_string_pretty(&spec.config).unwrap());
+    }
+
+    #[test]
+    fn an_unknown_word_in_the_config_block_is_refused() {
+        // Strict, deliberately: a spec using vocabulary this version does not have should
+        // say so rather than half-load. That is what `min_usage_version` is for.
+        for src in [
+            "config {\n  prop \"a\" nonsense=1\n}\n",
+            "config {\n  nonsense \"a\"\n}\n",
+            "config {\n  prop \"a\" {\n    nonsense \"b\"\n  }\n}\n",
+            "config {\n  prop \"a\" merge=\"sideways\"\n}\n",
+            "config {\n  file \"x\" scope=\"elsewhere\"\n}\n",
+        ] {
+            assert!(
+                Spec::parse(&Default::default(), src).is_err(),
+                "should be refused: {src}"
+            );
+        }
     }
 
     #[test]
