@@ -39,8 +39,12 @@ fn a_task_runs_with_arguments_after_a_separator() {
 
 #[test]
 fn a_bare_task_lands_on_the_root_positional() {
-    // What `default_subcommand run` leaves behind: `mise build -- --verbose` fills the
-    // root's own `[TASK]`, with the words after the separator kept apart.
+    // `mise build -- --verbose` fills the root's own `[TASK]`, with the words after the
+    // separator kept apart.
+    //
+    // Real mise routes this through `run`, because its spec sets `default_subcommand
+    // run` — which the derive cannot declare, so the shadow answers at the root
+    // instead. One of the differences `gen-shadow` counts rather than one it hides.
     let a = argv(["build", "--", "--verbose"]);
     let cli = Cli::parse_from(&a).expect("should parse");
     assert_eq!(cli.task.as_deref(), Some("build"));

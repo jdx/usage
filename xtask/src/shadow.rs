@@ -45,6 +45,19 @@ pub fn generate(spec_path: &Path, out_dir: &Path) {
     let mut out = String::new();
     let bin = spec.bin.clone();
 
+    // Properties of the CLI as a whole that the derive has no way to declare. The root's
+    // grammar differs without them: mise sets `default_subcommand run`, so `mise build`
+    // routes through `run` there and fills the root's own `[TASK]` here.
+    if spec.default_subcommand.is_some() {
+        skipped.note("`default_subcommand` on a command");
+    }
+    if !spec.cmd.mounts.is_empty() {
+        skipped.note("a `mount` on a command");
+    }
+    if spec.cmd.restart_token.is_some() {
+        skipped.note("a `restart_token` on a command");
+    }
+
     header(&mut out, spec_path);
     let root = Type::root(&spec.cmd, &mut names);
     emit_command(
