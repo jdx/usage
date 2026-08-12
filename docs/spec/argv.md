@@ -90,12 +90,13 @@ A flag needing a value that ends the command line is an error.
 
 A flag whose argument is variadic (`--include <pattern>...`) keeps taking values
 from one occurrence: it consumes following tokens until one is flag-like, or a
-`--` arrives, or the command line ends. So `--include a b` gives it both, while
-`--include a --force` gives it only `a`.
+`--` arrives, or its `var_max` is reached, or the command line ends. So
+`--include a b` gives it both, while `--include a --force` gives it only `a`.
 
 This is greedy, and a command that declares both a variadic flag and positionals
 will find the flag eating them. That is inherent to the feature rather than a
-quirk of this grammar; the way to end the run explicitly is `--`.
+quirk of this grammar; the ways to end the run are `--` and a `var_max`, which
+stops the flag and leaves the following words to whatever comes next.
 
 A flag declared `var` without a variadic argument is the other shape: it takes
 one value per occurrence and may be repeated, so `--include a --include b`
@@ -179,10 +180,12 @@ declaration order. Each argument takes one word, except a variadic (`var=#true`,
 or a trailing `...`), which collects every word still available.
 
 - A word offered when no argument can hold it is an error, not silently dropped.
-- `var_min` and `var_max` are enforced. They are checks on how many words an argument
-  ended up with, not limits that stop it collecting: a bounded variadic still takes
-  every word available, so an argument after one is as unreachable as an argument after
-  an unbounded variadic.
+- `var_max` is a limit rather than a check: a variadic stops once it is full and the next
+  argument takes the rest, which is what makes `[a]… [b]` fillable at all. An argument
+  after an _unbounded_ variadic still can never be filled. clap's `num_args` behaves this
+  way, and specs are commonly generated from clap commands.
+- `var_min` is a check, since nothing about a word tells you a variadic will end up short.
+  It is enforced once the last token has been read.
 - An unfilled required argument is an error. An unfilled optional one is absent.
 
 Flags and words may interleave freely: `ex from -f to` fills the same arguments
@@ -267,7 +270,7 @@ told apart mechanically.
 | `invalid_choice`           | a value outside the declared `choices`                    |
 | `arg_requires_double_dash` | a `double_dash="required"` argument got a value too early |
 | `var_too_few`              | fewer values than `var_min`                               |
-| `var_too_many`             | more values than `var_max`                                |
+| `var_too_many`             | more occurrences than a repeatable flag's `var_max`       |
 | `conflicting_flags`        | two flags declared to `conflict` were both given          |
 
 Choices match exactly; case-insensitive matching would have to be declared rather
@@ -305,8 +308,7 @@ Any implementation in any language can run these. In this repository,
 Each vector says which layer of a parser it is a question for. Most are
 `binding` — which token becomes which flag or argument — and a parser that reads
 argv is expected to answer all of those. The rest are `post-binding`: `required`,
-`choices`, `env` fallback, defaults, `var_min`/`var_max`, `overrides`, and
-`conflicts` are
+`choices`, `env` fallback, defaults, `var_min`, `overrides`, and `conflicts` are
 decided once the last token has been read, and need to know a value's type, so a
 binding-only parser leaves them to the layer that owns the target struct.
 

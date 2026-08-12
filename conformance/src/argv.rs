@@ -236,6 +236,17 @@ fn build(
                 // single-value argument is repeatable instead: one value per
                 // occurrence, which the parser gets by not collecting.
                 variadic: f.arg.as_ref().is_some_and(|a| a.var),
+                // The bound on one occurrence's values, which is the argument's. A
+                // repeatable flag's own `var_max` counts occurrences and is checked after
+                // the parse, so it does not belong in this table.
+                var_max: f
+                    .arg
+                    .as_ref()
+                    .filter(|a| a.var)
+                    .and_then(|a| a.var_max)
+                    // Saturating rather than truncating: `4294967296 as u32` is zero,
+                    // which would read as "stop at once" rather than "no real limit".
+                    .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
                 global: f.global,
             }))
         })
@@ -249,6 +260,10 @@ fn build(
                 key: 0,
                 name: leak(&a.name),
                 var: a.var,
+                var_max: a
+                    .var_max
+                    .filter(|_| a.var)
+                    .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
                 double_dash: match a.double_dash {
                     usage::SpecDoubleDashChoices::Required => DoubleDash::Required,
                     usage::SpecDoubleDashChoices::Preserve => DoubleDash::Preserve,

@@ -173,6 +173,20 @@
           }
         }
       }
+    },
+    {
+      "id": "a-bound-before-the-separator-is-not-charged-after-it",
+      "doc": "Each variadic counts its own words. A bounded one before the `--` must not lend its count to the argument after it, which would otherwise stop early or at once.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[first]\" var=#true var_max=3\narg \"[-- rest]\" var=#true var_max=2\n",
+      "argv": ["a", "b", "--", "c", "d"],
+      "expect": {
+        "ok": {
+          "args": {
+            "first": ["a", "b"],
+            "rest": ["c", "d"]
+          }
+        }
+      }
     }
   ]
 }

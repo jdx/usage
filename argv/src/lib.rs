@@ -155,6 +155,13 @@ pub struct Flag<'a> {
     /// parser, since it already reports every occurrence separately. Conflating
     /// the two makes a merely repeatable flag greedy enough to eat a positional.
     pub variadic: bool,
+    /// How many values one variadic occurrence may take, after which the next word
+    /// belongs to whatever comes next.
+    ///
+    /// Only for [`variadic`](Self::variadic). A merely repeatable flag — the spec's
+    /// `var=#true` — is bounded on how many times it was *given*, which no single token
+    /// can decide, so that bound stays with the metadata and is checked after the parse.
+    pub var_max: ::core::option::Option<u32>,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -170,6 +177,7 @@ impl Flag<'_> {
         negate: None,
         takes_value: false,
         variadic: false,
+        var_max: ::core::option::Option::None,
         global: false,
     };
 
@@ -188,6 +196,14 @@ pub struct Arg<'a> {
     pub key: u64,
     /// Whether this argument keeps taking values once it has one.
     pub var: bool,
+    /// How many words a variadic may take before the next argument gets the rest.
+    ///
+    /// A bound belongs here, in the table binding reads, rather than with the metadata:
+    /// it decides *where* a word lands, not whether what landed is acceptable. clap's
+    /// `num_args` works the same way, and every spec in the wild is generated from a clap
+    /// command. `u32` rather than `usize` because a CLI that bounds a variadic above four
+    /// billion has other problems, and this table is read on the hot path.
+    pub var_max: ::core::option::Option<u32>,
     /// This argument's relationship to the `--` separator.
     pub double_dash: DoubleDash,
     /// Unused by binding, kept so a table entry can carry its own name for
@@ -200,6 +216,7 @@ impl Arg<'_> {
     pub const REQUIRED: Arg<'static> = Arg {
         key: 0,
         var: false,
+        var_max: ::core::option::Option::None,
         double_dash: DoubleDash::Optional,
         name: "",
     };
@@ -386,8 +403,12 @@ pub struct Parser<'t, 'v> {
     bundle_token: &'v [u8],
     /// A variadic flag that is still collecting values.
     collecting: Option<&'t Flag<'t>>,
+    /// How many values it has taken, so a bound can stop it.
+    collected: u32,
     /// Which of `cmd.args` is next to fill.
     arg_pos: usize,
+    /// How many words the variadic at `arg_pos` has taken, for the same reason.
+    arg_taken: u32,
     /// Whether any word has been bound to a positional of `cmd`. Once one has,
     /// no further word can select a subcommand.
     arg_filled: bool,
@@ -420,7 +441,9 @@ impl<'t, 'v> Parser<'t, 'v> {
             bundle: &[],
             bundle_token: &[],
             collecting: None,
+            collected: 0,
             arg_pos: 0,
+            arg_taken: 0,
             arg_filled: false,
             flags_stopped: false,
             separator_seen: false,
@@ -478,6 +501,12 @@ impl<'t, 'v> Parser<'t, 'v> {
             match self.argv.get(self.pos) {
                 Some(next) if !is_flag_like(bytes(next)) && bytes(next) != b"--" => {
                     self.pos += 1;
+                    self.collected += 1;
+                    // Same rule as a positional: a bounded occurrence takes that many and
+                    // leaves the rest to whatever follows.
+                    if flag.var_max.is_some_and(|max| self.collected >= max) {
+                        self.collecting = None;
+                    }
                     return Some(Ok(Event::Flag {
                         flag,
                         value: Some(bytes(next)),
@@ -512,7 +541,12 @@ impl<'t, 'v> Parser<'t, 'v> {
                 .iter()
                 .position(|a| a.double_dash == DoubleDash::Required)
             {
+                // The count belongs to the argument at `arg_pos`, so jumping past it has
+                // to leave the count behind: a bounded variadic before the separator would
+                // otherwise lend its total to the argument after it, which then stops
+                // early or at once.
                 self.arg_pos += idx;
+                self.arg_taken = 0;
             }
             return self.step();
         }
@@ -558,7 +592,7 @@ impl<'t, 'v> Parser<'t, 'v> {
                 None
             };
             if flag.variadic {
-                self.collecting = Some(flag);
+                self.start_collecting(flag);
             }
             return Ok(Event::Flag {
                 flag,
@@ -633,7 +667,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             rest
         };
         if flag.variadic {
-            self.collecting = Some(flag);
+            self.start_collecting(flag);
         }
         Ok(Event::Flag {
             flag,
@@ -682,9 +716,16 @@ impl<'t, 'v> Parser<'t, 'v> {
         if arg.double_dash == DoubleDash::Automatic {
             self.flags_stopped = true;
         }
-        // A variadic keeps taking values, so the cursor stays put.
-        if !arg.var {
-            self.arg_pos += 1;
+        // A variadic keeps taking values, so the cursor stays put — until it reaches its
+        // bound, at which point the words after it belong to whatever comes next. That is
+        // what makes `[a]… [b]` expressible at all.
+        if arg.var {
+            self.arg_taken += 1;
+            if arg.var_max.is_some_and(|max| self.arg_taken >= max) {
+                self.advance_arg();
+            }
+        } else {
+            self.advance_arg();
         }
         Ok(Event::Arg { arg, value: token })
     }
@@ -697,8 +738,28 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.depth += 1;
         self.cmd = sub;
         self.arg_pos = 0;
+        self.arg_taken = 0;
         self.arg_filled = false;
         Ok(())
+    }
+
+    /// Move to the next positional, forgetting what the last one took.
+    fn advance_arg(&mut self) {
+        self.arg_pos += 1;
+        self.arg_taken = 0;
+    }
+
+    /// A variadic flag occurrence begins, counting from zero.
+    ///
+    /// The value it was given on the same token counts, which is why this starts at one:
+    /// `--include a b` with `var_max=2` takes `a` and `b`, not three words.
+    fn start_collecting(&mut self, flag: &'t Flag<'t>) {
+        self.collected = 1;
+        self.collecting = if flag.var_max.is_some_and(|max| max <= 1) {
+            None
+        } else {
+            Some(flag)
+        };
     }
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {

@@ -124,8 +124,8 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
       boxed subcommand variants, headings, `cfg`-gated variants.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
-      `var_min`/`var_max`, `conflicts`, `required_if`, `required_unless`, and
-      `overrides`. All of them need a value's type, so they belong with the derive
+      `var_min`, `conflicts`, `required_if`, `required_unless`, and `overrides` —
+      `var_max` moved to the binder, see the decision below. All of them need a value's type, so they belong with the derive
       rather than in the parser. `overrides` is the one that happens _during_ the
       parse instead of after it: it asks which of two flags came last, which only the
       arriving token knows.
@@ -151,6 +151,14 @@ carrying them rather than being worked around.
       shape mise uses on `run`, `exec` and `git`: `[ARGS]…` for the words before the
       separator and `[-- ARGS_LAST]…` for the ones after. Both parsers already bound it;
       only the derive's validation disagreed. Found by compiling the mise shadow.
+- [x] **Is `var_max` a limit or a check?** — usage-argv let a variadic take every word and
+      judged the count afterwards; usage-lib stopped the variadic at the bound and gave the
+      rest to the next argument. Two coherent readings, and nothing had recorded that the
+      two implementations disagreed. Settled as a **limit**, matching usage-lib and clap's
+      `num_args`, since every spec in the fleet is generated from a clap command and it is
+      the only reading under which `[a]… [b]` can be filled. `var_max` therefore moved into
+      the table binding reads; `var_min` stays a check, because no single word tells you a
+      variadic will end up short. Costs 55 instructions per parse, or 0.1%.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
@@ -192,9 +200,9 @@ checked-in `mise.usage.kdl` for both parsers.
       same properties. Three release binaries — one per parser, one that does
       everything except parse — measured by `tak`, which gates the counts in CI.
 - [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
-      against clap's 5.96M: 117× fewer**, and **2.0µs against 500µs of wall clock**.
+      against clap's 5.96M: 117× fewer**, and **2.1µs against 490µs of wall clock**.
       Measured by differencing two runs of the _same_ binary over how many parses it
-      does, so nothing but the parse varies. clap's 500µs is 315µs building its command
+      does, so nothing but the parse varies. clap's 490µs is 305µs building its command
       tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
       parse alone, with the tree already built and paid for, this is 12× faster.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
@@ -206,14 +214,14 @@ Runtime targets, which gate:
 | measurement                        | clap, measured | target | result           |
 | ---------------------------------- | -------------- | ------ | ---------------- |
 | instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×      |
-| wall time, argv to parsed struct   | 500µs          | < 50µs | 2.0µs, 245×      |
+| wall time, argv to parsed struct   | 490µs          | < 50µs | 2.1µs, 238×      |
 | heap allocations, successful parse | thousands      | 0      | not yet measured |
 
 Both gating targets are met, and not narrowly. The one number still owed is
 allocations on the derive path — usage-argv's own are asserted at zero, but the derive
 allocates a `String` per value, and nothing counts them yet.
 
-An earlier draft of these numbers said 48–58× rather than 103×, because it subtracted a
+An earlier draft of these numbers said 48–58× rather than 117×, because it subtracted a
 baseline measured in a _separate_ no-op binary. Two binaries do measurably different
 amounts of setup before `main`, and that difference had been landing in what was
 attributed to parsing. Differencing two runs of one binary over how many parses it does

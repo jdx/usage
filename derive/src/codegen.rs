@@ -255,6 +255,19 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     let shorts: Vec<u8> = shorts.iter().map(|c| *c as u8).collect();
     let negate = option_str(negate.as_deref());
     let takes_value = field.takes_value();
+    // The bound on one occurrence's values. A repeatable flag's bound counts occurrences
+    // instead, which no single token can decide, so that one stays a post-binding check.
+    let var_max = match field.var_max.filter(|_| *variadic) {
+        Some(max) => {
+            // Saturating, not `as`: on a 64-bit target a bound above `u32::MAX` would
+            // narrow, and `4294967296` narrows to zero — a limit of "none" read as a limit
+            // of "stop immediately". A variadic bounded above four billion is unbounded in
+            // every practical sense, so clamping says the same thing safely.
+            let max = u32::try_from(max).unwrap_or(u32::MAX);
+            quote!(::std::option::Option::Some(#max))
+        }
+        None => quote!(::std::option::Option::None),
+    };
 
     quote! {
         pub static #name: Flag = Flag {
@@ -265,6 +278,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             negate: #negate,
             takes_value: #takes_value,
             variadic: #variadic,
+            var_max: #var_max,
             global: #global,
         };
     }
@@ -286,12 +300,22 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     } else {
         quote!(DoubleDash::Optional)
     };
+    // A bound stops the variadic while binding, so the argument after it is reachable.
+    let var_max = match field.var_max.filter(|_| var) {
+        Some(max) => {
+            // Saturating, for the reason given on the flag above.
+            let max = u32::try_from(max).unwrap_or(u32::MAX);
+            quote!(::std::option::Option::Some(#max))
+        }
+        None => quote!(::std::option::Option::None),
+    };
 
     quote! {
         pub static #name: Arg = Arg {
             key: #key,
             name: #field_name,
             var: #var,
+            var_max: #var_max,
             double_dash: #double_dash,
         };
     }
@@ -1367,7 +1391,22 @@ fn post_binding(cli: &Cli) -> TokenStream {
             },
             None => quote!(),
         };
-        let max = match f.var_max {
+        // `var_max` is a binding limit for anything that *collects*: a variadic stops at it
+        // and the next field takes the rest, so a total above it cannot arise and this
+        // check would be unreachable. Worse than unreachable for a repeatable flag whose
+        // argument is variadic — each occurrence respects the limit, and the total across
+        // occurrences would fail a check the invocation never broke.
+        //
+        // What is left is the repeatable flag with a single-value argument, where the bound
+        // counts occurrences: nothing about one token can decide that, so it stays here.
+        let counts_occurrences = matches!(
+            &f.kind,
+            Kind::Flag {
+                variadic: false,
+                ..
+            }
+        ) && f.repeatable;
+        let max = match f.var_max.filter(|_| counts_occurrences) {
             Some(max) => quote! {
                 if got > #max {
                     return ::std::result::Result::Err(

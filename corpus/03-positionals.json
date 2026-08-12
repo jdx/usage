@@ -7,14 +7,22 @@
       "doc": "A required argument takes the first non-flag word.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
       "argv": ["a.txt"],
-      "expect": { "ok": { "args": { "file": "a.txt" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "file": "a.txt"
+          }
+        }
+      }
     },
     {
       "id": "arg-required-missing",
       "doc": "A required argument with nothing to fill it is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
       "argv": [],
-      "expect": { "error": "missing_required_arg" },
+      "expect": {
+        "error": "missing_required_arg"
+      },
       "layer": "post-binding"
     },
     {
@@ -22,14 +30,23 @@
       "doc": "An optional argument left unfilled is simply absent.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
       "argv": [],
-      "expect": { "ok": {} }
+      "expect": {
+        "ok": {}
+      }
     },
     {
       "id": "arg-order",
       "doc": "Two arguments fill in declaration order, regardless of what the values look like.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<src>\"\narg \"<dst>\"\n",
       "argv": ["from", "to"],
-      "expect": { "ok": { "args": { "src": "from", "dst": "to" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "src": "from",
+            "dst": "to"
+          }
+        }
+      }
     },
     {
       "id": "arg-interleaved-with-flags",
@@ -38,8 +55,13 @@
       "argv": ["from", "-f", "to"],
       "expect": {
         "ok": {
-          "flags": { "force": true },
-          "args": { "src": "from", "dst": "to" }
+          "flags": {
+            "force": true
+          },
+          "args": {
+            "src": "from",
+            "dst": "to"
+          }
         }
       }
     },
@@ -48,54 +70,132 @@
       "doc": "More words than there are arguments to hold them is an error, not silent truncation.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
       "argv": ["a", "b"],
-      "expect": { "error": "unexpected_arg" }
+      "expect": {
+        "error": "unexpected_arg"
+      }
     },
     {
       "id": "arg-variadic-collects-rest",
       "doc": "A variadic argument collects every remaining word.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>...\"\n",
       "argv": ["a", "b", "c"],
-      "expect": { "ok": { "args": { "files": ["a", "b", "c"] } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "files": ["a", "b", "c"]
+          }
+        }
+      }
     },
     {
       "id": "arg-variadic-after-fixed",
       "doc": "A fixed argument is filled before a following variadic starts collecting.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<cmd>\"\narg \"[rest]...\"\n",
       "argv": ["run", "a", "b"],
-      "expect": { "ok": { "args": { "cmd": "run", "rest": ["a", "b"] } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "cmd": "run",
+            "rest": ["a", "b"]
+          }
+        }
+      }
     },
     {
       "id": "arg-variadic-empty",
       "doc": "An optional variadic given nothing is absent rather than an empty list.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[rest]...\"\n",
       "argv": [],
-      "expect": { "ok": {} }
+      "expect": {
+        "ok": {}
+      }
     },
     {
       "id": "arg-variadic-min",
       "doc": "`var_min` is enforced: too few values is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>\" var=#true var_min=2\n",
       "argv": ["a"],
-      "expect": { "error": "var_too_few" },
+      "expect": {
+        "error": "var_too_few"
+      },
       "layer": "post-binding"
     },
     {
       "id": "arg-variadic-max",
-      "doc": "`var_max` is enforced: too many values is an error.",
+      "doc": "A variadic stops at its bound, so the words past it belong to whatever comes next \u2014 and with nothing after it, the third word has nowhere to go. `var_too_many` cannot arise for a variadic any more: it describes a repeatable flag given more times than its bound allows. This used to be recorded as a divergence \u2014 the corpus wanted `var_too_many` and usage-lib said `unexpected_arg` \u2014 and adopting the limit reading is what made the two agree.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>\" var=#true var_max=2\n",
       "argv": ["a", "b", "c"],
-      "expect": { "error": "var_too_many" },
-      "reference": {
-        "diverges": "usage-lib reports `unexpected_arg`. The outcome is the same rejection; the distinct code is what tells a caller the limit was a `var_max` rather than an absent argument."
-      },
-      "layer": "post-binding"
+      "expect": {
+        "error": "unexpected_arg"
+      }
     },
     {
       "id": "arg-value-looks-like-negative-number",
       "doc": "A negative number is a value, not an unknown flag. A leading `-` followed by a digit cannot begin a flag name, so the token is offered to the next argument.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<offset>\"\n",
       "argv": ["-1"],
-      "expect": { "ok": { "args": { "offset": "-1" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "offset": "-1"
+          }
+        }
+      }
+    },
+    {
+      "id": "a-bound-stops-a-variadic",
+      "doc": "`var_max` is a limit on how many words a variadic takes, not only a check on how many it got: once it is full the next argument gets the rest. Without that, `[a]\u2026 [b]` could never be filled, and clap's `num_args` \u2014 which every generated spec comes from \u2014 behaves this way.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[a]\" var=#true var_max=1\narg \"[b]\"\n",
+      "argv": ["x", "y"],
+      "expect": {
+        "ok": {
+          "args": {
+            "a": ["x"],
+            "b": "y"
+          }
+        }
+      }
+    },
+    {
+      "id": "a-bound-does-not-invent-somewhere-to-put-the-rest",
+      "doc": "The bound stops the variadic even when nothing follows it, so the extra word has nowhere to go and is an error rather than a silently dropped value.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[a]\" var=#true var_max=1\n",
+      "argv": ["x", "y"],
+      "expect": {
+        "error": "unexpected_arg"
+      }
+    },
+    {
+      "id": "an-unbounded-variadic-still-takes-everything",
+      "doc": "Unbounded is the common case and unchanged: nothing after it can be filled, which is why declaring an argument there is refused.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[a]\" var=#true\n",
+      "argv": ["x", "y", "z"],
+      "expect": {
+        "ok": {
+          "args": {
+            "a": ["x", "y", "z"]
+          }
+        }
+      }
+    },
+    {
+      "id": "a-bound-stops-a-variadic-flag",
+      "doc": "The same rule for a flag whose one occurrence collects: `--include` takes the two words its bound allows, and the third is the positional's.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\u2026\" {\n  arg \"<pattern>\u2026\" var=#true var_max=2\n}\narg \"[out]\"\n",
+      "argv": ["--include", "a", "b", "c"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "include": ["a", "b"]
+          },
+          "args": {
+            "out": "c"
+          }
+        }
+      },
+      "reference": {
+        "diverges": "usage-lib does not collect for a variadic flag at all \u2014 it takes one value, so `b` fills [out] and `c` is unexpected. The same gap as `long-variadic-flag-arg`, which the spec reference documents; bounding what usage-argv collects is consistent with it collecting in the first place."
+      }
     }
   ]
 }
