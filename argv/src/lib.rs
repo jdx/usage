@@ -433,7 +433,7 @@ pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
     std::str::from_utf8(value)
 }
 
-/// Resolve a subcommand by name, at compile time.
+/// Resolve a subcommand by name or alias, at compile time.
 ///
 /// For [`Command::default_subcommand`], which names a command that a derive cannot see: the
 /// variants of a subcommand enum are a different macro expansion, so the name is all the
@@ -462,8 +462,18 @@ pub const fn find_subcommand<'a>(
 ) -> &'a Command<'a> {
     let mut i = 0;
     while i < subcommands.len() {
-        if str_eq(subcommands[i].name, name) {
-            return subcommands[i];
+        let candidate = subcommands[i];
+        if str_eq(candidate.name, name) {
+            return candidate;
+        }
+        // Aliases answer too, because usage-lib resolves the name against names, aliases and
+        // hidden aliases alike — so a spec may point `default_subcommand` at any of them.
+        let mut a = 0;
+        while a < candidate.aliases.len() {
+            if str_eq(candidate.aliases[a], name) {
+                return candidate;
+            }
+            a += 1;
         }
         i += 1;
     }
@@ -855,13 +865,20 @@ impl<'t, 'v> Parser<'t, 'v> {
 
             // A word that names no subcommand goes to the default one, if there is one.
             //
+            // Only a word, though. A dash-prefixed token that named no flag arrives here as a
+            // value — that is what `unknown_flags = value` means — and it was never a
+            // candidate to *select* anything, so it binds where it was typed. usage-lib stops
+            // looking for subcommands at an unrecognised flag for the same reason. `--` is
+            // excluded on the same grounds: it reaches this function only when a `preserve`
+            // argument wants it as a value.
+            //
             // The token is *not* consumed: the cursor steps back so the next event reads it
             // again, now against the command just descended into. That is what lets it be a
             // subcommand of the default (`mise build` where `build` is a task the mount
             // added) as easily as an argument of it, without this function having to decide
             // which — and without yielding two events for one word.
             if let Some(default) = self.cmd.default_subcommand {
-                if !self.default_taken {
+                if !self.default_taken && !is_flag_like(token) && token != b"--" {
                     self.default_taken = true;
                     self.descend(default)?;
                     self.pos -= 1;
@@ -1418,6 +1435,26 @@ mod tests {
     }
 
     #[test]
+    fn an_unknown_flag_is_not_routed() {
+        // A dash-prefixed token that names no flag becomes a value here (the default for
+        // `unknown_flags`), and it must not thereby become a *subcommand* word: usage-lib
+        // stops looking for subcommands at an unrecognised flag, and binds it to the command
+        // still in scope. Verified against usage-lib, where `ex --wat` comes back as commands
+        // `["ex"]` with `ROOT_TASK = "--wat"`.
+        for token in ["--wat", "-x"] {
+            let a = argv([token]);
+            assert_eq!(
+                parse(&DEFAULTING, &a).unwrap(),
+                vec![Event::Arg {
+                    arg: &TASK,
+                    value: token.as_bytes()
+                }],
+                "{token} should bind where it was typed, not in the default subcommand"
+            );
+        }
+    }
+
+    #[test]
     fn a_named_subcommand_is_not_routed() {
         // The default is for words that name nothing. A word that names a sibling still
         // selects it, and the root's own argument is still reachable behind one.
@@ -1426,6 +1463,24 @@ mod tests {
             parse(&DEFAULTING, &a).unwrap(),
             vec![Event::Command(&INSTALL)]
         );
+    }
+
+    #[test]
+    fn the_default_can_be_named_by_an_alias() {
+        // usage-lib resolves the name against subcommand names, aliases and hidden aliases
+        // alike, so a spec may point `default_subcommand` at any of them.
+        static BY_ALIAS: Command = Command {
+            name: "mise",
+            args: &[&TASK],
+            subcommands: &[&INSTALL],
+            // `INSTALL` answers to "i" as well as to its name.
+            default_subcommand: Some(find_subcommand(&[&INSTALL], "i")),
+            ..Command::EMPTY
+        };
+        assert!(::core::ptr::eq(
+            BY_ALIAS.default_subcommand.expect("declared"),
+            &INSTALL
+        ));
     }
 
     #[test]
