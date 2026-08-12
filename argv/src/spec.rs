@@ -817,15 +817,22 @@ pub trait Subcommands: Sized {
     ///
     /// A flag that `install` requires says nothing about an invocation that ran
     /// `run`, so only the command that was actually reached is judged.
-    fn check<'t, 'v>(partial: &mut Self::Partial, key: u64) -> Result<(), crate::Error<'t, 'v>>;
+    ///
+    /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
+    /// key: the position is found from the table's own address, so two commands whose
+    /// keys happen to collide still cannot be confused for one another.
+    fn check<'t, 'v>(
+        partial: &mut Self::Partial,
+        selected: usize,
+    ) -> Result<(), crate::Error<'t, 'v>>;
 
-    /// Build the variant whose command was selected, by its [`Command::key`].
+    /// Build the variant at `selected`, a position in [`Subcommands::COMMANDS`].
     ///
     /// `None` when no variant was selected, which a caller reads as "no subcommand
     /// was given". An `Err` comes from building the variant that *was* selected.
     fn select<'t, 'v>(
         partial: Self::Partial,
-        key: u64,
+        selected: usize,
     ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
 }
 

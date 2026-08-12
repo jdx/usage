@@ -89,9 +89,8 @@
 //! expanded macros avoid handing two fields the same one. A key chooses which arm to
 //! jump to and the arm then verifies the event came from its own table, so even two
 //! identical declarations in different modules cannot misbind — the event simply goes
-//! unclaimed, and `Spec::to_kdl` asserts the tree holds no duplicate keys. `Spec::to_kdl` asserts the
-//! tree has no duplicates, so a collision fails a test rather than binding the wrong
-//! field.
+//! unclaimed, and `Spec::to_kdl` asserts the tree holds no duplicate keys, so a
+//! collision fails a test rather than quietly doing the wrong thing.
 //!
 //! # What is decided after the parse
 //!

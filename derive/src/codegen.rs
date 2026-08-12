@@ -691,10 +691,10 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 
     let selected = quote! {
         match partial.__usage_selected {
-            ::std::option::Option::Some(__usage_key) => {
+            ::std::option::Option::Some(__usage_at) => {
                 <#ty as ::usage_argv::spec::Subcommands>::select(
                     partial.__usage_sub,
-                    __usage_key,
+                    __usage_at,
                 )?
             }
             ::std::option::Option::None => ::std::option::Option::None,
@@ -720,8 +720,10 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         metas: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::METAS,),
         partial_fields: quote! {
             pub __usage_sub: <#in_mod as ::usage_argv::spec::Subcommands>::Partial,
-            /// Which of this command's subcommands was reached, if any.
-            pub __usage_selected: ::std::option::Option<u64>,
+            /// Which of this command's subcommands was reached, as a position in
+            /// `COMMANDS`. Found from the table's own address, so it cannot be
+            /// confused by a key collision.
+            pub __usage_selected: ::std::option::Option<usize>,
         },
         partial_starts: quote! {
             __usage_sub: ::std::default::Default::default(),
@@ -736,11 +738,12 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // that command, and recording it here would make the wrong variant look
             // selected.
             if let ::usage_argv::Event::Command(__usage_cmd) = event {
-                if <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS
-                    .iter()
-                    .any(|candidate| candidate.key == __usage_cmd.key)
+                if let ::std::option::Option::Some(__usage_at) =
+                    <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS
+                        .iter()
+                        .position(|candidate| ::core::ptr::eq(*candidate, *__usage_cmd))
                 {
-                    partial.__usage_selected = ::std::option::Option::Some(__usage_cmd.key);
+                    partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                 }
             }
             if <#in_mod as ::usage_argv::spec::Subcommands>::apply(
@@ -751,10 +754,10 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             }
         },
         check: quote! {
-            if let ::std::option::Option::Some(__usage_key) = partial.__usage_selected {
+            if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
                 <#in_mod as ::usage_argv::spec::Subcommands>::check(
                     &mut partial.__usage_sub,
-                    __usage_key,
+                    __usage_at,
                 )?;
             }
         },
@@ -1020,9 +1023,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
         quote! {
-            if key == <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.key {
-                return <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#field);
-            }
+            #i => <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#field),
         }
     });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
@@ -1030,13 +1031,11 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let variant = &v.ident;
         let ty = &v.ty;
         quote! {
-            if key == <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.key {
-                return ::std::result::Result::Ok(::std::option::Option::Some(
-                    #ident::#variant(
-                        <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?,
-                    ),
-                ));
-            }
+            #i => ::std::result::Result::Ok(::std::option::Option::Some(
+                #ident::#variant(
+                    <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?,
+                ),
+            )),
         }
     });
 
@@ -1084,21 +1083,27 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 
             fn check<'t, 'v>(
                 partial: &mut Self::Partial,
-                key: u64,
+                selected: usize,
             ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
-                #(#checks)*
-                ::std::result::Result::Ok(())
+                match selected {
+                    #(#checks)*
+                    // A position that is not one of these cannot be produced: it comes
+                    // from finding a table's own address in COMMANDS.
+                    _ => ::std::result::Result::Ok(()),
+                }
             }
 
             fn select<'t, 'v>(
                 partial: Self::Partial,
-                key: u64,
+                selected: usize,
             ) -> ::std::result::Result<
                 ::std::option::Option<Self>,
                 ::usage_argv::Error<'t, 'v>,
             > {
-                #(#selects)*
-                ::std::result::Result::Ok(::std::option::Option::None)
+                match selected {
+                    #(#selects)*
+                    _ => ::std::result::Result::Ok(::std::option::Option::None),
+                }
             }
         }
     }
