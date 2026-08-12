@@ -13,6 +13,13 @@ set -euo pipefail
 
 out=${1:-/dev/stdout}
 
+# Built somewhere else and moved into place at the end. The workflow calls this with
+# `|| true`, because an informative table is not worth failing a run over — which means a
+# failure part way through must not leave a truncated table behind for the comment to
+# publish as though it were a comparison.
+tmp=$(mktemp)
+trap 'rm -f "$tmp" cachegrind.out.*' EXIT
+
 # The two binaries take a repeat count from the environment, so differencing two runs of the
 # *same* binary isolates the parse: N=1 minus N=0 is one cold parse in a fresh process.
 # Differencing two different binaries would fold in whatever they each do before `main`.
@@ -40,12 +47,12 @@ clap_cold=$(cold parse-n-clap)
 
 {
   printf '### Shadow comparison\n\n'
-  # The backticks below are markdown, not command substitution, and the single quotes are
-  # what keeps them literal.
+  # The backticks in this block are markdown, not command substitution, and the single
+  # quotes are what keeps them literal.
   # shellcheck disable=SC2016
-  printf 'Parsing `mise use -g node@20` against a shadow of mise'"'"'s committed spec: 211\n'
-  printf 'commands, 711 flags, four levels deep. Reported, not gated — the shadow grows as\n'
-  printf 'the derive learns to express more, so what to watch is the ratio.\n\n'
+  printf 'Parsing `mise use -g node@20` against a shadow of mise'"'"'s committed spec.\n'
+  printf 'Reported, not gated: the shadow grows as the derive learns to express more, so\n'
+  printf 'what to watch is the ratio rather than either column.\n\n'
   printf '| | usage | clap | ratio |\n'
   printf '|---|---:|---:|---:|\n'
   printf '| instructions, cold parse | %s | %s | %sx |\n' \
@@ -57,6 +64,6 @@ clap_cold=$(cold parse-n-clap)
   printf '```\n'
   ./target/release/time-parse
   printf '```\n'
-} >"$out"
+} >"$tmp"
 
-rm -f cachegrind.out.*
+cat "$tmp" >"$out"
