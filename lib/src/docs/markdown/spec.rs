@@ -5,6 +5,11 @@ impl MarkdownRenderer {
     pub fn render_spec(&self) -> Result<String, UsageErr> {
         let mut ctx = self.clone();
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
+        // From the raw block for the same reason `render_config` does: the copy on `self.spec`
+        // was rendered by `new` before the builder options existed, and rendering happens once.
+        let mut config = crate::docs::models::SpecConfig::from(&self.raw_config);
+        config.render_md(self);
+        ctx.insert("config", &config);
         ctx.render("spec_template.md.tera")
     }
 
@@ -12,6 +17,16 @@ impl MarkdownRenderer {
         let mut ctx = self.clone();
         ctx.multi = false;
         ctx.insert("all_commands", &self.spec.cmd.all_subcommands());
+        // So the index can link the settings page it sits beside. Without this the page was
+        // written and nothing pointed at it, which for a reader who starts at the index is
+        // the same as not writing it.
+        ctx.insert(
+            "config",
+            &crate::docs::models::SpecConfig::from(&self.raw_config),
+        );
+        // The name the page will actually be written under, so the link cannot point somewhere
+        // else than the file — including when a `settings` command has taken `settings.md`.
+        ctx.insert("config_page", &self.config_page());
         ctx.render("index_template.md.tera")
     }
 }

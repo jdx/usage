@@ -9,7 +9,7 @@ pub struct Spec {
     pub name: String,
     pub bin: String,
     pub cmd: SpecCommand,
-    // pub config: SpecConfig,
+    pub config: SpecConfig,
     pub version: Option<String>,
     pub usage: String,
     // pub complete: IndexMap<String, SpecComplete>,
@@ -110,6 +110,206 @@ pub struct Group<T> {
     pub items: Vec<T>,
 }
 
+/// A CLI's settings, as documentation sees them.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SpecConfig {
+    /// Every property, hidden ones already removed.
+    pub props: Vec<SpecConfigProp>,
+    /// `props`, partitioned by `help_heading`. Same props, same order.
+    pub prop_groups: Vec<Group<SpecConfigProp>>,
+    /// Config file locations, in the precedence order the spec declared.
+    pub files: Vec<SpecConfigFile>,
+    rendered: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SpecConfigFile {
+    pub path: String,
+    pub findup: bool,
+    pub scope: String,
+    pub format: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SpecConfigProp {
+    pub key: String,
+    /// The type as written, or nothing when the spec did not say.
+    pub type_: Option<String>,
+    pub default: Option<String>,
+    pub default_note: Option<String>,
+    pub help: Option<String>,
+    pub help_long: Option<String>,
+    pub help_md: Option<String>,
+    pub help_heading: Option<String>,
+    /// One line per way of setting it, already worded: "`--jobs`, `-j`",
+    /// "`HK_JOBS` (or `HK_JOB`)", "git config `hk.jobs`". Built here rather than in the
+    /// template so every renderer says it the same way.
+    pub sources: Vec<String>,
+    pub choices: Vec<SpecConfigChoice>,
+    pub deprecated: Option<String>,
+    pub deprecated_remove_at: Option<String>,
+    pub since: Option<String>,
+    pub examples: Vec<String>,
+    /// `union`/`deep` when the spec said so, nothing for the default.
+    pub merge: Option<String>,
+    /// Where a value may come from, when the spec restricted it.
+    pub scope: Option<String>,
+    rendered: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SpecConfigChoice {
+    pub value: String,
+    pub help: Option<String>,
+}
+
+impl SpecConfig {
+    pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
+        if self.rendered {
+            return;
+        }
+        self.rendered = true;
+        for prop in &mut self.props {
+            prop.render_md(renderer);
+        }
+        for group in &mut self.prop_groups {
+            for prop in &mut group.items {
+                prop.render_md(renderer);
+            }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.props.is_empty() && self.files.is_empty()
+    }
+}
+
+impl SpecConfigProp {
+    pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
+        if self.rendered {
+            return;
+        }
+        self.rendered = true;
+        if let Some(help) = &mut self.help_md {
+            *help = renderer.replace_code_fences(help.to_string());
+        }
+    }
+}
+
+impl From<&crate::spec::config::SpecConfig> for SpecConfig {
+    fn from(config: &crate::spec::config::SpecConfig) -> Self {
+        // Hidden props are dropped here rather than in the template: every consumer of
+        // this model wants them gone, and a template that forgets the filter leaks them.
+        let props: Vec<SpecConfigProp> = config
+            .props
+            .iter()
+            .filter(|(_, prop)| !prop.hide)
+            .map(|(key, prop)| SpecConfigProp::new(key, prop, config))
+            .collect();
+        Self {
+            prop_groups: group_by_heading(&props, |p| p.help_heading.as_deref()),
+            props,
+            files: config
+                .files
+                .iter()
+                .map(|file| SpecConfigFile {
+                    path: file.path.clone(),
+                    findup: file.findup,
+                    scope: file.scope.to_string(),
+                    format: file.format.clone(),
+                })
+                .collect(),
+            rendered: false,
+        }
+    }
+}
+
+impl SpecConfigProp {
+    fn new(
+        key: &str,
+        prop: &crate::spec::config::SpecConfigProp,
+        config: &crate::spec::config::SpecConfig,
+    ) -> Self {
+        Self {
+            key: key.to_string(),
+            type_: prop.value_type.as_ref().map(|t| t.to_string()),
+            default: prop
+                .default_note
+                .clone()
+                .or_else(|| prop.default.as_ref().map(|d| d.display()))
+                .or_else(|| {
+                    (!prop.default_list.is_empty()).then(|| {
+                        prop.default_list
+                            .iter()
+                            .map(|value| value.display())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    })
+                }),
+            default_note: prop.default_note.clone(),
+            help: prop.help.clone(),
+            help_long: prop.long_help.clone(),
+            help_md: prop.long_help.clone().or_else(|| prop.help.clone()),
+            help_heading: prop.help_heading.clone(),
+            sources: describe_sources(prop, config),
+            choices: prop
+                .choices
+                .iter()
+                .map(|choice| SpecConfigChoice {
+                    value: choice.value.display(),
+                    help: choice.help.clone(),
+                })
+                .collect(),
+            deprecated: prop.deprecated.clone(),
+            deprecated_remove_at: prop.deprecated_remove_at.clone(),
+            since: prop.since.clone(),
+            examples: prop.examples.clone(),
+            merge: (prop.merge != crate::spec::config::SpecConfigMerge::default())
+                .then(|| prop.merge.to_string()),
+            scope: (prop.scope != crate::spec::config::SpecConfigScope::default())
+                .then(|| prop.scope.to_string()),
+            rendered: false,
+        }
+    }
+}
+
+/// Every way of setting one property, in words.
+///
+/// A custom source kind is rendered from what the spec said about it — `doc_hint` with
+/// `{key}` substituted — so a page can describe a git config or an `.npmrc` without usage
+/// knowing anything about either.
+fn describe_sources(
+    prop: &crate::spec::config::SpecConfigProp,
+    config: &crate::spec::config::SpecConfig,
+) -> Vec<String> {
+    let mut described = Vec::new();
+    if !prop.cli.is_empty() {
+        let flags: Vec<String> = prop.cli.iter().map(|f| format!("`{f}`")).collect();
+        described.push(flags.join(", "));
+    }
+    match prop.envs.as_slice() {
+        [] => {}
+        [one] => described.push(format!("`{one}`")),
+        [first, rest @ ..] => {
+            let aliases: Vec<String> = rest.iter().map(|e| format!("`{e}`")).collect();
+            described.push(format!("`{first}` (or {})", aliases.join(", ")));
+        }
+    }
+    for (kind, keys) in &prop.bindings {
+        let declared = config.sources.get(kind);
+        let name = declared
+            .and_then(|s| s.name.clone())
+            .unwrap_or_else(|| kind.clone());
+        for key in keys {
+            match declared.and_then(|s| s.doc_hint.as_ref()) {
+                Some(hint) => described.push(hint.replace("{key}", key)),
+                None => described.push(format!("{name} `{key}`")),
+            }
+        }
+    }
+    described
+}
+
 /// Partition by heading, keeping declaration order within each group and putting
 /// the unheaded entries first.
 fn group_by_heading<T: Clone>(
@@ -172,7 +372,7 @@ impl From<crate::Spec> for Spec {
             name: spec.name,
             bin: spec.bin,
             cmd: SpecCommand::from(&spec.cmd),
-            // config: SpecConfig::from(&spec.config),
+            config: SpecConfig::from(&spec.config),
             version: spec.version,
             usage: spec.usage,
             // complete: spec.complete,
@@ -409,6 +609,7 @@ impl Spec {
             example.render_md(renderer);
         }
         self.cmd.render_md(renderer);
+        self.config.render_md(renderer);
     }
 }
 

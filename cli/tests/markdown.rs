@@ -320,3 +320,55 @@ fn test_source_code_links_exist() {
 
     fs::remove_file(&out_file).unwrap();
 }
+
+#[test]
+fn a_page_collision_is_refused_before_anything_is_written() {
+    // A CLI with a literal `configuration` command: its page and the settings page want the same
+    // file. Writing anyway destroys the command's documentation, so the build stops — and stops
+    // *before* writing, so a refused run does not leave a half-built directory behind.
+    let dir = std::env::temp_dir().join(format!("usage_md_collision_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+
+    let specs = std::env::temp_dir().join(format!("usage_md_specs_{}", std::process::id()));
+    fs::create_dir_all(&specs).unwrap();
+    let clashing = specs.join("clash.usage.kdl");
+    fs::write(
+        &clashing,
+        "name \"ex\"\nbin \"ex\"\nconfig {\n  prop \"jobs\" type=\"uint\"\n}\ncmd \"configuration\" help=\"Odd\"\n",
+    )
+    .unwrap();
+    let ordinary = specs.join("ok.usage.kdl");
+    fs::write(
+        &ordinary,
+        "name \"ex\"\nbin \"ex\"\nconfig {\n  prop \"jobs\" type=\"uint\"\n}\ncmd \"settings\" help=\"Manage\"\n",
+    )
+    .unwrap();
+
+    usage_cmd()
+        .args(["generate", "markdown", "-f"])
+        .arg(&clashing)
+        .args(["--multi", "--out-dir", dir.to_str().unwrap()])
+        .assert()
+        .failure()
+        // A fragment miette does not wrap: it hard-wraps the message across lines.
+        .stderr(predicates::str::contains("rename the command"));
+    assert!(
+        !dir.exists() || fs::read_dir(&dir).unwrap().count() == 0,
+        "a refused run wrote files into {}",
+        dir.display()
+    );
+
+    // And the ordinary case — including a `settings` command, which no longer collides — still
+    // writes both pages.
+    usage_cmd()
+        .args(["generate", "markdown", "-f"])
+        .arg(&ordinary)
+        .args(["--multi", "--out-dir", dir.to_str().unwrap()])
+        .assert()
+        .success();
+    assert!(dir.join("configuration.md").exists());
+    assert!(dir.join("settings.md").exists(), "the command's own page");
+
+    let _ = fs::remove_dir_all(&dir);
+    let _ = fs::remove_dir_all(&specs);
+}

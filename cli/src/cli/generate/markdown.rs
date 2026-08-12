@@ -65,6 +65,22 @@ impl Markdown {
         }
         if self.multi {
             ctx = ctx.with_multi(true);
+            // Before anything is written, so a refusal does not leave a half-built directory.
+            //
+            // Refused rather than warned about: writing anyway destroys the command's own
+            // documentation, and a warning printed into a docs build is a warning nobody reads.
+            // No CLI in the fleet has a `configuration` command — they call it `config` — so
+            // this asks the one author who ever hits it to pick a name, rather than quietly
+            // losing a page for everybody who does not.
+            if !ctx.render_config()?.trim().is_empty() {
+                if let Some(cmd) = ctx.config_page_collision() {
+                    miette::bail!(
+                        "the `{cmd}` command's page and the settings page would both be written \
+                         to {}; rename the command, or hide it, to generate both",
+                        ctx.config_page()
+                    );
+                }
+            }
             let commands = spec.cmd.all_subcommands().into_iter().filter(|c| !c.hide);
             for cmd in commands {
                 let md = ctx.render_cmd(cmd)?;
@@ -86,6 +102,15 @@ impl Markdown {
             let md_idx = ctx.render_index()?;
             let path_idx = self.out_dir.as_ref().unwrap().join("index.md");
             write(&path_idx, &md_idx)?;
+            // Its own page, and only when there is something to put on it: a CLI with no
+            // settings should not gain an empty file in its docs directory.
+            let md_config = ctx.render_config()?;
+            if !md_config.trim().is_empty() {
+                // The same call the index links by, so the two cannot disagree about where the
+                // page went.
+                let path = self.out_dir.as_ref().unwrap().join(ctx.config_page());
+                write(&path, &md_config)?;
+            }
         } else {
             let md = ctx.render_spec()?;
             write_or_stdout(self.out_file.as_deref(), &render(&md))?;

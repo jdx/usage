@@ -1,0 +1,61 @@
+---
+source: lib/src/docs/markdown/config.rs
+expression: "rendered(r##\"\nname \"hk\"\nbin \"hk\"\nconfig {\n    source \"git\" name=\"git config\" doc_hint=\"git config `{key}`\"\n    file \"~/.config/hk/config.toml\" scope=\"global\"\n    file \"hk.toml\" findup=#true\n    prop \"jobs\" type=\"uint\" default=0 default_note=\"0 = auto-detect\" \\\n        help=\"Number of parallel jobs\" since=\"1.0.0\" help_heading=\"Performance\" {\n        cli \"--jobs\" \"-j\"\n        env \"HK_JOBS\" \"HK_JOB\"\n        source \"git\" \"hk.jobs\"\n        example \"hk check --jobs 4\"\n    }\n    prop \"exclude\" type=\"list<string>\" merge=\"union\" help=\"Patterns to skip\" {\n        default \"target\" \"node_modules\"\n        env \"HK_EXCLUDE\"\n    }\n    prop \"stash\" type=\"string\" help=\"How to stash\" {\n        choices {\n            choice \"git\" help=\"Use `git stash`\"\n            choice \"none\" help=\"No stashing\"\n        }\n    }\n    prop \"trusted\" type=\"bool\" scope=\"global\" help=\"Trust the config\"\n    prop \"old\" deprecated=\"Use jobs instead.\" deprecated_remove_at=\"2027.12.0\" help=\"Old\"\n    prop \"secret\" hide=#true help=\"Not for the page\"\n}\n\"##)"
+---
+# Configuration
+
+Read from, in ascending precedence — the last one that names a setting wins:
+
+- `~/.config/hk/config.toml` (global)
+- `hk.toml` — and in every parent directory
+
+
+## `exclude`
+
+- **type**: `list<string>`
+- **default**: `target, node_modules`
+- **merged**: values from every source are combined
+- **set with**: `HK_EXCLUDE`
+
+Patterns to skip
+
+## `old`
+
+::: warning Deprecated
+Use jobs instead. Removed in 2027.12.0.
+:::
+
+Old
+
+## `stash`
+
+- **type**: `string`
+
+How to stash
+
+**Choices:**
+- `git` — Use `git stash`
+- `none` — No stashing
+
+
+## `trusted`
+
+- **type**: `bool`
+- **scope**: only from your own configuration, never from a project file
+
+Trust the config
+
+## Performance
+
+### `jobs`
+
+- **type**: `uint`
+- **default**: 0 = auto-detect
+- **since**: 1.0.0
+- **set with**: `--jobs`, `-j`, `HK_JOBS` (or `HK_JOB`), git config `hk.jobs`
+
+Number of parallel jobs
+
+```
+hk check --jobs 4
+```

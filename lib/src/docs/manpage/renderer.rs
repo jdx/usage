@@ -78,6 +78,9 @@ impl ManpageRenderer {
             }
         }
 
+        // CONFIGURATION section
+        self.render_configuration(&mut roff);
+
         // AUTHOR section (if present)
         if let Some(author) = &self.spec.author {
             roff.control("SH", ["AUTHOR"]);
@@ -85,6 +88,98 @@ impl ManpageRenderer {
         }
 
         Ok(roff.to_roff())
+    }
+
+    /// The settings, where a man page conventionally describes them: after the commands and
+    /// before the author.
+    ///
+    /// Deliberately terser than the markdown: a man page is read in a terminal, so each
+    /// setting gets its type, its default and how to set it, and the long-form prose stays
+    /// on the web page.
+    fn render_configuration(&self, roff: &mut Roff) {
+        let config = &self.spec.config;
+        // The same predicate the markdown page uses: a block that declares only where files
+        // live is worth a CONFIGURATION section, and gating on props alone meant the same
+        // spec documented its file chain in one output format and not the other.
+        if config.is_empty() {
+            return;
+        }
+        roff.control("SH", ["CONFIGURATION"]);
+        if !config.files.is_empty() {
+            roff.text([roman("Read from the following, in ascending precedence:")]);
+            roff.control("RS", ["4"]);
+            for file in &config.files {
+                let mut line = file.path.clone();
+                if file.findup {
+                    line.push_str(" (and in every parent directory)");
+                }
+                roff.control("PP", [] as [&str; 0]);
+                roff.text([roman(line)]);
+            }
+            roff.control("RE", [] as [&str; 0]);
+        }
+        // By heading group, like the markdown page: the docs model already partitions the
+        // settings so the two formats stay aligned, and walking the flat list dropped every
+        // `help_heading` and interleaved headed settings with unheaded ones.
+        for group in &config.prop_groups {
+            if let Some(heading) = &group.heading {
+                roff.control("SS", [heading.as_str()]);
+            }
+            for prop in &group.items {
+                self.render_prop(roff, prop);
+            }
+        }
+    }
+
+    /// One setting: a paragraph, its help, and its facts on one line.
+    fn render_prop(&self, roff: &mut Roff, prop: &crate::docs::models::SpecConfigProp) {
+        {
+            roff.control("PP", [] as [&str; 0]);
+            roff.text([bold(&prop.key)]);
+            roff.control("RS", ["4"]);
+            if let Some(help) = prop.help.as_deref() {
+                roff.text([roman(help)]);
+            }
+            let mut facts = Vec::new();
+            if let Some(ty) = &prop.type_ {
+                facts.push(format!("type: {ty}"));
+            }
+            if let Some(default) = &prop.default {
+                facts.push(format!("default: {default}"));
+            }
+            if !prop.sources.is_empty() {
+                // The markdown's backticks would be literal here.
+                let plain: Vec<String> = prop
+                    .sources
+                    .iter()
+                    .map(|source| source.replace('`', ""))
+                    .collect();
+                facts.push(format!("set with: {}", plain.join(", ")));
+            }
+            // What the setting accepts, which for a constrained one is the fact a reader most
+            // needs and the manpage did not carry at all. Values only: a choice's own help
+            // belongs on the page, where there is room for it.
+            if !prop.choices.is_empty() {
+                let values: Vec<&str> = prop.choices.iter().map(|c| c.value.as_str()).collect();
+                facts.push(format!("one of: {}", values.join(", ")));
+            }
+            if !facts.is_empty() {
+                roff.control("PP", [] as [&str; 0]);
+                roff.text([roman(facts.join("; "))]);
+            }
+            if let Some(deprecated) = &prop.deprecated {
+                roff.control("PP", [] as [&str; 0]);
+                // With the version it goes away in, as the markdown page says: a deprecation
+                // notice without the date leaves the reader with nothing to plan around, and
+                // the terminal is the one place this is *supposed* to surface.
+                let mut notice = format!("Deprecated: {deprecated}");
+                if let Some(remove_at) = &prop.deprecated_remove_at {
+                    notice.push_str(&format!(" Removed in {remove_at}."));
+                }
+                roff.text([roman(notice)]);
+            }
+            roff.control("RE", [] as [&str; 0]);
+        }
     }
 
     fn render_name(&self, roff: &mut Roff) {
@@ -412,6 +507,118 @@ impl ManpageRenderer {
 mod tests {
     use super::*;
     use crate::Spec;
+
+    #[test]
+    fn the_settings_get_a_section_of_their_own() {
+        let spec: Spec = r##"
+name "hk"
+bin "hk"
+config {
+    source "git" name="git config" doc_hint="git config `{key}`"
+    file "hk.toml" findup=#true
+    prop "jobs" type="uint" default=4 help="Number of parallel jobs" {
+        cli "--jobs" "-j"
+        env "HK_JOBS"
+        source "git" "hk.jobs"
+    }
+    prop "old" deprecated="Use jobs instead." deprecated_remove_at="2027.12.0" help="Old"
+    prop "stash" type="string" help="How to stash" {
+        choices {
+            choice "git" help="Use `git stash`"
+            choice "none" help="No stashing"
+        }
+    }
+    prop "secret" hide=#true help="Not in the page"
+}
+"##
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+
+        assert!(page.contains(".SH CONFIGURATION"), "{page}");
+        assert!(
+            page.contains("hk.toml (and in every parent directory)"),
+            "{page}"
+        );
+        assert!(page.contains("jobs"), "{page}");
+        // Facts on one line. Hyphens arrive as `\-`, which is how roff spells them.
+        assert!(
+            page.contains(
+                "type: uint; default: 4; set with: \\-\\-jobs, \\-j, HK_JOBS, git config hk.jobs"
+            ),
+            "{page}"
+        );
+        // With the version it goes away in, which is the part a reader can plan around.
+        assert!(
+            page.contains("Deprecated: Use jobs instead. Removed in 2027.12.0."),
+            "{page}"
+        );
+        // And what a constrained setting accepts, which is the fact a reader most needs.
+        assert!(page.contains("one of: git, none"), "{page}");
+        assert!(
+            !page.contains("secret"),
+            "a hidden prop should not be here:\n{page}"
+        );
+        assert!(!page.contains('`'), "no backticks in a man page:\n{page}");
+    }
+
+    #[test]
+    fn the_manpage_groups_settings_by_heading_like_the_page_does() {
+        // The docs model already partitions settings by `help_heading` so the two formats stay
+        // aligned. The manpage walked the flat list instead, dropping every heading and
+        // interleaving headed settings with unheaded ones in one alphabetical run.
+        let spec: Spec = r##"
+name "hk"
+bin "hk"
+config {
+    prop "jobs" type="uint" help="How many" help_heading="Performance"
+    prop "cache" type="bool" help="Cache things" help_heading="Performance"
+    prop "colour" type="bool" help="Colourize"
+}
+"##
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+        assert!(page.contains(".SS Performance"), "{page}");
+        // The unheaded setting comes first, as the markdown page also orders it, and the two
+        // headed ones sit together under the heading rather than either side of it.
+        let colour = page.find("colour").expect("colour");
+        let heading = page.find(".SS Performance").expect("heading");
+        let jobs = page.find("jobs").expect("jobs");
+        let cache = page.find("cache").expect("cache");
+        assert!(colour < heading, "unheaded settings come first:\n{page}");
+        assert!(heading < cache && heading < jobs, "{page}");
+    }
+
+    #[test]
+    fn a_cli_with_no_settings_has_no_configuration_section() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+        assert!(!page.contains("CONFIGURATION"), "{page}");
+    }
+
+    #[test]
+    fn where_the_files_live_is_documented_even_with_nothing_to_put_in_them() {
+        // A CLI can describe its config file chain before it declares a single setting —
+        // usefully, since the chain is the part a reader cannot guess. Gating the section on
+        // props meant this spec documented its files on the markdown page and nowhere else.
+        let spec: Spec = r##"
+name "ex"
+bin "ex"
+config {
+    file "/etc/ex/config.toml" scope="system"
+    file "ex.toml" findup=#true
+}
+"##
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+        assert!(page.contains(".SH CONFIGURATION"), "{page}");
+        assert!(
+            page.contains("ex.toml (and in every parent directory)"),
+            "{page}"
+        );
+    }
 
     #[test]
     fn test_basic_manpage() {

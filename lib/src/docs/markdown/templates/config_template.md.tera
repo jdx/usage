@@ -1,0 +1,73 @@
+{{- "#" | repeat(count=header_level) }} Configuration
+{%- if config.files %}
+
+Read from, in ascending precedence — the last one that names a setting wins:
+
+{% for file in config.files -%}
+- `{{ file.path }}`{% if file.findup %} — and in every parent directory{% endif %}{% if file.scope != "project" %} ({{ file.scope }}){% endif %}{% if file.format %}, {{ file.format }}{% endif %}
+{% endfor -%}
+{%- endif %}
+{%- for group in config.prop_groups %}
+{%- if group.heading %}
+
+{{ "#" | repeat(count=header_level) }}# {{ group.heading }}
+{%- endif %}
+{#- A heading of its own means one level deeper; without one the props sit directly under
+    the section, so the levels never skip. #}
+{%- set prop_level = header_level + 2 if group.heading else header_level + 1 %}
+{%- for prop in group.items %}
+
+{{ "#" | repeat(count=prop_level) }} `{{ prop.key }}`
+{%- if prop.deprecated %}
+
+::: warning Deprecated
+{{ prop.deprecated }}{% if prop.deprecated_remove_at %} Removed in {{ prop.deprecated_remove_at }}.{% endif %}
+:::
+{%- endif %}
+{#- The blank line that opens the facts list, emitted once here rather than inside the `type_`
+    branch — a prop with a default but no declared type used to put its first list item
+    directly against the heading above (or against a deprecation admonition's closing `:::`),
+    which some markdown renderers read as part of that block rather than as a list. #}
+{%- if prop.type_ or prop.default or prop.merge or prop.scope == "global" or prop.scope == "env" or prop.since or prop.sources %}
+{% endif %}
+{%- if prop.type_ %}
+- **type**: `{{ prop.type_ }}`
+{%- endif %}
+{%- if prop.default %}
+- **default**: {% if prop.default_note %}{{ prop.default_note }}{% else %}`{{ prop.default }}`{% endif %}
+{%- endif %}
+{%- if prop.merge %}
+- **merged**: {% if prop.merge == "union" %}values from every source are combined{% else %}maps are merged key by key{% endif %}
+{%- endif %}
+{%- if prop.scope == "global" %}
+- **scope**: only from your own configuration, never from a project file
+{%- elif prop.scope == "env" %}
+- **scope**: only from the environment or the command line
+{%- endif %}
+{%- if prop.since %}
+- **since**: {{ prop.since }}
+{%- endif %}
+{%- if prop.sources %}
+- **set with**: {% for source in prop.sources %}{{ source }}{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if prop.help_md %}
+
+{{ prop.help_md | escape_md }}
+{%- endif %}
+{%- if prop.choices %}
+
+**Choices:**
+{% for choice in prop.choices -%}
+- `{{ choice.value }}`{% if choice.help %} — {{ choice.help }}{% endif %}
+{% endfor -%}
+{%- endif %}
+{%- if prop.examples %}
+
+{% for example in prop.examples -%}
+```
+{{ example }}
+```
+{% endfor -%}
+{%- endif %}
+{%- endfor %}
+{%- endfor -%}
