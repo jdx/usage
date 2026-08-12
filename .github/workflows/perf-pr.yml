@@ -139,7 +139,13 @@ jobs:
   report:
     name: Report and gate
     needs: measure
-    if: always() && github.event.pull_request.user.login == 'jdx'
+    # `always()` would run this after a *cancelled* measurement too, and then the
+    # artifact download fails and a superseded run reads as a failed gate. Pushing twice
+    # to a branch is enough to cause it, which on a stack is most pushes. Success or
+    # failure both have something to report; cancelled and skipped do not.
+    if: >-
+      (needs.measure.result == 'success' || needs.measure.result == 'failure')
+      && github.event.pull_request.user.login == 'jdx'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
