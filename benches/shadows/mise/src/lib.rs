@@ -3587,6 +3587,7 @@ pub struct ReshimArgs {
 ///     EOF
 ///     $ mise run build
 #[derive(Args)]
+#[usage(restart_token = ":::", mount = "mise tasks --usage")]
 pub struct RunArgs {
     /// Run matching tasks only for projects affected by Git changes
     #[usage(long = "affected")]
@@ -4354,6 +4355,7 @@ pub struct TasksLsArgs {
 ///     EOF
 ///     $ mise run build
 #[derive(Args)]
+#[usage(restart_token = ":::", mount = "mise tasks --usage")]
 pub struct TasksRunArgs {
     /// Run matching tasks only for projects affected by Git changes
     #[usage(long = "affected")]
@@ -5638,7 +5640,7 @@ pub struct WhichArgs {
 
 /// Undocumented
 #[derive(Cli)]
-#[usage(bin = "mise")]
+#[usage(bin = "mise", default_subcommand = "run")]
 pub struct Cli {
     /// Continue running tasks even if one fails
     #[usage(long = "continue-on-error", short = 'c', hide)]

@@ -27,6 +27,17 @@ pub struct Cli {
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
+    /// The command a bare invocation means: `mise build` is `mise run build`.
+    ///
+    /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
+    pub default_subcommand: Option<String>,
+    /// The word that starts another invocation of the same command: mise's `:::`.
+    pub restart_token: Option<String>,
+    /// A command to run for subcommands discovered at completion time.
+    ///
+    /// Carried into the spec and nowhere else. The parser never runs it: a mount costs a
+    /// subprocess, and completions are the cold path where that is affordable.
+    pub mount: Option<String>,
     pub fields: Vec<Field>,
 }
 
@@ -171,6 +182,9 @@ impl Cli {
             about,
             long_about,
             unknown_flags: None,
+            default_subcommand: None,
+            restart_token: None,
+            mount: None,
             fields: Vec::new(),
         };
 
@@ -198,12 +212,18 @@ impl Cli {
                         }
                         cli.unknown_flags = Some(mode);
                     }
+                    "default_subcommand" => {
+                        cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
+                    }
+                    "restart_token" => cli.restart_token = Some(string_value(&meta)?),
+                    "mount" => cli.mount = Some(string_value(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, `version`, and `unknown_flags` here, \
+                                 `name`, `bin`, `version`, `unknown_flags`, \
+                                 `default_subcommand`, `restart_token`, and `mount` here, \
                                  and the description comes from the doc comment"
                             ),
                         ));
@@ -214,6 +234,20 @@ impl Cli {
 
         for field in &named.named {
             cli.fields.push(Field::from_field(field)?);
+        }
+        // Which command it names cannot be checked here — the enum's variants are in another
+        // expansion — but that there are subcommands at all can be.
+        if cli.default_subcommand.is_some()
+            && !cli
+                .fields
+                .iter()
+                .any(|f| matches!(f.kind, Kind::Subcommand { .. }))
+        {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "`default_subcommand` names the command a bare invocation means, and this \
+                 one has no subcommands to name",
+            ));
         }
         cli.check()?;
         Ok(cli)
@@ -1702,6 +1736,27 @@ mod tests {
         };
         assert!(
             err.contains("cannot have holes"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn a_default_subcommand_needs_subcommands_to_name() {
+        // Which command it names cannot be checked here, since the variants are in another
+        // expansion — but a root with no subcommand field at all can never satisfy it, and
+        // saying so at the declaration beats emitting a spec whose `default_subcommand`
+        // points at nothing.
+        let err = rejection(
+            r#"
+            #[usage(bin = "ex", default_subcommand = "run")]
+            struct Ex {
+                #[usage(arg)]
+                task: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("no subcommands to name"),
             "unhelpful message: {err}"
         );
     }
