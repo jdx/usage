@@ -77,3 +77,48 @@ fn the_environment_fills_what_argv_left_out() {
         unsafe { std::env::remove_var(var) };
     }
 }
+
+/// A CLI where a flag with an environment variable can lose an override.
+#[derive(Cli)]
+#[usage(bin = "ovr")]
+struct Ovr {
+    /// Read from a file
+    #[usage(long, env = "OVR_ENV_FILE", overrides = "--stdin")]
+    file: Option<String>,
+    /// Read from standard input
+    #[usage(long)]
+    stdin: bool,
+    /// Where to write, which has to be given
+    #[usage(long, overrides = "--quiet")]
+    out: String,
+    /// Say nothing
+    #[usage(long)]
+    quiet: bool,
+}
+
+#[test]
+fn a_displaced_flag_is_not_revived_by_its_environment_variable() {
+    // The command line says `--stdin` came last, so `--file` lost. Filling it from the
+    // environment afterwards would leave both standing and undo that.
+    unsafe { std::env::set_var("OVR_ENV_FILE", "from-env") };
+
+    let a = argv(["--file", "typed", "--stdin", "--out", "o"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.stdin);
+    assert_eq!(ovr.file, None, "displaced, and not refilled from the env");
+
+    // Without the override in play, the environment still fills it.
+    let a = argv(["--out", "o"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert_eq!(ovr.file.as_deref(), Some("from-env"));
+}
+
+#[test]
+fn a_displaced_flag_is_not_reported_missing() {
+    // `--out` is a bare `String`, so it is required — but `--quiet` displaced it, which
+    // is an answer rather than an omission.
+    let a = argv(["--out", "o", "--quiet"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.quiet);
+    assert_eq!(ovr.out, "", "displaced back to its unset value");
+}

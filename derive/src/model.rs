@@ -733,6 +733,7 @@ impl Field {
         // the emitted spec cannot say — and docs and completions would describe a
         // different CLI from the one that runs.
         for (option, selectors) in [
+            ("overrides", &overrides),
             ("conflicts", &conflicts),
             ("required_if", &required_if),
             ("required_unless", &required_unless),
@@ -1292,6 +1293,24 @@ mod tests {
                 #[usage(long)]
                 force: bool,
                 #[usage(conflicts = "--force")]
+                file: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("relationship between flags"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn overrides_needs_a_flag_to_hold_between_too() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long)]
+                force: bool,
+                #[usage(overrides = "--force")]
                 file: String,
             }
         "#,

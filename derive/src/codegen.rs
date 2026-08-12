@@ -472,6 +472,10 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field, base: u64) -> TokenStream {
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let displaced = displacements(cli, field);
+    let undisplaced = is_displaceable(cli, field).then(|| {
+        let overridden = format_ident!("__overridden_{}", ident);
+        quote!(partial.#overridden = false;)
+    });
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(partial.#ident = !negated;),
@@ -494,6 +498,9 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field, base: u64) -> TokenStream {
         #key if ::core::ptr::eq(*flag, &#table) => {
             #body
             partial.#given = true;
+            // Given again after having lost: it is standing once more, which matters
+            // when the flags alternate — `--include a --all --include b`.
+            #undisplaced
             // Whatever this flag displaces, undone here rather than after the parse:
             // `overrides` is about which of two flags came last, and the token that
             // just arrived is the last one so far.
@@ -509,6 +516,27 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field, base: u64) -> TokenStream {
 /// clap resolves `--file a --stdin` and `--stdin --file a` the same way whichever side
 /// declared it, and so does usage-lib.
 fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
+    displaced_by(cli, field)
+        .into_iter()
+        .map(|other| {
+            let reset = reset_to_default(other);
+            let given = format_ident!("__given_{}", other.ident);
+            let overridden = format_ident!("__overridden_{}", other.ident);
+            quote! {
+                #reset
+                partial.#given = false;
+                // Remembered, not just cleared: without this the environment fallback
+                // would refill the flag that lost and mark it given again, and a
+                // displaced `String` would be reported missing. usage-lib keeps the
+                // same set for the same reason.
+                partial.#overridden = true;
+            }
+        })
+        .collect()
+}
+
+/// The fields a flag displaces, in both directions.
+fn displaced_by<'a>(cli: &'a Cli, field: &Field) -> Vec<&'a Field> {
     let names = |target: &Field, selectors: &[String]| {
         selectors.iter().any(|selector| {
             cli.field_for_selector(selector)
@@ -521,15 +549,13 @@ fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
             other.ident != field.ident
                 && (names(other, &field.overrides) || names(field, &other.overrides))
         })
-        .map(|other| {
-            let reset = reset_to_default(other);
-            let given = format_ident!("__given_{}", other.ident);
-            quote! {
-                #reset
-                partial.#given = false;
-            }
-        })
         .collect()
+}
+
+/// Whether a field is on either side of an `overrides`, and so needs somewhere to
+/// record that it lost.
+fn is_displaceable(cli: &Cli, field: &Field) -> bool {
+    !displaced_by(cli, field).is_empty()
 }
 
 fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
@@ -591,7 +617,13 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         // Whether a token supplied this, as opposed to a default sitting in it: an
         // empty string is a value somebody typed, and `--jobs=` has to be able to
         // mean it.
-        Some(quote!(pub #ident: #ty, pub #given: bool,))
+        // Only for a flag that can lose an override: every other field would carry a
+        // `bool` nothing ever reads.
+        let overridden = is_displaceable(cli, f).then(|| {
+            let overridden = format_ident!("__overridden_{}", ident);
+            quote!(pub #overridden: bool,)
+        });
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -619,9 +651,14 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
         }
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
+        let overridden = is_displaceable(cli, f).then(|| {
+            let overridden = format_ident!("__overridden_{}", ident);
+            quote!(#overridden: false,)
+        });
         Some(quote! {
             #ident: ::std::default::Default::default(),
             #given: false,
+            #overridden
         })
     });
     // Only the fields that declare one: `Partial`'s own initializer has already put
@@ -1179,6 +1216,18 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     }
 }
 
+/// `&& !partial.__overridden_x`, for a field that can lose an override.
+///
+/// Empty for every other field, so a CLI that declares no `overrides` generates exactly
+/// what it did before.
+fn displaced_guard(cli: &Cli, field: &Field) -> TokenStream {
+    if !is_displaceable(cli, field) {
+        return quote!();
+    }
+    let overridden = format_ident!("__overridden_{}", field.ident);
+    quote!(&& !partial.#overridden)
+}
+
 /// Everything decided once the last token has been read.
 ///
 /// Ordered deliberately. The environment fills what argv left out, so it runs
@@ -1216,8 +1265,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 }
             }
         };
+        // A flag that lost an override is not merely unset: filling it from the
+        // environment would undo the last-one-wins the command line asked for.
+        let standing = displaced_guard(cli, f);
         Some(quote! {
-            if !partial.#given {
+            if !partial.#given #standing {
                 if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
                     let mut continue_unset = false;
                     #assign
@@ -1237,8 +1289,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         }
         let given = format_ident!("__given_{}", f.ident);
         let name = &f.name;
+        // Same reason as the environment: a displaced flag was answered by the one that
+        // displaced it, so it is not missing.
+        let standing = displaced_guard(cli, f);
         Some(quote! {
-            if !partial.#given {
+            if !partial.#given #standing {
                 return ::std::result::Result::Err(
                     ::usage_argv::Error::MissingRequired { name: #name },
                 );
