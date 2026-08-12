@@ -100,6 +100,7 @@ pub struct SpecFlag {
     /// conflicting flags are a mistake to report, not an order to resolve. clap has
     /// had `conflicts_with` for years and mise uses it forty times, so a spec
     /// generated from a clap command was losing it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
