@@ -249,4 +249,5 @@ to properly escape and quote values with spaces in them.
 }
 
 repository "https://github.com/jdx/usage"
-source_code_link_template "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs"
+// command names are hyphenated, the files that implement them are snake_case
+source_code_link_template "https://github.com/jdx/usage/blob/main/cli/src/cli/{{ path | replace(from='-', to='_') }}.rs"

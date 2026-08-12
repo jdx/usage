@@ -1158,7 +1158,7 @@
   "version": "5.1.0",
   "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
   "complete": {},
-  "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}.rs",
+  "source_code_link_template": "https://github.com/jdx/usage/blob/main/cli/src/cli/{{ path | replace(from='-', to='_') }}.rs",
   "repository": "https://github.com/jdx/usage",
   "about": "CLI for working with usage-based CLIs",
   "min_usage_version": "4.0",

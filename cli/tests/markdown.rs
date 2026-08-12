@@ -249,3 +249,68 @@ fn test_markdown_out_file_dash_writes_no_file() {
 
     fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn test_source_code_links_for_multi_word_commands_exist() {
+    // A hyphenated command like `complete-word` lives in `complete_word.rs`; linking it as
+    // `complete-word.rs` is a 404 on GitHub, and nothing but the file system can catch it.
+    let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let spec = repo_root.join("cli").join("usage.usage.kdl");
+    let out_file =
+        std::env::temp_dir().join(format!("usage_md_src_links_{}.md", std::process::id()));
+    let _ = fs::remove_file(&out_file);
+
+    let mut cmd = usage_cmd();
+    cmd.args([
+        "generate",
+        "markdown",
+        "-f",
+        spec.to_str().unwrap(),
+        "--out-file",
+        out_file.to_str().unwrap(),
+    ]);
+    cmd.assert().success();
+
+    let content = fs::read_to_string(&out_file).unwrap();
+    let mut cur_cmd = String::new();
+    let mut checked = vec![];
+    for line in content.lines() {
+        if line.starts_with('#') {
+            cur_cmd = line
+                .trim_start_matches('#')
+                .trim()
+                .trim_matches('`')
+                .to_string();
+            continue;
+        }
+        let Some(rest) = line.trim().strip_prefix("- **Source code**: [`") else {
+            continue;
+        };
+        let path = rest.split_once("`]").expect("malformed source code link").0;
+        // Single-word commands are linked from the same template, but several of them
+        // legitimately live elsewhere (`usage bash` is served by `shell.rs`), so only the
+        // hyphen-to-underscore mapping is asserted here.
+        let is_multi_word = cur_cmd
+            .split_whitespace()
+            .next_back()
+            .unwrap_or("")
+            .contains('-');
+        if !is_multi_word {
+            continue;
+        }
+        assert!(
+            repo_root.join(path).is_file(),
+            "`{cur_cmd}` links to {path}, which does not exist"
+        );
+        checked.push(cur_cmd.clone());
+    }
+    assert!(
+        checked.len() >= 2,
+        "expected to check several multi-word commands, checked {checked:?}"
+    );
+
+    fs::remove_file(&out_file).unwrap();
+}

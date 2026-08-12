@@ -5,7 +5,7 @@
 - **Usage**: `usage complete-word [FLAGS] [WORDS]…`
 - **Aliases**: `cw`
 - **Effect**: read-only
-- **Source code**: [`cli/src/cli/complete-word.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/complete-word.rs)
+- **Source code**: [`cli/src/cli/complete_word.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/complete_word.rs)
 
 Generate shell completion candidates for a partial command line
 
