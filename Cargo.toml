@@ -7,7 +7,16 @@ members = [
     "cli",
     "conformance",
     "lib",
+    "xtask",
+    "benches/gate",
 ]
+
+# Generated, and not held to the same standard as code somebody wrote: a shadow of
+# mise's spec trips `large_enum_variant` on the commands with thirty flags, which the
+# real mise answers by boxing its variants — something the derive cannot express yet.
+# The gate depends on it by path, so it is still built, and its parsing is tested from
+# `benches/gate/tests`.
+exclude = ["benches/shadows"]
 
 [workspace.package]
 homepage = "https://usage.jdx.dev"

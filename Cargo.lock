@@ -786,6 +786,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gate"
+version = "0.0.0"
+dependencies = [
+ "shadow-mise",
+ "usage-argv",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1620,6 +1628,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadow-mise"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
 name = "shared_child"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2435,6 +2451,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "xtask"
+version = "0.0.0"
+dependencies = [
+ "usage-lib",
 ]
 
 [[package]]
