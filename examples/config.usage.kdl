@@ -1,0 +1,77 @@
+// A CLI with settings, for the two config completers.
+//
+// `config_keys` and `config_values` are reserved `complete` types: the spec already says
+// what the keys are and what each accepts, so completing them needs no subprocess. Every
+// CLI in the fleet does this today with a `run=` that shells out to the binary itself.
+name "mycli"
+bin "mycli"
+
+complete "key" type="config_keys"
+complete "value" type="config_values"
+complete "values" type="config_values"
+complete "from_key" type="config_keys"
+complete "to_key" type="config_keys"
+complete "defaulted_key" type="config_keys"
+
+config {
+    file "/etc/mycli/config.toml" scope="system"
+    file "~/.config/mycli/config.toml" scope="global"
+    file "mycli.toml" findup=#true
+
+    prop "color" type="bool" default=#true help="Colorize output"
+    prop "jobs" type="uint" default=4 help="Number of parallel jobs"
+    prop "log_level" type="string" default="info" help="How much to say" {
+        choices {
+            choice "error" help="only failures"
+            choice "warn" help="failures and warnings"
+            choice "info" help="the usual"
+            choice "debug" help="every decision"
+        }
+    }
+    prop "cache_dir" type="path" help="Where to keep the cache"
+    prop "task.output" type="string" help="How to print task output" {
+        choices {
+            choice "prefix" help="prefix each line with the task,\nover several lines"
+            choice "interleave" help="print lines as they arrive"
+        }
+    }
+    prop "python.compile" type="option<bool>" help="Compile python from source"
+    prop "either" type="string|bool" help="A union with bool second"
+    prop "bool_or_path" type="bool|path" help="Either a switch or somewhere to put it"
+    prop "internal_thing" type="bool" hide=#true help="Not for public use"
+    prop "old_jobs" type="uint" deprecated="Use jobs instead." renamed_to="jobs" \
+        help="How many jobs"
+}
+
+cmd "config" help="Manage settings" {
+    cmd "get" help="Print one setting" {
+        arg "<key>" help="The setting to print"
+    }
+    cmd "with-default-key" help="A key argument that has a default of its own" {
+        arg "<key>" help="The setting to change"
+        arg "<value>" help="Its new value"
+        arg "[defaulted_key]" default="color" help="Another, defaulting to a real setting"
+    }
+    cmd "move-to" help="Copy one setting's value to another" {
+        arg "<from_key>" help="The setting to read"
+        arg "<to_key>" help="The setting to write"
+        arg "<value>" help="Its new value"
+    }
+    cmd "for-profile" help="Change a setting in a named profile" {
+        arg "<profile>" help="Which profile — not a setting key"
+        arg "<key>" help="The setting to change"
+        arg "<value>" help="Its new value"
+    }
+    cmd "set-many" help="Change one setting to several values" {
+        arg "<key>" help="The setting to change"
+        arg "<values>..." var=#true help="Its new values"
+    }
+    cmd "set" help="Change one setting" {
+        flag "--global" help="Write to the global config file"
+        flag "--tag" help="Label this change" {
+            arg "<tag>"
+        }
+        arg "<key>" help="The setting to change"
+        arg "<value>" help="Its new value"
+    }
+}

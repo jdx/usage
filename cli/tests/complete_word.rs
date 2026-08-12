@@ -714,6 +714,187 @@ fn complete_word_zsh_three_columns_without_descriptions() {
         .stdout("test:git\t\ttest:git\ntest:nvim\t\ttest:nvim\n");
 }
 
+#[test]
+fn complete_word_config_keys_come_from_the_spec() {
+    // No subprocess and no `run=`: the `config` block already says what the keys are, which
+    // is the whole point of declaring them there.
+    assert_cmd("config.usage.kdl", &["config", "get", ""]).stdout(
+        "bool_or_path\tEither a switch or somewhere to put it\n\
+         cache_dir\tWhere to keep the cache\n\
+         color\tColorize output\n\
+         either\tA union with bool second\n\
+         jobs\tNumber of parallel jobs\n\
+         log_level\tHow much to say\n\
+         old_jobs\tdeprecated — How many jobs\n\
+         python.compile\tCompile python from source\n\
+         task.output\tHow to print task output\n",
+    );
+}
+
+#[test]
+fn complete_word_config_keys_hide_what_is_hidden() {
+    // `internal_thing` is `hide=#true`. It stays in the JSON schema, because it is still
+    // settable and a schema that rejected it would be wrong — but nothing should suggest it.
+    assert_cmd("config.usage.kdl", &["config", "get", ""]).stdout(contains("internal_thing").not());
+    // A dotted key completes whole, one segment at a time being the shell's business.
+    assert_cmd("config.usage.kdl", &["config", "get", "python."])
+        .stdout("python.compile\tCompile python from source\n");
+}
+
+#[test]
+fn complete_word_config_values_come_from_the_key_on_the_line() {
+    // Choices, in the order the spec lists them, each with its own help.
+    assert_cmd("config.usage.kdl", &["config", "set", "log_level", ""]).stdout(
+        "error\tonly failures\n\
+         warn\tfailures and warnings\n\
+         info\tthe usual\n\
+         debug\tevery decision\n",
+    );
+    assert_cmd("config.usage.kdl", &["config", "set", "log_level", "d"])
+        .stdout("debug\tevery decision\n");
+    // A boolean has two values whether or not it lists them, and `option<bool>` is still a
+    // boolean as far as what a user types goes.
+    assert_cmd("config.usage.kdl", &["config", "set", "color", ""]).stdout("false\ntrue\n");
+    assert_cmd("config.usage.kdl", &["config", "set", "python.compile", ""])
+        .stdout("false\ntrue\n");
+    // The key's position on the line is the CLI's business, so the scan looks backwards for
+    // it rather than assuming it sits directly before the cursor — before the flag, and
+    // after it, where the word next to the cursor is `--global` rather than the key.
+    for words in [
+        ["--", "config", "set", "--global", "log_level", ""],
+        ["--", "config", "set", "log_level", "--global", ""],
+    ] {
+        assert_cmd("config.usage.kdl", &words).stdout(contains("debug\tevery decision"));
+    }
+}
+
+#[test]
+fn complete_word_config_values_read_the_key_from_the_parser() {
+    // The key is a positional, and only the parser knows which words are positionals. Here
+    // `color` is the value of `--tag` *and* a setting in its own right: scanning the raw words
+    // backwards found it and offered its booleans, for a line that is setting `log_level`.
+    assert_cmd(
+        "config.usage.kdl",
+        &["--", "config", "set", "log_level", "--tag", "color", ""],
+    )
+    .stdout(contains("debug\tevery decision"))
+    .stdout(contains("false").not());
+}
+
+#[test]
+fn complete_word_a_union_offers_booleans_wherever_bool_appears_in_it() {
+    // `bool|string` and `string|bool` are the same type written two ways, so which member the
+    // spec happens to list first must not decide whether `true` and `false` are offered.
+    assert_cmd("config.usage.kdl", &["config", "set", "either", ""]).stdout("false\ntrue\n");
+}
+
+#[test]
+fn complete_word_the_key_is_the_argument_the_spec_says_holds_one() {
+    // Not whichever positional happens to name a setting. Both guesses were wrong in their own
+    // direction: scanning backwards took a variadic's own last value, and scanning forwards took
+    // an unrelated positional. The argument completed with `config_keys` is the key, and the
+    // spec says which one that is.
+    //
+    // A value after the key that names another setting:
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "set-many", "log_level", "color", ""],
+    )
+    .stdout(contains("debug\tevery decision"))
+    .stdout(contains("false").not());
+    // And an unrelated positional *before* it that names one:
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "for-profile", "color", "log_level", ""],
+    )
+    .stdout(contains("debug\tevery decision"))
+    .stdout(contains("false").not());
+    // With two key arguments, the nearest governs — the same rule as a variadic's last element.
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "move-to", "color", "log_level", ""],
+    )
+    .stdout(contains("debug\tevery decision"));
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "move-to", "log_level", "color", ""],
+    )
+    .stdout("false\ntrue\n");
+    // And only the nearest is consulted: when it names no setting, looking further back offered
+    // an earlier key's values for a line whose own key is a typo — where a single unknown key
+    // correctly offers nothing of its own.
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "move-to", "log_level", "nonsense", ""],
+    )
+    .stdout(contains("only failures").not())
+    .stdout(contains("every decision").not());
+    // A key argument that has a `default=` of its own, sitting after the value being completed:
+    // the typed key governs. A partial parse does not bind an argument from its default, so this
+    // passes today by construction — it is here to fail if that ever changes, since such a
+    // binding would otherwise win the nearest-wins rule and offer values for a setting nobody
+    // wrote.
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "with-default-key", "log_level", ""],
+    )
+    .stdout(contains("every decision"))
+    .stdout(contains("false").not());
+}
+
+#[test]
+fn complete_word_a_union_that_takes_free_form_values_keeps_the_file_fallback() {
+    // `bool|path` accepts the two words *and* any path. Offering the words is right; claiming
+    // they are the whole set is not — it closed the candidate list and a path prefix therefore
+    // completed to nothing, for a setting whose whole point is that it can be a path.
+    assert_cmd("config.usage.kdl", &["config", "set", "bool_or_path", ""]).stdout("false\ntrue\n");
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "set", "bool_or_path", "src"],
+    )
+    .stdout(contains("src/"));
+}
+
+#[test]
+fn complete_word_a_description_is_one_row() {
+    // Candidates go to the shell one per line with tab-separated columns, so a description
+    // containing a newline splits one candidate into several rows of nonsense. `config_keys`
+    // already took the first line; choice help did not.
+    let out = assert_cmd("config.usage.kdl", &["config", "set", "task.output", ""]);
+    out.stdout("prefix\tprefix each line with the task,\ninterleave\tprint lines as they arrive\n");
+}
+
+#[test]
+fn complete_word_config_completions_do_not_fall_back_to_files() {
+    // The set of settings is known, so a prefix that matches none of them has no completions
+    // — not the contents of the working directory. Offering `src/` for `config get zzz` tells
+    // the user a filename is a setting, which it is not.
+    // `s` on purpose: it matches no setting and no declared value, but it *does* match a
+    // directory in the crate this test runs in, so a fallback would be visible. A prefix that
+    // matched no file either could not tell the two behaviours apart — as an earlier version
+    // of this test could not.
+    for words in [
+        vec!["config", "get", "s"],
+        vec!["config", "set", "log_level", "s"], // a closed set of choices
+        vec!["config", "set", "color", "s"],     // a boolean: two values, neither matching
+    ] {
+        assert_cmd("config.usage.kdl", &words).stdout("");
+    }
+    // The control: the same prefix on a setting whose values the spec does not enumerate.
+    assert_cmd("config.usage.kdl", &["config", "set", "cache_dir", "s"]).stdout(contains("src/"));
+}
+
+#[test]
+fn complete_word_config_values_say_nothing_when_they_know_nothing() {
+    // A path-valued setting, and a key that is not a setting at all: both fall through to
+    // the file completion every other unconstrained argument gets, which for `cache_dir` is
+    // exactly what a user wants. Anchored on one directory of the crate this test runs in,
+    // rather than a whole listing that would depend on the working tree.
+    for key in ["cache_dir", "not_a_setting"] {
+        assert_cmd("config.usage.kdl", &["config", "set", key, "src"]).stdout(contains("src/"));
+    }
+}
+
 fn cmd(example: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
