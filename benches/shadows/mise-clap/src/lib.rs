@@ -130,18 +130,18 @@ pub struct ToolAliasArgs {
 pub enum ToolAliasCommands {
     /// Show an alias for a tool
     #[command(name = "get")]
-    Get(ToolAliasGetArgs),
+    Get(Box<ToolAliasGetArgs>),
     /// List tool version aliases
     /// Shows the aliases that can be specified.
     /// These can come from user config or from plugins in `bin/list-aliases`.
     #[command(name = "ls", visible_alias = "list")]
-    Ls(ToolAliasLsArgs),
+    Ls(Box<ToolAliasLsArgs>),
     /// Add/update an alias for a tool/backend
     #[command(name = "set", visible_aliases = ["add", "create"])]
-    Set(ToolAliasSetArgs),
+    Set(Box<ToolAliasSetArgs>),
     /// Clears an alias for a tool/backend
     #[command(name = "unset", visible_aliases = ["rm", "remove", "delete", "del"])]
-    Unset(ToolAliasUnsetArgs),
+    Unset(Box<ToolAliasUnsetArgs>),
 }
 
 /// [internal] simulates asdf for plugins that call "asdf" internally
@@ -167,7 +167,7 @@ pub struct BackendsArgs {
 pub enum BackendsCommands {
     /// List built-in backends
     #[command(name = "ls", visible_alias = "list")]
-    Ls(BackendsLsArgs),
+    Ls(Box<BackendsLsArgs>),
 }
 
 /// List all the active runtime bin paths
@@ -242,10 +242,10 @@ pub struct BootstrapAccountsArgs {
 pub enum BootstrapAccountsCommands {
     /// Apply configured Linux users and groups
     #[command(name = "apply")]
-    Apply(BootstrapAccountsApplyArgs),
+    Apply(Box<BootstrapAccountsApplyArgs>),
     /// Show configured Linux user and group state
     #[command(name = "status")]
-    Status(BootstrapAccountsStatusArgs),
+    Status(Box<BootstrapAccountsStatusArgs>),
 }
 
 /// Apply configured Docker Compose project state
@@ -281,10 +281,10 @@ pub struct BootstrapComposeArgs {
 pub enum BootstrapComposeCommands {
     /// Apply configured Docker Compose project state
     #[command(name = "apply")]
-    Apply(BootstrapComposeApplyArgs),
+    Apply(Box<BootstrapComposeApplyArgs>),
     /// Show configured Docker Compose project state
     #[command(name = "status")]
-    Status(BootstrapComposeStatusArgs),
+    Status(Box<BootstrapComposeStatusArgs>),
 }
 
 /// Add or update dotfiles in `[dotfiles]`
@@ -415,19 +415,19 @@ pub struct BootstrapDotfilesArgs {
 pub enum BootstrapDotfilesCommands {
     /// Add or update dotfiles in `[dotfiles]`
     #[command(name = "add")]
-    Add(BootstrapDotfilesAddArgs),
+    Add(Box<BootstrapDotfilesAddArgs>),
     /// Apply dotfiles from `[dotfiles]`
     #[command(name = "apply")]
-    Apply(BootstrapDotfilesApplyArgs),
+    Apply(Box<BootstrapDotfilesApplyArgs>),
     /// Edit a managed dotfile source
     #[command(name = "edit")]
-    Edit(BootstrapDotfilesEditArgs),
+    Edit(Box<BootstrapDotfilesEditArgs>),
     /// Show the status of dotfiles from `[dotfiles]`
     #[command(name = "status", visible_alias = "ls")]
-    Status(BootstrapDotfilesStatusArgs),
+    Status(Box<BootstrapDotfilesStatusArgs>),
     /// Remove dotfiles applied from `[dotfiles]`
     #[command(name = "unapply")]
-    Unapply(BootstrapDotfilesUnapplyArgs),
+    Unapply(Box<BootstrapDotfilesUnapplyArgs>),
 }
 
 /// Apply configured privileged files and directories
@@ -469,10 +469,10 @@ pub struct BootstrapFilesArgs {
 pub enum BootstrapFilesCommands {
     /// Apply configured privileged files and directories
     #[command(name = "apply")]
-    Apply(BootstrapFilesApplyArgs),
+    Apply(Box<BootstrapFilesApplyArgs>),
     /// Show configured privileged file and directory state
     #[command(name = "status")]
-    Status(BootstrapFilesStatusArgs),
+    Status(Box<BootstrapFilesStatusArgs>),
 }
 
 /// Apply the configured Linux host firewall
@@ -508,10 +508,10 @@ pub struct BootstrapFirewallArgs {
 pub enum BootstrapFirewallCommands {
     /// Apply the configured Linux host firewall
     #[command(name = "apply")]
-    Apply(BootstrapFirewallApplyArgs),
+    Apply(Box<BootstrapFirewallApplyArgs>),
     /// Show configured Linux host firewall state
     #[command(name = "status")]
-    Status(BootstrapFirewallStatusArgs),
+    Status(Box<BootstrapFirewallStatusArgs>),
 }
 
 /// Undocumented
@@ -547,10 +547,10 @@ pub struct BootstrapLaunchdArgs {
 pub enum BootstrapLaunchdCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapLaunchdApplyArgs),
+    Apply(Box<BootstrapLaunchdApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapLaunchdStatusArgs),
+    Status(Box<BootstrapLaunchdStatusArgs>),
 }
 
 /// Undocumented
@@ -586,10 +586,10 @@ pub struct BootstrapLinuxSystemdUnitsArgs {
 pub enum BootstrapLinuxSystemdUnitsCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapLinuxSystemdUnitsApplyArgs),
+    Apply(Box<BootstrapLinuxSystemdUnitsApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapLinuxSystemdUnitsStatusArgs),
+    Status(Box<BootstrapLinuxSystemdUnitsStatusArgs>),
 }
 
 /// Manage Linux bootstrap config from `[bootstrap.linux]`
@@ -603,7 +603,7 @@ pub struct BootstrapLinuxArgs {
 pub enum BootstrapLinuxCommands {
     /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
     #[command(name = "systemd-units", alias = "systemd")]
-    SystemdUnits(BootstrapLinuxSystemdUnitsArgs),
+    SystemdUnits(Box<BootstrapLinuxSystemdUnitsArgs>),
 }
 
 /// Undocumented
@@ -639,10 +639,10 @@ pub struct BootstrapMacosDefaultsArgs2 {
 pub enum BootstrapMacosDefaultsCommands2 {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapMacosDefaultsApplyArgs),
+    Apply(Box<BootstrapMacosDefaultsApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapMacosDefaultsStatusArgs),
+    Status(Box<BootstrapMacosDefaultsStatusArgs>),
 }
 
 /// Undocumented
@@ -678,10 +678,10 @@ pub struct BootstrapMacosLaunchdAgentsArgs {
 pub enum BootstrapMacosLaunchdAgentsCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapMacosLaunchdAgentsApplyArgs),
+    Apply(Box<BootstrapMacosLaunchdAgentsApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapMacosLaunchdAgentsStatusArgs),
+    Status(Box<BootstrapMacosLaunchdAgentsStatusArgs>),
 }
 
 /// Manage macOS bootstrap config from `[bootstrap.macos]`
@@ -695,10 +695,10 @@ pub struct BootstrapMacosArgs {
 pub enum BootstrapMacosCommands {
     /// Manage macOS defaults from `[bootstrap.macos.defaults]`
     #[command(name = "defaults")]
-    Defaults(BootstrapMacosDefaultsArgs2),
+    Defaults(Box<BootstrapMacosDefaultsArgs2>),
     /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
     #[command(name = "launchd-agents", alias = "launchd")]
-    LaunchdAgents(BootstrapMacosLaunchdAgentsArgs),
+    LaunchdAgents(Box<BootstrapMacosLaunchdAgentsArgs>),
 }
 
 /// Undocumented
@@ -734,10 +734,10 @@ pub struct BootstrapMacosDefaultsArgs {
 pub enum BootstrapMacosDefaultsCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapMacosDefaultsApplyArgs2),
+    Apply(Box<BootstrapMacosDefaultsApplyArgs2>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapMacosDefaultsStatusArgs2),
+    Status(Box<BootstrapMacosDefaultsStatusArgs2>),
 }
 
 /// Undocumented
@@ -773,10 +773,10 @@ pub struct BootstrapMiseShellActivateArgs {
 pub enum BootstrapMiseShellActivateCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapMiseShellActivateApplyArgs),
+    Apply(Box<BootstrapMiseShellActivateApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapMiseShellActivateStatusArgs),
+    Status(Box<BootstrapMiseShellActivateStatusArgs>),
 }
 
 /// Apply system packages from `[bootstrap.packages]`
@@ -859,10 +859,10 @@ pub struct BootstrapPackagesBrewArgs {
 pub enum BootstrapPackagesBrewCommands {
     /// Add a Homebrew tap URL to [bootstrap.brew.taps]
     #[command(name = "tap")]
-    Tap(BootstrapPackagesBrewTapArgs),
+    Tap(Box<BootstrapPackagesBrewTapArgs>),
     /// Remove Homebrew tap URLs from [bootstrap.brew.taps]
     #[command(name = "untap", visible_aliases = ["remove", "rm"])]
-    Untap(BootstrapPackagesBrewUntapArgs),
+    Untap(Box<BootstrapPackagesBrewUntapArgs>),
 }
 
 /// Import installed system packages into `[bootstrap.packages]`
@@ -992,25 +992,25 @@ pub struct BootstrapPackagesArgs {
 pub enum BootstrapPackagesCommands {
     /// Apply system packages from `[bootstrap.packages]`
     #[command(name = "apply", visible_alias = "i", alias = "install")]
-    Apply(BootstrapPackagesApplyArgs),
+    Apply(Box<BootstrapPackagesApplyArgs>),
     /// Manage Homebrew taps used by bootstrap packages
     #[command(name = "brew")]
-    Brew(BootstrapPackagesBrewArgs),
+    Brew(Box<BootstrapPackagesBrewArgs>),
     /// Import installed system packages into `[bootstrap.packages]`
     #[command(name = "import")]
-    Import(BootstrapPackagesImportArgs),
+    Import(Box<BootstrapPackagesImportArgs>),
     /// Prune installed system packages no longer declared in `[bootstrap.packages]`
     #[command(name = "prune")]
-    Prune(BootstrapPackagesPruneArgs),
+    Prune(Box<BootstrapPackagesPruneArgs>),
     /// Show the status of system packages from `[bootstrap.packages]`
     #[command(name = "status", visible_alias = "ls")]
-    Status(BootstrapPackagesStatusArgs),
+    Status(Box<BootstrapPackagesStatusArgs>),
     /// Upgrade installed bootstrap packages from `[bootstrap.packages]`
     #[command(name = "upgrade", visible_alias = "up")]
-    Upgrade(BootstrapPackagesUpgradeArgs),
+    Upgrade(Box<BootstrapPackagesUpgradeArgs>),
     /// Add bootstrap packages to [bootstrap.packages] and install them
     #[command(name = "use", visible_alias = "u")]
-    Use(BootstrapPackagesUseArgs),
+    Use(Box<BootstrapPackagesUseArgs>),
 }
 
 /// Show the changes declarative bootstrap resources would make
@@ -1054,10 +1054,10 @@ pub struct BootstrapPluginsArgs {
 pub enum BootstrapPluginsCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapPluginsApplyArgs),
+    Apply(Box<BootstrapPluginsApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapPluginsStatusArgs),
+    Status(Box<BootstrapPluginsStatusArgs>),
 }
 
 /// Bootstrap one or more machines over OpenSSH
@@ -1199,16 +1199,16 @@ pub struct BootstrapReposArgs {
 pub enum BootstrapReposCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapReposApplyArgs),
+    Apply(Box<BootstrapReposApplyArgs>),
     /// Undocumented
     #[command(name = "exec")]
-    Exec(BootstrapReposExecArgs),
+    Exec(Box<BootstrapReposExecArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapReposStatusArgs),
+    Status(Box<BootstrapReposStatusArgs>),
     /// Undocumented
     #[command(name = "update")]
-    Update(BootstrapReposUpdateArgs),
+    Update(Box<BootstrapReposUpdateArgs>),
 }
 
 /// Show whether declared bootstrap secret inputs are available
@@ -1233,7 +1233,7 @@ pub struct BootstrapSecretsArgs {
 pub enum BootstrapSecretsCommands {
     /// Show whether declared bootstrap secret inputs are available
     #[command(name = "status")]
-    Status(BootstrapSecretsStatusArgs),
+    Status(Box<BootstrapSecretsStatusArgs>),
 }
 
 /// Apply configured Linux system service state
@@ -1269,10 +1269,10 @@ pub struct BootstrapServicesArgs {
 pub enum BootstrapServicesCommands {
     /// Apply configured Linux system service state
     #[command(name = "apply")]
-    Apply(BootstrapServicesApplyArgs),
+    Apply(Box<BootstrapServicesApplyArgs>),
     /// Show configured Linux system service state
     #[command(name = "status")]
-    Status(BootstrapServicesStatusArgs),
+    Status(Box<BootstrapServicesStatusArgs>),
 }
 
 /// Show the aggregate bootstrap status
@@ -1322,10 +1322,10 @@ pub struct BootstrapSystemdArgs {
 pub enum BootstrapSystemdCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapSystemdApplyArgs),
+    Apply(Box<BootstrapSystemdApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapSystemdStatusArgs),
+    Status(Box<BootstrapSystemdStatusArgs>),
 }
 
 /// Undocumented
@@ -1361,10 +1361,10 @@ pub struct BootstrapUserArgs {
 pub enum BootstrapUserCommands {
     /// Undocumented
     #[command(name = "apply")]
-    Apply(BootstrapUserApplyArgs),
+    Apply(Box<BootstrapUserApplyArgs>),
     /// Undocumented
     #[command(name = "status")]
-    Status(BootstrapUserStatusArgs),
+    Status(Box<BootstrapUserStatusArgs>),
 }
 
 /// Set up a machine for the current config in one command
@@ -1451,82 +1451,82 @@ pub struct BootstrapArgs {
 pub enum BootstrapCommands {
     /// Undocumented
     #[command(name = "__apply-account-plan")]
-    ApplyAccountPlan(BootstrapApplyAccountPlanArgs),
+    ApplyAccountPlan(Box<BootstrapApplyAccountPlanArgs>),
     /// Undocumented
     #[command(name = "__apply-service-plan")]
-    ApplyServicePlan(BootstrapApplyServicePlanArgs),
+    ApplyServicePlan(Box<BootstrapApplyServicePlanArgs>),
     /// Undocumented
     #[command(name = "__apply-firewall-plan")]
-    ApplyFirewallPlan(BootstrapApplyFirewallPlanArgs),
+    ApplyFirewallPlan(Box<BootstrapApplyFirewallPlanArgs>),
     /// Undocumented
     #[command(name = "__apply-system-plan")]
-    ApplySystemPlan(BootstrapApplySystemPlanArgs),
+    ApplySystemPlan(Box<BootstrapApplySystemPlanArgs>),
     /// Undocumented
     #[command(name = "__inspect-system-files")]
-    InspectSystemFiles(BootstrapInspectSystemFilesArgs),
+    InspectSystemFiles(Box<BootstrapInspectSystemFilesArgs>),
     /// Undocumented
     #[command(name = "__inspect-firewall-plan")]
-    InspectFirewallPlan(BootstrapInspectFirewallPlanArgs),
+    InspectFirewallPlan(Box<BootstrapInspectFirewallPlanArgs>),
     /// Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
     #[command(name = "accounts")]
-    Accounts(BootstrapAccountsArgs),
+    Accounts(Box<BootstrapAccountsArgs>),
     /// Manage Docker Compose projects from `[bootstrap.compose]`
     #[command(name = "compose")]
-    Compose(BootstrapComposeArgs),
+    Compose(Box<BootstrapComposeArgs>),
     /// Manage dotfiles from `[dotfiles]`
     #[command(name = "dotfiles")]
-    Dotfiles(BootstrapDotfilesArgs),
+    Dotfiles(Box<BootstrapDotfilesArgs>),
     /// Manage privileged files and directories from `[bootstrap.files]` and `[bootstrap.directories]`
     #[command(name = "files")]
-    Files(BootstrapFilesArgs),
+    Files(Box<BootstrapFilesArgs>),
     /// Manage the Linux host firewall from `[bootstrap.linux.firewall]`
     #[command(name = "firewall")]
-    Firewall(BootstrapFirewallArgs),
+    Firewall(Box<BootstrapFirewallArgs>),
     /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
     #[command(name = "launchd")]
-    Launchd(BootstrapLaunchdArgs),
+    Launchd(Box<BootstrapLaunchdArgs>),
     /// Manage Linux bootstrap config from `[bootstrap.linux]`
     #[command(name = "linux")]
-    Linux(BootstrapLinuxArgs),
+    Linux(Box<BootstrapLinuxArgs>),
     /// Manage macOS bootstrap config from `[bootstrap.macos]`
     #[command(name = "macos")]
-    Macos(BootstrapMacosArgs),
+    Macos(Box<BootstrapMacosArgs>),
     /// Manage macOS defaults from `[bootstrap.macos.defaults]`
     #[command(name = "macos-defaults")]
-    MacosDefaults(BootstrapMacosDefaultsArgs),
+    MacosDefaults(Box<BootstrapMacosDefaultsArgs>),
     /// Manage mise shell activation from `[bootstrap.mise_shell_activate]`
     #[command(name = "mise-shell-activate", alias = "shell")]
-    MiseShellActivate(BootstrapMiseShellActivateArgs),
+    MiseShellActivate(Box<BootstrapMiseShellActivateArgs>),
     /// Manage bootstrap system packages from `[bootstrap.packages]`
     #[command(name = "packages")]
-    Packages(BootstrapPackagesArgs),
+    Packages(Box<BootstrapPackagesArgs>),
     /// Show the changes declarative bootstrap resources would make
     #[command(name = "plan")]
-    Plan(BootstrapPlanArgs),
+    Plan(Box<BootstrapPlanArgs>),
     /// Manage package manager plugins declared in `[bootstrap.plugins]`
     #[command(name = "plugins")]
-    Plugins(BootstrapPluginsArgs),
+    Plugins(Box<BootstrapPluginsArgs>),
     /// Bootstrap one or more machines over OpenSSH
     #[command(name = "remote")]
-    Remote(BootstrapRemoteArgs),
+    Remote(Box<BootstrapRemoteArgs>),
     /// Manage git repo checkouts from `[bootstrap.repos]`
     #[command(name = "repos")]
-    Repos(BootstrapReposArgs),
+    Repos(Box<BootstrapReposArgs>),
     /// Inspect bootstrap secret inputs without revealing their values
     #[command(name = "secrets")]
-    Secrets(BootstrapSecretsArgs),
+    Secrets(Box<BootstrapSecretsArgs>),
     /// Manage Linux system services from `[bootstrap.services]`
     #[command(name = "services")]
-    Services(BootstrapServicesArgs),
+    Services(Box<BootstrapServicesArgs>),
     /// Show the aggregate bootstrap status
     #[command(name = "status", visible_alias = "ls")]
-    Status(BootstrapStatusArgs),
+    Status(Box<BootstrapStatusArgs>),
     /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
     #[command(name = "systemd")]
-    Systemd(BootstrapSystemdArgs),
+    Systemd(Box<BootstrapSystemdArgs>),
     /// Manage current-user bootstrap settings from `[bootstrap.user]`
     #[command(name = "user")]
-    User(BootstrapUserArgs),
+    User(Box<BootstrapUserArgs>),
 }
 
 /// Deletes all cache files in mise
@@ -1588,16 +1588,16 @@ pub struct CacheArgs {
 pub enum CacheCommands {
     /// Deletes all cache files in mise
     #[command(name = "clear", visible_alias = "c", alias = "clean")]
-    Clear(CacheClearArgs),
+    Clear(Box<CacheClearArgs>),
     /// Show the cache directory path
     #[command(name = "path", visible_alias = "dir")]
-    Path(CachePathArgs),
+    Path(Box<CachePathArgs>),
     /// Removes stale mise cache files
     #[command(name = "prune", visible_alias = "p")]
-    Prune(CachePruneArgs),
+    Prune(Box<CachePruneArgs>),
     /// Inspect output cache entries for a task
     #[command(name = "task")]
-    Task(CacheTaskArgs),
+    Task(Box<CacheTaskArgs>),
 }
 
 /// Generate shell completions
@@ -1695,13 +1695,13 @@ pub struct ConfigArgs {
 pub enum ConfigCommands {
     /// Display the value of a setting in a mise.toml file
     #[command(name = "get")]
-    Get(ConfigGetArgs),
+    Get(Box<ConfigGetArgs>),
     /// List config files currently in use
     #[command(name = "ls", visible_alias = "list")]
-    Ls(ConfigLsArgs),
+    Ls(Box<ConfigLsArgs>),
     /// Set the value of a setting in a mise.toml file
     #[command(name = "set")]
-    Set(ConfigSetArgs),
+    Set(Box<ConfigSetArgs>),
 }
 
 /// Shows current active and installed runtime versions
@@ -1758,15 +1758,15 @@ pub struct DirenvArgs {
 pub enum DirenvCommands {
     /// Output direnv function to use mise inside direnv
     #[command(name = "activate")]
-    Activate(DirenvActivateArgs),
+    Activate(Box<DirenvActivateArgs>),
     /// [internal] This is an internal command that writes an envrc file
     /// for direnv to consume.
     #[command(name = "envrc")]
-    Envrc(DirenvEnvrcArgs),
+    Envrc(Box<DirenvEnvrcArgs>),
     /// [internal] This is an internal command that writes an envrc file
     /// for direnv to consume.
     #[command(name = "exec")]
-    Exec(DirenvExecArgs),
+    Exec(Box<DirenvExecArgs>),
 }
 
 /// Add or update dotfiles in `[dotfiles]`
@@ -1899,19 +1899,19 @@ pub struct DotfilesArgs {
 pub enum DotfilesCommands {
     /// Add or update dotfiles in `[dotfiles]`
     #[command(name = "add")]
-    Add(DotfilesAddArgs),
+    Add(Box<DotfilesAddArgs>),
     /// Apply dotfiles from `[dotfiles]`
     #[command(name = "apply")]
-    Apply(DotfilesApplyArgs),
+    Apply(Box<DotfilesApplyArgs>),
     /// Edit a managed dotfile source
     #[command(name = "edit")]
-    Edit(DotfilesEditArgs),
+    Edit(Box<DotfilesEditArgs>),
     /// Show the status of dotfiles from `[dotfiles]`
     #[command(name = "status", visible_alias = "ls")]
-    Status(DotfilesStatusArgs),
+    Status(Box<DotfilesStatusArgs>),
     /// Remove dotfiles applied from `[dotfiles]`
     #[command(name = "unapply")]
-    Unapply(DotfilesUnapplyArgs),
+    Unapply(Box<DotfilesUnapplyArgs>),
 }
 
 /// Print the current PATH entries mise is providing
@@ -1936,7 +1936,7 @@ pub struct DoctorArgs {
 pub enum DoctorCommands {
     /// Print the current PATH entries mise is providing
     #[command(name = "path", alias = "paths")]
-    Path(DoctorPathArgs),
+    Path(Box<DoctorPathArgs>),
 }
 
 /// Starts a new shell with the mise environment built from the current configuration
@@ -2298,28 +2298,28 @@ pub struct GenerateArgs {
 pub enum GenerateCommands {
     /// Generate a script to download+execute mise
     #[command(name = "bootstrap")]
-    Bootstrap(GenerateBootstrapArgs),
+    Bootstrap(Box<GenerateBootstrapArgs>),
     /// Generate a mise.toml file
     #[command(name = "config")]
-    Config(GenerateConfigArgs),
+    Config(Box<GenerateConfigArgs>),
     /// Generate a devcontainer to execute mise
     #[command(name = "devcontainer")]
-    Devcontainer(GenerateDevcontainerArgs),
+    Devcontainer(Box<GenerateDevcontainerArgs>),
     /// Generate a git pre-commit hook
     #[command(name = "git-pre-commit", visible_alias = "pre-commit")]
-    GitPreCommit(GenerateGitPreCommitArgs),
+    GitPreCommit(Box<GenerateGitPreCommitArgs>),
     /// Generate a GitHub Action workflow file
     #[command(name = "github-action")]
-    GithubAction(GenerateGithubActionArgs),
+    GithubAction(Box<GenerateGithubActionArgs>),
     /// Generate documentation for tasks in a project
     #[command(name = "task-docs")]
-    TaskDocs(GenerateTaskDocsArgs),
+    TaskDocs(Box<GenerateTaskDocsArgs>),
     /// Generates shims to run mise tasks
     #[command(name = "task-stubs")]
-    TaskStubs(GenerateTaskStubsArgs),
+    TaskStubs(Box<GenerateTaskStubsArgs>),
     /// Generate a tool stub for HTTP-based tools
     #[command(name = "tool-stub")]
-    ToolStub(GenerateToolStubArgs),
+    ToolStub(Box<GenerateToolStubArgs>),
 }
 
 /// Display the GitHub token mise will use for a given host
@@ -2356,7 +2356,7 @@ pub struct GithubArgs {
 pub enum GithubCommands {
     /// Display the GitHub token mise will use for a given host
     #[command(name = "token")]
-    Token(GithubTokenArgs),
+    Token(Box<GithubTokenArgs>),
 }
 
 /// Sets/gets the global tool version(s)
@@ -2984,13 +2984,13 @@ pub struct OciArgs {
 pub enum OciCommands {
     /// [experimental] Build an OCI image from the current mise.toml
     #[command(name = "build")]
-    Build(OciBuildArgs),
+    Build(Box<OciBuildArgs>),
     /// [experimental] Build an OCI image and push it to a registry
     #[command(name = "push")]
-    Push(OciPushArgs),
+    Push(Box<OciPushArgs>),
     /// [experimental] Build an OCI image from the current mise.toml and run a command in it
     #[command(name = "run")]
-    Run(OciRunArgs),
+    Run(Box<OciRunArgs>),
 }
 
 /// Shows outdated tool versions
@@ -3212,22 +3212,22 @@ pub struct PluginsArgs {
 pub enum PluginsCommands {
     /// Install a plugin
     #[command(name = "install", visible_aliases = ["i", "a", "add"])]
-    Install(PluginsInstallArgs),
+    Install(Box<PluginsInstallArgs>),
     /// Symlinks a plugin into mise
     #[command(name = "link", visible_alias = "ln")]
-    Link(PluginsLinkArgs),
+    Link(Box<PluginsLinkArgs>),
     /// List installed plugins
     #[command(name = "ls", visible_alias = "list")]
-    Ls(PluginsLsArgs),
+    Ls(Box<PluginsLsArgs>),
     /// List all available remote plugins
     #[command(name = "ls-remote", visible_aliases = ["list-remote", "list-all"])]
-    LsRemote(PluginsLsRemoteArgs),
+    LsRemote(Box<PluginsLsRemoteArgs>),
     /// Removes a plugin
     #[command(name = "uninstall", visible_aliases = ["remove", "rm"])]
-    Uninstall(PluginsUninstallArgs),
+    Uninstall(Box<PluginsUninstallArgs>),
     /// Updates a plugin to the latest version
     #[command(name = "update", visible_aliases = ["up", "upgrade"])]
-    Update(PluginsUpdateArgs),
+    Update(Box<PluginsUpdateArgs>),
 }
 
 /// Add a dependency
@@ -3336,13 +3336,13 @@ pub struct DepsArgs {
 pub enum DepsCommands {
     /// Add a dependency
     #[command(name = "add")]
-    Add(DepsAddArgs),
+    Add(Box<DepsAddArgs>),
     /// Install all project dependencies
     #[command(name = "install")]
-    Install(DepsInstallArgs),
+    Install(Box<DepsInstallArgs>),
     /// Remove a dependency
     #[command(name = "remove")]
-    Remove(DepsRemoveArgs),
+    Remove(Box<DepsRemoveArgs>),
 }
 
 /// Delete unused versions of tools
@@ -3867,19 +3867,19 @@ pub struct SettingsArgs {
 pub enum SettingsCommands {
     /// Adds a setting to the configuration file
     #[command(name = "add")]
-    Add(SettingsAddArgs),
+    Add(Box<SettingsAddArgs>),
     /// Show a current setting
     #[command(name = "get")]
-    Get(SettingsGetArgs),
+    Get(Box<SettingsGetArgs>),
     /// Show current settings
     #[command(name = "ls", visible_alias = "list")]
-    Ls(SettingsLsArgs),
+    Ls(Box<SettingsLsArgs>),
     /// Add/update a setting
     #[command(name = "set", visible_alias = "create")]
-    Set(SettingsSetArgs),
+    Set(Box<SettingsSetArgs>),
     /// Clears a setting
     #[command(name = "unset", visible_aliases = ["rm", "remove", "delete", "del"])]
-    Unset(SettingsUnsetArgs),
+    Unset(Box<SettingsUnsetArgs>),
 }
 
 /// Sets a tool version for the current session.
@@ -3961,16 +3961,16 @@ pub struct ShellAliasArgs {
 pub enum ShellAliasCommands {
     /// Show the command for a shell alias
     #[command(name = "get")]
-    Get(ShellAliasGetArgs),
+    Get(Box<ShellAliasGetArgs>),
     /// List shell aliases
     #[command(name = "ls", visible_alias = "list")]
-    Ls(ShellAliasLsArgs),
+    Ls(Box<ShellAliasLsArgs>),
     /// Add/update a shell alias
     #[command(name = "set", visible_aliases = ["add", "create"])]
-    Set(ShellAliasSetArgs),
+    Set(Box<ShellAliasSetArgs>),
     /// Removes a shell alias
     #[command(name = "unset", visible_aliases = ["rm", "remove", "delete", "del"])]
-    Unset(ShellAliasUnsetArgs),
+    Unset(Box<ShellAliasUnsetArgs>),
 }
 
 /// Show the companies sponsoring mise and the jdx.dev open source tools
@@ -4029,13 +4029,13 @@ pub struct SyncArgs {
 pub enum SyncCommands {
     /// Symlinks all tool versions from an external tool into mise
     #[command(name = "node")]
-    Node(SyncNodeArgs),
+    Node(Box<SyncNodeArgs>),
     /// Symlinks all tool versions from an external tool into mise
     #[command(name = "python")]
-    Python(SyncPythonArgs),
+    Python(Box<SyncPythonArgs>),
     /// Symlinks all ruby tool versions from an external tool into mise
     #[command(name = "ruby")]
-    Ruby(SyncRubyArgs),
+    Ruby(Box<SyncRubyArgs>),
 }
 
 /// Create a new task
@@ -4452,30 +4452,30 @@ pub struct TasksArgs {
 pub enum TasksCommands {
     /// Create a new task
     #[command(name = "add")]
-    Add(TasksAddArgs),
+    Add(Box<TasksAddArgs>),
     /// Display a tree visualization of a dependency graph
     #[command(name = "deps")]
-    Deps(TasksDepsArgs),
+    Deps(Box<TasksDepsArgs>),
     /// Edit a task with $EDITOR
     #[command(name = "edit")]
-    Edit(TasksEditArgs),
+    Edit(Box<TasksEditArgs>),
     /// [experimental] Inspect the workspace project graph
     #[command(name = "graph")]
-    Graph(TasksGraphArgs),
+    Graph(Box<TasksGraphArgs>),
     /// Get information about a task
     #[command(name = "info")]
-    Info(TasksInfoArgs),
+    Info(Box<TasksInfoArgs>),
     /// List available tasks to execute
     /// These may be included from the config file or from the project's .mise/tasks directory
     /// mise will merge all tasks from all parent directories into this list.
     #[command(name = "ls")]
-    Ls(TasksLsArgs),
+    Ls(Box<TasksLsArgs>),
     /// Run task(s)
     #[command(name = "run", visible_alias = "r")]
-    Run(TasksRunArgs),
+    Run(Box<TasksRunArgs>),
     /// Validate tasks for common errors and issues
     #[command(name = "validate")]
-    Validate(TasksValidateArgs),
+    Validate(Box<TasksValidateArgs>),
 }
 
 /// Test a tool installs and executes
@@ -4555,13 +4555,13 @@ pub struct TokenArgs {
 pub enum TokenCommands {
     /// Forgejo token
     #[command(name = "forgejo")]
-    Forgejo(TokenForgejoArgs),
+    Forgejo(Box<TokenForgejoArgs>),
     /// GitHub token
     #[command(name = "github")]
-    Github(TokenGithubArgs),
+    Github(Box<TokenGithubArgs>),
     /// GitLab token
     #[command(name = "gitlab")]
-    Gitlab(TokenGitlabArgs),
+    Gitlab(Box<TokenGitlabArgs>),
 }
 
 /// Gets information about a tool
@@ -5616,209 +5616,209 @@ pub struct Cli {
 pub enum Commands {
     /// Initializes mise in the current shell session
     #[command(name = "activate")]
-    Activate(ActivateArgs),
+    Activate(Box<ActivateArgs>),
     /// Manage tool version aliases.
     #[command(name = "tool-alias", aliases = ["alias", "aliases"])]
-    ToolAlias(ToolAliasArgs),
+    ToolAlias(Box<ToolAliasArgs>),
     /// [internal] simulates asdf for plugins that call "asdf" internally
     #[command(name = "asdf")]
-    Asdf(AsdfArgs),
+    Asdf(Box<AsdfArgs>),
     /// Manage backends
     #[command(name = "backends", aliases = ["b", "backend", "backend-list"])]
-    Backends(BackendsArgs),
+    Backends(Box<BackendsArgs>),
     /// List all the active runtime bin paths
     #[command(name = "bin-paths")]
-    BinPaths(BinPathsArgs),
+    BinPaths(Box<BinPathsArgs>),
     /// Set up a machine for the current config in one command
     #[command(name = "bootstrap", visible_alias = "bs")]
-    Bootstrap(BootstrapArgs),
+    Bootstrap(Box<BootstrapArgs>),
     /// Manage the mise cache
     #[command(name = "cache")]
-    Cache(CacheArgs),
+    Cache(Box<CacheArgs>),
     /// Generate shell completions
     #[command(name = "completion", aliases = ["complete", "completions"])]
-    Completion(CompletionArgs),
+    Completion(Box<CompletionArgs>),
     /// Manage config files
     #[command(name = "config", visible_alias = "cfg", alias = "toml")]
-    Config(ConfigArgs),
+    Config(Box<ConfigArgs>),
     /// Shows current active and installed runtime versions
     #[command(name = "current")]
-    Current(CurrentArgs),
+    Current(Box<CurrentArgs>),
     /// Disable mise for current shell session
     #[command(name = "deactivate")]
-    Deactivate(DeactivateArgs),
+    Deactivate(Box<DeactivateArgs>),
     /// Output direnv function to use mise inside direnv
     #[command(name = "direnv")]
-    Direnv(DirenvArgs),
+    Direnv(Box<DirenvArgs>),
     /// Manage dotfiles from `[dotfiles]` (deprecated)
     #[command(name = "dotfiles")]
-    Dotfiles(DotfilesArgs),
+    Dotfiles(Box<DotfilesArgs>),
     /// Check mise installation for possible problems
     #[command(name = "doctor", visible_alias = "dr")]
-    Doctor(DoctorArgs),
+    Doctor(Box<DoctorArgs>),
     /// Starts a new shell with the mise environment built from the current configuration
     #[command(name = "en")]
-    En(EnArgs),
+    En(Box<EnArgs>),
     /// Exports env vars to activate mise a single time
     #[command(name = "env", visible_alias = "e")]
-    Env(EnvArgs),
+    Env(Box<EnvArgs>),
     /// Execute a command with tool(s) set
     #[command(name = "exec", visible_alias = "x")]
-    Exec(ExecArgs),
+    Exec(Box<ExecArgs>),
     /// Formats mise.toml
     #[command(name = "fmt")]
-    Fmt(FmtArgs),
+    Fmt(Box<FmtArgs>),
     /// Generate files for various tools/services
     #[command(name = "generate", visible_alias = "gen", alias = "g")]
-    Generate(GenerateArgs),
+    Generate(Box<GenerateArgs>),
     /// GitHub related commands
     #[command(name = "github")]
-    Github(GithubArgs),
+    Github(Box<GithubArgs>),
     /// Sets/gets the global tool version(s)
     #[command(name = "global")]
-    Global(GlobalArgs),
+    Global(Box<GlobalArgs>),
     /// [internal] called by activate hook to update env vars directory change
     #[command(name = "hook-env")]
-    HookEnv(HookEnvArgs),
+    HookEnv(Box<HookEnvArgs>),
     /// [internal] called by shell when a command is not found
     #[command(name = "hook-not-found")]
-    HookNotFound(HookNotFoundArgs),
+    HookNotFound(Box<HookNotFoundArgs>),
     /// Removes mise CLI and all related data
     #[command(name = "implode")]
-    Implode(ImplodeArgs),
+    Implode(Box<ImplodeArgs>),
     /// Edit mise.toml interactively
     #[command(name = "edit")]
-    Edit(EditArgs),
+    Edit(Box<EditArgs>),
     /// Install a tool version
     #[command(name = "install", visible_alias = "i")]
-    Install(InstallArgs),
+    Install(Box<InstallArgs>),
     /// Install a tool version to a specific path
     #[command(name = "install-into")]
-    InstallInto(InstallIntoArgs),
+    InstallInto(Box<InstallIntoArgs>),
     /// Gets the latest available version for a plugin
     #[command(name = "latest")]
-    Latest(LatestArgs),
+    Latest(Box<LatestArgs>),
     /// Symlinks a tool version into mise
     #[command(name = "link", visible_alias = "ln")]
-    Link(LinkArgs),
+    Link(Box<LinkArgs>),
     /// Sets/gets tool version in local .tool-versions or mise.toml
     #[command(name = "local", alias = "l")]
-    Local(LocalArgs),
+    Local(Box<LocalArgs>),
     /// Update lockfile checksums and URLs for all specified platforms
     #[command(name = "lock")]
-    Lock(LockArgs),
+    Lock(Box<LockArgs>),
     /// List installed and active tool versions
     #[command(name = "ls", visible_alias = "list")]
-    Ls(LsArgs),
+    Ls(Box<LsArgs>),
     /// List runtime versions available for install.
     #[command(name = "ls-remote", aliases = ["list-all", "list-remote"])]
-    LsRemote(LsRemoteArgs),
+    LsRemote(Box<LsRemoteArgs>),
     /// Run Model Context Protocol (MCP) server
     #[command(name = "mcp")]
-    Mcp(McpArgs),
+    Mcp(Box<McpArgs>),
     /// [experimental] Build OCI container images from a mise.toml
     #[command(name = "oci")]
-    Oci(OciArgs),
+    Oci(Box<OciArgs>),
     /// Shows outdated tool versions
     #[command(name = "outdated")]
-    Outdated(OutdatedArgs),
+    Outdated(Box<OutdatedArgs>),
     /// Show the individuals supporting mise as Patron-tier members
     #[command(name = "patrons")]
-    Patrons(PatronsArgs),
+    Patrons(Box<PatronsArgs>),
     /// Manage plugins
     #[command(name = "plugins", visible_alias = "p", aliases = ["plugin", "plugin-list"])]
-    Plugins(PluginsArgs),
+    Plugins(Box<PluginsArgs>),
     /// [experimental] Manage project dependencies
     #[command(name = "deps", visible_alias = "dep", alias = "prepare")]
-    Deps(DepsArgs),
+    Deps(Box<DepsArgs>),
     /// Delete unused versions of tools
     #[command(name = "prune")]
-    Prune(PruneArgs),
+    Prune(Box<PruneArgs>),
     /// List available tools to install
     #[command(name = "registry")]
-    Registry(RegistryArgs),
+    Registry(Box<RegistryArgs>),
     /// internal command to generate markdown from help
     #[command(name = "render-help")]
-    RenderHelp(RenderHelpArgs),
+    RenderHelp(Box<RenderHelpArgs>),
     /// Creates new shims based on bin paths from currently installed tools.
     #[command(name = "reshim")]
-    Reshim(ReshimArgs),
+    Reshim(Box<ReshimArgs>),
     /// Run task(s)
     #[command(name = "run", visible_alias = "r")]
-    Run(RunArgs),
+    Run(Box<RunArgs>),
     /// Search for tools in the registry
     #[command(name = "search")]
-    Search(SearchArgs),
+    Search(Box<SearchArgs>),
     /// Updates mise itself.
     #[command(name = "self-update")]
-    SelfUpdate(SelfUpdateArgs),
+    SelfUpdate(Box<SelfUpdateArgs>),
     /// Set environment variables in mise.toml
     #[command(name = "set", aliases = ["ev", "env-vars"])]
-    Set(SetArgs),
+    Set(Box<SetArgs>),
     /// Manage settings
     #[command(name = "settings")]
-    Settings(SettingsArgs),
+    Settings(Box<SettingsArgs>),
     /// Sets a tool version for the current session.
     #[command(name = "shell", visible_alias = "sh")]
-    Shell(ShellArgs),
+    Shell(Box<ShellArgs>),
     /// Manage shell aliases.
     #[command(name = "shell-alias")]
-    ShellAlias(ShellAliasArgs),
+    ShellAlias(Box<ShellAliasArgs>),
     /// Show the companies sponsoring mise and the jdx.dev open source tools
     #[command(name = "sponsors")]
-    Sponsors(SponsorsArgs),
+    Sponsors(Box<SponsorsArgs>),
     /// Synchronize tools from other version managers with mise
     #[command(name = "sync")]
-    Sync(SyncArgs),
+    Sync(Box<SyncArgs>),
     /// Manage tasks
     #[command(name = "tasks", visible_alias = "t", alias = "task")]
-    Tasks(TasksArgs),
+    Tasks(Box<TasksArgs>),
     /// Test a tool installs and executes
     #[command(name = "test-tool")]
-    TestTool(TestToolArgs),
+    TestTool(Box<TestToolArgs>),
     /// Display git provider tokens mise will use
     #[command(name = "token")]
-    Token(TokenArgs),
+    Token(Box<TokenArgs>),
     /// Gets information about a tool
     #[command(name = "tool")]
-    Tool(ToolArgs),
+    Tool(Box<ToolArgs>),
     /// Execute a tool stub
     #[command(name = "tool-stub")]
-    ToolStub(ToolStubArgs),
+    ToolStub(Box<ToolStubArgs>),
     /// Marks a config file as trusted
     #[command(name = "trust")]
-    Trust(TrustArgs),
+    Trust(Box<TrustArgs>),
     /// Removes installed tool versions
     #[command(name = "uninstall")]
-    Uninstall(UninstallArgs),
+    Uninstall(Box<UninstallArgs>),
     /// Remove environment variable(s) from the config file.
     #[command(name = "unset")]
-    Unset(UnsetArgs),
+    Unset(Box<UnsetArgs>),
     /// No longer trust a config, will prompt in the future
     #[command(name = "untrust")]
-    Untrust(UntrustArgs),
+    Untrust(Box<UntrustArgs>),
     /// Removes installed tool versions from mise.toml
     #[command(name = "unuse", visible_aliases = ["rm", "remove"])]
-    Unuse(UnuseArgs),
+    Unuse(Box<UnuseArgs>),
     /// Upgrades outdated tools
     #[command(name = "upgrade", visible_alias = "up")]
-    Upgrade(UpgradeArgs),
+    Upgrade(Box<UpgradeArgs>),
     /// Generate a usage CLI spec
     #[command(name = "usage")]
-    Usage(UsageArgs),
+    Usage(Box<UsageArgs>),
     /// Installs a tool and adds the version to mise.toml.
     #[command(name = "use", visible_alias = "u")]
-    Use(UseArgs),
+    Use(Box<UseArgs>),
     /// Display the version of mise
     #[command(name = "version", visible_alias = "v")]
-    Version(VersionArgs),
+    Version(Box<VersionArgs>),
     /// Run task(s) and watch for changes to rerun it
     #[command(name = "watch", visible_alias = "w")]
-    Watch(WatchArgs),
+    Watch(Box<WatchArgs>),
     /// Display the installation path for a tool
     #[command(name = "where")]
-    Where(WhereArgs),
+    Where(Box<WhereArgs>),
     /// Shows the path that a tool's bin points to.
     #[command(name = "which")]
-    Which(WhichArgs),
+    Which(Box<WhichArgs>),
 }

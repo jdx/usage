@@ -1191,11 +1191,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let field = format_ident!("v{i}");
         let variant = &v.ident;
         let ty = &v.ty;
+        // The one place the box matters: everything else — tables, partial, `build` —
+        // speaks to the struct itself.
+        let built = quote!(<#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?);
+        let built = if v.boxed {
+            quote!(::std::boxed::Box::new(#built))
+        } else {
+            built
+        };
         quote! {
             #i => ::std::result::Result::Ok(::std::option::Option::Some(
-                #ident::#variant(
-                    <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?,
-                ),
+                #ident::#variant(#built),
             )),
         }
     });

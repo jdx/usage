@@ -398,7 +398,11 @@ fn emit_command(
                 };
                 out.push_str(&format!("    #[{attr}({})]\n", opts.join(", ")));
             }
-            out.push_str(&format!("    {variant}({}),\n", sub_ty.args));
+            // Boxed, as mise boxes its own largest commands: an enum is as large as its
+            // biggest variant, so one thirty-flag subcommand makes every invocation move
+            // that much stack. It is also what keeps `clippy::large_enum_variant` quiet,
+            // which is what kept the shadow out of the workspace.
+            out.push_str(&format!("    {variant}(Box<{}>),\n", sub_ty.args));
         }
         out.push_str("}\n\n");
     }
