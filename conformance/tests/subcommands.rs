@@ -324,3 +324,120 @@ fn the_spec_says_which_aliases_are_hidden() {
         );
     }
 }
+
+/// A command set whose variants are boxed.
+///
+/// mise does this for its largest commands: a command enum is as large as its biggest
+/// variant, so a thirty-flag subcommand makes every invocation move that much stack.
+/// `Box` is also how a CLI that size stops running into clap's limits.
+#[derive(Subcommands)]
+enum BoxedCommands {
+    /// Install a tool
+    #[usage(alias = "i")]
+    Install(Box<BoxedInstallArgs>),
+    /// Something small, unboxed, so the two forms are known to work side by side
+    Nudge(BoxedNudgeArgs),
+}
+
+/// Install a tool
+#[derive(Args)]
+struct BoxedInstallArgs {
+    /// What to install
+    #[usage(arg, name = "TOOL")]
+    tool: Option<String>,
+    /// How many at once
+    #[usage(long, short = 'j')]
+    jobs: Option<String>,
+}
+
+/// Nudge it
+#[derive(Args)]
+struct BoxedNudgeArgs {
+    /// Say nothing
+    #[usage(long)]
+    quiet: bool,
+}
+
+/// A tool with boxed commands
+#[derive(Cli)]
+#[usage(bin = "bx")]
+struct Boxed {
+    #[usage(subcommand)]
+    command: Option<BoxedCommands>,
+}
+
+#[test]
+fn a_boxed_variant_parses_like_any_other() {
+    let a = argv(["install", "-j", "4", "node@20"]);
+    let Some(BoxedCommands::Install(install)) = Boxed::parse_from(&a).expect("parses").command
+    else {
+        panic!("expected install")
+    };
+    assert_eq!(install.tool.as_deref(), Some("node@20"));
+    assert_eq!(install.jobs.as_deref(), Some("4"));
+
+    // Its alias, since the box is nothing to do with how the command is named.
+    let a = argv(["i", "node@20"]);
+    assert!(matches!(
+        Boxed::parse_from(&a).expect("parses").command,
+        Some(BoxedCommands::Install(_))
+    ));
+
+    // And an unboxed variant in the same enum.
+    let a = argv(["nudge", "--quiet"]);
+    let Some(BoxedCommands::Nudge(nudge)) = Boxed::parse_from(&a).expect("parses").command else {
+        panic!("expected nudge")
+    };
+    assert!(nudge.quiet);
+}
+
+#[test]
+fn boxing_changes_nothing_about_the_spec() {
+    // The box is how the variant holds the struct, not something a CLI has: a reader of
+    // the spec, or of `--help`, should not be able to tell.
+    let spec: LibSpec = Boxed::to_kdl().parse().expect("valid spec");
+    let install = spec.cmd.subcommands.get("install").expect("install");
+    assert_eq!(install.aliases, vec!["i".to_string()]);
+    assert_eq!(install.flags.len(), 1);
+    assert_eq!(install.args.len(), 1);
+    assert!(!Boxed::to_kdl().contains("Box"), "{}", Boxed::to_kdl());
+}
+
+/// A boxed command whose struct is named through a path.
+///
+/// `type_name` renders only a type's last segment, so reading the box out of a rendered
+/// string turned `Box<cmds::Deep>` into `Deep` and the generated code named a type that is
+/// not in scope. Taking the type apart syntactically keeps the path.
+mod cmds {
+    /// Something deeper
+    #[derive(usage_derive::Args)]
+    pub struct Deep {
+        /// Say nothing
+        #[usage(long)]
+        pub quiet: bool,
+    }
+}
+
+#[derive(Subcommands)]
+enum QualifiedCommands {
+    /// A command declared elsewhere
+    Deep(Box<cmds::Deep>),
+}
+
+/// A tool whose command lives in another module
+#[derive(Cli)]
+#[usage(bin = "q")]
+struct Qualified {
+    #[usage(subcommand)]
+    command: Option<QualifiedCommands>,
+}
+
+#[test]
+fn a_boxed_command_can_be_named_through_a_path() {
+    let a = argv(["deep", "--quiet"]);
+    let Some(QualifiedCommands::Deep(deep)) = Qualified::parse_from(&a).expect("parses").command
+    else {
+        panic!("expected deep")
+    };
+    assert!(deep.quiet);
+}

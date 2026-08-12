@@ -907,6 +907,29 @@ impl Shape {
 
 /// A type as a comparable string, with paths reduced to their last segment so
 /// `std::option::Option<String>` reads as `Option<String>`.
+/// The `T` in a written `Box<T>`, path and all.
+///
+/// Only the last segment is inspected, so `std::boxed::Box<T>` and `Box<T>` are both read,
+/// and a single type argument is required: `Box<T, A>` names an allocator this cannot
+/// reason about, and is left as the type it is — which then fails to implement the trait,
+/// with an error naming the type the user wrote.
+fn unbox(ty: &Type) -> Option<Type> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let last = path.path.segments.last()?;
+    if last.ident != "Box" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    match args.args.iter().collect::<Vec<_>>().as_slice() {
+        [syn::GenericArgument::Type(inner)] => Some(inner.clone()),
+        _ => None,
+    }
+}
+
 fn type_name(ty: &Type) -> String {
     match ty {
         Type::Path(path) => {
@@ -1128,8 +1151,18 @@ pub struct Variant {
     /// The command name, which is the variant name in kebab-case unless `name`
     /// says otherwise.
     pub name: String,
-    /// The struct the variant wraps.
+    /// The struct the variant wraps, with any `Box` taken off.
+    ///
+    /// Everything generated speaks to the struct — its tables, its partial, its `build` —
+    /// so the box is an artifact of how the variant holds it, restored by
+    /// [`boxed`](Self::boxed) at the one point where a value is made.
     pub ty: Type,
+    /// Whether the variant holds it in a `Box`.
+    ///
+    /// mise boxes its largest commands, which is how a CLI with thirty-flag subcommands
+    /// keeps its command enum from being as large as its biggest variant — clap struggles
+    /// at that size, and `clippy::large_enum_variant` says so about the rest.
+    pub boxed: bool,
     /// Other names this command answers to.
     ///
     /// Kept apart from [`hidden_aliases`](Self::hidden_aliases) only for the spec: the
@@ -1268,22 +1301,34 @@ impl Variant {
         // and arguments. A variant with no fields would have nothing to parse into,
         // and named fields would make the variant itself the struct — which is a
         // second way to say the same thing.
-        let ty = match &variant.fields {
+        let held = match &variant.fields {
             Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => unnamed.unnamed[0].ty.clone(),
             other => {
                 return Err(syn::Error::new_spanned(
                     other,
                     "a subcommand variant wraps exactly one struct, as in \
-                     `Install(Install)`: that struct is where its flags and arguments \
-                     are declared",
+                     `Install(Install)` or `Install(Box<Install>)`: that struct is where \
+                     its flags and arguments are declared",
                 ));
             }
+        };
+        // `Box<T>` is read by its written form, as `Option<T>` is elsewhere: a macro
+        // cannot resolve a path, and an alias for `Box` is rare enough to leave alone.
+        //
+        // Taken apart syntactically rather than by rendering the type to a string and
+        // parsing it back: `type_name` keeps only the last segment, so a
+        // `Box<crate::cmds::Install>` came out as `Install` and the generated code named a
+        // type that is not in scope.
+        let (ty, boxed) = match unbox(&held) {
+            Some(inner) => (inner, true),
+            None => (held, false),
         };
 
         Ok(Variant {
             ident: variant.ident.clone(),
             name,
             ty,
+            boxed,
             aliases,
             hidden_aliases,
             help,

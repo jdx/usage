@@ -188,12 +188,13 @@ checked-in `mise.usage.kdl` for both parsers.
 - [x] **Shadow generation** — `xtask gen-shadow` turns any `.usage.kdl` into a crate
       of derived types. mise's committed 5,592-line spec compiles: 211 commands, 711
       flags, 128 arguments, four levels deep, in 2.6s. What it cannot express, it
-      counts: 13 secondary flag aliases, 3
-      `double_dash="automatic"`, 2 mounts, 2 restart tokens, 1 `default_subcommand`, 1
-      default on a collecting flag. Aliases are the largest gap and the next thing the
-      derive needs for mise; `default_subcommand` is the one that changes the _root's_
-      grammar, since `mise build` routes through `run` in mise and answers at the root
-      in the shadow.
+      counts: 13 secondary flag aliases, 3 `double_dash="automatic"`, 2 mounts, 2 restart
+      tokens, 1 `default_subcommand`, 1 default on a collecting flag. The
+      `default_subcommand` is the one that changes the _root's_ grammar, since
+      `mise build` routes through `run` in mise and answers at the root in the shadow.
+      The generated crates are ordinary workspace members: their command enums are boxed,
+      as the real mise boxes its own, so `large_enum_variant` has nothing to say and no
+      lint is silenced anywhere.
 - [x] **Bench harness** — `xtask gen-shadow … clap` writes the same CLI in clap's
       vocabulary, from the same spec and the same traversal, so the comparison is
       between parsers rather than between two transcriptions. Both shadows drop the
@@ -205,17 +206,6 @@ checked-in `mise.usage.kdl` for both parsers.
       does, so nothing but the parse varies. clap's 490µs is 305µs building its command
       tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
       parse alone, with the tree already built and paid for, this is 12× faster.
-- [ ] **A sentinel the fixture cannot trip** — the three `gate-*` benchmarks measure the
-      mise shadow, and tak gates everything in `tak.toml` at 1%. But the shadow is
-      _designed_ to grow: teaching the derive command aliases added 91 names to it and cost
-      1.52%, which the gate reported as a regression when it was the fixture getting
-      bigger. A regression sentinel has to be a fixed fixture — a small hand-written CLI
-      that never changes — with the shadow benches reported but not gated. Until then a
-      red gate on a PR that grows the shadow is expected, and the PR should say why.
-- [ ] **A subcommand lookup that is not linear** — the 1.52% above is real work: finding a
-      command scans the parent's list, and each candidate now checks its aliases too. At
-      mise's ~100 top-level commands that is worth a sorted table or a hash, and it is the
-      largest remaining item in the parse.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
       spec, to find disagreements the corpus did not think of.
 - [ ] **Perf report** — published honestly, whichever way it goes.
