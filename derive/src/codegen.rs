@@ -715,17 +715,11 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
     // Only the fields that declare one: `Partial`'s own initializer has already put
     // everything else at `Default::default()`, and a subcommand field holds a partial
     // that `#sub_starts` builds rather than a value.
-    let assignments = cli
-        .fields
-        .iter()
-        .filter(|f| f.default.is_some() && !matches!(f.kind, Kind::Subcommand { .. }))
-        .map(reset_to_default);
     quote! {
         let mut partial = Partial {
             #(#plain)*
             #sub_starts
         };
-        #(#assignments)*
     }
 }
 
@@ -1296,6 +1290,27 @@ fn displaced_guard(cli: &Cli, field: &Field) -> TokenStream {
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
+    // Applied here rather than in `start`, and this is not a detail: `start` builds the
+    // partial for *every* command in the CLI, selected or not, so a declared default was
+    // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
+    // which is the CLI's size leaking into the invocation. `check` runs for the selected
+    // command only.
+    //
+    // Guarded on `__given_*`, which is what makes this safe to move: a negation that set a
+    // defaulted `bool` to false during the parse must not be undone here.
+    let declared_defaults = cli.fields.iter().filter_map(|f| {
+        if f.default.is_none() || matches!(f.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let given = format_ident!("__given_{}", f.ident);
+        let assign = reset_to_default(f);
+        Some(quote! {
+            if !partial.#given {
+                #assign
+            }
+        })
+    });
+
     let env_fallbacks = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
@@ -1527,6 +1542,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     quote! {
+        // Before the environment, which overrides a default when the flag was not given —
+        // the order `start` used to give them.
+        #(#declared_defaults)*
         #(#env_fallbacks)*
         // Before required-ness: "you gave two flags that cannot go together" is the
         // more useful of the two answers when a conflict has also left something

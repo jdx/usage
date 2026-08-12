@@ -212,15 +212,25 @@ checked-in `mise.usage.kdl` for both parsers.
 
 Runtime targets, which gate:
 
-| measurement                        | clap, measured | target | result           |
-| ---------------------------------- | -------------- | ------ | ---------------- |
-| instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×      |
-| wall time, argv to parsed struct   | 490µs          | < 50µs | 2.1µs, 238×      |
-| heap allocations, successful parse | thousands      | 0      | not yet measured |
+| measurement                        | clap, measured | target | result            |
+| ---------------------------------- | -------------- | ------ | ----------------- |
+| instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×       |
+| wall time, argv to parsed struct   | 490µs          | < 50µs | 2.1µs, 238×       |
+| heap allocations, successful parse | 6,560          | 0      | 0 bare, 3–4 bound |
 
-Both gating targets are met, and not narrowly. The one number still owed is
-allocations on the derive path — usage-argv's own are asserted at zero, but the derive
-allocates a `String` per value, and nothing counts them yet.
+All three gating targets are met, and not narrowly. Allocations were the last one owed:
+a parse with nothing to bind allocates **nothing at all** at mise's scale — 211 commands
+and 711 flags, and the allocator is never reached — while binding three or four words
+costs three or four allocations, one per value. clap's tree costs **6,560** every time,
+so this is about 2,000× fewer.
+
+Getting there needed one fix and one correction. Defaults were being applied in `start`,
+which builds the partial for _every_ command in the CLI rather than the selected one, so a
+bare `mise` was allocating 60 times for defaults it would never read; they now run in
+`check`, guarded on whether the flag was given. And the counter itself was wrong — armed
+per thread but counting into a global — so parallel tests were counting each other and a
+4-allocation parse read as 24, intermittently. usage-argv's own counter had the same
+latent flaw and now counts per thread too.
 
 An earlier draft of these numbers said 48–58× rather than 117×, because it subtracted a
 baseline measured in a _separate_ no-op binary. Two binaries do measurably different
