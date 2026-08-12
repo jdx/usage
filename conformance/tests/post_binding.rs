@@ -221,6 +221,9 @@ struct Rel {
     /// Where to write
     #[usage(long, required_if = "--stdin")]
     out: Option<String>,
+    /// How many at once
+    #[usage(long, default = "4", required_if = "--stdin")]
+    jobs: Option<String>,
 }
 
 #[test]
@@ -278,6 +281,16 @@ fn required_if_applies_only_when_the_other_flag_is_given() {
     // Without `--stdin`, `--out` is optional.
     let a = argv(["--file", "f"]);
     assert!(Rel::parse_from(&a).expect("should parse").out.is_none());
+}
+
+#[test]
+fn a_default_satisfies_a_condition_that_would_have_required_the_flag() {
+    // `--jobs` is required when `--stdin` is given, and it has a default — so it is
+    // already filled and no condition can make it missing. Plain required-ness works
+    // the same way, and so does usage-lib.
+    let a = argv(["--stdin", "--out", "o"]);
+    let rel = Rel::parse_from(&a).expect("should parse");
+    assert_eq!(rel.jobs.as_deref(), Some("4"));
 }
 
 #[test]

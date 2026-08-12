@@ -719,6 +719,35 @@ impl Field {
                 "`negate` names a second long form, so the field needs a `long`",
             ));
         }
+        // Relationships hold between flags. The spec records them on a flag and has no
+        // place for them on an argument, so accepting one here would enforce something
+        // the emitted spec cannot say — and docs and completions would describe a
+        // different CLI from the one that runs.
+        for (option, selectors) in [
+            ("conflicts", &conflicts),
+            ("required_if", &required_if),
+            ("required_unless", &required_unless),
+        ] {
+            if !selectors.is_empty() && !is_flag {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "`{option}` describes a relationship between flags, so the field \
+                         needs a `long` or a `short`"
+                    ),
+                ));
+            }
+        }
+        // `required_unless` says the field may be absent when another flag stands in for
+        // it. A bare `String` has nowhere to put absent, so its type would keep claiming
+        // the value is mandatory and the exception could never take effect.
+        if !required_unless.is_empty() && shape == Shape::Required {
+            return Err(syn::Error::new(
+                span,
+                "`required_unless` says this may be left out, so the field needs \
+                 somewhere to put \"absent\": make it an `Option`",
+            ));
+        }
 
         // A `Vec` flag collects, so it is repeatable whether or not it says so —
         // unless it is `variadic`, which is the other way of collecting. Emitting
@@ -906,16 +935,29 @@ fn string_value(meta: &Meta) -> syn::Result<String> {
 /// Which flag each one names is resolved in [`Cli::check`], where every field is in
 /// view.
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
-    match meta {
-        Meta::List(list) => Ok(list
-            .parse_args_with(
-                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
-            )?
-            .into_iter()
-            .map(|lit| lit.value())
-            .collect()),
-        _ => Ok(vec![string_value(meta)?]),
+    let Meta::List(list) = meta else {
+        return Ok(vec![string_value(meta)?]);
+    };
+    let found: Vec<String> = list
+        .parse_args_with(
+            syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+        )?
+        .into_iter()
+        .map(|lit| lit.value())
+        .collect();
+    // An empty list compiles into no relationship at all, which is a declaration that
+    // reads as though it does something.
+    if found.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta.path(),
+            format!(
+                "`{}` needs at least one flag, as in `{}(\"--other\")`",
+                ident_of(meta.path()),
+                ident_of(meta.path())
+            ),
+        ));
     }
+    Ok(found)
 }
 
 fn int_value(meta: &Meta) -> syn::Result<usize> {
@@ -1228,6 +1270,62 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn a_relationship_needs_a_flag_to_hold_between() {
+        // The spec records these on a flag and has nowhere to put them on an argument,
+        // so enforcing one here would describe a CLI the emitted spec does not.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long)]
+                force: bool,
+                #[usage(conflicts = "--force")]
+                file: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("relationship between flags"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn required_unless_needs_somewhere_to_put_absent() {
+        // A bare `String` is always filled, so the exception could never take effect:
+        // the shape says mandatory and the attribute says conditional.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long)]
+                url: Option<String>,
+                #[usage(long, required_unless = "--url")]
+                file: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("make it an `Option`"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn an_empty_relationship_list_is_a_compile_error() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, conflicts())]
+                file: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("needs at least one flag"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]

@@ -142,11 +142,16 @@
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!
-//! The last three name a flag the way the spec does — `"--long"` or `"-s"` — and take
-//! several as a list: `conflicts("--file", "--url")`. A selector naming no flag on the
-//! command is a compile error, which is the advantage of declaring a relationship in
-//! code: in a hand-written spec a typo'd selector is a relationship that quietly does
-//! not hold.
+//! These name a flag the way the spec does — `"--long"` or `"-s"` — and take several
+//! as a list: `conflicts("--file", "--url")`. A selector naming no flag on the command
+//! is a compile error, which is the advantage of declaring a relationship in code: in a
+//! hand-written spec a typo'd selector is a relationship that quietly does not hold.
+//!
+//! They describe relationships *between flags*, so a positional cannot declare one —
+//! the spec records them on a flag and has nowhere to put them on an argument, and a
+//! check the emitted spec cannot describe would leave docs and completions saying
+//! something else. `required_unless` also needs somewhere to put "absent", so it takes
+//! an `Option` rather than a bare `String`.
 //!
 //! # What this version does not do
 //!

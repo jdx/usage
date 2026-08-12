@@ -1287,6 +1287,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         if f.required_if.is_empty() && f.required_unless.is_empty() {
             return None;
         }
+        // A field with a default is already filled, so no condition can make it
+        // missing. Plain required-ness skips these too, and so does usage-lib.
+        if f.default.is_some() {
+            return None;
+        }
         let given = format_ident!("__given_{}", f.ident);
         let name = &f.name;
         let selector_given = |selector: &String| {
