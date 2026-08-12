@@ -138,22 +138,24 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
             // none is declared — a spec may say `data_type=float default="1.5"`, and the
             // declaration is what the generated field is typed as. No `#true`-spelling or
             // quote-stripping to undo any more: the spec keeps values, not source text.
-            let default = match (&prop.default, prop.data_type) {
-                (None, _) => String::new(),
-                (Some(v), SpecDataTypes::Boolean) => match v {
-                    SpecConfigValue::Bool(false) => " = False".to_string(),
-                    SpecConfigValue::String(s) if s == "false" => " = False".to_string(),
-                    _ => " = True".to_string(),
-                },
-                (Some(v), SpecDataTypes::Integer | SpecDataTypes::Float) => {
-                    format!(" = {}", v.display())
-                }
-                (Some(SpecConfigValue::Bool(b)), SpecDataTypes::Null) => {
+            // A bare Python literal only for a value that *is* one. Anything else is a
+            // quoted string, escaped.
+            //
+            // This is generated code that gets imported, so text from the spec must never
+            // reach it unquoted: a `data_type="integer"` whose default is the string
+            // `__import__("os").system(…)` would otherwise be written as an expression and
+            // run on import. Numeric strings are read as numbers when the spec parses, so
+            // by here a `String` is a string.
+            let default = match &prop.default {
+                None => String::new(),
+                Some(SpecConfigValue::Bool(b)) => {
                     format!(" = {}", if *b { "True" } else { "False" })
                 }
-                (Some(SpecConfigValue::Int(i)), SpecDataTypes::Null) => format!(" = {i}"),
-                (Some(SpecConfigValue::Float(f)), SpecDataTypes::Null) => format!(" = {f}"),
-                (Some(v), _) => format!(" = \"{}\"", escape_py_string(&v.display())),
+                Some(SpecConfigValue::Int(i)) => format!(" = {i}"),
+                Some(SpecConfigValue::Float(f)) => format!(" = {f:?}"),
+                Some(SpecConfigValue::String(s)) => {
+                    format!(" = \"{}\"", escape_py_string(s))
+                }
             };
             if let Some(help) = &prop.help {
                 w.line(&format!("# {}", sanitize_py_comment(help)));
@@ -1034,6 +1036,55 @@ mod tests {
         let types = get_file(&output, "types.py");
         assert!(types.contains("class MyappConfig"));
         insta::assert_snapshot!(types);
+    }
+
+    /// A default whose text is not the type it claims to be must not become an expression.
+    #[test]
+    fn test_python_config_default_is_never_an_expression() {
+        // types.py is imported, so anything written into it unquoted runs.
+        //
+        // The route this test was written for — `data_type=integer` beside a default of
+        // arbitrary text — no longer parses at all; see
+        // `a_default_the_declared_type_cannot_read_is_refused`. But a *string*-typed default
+        // legitimately holds arbitrary text, which is the surface that still exists and the
+        // one the generator has to quote. Two defences, and this is the second.
+        let spec: Spec = r##"
+            bin "myapp"
+            config {
+                prop "cmd" data_type=string default="__import__('os').system('touch /tmp/pwned')"
+                prop "quoteful" data_type=string default="he said \"hi\""
+                prop "multiline" data_type=string default="two\nlines"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+
+        assert!(
+            !types.contains("= __import__"),
+            "a string default must not be emitted as an expression:\n{types}"
+        );
+        assert!(
+            types.contains(r#"= "__import__('os').system('touch /tmp/pwned')""#),
+            "it should be a quoted string:\n{types}"
+        );
+        // And a string containing quotes stays escaped rather than closing the literal.
+        assert!(
+            types.contains(r#"= "he said \"hi\"""#),
+            "quotes inside a default should be escaped:\n{types}"
+        );
+        // A control character cannot be carried literally inside a Python literal at all: a
+        // newline in a default wrote a module that fails to *import*, which is a worse failure
+        // than one that says something wrong.
+        assert!(
+            types.contains(r#"= "two\nlines""#),
+            "a newline in a default must be escaped:\n{types}"
+        );
+        assert!(
+            !types.lines().any(|line| line.trim() == "lines\""),
+            "the literal was split across lines:\n{types}"
+        );
     }
 
     /// Hidden command, hidden arg/flag — covers early-return and empty dataclass paths.
