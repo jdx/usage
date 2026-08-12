@@ -288,7 +288,9 @@ pub enum Event<'t, 'v> {
 ///
 /// `non_exhaustive`, because an error enum grows: a caller matching on it needs a
 /// fallback arm so that recognizing a new failure is never a breaking change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// No `Copy`: one variant owns its message. `Clone` stays, and the enum is still 40 bytes
+// because that variant is boxed, so nothing on the hot path grew.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error<'t, 'v> {
     /// A flag-like token matched no flag in scope. `token` is the whole token as
@@ -346,6 +348,14 @@ pub enum Error<'t, 'v> {
         /// The flag it cannot be given with, as the declaration spells it.
         other: &'t str,
     },
+    /// A value was given that the field's type could not be built from.
+    ///
+    /// Boxed, and the only error here that owns anything. Everything else borrows the
+    /// tables or argv, which is what keeps a *successful* parse allocation-free — and the
+    /// box keeps `Error` the size it was, so the `Result` this rides in on the hot path
+    /// does not grow. A value that will not convert has already failed, and a message
+    /// worth reading is worth one allocation.
+    InvalidValue(::std::boxed::Box<InvalidValue<'t>>),
     /// A subcommand was required, and none was given.
     MissingSubcommand,
 }
@@ -372,6 +382,19 @@ pub const fn key_base(module: &str, declaration: u32) -> u64 {
         i += 1;
     }
     (hash as u64) << 32
+}
+
+/// Why a value would not convert into the type its field holds.
+///
+/// Separate from [`Error`] so that the enum stays small: this is reached through a `Box`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidValue<'t> {
+    /// The flag or argument's name, as the spec calls it.
+    pub name: &'t str,
+    /// The text that would not convert.
+    pub value: ::std::string::String,
+    /// What the type's own conversion complained about.
+    pub reason: ::std::string::String,
 }
 
 /// Interpret a value as UTF-8.

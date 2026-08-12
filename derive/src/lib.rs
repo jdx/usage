@@ -122,6 +122,25 @@
 //! argument. Help text comes from the doc comment: the first paragraph is the
 //! short form, and the whole comment is the long form.
 //!
+//! A field's **type** says how many values it takes and what they become. `bool` is a
+//! switch and an unsigned integer with `count` counts occurrences; everything else holds
+//! values, built with `FromStr`:
+//!
+//! | type | means |
+//! | --- | --- |
+//! | `T` | one value, required — the type has nowhere to put "absent" |
+//! | `Option<T>` | one value, or nothing |
+//! | `Vec<T>` | several, empty when none arrived |
+//! | `Option<Vec<T>>` | several, and `None` when the flag was never given at all |
+//!
+//! So `Option<PathBuf>`, `Vec<ToolArg>` and `Option<usize>` all work, and a type that no
+//! single word could become is a compile error naming that type. The conversion's error
+//! type has to implement `Display`, since what it says is what the user reads — a type
+//! whose error does not is also a compile error, and also names the type. The parse itself still
+//! binds text — a word's meaning is decided once, where the struct is built — and a value
+//! that will not convert becomes [`Error::InvalidValue`](usage_argv::Error::InvalidValue),
+//! carrying the offending text and whatever the type's own conversion said about it.
+//!
 //! | option | meaning |
 //! | --- | --- |
 //! | `long`, `long = "x"` | a long form, defaulting to the field name |
@@ -170,10 +189,10 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
-//!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a compile
-//!   error rather than a surprise: converting a value needs somewhere to report one
-//!   that will not convert, and that is a layer this version does not have.
+//! - **Values that are not valid UTF-8.** A word reaches a field through
+//!   `String::from_utf8_lossy`, so a `PathBuf` field holding a path that is not UTF-8
+//!   gets the replacement character rather than the bytes. Rare, and wrong when it
+//!   happens; holding what was typed rather than a lossy copy of it is the next change.
 //! - **Flattening.** A struct cannot yet borrow another struct's flags, so a set of
 //!   options shared by several commands has to be repeated.
 

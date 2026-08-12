@@ -115,10 +115,17 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
 - [x] **Subcommands in the derive** — an enum of variants, each holding the struct
       that declares its flags, nested to any depth. A command is selected by its
       position in the parent's table, found from the address the parser hands back.
-- [ ] **Typed values** — fields are text today (`String`, `Option<String>`,
-      `Vec<String>`, `bool`, counting integers). Parsing into other types needs an
-      error type for value conversion, which is also where `env`, required-ness,
-      and `choices` get enforced — see the post-binding layer below.
+- [x] **Typed values** — a field is any `T: FromStr`, plus `Option<T>`, `Vec<T>` and
+      `Option<Vec<T>>`, which is what lets a command struct hold the `PathBuf` mise names
+      227 times and the tool-version type it names 83 times. Binding still collects text;
+      the conversion happens where the struct is built, and a value that will not convert
+      reports the text and the type's own message. `Error` grew one boxed variant and lost
+      `Copy`, and stayed 40 bytes, so nothing on the hot path grew.
+- [ ] **Values that are not valid UTF-8** — a word reaches a field through
+      `from_utf8_lossy`, so a `PathBuf` holding a non-UTF-8 path gets replacement
+      characters instead of bytes. The partial should hold `OsString` and let `build`
+      decide: exact for `PathBuf` and `OsString`, an error for `String` rather than a
+      silent mangling. Small, and the next thing.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
@@ -247,15 +254,40 @@ down and stop. Nothing gets integrated into mise before this point.
 
 ### After the gate
 
-- [ ] **mise** — the largest and least forgiving adopter. Likely a router first
-      (which also retires mise's two hand-maintained flag tables), then commands
-      lowered a few at a time, with mise's e2e argv corpus replayed against both
-      parsers.
+- [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
+      commands lowered a few at a time, with mise's e2e argv corpus replayed against both
+      parsers. Adoption is measured by what it lets mise delete, listed below.
 - [ ] **hk, pitchfork, fnox** — smaller, and all three already generate their
       spec from clap, so they are the natural second adopters.
 - [ ] **Other languages** — the grammar and corpus are language-neutral on
       purpose. A Go, JavaScript, or Python implementation is verified by running
       the corpus, not by reading this repository's Rust.
+
+### What adoption should let mise delete
+
+Checked against mise rather than assumed, and two of them do not survive contact.
+
+- `GLOBAL_FLAGS_WITH_VALUES` and `first_non_global_arg_idx` (`src/cli/mod.rs`) — a
+  hand-maintained copy of the root's value-taking flags, plus a test asserting it still
+  matches clap. Its own comment says why it exists: `env.rs` needs it from `Lazy` statics at
+  startup, and deriving it means building clap's tree, "which costs ~3.1M instructions… what
+  made every mise command ~6.3M instructions more expensive". With `&'static` tables there is
+  no tree to build, so that code can read the real thing. **This is the one that should
+  disappear outright, list and guard test together.**
+- `src/cli/usage.rs` — post-processes the emitted spec: clears `run`'s arguments, adds a
+  mount and a restart token. Those become declarations once the derive can express `mount`,
+  `restart_token` and `default_subcommand`; the file should end up near empty. It already
+  records one hack that went away when jdx/usage#738 landed.
+- `src/cli/command_effects.rs` — 451 lines classifying each command as read, write or
+  destructive, "because mise's usage spec is derived from clap, and clap has no way to
+  express this". The derive can express `effect` inline, so the _workaround_ reason goes —
+  but the file also argues that a safety classification is easier to review as one list than
+  as annotations over sixty files, and that argument survives any framework. Offer the
+  annotation; do not assume the table should go.
+- `Run(Box<run::Run>)` — boxed to stay out of trouble with clap at that size. The clap reason
+  goes; the stack-size reason is real, and boxing stays supported.
+- `src/assets/mise-extra.usage.kdl` — **not** a clap workaround. It is mostly a
+  `source_code_link_template` for the docs, which a spec is the right home for.
 
 ## Not covered by the corpus yet
 
