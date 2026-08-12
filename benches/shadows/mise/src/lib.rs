@@ -43,7 +43,7 @@ pub struct ActivateArgs {
     /// Use shims instead of modifying PATH
     /// Effectively the same as:
     ///
-    /// PATH="$HOME/.local/share/mise/shims:$PATH"
+    ///     PATH="$HOME/.local/share/mise/shims:$PATH"
     ///
     /// `mise activate --shims` does not support all the features of `mise activate`.
     /// See https://mise.jdx.dev/dev-tools/shims.html#shims-vs-path for more information
@@ -3517,8 +3517,6 @@ pub struct RegistryArgs {
     pub json: bool,
     /// Include security features for each tool's backends in JSON output
     ///
-    /// .
-    ///
     /// Requires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.
     #[usage(long = "security")]
     pub security: bool,
@@ -5423,8 +5421,6 @@ pub struct WatchArgs {
     pub emit_events_to: ::std::option::Option<::std::string::String>,
     /// Only emit events to stdout, run no commands
     ///
-    /// .
-    ///
     /// This is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.
     ///
     /// This option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.
@@ -5501,8 +5497,6 @@ pub struct WatchArgs {
     #[usage(long = "filter-file", var)]
     pub filter_file: ::std::vec::Vec<::std::string::String>,
     /// [experimental] Filter programs
-    ///
-    /// .
     ///
     /// /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
     ///
@@ -5740,8 +5734,6 @@ pub struct Cli {
     #[usage(long = "trace", global, hide)]
     pub trace: bool,
     /// Task to run
-    ///
-    /// .
     ///
     /// Shorthand for `mise tasks run <TASK>`.
     #[usage(arg, name = "TASK")]

@@ -541,10 +541,23 @@ fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: 
     // derive reads back: first paragraph short, whole comment long. Writing both in full
     // repeated that opening paragraph on nearly every command mise has, so only the
     // remainder goes here.
-    let Some(long) = long.map(str::trim).filter(|l| !l.is_empty()) else {
+    let Some(long) = long.map(str::trim_end).filter(|l| !l.trim().is_empty()) else {
         return;
     };
-    let rest = long.strip_prefix(help.trim()).unwrap_or(long).trim();
+    // Nothing but punctuation between them — mise's specs often end the long form's
+    // first sentence with a period the short form leaves off.
+    if long.trim().trim_end_matches('.') == help.trim().trim_end_matches('.') {
+        return;
+    }
+    let rest = match long.trim_start().strip_prefix(help.trim()) {
+        // What is left after the short form: the orphaned period and the blank line that
+        // separated them go, and nothing else — trimming the whole remainder would take
+        // the indentation off an example, and mise's help is full of them.
+        Some(rest) => rest.trim_start_matches(['.', '\n', '\r']).trim_end(),
+        // The long form does not open with the short one, so it is written in full and
+        // the repetition, if any, is the spec's.
+        None => long.trim_start(),
+    };
     if rest.is_empty() {
         return;
     }
@@ -702,6 +715,37 @@ mod tests {
             "the short form should appear once: {out}"
         );
         assert!(out.contains("/// And why it matters."), "{out}");
+    }
+
+    #[test]
+    fn stripping_the_short_form_leaves_the_rest_intact() {
+        // Taking the remainder with a blunt `trim` corrupted two shapes that mise's help
+        // really has: a long form whose first sentence ends in a period the short form
+        // leaves off, which left the period stranded on a line of its own, and an
+        // indented example, which lost its indentation.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--security\" help=\"Include security info\" \\
+                long_help=\"Include security info.\\n\\nRequires --json.\"\n",
+        );
+        assert!(!out.contains("/// ."), "a stranded period: {out}");
+        assert!(out.contains("/// Requires --json."), "{out}");
+
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=\"Use shims\" \\
+                long_help=\"Use shims\\n\\n    PATH=/x\\n\\nAnd so on.\"\n",
+        );
+        assert!(
+            out.contains("///     PATH=/x"),
+            "an example should keep its indentation: {out}"
+        );
+    }
+
+    #[test]
+    fn a_long_form_that_only_adds_a_period_says_nothing() {
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--force\" help=\"Do it\" long_help=\"Do it.\"\n",
+        );
+        assert_eq!(out.matches("/// Do it").count(), 1, "{out}");
     }
 
     #[test]
