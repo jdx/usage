@@ -121,6 +121,11 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       the conversion happens where the struct is built, and a value that will not convert
       reports the text and the type's own message. `Error` grew one boxed variant and lost
       `Copy`, and stayed 40 bytes, so nothing on the hot path grew.
+- [x] **Enumerated values** — `#[derive(usage::ValueEnum)]` on an enum of bare variants
+      gives the words a value may be, and a field says `value_enum` to use them. mise has
+      nine of these. The list is declared once, on the type: the spec, the help, the
+      completions and the check that rejects a wrong word all read it from there, so none of
+      them can drift from the type the way a second list on the field would.
 - [ ] **Values that are not valid UTF-8** — a word reaches a field through
       `from_utf8_lossy`, so a `PathBuf` holding a non-UTF-8 path gets replacement
       characters instead of bytes. The partial should hold `OsString` and let `build`

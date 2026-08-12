@@ -48,6 +48,11 @@ pub struct Field {
     pub value_ty: Option<Type>,
     /// Written as `Option<Vec<T>>`, so "never given" and "given nothing" differ.
     pub optional_collection: bool,
+    /// Whether the words come from the type, via [`ValueEnum`].
+    ///
+    /// The alternative is `choices("a", "b")` written on the field, which is the same list
+    /// kept in a second place. Both end up in the spec identically.
+    pub value_enum: bool,
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub env: Option<String>,
@@ -432,6 +437,7 @@ impl Field {
             default: None,
             help_heading: None,
             choices: Vec::new(),
+            value_enum: false,
             var_min: None,
             var_max: None,
             overrides: Vec::new(),
@@ -475,6 +481,7 @@ impl Field {
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
+        let mut value_enum = false;
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
         let mut overrides: Vec<String> = Vec::new();
@@ -547,6 +554,7 @@ impl Field {
                     "conflicts" => conflicts = selectors(&meta)?,
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
+                    "value_enum" => value_enum = flag_value(&meta)?,
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default = Some(string_value(&meta)?),
@@ -573,8 +581,8 @@ impl Field {
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
-                                 `var_min`, `var_max`, `overrides`, `conflicts`, \
-                                 `required_if`, \
+                                 `var_min`, `var_max`, `value_enum`, `overrides`, \
+                                 `conflicts`, `required_if`, \
                                  `required_unless`, `help_heading`, and `double_dash`"
                             ),
                         ));
@@ -696,6 +704,20 @@ impl Field {
                 }
                 _ => {}
             }
+        }
+        if value_enum && !choices.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "`value_enum` takes the words from the type and `choices` lists them here, \
+                 so a field says one or the other — two lists is one too many to keep in \
+                 step",
+            ));
+        }
+        if value_enum && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "`value_enum` describes what a value may be, and this field takes no value",
+            ));
         }
         if !choices.is_empty() && matches!(shape, Shape::Bool | Shape::Count) {
             return Err(syn::Error::new(
@@ -868,6 +890,7 @@ impl Field {
             default,
             help_heading,
             choices,
+            value_enum,
             var_min,
             var_max,
             overrides,
@@ -1407,9 +1430,88 @@ impl Variant {
     }
 }
 
+/// An enum whose variants are the words a value may be.
+pub struct ValueEnum {
+    pub ident: syn::Ident,
+    /// Each variant, and the word it answers to.
+    pub variants: Vec<(syn::Ident, String)>,
+}
+
+impl ValueEnum {
+    pub fn from_input(input: &DeriveInput) -> syn::Result<Self> {
+        let Data::Enum(data) = &input.data else {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "usage::ValueEnum describes the words one value may be, so it needs an enum",
+            ));
+        };
+        if !input.generics.params.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.generics,
+                "usage::ValueEnum does not support generic parameters: the word list is a \
+                 `const`",
+            ));
+        }
+
+        let mut variants: Vec<(syn::Ident, String)> = Vec::new();
+        for variant in &data.variants {
+            if !matches!(variant.fields, Fields::Unit) {
+                return Err(syn::Error::new_spanned(
+                    &variant.fields,
+                    "a value is one word, so each variant is a bare name: a variant holding \
+                     fields would have nothing to build them from",
+                ));
+            }
+            let mut name = to_kebab(&variant.ident.to_string());
+            for attr in attrs(&variant.attrs) {
+                for meta in nested(attr)? {
+                    let path = meta.path().clone();
+                    match ident_of(&path).as_str() {
+                        "name" => name = string_value(&meta)?,
+                        other => {
+                            return Err(syn::Error::new_spanned(
+                                path,
+                                format!(
+                                    "unknown option `{other}` on a value; a variant takes \
+                                     `name` here"
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            if name.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "a value with no name would answer to nothing",
+                ));
+            }
+            if let Some((first, _)) = variants.iter().find(|(_, n)| *n == name) {
+                return Err(dup(
+                    variant.ident.span(),
+                    first.span(),
+                    &format!("`{name}` names two of these values"),
+                ));
+            }
+            variants.push((variant.ident.clone(), name));
+        }
+        if variants.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "an enum with no variants accepts no value at all",
+            ));
+        }
+
+        Ok(ValueEnum {
+            ident: input.ident.clone(),
+            variants,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Subcommands};
+    use super::{Cli, Subcommands, ValueEnum};
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -1513,6 +1615,81 @@ mod tests {
             Ok(_) => panic!("should not have compiled"),
             Err(e) => e.to_string(),
         }
+    }
+
+    fn value_enum(body: &str) -> syn::Result<ValueEnum> {
+        ValueEnum::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
+    }
+
+    #[test]
+    fn a_value_enum_takes_bare_variants_with_distinct_words() {
+        let ve = value_enum(
+            r#"
+            enum Shell {
+                Bash,
+                #[usage(name = "pwsh")]
+                PowerShell,
+            }
+        "#,
+        )
+        .expect("should compile");
+        assert_eq!(
+            ve.variants
+                .iter()
+                .map(|(_, w)| w.as_str())
+                .collect::<Vec<_>>(),
+            ["bash", "pwsh"]
+        );
+
+        // A variant holding fields has nothing to build them from: a value is one word.
+        let err = match value_enum("enum Shell { Bash, Other(String) }") {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        };
+        assert!(err.contains("bare name"), "unhelpful message: {err}");
+
+        // Two variants answering to one word means one is unreachable.
+        let err = match value_enum(
+            r#"
+            enum Shell {
+                #[usage(name = "sh")]
+                Bash,
+                #[usage(name = "sh")]
+                Dash,
+            }
+        "#,
+        ) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        };
+        assert!(
+            err.contains("names two of these values"),
+            "unhelpful: {err}"
+        );
+    }
+
+    #[test]
+    fn value_enum_and_choices_are_the_same_list_twice() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, value_enum, choices("a", "b"))]
+                shell: Option<Shell>,
+            }
+        "#,
+        );
+        assert!(err.contains("one or the other"), "unhelpful message: {err}");
+
+        // And a switch has no value for a word to be.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, value_enum)]
+                force: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("takes no value"), "unhelpful message: {err}");
     }
 
     #[test]

@@ -157,6 +157,7 @@
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
 //! | `double_dash = "required"` | a positional only fillable after `--` |
+//! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `arg` | force a field to be positional |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
@@ -244,6 +245,33 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::Subcommands::from_input(&input) {
         Ok(subs) => codegen::emit_subcommands(&subs).into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Compile an enum into the words one value may be.
+///
+/// What a CLI calls an enum — `--shell bash` — and what the spec calls `choices`. The
+/// variant's name in kebab-case is the word, unless `name` says otherwise:
+///
+/// ```ignore
+/// #[derive(usage::ValueEnum)]
+/// enum Shell {
+///     Bash,
+///     Zsh,
+///     #[usage(name = "pwsh")]
+///     PowerShell,
+/// }
+/// ```
+///
+/// A field holding one says `value_enum`, which is what puts the words in the spec — so
+/// help, completions and the check that rejects a wrong word all read the same list, and
+/// none of them can drift from the type.
+#[proc_macro_derive(ValueEnum, attributes(usage))]
+pub fn derive_value_enum(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match model::ValueEnum::from_input(&input) {
+        Ok(value_enum) => codegen::emit_value_enum(&value_enum).into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
