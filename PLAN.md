@@ -186,22 +186,38 @@ checked-in `mise.usage.kdl` for both parsers.
       derive needs for mise; `default_subcommand` is the one that changes the _root's_
       grammar, since `mise build` routes through `run` in mise and answers at the root
       in the shadow.
-- [ ] **Bench harness** — the clap-equivalent shadow to measure against, `tak` gating in
-      CI, and criterion for wall clock. A first measurement of the usage side alone, at
-      mise's full scale, is 100k–106k instructions per parse for the parse itself
-      (process total minus a null binary that does everything but parse), near-constant
-      across invocation shapes — as static tables should be, with no tree to build.
+- [x] **Bench harness** — `xtask gen-shadow … clap` writes the same CLI in clap's
+      vocabulary, from the same spec and the same traversal, so the comparison is
+      between parsers rather than between two transcriptions. Both shadows drop the
+      same properties. Three release binaries — one per parser, one that does
+      everything except parse — measured by `tak`, which gates the counts in CI.
+- [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
+      against clap's 5.96M: 117× fewer**, and **2.0µs against 500µs of wall clock**.
+      Measured by differencing two runs of the _same_ binary over how many parses it
+      does, so nothing but the parse varies. clap's 500µs is 315µs building its command
+      tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
+      parse alone, with the tree already built and paid for, this is 12× faster.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
       spec, to find disagreements the corpus did not think of.
 - [ ] **Perf report** — published honestly, whichever way it goes.
 
 Runtime targets, which gate:
 
-| measurement                        | clap baseline                     | target |
-| ---------------------------------- | --------------------------------- | ------ |
-| instructions, route + parse        | ~3.1M for tree construction alone | < 100k |
-| wall time, argv to parsed struct   | ~1.1ms                            | < 50µs |
-| heap allocations, successful parse | thousands                         | 0      |
+| measurement                        | clap, measured | target | result           |
+| ---------------------------------- | -------------- | ------ | ---------------- |
+| instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×      |
+| wall time, argv to parsed struct   | 500µs          | < 50µs | 2.0µs, 245×      |
+| heap allocations, successful parse | thousands      | 0      | not yet measured |
+
+Both gating targets are met, and not narrowly. The one number still owed is
+allocations on the derive path — usage-argv's own are asserted at zero, but the derive
+allocates a `String` per value, and nothing counts them yet.
+
+An earlier draft of these numbers said 48–58× rather than 103×, because it subtracted a
+baseline measured in a _separate_ no-op binary. Two binaries do measurably different
+amounts of setup before `main`, and that difference had been landing in what was
+attributed to parsing. Differencing two runs of one binary over how many parses it does
+holds everything else fixed.
 
 Secondary, measured and reported but not gated: compile time (full and
 incremental) and binary-size contribution against an equivalent clap-derived

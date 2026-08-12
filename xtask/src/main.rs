@@ -25,11 +25,25 @@ fn main() {
         .unwrap_or(("help", &[] as &[String]));
     match cmd {
         "gen-shadow" => match rest {
-            [spec, out] => shadow::generate(Path::new(spec), Path::new(out)),
-            _ => fail("gen-shadow needs a spec file and an output directory"),
+            [spec, out] => {
+                shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Usage)
+            }
+            [spec, out, dialect] => match dialect.as_str() {
+                "usage" => {
+                    shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Usage)
+                }
+                "clap" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Clap),
+                other => fail(&format!(
+                    "unknown dialect `{other}`; the dialects are `usage` and `clap`"
+                )),
+            },
+            _ => {
+                fail("gen-shadow needs a spec file, an output directory, and optionally a dialect")
+            }
         },
         other => fail(&format!(
-            "unknown task `{other}`; the tasks are: gen-shadow <spec.kdl> <out-dir>"
+            "unknown task `{other}`; the tasks are: \
+             gen-shadow <spec.kdl> <out-dir> [usage|clap]"
         )),
     }
 }
