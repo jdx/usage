@@ -299,6 +299,42 @@ fn the_words_reach_the_spec_from_the_type() {
 }
 
 #[test]
+#[cfg(unix)]
+fn a_choice_that_is_not_utf8_reports_the_bytes_not_the_list() {
+    // The checks run before the struct is built, so a value that is not UTF-8 used to be
+    // compared as an empty string, match none of the choices, and come back as
+    // `InvalidChoice` — a message listing words, about a value that was never a word. The
+    // UTF-8 failure is the real problem and the one worth reporting.
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let bad_bytes = [OsStr::new("--shell"), OsStr::from_bytes(b"ba\xffsh")];
+    match Enumerated::parse_from(&bad_bytes) {
+        Err(Error::InvalidValue(bad)) => {
+            assert_eq!(bad.name, "shell");
+            assert!(
+                bad.reason.contains("utf-8") || bad.reason.contains("UTF-8"),
+                "the reason should be the UTF-8 failure: {}",
+                bad.reason
+            );
+        }
+        Err(Error::InvalidChoice { choices, .. }) => {
+            panic!("reported the choices {choices:?} for a value that is not a word at all")
+        }
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("this should not have parsed"),
+    }
+
+    // A word that *is* text and is not one of the choices still gets the list, which is the
+    // case this check exists for.
+    let a = argv(["--shell", "csh"]);
+    assert!(matches!(
+        Enumerated::parse_from(&a),
+        Err(Error::InvalidChoice { .. })
+    ));
+}
+
+#[test]
 fn a_wrong_word_lists_what_was_expected() {
     // An `InvalidChoice` carrying the list, rather than a conversion error about a type the
     // user never named.
@@ -321,4 +357,50 @@ fn the_conversion_stands_on_its_own() {
     assert_eq!(Interpreter::from_str("fish"), Ok(Interpreter::Fish));
     let err = Interpreter::from_str("csh").expect_err("not a shell");
     assert!(err.contains("bash, zsh, fish, pwsh"), "{err}");
+}
+
+/// A CLI holding a path, which is where mangling would show
+#[derive(Cli)]
+#[usage(bin = "pathy")]
+struct Pathy {
+    /// Where to write
+    #[usage(long)]
+    out: Option<PathBuf>,
+    /// Anything at all
+    #[usage(long)]
+    text: Option<String>,
+}
+
+#[test]
+fn a_word_that_is_not_utf8_is_reported_rather_than_mangled() {
+    // It used to arrive through `from_utf8_lossy`, so a path with a stray byte in it became
+    // a path with U+FFFD in it — a different file, silently. Now the parse says so.
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let bad = OsStr::from_bytes(b"/tmp/\xff");
+    let argv = [OsStr::new("--out"), bad];
+    match Pathy::parse_from(&argv) {
+        Err(Error::InvalidValue(bad)) => {
+            assert_eq!(bad.name, "out");
+            assert!(
+                bad.reason.contains("utf-8") || bad.reason.contains("UTF-8"),
+                "the reason should say what was wrong: {}",
+                bad.reason
+            );
+            // Rendered lossily *for the message only*, which is the one place it is right:
+            // the value is being described, not used.
+            assert!(bad.value.contains("/tmp/"), "{}", bad.value);
+        }
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("a value that is not UTF-8 should not have been accepted"),
+    }
+}
+
+#[test]
+fn a_path_that_is_utf8_arrives_exactly() {
+    let argv = argv(["--out", "/tmp/x y/z", "--text", "hello"]);
+    let p = Pathy::parse_from(&argv).expect("should parse");
+    assert_eq!(p.out, Some(PathBuf::from("/tmp/x y/z")));
+    assert_eq!(p.text.as_deref(), Some("hello"));
 }
