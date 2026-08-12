@@ -333,6 +333,30 @@ pub enum Error<'t, 'v> {
     MissingSubcommand,
 }
 
+/// The high half of every key one declaration's items get.
+///
+/// A derive cannot see other expansions, so it cannot hand out keys from a shared
+/// counter: it hashes the declaration it was given instead. It cannot see a module path
+/// either, which is why the module is mixed in *here* — `module_path!()` is available to
+/// the generated code as a compile-time string, so two byte-identical declarations in
+/// different modules end up with different keys rather than colliding.
+///
+/// `declaration` is a hash the derive computed over the item's own tokens.
+pub const fn key_base(module: &str, declaration: u32) -> u64 {
+    // FNV-1a, continuing from the declaration's hash rather than starting over, so both
+    // halves contribute. Spelled out rather than taken from a `Hasher`, which is not
+    // guaranteed to be stable between compilations — and these are baked into a binary.
+    let mut hash: u32 = declaration;
+    let bytes = module.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        hash ^= bytes[i] as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+        i += 1;
+    }
+    (hash as u64) << 32
+}
+
 /// Interpret a value as UTF-8.
 ///
 /// The parser hands back bytes borrowed from `argv`; this is the conversion most

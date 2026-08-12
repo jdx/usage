@@ -218,6 +218,19 @@
         "error": "var_too_many"
       },
       "layer": "post-binding"
+    },
+    {
+      "id": "a-bound-does-not-stop-a-variadic",
+      "doc": "A variadic collects every word still available; `var_max` is a check on how many it got, not a limit that hands the extra words to the next argument. So an argument after a bounded variadic is as unreachable as one after an unbounded variadic, and giving two words here is too many rather than one each.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[a]\" var=#true var_max=1\narg \"[b]\"\n",
+      "argv": ["x", "y"],
+      "expect": {
+        "error": "var_too_many"
+      },
+      "layer": "post-binding",
+      "reference": {
+        "diverges": "usage-lib stops the variadic at var_max while binding, so it fills [a] with x, [b] with y, and reports no error. clap's num_args behaves the way usage-lib does here, so which of the two is right is a question for the grammar rather than a bug either way."
+      }
     }
   ]
 }

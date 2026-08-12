@@ -39,13 +39,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
         _ => quote!(::usage_argv::UnknownFlags::Value),
     };
 
-    let base = key_base(&cli.fingerprint);
-    let root_key = base | KIND_COMMAND;
-    let flag_tables = flags
-        .iter()
-        .enumerate()
-        .map(|(i, f)| flag_table(i, f, base));
-    let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f, base));
+    let root_key = key_ident("COMMAND", None);
+    let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
+    let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
+    let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
     let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
     let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
 
@@ -78,7 +75,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
-    let apply = apply_fn(cli, base);
+    let apply = apply_fn(cli);
     let post = post_binding(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
@@ -107,6 +104,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
             use ::usage_argv::{Arg, Command, DoubleDash, Flag};
 
+            #keys
             #(#flag_tables)*
             #(#arg_tables)*
 
@@ -240,9 +238,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
     }
 }
 
-fn flag_table(i: usize, field: &Field, base: u64) -> TokenStream {
+fn flag_table(i: usize, field: &Field) -> TokenStream {
     let name = format_ident!("FLAG_{i}");
-    let key = base | KIND_FLAG | i as u64;
+    let key = key_ident("FLAG", Some(i));
     let field_name = &field.name;
     let Kind::Flag {
         longs,
@@ -272,9 +270,9 @@ fn flag_table(i: usize, field: &Field, base: u64) -> TokenStream {
     }
 }
 
-fn arg_table(i: usize, field: &Field, base: u64) -> TokenStream {
+fn arg_table(i: usize, field: &Field) -> TokenStream {
     let name = format_ident!("ARG_{i}");
-    let key = base | KIND_ARG | i as u64;
+    let key = key_ident("ARG", Some(i));
     let field_name = &field.name;
     let var = field.shape == Shape::Many;
     let Kind::Arg {
@@ -411,28 +409,57 @@ const KIND_FLAG: u64 = 0;
 const KIND_ARG: u64 = 1 << 30;
 const KIND_COMMAND: u64 = 2 << 30;
 
-/// The high half of every key a type's fields get.
+/// A hash of the declaration a derive was handed, which is half of a key.
 ///
-/// Two macro expansions cannot see each other, so a shared counter is not available:
-/// keys carry a hash of the declaration they came from instead. The whole item, not
-/// just its name — a macro cannot see a module path, so two same-named structs in
-/// different modules would otherwise hash alike.
-///
-/// Two byte-identical declarations in different modules still hash alike, and that
-/// residue is deliberately harmless rather than fixed: a key only chooses which arm
-/// to jump to, and each arm then checks that the event came from *its* table. So a
-/// collision means an event goes unclaimed, never misbound. `Spec::to_kdl` also
-/// asserts the tree holds no duplicates, which turns it into a failed test rather
-/// than a puzzle.
-fn key_base(fingerprint: &str) -> u64 {
-    // FNV-1a, spelled out rather than taken from a `Hasher`, which is not guaranteed
-    // to be stable between compilations — and these end up baked into generated code.
+/// The other half is the module the declaration sits in, mixed in by
+/// [`usage_argv::key_base`] where `module_path!()` is available — a macro cannot see a
+/// module path, and without it two byte-identical declarations in different modules
+/// collide. They used to: `Spec::to_kdl` asserts the tree holds no duplicate keys, so a
+/// perfectly good CLI with an `add::Op` and a `remove::Op` failed that assertion.
+fn declaration_hash(fingerprint: &str) -> u32 {
+    // FNV-1a, spelled out rather than taken from a `Hasher`, which is not guaranteed to
+    // be stable between compilations — and this ends up baked into generated code.
     let mut hash: u32 = 0x811c_9dc5;
     for byte in fingerprint.as_bytes() {
         hash ^= *byte as u32;
         hash = hash.wrapping_mul(0x0100_0193);
     }
-    (hash as u64) << 32
+    hash
+}
+
+/// The `const` items a generated module needs before it can name a key.
+///
+/// One base, then one per flag, argument and command, because a key is used as a `match`
+/// pattern as well as a table field — and a pattern cannot be an expression, so
+/// `BASE | KIND_FLAG | 0` would parse as an or-pattern of three.
+fn key_consts(fingerprint: &str, flags: usize, args: usize) -> TokenStream {
+    let declaration = declaration_hash(fingerprint);
+    let command = key_ident("COMMAND", None);
+    let flag_keys = (0..flags).map(|i| {
+        let name = key_ident("FLAG", Some(i));
+        let index = i as u64;
+        quote!(const #name: u64 = __USAGE_KEY_BASE | #KIND_FLAG | #index;)
+    });
+    let arg_keys = (0..args).map(|i| {
+        let name = key_ident("ARG", Some(i));
+        let index = i as u64;
+        quote!(const #name: u64 = __USAGE_KEY_BASE | #KIND_ARG | #index;)
+    });
+    quote! {
+        const __USAGE_KEY_BASE: u64 =
+            ::usage_argv::key_base(::core::module_path!(), #declaration);
+        const #command: u64 = __USAGE_KEY_BASE | #KIND_COMMAND;
+        #(#flag_keys)*
+        #(#arg_keys)*
+    }
+}
+
+/// The name of the `const` holding one key.
+fn key_ident(kind: &str, index: Option<usize>) -> proc_macro2::Ident {
+    match index {
+        Some(i) => format_ident!("__USAGE_KEY_{kind}_{i}"),
+        None => format_ident!("__USAGE_KEY_{kind}"),
+    }
 }
 
 /// A user's type, named from inside a generated module.
@@ -467,8 +494,8 @@ fn in_module(ty: &syn::Type) -> TokenStream {
     }
 }
 
-fn flag_arm(cli: &Cli, i: usize, field: &Field, base: u64) -> TokenStream {
-    let key = base | KIND_FLAG | i as u64;
+fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
+    let key = key_ident("FLAG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let displaced = displacements(cli, field);
@@ -558,8 +585,8 @@ fn is_displaceable(cli: &Cli, field: &Field) -> bool {
     !displaced_by(cli, field).is_empty()
 }
 
-fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
-    let key = base | KIND_ARG | i as u64;
+fn arg_arm(i: usize, field: &Field) -> TokenStream {
+    let key = key_ident("ARG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
@@ -711,7 +738,7 @@ fn reset_to_default(field: &Field) -> TokenStream {
 }
 
 /// Take one event and say whether it belonged to this command.
-fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
+fn apply_fn(cli: &Cli) -> TokenStream {
     let route = subcommand_parts(cli).map(|p| p.route).unwrap_or_default();
     let flags: Vec<&Field> = cli
         .fields
@@ -723,11 +750,8 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
         .iter()
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
-    let flag_arms = flags
-        .iter()
-        .enumerate()
-        .map(|(i, f)| flag_arm(cli, i, f, base));
-    let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f, base));
+    let flag_arms = flags.iter().enumerate().map(|(i, f)| flag_arm(cli, i, f));
+    let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f));
 
     quote! {
         pub fn apply(
@@ -877,8 +901,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let module = format_ident!("__usage_args_{}", ident.to_string().to_lowercase());
-    let base = key_base(&cli.fingerprint);
-    let command_key = base | KIND_COMMAND;
+    let command_key = key_ident("COMMAND", None);
 
     let flags: Vec<&Field> = cli
         .fields
@@ -891,11 +914,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
 
-    let flag_tables = flags
-        .iter()
-        .enumerate()
-        .map(|(i, f)| flag_table(i, f, base));
-    let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f, base));
+    let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
+    let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
+    let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
     let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
     let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
     let flag_refs = (0..flags.len()).map(|i| {
@@ -914,7 +935,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let long_about = option_str(cli.long_about.as_deref());
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
-    let apply = apply_fn(cli, base);
+    let apply = apply_fn(cli);
     let post = post_binding(cli);
     let parts = subcommand_parts(cli);
     let sub_commands = parts
@@ -947,6 +968,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta};
             use ::usage_argv::{Arg, Command, DoubleDash, Flag};
 
+            #keys
             #(#flag_tables)*
             #(#arg_tables)*
 

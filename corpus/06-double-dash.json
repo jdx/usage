@@ -7,7 +7,13 @@
       "doc": "After `--`, a flag-looking word binds as a value.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<file>\"\n",
       "argv": ["--", "--force"],
-      "expect": { "ok": { "args": { "file": "--force" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "file": "--force"
+          }
+        }
+      }
     },
     {
       "id": "dd-flags-before-still-parse",
@@ -15,7 +21,14 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<file>\"\n",
       "argv": ["--force", "--", "-x"],
       "expect": {
-        "ok": { "flags": { "force": true }, "args": { "file": "-x" } }
+        "ok": {
+          "flags": {
+            "force": true
+          },
+          "args": {
+            "file": "-x"
+          }
+        }
       }
     },
     {
@@ -23,14 +36,26 @@
       "doc": "The separator itself is consumed rather than bound to an argument.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<a>\"\narg \"[b]\"\n",
       "argv": ["--", "one"],
-      "expect": { "ok": { "args": { "a": "one" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "a": "one"
+          }
+        }
+      }
     },
     {
       "id": "dd-second-is-a-value",
       "doc": "Only the first `--` separates; a later one is an ordinary value, since flag interpretation has already stopped.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<rest>...\"\n",
       "argv": ["--", "a", "--", "b"],
-      "expect": { "ok": { "args": { "rest": ["a", "--", "b"] } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "rest": ["a", "--", "b"]
+          }
+        }
+      }
     },
     {
       "id": "dd-variadic-collects-everything-after",
@@ -38,7 +63,11 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<cmd>...\"\n",
       "argv": ["--", "npm", "run", "test", "--force"],
       "expect": {
-        "ok": { "args": { "cmd": ["npm", "run", "test", "--force"] } }
+        "ok": {
+          "args": {
+            "cmd": ["npm", "run", "test", "--force"]
+          }
+        }
       }
     },
     {
@@ -46,35 +75,61 @@
       "doc": "An argument declared `double_dash=\"required\"` accepts a value once the separator has been given.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<-- cmd>\"\n",
       "argv": ["--", "ls"],
-      "expect": { "ok": { "args": { "cmd": "ls" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "cmd": "ls"
+          }
+        }
+      }
     },
     {
       "id": "dd-required-rejected-without-separator",
       "doc": "The same argument rejects a value given before the separator.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<-- cmd>\"\n",
       "argv": ["ls"],
-      "expect": { "error": "arg_requires_double_dash" }
+      "expect": {
+        "error": "arg_requires_double_dash"
+      }
     },
     {
       "id": "dd-optional-accepts-either-side",
       "doc": "The default, `double_dash=\"optional\"`, accepts a value on either side of the separator.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\"\n",
       "argv": ["a.txt"],
-      "expect": { "ok": { "args": { "file": "a.txt" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "file": "a.txt"
+          }
+        }
+      }
     },
     {
       "id": "dd-preserve-keeps-separator-as-value",
       "doc": "With `double_dash=\"preserve\"`, the separator is kept as a value instead of being consumed \u2014 needed by CLIs that pass along command lines containing their own separators.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<args>...\" double_dash=\"preserve\"\n",
       "argv": ["a", "--", "b"],
-      "expect": { "ok": { "args": { "args": ["a", "--", "b"] } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["a", "--", "b"]
+          }
+        }
+      }
     },
     {
       "id": "dd-automatic-behaves-as-if-separated",
       "doc": "With `double_dash=\"automatic\"`, the first value an argument takes stops flag interpretation for everything after it, so a wrapper can forward flags without the caller typing `--`.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<files>...\" double_dash=\"automatic\"\n",
       "argv": ["a", "--force"],
-      "expect": { "ok": { "args": { "files": ["a", "--force"] } } },
+      "expect": {
+        "ok": {
+          "args": {
+            "files": ["a", "--force"]
+          }
+        }
+      },
       "reference": {
         "diverges": "usage-lib binds `force` as a flag and gives the argument only `a`. The spec reference documents this mode as not yet enforced by the parser, so this vector describes the intent it will be held to."
       }
@@ -85,7 +140,38 @@
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<args>...\"\n",
       "argv": ["--", "hello", "--", "goodbye", "--"],
       "expect": {
-        "ok": { "args": { "args": ["hello", "--", "goodbye", "--"] } }
+        "ok": {
+          "args": {
+            "args": ["hello", "--", "goodbye", "--"]
+          }
+        }
+      }
+    },
+    {
+      "id": "variadic-then-double-dash-variadic",
+      "doc": "A variadic takes every remaining word, so nothing can follow it \u2014 except an argument that requires a `--`, which is exactly what stops the variadic. mise declares this on `run`, `exec` and `git`.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[args]\" var=#true\narg \"[-- rest]\" var=#true\n",
+      "argv": ["a", "b", "--", "c", "d"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["a", "b"],
+            "rest": ["c", "d"]
+          }
+        }
+      }
+    },
+    {
+      "id": "variadic-then-double-dash-variadic-without-separator",
+      "doc": "Without the `--`, the first variadic keeps everything and the second stays empty \u2014 which is why mise declares it optional.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[args]\" var=#true\narg \"[-- rest]\" var=#true\n",
+      "argv": ["a", "b", "c"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["a", "b", "c"]
+          }
+        }
       }
     }
   ]
