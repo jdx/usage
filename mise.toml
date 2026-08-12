@@ -145,6 +145,12 @@ run = [
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
 ]
 
+# The shadow comparison: usage against clap, at mise's scale. Reported, never gated — see
+# the note in tak.toml. Takes an optional path to write the markdown to.
+[tasks."perf:shadow"]
+dir = "{{config_root}}"
+run = ["cargo build --release", "./tasks/perf-shadow.sh"]
+
 # Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
 # without it tak reports wall clock only and says so, so this still works on
 # macOS where there is no usable cachegrind.

@@ -78,6 +78,14 @@ jobs:
       - name: Measure this pull request
         run: mise run perf:record
 
+      # Reported, never gated: the shadow is a fixture that grows as the derive learns to
+      # express more, so a gate on it fires for a bigger fixture rather than a slower
+      # parser. `|| true` because an informative table is not worth failing a run over.
+      # The script rather than the task: the release build is already done by the step
+      # above, and the task exists for running this by hand.
+      - name: Measure the shadow against clap
+        run: ./tasks/perf-shadow.sh /tmp/shadow-report.md || true
+
       - name: Find the base commit
         id: base
         env:
@@ -123,6 +131,9 @@ jobs:
           # a different failure from a regression and must not be reported as
           # one. The gate below maps them to different messages.
           cp /tmp/tak-gate-status /tmp/tak-out/status 2>/dev/null || echo 2 > /tmp/tak-out/status
+          # Absent when valgrind is missing or the measurement failed, which the reporting
+          # job treats as nothing to add rather than as an error.
+          cp /tmp/shadow-report.md /tmp/tak-out/shadow.md 2>/dev/null || true
           printf '%s %s\n' "${HEAD_SHA:0:12}" "${BASE_SHA:0:12}" > /tmp/tak-out/shas
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -176,6 +187,12 @@ jobs:
             printf '%s\n' "$marker"
             printf '### Instruction counts\n\n'
             cat /tmp/tak-out/report.md
+            # The shadow comparison, when there is one: absent on a runner without
+            # valgrind, and nothing to apologise for when it is.
+            if [ -f /tmp/tak-out/shadow.md ]; then
+              printf '\n'
+              cat /tmp/tak-out/shadow.md
+            fi
             printf '\n<sub>`%s` vs `%s` · measured on the runner, not pushed to the history.</sub>\n' \
               "$head_sha" "$base_sha"
           } > /tmp/tak-comment.md
