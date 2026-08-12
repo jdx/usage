@@ -15,7 +15,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::model::{rendered_path, Cli, Field, Kind, Shape, Subcommands};
+use crate::model::{rendered_path, Cli, Field, Kind, Shape, Subcommands, ValueEnum};
 
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
@@ -406,6 +406,12 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
 
 /// A field's declared choices, as the metadata holds them.
 fn choices_tokens(field: &Field) -> TokenStream {
+    // From the type when the field says `value_enum`, so the spec, the help and the check
+    // all read the list the type declares rather than a copy of it.
+    if let (true, Some(ty)) = (field.value_enum, field.value_ty.as_ref()) {
+        let ty = in_module(ty);
+        return quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES);
+    }
     let choices = &field.choices;
     quote!(&[#(#choices),*])
 }
@@ -1482,12 +1488,24 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     let choice_checks = cli.fields.iter().filter_map(|f| {
-        if f.choices.is_empty() {
+        if f.choices.is_empty() && !f.value_enum {
             return None;
         }
         let ident = &f.ident;
         let name = &f.name;
-        let choices = &f.choices;
+        // A `value_enum`'s words live on the type. Checking against them here rather than
+        // letting the conversion fail is what makes a wrong word an `InvalidChoice` that
+        // lists what was expected, instead of a message about a type the user did not name.
+        let choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
+            (true, Some(ty)) => {
+                let ty = in_module(ty);
+                quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES)
+            }
+            _ => {
+                let list = &f.choices;
+                quote!(&[#(#list),*])
+            }
+        };
         let values = match f.shape {
             Shape::Optional => quote!(partial.#ident.iter()),
             Shape::Required => quote!(::std::iter::once(&partial.#ident)),
@@ -1497,11 +1515,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         Some(quote! {
             for value in #values {
-                if ![#(#choices),*].contains(&value.as_str()) {
+                if !#choices.contains(&value.as_str()) {
                     return ::std::result::Result::Err(
                         ::usage_argv::Error::InvalidChoice {
                             name: #name,
-                            choices: &[#(#choices),*],
+                            choices: #choices,
                         },
                     );
                 }
@@ -1660,6 +1678,50 @@ fn post_binding(cli: &Cli) -> TokenStream {
         #(#choice_checks)*
         #(#bound_checks)*
         #sub_check
+    }
+}
+
+/// The word list and the conversion for a value enum.
+///
+/// Two impls and nothing else: the words as a `const` the spec can read, and the `FromStr`
+/// that every typed field already goes through. Deliberately not a bespoke path — a value
+/// enum is a type whose values happen to be listed, so it converts the way any other type
+/// does, and the check that rejects a wrong word is the same `choices` check as a
+/// hand-written list.
+pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
+    let ident = &value_enum.ident;
+    let words: Vec<&String> = value_enum.variants.iter().map(|(_, name)| name).collect();
+    let arms = value_enum
+        .variants
+        .iter()
+        .map(|(variant, name)| quote!(#name => ::std::result::Result::Ok(#ident::#variant),));
+    // Listed in the message because a wrong word is the common mistake, and the words are
+    // right here. The `choices` check usually reports this first, with the same list; this
+    // is what a caller sees who converts one by hand.
+    let expected = words
+        .iter()
+        .map(|w| w.as_str())
+        .collect::<::std::vec::Vec<_>>()
+        .join(", ");
+
+    quote! {
+        impl ::usage_argv::spec::ValueEnum for #ident {
+            const CHOICES: &'static [&'static str] = &[#(#words),*];
+        }
+
+        impl ::std::str::FromStr for #ident {
+            type Err = ::std::string::String;
+
+            fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
+                match value {
+                    #(#arms)*
+                    other => ::std::result::Result::Err(::std::format!(
+                        "`{other}` is not one of: {}",
+                        #expected
+                    )),
+                }
+            }
+        }
     }
 }
 

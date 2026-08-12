@@ -760,6 +760,17 @@ fn quoted(value: &str) -> String {
 /// generated parse needs to name the type that accumulates a subcommand's values
 /// while parsing, and cannot know which module the derive put it in — an
 /// associated type is how it names it regardless.
+/// A type whose values are a fixed set of words.
+///
+/// What a CLI calls an enum: `--shell bash`. The words are what the spec lists as
+/// `choices`, so declaring them once on the type keeps help, completions and the check that
+/// rejects a wrong value reading from the same place — rather than a list in an attribute
+/// that has to be kept in step with the type by hand.
+pub trait ValueEnum: Sized {
+    /// Every word this type accepts, in the order it declared them.
+    const CHOICES: &'static [&'static str];
+}
+
 pub trait CommandArgs: Sized {
     /// Values collected so far. Partly-filled by construction, since a parse can
     /// stop early.

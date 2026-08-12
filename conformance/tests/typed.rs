@@ -9,6 +9,7 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use usage::Spec as LibSpec;
 use usage_argv::Error;
 use usage_derive::Cli;
 
@@ -247,4 +248,77 @@ fn a_conversion_failure_on_a_subcommand_names_the_field() {
         Err(other) => panic!("wrong error: {other:?}"),
         Ok(_) => panic!("300 does not fit in a u8"),
     }
+}
+
+/// The words a value may be, declared once on the type.
+///
+/// mise has nine of these. What matters is that the list reaches the spec — so help and
+/// completions offer it — without being written a second time on the field.
+#[derive(Debug, PartialEq, usage_derive::ValueEnum)]
+enum Interpreter {
+    Bash,
+    Zsh,
+    Fish,
+    /// Not `power-shell`, which is what the variant name would have given
+    #[usage(name = "pwsh")]
+    PowerShell,
+}
+
+/// A CLI with an enumerated value
+#[derive(Cli)]
+#[usage(bin = "enumerated")]
+struct Enumerated {
+    /// Which shell
+    #[usage(short = 's', long, value_enum)]
+    shell: Option<Interpreter>,
+    /// Shells to generate for
+    #[usage(long, var, value_enum)]
+    also: Vec<Interpreter>,
+}
+
+#[test]
+fn a_word_becomes_the_variant_it_names() {
+    let a = argv(["-s", "zsh", "--also", "bash", "--also", "pwsh"]);
+    let e = Enumerated::parse_from(&a).expect("should parse");
+    assert_eq!(e.shell, Some(Interpreter::Zsh));
+    assert_eq!(e.also, [Interpreter::Bash, Interpreter::PowerShell]);
+}
+
+#[test]
+fn the_words_reach_the_spec_from_the_type() {
+    // The point of `value_enum`: the list is declared once, on the type, and the spec has
+    // it — so `usage g markdown` and the completions offer the same words the parse accepts.
+    let spec: LibSpec = Enumerated::to_kdl().parse().expect("valid spec");
+    let shell = spec.cmd.flags.iter().find(|f| f.name == "shell").unwrap();
+    let choices = shell
+        .arg
+        .as_ref()
+        .and_then(|a| a.choices.as_ref())
+        .expect("--shell should declare choices");
+    assert_eq!(choices.choices, ["bash", "zsh", "fish", "pwsh"]);
+}
+
+#[test]
+fn a_wrong_word_lists_what_was_expected() {
+    // An `InvalidChoice` carrying the list, rather than a conversion error about a type the
+    // user never named.
+    let a = argv(["--shell", "csh"]);
+    match Enumerated::parse_from(&a) {
+        Err(Error::InvalidChoice { name, choices }) => {
+            assert_eq!(name, "shell");
+            assert_eq!(choices, ["bash", "zsh", "fish", "pwsh"]);
+        }
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("`csh` is not one of the words"),
+    }
+}
+
+#[test]
+fn the_conversion_stands_on_its_own() {
+    // Whoever converts one by hand gets a message with the words in it, since the check
+    // above is the parser's and not the type's.
+    use std::str::FromStr;
+    assert_eq!(Interpreter::from_str("fish"), Ok(Interpreter::Fish));
+    let err = Interpreter::from_str("csh").expect_err("not a shell");
+    assert!(err.contains("bash, zsh, fish, pwsh"), "{err}");
 }
