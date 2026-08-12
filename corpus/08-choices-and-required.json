@@ -109,6 +109,23 @@
       "layer": "post-binding"
     },
     {
+      "id": "overrides-loser-is-not-refilled-from-env",
+      "doc": "The command line said `--stdin` came last, so `--file` lost. A flag that lost an override is not merely unset: filling it from the environment afterwards would leave both standing and undo the last-one-wins.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" env=\"EX_FILE\" overrides=\"--stdin\"\nflag \"--stdin\"\n",
+      "argv": ["--file", "typed", "--stdin"],
+      "env": {
+        "EX_FILE": "from-env"
+      },
+      "expect": {
+        "ok": {
+          "flags": {
+            "stdin": true
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
       "id": "conflicts-both-given",
       "doc": "Two flags declared to conflict cannot be given together. Unlike `overrides`, where the last one wins, a conflict is a mistake to report rather than an order to resolve.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",

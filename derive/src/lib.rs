@@ -138,6 +138,7 @@
 //! | `hide` | keep it out of help and completions |
 //! | `double_dash = "required"` | a positional only fillable after `--` |
 //! | `arg` | force a field to be positional |
+//! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
@@ -158,9 +159,6 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **`overrides`.** Unlike the other relationships, it is not about whether two
-//!   flags were both given but about which came *last*, and nothing records arrival
-//!   order yet.
 //! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
 //!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a compile
 //!   error rather than a surprise: converting a value needs somewhere to report one

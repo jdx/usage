@@ -309,3 +309,92 @@ fn required_unless_is_satisfied_by_the_other_flag() {
         Some("u")
     );
 }
+
+/// A CLI where flags displace one another.
+///
+/// Only `--file` declares the override, which is enough: the relationship holds
+/// between the two flags, so the later one wins whichever way round they are given.
+#[derive(Cli)]
+#[usage(bin = "ovr")]
+struct Ovr {
+    /// Read from a file
+    #[usage(long, overrides("--stdin", "--url"))]
+    file: Option<String>,
+    /// Read from standard input
+    #[usage(long)]
+    stdin: bool,
+    /// Read from a URL
+    #[usage(long)]
+    url: Option<String>,
+    /// Colorize output, unless told otherwise
+    #[usage(long, default = "true", overrides = "--plain")]
+    color: bool,
+    /// No decoration at all
+    #[usage(long)]
+    plain: bool,
+    /// Patterns to include
+    #[usage(long, var, overrides = "--all")]
+    include: Vec<String>,
+    /// Everything
+    #[usage(long)]
+    all: bool,
+}
+
+#[test]
+fn the_last_of_two_overriding_flags_wins() {
+    // Declared on `--file`, given `--file` first: `--stdin` is the survivor.
+    let a = argv(["--file", "f", "--stdin"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.stdin);
+    assert_eq!(ovr.file, None, "displaced by the flag that came after it");
+
+    // The same pair the other way round, which the declaration does not mention.
+    let a = argv(["--stdin", "--file", "f"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert_eq!(ovr.file.as_deref(), Some("f"));
+    assert!(!ovr.stdin, "displaced by the flag that came after it");
+}
+
+#[test]
+fn a_displaced_flag_goes_back_to_its_default_rather_than_to_nothing() {
+    // `--color` defaults to on. `--plain` displaces it, and what it displaces it to
+    // is the default: a flag that was never given reads the same as one that was
+    // taken back.
+    let a = argv(["--color", "--plain"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.plain);
+    assert!(ovr.color, "back to its declared default, not to false");
+
+    // And a `--color` after `--plain` displaces the other way.
+    let a = argv(["--plain", "--color"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.color);
+    assert!(!ovr.plain);
+}
+
+#[test]
+fn a_displaced_collection_is_emptied() {
+    let a = argv(["--include", "a", "--include", "b", "--all"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.all);
+    assert!(ovr.include.is_empty(), "got {:?}", ovr.include);
+
+    // Values given after the flag that displaced them are kept: it is the order
+    // they arrived in that decides, not which flag was mentioned in a declaration.
+    let a = argv(["--include", "a", "--all", "--include", "b"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert_eq!(ovr.include, ["b"]);
+    assert!(!ovr.all);
+}
+
+#[test]
+fn displacing_one_flag_leaves_the_others_alone() {
+    let a = argv(["--url", "u", "--stdin"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert_eq!(
+        ovr.url.as_deref(),
+        Some("u"),
+        "--stdin does not touch --url"
+    );
+    assert!(ovr.stdin);
+}

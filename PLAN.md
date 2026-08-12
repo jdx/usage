@@ -123,11 +123,12 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
       boxed subcommand variants, headings, `cfg`-gated variants.
-- [ ] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
-      `var_min`/`var_max`, `conflicts`, `required_if` and `required_unless` are done;
-      `overrides` is what remains, and it is the one that needs arrival order rather
-      than only whether a flag was given. These need a value's type, so they belong
-      with the derive rather than in the parser.
+- [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
+      `var_min`/`var_max`, `conflicts`, `required_if`, `required_unless`, and
+      `overrides`. All of them need a value's type, so they belong with the derive
+      rather than in the parser. `overrides` is the one that happens _during_ the
+      parse instead of after it: it asks which of two flags came last, which only the
+      arriving token knows.
 
 ### Spec gaps found on the way
 

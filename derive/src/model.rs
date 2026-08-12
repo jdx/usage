@@ -51,6 +51,10 @@ pub struct Field {
     pub choices: Vec<String>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// Flags this one displaces. Applied while parsing rather than after it: the
+    /// question is which of them came last, so the answer is decided by the token
+    /// that arrives, not by the state it leaves behind.
+    pub overrides: Vec<String>,
     /// Flags this one cannot be given with. Checked after the parse: whether a flag
     /// is unwelcome depends on the whole command line, not on the token itself.
     pub conflicts: Vec<String>,
@@ -308,6 +312,7 @@ impl Cli {
         // nothing quietly holds no relationship at all.
         for field in &self.fields {
             for (option, selectors) in [
+                ("overrides", &field.overrides),
                 ("conflicts", &field.conflicts),
                 ("required_if", &field.required_if),
                 ("required_unless", &field.required_unless),
@@ -394,6 +399,7 @@ impl Field {
             choices: Vec::new(),
             var_min: None,
             var_max: None,
+            overrides: Vec::new(),
             conflicts: Vec::new(),
             required_if: Vec::new(),
             required_unless: Vec::new(),
@@ -436,6 +442,7 @@ impl Field {
         let mut choices: Vec<String> = Vec::new();
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
+        let mut overrides: Vec<String> = Vec::new();
         let mut conflicts: Vec<String> = Vec::new();
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
@@ -501,6 +508,7 @@ impl Field {
                     // Both spellings the spec has: one target as a value, several as a
                     // list. A flag selector never contains a comma, so unlike `choices`
                     // there is nothing to lose by accepting the shorter form.
+                    "overrides" => overrides = selectors(&meta)?,
                     "conflicts" => conflicts = selectors(&meta)?,
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
@@ -530,7 +538,8 @@ impl Field {
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
-                                 `var_min`, `var_max`, `conflicts`, `required_if`, \
+                                 `var_min`, `var_max`, `overrides`, `conflicts`, \
+                                 `required_if`, \
                                  `required_unless`, `help_heading`, and `double_dash`"
                             ),
                         ));
@@ -724,6 +733,7 @@ impl Field {
         // the emitted spec cannot say — and docs and completions would describe a
         // different CLI from the one that runs.
         for (option, selectors) in [
+            ("overrides", &overrides),
             ("conflicts", &conflicts),
             ("required_if", &required_if),
             ("required_unless", &required_unless),
@@ -819,6 +829,7 @@ impl Field {
             choices,
             var_min,
             var_max,
+            overrides,
             conflicts,
             required_if,
             required_unless,
@@ -1282,6 +1293,24 @@ mod tests {
                 #[usage(long)]
                 force: bool,
                 #[usage(conflicts = "--force")]
+                file: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("relationship between flags"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn overrides_needs_a_flag_to_hold_between_too() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long)]
+                force: bool,
+                #[usage(overrides = "--force")]
                 file: String,
             }
         "#,

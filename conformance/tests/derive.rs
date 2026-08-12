@@ -573,6 +573,12 @@ struct Related {
     /// Read from standard input
     #[usage(short = 's', long, conflicts("--file", "--url"))]
     stdin: bool,
+    /// Colorize output
+    #[usage(long, default = "true", overrides = "--plain")]
+    color: bool,
+    /// No decoration
+    #[usage(long)]
+    plain: bool,
     /// Where to write
     #[usage(long, required_if = "--stdin")]
     out: Option<String>,
@@ -595,6 +601,7 @@ fn flag_relationships_reach_the_spec() {
         vec!["--file".to_string(), "--url".to_string()]
     );
     assert_eq!(flag("out").required_if, vec!["--stdin".to_string()]);
+    assert_eq!(flag("color").overrides, vec!["--plain".to_string()]);
     assert_eq!(
         flag("file").required_unless,
         vec!["--url".to_string(), "--stdin".to_string()]
@@ -613,6 +620,7 @@ fn flag_relationships_reach_the_spec() {
     let a = argv(["--stdin", "--out", "o"]);
     let rel = Related::parse_from(&a).expect("should parse");
     assert!(rel.stdin);
+    assert!(rel.color && !rel.plain);
     assert_eq!(rel.out.as_deref(), Some("o"));
     assert!(rel.file.is_none());
     assert!(rel.url.is_none());
