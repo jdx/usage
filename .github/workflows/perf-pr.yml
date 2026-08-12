@@ -139,12 +139,14 @@ jobs:
   report:
     name: Report and gate
     needs: measure
-    # `always()` would run this after a *cancelled* measurement too, and then the
-    # artifact download fails and a superseded run reads as a failed gate. Pushing twice
-    # to a branch is enough to cause it, which on a stack is most pushes. Success or
-    # failure both have something to report; cancelled and skipped do not.
+    # A failed measurement still has something to report — that is the regression case —
+    # so `always()` stays: without a status-check function this job is skipped whenever
+    # `measure` fails, which is precisely when its comment matters. What has to go is the
+    # *cancelled* case: pushing twice to a branch cancels the run in progress, the
+    # artifact was never uploaded, and a superseded run reads as a failed gate.
     if: >-
-      (needs.measure.result == 'success' || needs.measure.result == 'failure')
+      always() && needs.measure.result != 'cancelled'
+      && needs.measure.result != 'skipped'
       && github.event.pull_request.user.login == 'jdx'
     runs-on: ubuntu-latest
     timeout-minutes: 10
