@@ -156,6 +156,33 @@
       }
     },
     {
+      "id": "conflicts-one-side-from-env",
+      "doc": "A value from the environment counts as given: `--file` conflicts with `--stdin` even though only `--stdin` was typed. clap, argparse and usage all treat an environment variable as a value source rather than as a weaker kind of default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" env=\"EX_FILE\" conflicts=\"--stdin\"\nflag \"--stdin\" env=\"EX_STDIN\"\n",
+      "argv": ["--stdin"],
+      "env": {
+        "EX_FILE": "a.txt"
+      },
+      "expect": {
+        "error": "conflicting_flags"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "conflicts-both-sides-from-env",
+      "doc": "Neither side was typed and the conflict still holds, which is what makes the rule uniform: the check asks whether a flag has a value, not how it got one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" env=\"EX_FILE\" conflicts=\"--stdin\"\nflag \"--stdin\" env=\"EX_STDIN\"\n",
+      "argv": [],
+      "env": {
+        "EX_FILE": "a.txt",
+        "EX_STDIN": "1"
+      },
+      "expect": {
+        "error": "conflicting_flags"
+      },
+      "layer": "post-binding"
+    },
+    {
       "id": "flag-var-too-few",
       "doc": "`var_min` is enforced for a repeatable flag, not only for positionals.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_min=2\n",

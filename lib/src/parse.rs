@@ -1133,8 +1133,15 @@ fn parse_partial_with_env(
     // point a flag is matched — the flag it conflicts with may still be ahead of it.
     // Its own loop: the requirement loop below skips the flags that *were* given, which
     // is exactly the set this needs.
+    //
+    // A value from the environment counts on both sides, matching what
+    // `selector_is_explicit` says about the other flag: the question is whether a flag
+    // has a value, not how it got one. That is what clap does, and an asymmetric rule
+    // would make the same pair of flags a conflict or not depending on which one
+    // happened to be typed.
     for flag in unique_flags(out.available_flags.values()) {
-        if !out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
+        let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
+        if !given || overridden_flags.contains(&flag.name) {
             continue;
         }
         for other in &flag.conflicts {
