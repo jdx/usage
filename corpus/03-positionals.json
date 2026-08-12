@@ -122,16 +122,12 @@
     },
     {
       "id": "arg-variadic-max",
-      "doc": "`var_max` is enforced: too many values is an error.",
+      "doc": "A variadic stops at its bound, so the words past it belong to whatever comes next \u2014 and with nothing after it, the third word has nowhere to go. `var_too_many` cannot arise for a variadic any more: it describes a repeatable flag given more times than its bound allows. This used to be recorded as a divergence \u2014 the corpus wanted `var_too_many` and usage-lib said `unexpected_arg` \u2014 and adopting the limit reading is what made the two agree.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>\" var=#true var_max=2\n",
       "argv": ["a", "b", "c"],
       "expect": {
-        "error": "var_too_many"
-      },
-      "reference": {
-        "diverges": "usage-lib reports `unexpected_arg`. The outcome is the same rejection; the distinct code is what tells a caller the limit was a `var_max` rather than an absent argument."
-      },
-      "layer": "post-binding"
+        "error": "unexpected_arg"
+      }
     },
     {
       "id": "arg-value-looks-like-negative-number",

@@ -398,3 +398,35 @@ fn displacing_one_flag_leaves_the_others_alone() {
     );
     assert!(ovr.stdin);
 }
+
+/// A flag whose one occurrence collects, bounded.
+///
+/// `var_max` is a binding limit here — the occurrence stops at two values and the words
+/// after belong to the positional — so a *second* occurrence starts its own count. Checking
+/// the total afterwards would fail an invocation that never broke the limit.
+#[derive(Cli)]
+#[usage(bin = "bounded")]
+struct BoundedFlag {
+    /// Patterns, two at a time
+    // `variadic` alone: one occurrence takes several values. `var` would be the other
+    // shape — one value per occurrence — and the derive refuses both at once.
+    #[usage(long, variadic, var_max = 2)]
+    include: Vec<String>,
+    /// Where to write
+    #[usage(arg, name = "OUT")]
+    out: Option<String>,
+}
+
+#[test]
+fn each_occurrence_of_a_bounded_flag_counts_for_itself() {
+    // Two occurrences, each within its bound, four values in total.
+    let a = argv(["--include", "a", "b", "--include", "c", "d"]);
+    let bounded = BoundedFlag::parse_from(&a).expect("two occurrences should parse");
+    assert_eq!(bounded.include, ["a", "b", "c", "d"]);
+
+    // And the bound still stops one occurrence, leaving the third word to the positional.
+    let a = argv(["--include", "a", "b", "c"]);
+    let bounded = BoundedFlag::parse_from(&a).expect("should parse");
+    assert_eq!(bounded.include, ["a", "b"]);
+    assert_eq!(bounded.out.as_deref(), Some("c"));
+}

@@ -1391,7 +1391,22 @@ fn post_binding(cli: &Cli) -> TokenStream {
             },
             None => quote!(),
         };
-        let max = match f.var_max {
+        // `var_max` is a binding limit for anything that *collects*: a variadic stops at it
+        // and the next field takes the rest, so a total above it cannot arise and this
+        // check would be unreachable. Worse than unreachable for a repeatable flag whose
+        // argument is variadic — each occurrence respects the limit, and the total across
+        // occurrences would fail a check the invocation never broke.
+        //
+        // What is left is the repeatable flag with a single-value argument, where the bound
+        // counts occurrences: nothing about one token can decide that, so it stays here.
+        let counts_occurrences = matches!(
+            &f.kind,
+            Kind::Flag {
+                variadic: false,
+                ..
+            }
+        ) && f.repeatable;
+        let max = match f.var_max.filter(|_| counts_occurrences) {
             Some(max) => quote! {
                 if got > #max {
                     return ::std::result::Result::Err(
