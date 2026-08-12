@@ -321,6 +321,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let (var_min, var_max) = bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
     // the struct says.
+    let overrides = &field.overrides;
     let conflicts = &field.conflicts;
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
@@ -340,6 +341,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
+            overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
@@ -465,10 +467,11 @@ fn in_module(ty: &syn::Type) -> TokenStream {
     }
 }
 
-fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
+fn flag_arm(cli: &Cli, i: usize, field: &Field, base: u64) -> TokenStream {
     let key = base | KIND_FLAG | i as u64;
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
+    let displaced = displacements(cli, field);
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(partial.#ident = !negated;),
@@ -491,9 +494,42 @@ fn flag_arm(i: usize, field: &Field, base: u64) -> TokenStream {
         #key if ::core::ptr::eq(*flag, &#table) => {
             #body
             partial.#given = true;
+            // Whatever this flag displaces, undone here rather than after the parse:
+            // `overrides` is about which of two flags came last, and the token that
+            // just arrived is the last one so far.
+            #(#displaced)*
             true
         }
     }
+}
+
+/// Undoing the flags a flag displaces, as statements to run once it has been bound.
+///
+/// Both directions. `overrides` is declared on one flag and holds between the two:
+/// clap resolves `--file a --stdin` and `--stdin --file a` the same way whichever side
+/// declared it, and so does usage-lib.
+fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
+    let names = |target: &Field, selectors: &[String]| {
+        selectors.iter().any(|selector| {
+            cli.field_for_selector(selector)
+                .is_some_and(|named| named.ident == target.ident)
+        })
+    };
+    cli.fields
+        .iter()
+        .filter(|other| {
+            other.ident != field.ident
+                && (names(other, &field.overrides) || names(field, &other.overrides))
+        })
+        .map(|other| {
+            let reset = reset_to_default(other);
+            let given = format_ident!("__given_{}", other.ident);
+            quote! {
+                #reset
+                partial.#given = false;
+            }
+        })
+        .collect()
 }
 
 fn arg_arm(i: usize, field: &Field, base: u64) -> TokenStream {
@@ -588,29 +624,52 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             #given: false,
         })
     });
-    let assignments = cli.fields.iter().filter_map(|f| {
-        let ident = &f.ident;
-        let default = f.default.as_deref()?;
-        Some(match f.shape {
-            Shape::Bool => {
-                let on = default == "true";
-                quote!(partial.#ident = #on;)
-            }
-            Shape::Optional => {
-                quote!(partial.#ident = ::std::option::Option::Some(#default.to_string());)
-            }
-            Shape::Required => quote!(partial.#ident = #default.to_string();),
-            // Rejected in the model: a count starts at zero, and a default for a
-            // collecting field is not applied yet.
-            Shape::Count | Shape::Many => quote!(),
-        })
-    });
+    // Only the fields that declare one: `Partial`'s own initializer has already put
+    // everything else at `Default::default()`, and a subcommand field holds a partial
+    // that `#sub_starts` builds rather than a value.
+    let assignments = cli
+        .fields
+        .iter()
+        .filter(|f| f.default.is_some() && !matches!(f.kind, Kind::Subcommand { .. }))
+        .map(reset_to_default);
     quote! {
         let mut partial = Partial {
             #(#plain)*
             #sub_starts
         };
         #(#assignments)*
+    }
+}
+
+/// Put a field back the way `start()` left it.
+///
+/// Used twice, and the second use is why it is worth naming: a flag displaced by an
+/// `overrides` has to look untouched, and "untouched" means its declared default rather
+/// than blank. clap does the same — a boolean that loses an override reads as `false`,
+/// not as absent.
+fn reset_to_default(field: &Field) -> TokenStream {
+    let ident = &field.ident;
+    let Some(default) = field.default.as_deref() else {
+        return match field.shape {
+            // A collection is cleared rather than replaced, so the field keeps whatever
+            // capacity it already allocated.
+            Shape::Many => quote!(partial.#ident.clear();),
+            _ => quote!(partial.#ident = ::std::default::Default::default();),
+        };
+    };
+    match field.shape {
+        Shape::Bool => {
+            let on = default == "true";
+            quote!(partial.#ident = #on;)
+        }
+        Shape::Optional => {
+            quote!(partial.#ident = ::std::option::Option::Some(#default.to_string());)
+        }
+        Shape::Required => quote!(partial.#ident = #default.to_string();),
+        // Rejected in the model: a count starts at zero, and a default for a collecting
+        // field is not applied yet.
+        Shape::Count => quote!(partial.#ident = ::std::default::Default::default();),
+        Shape::Many => quote!(partial.#ident.clear();),
     }
 }
 
@@ -627,7 +686,10 @@ fn apply_fn(cli: &Cli, base: u64) -> TokenStream {
         .iter()
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
-    let flag_arms = flags.iter().enumerate().map(|(i, f)| flag_arm(i, f, base));
+    let flag_arms = flags
+        .iter()
+        .enumerate()
+        .map(|(i, f)| flag_arm(cli, i, f, base));
     let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f, base));
 
     quote! {
