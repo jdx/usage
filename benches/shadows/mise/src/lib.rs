@@ -8,8 +8,6 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// Initializes mise in the current shell session
 ///
-/// Initializes mise in the current shell session
-///
 /// This should go into your shell's rc file or login shell.
 /// Otherwise, it will only take effect in the current session.
 /// (e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)
@@ -39,18 +37,13 @@ pub struct ActivateArgs {
     pub shell: ::std::option::Option<::std::string::String>,
     /// Do not automatically call hook-env
     ///
-    /// Do not automatically call hook-env
-    ///
     /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
     #[usage(long = "no-hook-env")]
     pub no_hook_env: bool,
     /// Use shims instead of modifying PATH
     /// Effectively the same as:
     ///
-    /// Use shims instead of modifying PATH
-    /// Effectively the same as:
-    ///
-    ///     PATH="$HOME/.local/share/mise/shims:$PATH"
+    /// PATH="$HOME/.local/share/mise/shims:$PATH"
     ///
     /// `mise activate --shims` does not support all the features of `mise activate`.
     /// See https://mise.jdx.dev/dev-tools/shims.html#shims-vs-path for more information
@@ -70,8 +63,6 @@ pub struct ActivateArgs {
 
 /// Show an alias for a tool
 ///
-/// Show an alias for a tool
-///
 /// This is the contents of a tool_alias.<TOOL> entry in ~/.config/mise/config.toml
 #[derive(Args)]
 pub struct ToolAliasGetArgs {
@@ -83,10 +74,6 @@ pub struct ToolAliasGetArgs {
     pub alias: ::std::string::String,
 }
 
-/// List tool version aliases
-/// Shows the aliases that can be specified.
-/// These can come from user config or from plugins in `bin/list-aliases`.
-///
 /// List tool version aliases
 /// Shows the aliases that can be specified.
 /// These can come from user config or from plugins in `bin/list-aliases`.
@@ -107,8 +94,6 @@ pub struct ToolAliasLsArgs {
 
 /// Add/update an alias for a tool/backend
 ///
-/// Add/update an alias for a tool/backend
-///
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
 pub struct ToolAliasSetArgs {
@@ -123,8 +108,6 @@ pub struct ToolAliasSetArgs {
     pub value: ::std::option::Option<::std::string::String>,
 }
 
-/// Clears an alias for a tool/backend
-///
 /// Clears an alias for a tool/backend
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
@@ -314,8 +297,6 @@ pub enum BootstrapComposeCommands {
 
 /// Add or update dotfiles in `[dotfiles]`
 ///
-/// Add or update dotfiles in `[dotfiles]`
-///
 /// If the target is already managed, this updates its source from the live
 /// target. Otherwise it creates a `[dotfiles]` entry and seeds the source
 /// under `dotfiles.root` unless `--source` is provided.
@@ -353,8 +334,6 @@ pub struct BootstrapDotfilesAddArgs {
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Apply dotfiles from `[dotfiles]`
-///
 /// Apply dotfiles from `[dotfiles]`
 ///
 /// Applies configured whole-file entries and edits that aren't in their
@@ -412,8 +391,6 @@ pub struct BootstrapDotfilesStatusArgs {
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Remove dotfiles applied from `[dotfiles]`
-///
 /// Remove dotfiles applied from `[dotfiles]`
 ///
 /// Removes configured whole-file entries and edits while preserving files
@@ -812,8 +789,6 @@ pub enum BootstrapMiseShellActivateCommands {
 
 /// Apply system packages from `[bootstrap.packages]`
 ///
-/// Apply system packages from `[bootstrap.packages]`
-///
 /// Checks which configured packages are missing and installs them with the
 /// system package manager. Built-in system managers may elevate with sudo when
 /// not running as root (see `system_packages.sudo`); package plugins never do.
@@ -880,8 +855,6 @@ pub struct BootstrapPackagesBrewUntapArgs {
 
 /// Manage Homebrew taps used by bootstrap packages
 ///
-/// Manage Homebrew taps used by bootstrap packages
-///
 /// These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks
 /// can be fetched directly by mise without a Homebrew installation.
 #[derive(Args)]
@@ -900,8 +873,6 @@ pub enum BootstrapPackagesBrewCommands {
     Untap(BootstrapPackagesBrewUntapArgs),
 }
 
-/// Import installed system packages into `[bootstrap.packages]`
-///
 /// Import installed system packages into `[bootstrap.packages]`
 ///
 /// Currently supports Homebrew formulae only. By default, imports linked
@@ -929,8 +900,6 @@ pub struct BootstrapPackagesImportArgs {
     pub path: ::std::option::Option<::std::string::String>,
 }
 
-/// Prune installed system packages no longer declared in `[bootstrap.packages]`
-///
 /// Prune installed system packages no longer declared in `[bootstrap.packages]`
 ///
 /// Currently supports Homebrew formulae only. Pruning removes linked formulae
@@ -962,8 +931,6 @@ pub struct BootstrapPackagesStatusArgs {
 
 /// Upgrade installed bootstrap packages from `[bootstrap.packages]`
 ///
-/// Upgrade installed bootstrap packages from `[bootstrap.packages]`
-///
 /// Refreshes package manager metadata and upgrades the configured packages
 /// that are already installed: apk/apt/dnf/pacman upgrade to the newest available
 /// version (apk, apt, and dnf honor a version pinned in config), brew pours the
@@ -989,8 +956,6 @@ pub struct BootstrapPackagesUpgradeArgs {
     pub package: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Add bootstrap packages to [bootstrap.packages] and install them
-///
 /// Add bootstrap packages to [bootstrap.packages] and install them
 ///
 /// Like `mise use` for tools: writes `"manager:package" = "version"` entries
@@ -1460,8 +1425,6 @@ pub enum BootstrapUserCommands {
 
 /// Set up a machine for the current config in one command
 ///
-/// Set up a machine for the current config in one command
-///
 /// Runs the bootstrap steps for the current config in order:
 ///
 /// 0. `mise bootstrap accounts apply` — converge `[bootstrap.users]` and
@@ -1522,8 +1485,6 @@ pub struct BootstrapArgs {
     pub force_dotfiles: bool,
     /// Run only one or more bootstrap parts
     ///
-    /// Run only one or more bootstrap parts
-    ///
     /// Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
     #[usage(
         long = "only",
@@ -1556,8 +1517,6 @@ pub struct BootstrapArgs {
     /// Prompt securely for missing bootstrap secret inputs
     #[usage(long = "prompt-secrets")]
     pub prompt_secrets: bool,
-    /// Skip one or more bootstrap parts
-    ///
     /// Skip one or more bootstrap parts
     ///
     /// Can be passed multiple times or as a comma-separated list.
@@ -1698,8 +1657,6 @@ pub struct CachePathArgs {}
 
 /// Removes stale mise cache files
 ///
-/// Removes stale mise cache files
-///
 /// By default, this command will remove files that have not been accessed in 30 days.
 /// Change this with the MISE_CACHE_PRUNE_AGE environment variable.
 #[derive(Args)]
@@ -1726,8 +1683,6 @@ pub struct CacheTaskArgs {
     pub task: ::std::string::String,
 }
 
-/// Manage the mise cache
-///
 /// Manage the mise cache
 ///
 /// Run `mise cache` with no args to view the current cache directory.
@@ -1766,16 +1721,10 @@ pub struct CompletionArgs {
     pub shell: ::std::option::Option<::std::string::String>,
     /// Include the bash completion library in the bash completion script
     ///
-    /// Include the bash completion library in the bash completion script
-    ///
     /// This is required for completions to work in bash, but it is not included by default
     /// you may source it separately or enable this flag to enable it in the script.
     #[usage(long = "include-bash-completion-lib")]
     pub include_bash_completion_lib: bool,
-    /// Always use usage for completions.
-    /// Currently, usage is the default for fish and bash but not zsh since it has a few quirks
-    /// to work out first.
-    ///
     /// Always use usage for completions.
     /// Currently, usage is the default for fish and bash but not zsh since it has a few quirks
     /// to work out first.
@@ -1792,8 +1741,6 @@ pub struct CompletionArgs {
 /// Display the value of a setting in a mise.toml file
 #[derive(Args)]
 pub struct ConfigGetArgs {
-    /// The path to the mise.toml file to read
-    ///
     /// The path to the mise.toml file to read
     ///
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
@@ -1823,8 +1770,6 @@ pub struct ConfigLsArgs {
 /// Set the value of a setting in a mise.toml file
 #[derive(Args)]
 pub struct ConfigSetArgs {
-    /// The path to the mise.toml file to edit
-    ///
     /// The path to the mise.toml file to edit
     ///
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
@@ -1879,8 +1824,6 @@ pub enum ConfigCommands {
 
 /// Shows current active and installed runtime versions
 ///
-/// Shows current active and installed runtime versions
-///
 /// This is similar to `mise ls --current`, but this only shows the runtime
 /// and/or version. It's designed to fit into scripts more easily.
 #[derive(Args)]
@@ -1892,14 +1835,10 @@ pub struct CurrentArgs {
 
 /// Disable mise for current shell session
 ///
-/// Disable mise for current shell session
-///
 /// This can be used to temporarily disable mise in a shell session.
 #[derive(Args)]
 pub struct DeactivateArgs {}
 
-/// Output direnv function to use mise inside direnv
-///
 /// Output direnv function to use mise inside direnv
 ///
 /// See https://mise.jdx.dev/direnv.html for more information
@@ -1920,8 +1859,6 @@ pub struct DirenvEnvrcArgs {}
 #[derive(Args)]
 pub struct DirenvExecArgs {}
 
-/// Output direnv function to use mise inside direnv
-///
 /// Output direnv function to use mise inside direnv
 ///
 /// See https://mise.jdx.dev/direnv.html for more information
@@ -1950,8 +1887,6 @@ pub enum DirenvCommands {
     Exec(DirenvExecArgs),
 }
 
-/// Add or update dotfiles in `[dotfiles]`
-///
 /// Add or update dotfiles in `[dotfiles]`
 ///
 /// If the target is already managed, this updates its source from the live
@@ -1991,8 +1926,6 @@ pub struct DotfilesAddArgs {
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Apply dotfiles from `[dotfiles]`
-///
 /// Apply dotfiles from `[dotfiles]`
 ///
 /// Applies configured whole-file entries and edits that aren't in their
@@ -2052,8 +1985,6 @@ pub struct DotfilesStatusArgs {
 
 /// Remove dotfiles applied from `[dotfiles]`
 ///
-/// Remove dotfiles applied from `[dotfiles]`
-///
 /// Removes configured whole-file entries and edits while preserving files
 /// mise cannot identify as managed. Modified copies, templates, and plain-line
 /// edits require `--force`.
@@ -2073,8 +2004,6 @@ pub struct DotfilesUnapplyArgs {
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Manage dotfiles from `[dotfiles]` (deprecated)
-///
 /// Manage dotfiles from `[dotfiles]` (deprecated)
 ///
 /// Use `mise bootstrap dotfiles` instead.
@@ -2130,15 +2059,11 @@ pub enum DoctorCommands {
 
 /// Starts a new shell with the mise environment built from the current configuration
 ///
-/// Starts a new shell with the mise environment built from the current configuration
-///
 /// This is an alternative to `mise activate` that allows you to explicitly start a mise session.
 /// It will have the tools and environment variables in the configs loaded.
 /// Note that changing directories will not update the mise environment.
 #[derive(Args)]
 pub struct EnArgs {
-    /// Shell to start
-    ///
     /// Shell to start
     ///
     /// Defaults to $SHELL
@@ -2149,8 +2074,6 @@ pub struct EnArgs {
     pub dir: ::std::option::Option<::std::string::String>,
 }
 
-/// Exports env vars to activate mise a single time
-///
 /// Exports env vars to activate mise a single time
 ///
 /// Use this if you don't want to permanently install mise. It's not necessary to
@@ -2184,8 +2107,6 @@ pub struct EnvArgs {
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Execute a command with tool(s) set
-///
 /// Execute a command with tool(s) set
 ///
 /// use this to avoid modifying the shell session or running ad-hoc commands with mise tools set.
@@ -2252,8 +2173,6 @@ pub struct ExecArgs {
 
 /// Formats mise.toml
 ///
-/// Formats mise.toml
-///
 /// Sorts keys and cleans up whitespace in mise.toml
 #[derive(Args)]
 pub struct FmtArgs {
@@ -2270,13 +2189,9 @@ pub struct FmtArgs {
 
 /// Generate a script to download+execute mise
 ///
-/// Generate a script to download+execute mise
-///
 /// This is designed to be used in a project where contributors may not have mise installed.
 #[derive(Args)]
 pub struct GenerateBootstrapArgs {
-    /// Sandboxes mise internal directories like MISE_DATA_DIR and MISE_CACHE_DIR into a `.mise` directory in the project
-    ///
     /// Sandboxes mise internal directories like MISE_DATA_DIR and MISE_CACHE_DIR into a `.mise` directory in the project
     ///
     /// This is necessary if users may use a different version of mise outside the project.
@@ -2329,8 +2244,6 @@ pub struct GenerateDevcontainerArgs {
 
 /// Generate a git pre-commit hook
 ///
-/// Generate a git pre-commit hook
-///
 /// This command generates a git pre-commit hook that runs a mise task like `mise run pre-commit`
 /// when you commit changes to your repository.
 ///
@@ -2352,8 +2265,6 @@ pub struct GenerateGitPreCommitArgs {
 
 /// Generate a GitHub Action workflow file
 ///
-/// Generate a GitHub Action workflow file
-///
 /// This command generates a GitHub Action workflow file that runs a mise task like `mise run ci`
 /// when you push changes to your repository.
 #[derive(Args)]
@@ -2372,8 +2283,6 @@ pub struct GenerateGithubActionArgs {
 /// Generate documentation for tasks in a project
 #[derive(Args)]
 pub struct GenerateTaskDocsArgs {
-    /// inserts the documentation into an existing file
-    ///
     /// inserts the documentation into an existing file
     ///
     /// This will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation.
@@ -2406,8 +2315,6 @@ pub struct GenerateTaskDocsArgs {
 
 /// Generates shims to run mise tasks
 ///
-/// Generates shims to run mise tasks
-///
 /// By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`
 /// so contributors to a project can execute mise tasks without installing mise into their system.
 #[derive(Args)]
@@ -2417,15 +2324,11 @@ pub struct GenerateTaskStubsArgs {
     pub dir: ::std::option::Option<::std::string::String>,
     /// Path to a mise bin to use when running the task stub.
     ///
-    /// Path to a mise bin to use when running the task stub.
-    ///
     /// Use `--mise-bin=./bin/mise` to use a mise bin generated from `mise generate bootstrap`
     #[usage(long = "mise-bin", short = 'm', default = "mise")]
     pub mise_bin: ::std::option::Option<::std::string::String>,
 }
 
-/// Generate a tool stub for HTTP-based tools
-///
 /// Generate a tool stub for HTTP-based tools
 ///
 /// This command generates tool stubs that can automatically download and execute
@@ -2439,13 +2342,9 @@ pub struct GenerateTaskStubsArgs {
 pub struct GenerateToolStubArgs {
     /// Binary path within the extracted archive
     ///
-    /// Binary path within the extracted archive
-    ///
     /// If not specified and the archive is downloaded, will auto-detect the most likely binary
     #[usage(long = "bin", short = 'b')]
     pub bin: ::std::option::Option<::std::string::String>,
-    /// Wrap stub in a bootstrap script that installs mise if not already present
-    ///
     /// Wrap stub in a bootstrap script that installs mise if not already present
     ///
     /// When enabled, generates a bash script that:
@@ -2456,14 +2355,10 @@ pub struct GenerateToolStubArgs {
     pub bootstrap: bool,
     /// Specify mise version for the bootstrap script
     ///
-    /// Specify mise version for the bootstrap script
-    ///
     /// By default, uses the latest version from the install script.
     /// Use this to pin to a specific version (e.g., "2025.1.0").
     #[usage(long = "bootstrap-version")]
     pub bootstrap_version: ::std::option::Option<::std::string::String>,
-    /// Fetch checksums and sizes for an existing tool stub file
-    ///
     /// Fetch checksums and sizes for an existing tool stub file
     ///
     /// This reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub.
@@ -2477,13 +2372,9 @@ pub struct GenerateToolStubArgs {
     pub lock: bool,
     /// Platform-specific binary paths in the format platform:path
     ///
-    /// Platform-specific binary paths in the format platform:path
-    ///
     /// Examples: --platform-bin windows-x64:tool.exe --platform-bin linux-x64:bin/tool
     #[usage(long = "platform-bin", var)]
     pub platform_bin: ::std::vec::Vec<::std::string::String>,
-    /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
-    ///
     /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
     ///
     /// When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
@@ -2496,8 +2387,6 @@ pub struct GenerateToolStubArgs {
     /// Skip downloading for checksum and binary path detection (faster but less informative)
     #[usage(long = "skip-download")]
     pub skip_download: bool,
-    /// URL for downloading the tool
-    ///
     /// URL for downloading the tool
     ///
     /// Example: https://github.com/owner/repo/releases/download/v2.0.0/tool-linux-x64.tar.gz
@@ -2548,8 +2437,6 @@ pub enum GenerateCommands {
 
 /// Display the GitHub token mise will use for a given host
 ///
-/// Display the GitHub token mise will use for a given host
-///
 /// Shows which token source mise would use, useful for debugging
 /// authentication issues. The token is masked by default.
 #[derive(Args)]
@@ -2585,8 +2472,6 @@ pub enum GithubCommands {
     Token(GithubTokenArgs),
 }
 
-/// Sets/gets the global tool version(s)
-///
 /// Sets/gets the global tool version(s)
 ///
 /// Displays the contents of global config after writing.
@@ -2663,8 +2548,6 @@ pub struct HookNotFoundArgs {
 
 /// Removes mise CLI and all related data
 ///
-/// Removes mise CLI and all related data
-///
 /// Skips config directory by default.
 #[derive(Args)]
 pub struct ImplodeArgs {
@@ -2695,8 +2578,6 @@ pub struct EditArgs {
 
 /// Install a tool version
 ///
-/// Install a tool version
-///
 /// Installs a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`
 /// Installing alone will not activate the tools so they won't be in PATH.
 /// To install and/or activate in one command, use `mise use` which will create a `mise.toml` file
@@ -2718,13 +2599,9 @@ pub struct InstallArgs {
     pub dry_run: bool,
     /// Show installation output
     ///
-    /// Show installation output
-    ///
     /// This argument will print backend output such as download, configuration, and compilation output.
     #[usage(long = "verbose", short = 'v', count)]
     pub verbose: u8,
-    /// Like --dry-run but exits with code 1 if there are tools to install
-    ///
     /// Like --dry-run but exits with code 1 if there are tools to install
     ///
     /// This is useful for scripts to check if tools need to be installed.
@@ -2732,13 +2609,9 @@ pub struct InstallArgs {
     pub dry_run_code: bool,
     /// Only install versions released before this date or older than this duration
     ///
-    /// Only install versions released before this date or older than this duration
-    ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     #[usage(long = "minimum-release-age")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
-    /// Install tools from every [monorepo].config_roots config root
-    ///
     /// Install tools from every [monorepo].config_roots config root
     ///
     /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
@@ -2750,14 +2623,10 @@ pub struct InstallArgs {
     pub raw: bool,
     /// Install tool(s) to a shared directory
     ///
-    /// Install tool(s) to a shared directory
-    ///
     /// Installs to the specified directory instead of the default install location.
     /// May require elevated permissions depending on the path.
     #[usage(long = "shared")]
     pub shared: ::std::option::Option<::std::string::String>,
-    /// Install tool(s) to the system-wide shared directory
-    ///
     /// Install tool(s) to the system-wide shared directory
     ///
     /// Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs).
@@ -2769,8 +2638,6 @@ pub struct InstallArgs {
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Install a tool version to a specific path
-///
 /// Install a tool version to a specific path
 ///
 /// Used for building a tool to a directory for use outside of mise
@@ -2786,16 +2653,12 @@ pub struct InstallIntoArgs {
 
 /// Gets the latest available version for a plugin
 ///
-/// Gets the latest available version for a plugin
-///
 /// Supports prefixes such as `node@20` to get the latest version of node 20.
 #[derive(Args)]
 pub struct LatestArgs {
     /// Show latest installed instead of available version
     #[usage(long = "installed", short = 'i')]
     pub installed: bool,
-    /// Only consider versions released before this date or older than this duration
-    ///
     /// Only consider versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
@@ -2810,8 +2673,6 @@ pub struct LatestArgs {
     pub asdf_version: ::std::option::Option<::std::string::String>,
 }
 
-/// Symlinks a tool version into mise
-///
 /// Symlinks a tool version into mise
 ///
 /// Use this for adding installs either custom compiled outside mise or built with a different tool.
@@ -2829,8 +2690,6 @@ pub struct LinkArgs {
     pub path: ::std::string::String,
 }
 
-/// Sets/gets tool version in local .tool-versions or mise.toml
-///
 /// Sets/gets tool version in local .tool-versions or mise.toml
 ///
 /// Use this to set a tool's version when within a directory
@@ -2866,8 +2725,6 @@ pub struct LocalArgs {
 
 /// Update lockfile checksums and URLs for all specified platforms
 ///
-/// Update lockfile checksums and URLs for all specified platforms
-///
 /// Updates checksums and download URLs for all platforms already specified in the lockfile.
 /// If no lockfile exists, shows what would be created based on the current configuration.
 /// This allows you to refresh lockfile data for platforms other than the one you're currently on.
@@ -2891,8 +2748,6 @@ pub struct LockArgs {
     pub platform: ::std::vec::Vec<::std::string::String>,
     /// Re-resolve fuzzy version selectors against the latest available versions
     ///
-    /// Re-resolve fuzzy version selectors against the latest available versions
-    ///
     /// By default, `mise lock` refreshes metadata for the currently locked versions.
     /// With this flag, selectors like "latest", "lts", or prefixes like "20" are
     /// re-resolved against the latest matching remote versions, so the lockfile
@@ -2901,8 +2756,6 @@ pub struct LockArgs {
     /// (use `mise upgrade --bump` to rewrite pins in mise.toml).
     #[usage(long = "bump")]
     pub bump: bool,
-    /// Output version changes as JSON
-    ///
     /// Output version changes as JSON
     ///
     /// Prints an array of objects describing lockfile version changes:
@@ -2921,8 +2774,6 @@ pub struct LockArgs {
     pub local: bool,
     /// Only lock versions released before this age or date
     ///
-    /// Only lock versions released before this age or date
-    ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     /// This only affects fuzzy version matches like "20" or "latest".
     /// Explicitly pinned versions like "22.5.0" are not filtered.
@@ -2936,8 +2787,6 @@ pub struct LockArgs {
     pub tool: ::std::vec::Vec<::std::string::String>,
 }
 
-/// List installed and active tool versions
-///
 /// List installed and active tool versions
 ///
 /// This command lists tools that mise "knows about".
@@ -2976,8 +2825,6 @@ pub struct LsArgs {
     pub all_sources: bool,
     /// List tools from every [monorepo].config_roots config root
     ///
-    /// List tools from every [monorepo].config_roots config root
-    ///
     /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
     /// [monorepo].config_roots in the monorepo root config.
     #[usage(long = "monorepo")]
@@ -3001,16 +2848,12 @@ pub struct LsArgs {
 
 /// List runtime versions available for install.
 ///
-/// List runtime versions available for install.
-///
 /// Note that the results may be cached, run `mise cache clean` to clear the cache and get fresh results.
 #[derive(Args)]
 pub struct LsRemoteArgs {
     /// Show all installed plugins and versions
     #[usage(long = "all")]
     pub all: bool,
-    /// Only show versions released before this age or date
-    ///
     /// Only show versions released before this age or date
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
@@ -3030,8 +2873,6 @@ pub struct LsRemoteArgs {
     pub prerelease: bool,
     /// Fail if release metadata fetches fail
     ///
-    /// Fail if release metadata fetches fail
-    ///
     /// Requires --json and --no-versions-host.
     ///
     /// This prevents metadata consumers from accepting empty fallback results
@@ -3047,8 +2888,6 @@ pub struct LsRemoteArgs {
     pub prefix: ::std::option::Option<::std::string::String>,
 }
 
-/// Run Model Context Protocol (MCP) server
-///
 /// Run Model Context Protocol (MCP) server
 ///
 /// This command starts an MCP server that exposes mise functionality
@@ -3079,8 +2918,6 @@ pub struct McpArgs {}
 
 /// [experimental] Build an OCI image from the current mise.toml
 ///
-/// [experimental] Build an OCI image from the current mise.toml
-///
 /// Each tool version becomes its own content-addressable OCI layer. Bumping a
 /// tool version only invalidates that tool's layer — other tools, the base
 /// image, and config are reused unchanged. The output directory conforms to
@@ -3101,8 +2938,6 @@ pub struct OciBuildArgs {
     pub from: ::std::option::Option<::std::string::String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
-    /// Also include tools from the global / system config (default: project-only)
-    ///
     /// By default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old "merge all loaded configs" behavior.
     #[usage(long = "include-global")]
     pub include_global: bool,
@@ -3117,15 +2952,11 @@ pub struct OciBuildArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry in generated layers
     ///
-    /// UID[:GID] to assign to every tar entry in generated layers
-    ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[usage(long = "owner")]
     pub owner: ::std::option::Option<::std::string::String>,
 }
 
-/// [experimental] Build an OCI image and push it to a registry
-///
 /// [experimental] Build an OCI image and push it to a registry
 ///
 /// Pushes with mise's built-in registry client — no skopeo/crane/docker
@@ -3149,8 +2980,6 @@ pub struct OciBuildArgs {
 pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
     ///
-    /// Reuse unchanged tool layers from this image instead of the destination ref
-    ///
     /// Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
     #[usage(long = "cache-from")]
     pub cache_from: ::std::option::Option<::std::string::String>,
@@ -3160,8 +2989,6 @@ pub struct OciPushArgs {
     /// Push an already-built OCI image layout (skip the build step)
     #[usage(long = "image-dir")]
     pub image_dir: ::std::option::Option<::std::string::String>,
-    /// Also include tools from the global / system config (default: project-only)
-    ///
     /// Also include tools from the global / system config (default: project-only)
     ///
     /// See `mise oci build --help` for details.
@@ -3178,13 +3005,9 @@ pub struct OciPushArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
-    ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[usage(long = "owner")]
     pub owner: ::std::option::Option<::std::string::String>,
-    /// Maintain the tag as a multi-arch image index
-    ///
     /// Maintain the tag as a multi-arch image index
     ///
     /// Pushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag.
@@ -3195,8 +3018,6 @@ pub struct OciPushArgs {
     pub ref_: ::std::string::String,
 }
 
-/// [experimental] Build an OCI image from the current mise.toml and run a command in it
-///
 /// [experimental] Build an OCI image from the current mise.toml and run a command in it
 ///
 /// Equivalent to `mise oci build` followed by `docker run` / `podman run`.
@@ -3219,13 +3040,9 @@ pub struct OciRunArgs {
     pub image_dir: ::std::option::Option<::std::string::String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
-    /// Also include tools from the global / system config (default: project-only)
-    ///
     /// See `mise oci build --help` for details.
     #[usage(long = "include-global")]
     pub include_global: bool,
-    /// Keep the loaded image in the engine's storage after the run
-    ///
     /// Keep the loaded image in the engine's storage after the run
     ///
     /// By default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman).
@@ -3239,13 +3056,9 @@ pub struct OciRunArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
-    ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[usage(long = "owner")]
     pub owner: ::std::option::Option<::std::string::String>,
-    /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
-    ///
     /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
     ///
     /// Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
@@ -3268,8 +3081,6 @@ pub struct OciRunArgs {
     pub cmd: ::std::vec::Vec<::std::string::String>,
 }
 
-/// [experimental] Build OCI container images from a mise.toml
-///
 /// [experimental] Build OCI container images from a mise.toml
 ///
 /// Each tool becomes its own OCI layer, so bumping any single tool version
@@ -3300,16 +3111,12 @@ pub enum OciCommands {
 
 /// Shows outdated tool versions
 ///
-/// Shows outdated tool versions
-///
 /// See `mise upgrade` to upgrade these versions.
 #[derive(Args)]
 pub struct OutdatedArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
     pub json: bool,
-    /// Compares against the latest versions available, not what matches the current config
-    ///
     /// Compares against the latest versions available, not what matches the current config
     ///
     /// For example, if you have `node = "20"` in your config by default `mise outdated` will only
@@ -3320,13 +3127,9 @@ pub struct OutdatedArgs {
     pub bump: bool,
     /// Show outdated tools including installed-but-inactive tools not present in the current config
     ///
-    /// Show outdated tools including installed-but-inactive tools not present in the current config
-    ///
     /// By default, `mise outdated` only shows tools that come from the current config.
     #[usage(long = "inactive")]
     pub inactive: bool,
-    /// Only show outdated tools defined in local config files
-    ///
     /// Only show outdated tools defined in local config files
     ///
     /// This will only show tools that are defined in project-local mise.toml and
@@ -3348,8 +3151,6 @@ pub struct OutdatedArgs {
 
 /// Show the individuals supporting mise as Patron-tier members
 ///
-/// Show the individuals supporting mise as Patron-tier members
-///
 /// Lists the individuals on the Patron tier from <https://jdx.dev/patrons.json>.
 /// The list refreshes daily; supporting terminals will render each patron's
 /// name as a clickable link via OSC 8 hyperlinks.
@@ -3365,8 +3166,6 @@ pub struct PatronsArgs {
     pub refresh: bool,
 }
 
-/// Install a plugin
-///
 /// Install a plugin
 ///
 /// note that mise can automatically install plugins when you install a tool
@@ -3404,8 +3203,6 @@ pub struct PluginsInstallArgs {
 
 /// Symlinks a plugin into mise
 ///
-/// Symlinks a plugin into mise
-///
 /// This is used for developing a plugin.
 #[derive(Args)]
 pub struct PluginsLinkArgs {
@@ -3422,8 +3219,6 @@ pub struct PluginsLinkArgs {
     pub dir: ::std::option::Option<::std::string::String>,
 }
 
-/// List installed plugins
-///
 /// List installed plugins
 ///
 /// Can also show remotely available plugins to install.
@@ -3454,9 +3249,6 @@ pub struct PluginsLsArgs {
     pub user: bool,
 }
 
-/// List all available remote plugins
-///
-///
 /// List all available remote plugins
 ///
 /// The full list is here: https://github.com/jdx/mise/blob/main/registry/
@@ -3490,8 +3282,6 @@ pub struct PluginsUninstallArgs {
 
 /// Updates a plugin to the latest version
 ///
-/// Updates a plugin to the latest version
-///
 /// note: this updates the plugin itself, not the runtime versions
 #[derive(Args)]
 pub struct PluginsUpdateArgs {
@@ -3509,8 +3299,6 @@ pub struct PluginsUpdateArgs {
 pub struct PluginsArgs {
     /// list all available remote plugins
     ///
-    /// list all available remote plugins
-    ///
     /// same as `mise plugins ls-remote`
     #[usage(long = "all", short = 'a', hide)]
     pub all: bool,
@@ -3526,8 +3314,6 @@ pub struct PluginsArgs {
     /// e.g.: main 1234abc
     #[usage(long = "refs", hide)]
     pub refs: bool,
-    /// List installed plugins
-    ///
     /// List installed plugins
     ///
     /// This is the default behavior but can be used with --core
@@ -3562,8 +3348,6 @@ pub enum PluginsCommands {
 
 /// Add a dependency
 ///
-/// Add a dependency
-///
 /// Adds one or more packages to the project using the appropriate package manager.
 /// Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
 #[derive(Args)]
@@ -3576,8 +3360,6 @@ pub struct DepsAddArgs {
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Install all project dependencies
-///
 /// Install all project dependencies
 ///
 /// Checks if dependency lockfiles are newer than installed outputs
@@ -3598,8 +3380,6 @@ pub struct DepsInstallArgs {
     pub list: bool,
     /// Install dependencies from every [monorepo].config_roots config root
     ///
-    /// Install dependencies from every [monorepo].config_roots config root
-    ///
     /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
     /// the monorepo root config. Providers are named like //apps/api:uv.
     #[usage(long = "monorepo")]
@@ -3617,8 +3397,6 @@ pub struct DepsInstallArgs {
 
 /// Remove a dependency
 ///
-/// Remove a dependency
-///
 /// Removes one or more packages from the project using the appropriate package manager.
 /// Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
 #[derive(Args)]
@@ -3628,8 +3406,6 @@ pub struct DepsRemoveArgs {
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
-/// [experimental] Manage project dependencies
-///
 /// [experimental] Manage project dependencies
 ///
 /// Runs all applicable dependency install steps for the current project.
@@ -3653,8 +3429,6 @@ pub struct DepsArgs {
     /// Show what deps providers are available
     #[usage(long = "list")]
     pub list: bool,
-    /// Install dependencies from every [monorepo].config_roots config root
-    ///
     /// Install dependencies from every [monorepo].config_roots config root
     ///
     /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
@@ -3689,8 +3463,6 @@ pub enum DepsCommands {
 
 /// Delete unused versions of tools
 ///
-/// Delete unused versions of tools
-///
 /// mise tracks which config files have been used in ~/.local/state/mise/tracked-configs
 /// Versions which are no longer the latest specified in any of those configs are deleted.
 /// Versions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted,
@@ -3710,8 +3482,6 @@ pub struct PruneArgs {
     pub configs: bool,
     /// Like --dry-run but exits with code 1 if there are tools to prune
     ///
-    /// Like --dry-run but exits with code 1 if there are tools to prune
-    ///
     /// This is useful for scripts to check if tools need to be pruned.
     #[usage(long = "dry-run-code")]
     pub dry_run_code: bool,
@@ -3726,8 +3496,6 @@ pub struct PruneArgs {
     pub installed_tool: ::std::vec::Vec<::std::string::String>,
 }
 
-/// List available tools to install
-///
 /// List available tools to install
 ///
 /// This command lists the tools available in the registry as shorthand names.
@@ -3749,7 +3517,7 @@ pub struct RegistryArgs {
     pub json: bool,
     /// Include security features for each tool's backends in JSON output
     ///
-    /// Include security features for each tool's backends in JSON output.
+    /// .
     ///
     /// Requires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.
     #[usage(long = "security")]
@@ -3763,8 +3531,6 @@ pub struct RegistryArgs {
 #[derive(Args)]
 pub struct RenderHelpArgs {}
 
-/// Creates new shims based on bin paths from currently installed tools.
-///
 /// Creates new shims based on bin paths from currently installed tools.
 ///
 /// This creates new shims in ~/.local/share/mise/shims for CLIs that have been added.
@@ -3796,8 +3562,6 @@ pub struct ReshimArgs {
     pub version: ::std::option::Option<::std::string::String>,
 }
 
-/// Run task(s)
-///
 /// Run task(s)
 ///
 /// This command will run a task, or multiple tasks in parallel.
@@ -3861,8 +3625,6 @@ pub struct RunArgs {
     pub dry_run: bool,
     /// Change how tasks information is output when running tasks
     ///
-    /// Change how tasks information is output when running tasks
-    ///
     /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label
     /// - `interleave` - Print directly to stdout/stderr instead of by line
     /// - `replacing` - Stdout is replaced each time, stderr is printed as is
@@ -3880,8 +3642,6 @@ pub struct RunArgs {
     /// Configure with `raw` config or `MISE_RAW` env var
     #[usage(long = "raw", short = 'r')]
     pub raw: bool,
-    /// Shell to use to run toml tasks
-    ///
     /// Shell to use to run toml tasks
     ///
     /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
@@ -3934,8 +3694,6 @@ pub struct RunArgs {
     pub no_deps: bool,
     /// Hides elapsed time after each task completes
     ///
-    /// Hides elapsed time after each task completes
-    ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
     #[usage(long = "no-timings")]
     pub no_timings: bool,
@@ -3944,14 +3702,10 @@ pub struct RunArgs {
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
-    /// Skip installing tools before running tasks
-    ///
     /// Can also be set persistently with the `task.run_auto_install` setting
     /// or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
     #[usage(long = "skip-tools")]
     pub skip_tools: bool,
-    /// Set task output cache access for this run
-    ///
     /// Set task output cache access for this run
     ///
     /// - `read-write` - Read cached results and write new results
@@ -3980,15 +3734,11 @@ pub struct RunArgs {
     pub timeout: ::std::option::Option<::std::string::String>,
     /// Shows elapsed time after each task completes
     ///
-    /// Shows elapsed time after each task completes
-    ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
     #[usage(long = "timings", hide)]
     pub timings: bool,
 }
 
-/// Search for tools in the registry
-///
 /// Search for tools in the registry
 ///
 /// This command searches a tool in the registry.
@@ -4018,8 +3768,6 @@ pub struct SearchArgs {
 
 /// Updates mise itself.
 ///
-/// Updates mise itself.
-///
 /// Uses the GitHub Releases API to find the latest release and binary.
 /// By default, this will also update any installed plugins.
 /// Uses mise's GitHub token resolution chain for authenticated requests.
@@ -4045,8 +3793,6 @@ pub struct SelfUpdateArgs {
 
 /// Set environment variables in mise.toml
 ///
-/// Set environment variables in mise.toml
-///
 /// By default, this command modifies `mise.toml` in the current directory.
 /// If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
 /// the lowest precedence file (`mise.toml`) will be used.
@@ -4066,20 +3812,14 @@ pub struct SetArgs {
     pub age_encrypt: bool,
     /// [experimental] Age identity file for encryption
     ///
-    /// [experimental] Age identity file for encryption
-    ///
     /// Defaults to ~/.config/mise/age.txt if it exists
     #[usage(long = "age-key-file")]
     pub age_key_file: ::std::option::Option<::std::string::String>,
     /// [experimental] Age recipient (x25519 public key) for encryption
     ///
-    /// [experimental] Age recipient (x25519 public key) for encryption
-    ///
     /// Can be used multiple times. Requires --age-encrypt.
     #[usage(long = "age-recipient", var)]
     pub age_recipient: ::std::vec::Vec<::std::string::String>,
-    /// [experimental] SSH recipient (public key or path) for age encryption
-    ///
     /// [experimental] SSH recipient (public key or path) for age encryption
     ///
     /// Can be used multiple times. Requires --age-encrypt.
@@ -4088,8 +3828,6 @@ pub struct SetArgs {
     /// Render completions
     #[usage(long = "complete", hide)]
     pub complete: bool,
-    /// The TOML file to update
-    ///
     /// The TOML file to update
     ///
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
@@ -4105,13 +3843,9 @@ pub struct SetArgs {
     pub prompt: bool,
     /// Remove the environment variable from config file
     ///
-    /// Remove the environment variable from config file
-    ///
     /// Can be used multiple times.
     #[usage(long = "remove", hide, var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
-    /// Read the value from stdin (for multiline input)
-    ///
     /// Read the value from stdin (for multiline input)
     ///
     /// When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
@@ -4123,8 +3857,6 @@ pub struct SetArgs {
     pub env_var: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Adds a setting to the configuration file
-///
 /// Adds a setting to the configuration file
 ///
 /// Used with an array setting, this will append the value to the array.
@@ -4144,8 +3876,6 @@ pub struct SettingsAddArgs {
 
 /// Show a current setting
 ///
-/// Show a current setting
-///
 /// This is the contents of a single entry in ~/.config/mise/config.toml
 ///
 /// Note that aliases are also stored in this file
@@ -4160,8 +3890,6 @@ pub struct SettingsGetArgs {
     pub setting: ::std::string::String,
 }
 
-/// Show current settings
-///
 /// Show current settings
 ///
 /// This is the contents of ~/.config/mise/config.toml
@@ -4195,8 +3923,6 @@ pub struct SettingsLsArgs {
 
 /// Add/update a setting
 ///
-/// Add/update a setting
-///
 /// This modifies the contents of ~/.config/mise/config.toml by default.
 /// With `--local`, modifies the local config file instead.
 /// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
@@ -4213,8 +3939,6 @@ pub struct SettingsSetArgs {
     pub value: ::std::option::Option<::std::string::String>,
 }
 
-/// Clears a setting
-///
 /// Clears a setting
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
@@ -4287,8 +4011,6 @@ pub enum SettingsCommands {
 
 /// Sets a tool version for the current session.
 ///
-/// Sets a tool version for the current session.
-///
 /// Only works in a session where mise is already activated.
 ///
 /// This works by setting environment variables for the current shell session
@@ -4320,8 +4042,6 @@ pub struct ShellAliasGetArgs {
 
 /// List shell aliases
 ///
-/// List shell aliases
-///
 /// Shows the shell aliases that are set in the current directory.
 /// These are defined in `mise.toml` under the `[shell_alias]` section.
 #[derive(Args)]
@@ -4331,8 +4051,6 @@ pub struct ShellAliasLsArgs {
     pub no_header: bool,
 }
 
-/// Add/update a shell alias
-///
 /// Add/update a shell alias
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
@@ -4346,8 +4064,6 @@ pub struct ShellAliasSetArgs {
     pub command: ::std::option::Option<::std::string::String>,
 }
 
-/// Removes a shell alias
-///
 /// Removes a shell alias
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
@@ -4390,8 +4106,6 @@ pub struct SponsorsArgs {}
 
 /// Symlinks all tool versions from an external tool into mise
 ///
-/// Symlinks all tool versions from an external tool into mise
-///
 /// For example, use this to import all Homebrew node installs into mise
 ///
 /// This won't overwrite any existing installs but will overwrite any existing symlinks
@@ -4408,8 +4122,6 @@ pub struct SyncNodeArgs {
     pub nvm: bool,
 }
 
-/// Symlinks all tool versions from an external tool into mise
-///
 /// Symlinks all tool versions from an external tool into mise
 ///
 /// For example, use this to import all pyenv installs into mise
@@ -4453,8 +4165,6 @@ pub enum SyncCommands {
     Ruby(SyncRubyArgs),
 }
 
-/// Create a new task
-///
 /// Create a new task
 ///
 /// Adds a task to the local mise.toml file.
@@ -4535,8 +4245,6 @@ pub struct TasksDepsArgs {
 
 /// Edit a task with $EDITOR
 ///
-/// Edit a task with $EDITOR
-///
 /// The task will be created as a standalone script if it does not already exist.
 #[derive(Args)]
 pub struct TasksEditArgs {
@@ -4573,10 +4281,6 @@ pub struct TasksInfoArgs {
     pub task: ::std::string::String,
 }
 
-/// List available tasks to execute
-/// These may be included from the config file or from the project's .mise/tasks directory
-/// mise will merge all tasks from all parent directories into this list.
-///
 /// List available tasks to execute
 /// These may be included from the config file or from the project's .mise/tasks directory
 /// mise will merge all tasks from all parent directories into this list.
@@ -4625,8 +4329,6 @@ pub struct TasksLsArgs {
     pub usage: bool,
 }
 
-/// Run task(s)
-///
 /// Run task(s)
 ///
 /// This command will run a task, or multiple tasks in parallel.
@@ -4690,8 +4392,6 @@ pub struct TasksRunArgs {
     pub dry_run: bool,
     /// Change how tasks information is output when running tasks
     ///
-    /// Change how tasks information is output when running tasks
-    ///
     /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label
     /// - `interleave` - Print directly to stdout/stderr instead of by line
     /// - `replacing` - Stdout is replaced each time, stderr is printed as is
@@ -4709,8 +4409,6 @@ pub struct TasksRunArgs {
     /// Configure with `raw` config or `MISE_RAW` env var
     #[usage(long = "raw", short = 'r')]
     pub raw: bool,
-    /// Shell to use to run toml tasks
-    ///
     /// Shell to use to run toml tasks
     ///
     /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
@@ -4763,8 +4461,6 @@ pub struct TasksRunArgs {
     pub no_deps: bool,
     /// Hides elapsed time after each task completes
     ///
-    /// Hides elapsed time after each task completes
-    ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
     #[usage(long = "no-timings")]
     pub no_timings: bool,
@@ -4773,14 +4469,10 @@ pub struct TasksRunArgs {
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
-    /// Skip installing tools before running tasks
-    ///
     /// Can also be set persistently with the `task.run_auto_install` setting
     /// or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
     #[usage(long = "skip-tools")]
     pub skip_tools: bool,
-    /// Set task output cache access for this run
-    ///
     /// Set task output cache access for this run
     ///
     /// - `read-write` - Read cached results and write new results
@@ -4807,8 +4499,6 @@ pub struct TasksRunArgs {
     /// e.g.: 30s, 5m
     #[usage(long = "timeout")]
     pub timeout: ::std::option::Option<::std::string::String>,
-    /// Shows elapsed time after each task completes
-    ///
     /// Shows elapsed time after each task completes
     ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
@@ -5039,8 +4729,6 @@ pub struct ToolArgs {
 
 /// Execute a tool stub
 ///
-/// Execute a tool stub
-///
 /// Tool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.
 ///
 /// A tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose
@@ -5056,13 +4744,9 @@ pub struct ToolArgs {
 pub struct ToolStubArgs {
     /// Path to the TOML tool stub file to execute
     ///
-    /// Path to the TOML tool stub file to execute
-    ///
     /// The stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options.
     #[usage(arg, name = "FILE")]
     pub file: ::std::string::String,
-    /// Arguments to pass to the tool
-    ///
     /// Arguments to pass to the tool
     ///
     /// All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
@@ -5070,8 +4754,6 @@ pub struct ToolStubArgs {
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Marks a config file as trusted
-///
 /// Marks a config file as trusted
 ///
 /// This means mise is allowed to parse the file when it needs to read config
@@ -5095,8 +4777,6 @@ pub struct ToolStubArgs {
 pub struct TrustArgs {
     /// Trust all config files in the current directory, its parents, and its subdirectories
     ///
-    /// Trust all config files in the current directory, its parents, and its subdirectories
-    ///
     /// Subdirectories are walked respecting .gitignore, skipping hidden directories
     /// and common build/dependency directories (node_modules, vendor, target, dist, build).
     #[usage(long = "all", short = 'a')]
@@ -5118,8 +4798,6 @@ pub struct TrustArgs {
 
 /// Removes installed tool versions
 ///
-/// Removes installed tool versions
-///
 /// This only removes the installed version, it does not modify mise.toml.
 #[derive(Args)]
 pub struct UninstallArgs {
@@ -5129,8 +4807,6 @@ pub struct UninstallArgs {
     /// Do not actually delete anything
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
-    /// Like --dry-run but exits with code 1 if there are tools to uninstall
-    ///
     /// Like --dry-run but exits with code 1 if there are tools to uninstall
     ///
     /// This is useful for scripts to check if tools need to be uninstalled.
@@ -5143,13 +4819,9 @@ pub struct UninstallArgs {
 
 /// Remove environment variable(s) from the config file.
 ///
-/// Remove environment variable(s) from the config file.
-///
 /// By default, this command modifies `mise.toml` in the current directory.
 #[derive(Args)]
 pub struct UnsetArgs {
-    /// Specify a file to use instead of `mise.toml`
-    ///
     /// Specify a file to use instead of `mise.toml`
     ///
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
@@ -5174,8 +4846,6 @@ pub struct UntrustArgs {
     pub config_file: ::std::option::Option<::std::string::String>,
 }
 
-/// Removes installed tool versions from mise.toml
-///
 /// Removes installed tool versions from mise.toml
 ///
 /// By default, this will use the `mise.toml` file that has the tool defined.
@@ -5204,8 +4874,6 @@ pub struct UnuseArgs {
     pub global: bool,
     /// Specify a path to a config file or directory
     ///
-    /// Specify a path to a config file or directory
-    ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
     #[usage(long = "path", short = 'p')]
     pub path: ::std::option::Option<::std::string::String>,
@@ -5217,8 +4885,6 @@ pub struct UnuseArgs {
     pub installed_tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Upgrades outdated tools
-///
 /// Upgrades outdated tools
 ///
 /// By default, this keeps the range specified in mise.toml. So if you have node@20 set, it will
@@ -5237,8 +4903,6 @@ pub struct UpgradeArgs {
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
-    /// Upgrades to the latest version available, bumping the version in mise.toml
-    ///
     /// For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available,
     /// this will install 22.1.0 and set `node = "22.1.0"` in your config.
     ///
@@ -5255,8 +4919,6 @@ pub struct UpgradeArgs {
     pub exclude: ::std::vec::Vec<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are outdated tools
     ///
-    /// Like --dry-run but exits with code 1 if there are outdated tools
-    ///
     /// This is useful for scripts to check if tools need to be upgraded.
     #[usage(long = "dry-run-code")]
     pub dry_run_code: bool,
@@ -5265,14 +4927,10 @@ pub struct UpgradeArgs {
     pub inactive: bool,
     /// Only upgrade tools defined in local config files
     ///
-    /// Only upgrade tools defined in local config files
-    ///
     /// This will only upgrade tools that are defined in project-local mise.toml and
     /// will skip tools defined in the global config (~/.config/mise/config.toml).
     #[usage(long = "local")]
     pub local: bool,
-    /// Only upgrade to versions released before this date or older than this duration
-    ///
     /// Only upgrade to versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
@@ -5285,8 +4943,6 @@ pub struct UpgradeArgs {
     /// Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.
     #[usage(long = "monorepo")]
     pub monorepo: bool,
-    /// Do not uninstall the versions that were upgraded away from
-    ///
     /// Do not uninstall the versions that were upgraded away from
     ///
     /// By default the old version is removed once the new one installs, unless another
@@ -5306,14 +4962,10 @@ pub struct UpgradeArgs {
 
 /// Generate a usage CLI spec
 ///
-/// Generate a usage CLI spec
-///
 /// See https://usage.jdx.dev for more information on this specification.
 #[derive(Args)]
 pub struct UsageArgs {}
 
-/// Installs a tool and adds the version to mise.toml.
-///
 /// Installs a tool and adds the version to mise.toml.
 ///
 /// This will install the tool version if it is not already installed.
@@ -5353,20 +5005,14 @@ pub struct UseArgs {
     pub dry_run: bool,
     /// Specify a path to a config file or directory
     ///
-    /// Specify a path to a config file or directory
-    ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
     #[usage(long = "path", short = 'p')]
     pub path: ::std::option::Option<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
     ///
-    /// Like --dry-run but exits with code 1 if there are changes to make
-    ///
     /// This is useful for scripts to check if tools need to be added or removed.
     #[usage(long = "dry-run-code")]
     pub dry_run_code: bool,
-    /// Save fuzzy version to config file
-    ///
     /// Save fuzzy version to config file
     ///
     /// e.g.: `mise use --fuzzy node@20` will save 20 as the version
@@ -5375,15 +5021,9 @@ pub struct UseArgs {
     pub fuzzy: bool,
     /// Only install versions released before this date or older than this duration
     ///
-    /// Only install versions released before this date or older than this duration
-    ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     #[usage(long = "minimum-release-age")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
-    /// Save exact version to config file
-    /// e.g.: `mise use --pin node@20` will save 20.0.0 as the version
-    /// Set `MISE_PIN=1` to make this the default behavior
-    ///
     /// Save exact version to config file
     /// e.g.: `mise use --pin node@20` will save 20.0.0 as the version
     /// Set `MISE_PIN=1` to make this the default behavior
@@ -5400,8 +5040,6 @@ pub struct UseArgs {
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Tool(s) to add to config file
     ///
-    /// Tool(s) to add to config file
-    ///
     /// e.g.: node@20, cargo:ripgrep@latest npm:prettier@3
     /// If no version is specified, it will default to @latest
     ///
@@ -5414,8 +5052,6 @@ pub struct UseArgs {
 
 /// Display the version of mise
 ///
-/// Display the version of mise
-///
 /// Displays the version, os, architecture, and the date of the build.
 ///
 /// If the version is out of date, it will display a warning.
@@ -5426,8 +5062,6 @@ pub struct VersionArgs {
     pub json: bool,
 }
 
-/// Run task(s) and watch for changes to rerun it
-///
 /// Run task(s) and watch for changes to rerun it
 ///
 /// This command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s).
@@ -5449,8 +5083,6 @@ pub struct WatchArgs {
     pub skip_deps: bool,
     /// Watch a specific file or directory
     ///
-    /// Watch a specific file or directory
-    ///
     /// By default, Watchexec watches the current directory.
     ///
     /// When watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.
@@ -5464,15 +5096,11 @@ pub struct WatchArgs {
     pub watch: ::std::vec::Vec<::std::string::String>,
     /// Watch a specific directory, non-recursively
     ///
-    /// Watch a specific directory, non-recursively
-    ///
     /// Unlike '-w', folders watched with this option are not recursed into.
     ///
     /// This option can be specified multiple times to watch multiple directories non-recursively.
     #[usage(long = "watch-non-recursive", short = 'W', var)]
     pub watch_non_recursive: ::std::vec::Vec<::std::string::String>,
-    /// Watch files and directories from a file
-    ///
     /// Watch files and directories from a file
     ///
     /// Each line in the file will be interpreted as if given to '-w'.
@@ -5484,13 +5112,9 @@ pub struct WatchArgs {
     pub watch_file: ::std::option::Option<::std::string::String>,
     /// Clear screen before running command
     ///
-    /// Clear screen before running command
-    ///
     /// If this doesn't completely clear the screen, try '--clear=reset'.
     #[usage(long = "clear", short = 'c', choices("clear", "reset"))]
     pub clear: ::std::option::Option<::std::string::String>,
-    /// What to do when receiving events while the command is running
-    ///
     /// What to do when receiving events while the command is running
     ///
     /// Default is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.
@@ -5505,13 +5129,9 @@ pub struct WatchArgs {
     pub on_busy_update: ::std::option::Option<::std::string::String>,
     /// Restart the process if it's still running
     ///
-    /// Restart the process if it's still running
-    ///
     /// This is a shorthand for '--on-busy-update=restart'.
     #[usage(long = "restart", short = 'r')]
     pub restart: bool,
-    /// Send a signal to the process when it's still running
-    ///
     /// Send a signal to the process when it's still running
     ///
     /// Specify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.
@@ -5521,8 +5141,6 @@ pub struct WatchArgs {
     /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
     #[usage(long = "signal", short = 's')]
     pub signal: ::std::option::Option<::std::string::String>,
-    /// Signal to send to stop the command
-    ///
     /// Signal to send to stop the command
     ///
     /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
@@ -5536,8 +5154,6 @@ pub struct WatchArgs {
     pub stop_signal: ::std::option::Option<::std::string::String>,
     /// Time to wait for the command to exit gracefully
     ///
-    /// Time to wait for the command to exit gracefully
-    ///
     /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.
     ///
     /// Takes a unit-less value in seconds, or a time span value such as "5min 20s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
@@ -5547,8 +5163,6 @@ pub struct WatchArgs {
     /// This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
     #[usage(long = "stop-timeout", default = "10s")]
     pub stop_timeout: ::std::option::Option<::std::string::String>,
-    /// Translate signals from the OS to signals to send to the command
-    ///
     /// Translate signals from the OS to signals to send to the command
     ///
     /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
@@ -5562,8 +5176,6 @@ pub struct WatchArgs {
     pub map_signal: ::std::vec::Vec<::std::string::String>,
     /// Time to wait for new events before taking action
     ///
-    /// Time to wait for new events before taking action
-    ///
     /// When an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.
     ///
     /// An alternative use is to set a high value (like "30min" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.
@@ -5575,13 +5187,9 @@ pub struct WatchArgs {
     pub debounce: ::std::option::Option<::std::string::String>,
     /// Exit when stdin closes
     ///
-    /// Exit when stdin closes
-    ///
     /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around.
     #[usage(long = "stdin-quit")]
     pub stdin_quit: bool,
-    /// Don't load gitignores
-    ///
     /// Don't load gitignores
     ///
     /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
@@ -5589,8 +5197,6 @@ pub struct WatchArgs {
     /// This option is useful if you want to watch files that are ignored by Git.
     #[usage(long = "no-vcs-ignore")]
     pub no_vcs_ignore: bool,
-    /// Don't load project-local ignores
-    ///
     /// Don't load project-local ignores
     ///
     /// This disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the
@@ -5614,8 +5220,6 @@ pub struct WatchArgs {
     pub no_project_ignore: bool,
     /// Don't load global ignores
     ///
-    /// Don't load global ignores
-    ///
     /// This disables loading of global or user ignore files, like '~/.gitignore',
     /// '~/.config/watchexec/ignore', or '%APPDATA%\Bazaar\2.0\ignore'. Contrast with
     /// '--no-vcs-ignore' and '--no-project-ignore'.
@@ -5633,13 +5237,9 @@ pub struct WatchArgs {
     pub no_global_ignore: bool,
     /// Don't use internal default ignores
     ///
-    /// Don't use internal default ignores
-    ///
     /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files.
     #[usage(long = "no-default-ignore")]
     pub no_default_ignore: bool,
-    /// Don't discover ignore files at all
-    ///
     /// Don't discover ignore files at all
     ///
     /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.
@@ -5649,8 +5249,6 @@ pub struct WatchArgs {
     pub no_discover_ignore: bool,
     /// Don't ignore anything at all
     ///
-    /// Don't ignore anything at all
-    ///
     /// This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
     ///
     /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
@@ -5658,13 +5256,9 @@ pub struct WatchArgs {
     pub ignore_nothing: bool,
     /// Wait until first change before running command
     ///
-    /// Wait until first change before running command
-    ///
     /// By default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal.
     #[usage(long = "postpone", short = 'p')]
     pub postpone: bool,
-    /// Sleep before running the command
-    ///
     /// Sleep before running the command
     ///
     /// This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
@@ -5674,8 +5268,6 @@ pub struct WatchArgs {
     pub delay_run: ::std::option::Option<::std::string::String>,
     /// Poll for filesystem changes
     ///
-    /// Poll for filesystem changes
-    ///
     /// By default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.
     ///
     /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
@@ -5683,8 +5275,6 @@ pub struct WatchArgs {
     /// Aliased as '--force-poll'.
     #[usage(long = "poll")]
     pub poll: ::std::option::Option<::std::string::String>,
-    /// Use a different shell
-    ///
     /// Use a different shell
     ///
     /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.
@@ -5725,8 +5315,6 @@ pub struct WatchArgs {
     /// Shorthand for '--shell=none'
     #[usage(short = 'n')]
     pub n: bool,
-    /// Configure event emission
-    ///
     /// Configure event emission
     ///
     /// Watchexec can emit event information when running a command, which can be used by the child
@@ -5835,7 +5423,7 @@ pub struct WatchArgs {
     pub emit_events_to: ::std::option::Option<::std::string::String>,
     /// Only emit events to stdout, run no commands
     ///
-    /// Only emit events to stdout, run no commands.
+    /// .
     ///
     /// This is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.
     ///
@@ -5844,15 +5432,11 @@ pub struct WatchArgs {
     pub only_emit_events: bool,
     /// Add env vars to the command
     ///
-    /// Add env vars to the command
-    ///
     /// This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
     ///
     /// Use key=value syntax. Multiple variables can be set by repeating the option.
     #[usage(long = "env", short = 'E', var)]
     pub env: ::std::vec::Vec<::std::string::String>,
-    /// Configure how the process is wrapped
-    ///
     /// Configure how the process is wrapped
     ///
     /// By default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.
@@ -5864,13 +5448,9 @@ pub struct WatchArgs {
     pub wrap_process: ::std::option::Option<::std::string::String>,
     /// Alert when commands start and end
     ///
-    /// Alert when commands start and end
-    ///
     /// With this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
     #[usage(long = "notify", short = 'N')]
     pub notify: bool,
-    /// When to use terminal colours
-    ///
     /// When to use terminal colours
     ///
     /// Setting the environment variable `NO_COLOR` to any value is equivalent to `--color=never`.
@@ -5878,13 +5458,9 @@ pub struct WatchArgs {
     pub color: ::std::option::Option<::std::string::String>,
     /// Print how long the command took to run
     ///
-    /// Print how long the command took to run
-    ///
     /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
     #[usage(long = "timings")]
     pub timings: bool,
-    /// Don't print starting and stopping messages
-    ///
     /// Don't print starting and stopping messages
     ///
     /// By default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed.
@@ -5893,8 +5469,6 @@ pub struct WatchArgs {
     /// Ring the terminal bell on command completion
     #[usage(long = "bell")]
     pub bell: bool,
-    /// Set the project origin
-    ///
     /// Set the project origin
     ///
     /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.
@@ -5906,13 +5480,9 @@ pub struct WatchArgs {
     pub project_origin: ::std::option::Option<::std::string::String>,
     /// Set the working directory
     ///
-    /// Set the working directory
-    ///
     /// By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
     #[usage(long = "workdir")]
     pub workdir: ::std::option::Option<::std::string::String>,
-    /// Filename extensions to filter to
-    ///
     /// Filename extensions to filter to
     ///
     /// This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
@@ -5920,13 +5490,9 @@ pub struct WatchArgs {
     pub exts: ::std::vec::Vec<::std::string::String>,
     /// Filename patterns to filter to
     ///
-    /// Filename patterns to filter to
-    ///
     /// Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
     #[usage(long = "filter", short = 'f', var)]
     pub filter: ::std::vec::Vec<::std::string::String>,
-    /// Files to load filters from
-    ///
     /// Files to load filters from
     ///
     /// Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
@@ -5936,7 +5502,7 @@ pub struct WatchArgs {
     pub filter_file: ::std::vec::Vec<::std::string::String>,
     /// [experimental] Filter programs
     ///
-    /// [experimental] Filter programs.
+    /// .
     ///
     /// /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
     ///
@@ -5985,13 +5551,9 @@ pub struct WatchArgs {
     pub filter_prog: ::std::vec::Vec<::std::string::String>,
     /// Filename patterns to filter out
     ///
-    /// Filename patterns to filter out
-    ///
     /// Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
     #[usage(long = "ignore", short = 'i', var)]
     pub ignore: ::std::vec::Vec<::std::string::String>,
-    /// Files to load ignores from
-    ///
     /// Files to load ignores from
     ///
     /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
@@ -5999,8 +5561,6 @@ pub struct WatchArgs {
     /// This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
     #[usage(long = "ignore-file", var)]
     pub ignore_file: ::std::vec::Vec<::std::string::String>,
-    /// Filesystem events to filter to
-    ///
     /// Filesystem events to filter to
     ///
     /// This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
@@ -6014,13 +5574,9 @@ pub struct WatchArgs {
     pub fs_events: ::std::vec::Vec<::std::string::String>,
     /// Don't emit fs events for metadata changes
     ///
-    /// Don't emit fs events for metadata changes
-    ///
     /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed.
     #[usage(long = "no-meta")]
     pub no_meta: bool,
-    /// Print events that trigger actions
-    ///
     /// Print events that trigger actions
     ///
     /// This prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.
@@ -6028,8 +5584,6 @@ pub struct WatchArgs {
     /// Use '-vvv' instead when you need more diagnostic information.
     #[usage(long = "print-events")]
     pub print_events: bool,
-    /// Show the manual page
-    ///
     /// Show the manual page
     ///
     /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
@@ -6045,8 +5599,6 @@ pub struct WatchArgs {
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Display the installation path for a tool
-///
 /// Display the installation path for a tool
 ///
 /// The tool must be installed for this to work.
@@ -6066,8 +5618,6 @@ pub struct WhereArgs {
     pub asdf_version: ::std::option::Option<::std::string::String>,
 }
 
-/// Shows the path that a tool's bin points to.
-///
 /// Shows the path that a tool's bin points to.
 ///
 /// Use this to figure out what version of a tool is currently active.
@@ -6147,13 +5697,9 @@ pub struct Cli {
     pub log_level: ::std::option::Option<::std::string::String>,
     /// Do not load any config files
     ///
-    /// Do not load any config files
-    ///
     /// Can also use `MISE_NO_CONFIG=1`
     #[usage(long = "no-config")]
     pub no_config: bool,
-    /// Do not load environment variables from config files
-    ///
     /// Do not load environment variables from config files
     ///
     /// Can also use `MISE_NO_ENV=1`
@@ -6161,13 +5707,9 @@ pub struct Cli {
     pub no_env: bool,
     /// Do not execute hooks from config files
     ///
-    /// Do not execute hooks from config files
-    ///
     /// Can also use `MISE_NO_HOOKS=1`
     #[usage(long = "no-hooks")]
     pub no_hooks: bool,
-    /// Hides elapsed time after each task completes
-    ///
     /// Hides elapsed time after each task completes
     ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
@@ -6181,8 +5723,6 @@ pub struct Cli {
     pub raw: bool,
     /// Require lockfile URLs to be present during installation
     ///
-    /// Require lockfile URLs to be present during installation
-    ///
     /// Fails if tools don't have pre-resolved URLs in the lockfile for the current platform.
     /// This prevents API calls to GitHub, aqua registry, etc.
     /// Can also be enabled via MISE_LOCKED=1 or settings.locked=true
@@ -6193,8 +5733,6 @@ pub struct Cli {
     pub silent: bool,
     /// Shows elapsed time after each task completes
     ///
-    /// Shows elapsed time after each task completes
-    ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
     #[usage(long = "timings", hide)]
     pub timings: bool,
@@ -6203,7 +5741,7 @@ pub struct Cli {
     pub trace: bool,
     /// Task to run
     ///
-    /// Task to run.
+    /// .
     ///
     /// Shorthand for `mise tasks run <TASK>`.
     #[usage(arg, name = "TASK")]

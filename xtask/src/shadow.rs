@@ -400,11 +400,20 @@ fn emit_flag_with(
                     // values, which is a different claim from a repeatable flag.
                     opts.push("variadic".into());
                 }
-                if let Some(min) = arg.var_min {
+                // The spec can bound a repeatable flag on the flag itself as well as on
+                // its argument, and usage-lib enforces both against the values
+                // collected. The derive has one pair of bounds, so the flag's own win
+                // and a second, differing pair is a loss worth counting.
+                if let Some(min) = flag.var_min.or(arg.var_min) {
                     opts.push(format!("var_min = {min}"));
                 }
-                if let Some(max) = arg.var_max {
+                if let Some(max) = flag.var_max.or(arg.var_max) {
                     opts.push(format!("var_max = {max}"));
+                }
+                if (flag.var_min.is_some() && arg.var_min.is_some())
+                    || (flag.var_max.is_some() && arg.var_max.is_some())
+                {
+                    skipped.note("a bound on both a flag and its argument");
                 }
                 "::std::vec::Vec<::std::string::String>"
             } else if flag.required {
@@ -525,13 +534,23 @@ fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: 
     for line in help.lines() {
         writeln!(out, "{indent}/// {}", escape_doc(line)).expect("writing to a String");
     }
-    // The long form is the whole comment, so it follows a blank line — and only when it
-    // says something the short form did not.
-    if let Some(long) = long.filter(|l| l.trim() != help.trim() && !l.trim().is_empty()) {
-        writeln!(out, "{indent}///").expect("writing to a String");
-        for line in long.lines() {
-            writeln!(out, "{indent}/// {}", escape_doc(line)).expect("writing to a String");
-        }
+    // The long form is the whole comment, so it follows a blank line — and only what it
+    // says beyond the short form.
+    //
+    // A spec's long help usually *opens* with its short help, which is the convention the
+    // derive reads back: first paragraph short, whole comment long. Writing both in full
+    // repeated that opening paragraph on nearly every command mise has, so only the
+    // remainder goes here.
+    let Some(long) = long.map(str::trim).filter(|l| !l.is_empty()) else {
+        return;
+    };
+    let rest = long.strip_prefix(help.trim()).unwrap_or(long).trim();
+    if rest.is_empty() {
+        return;
+    }
+    writeln!(out, "{indent}///").expect("writing to a String");
+    for line in rest.lines() {
+        writeln!(out, "{indent}/// {}", escape_doc(line)).expect("writing to a String");
     }
 }
 
@@ -666,6 +685,35 @@ mod tests {
             out.contains("pub command: ::std::option::Option<OuterCommands>,"),
             "an optional subcommand should be: {out}"
         );
+    }
+
+    #[test]
+    fn long_help_does_not_repeat_the_short_form() {
+        // A spec's long help opens with its short help, and the derive reads a doc
+        // comment the same way — first paragraph short, whole comment long. Writing both
+        // in full said the first paragraph twice, on nearly every command mise has.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" help=\"How many\" \\
+                long_help=\"How many\\n\\nAnd why it matters.\"\n",
+        );
+        assert_eq!(
+            out.matches("/// How many").count(),
+            1,
+            "the short form should appear once: {out}"
+        );
+        assert!(out.contains("/// And why it matters."), "{out}");
+    }
+
+    #[test]
+    fn a_flag_carries_its_own_bounds() {
+        // The spec can bound a repeatable flag on the flag or on its argument, and
+        // usage-lib enforces both. Reading only the argument's dropped occurrence limits
+        // silently — mise declares none, so nothing generated would have shown it.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_min=1 var_max=5\n",
+        );
+        assert!(out.contains("var_min = 1"), "{out}");
+        assert!(out.contains("var_max = 5"), "{out}");
     }
 
     #[test]
