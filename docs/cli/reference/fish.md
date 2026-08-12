@@ -3,7 +3,7 @@
 # `usage fish`
 
 - **Usage**: `usage fish [-h] [--help] <SCRIPT> [ARGS]…`
-- **Source code**: [`cli/src/cli/fish.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/fish.rs)
+- **Source code**: [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
 
 Execute a shell script with the specified shell
 

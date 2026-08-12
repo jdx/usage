@@ -3,7 +3,7 @@
 # `usage bash`
 
 - **Usage**: `usage bash [-h] [--help] <SCRIPT> [ARGS]…`
-- **Source code**: [`cli/src/cli/bash.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/bash.rs)
+- **Source code**: [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
 
 Execute a shell script with the specified shell
 
