@@ -1130,6 +1130,13 @@ pub struct Variant {
     pub name: String,
     /// The struct the variant wraps.
     pub ty: Type,
+    /// Other names this command answers to.
+    ///
+    /// Kept apart from [`hidden_aliases`](Self::hidden_aliases) only for the spec: the
+    /// parser matches both, and the difference is whether help and completions mention
+    /// them. mise has 67 of the first and 24 of the second.
+    pub aliases: Vec<String>,
+    pub hidden_aliases: Vec<String>,
     pub help: Option<String>,
     pub long_help: Option<String>,
 }
@@ -1156,16 +1163,27 @@ impl Subcommands {
             .map(Variant::from_variant)
             .collect::<syn::Result<Vec<_>>>()?;
 
+        // Every name a command answers to, its aliases included: the parser takes the
+        // first table entry that matches, so a name claimed twice means one of the two
+        // commands can never be reached and nothing would have said so.
         let mut seen: Vec<(&str, Span)> = Vec::new();
         for variant in &variants {
-            if let Some((_, first)) = seen.iter().find(|(n, _)| *n == variant.name) {
-                return Err(dup(
-                    variant.ty.span(),
-                    *first,
-                    &format!("two variants are both called `{}`", variant.name),
-                ));
+            for name in std::iter::once(&variant.name)
+                .chain(&variant.aliases)
+                .chain(&variant.hidden_aliases)
+            {
+                if let Some((_, first)) = seen.iter().find(|(n, _)| n == name) {
+                    return Err(dup(
+                        variant.ty.span(),
+                        *first,
+                        &format!(
+                            "`{name}` names two of these commands, counting aliases, so one \
+                             of them could never be reached"
+                        ),
+                    ));
+                }
+                seen.push((name, variant.ty.span()));
             }
-            seen.push((&variant.name, variant.ty.span()));
         }
 
         // Two variants cannot wrap the same struct. A command's values are collected
@@ -1207,23 +1225,42 @@ impl Variant {
     fn from_variant(variant: &syn::Variant) -> syn::Result<Self> {
         let (help, long_help) = doc_comment(&variant.attrs)?;
         let mut name = to_kebab(&variant.ident.to_string());
+        let mut aliases: Vec<String> = Vec::new();
+        let mut hidden_aliases: Vec<String> = Vec::new();
 
         for attr in attrs(&variant.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "name" => name = strip_dashes(&string_value(&meta)?),
+                    // One as a value or several as a list, as the relationship options do.
+                    "alias" => aliases.extend(selectors(&meta)?),
+                    "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name` here, and its description comes \
-                                 from the doc comment"
+                                 variant takes `name`, `alias` and `alias_hidden` here, \
+                                 and its description comes from the doc comment"
                             ),
                         ));
                     }
                 }
+            }
+        }
+        for alias in aliases.iter().chain(&hidden_aliases) {
+            if alias.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "an alias with no name would answer to nothing",
+                ));
+            }
+            if *alias == name {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    format!("`{alias}` is this command's own name, not another name for it"),
+                ));
             }
         }
 
@@ -1247,6 +1284,8 @@ impl Variant {
             ident: variant.ident.clone(),
             name,
             ty,
+            aliases,
+            hidden_aliases,
             help,
             long_help,
         })
@@ -1255,7 +1294,7 @@ impl Variant {
 
 #[cfg(test)]
 mod tests {
-    use super::Cli;
+    use super::{Cli, Subcommands};
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -1347,6 +1386,66 @@ mod tests {
             err.contains("only separator there is"),
             "unhelpful message: {err}"
         );
+    }
+
+    fn subcommands(body: &str) -> syn::Result<Subcommands> {
+        Subcommands::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
+    }
+
+    /// The message a bad enum produces.
+    fn enum_rejection(body: &str) -> String {
+        match subcommands(body) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    #[test]
+    fn an_alias_cannot_name_a_sibling() {
+        // The parser takes the first table entry that matches, so a name claimed twice
+        // leaves one command unreachable — silently, which is the part worth refusing.
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                Install(Install),
+                #[usage(alias = "install")]
+                Add(Add),
+            }
+        "#,
+        );
+        assert!(
+            err.contains("names two of these"),
+            "unhelpful message: {err}"
+        );
+
+        // Including two aliases that collide with each other rather than with a name.
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(alias = "rm")]
+                Remove(Remove),
+                #[usage(alias_hidden = "rm")]
+                Delete(Delete),
+            }
+        "#,
+        );
+        assert!(
+            err.contains("names two of these"),
+            "unhelpful message: {err}"
+        );
+
+        // Distinct names and aliases are fine.
+        subcommands(
+            r#"
+            enum Commands {
+                #[usage(alias = "i", alias_hidden = "add")]
+                Install(Install),
+                #[usage(alias("rm", "uninstall"))]
+                Remove(Remove),
+            }
+        "#,
+        )
+        .expect("distinct aliases should compile");
     }
 
     #[test]

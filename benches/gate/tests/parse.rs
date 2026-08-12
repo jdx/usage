@@ -130,3 +130,20 @@ fn a_command_that_requires_a_subcommand_refuses_to_stand_alone() {
     let a = argv(["build"]);
     Cli::parse_from(&a).expect("a bare task should parse");
 }
+
+#[test]
+fn a_command_answers_to_its_alias() {
+    // 91 of mise's commands have a second name, and until the derive could declare one
+    // the shadow rejected invocations the real thing accepts. `mise i` is `mise install`.
+    let a = argv(["i", "node@20"]);
+    let cli = Cli::parse_from(&a).expect("`mise i` should parse");
+    let Some(Commands::Install(install)) = cli.command else {
+        panic!("`i` should have selected install")
+    };
+    assert_eq!(install.tool_version, ["node@20"]);
+
+    // And a hidden one, which is matched but kept out of help.
+    let a = argv(["x", "--", "node", "-e", "1"]);
+    let cli = Cli::parse_from(&a).expect("`mise x` should parse");
+    assert!(matches!(cli.command, Some(Commands::Exec(_))));
+}

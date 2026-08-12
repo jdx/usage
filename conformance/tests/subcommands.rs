@@ -236,3 +236,91 @@ fn the_emitted_spec_reads_the_way_a_handwritten_one_would() {
     // involved.
     insta::assert_snapshot!(Ex::to_kdl());
 }
+
+/// Commands that answer to more than one name.
+///
+/// mise has 91 of these — `i` for `install`, `x` for `exec`, `r` for `tasks run` — and
+/// until now the derive could not declare one, so a shadow of mise rejected invocations
+/// the real thing accepts.
+#[derive(Subcommands)]
+enum AliasedCommands {
+    /// Install a tool
+    #[usage(alias = "i", alias_hidden = "add")]
+    Install(AliasedInstallArgs),
+    /// Remove a tool
+    #[usage(alias("rm", "uninstall"))]
+    Remove(AliasedRemoveArgs),
+}
+
+/// Install a tool
+#[derive(Args)]
+struct AliasedInstallArgs {
+    /// What to install
+    #[usage(arg, name = "TOOL")]
+    tool: Option<String>,
+}
+
+/// Remove a tool
+#[derive(Args)]
+struct AliasedRemoveArgs {
+    /// Say nothing
+    #[usage(long)]
+    quiet: bool,
+}
+
+/// A tool with aliased commands
+#[derive(Cli)]
+#[usage(bin = "al")]
+struct Aliased {
+    #[usage(subcommand)]
+    command: Option<AliasedCommands>,
+}
+
+#[test]
+fn a_command_answers_to_its_aliases() {
+    for word in ["install", "i", "add"] {
+        let a = argv([word, "node@20"]);
+        let Some(AliasedCommands::Install(install)) =
+            Aliased::parse_from(&a).expect("should parse").command
+        else {
+            panic!("`{word}` should have selected install")
+        };
+        assert_eq!(install.tool.as_deref(), Some("node@20"));
+    }
+
+    for word in ["remove", "rm", "uninstall"] {
+        let a = argv([word, "--quiet"]);
+        let Some(AliasedCommands::Remove(remove)) =
+            Aliased::parse_from(&a).expect("should parse").command
+        else {
+            panic!("`{word}` should have selected remove")
+        };
+        assert!(remove.quiet);
+    }
+}
+
+#[test]
+fn the_spec_says_which_aliases_are_hidden() {
+    let spec: LibSpec = Aliased::to_kdl().parse().expect("valid spec");
+    let install = spec.cmd.subcommands.get("install").expect("install");
+    assert_eq!(install.aliases, vec!["i".to_string()]);
+    assert_eq!(install.hidden_aliases, vec!["add".to_string()]);
+
+    let remove = spec.cmd.subcommands.get("remove").expect("remove");
+    assert_eq!(
+        remove.aliases,
+        vec!["rm".to_string(), "uninstall".to_string()]
+    );
+    assert!(remove.hidden_aliases.is_empty());
+
+    // And usage-lib resolves them, which is how completions follow an alias. Its
+    // `subcommands` map is keyed by name only — the aliases live in a lookup built
+    // alongside it.
+    for word in ["install", "i", "add"] {
+        assert_eq!(
+            spec.cmd.find_subcommand(word).map(|c| c.name.as_str()),
+            Some("install"),
+            "usage-lib should resolve `{word}`"
+        );
+    }
+}

@@ -264,12 +264,6 @@ fn emit_command(
         .map(|(name, sub)| (name, sub, Type::child(ty, name, sub, names)))
         .collect();
     for (_, sub, _) in &children {
-        for _ in &sub.aliases {
-            skipped.note("a command alias");
-        }
-        for _ in &sub.hidden_aliases {
-            skipped.note("a hidden command alias");
-        }
         if !sub.mounts.is_empty() {
             skipped.note("a `mount` on a command");
         }
@@ -366,12 +360,43 @@ fn emit_command(
             // Written whenever the variant name is not the command name: both derives
             // would otherwise kebab-case the variant and mostly get it right, and
             // "mostly" is not a grammar.
+            let mut opts: Vec<String> = Vec::new();
             if variant != **name {
+                opts.push(format!("name = {name:?}"));
+            }
+            // Both frameworks can declare these, so both shadows carry them: 91 of mise's
+            // commands answer to a second name, and a shadow that rejected `mise i` would
+            // be measuring a smaller CLI than the one it claims to shadow.
+            match dialect {
+                Dialect::Usage => {
+                    if !sub.aliases.is_empty() {
+                        opts.push(alias_list("alias", &sub.aliases));
+                    }
+                    if !sub.hidden_aliases.is_empty() {
+                        opts.push(alias_list("alias_hidden", &sub.hidden_aliases));
+                    }
+                }
+                // clap spells one and several differently, and repeating the singular
+                // form is not the same as the plural one.
+                Dialect::Clap => {
+                    match sub.aliases.as_slice() {
+                        [] => {}
+                        [one] => opts.push(format!("visible_alias = {one:?}")),
+                        many => opts.push(format!("visible_aliases = [{}]", quoted_list(many))),
+                    }
+                    match sub.hidden_aliases.as_slice() {
+                        [] => {}
+                        [one] => opts.push(format!("alias = {one:?}")),
+                        many => opts.push(format!("aliases = [{}]", quoted_list(many))),
+                    }
+                }
+            }
+            if !opts.is_empty() {
                 let attr = match dialect {
-                    Dialect::Usage => format!("    #[usage(name = {name:?})]\n"),
-                    Dialect::Clap => format!("    #[command(name = {name:?})]\n"),
+                    Dialect::Usage => "usage",
+                    Dialect::Clap => "command",
                 };
-                out.push_str(&attr);
+                out.push_str(&format!("    #[{attr}({})]\n", opts.join(", ")));
             }
             out.push_str(&format!("    {variant}({}),\n", sub_ty.args));
         }
@@ -768,6 +793,14 @@ fn quoted_list(values: &[String]) -> String {
         .join(", ")
 }
 
+/// `alias("a", "b")`, or `alias = "a"` for one.
+fn alias_list(option: &str, aliases: &[String]) -> String {
+    if let [one] = aliases {
+        return format!("{option} = {one:?}");
+    }
+    format!("{option}({})", quoted_list(aliases))
+}
+
 /// `conflicts("--a", "--b")`, or `conflicts = "--a"` for one.
 fn selector_list(option: &str, selectors: &[String]) -> String {
     if let [one] = selectors {
@@ -1068,10 +1101,11 @@ mod tests {
         let (_, skipped) = rendered(
             "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\ncmd \"go\" {\n  alias \"g\"\n}\n",
         );
-        assert_eq!(skipped.counts.get("a command alias"), Some(&1));
         assert_eq!(
             skipped.counts.get("`default_subcommand` on a command"),
             Some(&1)
         );
+        // The alias is expressible, so it is carried rather than counted.
+        assert!(!skipped.counts.contains_key("a command alias"));
     }
 }

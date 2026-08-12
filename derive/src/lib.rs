@@ -155,6 +155,11 @@
 //! something else. `required_unless` also needs somewhere to put "absent", so it takes
 //! an `Option` rather than a bare `String`.
 //!
+//! A `Subcommands` variant takes `name`, and the two ways to give a command another
+//! name: `alias = "i"` for one it should advertise, `alias_hidden = "add"` for one it
+//! should answer to quietly, each accepting several as a list. The parser matches both;
+//! the difference is only whether help and completions mention them.
+//!
 //! # What this version does not do
 //!
 //! Published early on purpose, so it can be used and argued with — but these are
