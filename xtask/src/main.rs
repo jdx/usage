@@ -1,0 +1,40 @@
+//! Maintainer tasks. One so far: turning a spec into a shadow CLI.
+//!
+//! `gen-shadow <spec.kdl> <out-dir>` reads a usage spec and writes a crate whose
+//! `#[derive(usage::Cli)]` types declare the same commands, flags and arguments. The
+//! point is the benchmark: to compare this parser against clap at a real CLI's scale
+//! you need the same CLI expressed both ways, and mise's 210 commands are not
+//! something to transcribe by hand.
+//!
+//! It is deliberately a *shadow* — it parses and does nothing else. What it proves is
+//! that the derive can express a real spec, and how fast the result is.
+
+use std::collections::{BTreeMap, HashSet};
+use std::fmt::Write as _;
+use std::path::Path;
+
+use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+
+mod shadow;
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let (cmd, rest) = args
+        .split_first()
+        .map(|(c, r)| (c.as_str(), r))
+        .unwrap_or(("help", &[] as &[String]));
+    match cmd {
+        "gen-shadow" => match rest {
+            [spec, out] => shadow::generate(Path::new(spec), Path::new(out)),
+            _ => fail("gen-shadow needs a spec file and an output directory"),
+        },
+        other => fail(&format!(
+            "unknown task `{other}`; the tasks are: gen-shadow <spec.kdl> <out-dir>"
+        )),
+    }
+}
+
+fn fail(message: &str) -> ! {
+    eprintln!("xtask: {message}");
+    std::process::exit(1)
+}

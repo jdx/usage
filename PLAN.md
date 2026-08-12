@@ -147,6 +147,10 @@ carrying them rather than being worked around.
       forty `conflicts_with` relationships mise declares in clap were being dropped
       by the bridge. Now a flag property, enforced by usage-lib, and a value from
       the environment counts on both sides of the check as clap does.
+- [x] **An argument after a variadic, when it needs a `--`** — the derive refused the
+      shape mise uses on `run`, `exec` and `git`: `[ARGS]…` for the words before the
+      separator and `[-- ARGS_LAST]…` for the ones after. Both parsers already bound it;
+      only the derive's validation disagreed. Found by compiling the mise shadow.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
@@ -173,8 +177,16 @@ Everything above is speculative until this passes. Baseline is mise's current
 clap parser at mise's real scale, using a shadow CLI generated from mise's
 checked-in `mise.usage.kdl` for both parsers.
 
-- [ ] **Bench harness** — `tak` instruction counts plus criterion, and an
-      `xtask gen-shadow` that turns any `.usage.kdl` into a shadow crate.
+- [x] **Shadow generation** — `xtask gen-shadow` turns any `.usage.kdl` into a crate
+      of derived types. mise's committed 5,592-line spec compiles: 211 commands, 711
+      flags, 128 arguments, four levels deep, in 2.6s. Seventeen things are dropped and
+      the generator names them — 13 secondary flag aliases, 3 `double_dash="automatic"`,
+      1 default on a collecting flag.
+- [ ] **Bench harness** — the clap-equivalent shadow to measure against, `tak` gating in
+      CI, and criterion for wall clock. A first measurement of the usage side alone, at
+      mise's full scale, is 100k–106k instructions per parse for the parse itself
+      (process total minus a null binary that does everything but parse), near-constant
+      across invocation shapes — as static tables should be, with no tree to build.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
       spec, to find disagreements the corpus did not think of.
 - [ ] **Perf report** — published honestly, whichever way it goes.

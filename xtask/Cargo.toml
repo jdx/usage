@@ -1,0 +1,10 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.80.0"
+license.workspace = true
+publish = false
+
+[dependencies]
+usage-lib = { path = "../lib" }

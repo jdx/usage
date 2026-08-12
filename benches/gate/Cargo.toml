@@ -1,0 +1,14 @@
+# The gate: the same command line, parsed by the shadow and by clap, measured with
+# instruction counts. Two binaries rather than one benchmark harness, because the cost
+# being compared includes what happens before `main` gets a parser — clap builds its
+# command tree at runtime, and a harness that built it once outside the loop would
+# measure the half of clap that is already fast.
+[package]
+name = "gate"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+shadow-mise = { path = "../shadows/mise" }
+usage-argv = { path = "../../argv" }

@@ -1,4 +1,6 @@
 /target
+# valgrind leaves these beside whatever directory it was run from
+cachegrind.out.*
 /schema/usage.json
 .aube/
 /node_modules/

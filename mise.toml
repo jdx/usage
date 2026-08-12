@@ -135,6 +135,13 @@ includes = ['tasks']
 [tasks.install-dev]
 run = "cargo install --path cli --debug"
 
+# Regenerate the shadow CLIs the gate measures. Checked in rather than built by a
+# `build.rs`, so that the compile-time comparison has a fixed input and a reviewer can
+# read the diff when the derive's vocabulary changes.
+[tasks."gen-shadow"]
+dir = "{{config_root}}"
+run = "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise"
+
 # Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
 # without it tak reports wall clock only and says so, so this still works on
 # macOS where there is no usable cachegrind.

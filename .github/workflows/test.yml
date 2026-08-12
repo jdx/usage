@@ -41,10 +41,13 @@ jobs:
       - run: mise r build
       - run: mise r test
       - run: mise r render
-      - name: assert render produces no diff
+      # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
+      # vocabulary that would alter it has to be committed rather than discovered later.
+      - run: mise r gen-shadow
+      - name: assert render and gen-shadow produce no diff
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::'mise run render' produced changes. Run it locally and commit."
+            echo "::error::'mise run render' or 'mise run gen-shadow' produced changes. Run them locally and commit."
             git status
             git diff
             exit 1
