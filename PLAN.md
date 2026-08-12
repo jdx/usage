@@ -132,26 +132,22 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       a different file, silently. Costs +656 instructions (1.6%) and one allocation, which
       is what not corrupting a value is worth. It also retired the hazard of recognising
       `String` by its spelling, since there is no identity case left.
-- [x] **Accepting a value that is not valid UTF-8** — reporting it was the safe half;
-      accepting it is the whole fix, because the operating system does accept `/tmp/\xff` as a
-      filename and a CLI that cannot receive one cannot open the file. A `PathBuf` or
-      `OsString` field takes the bytes exactly, through `usage_argv::os_string_from_bytes`.
-
-      **And with no `unsafe` anywhere.** On Unix an `OsString` is an arbitrary byte sequence,
-              so this is the safe `OsString::from_vec` and every byte survives — which is the case that
-              matters, since non-UTF-8 filenames are ordinary there. Windows was going to need
-              `from_encoded_bytes_unchecked`, and jdx approved that, but a *safe* function taking a
-              `Vec<u8>` cannot enforce its precondition: there is no way to know the bytes came from
-              `as_encoded_bytes` rather than from anywhere else, and a safe function whose precondition
-              a caller can violate is unsound however carefully today's callers behave. Greptile flagged
-              exactly that on #844. So Windows goes through UTF-8 and reports what will not convert,
-              which gives up only an unpaired-surrogate argument there.
-
-              Cheaper than the text path, not dearer: a `PathBuf` field costs **553 instructions per
-              parse against a `String` field's 674**, since it skips the UTF-8 validation pass, and both
-              allocate once. The gate fixture cannot show this — a spec carries no Rust types, so every
-              shadow field is a `String` — which is why it is measured directly.
-
+- [x] **Accepting a value that is not valid UTF-8** — reporting it was the safe half; accepting
+      it is the whole fix, because the operating system does accept `/tmp/\xff` as a filename and a
+      CLI that cannot receive one cannot open the file. A `PathBuf` or `OsString` field takes the
+      bytes exactly, through `usage_argv::os_string_from_bytes`. **And with no `unsafe` anywhere.** On
+      Unix an `OsString` is an arbitrary byte sequence, so this is the safe `OsString::from_vec` and
+      every byte survives — which is the case that matters, since non-UTF-8 filenames are ordinary
+      there. Windows was going to need `from_encoded_bytes_unchecked`, and jdx approved that, but a
+      _safe_ function taking a `Vec<u8>` cannot enforce its precondition: there is no way to know the
+      bytes came from `as_encoded_bytes` rather than from anywhere else, and a safe function whose
+      precondition a caller can violate is unsound however carefully today's callers behave. Greptile
+      flagged exactly that on #844. So Windows goes through UTF-8 and reports what will not convert,
+      which gives up only an unpaired-surrogate argument there. Cheaper than the text path, not
+      dearer: a `PathBuf` field costs **553 instructions per parse against a `String` field's 674**,
+      since it skips the UTF-8 validation pass, and both allocate once. The gate fixture cannot show
+      this — a spec carries no Rust types, so every shadow field is a `String` — which is why it is
+      measured directly.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
@@ -201,40 +197,30 @@ carrying them rather than being worked around.
       that they reach the KDL and that binding is unaffected. `default_subcommand` is
       checked at compile time to require a subcommand field, since it names one.
 - [x] **Routing on `default_subcommand`** — the parser reads it now, rather than the property
-      being emitted and ignored. A word naming no subcommand descends into the named command
-      and is examined again there, so it can be that command's argument or one of _its_
-      subcommands. The declaring command's own positional does not win, which is what makes
-      the property more than a synonym for an argument — and is mise's shape exactly. Taken at
-      most once per parse, so a chain of defaults cannot walk a CLI deeper than the user typed.
-
-      No measurable cost: 40,370 instructions against 40,472 before, the branch being reached
-              only by a word that matched no subcommand. The ±100 is code layout rather than work —
-              cachegrind is deterministic, and gave the same figure twice. Allocations unchanged: 0
-              bare, 4 bound.
-
-              Only a *word* routes: a dash-prefixed token naming no flag arrives as a value and was
-          never a candidate to select anything, so it binds where it was typed — as usage-lib does,
-          which stops looking for subcommands at an unrecognised flag. The name may also be an
-          alias, since usage-lib resolves it against names, aliases and hidden aliases alike.
-
-          The name is resolved by `find_subcommand` during **const evaluation**, so a
-              `default_subcommand` that no subcommand answers to is a compile error. That retires the
-              claim in the entry above that the name could not be checked: the variants are indeed
-              another expansion, but a `const fn` can search the list the parent already holds.
-
-              **What it does not buy on its own:** `mise build` still does not work end to end in the
-              shadow, because mise's spec gives `run` no positional at all — `src/cli/usage.rs` clears
-              them and adds `mount run="mise tasks --usage"`, so task names are meant to come from
-              running that. usage-argv does not execute mounts. Routing *plus* mounts is what would let
-              mise delete its hand-rolled dispatch; routing alone is half of it.
-
-              One divergence recorded (`default-is-declared-for-the-root`): usage-lib holds the single
-              name for the whole spec and applies it at whichever command it is standing on, so
-              `ex config zzz` descends into `config ls` when an unrelated `config` happens to have an
-              `ls`. Read here as a property of the root, which is the only place it can be declared.
-              **Worth a decision** — it looks accidental rather than intended, and if you agree it is a
-              small fix in usage-lib.
-
+      being emitted and ignored. A word naming no subcommand descends into the named command and is
+      examined again there, so it can be that command's argument or one of _its_ subcommands. The
+      declaring command's own positional does not win, which is what makes the property more than a
+      synonym for an argument — and is mise's shape exactly. Taken at most once per parse, so a chain
+      of defaults cannot walk a CLI deeper than the user typed. No measurable cost: 40,370
+      instructions against 40,472 before, the branch being reached only by a word that matched no
+      subcommand. The ±100 is code layout rather than work — cachegrind is deterministic, and gave the
+      same figure twice. Allocations unchanged: 0 bare, 4 bound. Only a _word_ routes: a dash-prefixed
+      token naming no flag arrives as a value and was never a candidate to select anything, so it
+      binds where it was typed — as usage-lib does, which stops looking for subcommands at an
+      unrecognised flag. The name may also be an alias, since usage-lib resolves it against names,
+      aliases and hidden aliases alike. The name is resolved by `find_subcommand` during **const
+      evaluation**, so a `default_subcommand` that no subcommand answers to is a compile error. That
+      retires the claim in the entry above that the name could not be checked: the variants are indeed
+      another expansion, but a `const fn` can search the list the parent already holds. **What it does
+      not buy on its own:** `mise build` still does not work end to end in the shadow, because mise's
+      spec gives `run` no positional at all — `src/cli/usage.rs` clears them and adds `mount run="mise
+tasks --usage"`, so task names are meant to come from running that. usage-argv does not execute
+      mounts. Routing _plus_ mounts is what would let mise delete its hand-rolled dispatch; routing
+      alone is half of it. One divergence found and then **fixed in usage-lib** rather than recorded:
+      it applied the single declared name at whichever command it was standing on, so `ex config zzz`
+      descended into `config ls` when an unrelated `config` happened to have an `ls`. A spec declares
+      one name, once, at the top. The corpus vector that recorded the difference is now an ordinary
+      agreeing vector — the reference test refused to let the label stay, which is what it is for.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
