@@ -1124,9 +1124,13 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let name = format_ident!("COMMAND_{i}");
         let ty = in_module(&v.ty);
         let cmd_name = &v.name;
+        // Both kinds of alias go in the table, because the parser matches both; which of
+        // them help and completions mention is the metadata's business, below.
+        let aliases = v.aliases.iter().chain(&v.hidden_aliases);
         quote! {
             pub static #name: ::usage_argv::Command = ::usage_argv::Command {
                 name: #cmd_name,
+                aliases: &[#(#aliases),*],
                 ..*<#ty as ::usage_argv::spec::CommandArgs>::COMMAND
             };
         }
@@ -1156,12 +1160,16 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.long_about),
             ),
         };
+        // Which of the table's aliases are hidden. The visible ones are not listed
+        // anywhere: `cmd.aliases` minus these is what help and completions show.
+        let hidden = &v.hidden_aliases;
         quote! {
             pub static #name: ::usage_argv::spec::CommandMeta =
                 ::usage_argv::spec::CommandMeta {
                     cmd: &#cmd,
                     about: #about,
                     long_about: #long_about,
+                    hidden_aliases: &[#(#hidden),*],
                     ..*<#ty as ::usage_argv::spec::CommandArgs>::META
                 };
         }
