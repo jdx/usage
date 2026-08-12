@@ -27,23 +27,12 @@ cmd = [
 ]
 runs = 10
 
-# The gate: the same mise command line parsed by each framework, plus a binary that
-# does everything except parse. The parse itself is the difference between the third
-# number and the first — roughly two thirds of a small binary's instructions are the
-# dynamic loader and libc starting up, and neither parser is responsible for those.
+# The shadow benchmarks are deliberately *not* here. tak gates everything it finds in this
+# file, and the mise shadow is a fixture that grows on purpose: teaching the derive command
+# aliases added 91 names to it and 1.5% to the count, which the gate reported as a
+# regression when it was the fixture getting bigger. A gate that fires for that teaches
+# people to ignore it.
 #
-# `use -g node@20` rather than something exotic: it selects a subcommand, takes a
-# global short, a switch and a value, which is what a real invocation looks like. The
-# cost turns out to be near constant across shapes anyway, since there is no tree to
-# build.
-[bench.gate-baseline]
-cmd = ["./target/release/parse-none", "use", "-g", "node@20"]
-runs = 10
-
-[bench.gate-usage]
-cmd = ["./target/release/parse-usage", "use", "-g", "node@20"]
-runs = 10
-
-[bench.gate-clap]
-cmd = ["./target/release/parse-clap", "use", "-g", "node@20"]
-runs = 10
+# They are measured and reported by `mise run perf:shadow`, which the pull-request workflow
+# appends to its comment. What is worth watching there is the ratio between the two
+# frameworks, which is a property of the parsers rather than of the fixture.
