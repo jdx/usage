@@ -132,13 +132,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
             // holds them as `String`, and converts lossily, which is what mise
             // already does with its own argv. Rejecting a non-UTF-8 value needs an
             // error type for value conversion, and that arrives with typed fields.
-            pub fn __usage_text(value: &[u8]) -> ::std::string::String {
-                ::std::string::String::from_utf8_lossy(value).into_owned()
+            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
+                value.to_vec()
             }
 
             pub fn __usage_value_text(
                 value: ::std::option::Option<&[u8]>,
-            ) -> ::std::string::String {
+            ) -> ::std::vec::Vec<u8> {
                 value.map(__usage_text).unwrap_or_default()
             }
 
@@ -663,9 +663,13 @@ fn partial_struct(cli: &Cli) -> TokenStream {
                 let ty = &f.ty;
                 quote!(#ty)
             }
-            Shape::Optional => quote!(::std::option::Option<::std::string::String>),
-            Shape::Required => quote!(::std::string::String),
-            Shape::Many => quote!(::std::vec::Vec<::std::string::String>),
+            // The bytes as typed, rather than text: `apply` cannot fail — it answers
+            // whether an event was this command's — so a word that is not valid UTF-8
+            // cannot be reported when it arrives. Keeping the bytes lets `build` report it,
+            // and it means no value is quietly mangled on the way in.
+            Shape::Optional => quote!(::std::option::Option<::std::vec::Vec<u8>>),
+            Shape::Required => quote!(::std::vec::Vec<u8>),
+            Shape::Many => quote!(::std::vec::Vec<::std::vec::Vec<u8>>),
         };
         let given = format_ident!("__given_{}", ident);
         // Whether a token supplied this, as opposed to a default sitting in it: an
@@ -740,42 +744,61 @@ fn field_final(field: &Field) -> TokenStream {
         return quote!(#ident: partial.#ident);
     };
 
-    // `String` is the identity conversion, and writing it out as one costs an allocation
-    // per value to get back what we already had: 3 allocations become 5 and the parse grows
-    // 2.3% on a three-word invocation, measured.
+    // Every type converts, `String` included: the partial holds the bytes that were typed,
+    // and `String::from_utf8` is where a word that is not UTF-8 is reported rather than
+    // quietly replaced. That also retires the old hazard of recognising `String` by how it
+    // was written — there is no identity case left to recognise, so an adopter who shadows
+    // the name is no longer a problem.
     //
-    // Matched on the whole written path rather than its last segment, so someone's own
-    // `my::String` is not mistaken for this one. What remains is an adopter who *shadows*
-    // the name — `use my_crate::String` — whose field would be handed a
-    // `std::string::String` and fail to compile. A macro cannot resolve a name, so the
-    // choice is this narrow hazard or the allocation for everyone. It stops being a choice
-    // once the partial holds bytes rather than text: a `String` field converts like any
-    // other then, and there is no identity case left to recognise.
+    // `from_utf8` takes the `Vec` by value and does not copy, so this costs a check.
+    // `String` still skips the *second* step, since `from_utf8` has already produced one.
+    // Recognising it by spelling is safe now: if an adopter's own `String` were mistaken for
+    // this one, the mismatch is a compile error rather than a value quietly mangled — and
+    // the check that matters, the UTF-8 one, happens either way.
     let is_std_string = matches!(
         rendered_path(ty).as_str(),
         "String" | "std::string::String" | "::std::string::String" | "alloc::string::String"
     );
     let converted = |value: TokenStream| {
-        if is_std_string {
-            quote!(#value)
-        } else {
-            quote! {
-                match ::std::str::FromStr::from_str(&#value) {
-                    ::std::result::Result::Ok(parsed) => parsed,
-                    ::std::result::Result::Err(reason) => {
-                        return ::std::result::Result::Err(
-                            ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                ::usage_argv::InvalidValue {
-                                    name: #name,
-                                    value: #value,
-                                    reason: ::std::string::ToString::to_string(&reason),
-                                },
-                            )),
-                        );
-                    }
+        let text = quote! {
+            match ::std::string::String::from_utf8(#value) {
+                ::std::result::Result::Ok(text) => text,
+                ::std::result::Result::Err(bad) => {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                            ::usage_argv::InvalidValue {
+                                name: #name,
+                                value: ::std::string::String::from_utf8_lossy(
+                                    bad.as_bytes(),
+                                )
+                                .into_owned(),
+                                reason: ::std::string::ToString::to_string(&bad.utf8_error()),
+                            },
+                        )),
+                    );
                 }
             }
+        };
+        if is_std_string {
+            return text;
         }
+        quote! {{
+            let __usage_text = #text;
+            match ::std::str::FromStr::from_str(&__usage_text) {
+                ::std::result::Result::Ok(parsed) => parsed,
+                ::std::result::Result::Err(reason) => {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                            ::usage_argv::InvalidValue {
+                                name: #name,
+                                value: __usage_text,
+                                reason: ::std::string::ToString::to_string(&reason),
+                            },
+                        )),
+                    );
+                }
+            }
+        }}
     };
 
     match field.shape {
@@ -802,20 +825,15 @@ fn field_final(field: &Field) -> TokenStream {
             // A `Vec<String>` is moved whole. Rebuilding it element by element allocated a
             // second `Vec` to hold what the first already held, which is one allocation per
             // collecting field — and mise's commands collect a lot.
-            let collected = if is_std_string {
-                quote!(partial.#ident)
-            } else {
-                // Built by hand rather than with `collect`, so the error can carry the value
-                // that failed rather than only that one did.
-                quote! {{
-                    let mut __usage_values =
-                        ::std::vec::Vec::with_capacity(partial.#ident.len());
-                    for __usage_value in partial.#ident {
-                        __usage_values.push(#one);
-                    }
-                    __usage_values
-                }}
-            };
+            // Built by hand rather than with `collect`, so the error can carry the value
+            // that failed rather than only that one did.
+            let collected = quote! {{
+                let mut __usage_values = ::std::vec::Vec::with_capacity(partial.#ident.len());
+                for __usage_value in partial.#ident {
+                    __usage_values.push(#one);
+                }
+                __usage_values
+            }};
             if field.optional_collection {
                 let given = format_ident!("__given_{}", ident);
                 // `Option<Vec<T>>` distinguishes "never given" from "given nothing", which
@@ -855,10 +873,10 @@ fn reset_to_default(field: &Field) -> TokenStream {
             let on = default == "true";
             quote!(partial.#ident = #on;)
         }
-        Shape::Optional => {
-            quote!(partial.#ident = ::std::option::Option::Some(#default.to_string());)
-        }
-        Shape::Required => quote!(partial.#ident = #default.to_string();),
+        Shape::Optional => quote! {
+            partial.#ident = ::std::option::Option::Some(#default.as_bytes().to_vec());
+        },
+        Shape::Required => quote!(partial.#ident = #default.as_bytes().to_vec();),
         // Rejected in the model: a count starts at zero, and a default for a collecting
         // field is not applied yet.
         Shape::Count => quote!(partial.#ident = ::std::default::Default::default();),
@@ -1123,13 +1141,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 ..CommandMeta::EMPTY
             };
 
-            pub fn __usage_text(value: &[u8]) -> ::std::string::String {
-                ::std::string::String::from_utf8_lossy(value).into_owned()
+            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
+                value.to_vec()
             }
 
             pub fn __usage_value_text(
                 value: ::std::option::Option<&[u8]>,
-            ) -> ::std::string::String {
+            ) -> ::std::vec::Vec<u8> {
                 value.map(__usage_text).unwrap_or_default()
             }
 
@@ -1427,9 +1445,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let given = format_ident!("__given_{}", ident);
         let var = f.env.as_deref()?;
         let assign = match f.shape {
-            Shape::Optional => quote!(partial.#ident = ::std::option::Option::Some(value);),
-            Shape::Required => quote!(partial.#ident = value;),
-            Shape::Many => quote!(partial.#ident.push(value);),
+            // `env::var` gives text, which is right for an environment variable: the
+            // partial holds bytes because *argv* may not be UTF-8, and this is not argv.
+            Shape::Optional => quote! {
+                partial.#ident = ::std::option::Option::Some(value.into_bytes());
+            },
+            Shape::Required => quote!(partial.#ident = value.into_bytes();),
+            Shape::Many => quote!(partial.#ident.push(value.into_bytes());),
             // A switch reads as on for anything but the spellings of "off", which is
             // what every tool that takes a boolean from the environment settles on.
             Shape::Bool => quote! {
@@ -1515,7 +1537,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         Some(quote! {
             for value in #values {
-                if !#choices.contains(&value.as_str()) {
+                // Compared as text, since a choice is a word. Bytes that are not UTF-8
+                // are not any of the choices, and `build` is where that is reported.
+                let __usage_text = ::std::str::from_utf8(value).unwrap_or_default();
+                if !#choices.contains(&__usage_text) {
                     return ::std::result::Result::Err(
                         ::usage_argv::Error::InvalidChoice {
                             name: #name,

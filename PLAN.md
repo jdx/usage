@@ -126,11 +126,18 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       nine of these. The list is declared once, on the type: the spec, the help, the
       completions and the check that rejects a wrong word all read it from there, so none of
       them can drift from the type the way a second list on the field would.
-- [ ] **Values that are not valid UTF-8** — a word reaches a field through
-      `from_utf8_lossy`, so a `PathBuf` holding a non-UTF-8 path gets replacement
-      characters instead of bytes. The partial should hold `OsString` and let `build`
-      decide: exact for `PathBuf` and `OsString`, an error for `String` rather than a
-      silent mangling. Small, and the next thing.
+- [x] **Values that are not valid UTF-8 are reported, not mangled** — the partial holds the
+      bytes a word arrived as, and the conversion happens once where the struct is built, so
+      `--out /tmp/\xff` says so instead of handing a `PathBuf` a path with `U+FFFD` in it —
+      a different file, silently. Costs +656 instructions (1.6%) and one allocation, which
+      is what not corrupting a value is worth. It also retired the hazard of recognising
+      `String` by its spelling, since there is no identity case left.
+- [ ] **Accepting a value that is not valid UTF-8** — reporting it is not the same as taking
+      it. `PathBuf` could hold the exact bytes, but recovering an `OsString` from them needs
+      `OsStr::from_encoded_bytes_unchecked`, which is `unsafe`, and this crate has none. The
+      call would be sound — the bytes come from `as_encoded_bytes` in the same process, and
+      every split the parser makes is at an ASCII byte, so no multi-byte sequence is ever
+      cut — but introducing `unsafe` is jdx's call to make, not mine.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,

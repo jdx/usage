@@ -185,20 +185,17 @@
 //! should answer to quietly, each accepting several as a list. The parser matches both;
 //! the difference is only whether help and completions mention them.
 //!
+//! A word is held as the bytes it arrived as and converted once, where the struct is built.
+//! So a value that is not valid UTF-8 is **reported** rather than quietly replaced with
+//! `U+FFFD` — which for a `PathBuf` meant a different file, silently. What is still missing
+//! is *accepting* such a value: recovering an `OsString` from those bytes needs
+//! `OsStr::from_encoded_bytes_unchecked`, which is `unsafe`, and this crate has none.
+//!
 //! # What this version does not do
 //!
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **A field whose type shadows the name `String`.** A word reaching a `String` field is
-//!   moved rather than converted, which costs nothing; the type is recognised by how it is
-//!   written, because a macro cannot resolve a name. So `use my_crate::String` followed by
-//!   a `String` field of that type fails to compile. The same change that fixes the next
-//!   item removes this one.
-//! - **Values that are not valid UTF-8.** A word reaches a field through
-//!   `String::from_utf8_lossy`, so a `PathBuf` field holding a path that is not UTF-8
-//!   gets the replacement character rather than the bytes. Rare, and wrong when it
-//!   happens; holding what was typed rather than a lossy copy of it is the next change.
 //! - **Flattening.** A struct cannot yet borrow another struct's flags, so a set of
 //!   options shared by several commands has to be repeated.
 
