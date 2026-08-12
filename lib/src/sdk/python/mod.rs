@@ -8,7 +8,7 @@ use crate::sdk::{
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
-use crate::spec::config::SpecConfigProp;
+use crate::spec::config::{SpecConfigProp, SpecConfigValue};
 use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
@@ -134,21 +134,26 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
 
         for (name, prop) in required.iter().chain(optional.iter()) {
             let py_type = config_prop_type(prop);
-            let default = if let Some(d) = &prop.default {
-                match prop.data_type {
-                    SpecDataTypes::Boolean => match d.as_str() {
-                        "#true" | "true" => " = True".to_string(),
-                        "#false" | "false" => " = False".to_string(),
-                        other => format!(" = {other}"),
-                    },
-                    SpecDataTypes::Integer | SpecDataTypes::Float => {
-                        let numeric = d.trim_matches('"');
-                        format!(" = {numeric}")
-                    }
-                    _ => format!(" = \"{}\"", escape_py_string(d)),
+            // Rendered by the *declared* type, falling back to the literal's own when
+            // none is declared — a spec may say `data_type=float default="1.5"`, and the
+            // declaration is what the generated field is typed as. No `#true`-spelling or
+            // quote-stripping to undo any more: the spec keeps values, not source text.
+            let default = match (&prop.default, prop.data_type) {
+                (None, _) => String::new(),
+                (Some(v), SpecDataTypes::Boolean) => match v {
+                    SpecConfigValue::Bool(false) => " = False".to_string(),
+                    SpecConfigValue::String(s) if s == "false" => " = False".to_string(),
+                    _ => " = True".to_string(),
+                },
+                (Some(v), SpecDataTypes::Integer | SpecDataTypes::Float) => {
+                    format!(" = {}", v.display())
                 }
-            } else {
-                String::new()
+                (Some(SpecConfigValue::Bool(b)), SpecDataTypes::Null) => {
+                    format!(" = {}", if *b { "True" } else { "False" })
+                }
+                (Some(SpecConfigValue::Int(i)), SpecDataTypes::Null) => format!(" = {i}"),
+                (Some(SpecConfigValue::Float(f)), SpecDataTypes::Null) => format!(" = {f}"),
+                (Some(v), _) => format!(" = \"{}\"", escape_py_string(&v.display())),
             };
             if let Some(help) = &prop.help {
                 w.line(&format!("# {}", sanitize_py_comment(help)));
