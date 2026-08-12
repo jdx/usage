@@ -120,7 +120,9 @@ fn classify(msg: &str) -> Observed {
     } else if msg.contains("Invalid flag") {
         // usage-lib funnels several distinct situations through InvalidFlag, so
         // the reason has to be read to tell them apart.
-        if msg.contains("requires an argument") || msg.contains("missing value") {
+        if msg.contains("conflicts with") {
+            ErrorCode::ConflictingFlags
+        } else if msg.contains("requires an argument") || msg.contains("missing value") {
             ErrorCode::MissingFlagValue
         } else if msg.contains("Invalid choice") || msg.contains("expected one of") {
             ErrorCode::InvalidChoice

@@ -94,6 +94,13 @@ pub struct SpecFlag {
     /// Flags that this flag mutually overrides; the last one provided wins
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<String>,
+    /// Flags that cannot be given alongside this one.
+    ///
+    /// Distinct from [`SpecFlag::overrides`], which is about the *last* one winning:
+    /// conflicting flags are a mistake to report, not an order to resolve. clap has
+    /// had `conflicts_with` for years and mise uses it forty times, so a spec
+    /// generated from a clap command was losing it.
+    pub conflicts: Vec<String>,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -153,6 +160,7 @@ impl SpecFlag {
                 }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
                 "overrides" => flag.overrides = vec![v.ensure_string()?],
+                "conflicts" => flag.conflicts = vec![v.ensure_string()?],
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -245,6 +253,13 @@ impl SpecFlag {
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
+                "conflicts" => {
+                    flag.conflicts = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
                 }
                 "overrides" => {
                     flag.overrides = child
@@ -389,6 +404,16 @@ impl From<&SpecFlag> for KdlNode {
                 overrides.push(string_entry(None, target));
             }
             children.nodes_mut().push(overrides);
+        }
+        if flag.conflicts.len() == 1 {
+            node.push(string_entry(Some("conflicts"), &flag.conflicts[0]));
+        } else if !flag.conflicts.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut conflicts = KdlNode::new("conflicts");
+            for target in &flag.conflicts {
+                conflicts.push(string_entry(None, target));
+            }
+            children.nodes_mut().push(conflicts);
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
@@ -554,6 +579,7 @@ impl From<&clap::Arg> for SpecFlag {
             required,
             required_if: vec![],
             required_unless: vec![],
+            conflicts: vec![],
             help,
             help_long,
             help_md: None,
@@ -569,6 +595,8 @@ impl From<&clap::Arg> for SpecFlag {
             deprecated: None,
             negate: None,
             overrides: vec![],
+            // Filled by the command conversion: clap keeps conflicts on the
+            // `Command`, not the `Arg`, so an `Arg` alone cannot see them.
             // clap has no way to express this; consumers set it on the derived
             // spec (see the effect docs).
             effect: None,
@@ -672,6 +700,45 @@ mod tests {
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+    }
+
+    #[test]
+    fn conflicts_round_trip_and_come_across_from_clap() {
+        // Both spellings, as `overrides` has: a property for one, a child node for
+        // several.
+        let spec: Spec = "flag \"--file <f>\" conflicts=\"--stdin\"\nflag \"--stdin\" {\n  conflicts \"--file\" \"--url\"\n}\nflag \"--url <u>\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].conflicts, vec!["--stdin".to_string()]);
+        assert_eq!(
+            spec.cmd.flags[1].conflicts,
+            vec!["--file".to_string(), "--url".to_string()]
+        );
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[1].conflicts.len(), 2, "{spec}");
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn conflicts_survive_the_clap_bridge() {
+        // clap has had `conflicts_with` for years and mise declares forty of them; the
+        // bridge was dropping every one, because clap keeps conflicts on the command
+        // rather than on the argument.
+        let cmd = clap::Command::new("ex")
+            .arg(clap::Arg::new("file").long("file").conflicts_with("stdin"))
+            .arg(clap::Arg::new("stdin").long("stdin"));
+        let spec: Spec = (&cmd).into();
+
+        let file = spec.cmd.flags.iter().find(|f| f.name == "file").unwrap();
+        assert_eq!(file.conflicts, vec!["--stdin".to_string()]);
+
+        // Only the declared direction: clap validates a conflict both ways but reports
+        // it only from the argument that declared it. Recording it once is enough,
+        // because the check looks at every flag that was given — see the parser test
+        // that rejects either order.
+        let stdin = spec.cmd.flags.iter().find(|f| f.name == "stdin").unwrap();
+        assert!(stdin.conflicts.is_empty());
     }
 
     #[test]

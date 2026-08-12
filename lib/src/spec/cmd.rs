@@ -806,7 +806,17 @@ impl From<&clap::Command> for SpecCommand {
             if arg.is_positional() {
                 spec.args.push(arg.into())
             } else {
-                spec.flags.push(arg.into())
+                let mut flag: SpecFlag = arg.into();
+                // clap keeps conflicts on the command rather than on the argument, so
+                // this is the only place both are in view. Written with dashes,
+                // matching how the spec refers to a flag everywhere else; clap stores
+                // an id, which for a long flag is its name.
+                flag.conflicts = cmd
+                    .get_arg_conflicts_with(arg)
+                    .iter()
+                    .filter_map(|other| other.get_long().map(|long| format!("--{long}")))
+                    .collect();
+                spec.flags.push(flag)
             }
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();

@@ -157,6 +157,8 @@ pub enum ErrorCode {
     VarTooFew,
     /// A variadic got more values than `var_max`.
     VarTooMany,
+    /// Two flags declared to conflict were both given.
+    ConflictingFlags,
 }
 
 /// Whether the reference implementation matches a vector's expectation.

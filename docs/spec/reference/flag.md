@@ -30,6 +30,11 @@ flag "--dir <dir>"    // args named "<dir>" will be completed as directories
 flag "--file <file>" required_if="--dir"     // if --dir is set, --file must also be set
 flag "--file <file>" required_unless="--dir" // either --file or --dir must be present
 flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
+flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
+
+flag "--stdin" {
+  conflicts "--file" "--url" // several, one per argument
+}
 
 flag "--shell <shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices
@@ -52,6 +57,17 @@ flag "--file <file>" {
     """#
 }
 ```
+
+## `conflicts` and `overrides`
+
+Both describe a pair of flags that should not be in effect at once, and they differ in
+what to do about it. `overrides` resolves the collision — the last one given wins, which
+is what you want for `--color`/`--no-color`, where a later flag is a correction. `conflicts`
+reports it, for flags whose combination has no sensible meaning at all: giving both is a
+mistake, and silently honouring one of them hides it.
+
+A conflict holds in either direction, so declaring it once is enough; it applies to flags
+that were actually given, not to defaults.
 
 ## `global`
 
