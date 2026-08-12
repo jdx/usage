@@ -281,38 +281,34 @@ impl Cli {
                 Kind::Arg {
                     double_dash_required,
                 } => {
-                    // A variadic takes everything left, so anything after it can never
-                    // be filled — unless it requires a `--`, which is precisely what
-                    // stops the variadic. mise declares that on `run`, `exec` and `git`:
-                    // `[ARGS]…` for the words before the separator and `[-- ARGS_LAST]…`
-                    // for the ones after.
-                    if let Some(first) = variadic_arg.filter(|_| !double_dash_required) {
+                    // A variadic takes every remaining word, so anything after it can
+                    // never be filled — with two exceptions, both of which are something
+                    // that stops the variadic. An argument only fillable after a `--`,
+                    // because the separator ends the collecting; and any argument at all
+                    // when the variadic is *bounded*, because it hands over the words past
+                    // its bound. mise relies on the first on `run`, `exec` and `git`.
+                    if let Some(first) = variadic_arg.filter(|_| !*double_dash_required) {
                         return Err(dup(
                             field.span,
                             first,
-                            "an argument after a variadic one can never be filled, \
-                             because the variadic takes every remaining word — unless it \
-                             is only fillable after a `--`, which stops the variadic",
+                            "an argument after an unbounded variadic can never be filled, \
+                             because the variadic takes every remaining word — give the \
+                             variadic a `var_max`, or make this one fillable only after a \
+                             `--`, either of which stops it",
                         ));
                     }
-                    // A command line has one `--`, so the exemption is good for one
-                    // argument. A second one after the separator would be as unreachable
-                    // as the first case, and there is no third place to put it.
-                    //
-                    // A `var_max` does not change this: a bound is a check on how many
-                    // words a variadic ended up with, not a limit that hands the rest to
-                    // the next argument — see `a-bound-does-not-stop-a-variadic` in the
-                    // corpus, which also records that usage-lib disagrees.
+                    // The separator comes once, so an unbounded variadic behind it holds
+                    // the rest of the command line and nothing can follow.
                     if let Some(first) = spent_separator {
                         return Err(dup(
                             field.span,
                             first,
-                            "nothing can follow a variadic that takes the words after a \
-                             `--`: it has both the rest of the command line and the only \
-                             separator there is",
+                            "nothing can follow an unbounded variadic that takes the words \
+                             after a `--`: it has both the rest of the command line and \
+                             the only separator there is",
                         ));
                     }
-                    if field.shape == Shape::Many {
+                    if field.shape == Shape::Many && field.var_max.is_none() {
                         if *double_dash_required {
                             spent_separator = Some(field.span);
                         } else {
@@ -1335,8 +1331,8 @@ mod tests {
             "unhelpful message: {err}"
         );
 
-        // Including a plain argument, which the variadic behind the separator would
-        // already have taken.
+        // Including a plain argument, which the unbounded variadic behind the separator
+        // would already have taken.
         let err = rejection(
             r#"
             struct Ex {
@@ -1351,6 +1347,48 @@ mod tests {
             err.contains("only separator there is"),
             "unhelpful message: {err}"
         );
+    }
+
+    #[test]
+    fn a_bounded_variadic_lets_an_argument_follow_it() {
+        // The bound is what stops it, so what comes after is reachable — the rule the
+        // grammar now states and clap's `num_args` has always had.
+        cli(r#"
+            struct Ex {
+                #[usage(arg, var_max = 2)]
+                first: Vec<String>,
+                #[usage(arg)]
+                rest: Option<String>,
+            }
+        "#)
+        .expect("a bounded variadic should allow an argument after it");
+
+        // Unbounded, and the argument after it is unreachable.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg)]
+                first: Vec<String>,
+                #[usage(arg)]
+                rest: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("unbounded variadic"),
+            "unhelpful message: {err}"
+        );
+
+        // And a bounded variadic behind the separator does not spend it either.
+        cli(r#"
+            struct Ex {
+                #[usage(arg, double_dash = "required", var_max = 1)]
+                first: Vec<String>,
+                #[usage(arg)]
+                rest: Option<String>,
+            }
+        "#)
+        .expect("a bounded variadic behind the separator should allow one after it");
     }
 
     #[test]

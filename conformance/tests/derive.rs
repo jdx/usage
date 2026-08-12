@@ -669,3 +669,40 @@ fn a_double_dash_argument_can_follow_a_variadic() {
     assert_eq!(last.double_dash, usage::SpecDoubleDashChoices::Required);
     assert!(last.var);
 }
+
+/// A bounded variadic, with an argument after it.
+///
+/// The bound is what makes the second one reachable: `[first]…` takes two words and hands
+/// the rest over. An unbounded variadic there would be a compile error, because nothing
+/// after it could ever be filled.
+#[derive(Cli, Debug)]
+#[usage(bin = "bounded")]
+struct Bounded {
+    /// The first two words
+    #[usage(arg, name = "FIRST", var_max = 2)]
+    first: Vec<String>,
+    /// Whatever follows them
+    #[usage(arg, name = "REST")]
+    rest: Option<String>,
+}
+
+#[test]
+fn a_bound_hands_the_rest_to_the_next_argument() {
+    let a = argv(["x", "y", "z"]);
+    let b = Bounded::parse_from(&a).expect("should parse");
+    assert_eq!(b.first, ["x", "y"]);
+    assert_eq!(b.rest.as_deref(), Some("z"));
+
+    // Fewer words than the bound: the variadic simply takes what there is.
+    let a = argv(["x"]);
+    let b = Bounded::parse_from(&a).expect("should parse");
+    assert_eq!(b.first, ["x"]);
+    assert!(b.rest.is_none());
+
+    // And the spec says the bound, so docs and completions agree with the parse.
+    assert!(
+        Bounded::to_kdl().contains("var_max=2"),
+        "{}",
+        Bounded::to_kdl()
+    );
+}

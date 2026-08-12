@@ -131,6 +131,7 @@
 //! | `count` | count occurrences instead of collecting values |
 //! | `var` | the flag may be repeated, taking one value each time |
 //! | `variadic` | one occurrence keeps taking values, until a flag-like token or `--` |
+//! | `var_max = n` | how many values a variadic takes before the next field gets the rest |
 //! | `global` | subcommands inherit the flag |
 //! | `env = "X"` | an environment variable that can supply the value |
 //! | `default = "x"` | the value when the command line does not supply one |

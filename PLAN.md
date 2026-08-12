@@ -124,8 +124,8 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
       boxed subcommand variants, headings, `cfg`-gated variants.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
-      `var_min`/`var_max`, `conflicts`, `required_if`, `required_unless`, and
-      `overrides`. All of them need a value's type, so they belong with the derive
+      `var_min`, `conflicts`, `required_if`, `required_unless`, and `overrides` —
+      `var_max` moved to the binder, see the decision below. All of them need a value's type, so they belong with the derive
       rather than in the parser. `overrides` is the one that happens _during_ the
       parse instead of after it: it asks which of two flags came last, which only the
       arriving token knows.
@@ -151,6 +151,14 @@ carrying them rather than being worked around.
       shape mise uses on `run`, `exec` and `git`: `[ARGS]…` for the words before the
       separator and `[-- ARGS_LAST]…` for the ones after. Both parsers already bound it;
       only the derive's validation disagreed. Found by compiling the mise shadow.
+- [x] **Is `var_max` a limit or a check?** — usage-argv let a variadic take every word and
+      judged the count afterwards; usage-lib stopped the variadic at the bound and gave the
+      rest to the next argument. Two coherent readings, and nothing had recorded that the
+      two implementations disagreed. Settled as a **limit**, matching usage-lib and clap's
+      `num_args`, since every spec in the fleet is generated from a clap command and it is
+      the only reading under which `[a]… [b]` can be filled. `var_max` therefore moved into
+      the table binding reads; `var_min` stays a check, because no single word tells you a
+      variadic will end up short. Costs 55 instructions per parse, or 0.1%.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
