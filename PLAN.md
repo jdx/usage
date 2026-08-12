@@ -191,10 +191,12 @@ checked-in `mise.usage.kdl` for both parsers.
       between parsers rather than between two transcriptions. Both shadows drop the
       same properties. Three release binaries — one per parser, one that does
       everything except parse — measured by `tak`, which gates the counts in CI.
-- [x] **Perf report** — at mise's full scale, the parse costs **99k–127k instructions
-      against clap's 5.8M–6.6M: 48× to 58× fewer**, near constant across invocation
-      shapes because there is no tree to build. Wall clock by process delta is roughly
-      110µs against 1.3ms. That answers the question the experiment was for.
+- [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
+      against clap's 5.27M: 103× fewer**, and **2.1µs against 440µs of wall clock**.
+      Measured by differencing two runs of the _same_ binary over how many parses it
+      does, so nothing but the parse varies. clap's 440µs is 283µs building its command
+      tree, ~135µs validating it, and ~23µs actually parsing — so even against clap's
+      parse alone, with the tree already built and paid for, this is 11× faster.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
       spec, to find disagreements the corpus did not think of.
 - [ ] **Perf report** — published honestly, whichever way it goes.
@@ -203,16 +205,19 @@ Runtime targets, which gate:
 
 | measurement                        | clap, measured | target | result           |
 | ---------------------------------- | -------------- | ------ | ---------------- |
-| instructions, route + parse        | 5.8M–6.6M      | < 100k | 99k–127k, 48–58× |
-| wall time, argv to parsed struct   | ~1.3ms         | < 50µs | ~110µs, ~12×     |
+| instructions, route + parse        | 5.27M          | < 100k | 50.9k, 103×      |
+| wall time, argv to parsed struct   | 440µs          | < 50µs | 2.1µs, 214×      |
 | heap allocations, successful parse | thousands      | 0      | not yet measured |
 
-The ratio is not close: a mise-scale parse costs a fiftieth of what clap's does. The
-absolute targets are another matter — instructions land at or a little over 100k, and
-the wall figure is a difference between two whole processes, which is too coarse a
-ruler for 50µs. Timing the parse in-process with criterion, and counting allocations
-on the derive path (usage-argv's own are already asserted at zero), are what is left
-to say either of those honestly.
+Both gating targets are met, and not narrowly. The one number still owed is
+allocations on the derive path — usage-argv's own are asserted at zero, but the derive
+allocates a `String` per value, and nothing counts them yet.
+
+An earlier draft of these numbers said 48–58× rather than 103×, because it subtracted a
+baseline measured in a _separate_ no-op binary. Two binaries do measurably different
+amounts of setup before `main`, and that difference had been landing in what was
+attributed to parsing. Differencing two runs of one binary over how many parses it does
+holds everything else fixed.
 
 Secondary, measured and reported but not gated: compile time (full and
 incremental) and binary-size contribution against an equivalent clap-derived
