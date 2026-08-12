@@ -366,6 +366,56 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
+          name: "json-schema",
+          description:
+            "Generate a JSON Schema for a CLI's config file from its usage spec",
+          options: [
+            {
+              name: ["-f", "--file"],
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: "--out-file",
+              description: "Write the schema here instead of to stdout",
+              isRepeatable: false,
+              args: {
+                name: "out_file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: "--spec",
+              description: "Raw string spec input",
+              isRepeatable: false,
+              args: {
+                name: "spec",
+              },
+            },
+            {
+              name: "--title",
+              description: "The schema's title, shown by editors",
+              isRepeatable: false,
+              args: {
+                name: "title",
+              },
+            },
+            {
+              name: "--url",
+              description: "Where the schema is published, for its `$id`",
+              isRepeatable: false,
+              args: {
+                name: "url",
+              },
+            },
+          ],
+        },
+        {
           name: ["manpage", "man"],
           options: [
             {

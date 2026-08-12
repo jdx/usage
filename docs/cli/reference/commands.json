@@ -573,6 +573,109 @@
             "hidden_aliases": [],
             "examples": []
           },
+          "json-schema": {
+            "full_cmd": ["generate", "json-schema"],
+            "usage": "generate json-schema [FLAGS]",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "out-file",
+                "usage": "--out-file <OUT_FILE>",
+                "help": "Write the schema here instead of to stdout",
+                "help_first_line": "Write the schema here instead of to stdout",
+                "short": [],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                },
+                "effect": "write"
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "raw string spec input",
+                "help_first_line": "raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "title",
+                "usage": "--title <TITLE>",
+                "help": "The schema's title, shown by editors",
+                "help_first_line": "The schema's title, shown by editors",
+                "short": [],
+                "long": ["title"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "TITLE",
+                  "usage": "<TITLE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "url",
+                "usage": "--url <URL>",
+                "help": "Where the schema is published, for its `$id`",
+                "help_first_line": "Where the schema is published, for its `$id`",
+                "short": [],
+                "long": ["url"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "URL",
+                  "usage": "<URL>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "effect": "read",
+            "unknown_flags": null,
+            "hide": false,
+            "help": "Generate a JSON Schema for a CLI's config file from its usage spec",
+            "name": "json-schema",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
           "manpage": {
             "full_cmd": ["generate", "manpage"],
             "usage": "generate manpage <FLAGS>",

@@ -58,6 +58,9 @@ Generate Fig completion spec for Amazon Q / Fig
 \fBgenerate json\fR
 Outputs a usage spec in json format
 .TP
+\fBgenerate json\-schema\fR
+Generate a JSON Schema for a CLI's config file from its usage spec
+.TP
 \fBgenerate manpage\fR
 .RS
 \fIAliases: \fRman
@@ -275,6 +278,28 @@ A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 raw string spec input
+.SH "USAGE GENERATE JSON-SCHEMA"
+Generate a JSON Schema for a CLI's config file from its usage spec
+.PP
+\fBUsage:\fR usage generate json\-schema [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file, use "\-" to read from stdin
+.TP
+\fB\-\-out\-file\fR \fI<OUT_FILE>\fR
+Write the schema here instead of to stdout
+.TP
+\fB\-\-spec\fR \fI<SPEC>\fR
+raw string spec input
+.TP
+\fB\-\-title\fR \fI<TITLE>\fR
+The schema's title, shown by editors
+.TP
+\fB\-\-url\fR \fI<URL>\fR
+Where the schema is published, for its `$id`
 .SH "USAGE GENERATE MANPAGE"
 \fBUsage:\fR usage generate manpage [OPTIONS]
 .PP

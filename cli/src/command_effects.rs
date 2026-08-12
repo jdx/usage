@@ -28,6 +28,7 @@ const EFFECTS: &[(&str, SpecCommandEffect)] = &[
     ("generate completion-init", Read),
     ("generate fig", Read),
     ("generate json", Read),
+    ("generate json-schema", Read),
     ("generate manpage", Read),
     ("generate markdown", Read),
     // The only generator whose output flag is required: it cannot print an SDK
@@ -47,6 +48,7 @@ const EFFECTS: &[(&str, SpecCommandEffect)] = &[
 /// All of these redirect output that would otherwise go to stdout.
 const FLAG_EFFECTS: &[(&str, &str, SpecCommandEffect)] = &[
     ("generate fig", "out-file", Write),
+    ("generate json-schema", "out-file", Write),
     ("generate manpage", "out-file", Write),
     ("generate markdown", "out-dir", Write),
     ("generate markdown", "out-file", Write),

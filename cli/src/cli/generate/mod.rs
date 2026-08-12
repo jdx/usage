@@ -8,6 +8,7 @@ mod completion;
 mod completion_init;
 mod fig;
 mod json;
+mod json_schema;
 mod manpage;
 mod markdown;
 mod sdk;
@@ -26,6 +27,7 @@ pub enum Command {
     CompletionInit(completion_init::CompletionInit),
     Fig(fig::Fig),
     Json(json::Json),
+    JsonSchema(json_schema::JsonSchema),
     Manpage(manpage::Manpage),
     Markdown(markdown::Markdown),
     Sdk(sdk::Sdk),
@@ -38,6 +40,7 @@ impl Generate {
             Command::CompletionInit(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),
             Command::Json(cmd) => cmd.run(),
+            Command::JsonSchema(cmd) => cmd.run(),
             Command::Manpage(cmd) => cmd.run(),
             Command::Markdown(cmd) => cmd.run(),
             Command::Sdk(cmd) => cmd.run(),
