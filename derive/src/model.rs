@@ -298,6 +298,11 @@ impl Cli {
                     // A command line has one `--`, so the exemption is good for one
                     // argument. A second one after the separator would be as unreachable
                     // as the first case, and there is no third place to put it.
+                    //
+                    // A `var_max` does not change this: a bound is a check on how many
+                    // words a variadic ended up with, not a limit that hands the rest to
+                    // the next argument — see `a-bound-does-not-stop-a-variadic` in the
+                    // corpus, which also records that usage-lib disagrees.
                     if let Some(first) = spent_separator {
                         return Err(dup(
                             field.span,

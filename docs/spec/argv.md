@@ -179,7 +179,10 @@ declaration order. Each argument takes one word, except a variadic (`var=#true`,
 or a trailing `...`), which collects every word still available.
 
 - A word offered when no argument can hold it is an error, not silently dropped.
-- `var_min` and `var_max` are enforced.
+- `var_min` and `var_max` are enforced. They are checks on how many words an argument
+  ended up with, not limits that stop it collecting: a bounded variadic still takes
+  every word available, so an argument after one is as unreachable as an argument after
+  an unbounded variadic.
 - An unfilled required argument is an error. An unfilled optional one is absent.
 
 Flags and words may interleave freely: `ex from -f to` fills the same arguments
