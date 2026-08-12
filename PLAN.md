@@ -192,11 +192,11 @@ checked-in `mise.usage.kdl` for both parsers.
       same properties. Three release binaries — one per parser, one that does
       everything except parse — measured by `tak`, which gates the counts in CI.
 - [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
-      against clap's 5.27M: 103× fewer**, and **2.1µs against 440µs of wall clock**.
+      against clap's 5.96M: 117× fewer**, and **2.0µs against 500µs of wall clock**.
       Measured by differencing two runs of the _same_ binary over how many parses it
-      does, so nothing but the parse varies. clap's 440µs is 283µs building its command
-      tree, ~135µs validating it, and ~23µs actually parsing — so even against clap's
-      parse alone, with the tree already built and paid for, this is 11× faster.
+      does, so nothing but the parse varies. clap's 500µs is 315µs building its command
+      tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
+      parse alone, with the tree already built and paid for, this is 12× faster.
 - [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
       spec, to find disagreements the corpus did not think of.
 - [ ] **Perf report** — published honestly, whichever way it goes.
@@ -205,8 +205,8 @@ Runtime targets, which gate:
 
 | measurement                        | clap, measured | target | result           |
 | ---------------------------------- | -------------- | ------ | ---------------- |
-| instructions, route + parse        | 5.27M          | < 100k | 50.9k, 103×      |
-| wall time, argv to parsed struct   | 440µs          | < 50µs | 2.1µs, 214×      |
+| instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×      |
+| wall time, argv to parsed struct   | 500µs          | < 50µs | 2.0µs, 245×      |
 | heap allocations, successful parse | thousands      | 0      | not yet measured |
 
 Both gating targets are met, and not narrowly. The one number still owed is
