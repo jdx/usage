@@ -265,6 +265,7 @@ told apart mechanically.
 | `arg_requires_double_dash` | a `double_dash="required"` argument got a value too early |
 | `var_too_few`              | fewer values than `var_min`                               |
 | `var_too_many`             | more values than `var_max`                                |
+| `conflicting_flags`        | two flags declared to `conflict` were both given          |
 
 Choices match exactly; case-insensitive matching would have to be declared rather
 than assumed.
@@ -301,7 +302,8 @@ Any implementation in any language can run these. In this repository,
 Each vector says which layer of a parser it is a question for. Most are
 `binding` — which token becomes which flag or argument — and a parser that reads
 argv is expected to answer all of those. The rest are `post-binding`: `required`,
-`choices`, `env` fallback, defaults, `var_min`/`var_max`, and `overrides` are
+`choices`, `env` fallback, defaults, `var_min`/`var_max`, `overrides`, and
+`conflicts` are
 decided once the last token has been read, and need to know a value's type, so a
 binding-only parser leaves them to the layer that owns the target struct.
 

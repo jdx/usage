@@ -806,7 +806,28 @@ impl From<&clap::Command> for SpecCommand {
             if arg.is_positional() {
                 spec.args.push(arg.into())
             } else {
-                spec.flags.push(arg.into())
+                let mut flag: SpecFlag = arg.into();
+                // clap keeps conflicts on the command rather than on the argument, so
+                // this is the only place both are in view. Written with dashes,
+                // matching how the spec refers to a flag everywhere else.
+                //
+                // A short-only flag is named `-s`, which selectors accept as readily as
+                // `--long`: taking only the long form would have dropped the conflict
+                // and let the spec accept a combination clap rejects.
+                flag.conflicts = cmd
+                    .get_arg_conflicts_with(arg)
+                    .iter()
+                    .filter_map(|other| match (other.get_long(), other.get_short()) {
+                        (Some(long), _) => Some(format!("--{long}")),
+                        (None, Some(short)) => Some(format!("-{short}")),
+                        // A positional, which the spec has no way to name in a
+                        // conflict. Dropping it is a loss, but writing `--<name>` would
+                        // be a selector matching nothing, which is worse: it reads as a
+                        // relationship that holds.
+                        (None, None) => None,
+                    })
+                    .collect();
+                spec.flags.push(flag)
             }
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();

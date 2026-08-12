@@ -7,14 +7,22 @@
       "doc": "A value among the declared choices is accepted.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\" \"fish\"\n}\n",
       "argv": ["--shell", "zsh"],
-      "expect": { "ok": { "flags": { "shell": "zsh" } } }
+      "expect": {
+        "ok": {
+          "flags": {
+            "shell": "zsh"
+          }
+        }
+      }
     },
     {
       "id": "choice-invalid",
       "doc": "A value outside the declared choices is rejected.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\" \"fish\"\n}\n",
       "argv": ["--shell", "csh"],
-      "expect": { "error": "invalid_choice" },
+      "expect": {
+        "error": "invalid_choice"
+      },
       "layer": "post-binding"
     },
     {
@@ -22,7 +30,9 @@
       "doc": "Choices match exactly. Case-insensitive matching would have to be declared, not assumed.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" {\n  choices \"bash\" \"zsh\"\n}\n",
       "argv": ["--shell", "ZSH"],
-      "expect": { "error": "invalid_choice" },
+      "expect": {
+        "error": "invalid_choice"
+      },
       "layer": "post-binding"
     },
     {
@@ -30,21 +40,35 @@
       "doc": "Positionals carry choices too.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<shell>\" {\n  choices \"bash\" \"zsh\"\n}\n",
       "argv": ["bash"],
-      "expect": { "ok": { "args": { "shell": "bash" } } }
+      "expect": {
+        "ok": {
+          "args": {
+            "shell": "bash"
+          }
+        }
+      }
     },
     {
       "id": "required-flag-present",
       "doc": "A required flag that is given parses normally.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required=#true\n",
       "argv": ["--file", "a.txt"],
-      "expect": { "ok": { "flags": { "file": "a.txt" } } }
+      "expect": {
+        "ok": {
+          "flags": {
+            "file": "a.txt"
+          }
+        }
+      }
     },
     {
       "id": "required-flag-missing",
       "doc": "A required flag that is absent is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required=#true\n",
       "argv": [],
-      "expect": { "error": "missing_required_flag" },
+      "expect": {
+        "error": "missing_required_flag"
+      },
       "layer": "post-binding"
     },
     {
@@ -52,14 +76,22 @@
       "doc": "`required_unless` is satisfied when the named alternative is present.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required_unless=\"--stdin\"\nflag \"--stdin\"\n",
       "argv": ["--stdin"],
-      "expect": { "ok": { "flags": { "stdin": true } } }
+      "expect": {
+        "ok": {
+          "flags": {
+            "stdin": true
+          }
+        }
+      }
     },
     {
       "id": "required-unless-unsatisfied",
       "doc": "With neither flag present, the requirement stands.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required_unless=\"--stdin\"\nflag \"--stdin\"\n",
       "argv": [],
-      "expect": { "error": "missing_required_flag" },
+      "expect": {
+        "error": "missing_required_flag"
+      },
       "layer": "post-binding"
     },
     {
@@ -67,7 +99,87 @@
       "doc": "Two flags that override each other leave only the last one given.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" overrides=\"--stdin\"\nflag \"--stdin\" overrides=\"--file\"\n",
       "argv": ["--stdin", "--file", "a.txt"],
-      "expect": { "ok": { "flags": { "file": "a.txt" } } },
+      "expect": {
+        "ok": {
+          "flags": {
+            "file": "a.txt"
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "conflicts-both-given",
+      "doc": "Two flags declared to conflict cannot be given together. Unlike `overrides`, where the last one wins, a conflict is a mistake to report rather than an order to resolve.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",
+      "argv": ["--file", "a.txt", "--stdin"],
+      "expect": {
+        "error": "conflicting_flags"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "conflicts-either-order",
+      "doc": "The conflict is declared on `--file` only, and still applies when `--stdin` comes first: the relationship is between the two flags, not between a flag and the tokens after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",
+      "argv": ["--stdin", "--file", "a.txt"],
+      "expect": {
+        "error": "conflicting_flags"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "conflicts-one-given",
+      "doc": "A declared conflict costs nothing when only one side is given.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",
+      "argv": ["--stdin"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "stdin": true
+          }
+        }
+      }
+    },
+    {
+      "id": "conflicts-unrelated-flag",
+      "doc": "Only the named flag conflicts; an unnamed one alongside it is fine.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",
+      "argv": ["--file", "a.txt", "--url", "u"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "file": "a.txt",
+            "url": "u"
+          }
+        }
+      }
+    },
+    {
+      "id": "conflicts-one-side-from-env",
+      "doc": "A value from the environment counts as given: `--file` conflicts with `--stdin` even though only `--stdin` was typed. clap, argparse and usage all treat an environment variable as a value source rather than as a weaker kind of default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" env=\"EX_FILE\" conflicts=\"--stdin\"\nflag \"--stdin\" env=\"EX_STDIN\"\n",
+      "argv": ["--stdin"],
+      "env": {
+        "EX_FILE": "a.txt"
+      },
+      "expect": {
+        "error": "conflicting_flags"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "conflicts-both-sides-from-env",
+      "doc": "Neither side was typed and the conflict still holds, which is what makes the rule uniform: the check asks whether a flag has a value, not how it got one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" env=\"EX_FILE\" conflicts=\"--stdin\"\nflag \"--stdin\" env=\"EX_STDIN\"\n",
+      "argv": [],
+      "env": {
+        "EX_FILE": "a.txt",
+        "EX_STDIN": "1"
+      },
+      "expect": {
+        "error": "conflicting_flags"
+      },
       "layer": "post-binding"
     },
     {
@@ -75,7 +187,9 @@
       "doc": "`var_min` is enforced for a repeatable flag, not only for positionals.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_min=2\n",
       "argv": ["--include", "a"],
-      "expect": { "error": "var_too_few" },
+      "expect": {
+        "error": "var_too_few"
+      },
       "layer": "post-binding"
     },
     {
@@ -83,7 +197,9 @@
       "doc": "`var_max` is likewise enforced for a repeatable flag.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true var_max=1\n",
       "argv": ["--include", "a", "--include", "b"],
-      "expect": { "error": "var_too_many" },
+      "expect": {
+        "error": "var_too_many"
+      },
       "layer": "post-binding"
     }
   ]

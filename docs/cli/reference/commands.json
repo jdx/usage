@@ -676,7 +676,8 @@
                 "short": ["m"],
                 "long": ["multi"],
                 "hide": false,
-                "global": false
+                "global": false,
+                "conflicts": ["--out-file"]
               },
               {
                 "name": "html-encode",

@@ -1128,6 +1128,34 @@ fn parse_partial_with_env(
         }
     }
 
+    // Conflicts are a question about the invocation as a whole rather than about any one
+    // token, so they are checked here beside the requirement checks rather than at the
+    // point a flag is matched — the flag it conflicts with may still be ahead of it.
+    // Its own loop: the requirement loop below skips the flags that *were* given, which
+    // is exactly the set this needs.
+    //
+    // A value from the environment counts on both sides, matching what
+    // `selector_is_explicit` says about the other flag: the question is whether a flag
+    // has a value, not how it got one. That is what clap does, and an asymmetric rule
+    // would make the same pair of flags a conflict or not depending on which one
+    // happened to be typed.
+    for flag in unique_flags(out.available_flags.values()) {
+        let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
+        if !given || overridden_flags.contains(&flag.name) {
+            continue;
+        }
+        for other in &flag.conflicts {
+            if selector_is_explicit(other, &out, &overridden_flags, custom_env) {
+                out.errors.push(UsageErr::InvalidFlag {
+                    token: format!("--{}", flag.name),
+                    reason: format!("conflicts with {other}"),
+                    span: (0, 0).into(),
+                    input: format!("--{} {other}", flag.name),
+                });
+            }
+        }
+    }
+
     for flag in unique_flags(out.available_flags.values()) {
         if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
             continue;
@@ -2529,6 +2557,32 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn conflicting_flags_are_rejected_in_either_order() {
+        // Declared once, on `--file`, which is all clap exposes — so the check has to
+        // be order-independent by looking at every flag that was given rather than at
+        // the one that declared the conflict.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\" conflicts=\"--stdin\"\nflag \"--stdin\"\n"
+                .parse()
+                .unwrap();
+
+        for words in [
+            &["ex", "--file", "a.txt", "--stdin"][..],
+            &["ex", "--stdin", "--file", "a.txt"][..],
+        ] {
+            let err = parse(&spec, &input(words)).unwrap_err();
+            assert!(
+                err.to_string().contains("conflicts with --stdin"),
+                "{words:?} should be refused: {err}"
+            );
+        }
+
+        // Either one alone is fine.
+        parse(&spec, &input(&["ex", "--stdin"])).unwrap();
+        parse(&spec, &input(&["ex", "--file", "a.txt"])).unwrap();
     }
 
     #[test]
