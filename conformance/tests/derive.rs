@@ -554,3 +554,66 @@ mod docs_example {
         assert!(Cli::to_kdl().contains(r#"flag "-j --jobs""#));
     }
 }
+
+/// A CLI whose flags relate to one another.
+///
+/// Separate from `Ex` so the relationships do not have to hold for every other test's
+/// command line. Enforcement is checked in `post_binding.rs`; what matters here is
+/// that the declarations reach the spec, since a conflict nobody wrote down is a
+/// conflict `usage g markdown` and the completions cannot mention.
+#[derive(Cli, Debug)]
+#[usage(bin = "rel")]
+struct Related {
+    /// Read from a file
+    #[usage(long, required_unless("--url", "--stdin"))]
+    file: Option<String>,
+    /// Read from a URL
+    #[usage(long)]
+    url: Option<String>,
+    /// Read from standard input
+    #[usage(short = 's', long, conflicts("--file", "--url"))]
+    stdin: bool,
+    /// Where to write
+    #[usage(long, required_if = "--stdin")]
+    out: Option<String>,
+}
+
+#[test]
+fn flag_relationships_reach_the_spec() {
+    let spec: LibSpec = Related::to_kdl().parse().expect("valid spec");
+    let flag = |name: &str| {
+        spec.cmd
+            .flags
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap_or_else(|| panic!("--{name} should be in the spec"))
+            .clone()
+    };
+
+    assert_eq!(
+        flag("stdin").conflicts,
+        vec!["--file".to_string(), "--url".to_string()]
+    );
+    assert_eq!(flag("out").required_if, vec!["--stdin".to_string()]);
+    assert_eq!(
+        flag("file").required_unless,
+        vec!["--url".to_string(), "--stdin".to_string()]
+    );
+
+    // Written as the declaration spelled them, not normalized to the field name: a
+    // selector is how the spec refers to a flag, and `-s` would be just as valid.
+    assert!(
+        Related::to_kdl().contains(r#"conflicts "--file" "--url""#),
+        "{}",
+        Related::to_kdl()
+    );
+
+    // And the same declaration still parses: a satisfied set of relationships is
+    // invisible, which is the point.
+    let a = argv(["--stdin", "--out", "o"]);
+    let rel = Related::parse_from(&a).expect("should parse");
+    assert!(rel.stdin);
+    assert_eq!(rel.out.as_deref(), Some("o"));
+    assert!(rel.file.is_none());
+    assert!(rel.url.is_none());
+}

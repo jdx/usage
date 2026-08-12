@@ -51,6 +51,13 @@ pub struct Field {
     pub choices: Vec<String>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// Flags this one cannot be given with. Checked after the parse: whether a flag
+    /// is unwelcome depends on the whole command line, not on the token itself.
+    pub conflicts: Vec<String>,
+    /// Flags whose presence makes this one necessary.
+    pub required_if: Vec<String>,
+    /// Flags whose presence makes this one unnecessary.
+    pub required_unless: Vec<String>,
     pub hide: bool,
     /// Whether the flag may be given more than once, taking one value each time.
     ///
@@ -196,6 +203,35 @@ impl Cli {
         Ok(cli)
     }
 
+    /// The field a flag selector names, as the spec spells one: `--long` or `-s`.
+    ///
+    /// A negation counts, since `--no-color` is another way to name the field `--color`
+    /// declared — the two share one place to record whether they were given.
+    pub fn field_for_selector(&self, selector: &str) -> Option<&Field> {
+        self.fields.iter().find(|field| {
+            let Kind::Flag {
+                longs,
+                shorts,
+                negate,
+                ..
+            } = &field.kind
+            else {
+                return false;
+            };
+            match selector.strip_prefix("--") {
+                Some(long) => longs.iter().chain(negate.iter()).any(|l| l == long),
+                // A short is one character; `-abc` is three flags rather than a name.
+                None => selector
+                    .strip_prefix('-')
+                    .and_then(|rest| {
+                        let mut chars = rest.chars();
+                        chars.next().filter(|_| chars.next().is_none())
+                    })
+                    .is_some_and(|short| shorts.contains(&short)),
+            }
+        })
+    }
+
     /// Reject declarations that would compile into a CLI nobody could use.
     fn check(&self) -> syn::Result<()> {
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
@@ -265,6 +301,36 @@ impl Cli {
                 }
             }
         }
+
+        // Every relationship names a flag that exists. Resolving these at compile time
+        // is the advantage of declaring them in code: a spec written by hand can only
+        // find a typo'd selector at parse time, or never, since a selector naming
+        // nothing quietly holds no relationship at all.
+        for field in &self.fields {
+            for (option, selectors) in [
+                ("conflicts", &field.conflicts),
+                ("required_if", &field.required_if),
+                ("required_unless", &field.required_unless),
+            ] {
+                for selector in selectors {
+                    let Some(target) = self.field_for_selector(selector) else {
+                        return Err(syn::Error::new(
+                            field.span,
+                            format!(
+                                "`{option} = \"{selector}\"` names no flag on this \
+                                 command; write it as the spec does, `--long` or `-s`"
+                            ),
+                        ));
+                    };
+                    if target.ident == field.ident {
+                        return Err(syn::Error::new(
+                            field.span,
+                            format!("`{option} = \"{selector}\"` names its own field"),
+                        ));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -301,10 +367,8 @@ impl Field {
             return Ok(None);
         }
 
-        // `Option<T>` says the subcommand may be left out. A bare `T` cannot be
-        // satisfied by this version — nothing yet reports "a subcommand is
-        // required", which is a post-binding question.
-        // `Option<T>` may be left unfilled; a bare `T` requires one.
+        // `Option<T>` says the subcommand may be left out; a bare `T` requires one,
+        // reported once the last token has been read.
         let name = type_name(&field.ty);
         let (ty, optional) = match name
             .strip_prefix("Option<")
@@ -330,6 +394,9 @@ impl Field {
             choices: Vec::new(),
             var_min: None,
             var_max: None,
+            conflicts: Vec::new(),
+            required_if: Vec::new(),
+            required_unless: Vec::new(),
             hide: false,
             repeatable: false,
             span,
@@ -369,6 +436,9 @@ impl Field {
         let mut choices: Vec<String> = Vec::new();
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
+        let mut conflicts: Vec<String> = Vec::new();
+        let mut required_if: Vec<String> = Vec::new();
+        let mut required_unless: Vec<String> = Vec::new();
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -428,6 +498,12 @@ impl Field {
                             ));
                         }
                     }
+                    // Both spellings the spec has: one target as a value, several as a
+                    // list. A flag selector never contains a comma, so unlike `choices`
+                    // there is nothing to lose by accepting the shorter form.
+                    "conflicts" => conflicts = selectors(&meta)?,
+                    "required_if" => required_if = selectors(&meta)?,
+                    "required_unless" => required_unless = selectors(&meta)?,
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default = Some(string_value(&meta)?),
@@ -453,8 +529,9 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `hide`, `arg`, `env`, `default`, \
-                                 `help_heading`, and `double_dash`"
+                                 `count`, `hide`, `arg`, `env`, `default`, `choices`, \
+                                 `var_min`, `var_max`, `conflicts`, `required_if`, \
+                                 `required_unless`, `help_heading`, and `double_dash`"
                             ),
                         ));
                     }
@@ -713,6 +790,9 @@ impl Field {
             choices,
             var_min,
             var_max,
+            conflicts,
+            required_if,
+            required_unless,
             hide,
             repeatable,
             span,
@@ -816,6 +896,25 @@ fn string_value(meta: &Meta) -> syn::Result<String> {
             other,
             "expected a string, as in `long = \"jobs\"`",
         )),
+    }
+}
+
+/// One flag selector as a value, or several as a list.
+///
+/// Selectors are written the way the spec writes them — `"--stdin"`, `"-s"` — rather
+/// than as field names, so a declaration reads the same in Rust as it does in KDL.
+/// Which flag each one names is resolved in [`Cli::check`], where every field is in
+/// view.
+fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
+    match meta {
+        Meta::List(list) => Ok(list
+            .parse_args_with(
+                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+            )?
+            .into_iter()
+            .map(|lit| lit.value())
+            .collect()),
+        _ => Ok(vec![string_value(meta)?]),
     }
 }
 
@@ -1072,5 +1171,78 @@ impl Variant {
             help,
             long_help,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+
+    fn cli(body: &str) -> syn::Result<Cli> {
+        Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
+    }
+
+    /// The message a bad declaration produces, which is the part worth asserting on:
+    /// `Cli` is not `Debug`, and the error is what the user sees.
+    fn rejection(body: &str) -> String {
+        match cli(body) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    #[test]
+    fn a_selector_resolves_by_long_short_or_negation() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, negate = "no-color")]
+                color: bool,
+                #[usage(short = 'f', long)]
+                force: bool,
+            }
+        "#)
+        .expect("should compile");
+
+        let named = |selector: &str| {
+            cli.field_for_selector(selector)
+                .map(|f| f.ident.to_string())
+        };
+        assert_eq!(named("--color").as_deref(), Some("color"));
+        assert_eq!(named("--no-color").as_deref(), Some("color"));
+        assert_eq!(named("-f").as_deref(), Some("force"));
+        assert_eq!(named("--force").as_deref(), Some("force"));
+        assert_eq!(named("--nope"), None);
+        // Not a name: `-fx` is two flags bundled, and a bare word is not a selector.
+        assert_eq!(named("-fx"), None);
+        assert_eq!(named("force"), None);
+    }
+
+    #[test]
+    fn a_selector_naming_nothing_is_a_compile_error() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, conflicts = "--stdout")]
+                out: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn a_selector_naming_its_own_field_is_a_compile_error() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, required_unless = "--out")]
+                out: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("names its own field"),
+            "unhelpful message: {err}"
+        );
     }
 }

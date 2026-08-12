@@ -319,6 +319,16 @@ pub enum Error<'t, 'v> {
         max: usize,
         got: usize,
     },
+    /// Two flags declared to conflict were both given.
+    ///
+    /// Carries both names because either one alone reads as a puzzle: which flag is
+    /// unwelcome depends entirely on what else is on the command line.
+    ConflictingFlags {
+        /// The flag whose declaration names the conflict.
+        name: &'t str,
+        /// The flag it cannot be given with, as the declaration spells it.
+        other: &'t str,
+    },
     /// A subcommand was required, and none was given.
     MissingSubcommand,
 }

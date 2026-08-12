@@ -200,3 +200,99 @@ fn the_checks_reach_the_spec_too() {
     let target = spec.cmd.args.iter().find(|a| a.name == "target").unwrap();
     assert!(target.required);
 }
+
+/// A CLI whose flags relate to each other.
+///
+/// `--stdin` conflicts with `--file` and `--url`; `--out` is required when writing
+/// from `--stdin`; and reading has to come from somewhere, so `--file` is required
+/// unless one of the other two says where.
+#[derive(Cli)]
+#[usage(bin = "rel")]
+struct Rel {
+    /// Read from a file
+    #[usage(long, required_unless("--url", "--stdin"))]
+    file: Option<String>,
+    /// Read from a URL
+    #[usage(long)]
+    url: Option<String>,
+    /// Read from standard input
+    #[usage(long, conflicts("--file", "--url"), short = 's')]
+    stdin: bool,
+    /// Where to write
+    #[usage(long, required_if = "--stdin")]
+    out: Option<String>,
+}
+
+#[test]
+fn conflicting_flags_cannot_both_be_given() {
+    let a = argv(["--stdin", "--out", "o", "--file", "f"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            name: "stdin",
+            other: "file"
+        })
+    ));
+
+    // The other target of the same declaration, and by its short form, since the
+    // conflict is between flags rather than between spellings.
+    let a = argv(["-s", "--out", "o", "--url", "u"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            name: "stdin",
+            other: "url"
+        })
+    ));
+
+    // Either side alone is fine.
+    let a = argv(["--stdin", "--out", "o"]);
+    assert!(Rel::parse_from(&a).expect("should parse").stdin);
+    let a = argv(["--file", "f"]);
+    assert_eq!(
+        Rel::parse_from(&a).expect("should parse").file.as_deref(),
+        Some("f")
+    );
+}
+
+#[test]
+fn a_conflict_is_reported_before_what_it_left_unfilled() {
+    // `--stdin` without `--out` is also a missing-required error. The conflict is the
+    // more useful answer: it says which flag not to have typed, where the other would
+    // ask for one more.
+    let a = argv(["--stdin", "--file", "f"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::ConflictingFlags { name: "stdin", .. })
+    ));
+}
+
+#[test]
+fn required_if_applies_only_when_the_other_flag_is_given() {
+    let a = argv(["--stdin"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::MissingRequired { name: "out" })
+    ));
+
+    // Without `--stdin`, `--out` is optional.
+    let a = argv(["--file", "f"]);
+    assert!(Rel::parse_from(&a).expect("should parse").out.is_none());
+}
+
+#[test]
+fn required_unless_is_satisfied_by_the_other_flag() {
+    // Neither given: `--file` is missing.
+    let a = argv([]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::MissingRequired { name: "file" })
+    ));
+
+    // `--url` stands in for it.
+    let a = argv(["--url", "u"]);
+    assert_eq!(
+        Rel::parse_from(&a).expect("should parse").url.as_deref(),
+        Some("u")
+    );
+}

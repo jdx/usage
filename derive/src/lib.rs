@@ -138,26 +138,30 @@
 //! | `hide` | keep it out of help and completions |
 //! | `double_dash = "required"` | a positional only fillable after `--` |
 //! | `arg` | force a field to be positional |
+//! | `conflicts = "--other"` | a flag this one cannot be given with |
+//! | `required_if = "--other"` | a flag whose presence makes this one necessary |
+//! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
+//!
+//! The last three name a flag the way the spec does — `"--long"` or `"-s"` — and take
+//! several as a list: `conflicts("--file", "--url")`. A selector naming no flag on the
+//! command is a compile error, which is the advantage of declaring a relationship in
+//! code: in a hand-written spec a typo'd selector is a relationship that quietly does
+//! not hold.
 //!
 //! # What this version does not do
 //!
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **`overrides` and `required_unless`.** Both are about one flag's effect on
-//!   another, which needs to know the order they arrived in; nothing records that
-//!   yet.
-//! - **Typed values.** Everything is text: a field is a `String`, an
-//!   `Option<String>`, a `Vec<String>`, a `bool`, or a counting integer. Parsing
-//!   into a richer type needs an error for a value that will not convert.
+//! - **`overrides`.** Unlike the other relationships, it is not about whether two
+//!   flags were both given but about which came *last*, and nothing records arrival
+//!   order yet.
 //! - **Typed values.** Fields are `bool`, `String`, `Option<String>`,
-//!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a
-//!   compile error rather than a surprise, because converting a value is also
-//!   where required-ness, `choices`, and bounds get enforced, and that layer does
-//!   not exist yet.
-//! - **Enforce what it records.** `default` and `env` are written into the spec
-//!   and `default` is applied, but `env` is not read, and a missing required value
-//!   is not reported. Same reason.
+//!   `Vec<String>`, or an unsigned integer with `count`. Anything else is a compile
+//!   error rather than a surprise: converting a value needs somewhere to report one
+//!   that will not convert, and that is a layer this version does not have.
+//! - **Flattening.** A struct cannot yet borrow another struct's flags, so a set of
+//!   options shared by several commands has to be repeated.
 
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
