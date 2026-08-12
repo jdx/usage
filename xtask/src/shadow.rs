@@ -40,10 +40,28 @@ pub fn generate(spec_path: &Path, out_dir: &Path) {
         .parse()
         .unwrap_or_else(|e| fail(&format!("parsing {}: {e}", spec_path.display())));
 
+    let (out, skipped) = render(&spec, spec_path);
+    write_crate(out_dir, &spec.bin, &out);
+
+    println!(
+        "generated {} from {} ({} commands, {} flags, {} args)",
+        out_dir.join("src/lib.rs").display(),
+        spec_path.display(),
+        count(&spec.cmd, |_| 1),
+        count(&spec.cmd, |c| c.flags.len()),
+        count(&spec.cmd, |c| c.args.len()),
+    );
+    skipped.report();
+}
+
+/// The crate's source, and what the spec said that it could not carry.
+///
+/// Separate from [`generate`] so it can be tested without writing anything: what a
+/// dialect does with a given spec is the part worth asserting on.
+fn render(spec: &Spec, spec_path: &Path) -> (String, Skipped) {
     let mut skipped = Skipped::default();
     let mut names = Names::default();
     let mut out = String::new();
-    let bin = spec.bin.clone();
 
     // Properties of the CLI as a whole that the derive has no way to declare. The root's
     // grammar differs without them: mise sets `default_subcommand run`, so `mise build`
@@ -65,23 +83,11 @@ pub fn generate(spec_path: &Path, out_dir: &Path) {
         &spec.cmd,
         &root,
         true,
-        &bin,
+        &spec.bin,
         &mut skipped,
         &mut names,
     );
-
-    let crate_dir = out_dir.to_path_buf();
-    write_crate(&crate_dir, &bin, &out);
-
-    println!(
-        "generated {} from {} ({} commands, {} flags, {} args)",
-        crate_dir.join("src/lib.rs").display(),
-        spec_path.display(),
-        count(&spec.cmd, |_| 1),
-        count(&spec.cmd, |c| c.flags.len()),
-        count(&spec.cmd, |c| c.args.len()),
-    );
-    skipped.report();
+    (out, skipped)
 }
 
 /// Walk the tree, adding up whatever a closure counts.
@@ -434,6 +440,15 @@ fn emit_arg(out: &mut String, arg: &SpecArg, fields: &mut FieldNames, skipped: &
     if arg.hide {
         opts.push("hide".into());
     }
+    // An argument can be backed by an environment variable and grouped under a heading
+    // just as a flag can, and both reach `ArgMeta` — leaving them out made the shadow's
+    // grammar quietly differ from the spec's for any spec that used them.
+    if let Some(env) = &arg.env {
+        opts.push(format!("env = {env:?}"));
+    }
+    if let Some(heading) = &arg.help_heading {
+        opts.push(format!("help_heading = {heading:?}"));
+    }
     if let Some(choices) = &arg.choices {
         let list = choices
             .choices
@@ -613,4 +628,55 @@ fn is_keyword(name: &str) -> bool {
         "type", "union", "unsafe", "use", "where", "while", "yield",
     ];
     KEYWORDS.contains(&name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rendered(spec: &str) -> (String, Skipped) {
+        let spec: Spec = spec.parse().expect("valid spec");
+        render(&spec, Path::new("probe.usage.kdl"))
+    }
+
+    #[test]
+    fn an_argument_carries_its_env_and_heading() {
+        // Not exercised by mise's spec, which puts `env` only on flags — so it is
+        // asserted here rather than assumed from a generated file that happens not to
+        // contain one.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\narg \"[file]\" env=\"EX_FILE\" help_heading=\"Input\"\n",
+        );
+        assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
+        assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn a_required_subcommand_is_not_an_option() {
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\ncmd \"outer\" subcommand_required=#true {\n  cmd \"inner\"\n}\n",
+        );
+        assert!(
+            out.contains("pub command: OuterCommands,"),
+            "a required subcommand should not be an Option: {out}"
+        );
+
+        let (out, _) = rendered("name \"ex\"\nbin \"ex\"\ncmd \"outer\" {\n  cmd \"inner\"\n}\n");
+        assert!(
+            out.contains("pub command: ::std::option::Option<OuterCommands>,"),
+            "an optional subcommand should be: {out}"
+        );
+    }
+
+    #[test]
+    fn what_cannot_be_expressed_is_counted() {
+        let (_, skipped) = rendered(
+            "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\ncmd \"go\" {\n  alias \"g\"\n}\n",
+        );
+        assert_eq!(skipped.counts.get("a command alias"), Some(&1));
+        assert_eq!(
+            skipped.counts.get("`default_subcommand` on a command"),
+            Some(&1)
+        );
+    }
 }

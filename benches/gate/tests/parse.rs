@@ -7,7 +7,7 @@
 
 use std::ffi::OsStr;
 
-use shadow_mise::{Cli, Commands};
+use shadow_mise::{Cli, Commands, TasksCommands};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
@@ -29,12 +29,28 @@ fn a_task_runs_with_arguments_after_a_separator() {
     // The shape that made the derive's validation wrong: `[ARGS]…` before the `--` and
     // `[-- ARGS_LAST]…` after it. `tasks run` is where mise's spec declares it; the
     // top-level `run` carries no positionals of its own — see the note in the PR.
-    let a = argv(["tasks", "run", "build", "--dry-run", "--", "--verbose"]);
+    let a = argv([
+        "tasks",
+        "run",
+        "build",
+        "extra",
+        "--dry-run",
+        "--",
+        "--verbose",
+    ]);
     let cli = Cli::parse_from(&a).expect("should parse");
     let Some(Commands::Tasks(tasks)) = cli.command else {
         panic!("expected `tasks`")
     };
-    assert!(tasks.command.is_some(), "`run` should have been selected");
+    let Some(TasksCommands::Run(run)) = tasks.command else {
+        panic!("expected `tasks run`")
+    };
+    // The words, not just that a command was selected: a regression that merged the two
+    // sides of the `--` or dropped either would otherwise leave this green.
+    assert_eq!(run.task.as_deref(), Some("build"));
+    assert_eq!(run.args, ["extra"]);
+    assert_eq!(run.args_last, ["--verbose"]);
+    assert!(run.dry_run);
 }
 
 #[test]
@@ -59,8 +75,13 @@ fn a_global_flag_is_accepted_before_or_after_the_command() {
     assert_eq!(cli.cd.as_deref(), Some("/tmp"));
 
     // Global means the subcommand takes it too, which is how `mise ls -C /tmp` works.
+    // Asserting the *value* matters here: unknown flag-like words are values by default
+    // and `ls` has a variadic positional, so a global that stopped being recognized
+    // after the command would still parse — `-C` and `/tmp` would land in the variadic
+    // and nothing would complain.
     let after = argv(["ls", "-C", "/tmp"]);
     let cli = Cli::parse_from(&after).expect("should parse");
+    assert_eq!(cli.cd.as_deref(), Some("/tmp"));
     let Some(Commands::Ls(_)) = cli.command else {
         panic!("expected `ls`")
     };
