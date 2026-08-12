@@ -1035,6 +1035,35 @@ mod tests {
     }
 
     #[test]
+    fn both_dialects_say_the_same_things_about_a_flag() {
+        // Not the same words — the point of two dialects — but the same claims, since a
+        // comparison between the two shadows is only fair if they describe one CLI.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" env=\"EX_JOBS\" global=#true {\n  choices \"1\" \"2\"\n}\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+
+        assert!(usage.contains(r#"long = "jobs""#), "{usage}");
+        assert!(usage.contains("global"), "{usage}");
+        assert!(usage.contains(r#"env = "EX_JOBS""#), "{usage}");
+        assert!(usage.contains(r#"choices("1", "2")"#), "{usage}");
+
+        assert!(clap.contains(r#"long = "jobs""#), "{clap}");
+        assert!(clap.contains("global = true"), "{clap}");
+        assert!(clap.contains(r#"env = "EX_JOBS""#), "{clap}");
+        assert!(
+            clap.contains(r#"PossibleValuesParser::new(["1", "2"])"#),
+            "{clap}"
+        );
+        // clap's derive reads the type as written, so the clap shadow cannot use
+        // absolute paths where the usage shadow does.
+        assert!(clap.contains("pub jobs: Option<String>"), "{clap}");
+        assert!(
+            usage.contains("pub jobs: ::std::option::Option<::std::string::String>"),
+            "{usage}"
+        );
+    }
+
+    #[test]
     fn what_cannot_be_expressed_is_counted() {
         let (_, skipped) = rendered(
             "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\ncmd \"go\" {\n  alias \"g\"\n}\n",
