@@ -54,8 +54,14 @@
 //! actually looked at can fail to convert.
 //!
 //! Slicing an `OsStr` into `&str` pieces safely is not possible without
-//! allocating or `unsafe`, and this crate forbids `unsafe`. Bytes are what is
-//! left, and they turn out to be the honest interface anyway.
+//! allocating or `unsafe`. Bytes are what is left, and they turn out to be the
+//! honest interface anyway.
+//!
+//! Parsing itself contains no `unsafe`. The one exception in this crate is
+//! [`os_string_from_bytes`], the *reverse* conversion, which lets a `PathBuf`
+//! field hold a filename that is not UTF-8 instead of a mangled copy of one —
+//! and even that is `unsafe` only on Windows, where WTF-8 makes the conversion
+//! partial. Its documentation carries the argument.
 //!
 //! # What this crate does not do
 //!
@@ -73,9 +79,11 @@
 //!
 //! [the argv grammar]: https://usage.jdx.dev/spec/argv
 
-#![forbid(unsafe_code)]
+// Denied rather than forbidden, so that the one audited exception can say so out loud
+// instead of the crate having to pretend it has none. See `os_string_from_bytes`.
+#![deny(unsafe_code)]
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "spec")]
 pub mod spec;
@@ -141,6 +149,12 @@ pub struct Flag<'a> {
     /// Long forms, written without the leading `--`.
     pub longs: &'a [&'a str],
     /// Short forms, as single bytes.
+    ///
+    /// **Must be ASCII.** A cluster like `-xyz` is walked one byte at a time, so a
+    /// non-ASCII short would let the remainder — which becomes that flag's value — begin
+    /// in the middle of a multi-byte character. [`os_string_from_bytes`] relies on that not
+    /// happening. `#[derive(Cli)]` rejects a non-ASCII `short`; a table written by hand has
+    /// to keep to it.
     pub shorts: &'a [u8],
     /// A long form that sets the flag to false, written without the `--`.
     pub negate: Option<&'a str>,
@@ -404,6 +418,55 @@ pub struct InvalidValue<'t> {
 /// but only for the values actually inspected.
 pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
     std::str::from_utf8(value)
+}
+
+/// Rebuild an [`OsString`] from bytes the parser handed back.
+///
+/// This is the reverse of [`OsStr::as_encoded_bytes`], and it is how a `PathBuf` field
+/// receives a filename the operating system accepts but UTF-8 does not — `/tmp/\xff` stays
+/// `/tmp/\xff` rather than becoming a *different* filename with `U+FFFD` in it.
+///
+/// # Which bytes
+///
+/// Only bytes that came from [`Event`], unmodified. Anything else — a value read from an
+/// environment variable, a default from the spec, bytes assembled by the caller — is either
+/// already a `String` or should become one through [`as_str`]; this function has no way to
+/// tell, so passing it something else is the caller's mistake to avoid.
+///
+/// # Why this is sound
+///
+/// On Unix an `OsString` is an arbitrary byte sequence, so the conversion is total and uses
+/// the safe [`OsStringExt::from_vec`]. No invariant is needed and no `unsafe` is involved.
+///
+/// [`OsStringExt::from_vec`]: std::os::unix::ffi::OsStringExt::from_vec
+///
+/// On Windows the encoding is WTF-8, where not every byte sequence is valid and only
+/// `from_encoded_bytes_unchecked` will accept one — so there the conversion rests on an
+/// invariant of this crate: **every sub-slice the parser produces is cut at an ASCII byte**.
+/// A token is split after `-`, after `--`, at `=`, and between the letters of a short-flag
+/// cluster; all four are ASCII, and an ASCII byte never occurs inside a multi-byte WTF-8
+/// (or UTF-8) sequence, so no cut can land in the middle of one. Values the parser passes
+/// through whole are trivially fine.
+///
+/// The one way to break that is a [`Flag::shorts`] entry that is not ASCII, which would let
+/// a cluster be split mid-sequence. `#[derive(Cli)]` refuses a non-ASCII `short`, and the
+/// field documents the requirement for tables written by hand.
+pub fn os_string_from_bytes(value: Vec<u8>) -> OsString {
+    #[cfg(unix)]
+    {
+        std::os::unix::ffi::OsStringExt::from_vec(value)
+    }
+    #[cfg(not(unix))]
+    {
+        // SAFETY: `value` came from `OsStr::as_encoded_bytes`, either whole or cut at an
+        // ASCII byte — see the invariant above, which `Flag::shorts` is documented to
+        // uphold and the derive enforces. A cut at an ASCII byte is a valid WTF-8 boundary,
+        // so these bytes are a well-formed encoding of an `OsString`.
+        #[allow(unsafe_code)]
+        unsafe {
+            OsString::from_encoded_bytes_unchecked(value)
+        }
+    }
 }
 
 /// A single-pass parse over `argv`.

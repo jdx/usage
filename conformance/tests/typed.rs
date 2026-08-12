@@ -5,7 +5,7 @@
 //! `PathBuf` 227 times and a tool-version type 83 times in its command structs — and that a
 //! value which will not convert says which value and why.
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -359,30 +359,123 @@ fn the_conversion_stands_on_its_own() {
     assert!(err.contains("bash, zsh, fish, pwsh"), "{err}");
 }
 
-/// A CLI holding a path, which is where mangling would show
+/// A CLI holding paths, which is where mangling would show
 #[derive(Cli)]
 #[usage(bin = "pathy")]
 struct Pathy {
     /// Where to write
-    #[usage(long)]
+    #[usage(long, short = 'o')]
     out: Option<PathBuf>,
     /// Anything at all
     #[usage(long)]
     text: Option<String>,
+    /// Every input
+    #[usage(long, var)]
+    input: Vec<PathBuf>,
+    /// A raw word
+    #[usage(long)]
+    raw: Option<OsString>,
+    /// Every exclusion, or none given at all
+    #[usage(long, var)]
+    exclude: Option<Vec<PathBuf>>,
+}
+
+/// A filename the operating system accepts and UTF-8 does not.
+#[cfg(unix)]
+fn not_utf8() -> &'static OsStr {
+    use std::os::unix::ffi::OsStrExt;
+    OsStr::from_bytes(b"/tmp/\xff")
+}
+
+#[cfg(unix)]
+fn as_bytes(path: &std::path::Path) -> &[u8] {
+    use std::os::unix::ffi::OsStrExt;
+    path.as_os_str().as_bytes()
 }
 
 #[test]
-fn a_word_that_is_not_utf8_is_reported_rather_than_mangled() {
-    // It used to arrive through `from_utf8_lossy`, so a path with a stray byte in it became
-    // a path with U+FFFD in it — a different file, silently. Now the parse says so.
-    use std::ffi::OsStr;
+#[cfg(unix)]
+fn a_word_that_is_not_utf8_arrives_byte_for_byte() {
+    // It used to arrive through `from_utf8_lossy`, so a path with a stray byte in it became a
+    // path with `U+FFFD` in it — a different file, silently. Reporting it was the safe half
+    // of the fix; this is the whole one, because the operating system does accept this
+    // filename and a CLI that cannot receive it cannot open the file.
+    let argv = [OsStr::new("--out"), not_utf8()];
+    let parsed = Pathy::parse_from(&argv).expect("a filename the OS accepts should parse");
+    let out = parsed.out.expect("given");
+    assert_eq!(as_bytes(&out), b"/tmp/\xff");
+
+    // The point of byte-exactness: it is not the lossy rendering, which names another file.
+    assert_ne!(as_bytes(&out), "/tmp/\u{fffd}".as_bytes());
+}
+
+#[test]
+#[cfg(unix)]
+fn every_form_a_value_can_arrive_in_keeps_its_bytes() {
+    // Each of these reaches the field by a different route through the parser, and each cuts
+    // the token at a different place — which is exactly what `os_string_from_bytes` is
+    // trusting. A detached value is passed through whole; `--out=…` is cut at the `=`.
     use std::os::unix::ffi::OsStrExt;
 
-    let bad = OsStr::from_bytes(b"/tmp/\xff");
-    let argv = [OsStr::new("--out"), bad];
+    for (token, why) in [
+        (
+            &b"--out=/tmp/\xff"[..],
+            "a long form's attached value is cut at the `=`",
+        ),
+        (
+            b"-o/tmp/\xff",
+            "a short flag's value is the rest of the token",
+        ),
+        (
+            b"-o=/tmp/\xff",
+            "a short flag's value may be cut at an `=` too",
+        ),
+    ] {
+        let parsed = Pathy::parse_from(&[OsStr::from_bytes(token)]).expect("should parse");
+        assert_eq!(as_bytes(&parsed.out.expect("given")), b"/tmp/\xff", "{why}");
+    }
+
+    // A collecting field keeps every one of them, and an `OsString` field takes the word
+    // with no interpretation at all.
+    // `var` is repetition rather than a variadic, so each value comes with its own flag.
+    let argv = [
+        OsStr::new("--input"),
+        not_utf8(),
+        OsStr::new("--input"),
+        OsStr::from_bytes(b"\xfe"),
+        OsStr::new("--raw"),
+        not_utf8(),
+    ];
+    let parsed = Pathy::parse_from(&argv).expect("should parse");
+    assert_eq!(
+        parsed.input.iter().map(|p| as_bytes(p)).collect::<Vec<_>>(),
+        [&b"/tmp/\xff"[..], &b"\xfe"[..]]
+    );
+    assert_eq!(parsed.raw.expect("given").as_bytes(), b"/tmp/\xff");
+
+    // An `Option<Vec<_>>` still tells "never given" from "given nothing", which is decided
+    // before any of this and must not have been lost on the way to the byte path.
+    assert!(parsed.exclude.is_none(), "never given");
+    let argv = [OsStr::new("--exclude"), not_utf8()];
+    let parsed = Pathy::parse_from(&argv).expect("should parse");
+    assert_eq!(
+        parsed
+            .exclude
+            .as_deref()
+            .map(|paths| paths.iter().map(|p| as_bytes(p)).collect::<Vec<_>>()),
+        Some(vec![&b"/tmp/\xff"[..]])
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn a_field_that_is_not_a_path_still_reports_it() {
+    // Byte-exactness is for the types that can hold any byte sequence. A `String` cannot, so
+    // there the honest answer is still to say so rather than to substitute a different word.
+    let argv = [OsStr::new("--text"), not_utf8()];
     match Pathy::parse_from(&argv) {
         Err(Error::InvalidValue(bad)) => {
-            assert_eq!(bad.name, "out");
+            assert_eq!(bad.name, "text");
             assert!(
                 bad.reason.contains("utf-8") || bad.reason.contains("UTF-8"),
                 "the reason should say what was wrong: {}",
@@ -393,7 +486,7 @@ fn a_word_that_is_not_utf8_is_reported_rather_than_mangled() {
             assert!(bad.value.contains("/tmp/"), "{}", bad.value);
         }
         Err(other) => panic!("wrong error: {other:?}"),
-        Ok(_) => panic!("a value that is not UTF-8 should not have been accepted"),
+        Ok(_) => panic!("a `String` cannot hold this, so it should not have been accepted"),
     }
 }
 

@@ -760,10 +760,67 @@ fn field_final(field: &Field) -> TokenStream {
     // Recognising it by spelling is safe now: if an adopter's own `String` were mistaken for
     // this one, the mismatch is a compile error rather than a value quietly mangled — and
     // the check that matters, the UTF-8 one, happens either way.
+    let rendered = rendered_path(ty);
     let is_std_string = matches!(
-        rendered_path(ty).as_str(),
+        rendered.as_str(),
         "String" | "std::string::String" | "::std::string::String" | "alloc::string::String"
     );
+
+    // A field that can hold any byte sequence skips UTF-8 entirely, because for these types
+    // rejecting a word would be the wrong answer: the operating system accepts `/tmp/\xff`
+    // as a filename, so a CLI has to be able to receive one. Everything else still converts
+    // through text, since `FromStr` is the only thing an arbitrary type offers.
+    //
+    // Recognised by spelling, with the same reasoning as `String` above: an adopter's own
+    // `PathBuf` would fail to compile rather than quietly take a mangled value, because what
+    // is handed to it is an `OsString` and not a `&str`.
+    let os_target = match rendered.as_str() {
+        "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => {
+            Some(quote!(::std::path::PathBuf::from))
+        }
+        "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => {
+            Some(quote!(::std::convert::identity))
+        }
+        _ => None,
+    };
+    if let Some(build) = os_target {
+        // No failure is possible here, so unlike the text path below there is nothing to
+        // report and no error to carry a value into.
+        let one = |value: TokenStream| quote!(#build(::usage_argv::os_string_from_bytes(#value)));
+        return match field.shape {
+            // Unreachable: a switch and a count have no `value_ty`, so the early return
+            // above already handled them.
+            Shape::Bool | Shape::Count => quote!(#ident: partial.#ident),
+            Shape::Required => {
+                let value = one(quote!(partial.#ident));
+                quote!(#ident: #value)
+            }
+            Shape::Optional => {
+                let value = one(quote!(__usage_value));
+                quote!(#ident: partial.#ident.map(|__usage_value| #value))
+            }
+            Shape::Many => {
+                let value = one(quote!(__usage_value));
+                let collected =
+                    quote!(partial.#ident.into_iter().map(|__usage_value| #value).collect());
+                if field.optional_collection {
+                    let given = format_ident!("__given_{}", ident);
+                    // Same as below: whether anything arrived is what tells "never given"
+                    // from "given nothing", which the `Vec` itself cannot.
+                    quote! {
+                        #ident: if partial.#given {
+                            ::std::option::Option::Some(#collected)
+                        } else {
+                            ::std::option::Option::None
+                        }
+                    }
+                } else {
+                    quote!(#ident: #collected)
+                }
+            }
+        };
+    }
+
     let converted = |value: TokenStream| {
         let text = quote! {
             match ::std::string::String::from_utf8(#value) {

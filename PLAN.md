@@ -132,12 +132,26 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       a different file, silently. Costs +656 instructions (1.6%) and one allocation, which
       is what not corrupting a value is worth. It also retired the hazard of recognising
       `String` by its spelling, since there is no identity case left.
-- [ ] **Accepting a value that is not valid UTF-8** — reporting it is not the same as taking
-      it. `PathBuf` could hold the exact bytes, but recovering an `OsString` from them needs
-      `OsStr::from_encoded_bytes_unchecked`, which is `unsafe`, and this crate has none. The
-      call would be sound — the bytes come from `as_encoded_bytes` in the same process, and
-      every split the parser makes is at an ASCII byte, so no multi-byte sequence is ever
-      cut — but introducing `unsafe` is jdx's call to make, not mine.
+- [x] **Accepting a value that is not valid UTF-8** — reporting it was the safe half;
+      accepting it is the whole fix, because the operating system does accept `/tmp/\xff`
+      as a filename and a CLI that cannot receive one cannot open the file. A `PathBuf` or
+      `OsString` field now takes the bytes exactly, through
+      `usage_argv::os_string_from_bytes`. On Unix that is the **safe** `OsString::from_vec`,
+      so the question of `unsafe` never arises there; only Windows needs
+      `from_encoded_bytes_unchecked`, because WTF-8 makes the conversion partial. jdx
+      approved the `unsafe` for that case.
+
+      The Windows call rests on an invariant now written down where it can be checked: every
+          sub-slice the parser produces is cut at an ASCII byte (after `-`, after `--`, at `=`,
+          between the letters of a cluster), and an ASCII byte never occurs inside a multi-byte
+          sequence. The one way to break it is a non-ASCII `Flag::shorts` entry, which the derive
+          already refused — that rule is now documented as load-bearing and has a test.
+
+          Cheaper, not dearer: a `PathBuf` field costs **567 instructions per parse against a
+          `String` field's 660**, since it skips the UTF-8 validation pass, and both allocate
+          once. The gate fixture cannot show this — a spec carries no Rust types, so every shadow
+          field is a `String` — which is why it is measured directly instead.
+
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
