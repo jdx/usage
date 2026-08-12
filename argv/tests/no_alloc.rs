@@ -12,7 +12,6 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::ffi::OsStr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use usage_argv::{Arg, Command, DoubleDash, Event, Flag, Parser};
 
@@ -28,9 +27,12 @@ thread_local! {
     /// `const`-initialized so reading it cannot allocate, which inside a global
     /// allocator would recurse.
     static ARMED: Cell<bool> = const { Cell::new(false) };
+    /// Counted per thread as well as armed per thread. One test file with one test does
+    /// not need that today, but a global counter and a per-thread flag disagree the moment
+    /// a second test is added — which is how the gate's version of this counter came to
+    /// report a parse allocating 24 times when it allocates 4.
+    static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
 }
-
-static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
 
 /// Whether the calling thread is the one being measured.
 ///
@@ -40,11 +42,15 @@ fn armed() -> bool {
     ARMED.try_with(Cell::get).unwrap_or(false)
 }
 
+fn tally() {
+    if armed() {
+        let _ = ALLOCATIONS.try_with(|n| n.set(n.get() + 1));
+    }
+}
+
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if armed() {
-            ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        }
+        tally();
         unsafe { System.alloc(layout) }
     }
 
@@ -53,9 +59,7 @@ unsafe impl GlobalAlloc for Counting {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        if armed() {
-            ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        }
+        tally();
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 }
@@ -69,11 +73,11 @@ static ALLOCATOR: Counting = Counting;
 /// Only this thread is counted, so neither a sibling test nor the harness itself
 /// can contribute — both of which have produced phantom allocations here.
 fn count_allocations(f: impl FnOnce()) -> usize {
-    ALLOCATIONS.store(0, Ordering::Relaxed);
+    ALLOCATIONS.with(|n| n.set(0));
     ARMED.with(|a| a.set(true));
     f();
     ARMED.with(|a| a.set(false));
-    ALLOCATIONS.load(Ordering::Relaxed)
+    ALLOCATIONS.with(Cell::get)
 }
 
 static QUIET: Flag = Flag {
