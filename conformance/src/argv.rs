@@ -66,6 +66,24 @@ pub fn run(vector: &Vector) -> Outcome {
         &spec.cmd,
         convert_unknown_flags(spec.unknown_flags.unwrap_or_default()),
     );
+    // `default_subcommand` is a property of the spec rather than of a command, so it is
+    // resolved once, here, against the root's own subcommands. A name that answers to
+    // nothing is left as None: the spec is what it is, and a vector that expects routing
+    // will fail loudly rather than this guessing.
+    let root: &'static Command<'static> = match spec.default_subcommand.as_deref() {
+        Some(name) => {
+            let default = root
+                .subcommands
+                .iter()
+                .copied()
+                .find(|sub| sub.name == name || sub.aliases.contains(&name));
+            Box::leak(Box::new(Command {
+                default_subcommand: default,
+                ..*root
+            }))
+        }
+        None => root,
+    };
     let argv: Vec<&'static OsStr> = vector
         .argv
         .iter()
@@ -293,6 +311,8 @@ fn build(
         flags: Box::leak(flags.into_boxed_slice()),
         args: Box::leak(args.into_boxed_slice()),
         subcommands: Box::leak(subcommands.into_boxed_slice()),
+        // Filled in by the caller for the root, which is the only place a spec declares one.
+        default_subcommand: None,
         unknown_flags,
         key: 0,
     }))

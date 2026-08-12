@@ -9,10 +9,9 @@
 //! to completions, which is the cold path, and a restart token is read by whoever splits an
 //! invocation into several.
 //!
-//! `default_subcommand` is *not* in that category, though this derive currently treats it as
-//! if it were — usage-lib routes on it while parsing. See
-//! `a_default_subcommand_does_not_route_yet`, which records the difference rather than
-//! asserting the gap is intended.
+//! `default_subcommand` is not in that category: it decides where a word goes, so the parser
+//! reads it. `mise build` means `mise run build`, and the word binds to *run's* argument even
+//! where the root declares one of its own.
 
 use usage::Spec as LibSpec;
 use usage_derive::{Args, Cli, Subcommands};
@@ -24,6 +23,9 @@ struct Run {
     /// Do not actually run anything
     #[usage(long)]
     dry_run: bool,
+    /// The task to run
+    #[usage(arg, name = "TASK")]
+    task: Option<String>,
 }
 
 /// List things
@@ -103,28 +105,49 @@ fn a_mount_is_not_consulted_while_parsing() {
 }
 
 #[test]
-fn a_default_subcommand_does_not_route_yet() {
+fn a_default_subcommand_routes_a_word_that_names_nothing() {
     use std::ffi::OsStr;
 
-    // **A recorded divergence, not the intended end state.** usage-lib routes here: given
-    // `default_subcommand "run"`, a word that names no subcommand makes its parser descend
-    // into `run` and bind the word as *`run`'s* argument, even when the root declares an
-    // argument of its own. Verified against usage-lib 4.0.0 directly — `mise build` comes
-    // back as commands `["mise", "run"]` with `TASK = "build"`.
-    //
-    // This parser keeps the word at the root, so `default_subcommand` reaches the spec and
-    // nothing more. That is a gap in the derive rather than a decision: routing needs the
-    // table to carry a pointer to the default subcommand and the parser to descend on a word
-    // that matches none, which is more than emitting a property. Asserted as it stands so
-    // the difference is visible and cannot be mistaken for intent.
-    //
-    // It matters to mise: `mise build` meaning `mise run build` is exactly this rule, and
-    // mise routes it by hand today.
+    // What `default_subcommand` is for, and what mise routes by hand today: `mise build`
+    // means `mise run build`. The word names no subcommand, so the parser descends into
+    // `run` and the word is re-examined there — landing on **run's** argument, not the
+    // root's, even though the root declares one. Matches usage-lib, which is where the
+    // behaviour was read from rather than invented.
     let argv = [OsStr::new("build")];
     let parsed = Cli_::parse_from(&argv).expect("should parse");
-    assert_eq!(parsed.task.as_deref(), Some("build"), "bound at the root");
+    let Some(Commands::Run(run)) = parsed.command else {
+        panic!("a word naming nothing should have reached `run`")
+    };
+    assert_eq!(run.task.as_deref(), Some("build"), "bound by `run`");
     assert!(
-        parsed.command.is_none(),
-        "usage-lib would have descended into `run` here"
+        parsed.task.is_none(),
+        "the root's own argument must not have taken it"
+    );
+
+    // A word that does name a command still selects it: the default is only for the words
+    // that name nothing.
+    let argv = [OsStr::new("ls"), OsStr::new("--all")];
+    let parsed = Cli_::parse_from(&argv).expect("should parse");
+    let Some(Commands::Ls(ls)) = parsed.command else {
+        panic!("expected ls")
+    };
+    assert!(ls.all);
+}
+
+#[test]
+fn the_name_is_resolved_when_the_program_is_compiled() {
+    // `default_subcommand` names a command whose declaration is in another macro expansion,
+    // so the derive cannot look it up — but a `const fn` can search the subcommand list
+    // during const evaluation, which makes a name that answers to nothing a compile error.
+    // Nothing to assert at run time beyond the resolution having happened: the pointer is
+    // the same static the subcommand list holds.
+    let root = Cli_::command();
+    let default = root.default_subcommand.expect("declared");
+    assert_eq!(default.name, "run");
+    assert!(
+        root.subcommands
+            .iter()
+            .any(|sub| ::core::ptr::eq(*sub, default)),
+        "resolved to the table's own entry rather than a copy of it"
     );
 }

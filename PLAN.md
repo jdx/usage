@@ -49,7 +49,7 @@ usage-lib ── interprets a spec       usage-derive ── reads a Rust type
       │      at runtime                     │
       │                                     ├─→ static tables ─→ usage-argv (hot)
       └─→ the oracle the corpus             └─→ static metadata ─→ help,
-          measures everyone against              completions, spec output (cold)
+      measures everyone against              completions, spec output (cold)
 ```
 
 Four rules hold this together.
@@ -200,16 +200,36 @@ carrying them rather than being worked around.
       engine what a bare word means. So they are emission-only, and the test asserts both
       that they reach the KDL and that binding is unaffected. `default_subcommand` is
       checked at compile time to require a subcommand field, since it names one.
-- [ ] **Routing on `default_subcommand`** — the property above is emitted and nothing more,
-      and that is a gap rather than a decision: usage-lib _routes_ on it while parsing. Given
-      `default_subcommand "run"`, a word naming no subcommand makes its parser descend into
-      `run` and bind the word as **`run`'s** argument, even where the root declares an
-      argument of its own — verified against usage-lib 4.0.0, where `mise build` comes back
-      as `["mise", "run"]` with `TASK = "build"`. This parser keeps the word at the root.
-      Closing it needs `Command` to carry a pointer to its default subcommand and the parser
-      to descend on an unmatched word, so it is parser work rather than emission. It is also
-      the rule behind `mise build` meaning `mise run build`, which mise routes by hand today
-      — so this is one more hack adoption should remove.
+- [x] **Routing on `default_subcommand`** — the parser reads it now, rather than the property
+      being emitted and ignored. A word naming no subcommand descends into the named command
+      and is examined again there, so it can be that command's argument or one of _its_
+      subcommands. The declaring command's own positional does not win, which is what makes
+      the property more than a synonym for an argument — and is mise's shape exactly. Taken at
+      most once per parse, so a chain of defaults cannot walk a CLI deeper than the user typed.
+
+      No measurable cost: 40,370 instructions against 40,472 before, the branch being reached
+          only by a word that matched no subcommand. The ±100 is code layout rather than work —
+          cachegrind is deterministic, and gave the same figure twice. Allocations unchanged: 0
+          bare, 4 bound.
+
+          The name is resolved by `find_subcommand` during **const evaluation**, so a
+          `default_subcommand` that no subcommand answers to is a compile error. That retires the
+          claim in the entry above that the name could not be checked: the variants are indeed
+          another expansion, but a `const fn` can search the list the parent already holds.
+
+          **What it does not buy on its own:** `mise build` still does not work end to end in the
+          shadow, because mise's spec gives `run` no positional at all — `src/cli/usage.rs` clears
+          them and adds `mount run="mise tasks --usage"`, so task names are meant to come from
+          running that. usage-argv does not execute mounts. Routing *plus* mounts is what would let
+          mise delete its hand-rolled dispatch; routing alone is half of it.
+
+          One divergence recorded (`default-is-declared-for-the-root`): usage-lib holds the single
+          name for the whole spec and applies it at whichever command it is standing on, so
+          `ex config zzz` descends into `config ls` when an unrelated `config` happens to have an
+          `ls`. Read here as a property of the root, which is the only place it can be declared.
+          **Worth a decision** — it looks accidental rather than intended, and if you agree it is a
+          small fix in usage-lib.
+
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate

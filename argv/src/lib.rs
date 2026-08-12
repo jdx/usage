@@ -107,6 +107,19 @@ pub struct Command<'a> {
     /// Positional arguments, in the order they are filled.
     pub args: &'a [&'a Arg<'a>],
     pub subcommands: &'a [&'a Command<'a>],
+    /// Where a word goes when it names no subcommand of this one.
+    ///
+    /// The spec's `default_subcommand`. `mise build` means `mise run build`: the word names
+    /// no command, so the parser descends into `run` and lets *`run`* have it — even where
+    /// this command declares an argument of its own, which is what makes the property worth
+    /// having rather than a synonym for a positional.
+    ///
+    /// Applied at most once per parse, so a CLI cannot loop through it, and only where a
+    /// subcommand could still be selected.
+    ///
+    /// Resolve it with [`find_subcommand`], which turns a name that no subcommand answers to
+    /// into a compile error.
+    pub default_subcommand: ::core::option::Option<&'a Command<'a>>,
     /// What an unrecognized flag-like token means here. Already resolved — see
     /// [`UnknownFlags`].
     pub unknown_flags: UnknownFlags,
@@ -129,6 +142,7 @@ impl Command<'_> {
         flags: &[],
         args: &[],
         subcommands: &[],
+        default_subcommand: ::core::option::Option::None,
         unknown_flags: UnknownFlags::Value,
         key: 0,
     };
@@ -419,6 +433,59 @@ pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
     std::str::from_utf8(value)
 }
 
+/// Resolve a subcommand by name, at compile time.
+///
+/// For [`Command::default_subcommand`], which names a command that a derive cannot see: the
+/// variants of a subcommand enum are a different macro expansion, so the name is all the
+/// parent has. Searching the list in a `const fn` closes that gap — the answer is the same
+/// `&'static` the table already holds, found before the program runs.
+///
+/// A name no subcommand answers to is a **compile error**, since this panics during const
+/// evaluation. That is the whole point of doing it here rather than at startup.
+///
+/// ```
+/// use usage_argv::{find_subcommand, Command};
+///
+/// static RUN: Command = Command { name: "run", ..Command::EMPTY };
+/// static SUBS: &[&Command] = &[&RUN];
+/// static ROOT: Command = Command {
+///     name: "ex",
+///     subcommands: SUBS,
+///     default_subcommand: Some(find_subcommand(SUBS, "run")),
+///     ..Command::EMPTY
+/// };
+/// assert_eq!(ROOT.default_subcommand.unwrap().name, "run");
+/// ```
+pub const fn find_subcommand<'a>(
+    subcommands: &'a [&'a Command<'a>],
+    name: &str,
+) -> &'a Command<'a> {
+    let mut i = 0;
+    while i < subcommands.len() {
+        if str_eq(subcommands[i].name, name) {
+            return subcommands[i];
+        }
+        i += 1;
+    }
+    panic!("`default_subcommand` names a command that this one does not have")
+}
+
+/// `==` on strings, in a `const fn`.
+const fn str_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Rebuild an [`OsString`] from bytes the parser handed back.
 ///
 /// This is the reverse of [`OsStr::as_encoded_bytes`], and it is how a `PathBuf` field
@@ -502,6 +569,11 @@ pub struct Parser<'t, 'v> {
     /// consuming it. Callers asking this question want to know what the user
     /// wrote, not what state the parser reached.
     separator_seen: bool,
+    /// Whether the default subcommand has already been taken.
+    ///
+    /// Once, per parse: a default subcommand that itself declares one would otherwise
+    /// descend on every word until the tree ran out.
+    default_taken: bool,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
 }
@@ -526,6 +598,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             arg_filled: false,
             flags_stopped: false,
             separator_seen: false,
+            default_taken: false,
             done: false,
         }
     }
@@ -779,6 +852,22 @@ impl<'t, 'v> Parser<'t, 'v> {
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
             }
+
+            // A word that names no subcommand goes to the default one, if there is one.
+            //
+            // The token is *not* consumed: the cursor steps back so the next event reads it
+            // again, now against the command just descended into. That is what lets it be a
+            // subcommand of the default (`mise build` where `build` is a task the mount
+            // added) as easily as an argument of it, without this function having to decide
+            // which — and without yielding two events for one word.
+            if let Some(default) = self.cmd.default_subcommand {
+                if !self.default_taken {
+                    self.default_taken = true;
+                    self.descend(default)?;
+                    self.pos -= 1;
+                    return Ok(Event::Command(default));
+                }
+            }
         }
 
         let Some(arg) = self.next_arg() else {
@@ -1023,6 +1112,50 @@ mod tests {
         ..Command::EMPTY
     };
 
+    // A CLI shaped exactly like mise's root: a default subcommand, a positional of its own,
+    // and a subcommand under the default — which is the arrangement that tells routing from
+    // a plain positional.
+    static TASK: Arg = Arg {
+        key: 20,
+        name: "task",
+        ..Arg::REQUIRED
+    };
+    static RUN_TASK: Arg = Arg {
+        key: 21,
+        name: "run_task",
+        ..Arg::REQUIRED
+    };
+    static DEEP: Command = Command {
+        name: "deep",
+        args: &[&RUN_TASK],
+        key: 203,
+        ..Command::EMPTY
+    };
+    static LINT: Command = Command {
+        name: "lint",
+        subcommands: &[&DEEP],
+        // A default of its own, so that a parse which forgot it had already taken one would
+        // have somewhere to go. Nothing else in these fixtures can show the latch working.
+        default_subcommand: Some(&DEEP),
+        key: 202,
+        ..Command::EMPTY
+    };
+    static RUN: Command = Command {
+        name: "run",
+        args: &[&RUN_TASK],
+        subcommands: &[&LINT],
+        key: 200,
+        ..Command::EMPTY
+    };
+    static DEFAULTING: Command = Command {
+        name: "mise",
+        flags: &[&VERBOSE],
+        args: &[&TASK],
+        subcommands: &[&RUN, &INSTALL],
+        default_subcommand: Some(find_subcommand(&[&RUN, &INSTALL], "run")),
+        ..Command::EMPTY
+    };
+
     /// Collect every event, or the first error.
     fn parse<'t, 'v>(
         root: &'t Command<'t>,
@@ -1263,6 +1396,113 @@ mod tests {
                     value: b"install"
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn a_word_naming_no_subcommand_goes_to_the_default_one() {
+        // usage-lib's answer, which this reproduces: `mise build` comes back as commands
+        // `["mise", "run"]` with the word bound to *run's* argument — not to `mise`'s own
+        // `[TASK]`, which is what makes this more than a synonym for a positional.
+        let a = argv(["build"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![
+                Event::Command(&RUN),
+                Event::Arg {
+                    arg: &RUN_TASK,
+                    value: b"build"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_named_subcommand_is_not_routed() {
+        // The default is for words that name nothing. A word that names a sibling still
+        // selects it, and the root's own argument is still reachable behind one.
+        let a = argv(["install"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![Event::Command(&INSTALL)]
+        );
+    }
+
+    #[test]
+    fn the_word_is_re_examined_against_the_command_it_reached() {
+        // The reason the cursor steps back rather than the token being consumed: `lint` names
+        // nothing at the root, and once inside `run` it names a subcommand. mise's mounted
+        // task names arrive exactly this way.
+        let a = argv(["lint"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![Event::Command(&RUN), Event::Command(&LINT)]
+        );
+    }
+
+    #[test]
+    fn the_default_is_taken_at_most_once_per_parse() {
+        // usage-lib latches this for the whole parse rather than per command, and the shape
+        // that shows the difference needs two of them: `lint` routes through `run`, and `lint`
+        // declares a default too. A second word there would descend again — walking a CLI
+        // deeper than anything the user typed — so the answer is that it does not.
+        let a = argv(["lint", "zzz"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a),
+            Err(Error::UnexpectedArg { token: b"zzz" }),
+            "the second word must not reach `deep`"
+        );
+
+        // Reached explicitly, the same command still takes it: the latch bounds routing, not
+        // the tree.
+        let a = argv(["lint", "deep", "zzz"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![
+                Event::Command(&RUN),
+                Event::Command(&LINT),
+                Event::Command(&DEEP),
+                Event::Arg {
+                    arg: &RUN_TASK,
+                    value: b"zzz"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_flag_before_the_word_still_belongs_to_the_root() {
+        // Routing happens at the word, so anything typed before it was addressed to the
+        // command the user was actually at.
+        let a = argv(["--verbose", "build"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &VERBOSE,
+                    value: None,
+                    negated: false
+                },
+                Event::Command(&RUN),
+                Event::Arg {
+                    arg: &RUN_TASK,
+                    value: b"build"
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn nothing_routes_after_the_separator() {
+        // Past `--` there are no subcommands left to select, so there is no default to reach
+        // either: the words are values of whatever the command declares.
+        let a = argv(["--", "build"]);
+        assert_eq!(
+            parse(&DEFAULTING, &a).unwrap(),
+            vec![Event::Arg {
+                arg: &TASK,
+                value: b"build"
+            }]
         );
     }
 
