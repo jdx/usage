@@ -39,6 +39,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
         _ => quote!(::usage_argv::UnknownFlags::Value),
     };
 
+    let default_subcommand = option_str(cli.default_subcommand.as_deref());
+    let restart_token = option_str(cli.restart_token.as_deref());
+    let mount = option_str(cli.mount.as_deref());
     let root_key = key_ident("COMMAND", None);
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
@@ -122,6 +125,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 cmd: &ROOT,
                 about: #about,
                 long_about: #long_about,
+                restart_token: #restart_token,
+                mount: #mount,
                 flags: &[#(#flag_meta_refs),*],
                 args: &[#(#arg_meta_refs),*],
                 #sub_metas
@@ -167,7 +172,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 version: #version,
                 about: #about,
                 long_about: #long_about,
-                default_subcommand: None,
+                default_subcommand: #default_subcommand,
                 root: &ROOT_META,
             };
         }
@@ -1049,6 +1054,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let module = format_ident!("__usage_args_{}", ident.to_string().to_lowercase());
     let command_key = key_ident("COMMAND", None);
+    let restart_token = option_str(cli.restart_token.as_deref());
+    let mount = option_str(cli.mount.as_deref());
 
     let flags: Vec<&Field> = cli
         .fields
@@ -1135,6 +1142,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 cmd: &COMMAND,
                 about: #about,
                 long_about: #long_about,
+                restart_token: #restart_token,
+                mount: #mount,
                 flags: &[#(#flag_meta_refs),*],
                 args: &[#(#arg_meta_refs),*],
                 #sub_metas

@@ -122,15 +122,6 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
     // Properties of the CLI as a whole that the derive has no way to declare. The root's
     // grammar differs without them: mise sets `default_subcommand run`, so `mise build`
     // routes through `run` there and fills the root's own `[TASK]` here.
-    if spec.default_subcommand.is_some() {
-        skipped.note("`default_subcommand` on a command");
-    }
-    if !spec.cmd.mounts.is_empty() {
-        skipped.note("a `mount` on a command");
-    }
-    if spec.cmd.restart_token.is_some() {
-        skipped.note("a `restart_token` on a command");
-    }
 
     header(&mut out, spec_path, dialect);
     let root = Type::root(&spec.cmd, &mut names);
@@ -139,10 +130,13 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
         &spec.cmd,
         &root,
         true,
-        &spec.bin,
-        dialect,
-        &mut skipped,
-        &mut names,
+        &mut Run {
+            bin: &spec.bin,
+            default_subcommand: spec.default_subcommand.as_deref(),
+            dialect,
+            skipped: &mut skipped,
+            names: &mut names,
+        },
     );
     (out, skipped)
 }
@@ -240,17 +234,21 @@ impl Type {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn emit_command(
-    out: &mut String,
-    cmd: &SpecCommand,
-    ty: &Type,
-    is_root: bool,
-    bin: &str,
+/// What every command in one run of the generator shares.
+///
+/// These five travelled as five parameters, which is how the signature got long enough to
+/// need a clippy exclusion. They belong together: none of them varies per command.
+struct Run<'a> {
+    bin: &'a str,
+    /// Only the root has one, and only it declares it.
+    default_subcommand: Option<&'a str>,
     dialect: Dialect,
-    skipped: &mut Skipped,
-    names: &mut Names,
-) {
+    skipped: &'a mut Skipped,
+    names: &'a mut Names,
+}
+
+fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, run: &mut Run) {
+    let (bin, dialect) = (run.bin, run.dialect);
     // Children first, so a reader meets a type before the struct that holds it. The
     // names are claimed here too, since the parent's `subcommand` field needs them.
     let children: Vec<(&String, &SpecCommand, Type)> = cmd
@@ -261,31 +259,71 @@ fn emit_command(
         // matches aliases, the derive has no way to declare one — so it is counted
         // below rather than passed over in silence.
         .filter(|(name, sub)| sub.name == **name)
-        .map(|(name, sub)| (name, sub, Type::child(ty, name, sub, names)))
+        .map(|(name, sub)| (name, sub, Type::child(ty, name, sub, run.names)))
         .collect();
     for (_, sub, _) in &children {
-        if !sub.mounts.is_empty() {
-            skipped.note("a `mount` on a command");
-        }
-        if sub.restart_token.is_some() {
-            skipped.note("a `restart_token` on a command");
+        if sub.mounts.len() > 1 {
+            run.skipped.note("a command's second and later mounts");
         }
     }
     for (_, sub, sub_ty) in &children {
-        emit_command(out, sub, sub_ty, false, bin, dialect, skipped, names);
+        // `run` travels down unchanged; `default_subcommand` is read under an `is_root`
+        // guard, so a child cannot pick up the root's.
+        emit_command(out, sub, sub_ty, false, run);
     }
 
     doc_comment(out, cmd.help.as_deref(), cmd.help_long.as_deref(), 0);
+    // The command-level properties. The usage dialect declares them; clap has no way to say
+    // any of them, so on that side they are counted as dropped — the shadow would otherwise
+    // look more faithful than it is.
+    let mut usage_opts: Vec<String> = Vec::new();
+    if is_root {
+        usage_opts.push(format!("bin = {bin:?}"));
+    }
+    for (present, declaration, what) in [
+        (
+            is_root && run.default_subcommand.is_some(),
+            run.default_subcommand
+                .map(|d| format!("default_subcommand = {d:?}")),
+            "`default_subcommand` on a command",
+        ),
+        (
+            cmd.restart_token.is_some(),
+            cmd.restart_token
+                .as_ref()
+                .map(|t| format!("restart_token = {t:?}")),
+            "a `restart_token` on a command",
+        ),
+        (
+            !cmd.mounts.is_empty(),
+            cmd.mounts.first().map(|m| format!("mount = {:?}", m.run)),
+            "a `mount` on a command",
+        ),
+    ] {
+        if !present {
+            continue;
+        }
+        match dialect {
+            Dialect::Usage => usage_opts.extend(declaration),
+            Dialect::Clap => run.skipped.note(what),
+        }
+    }
     match (is_root, dialect) {
         (true, Dialect::Usage) => {
             out.push_str("#[derive(Cli)]\n");
-            out.push_str(&format!("#[usage(bin = {bin:?})]\n"));
+            out.push_str(&format!("#[usage({})]\n", usage_opts.join(", ")));
         }
         (true, Dialect::Clap) => {
             out.push_str("#[derive(Parser)]\n");
             out.push_str(&format!("#[command(name = {bin:?})]\n"));
         }
-        (false, _) => out.push_str("#[derive(Args)]\n"),
+        (false, Dialect::Usage) => {
+            out.push_str("#[derive(Args)]\n");
+            if !usage_opts.is_empty() {
+                out.push_str(&format!("#[usage({})]\n", usage_opts.join(", ")));
+            }
+        }
+        (false, Dialect::Clap) => out.push_str("#[derive(Args)]\n"),
     }
     out.push_str(&format!("pub struct {} {{\n", ty.args));
 
@@ -300,7 +338,7 @@ fn emit_command(
         .filter_map(|flag| {
             let long = flag.long.first().cloned();
             if long.is_none() && flag.short.is_empty() {
-                skipped.note("a flag with no long or short form");
+                run.skipped.note("a flag with no long or short form");
                 return None;
             }
             let field = fields.claim(long.as_deref().unwrap_or(&flag.name));
@@ -318,11 +356,11 @@ fn emit_command(
         })
         .collect();
     for (flag, long, field) in &flags {
-        emit_flag(out, flag, long.clone(), field, dialect, &ids, skipped);
+        emit_flag(out, flag, long.clone(), field, dialect, &ids, run.skipped);
     }
     for arg in &cmd.args {
         let field = fields.claim(&arg.name);
-        emit_arg(out, arg, &field, dialect, skipped);
+        emit_arg(out, arg, &field, dialect, run.skipped);
     }
     if !ty.subcommands.is_empty() {
         // A bare `T` says a subcommand is required and an `Option<T>` says it may be
@@ -1100,15 +1138,63 @@ mod tests {
         );
     }
 
+    /// The three command-level properties, which only one of the two dialects can say.
+    const COMMAND_PROPERTIES: &str = "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\n\
+         cmd \"go\" restart_token=\":::\" {\n  mount run=\"ex tasks --usage\"\n}\n";
+
     #[test]
-    fn what_cannot_be_expressed_is_counted() {
-        let (_, skipped) = rendered(
-            "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\ncmd \"go\" {\n  alias \"g\"\n}\n",
-        );
+    fn the_usage_dialect_carries_the_command_properties() {
+        let (out, skipped) = rendered_as(COMMAND_PROPERTIES, Dialect::Usage);
+        assert!(out.contains(r#"default_subcommand = "go""#), "{out}");
+        assert!(out.contains(r#"restart_token = ":::""#), "{out}");
+        assert!(out.contains(r#"mount = "ex tasks --usage""#), "{out}");
+
+        // Carried means not lost: none of the three may appear in the report.
+        for what in [
+            "`default_subcommand` on a command",
+            "a `restart_token` on a command",
+            "a `mount` on a command",
+        ] {
+            assert!(
+                !skipped.counts.contains_key(what),
+                "{what} is expressible now, so it should not be counted as dropped"
+            );
+        }
+    }
+
+    #[test]
+    fn the_clap_dialect_counts_them_as_dropped() {
+        // clap has no way to say any of the three. The shadow is a fairness fixture, so
+        // what it cannot carry has to be named — a silent drop would make the clap side
+        // look like a faithful translation of a spec it cannot represent.
+        let (out, skipped) = rendered_as(COMMAND_PROPERTIES, Dialect::Clap);
+        for what in [
+            "`default_subcommand` on a command",
+            "a `restart_token` on a command",
+            "a `mount` on a command",
+        ] {
+            assert_eq!(skipped.counts.get(what), Some(&1), "{what}");
+        }
+        assert!(!out.contains("restart_token"), "{out}");
+        assert!(!out.contains("default_subcommand"), "{out}");
+    }
+
+    #[test]
+    fn only_the_root_declares_a_default_subcommand() {
+        // `default_subcommand` is a property of the spec, not of every command in it. The
+        // recursion passes one context down, so a child reading the root's value would be
+        // an easy mistake to make and an invisible one to have made.
+        let (out, _) = rendered_as(COMMAND_PROPERTIES, Dialect::Usage);
         assert_eq!(
-            skipped.counts.get("`default_subcommand` on a command"),
-            Some(&1)
+            out.matches("default_subcommand").count(),
+            1,
+            "only the root should declare it: {out}"
         );
+    }
+
+    #[test]
+    fn an_expressible_property_is_not_counted() {
+        let (_, skipped) = rendered("name \"ex\"\nbin \"ex\"\ncmd \"go\" {\n  alias \"g\"\n}\n");
         // The alias is expressible, so it is carried rather than counted.
         assert!(!skipped.counts.contains_key("a command alias"));
     }

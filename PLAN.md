@@ -178,6 +178,24 @@ carrying them rather than being worked around.
       the only reading under which `[a]… [b]` can be filled. `var_max` therefore moved into
       the table binding reads; `var_min` stays a check, because no single word tells you a
       variadic will end up short. Costs 55 instructions per parse, or 0.1%.
+- [x] **The command-level properties mise patches in by hand** — `default_subcommand`,
+      `restart_token` and `mount`, declared with `#[usage(...)]` instead of edited into the
+      spec afterwards by `src/cli/usage.rs`. None of the three changes how a word binds: a
+      mount costs a subprocess and belongs to completions, a restart token is read by
+      whoever splits an invocation into several, and a default subcommand tells a completion
+      engine what a bare word means. So they are emission-only, and the test asserts both
+      that they reach the KDL and that binding is unaffected. `default_subcommand` is
+      checked at compile time to require a subcommand field, since it names one.
+- [ ] **Routing on `default_subcommand`** — the property above is emitted and nothing more,
+      and that is a gap rather than a decision: usage-lib _routes_ on it while parsing. Given
+      `default_subcommand "run"`, a word naming no subcommand makes its parser descend into
+      `run` and bind the word as **`run`'s** argument, even where the root declares an
+      argument of its own — verified against usage-lib 4.0.0, where `mise build` comes back
+      as `["mise", "run"]` with `TASK = "build"`. This parser keeps the word at the root.
+      Closing it needs `Command` to carry a pointer to its default subcommand and the parser
+      to descend on an unmatched word, so it is parser work rather than emission. It is also
+      the rule behind `mise build` meaning `mise run build`, which mise routes by hand today
+      — so this is one more hack adoption should remove.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
@@ -207,10 +225,11 @@ checked-in `mise.usage.kdl` for both parsers.
 - [x] **Shadow generation** — `xtask gen-shadow` turns any `.usage.kdl` into a crate
       of derived types. mise's committed 5,592-line spec compiles: 211 commands, 711
       flags, 128 arguments, four levels deep, in 2.6s. What it cannot express, it
-      counts: 13 secondary flag aliases, 3 `double_dash="automatic"`, 2 mounts, 2 restart
-      tokens, 1 `default_subcommand`, 1 default on a collecting flag. The
-      `default_subcommand` is the one that changes the _root's_ grammar, since
-      `mise build` routes through `run` in mise and answers at the root in the shadow.
+      counts: 13 secondary flag aliases, 3 `double_dash="automatic"`, 1 default on a
+      collecting flag. The clap dialect additionally drops the 2 mounts, 2 restart tokens
+      and 1 `default_subcommand`, which the derive now declares and clap has no vocabulary
+      for — so the two shadows no longer drop quite the same set, and the report says which
+      side lost what.
       The generated crates are ordinary workspace members: their command enums are boxed,
       as the real mise boxes its own, so `large_enum_variant` has nothing to say and no
       lint is silenced anywhere.
@@ -287,9 +306,11 @@ Checked against mise rather than assumed, and two of them do not survive contact
   no tree to build, so that code can read the real thing. **This is the one that should
   disappear outright, list and guard test together.**
 - `src/cli/usage.rs` — post-processes the emitted spec: clears `run`'s arguments, adds a
-  mount and a restart token. Those become declarations once the derive can express `mount`,
-  `restart_token` and `default_subcommand`; the file should end up near empty. It already
-  records one hack that went away when jdx/usage#738 landed.
+  mount and a restart token. The derive now declares `mount`, `restart_token` and
+  `default_subcommand`, so those three patches become attributes on the commands that own
+  them and the file should end up near empty — what remains is clearing `run`'s arguments,
+  which is a consequence of the mount rather than a separate hack. It already records one
+  hack that went away when jdx/usage#738 landed.
 - `src/cli/command_effects.rs` — 451 lines classifying each command as read, write or
   destructive, "because mise's usage spec is derived from clap, and clap has no way to
   express this". The derive can express `effect` inline, so the _workaround_ reason goes —
