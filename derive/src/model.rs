@@ -235,20 +235,6 @@ impl Cli {
         for field in &named.named {
             cli.fields.push(Field::from_field(field)?);
         }
-        // Which command it names cannot be checked here — the enum's variants are in another
-        // expansion — but that there are subcommands at all can be.
-        if cli.default_subcommand.is_some()
-            && !cli
-                .fields
-                .iter()
-                .any(|f| matches!(f.kind, Kind::Subcommand { .. }))
-        {
-            return Err(syn::Error::new_spanned(
-                &input.ident,
-                "`default_subcommand` names the command a bare invocation means, and this \
-                 one has no subcommands to name",
-            ));
-        }
         cli.check()?;
         Ok(cli)
     }
@@ -257,6 +243,62 @@ impl Cli {
     ///
     /// A negation counts, since `--no-color` is another way to name the field `--color`
     /// declared — the two share one place to record whether they were given.
+    /// Check the command-level properties against where this struct sits in the tree.
+    ///
+    /// Both derives share this parse, so these rules cannot live inside it: the same
+    /// attribute is required at the root and a mistake below it, or the reverse. Called with
+    /// `is_root` from each derive.
+    ///
+    /// Every rule here exists because the *spec* cannot express the thing anywhere else.
+    /// Without them a declaration is accepted, dropped on the way to the KDL, and missed —
+    /// or, for a root `mount`, trips a `debug_assert!` in the writer, which is a poor way to
+    /// learn that an attribute was in the wrong place.
+    pub fn check_position(&self, ident: &syn::Ident, is_root: bool) -> syn::Result<()> {
+        if !is_root {
+            // A spec declares one `default_subcommand`, at the top.
+            if self.default_subcommand.is_some() {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "`default_subcommand` belongs on the root, where `#[derive(Cli)]` is: a \
+                     spec declares one for the whole program, not one per command",
+                ));
+            }
+            return Ok(());
+        }
+
+        // `mount` and `restart_token` are written on a `cmd` node, and the root is not one.
+        // Verified against usage-lib, which rejects a spec that puts either at the top.
+        for (present, what) in [
+            (self.mount.is_some(), "mount"),
+            (self.restart_token.is_some(), "restart_token"),
+        ] {
+            if present {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    format!(
+                        "`{what}` belongs on a command, not on the root: the spec accepts it \
+                         only inside a `cmd` block, so declaring it here would be dropped on \
+                         the way to the KDL"
+                    ),
+                ));
+            }
+        }
+
+        if self.default_subcommand.is_some()
+            && !self
+                .fields
+                .iter()
+                .any(|f| matches!(f.kind, Kind::Subcommand { .. }))
+        {
+            return Err(syn::Error::new_spanned(
+                ident,
+                "`default_subcommand` names the command a bare invocation means, and this \
+                 one has no subcommands to name",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn field_for_selector(&self, selector: &str) -> Option<&Field> {
         self.fields.iter().find(|field| {
             let Kind::Flag {
@@ -1740,13 +1782,19 @@ mod tests {
         );
     }
 
+    /// The position rules, which each derive applies for the place it stands in.
+    fn position_error(body: &str, is_root: bool) -> String {
+        let parsed = cli(body).expect("parses");
+        let ident = syn::Ident::new("Probe", proc_macro2::Span::call_site());
+        parsed
+            .check_position(&ident, is_root)
+            .expect_err("should have been refused")
+            .to_string()
+    }
+
     #[test]
     fn a_default_subcommand_needs_subcommands_to_name() {
-        // Which command it names cannot be checked here, since the variants are in another
-        // expansion — but a root with no subcommand field at all can never satisfy it, and
-        // saying so at the declaration beats emitting a spec whose `default_subcommand`
-        // points at nothing.
-        let err = rejection(
+        let err = position_error(
             r#"
             #[usage(bin = "ex", default_subcommand = "run")]
             struct Ex {
@@ -1754,11 +1802,76 @@ mod tests {
                 task: Option<String>,
             }
         "#,
+            true,
         );
         assert!(
             err.contains("no subcommands to name"),
             "unhelpful message: {err}"
         );
+    }
+
+    #[test]
+    fn a_default_subcommand_is_refused_below_the_root() {
+        // A spec declares one for the whole program, so a nested one has nowhere to go —
+        // and `emit_args` would drop it in silence, which is worse than refusing it.
+        let err = position_error(
+            r#"
+            #[usage(default_subcommand = "inner")]
+            struct Nested {
+                #[usage(subcommand)]
+                command: Option<Commands>,
+            }
+        "#,
+            false,
+        );
+        assert!(
+            err.contains("belongs on the root"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn a_mount_and_a_restart_token_are_refused_on_the_root() {
+        // The spec writes both on a `cmd` node and the root is not one — usage-lib rejects a
+        // spec with either at the top. Emitted anyway, they trip a `debug_assert!` in the KDL
+        // writer and vanish in release, so the declaration is where to say no.
+        for (attr, word) in [
+            (r#"mount = "ex tasks --usage""#, "mount"),
+            (r#"restart_token = ":::""#, "restart_token"),
+        ] {
+            let err = position_error(
+                &format!(
+                    r#"
+                    #[usage(bin = "ex", {attr})]
+                    struct Ex {{
+                        #[usage(long)]
+                        force: bool,
+                    }}
+                "#
+                ),
+                true,
+            );
+            assert!(
+                err.contains(word) && err.contains("not on the root"),
+                "unhelpful message for {word}: {err}"
+            );
+        }
+
+        // On a command, which is where they belong, both are accepted.
+        let parsed = cli(r#"
+            #[usage(mount = "ex tasks --usage", restart_token = ":::")]
+            struct Run {
+                #[usage(long)]
+                dry_run: bool,
+            }
+        "#)
+        .expect("parses");
+        assert!(parsed
+            .check_position(
+                &syn::Ident::new("Run", proc_macro2::Span::call_site()),
+                false
+            )
+            .is_ok());
     }
 
     #[test]

@@ -209,7 +209,9 @@ mod model;
 #[proc_macro_derive(Cli, attributes(usage))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match model::Cli::from_input(&input) {
+    let parsed = model::Cli::from_input(&input)
+        .and_then(|cli| cli.check_position(&input.ident, true).map(|()| cli));
+    match parsed {
         Ok(cli) => codegen::emit(&cli).into(),
         // Reporting the error as tokens rather than panicking is what puts it on
         // the offending line instead of on the derive.
@@ -226,7 +228,9 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Args, attributes(usage))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match model::Cli::from_input(&input) {
+    let parsed = model::Cli::from_input(&input)
+        .and_then(|cli| cli.check_position(&input.ident, false).map(|()| cli));
+    match parsed {
         Ok(cli) => codegen::emit_args(&cli).into(),
         Err(e) => e.to_compile_error().into(),
     }

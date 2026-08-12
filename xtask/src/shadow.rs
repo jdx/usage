@@ -250,7 +250,7 @@ struct Run<'a> {
 fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, run: &mut Run) {
     let (bin, dialect) = (run.bin, run.dialect);
     // Children first, so a reader meets a type before the struct that holds it. The
-    // run.names are claimed here too, since the parent's `subcommand` field needs them.
+    // names are claimed here too, since the parent's `subcommand` field needs them.
     let children: Vec<(&String, &SpecCommand, Type)> = cmd
         .subcommands
         .iter()
@@ -327,8 +327,8 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     }
     out.push_str(&format!("pub struct {} {{\n", ty.args));
 
-    // Field run.names are claimed before anything is written, because clap run.names a
-    // relationship by the *field* it points at while the spec run.names it by the flag —
+    // Field names are claimed before anything is written, because clap names a
+    // relationship by the *field* it points at while the spec names it by the flag —
     // `conflicts_with = "dry_run"` against `conflicts="--dry-run"` — so resolving one
     // needs every name in the struct already decided.
     let mut fields = FieldNames::default();
@@ -446,7 +446,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     }
 }
 
-/// Field run.names already used in the struct being written.
+/// Field names already used in the struct being written.
 #[derive(Default)]
 struct FieldNames {
     taken: HashSet<String>,
