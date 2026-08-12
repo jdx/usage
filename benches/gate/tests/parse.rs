@@ -81,3 +81,27 @@ fn counted_verbosity_accumulates() {
     let cli = Cli::parse_from(&a).expect("should parse");
     assert_eq!(cli.verbose, 2);
 }
+
+#[test]
+fn a_command_that_requires_a_subcommand_refuses_to_stand_alone() {
+    // 27 of mise's commands set `subcommand_required`, and the shadow has to answer the
+    // same grammar: `mise bootstrap accounts` on its own is an error, not an empty
+    // invocation. (`bootstrap` itself does not require one, which is why the shadow has
+    // to read the spec rather than assume.)
+    // `Cli` is generated without `Debug` — 211 commands' worth of it would be dead
+    // weight — so the error is matched rather than unwrapped.
+    let a = argv(["bootstrap", "accounts"]);
+    match Cli::parse_from(&a) {
+        Err(usage_argv::Error::MissingSubcommand) => {}
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("`bootstrap accounts` needs a subcommand"),
+    }
+
+    // With one, it parses.
+    let a = argv(["bootstrap", "accounts", "status"]);
+    Cli::parse_from(&a).expect("`accounts status` should parse");
+
+    // And the root does not require one, because `mise <task>` is a whole invocation.
+    let a = argv(["build"]);
+    Cli::parse_from(&a).expect("a bare task should parse");
+}

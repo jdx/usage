@@ -173,10 +173,26 @@ fn emit_command(
         .subcommands
         .iter()
         // Aliases appear in the map alongside the name they point at; generating both
-        // would declare the same command twice.
+        // would declare the same command twice. The alias itself is a loss — usage-argv
+        // matches aliases, the derive has no way to declare one — so it is counted
+        // below rather than passed over in silence.
         .filter(|(name, sub)| sub.name == **name)
         .map(|(name, sub)| (name, sub, Type::child(ty, name, sub, names)))
         .collect();
+    for (_, sub, _) in &children {
+        for _ in &sub.aliases {
+            skipped.note("a command alias");
+        }
+        for _ in &sub.hidden_aliases {
+            skipped.note("a hidden command alias");
+        }
+        if !sub.mounts.is_empty() {
+            skipped.note("a `mount` on a command");
+        }
+        if sub.restart_token.is_some() {
+            skipped.note("a `restart_token` on a command");
+        }
+    }
     for (_, sub, sub_ty) in &children {
         emit_command(out, sub, sub_ty, false, bin, skipped, names);
     }
@@ -198,15 +214,21 @@ fn emit_command(
         emit_arg(out, arg, &mut fields, skipped);
     }
     if !ty.subcommands.is_empty() {
-        // `Option`, because a spec that requires a subcommand says so with
-        // `subcommand_required` — which the derive spells as a non-optional field, but
-        // only mise's root sets it and a shadow that refuses a bare `mise` would be
-        // annoying to benchmark.
+        // A bare `T` says a subcommand is required and an `Option<T>` says it may be
+        // left out, which is the same distinction the spec draws with
+        // `subcommand_required`. Reading it matters: a shadow that accepted
+        // `mise bootstrap linux` with nothing after it would be answering a different
+        // grammar from the one being measured.
         out.push_str("    #[usage(subcommand)]\n");
-        out.push_str(&format!(
-            "    pub command: ::std::option::Option<{}>,\n",
-            ty.subcommands
-        ));
+        let field = if cmd.subcommand_required {
+            format!("    pub command: {},\n", ty.subcommands)
+        } else {
+            format!(
+                "    pub command: ::std::option::Option<{}>,\n",
+                ty.subcommands
+            )
+        };
+        out.push_str(&field);
     }
     out.push_str("}\n\n");
 

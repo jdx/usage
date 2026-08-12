@@ -260,7 +260,7 @@ pub struct BootstrapAccountsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapAccountsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapAccountsCommands>,
+    pub command: BootstrapAccountsCommands,
 }
 
 #[derive(Subcommands)]
@@ -299,7 +299,7 @@ pub struct BootstrapComposeStatusArgs {
 #[derive(Args)]
 pub struct BootstrapComposeArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapComposeCommands>,
+    pub command: BootstrapComposeCommands,
 }
 
 #[derive(Subcommands)]
@@ -439,7 +439,7 @@ pub struct BootstrapDotfilesUnapplyArgs {
 #[derive(Args)]
 pub struct BootstrapDotfilesArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapDotfilesCommands>,
+    pub command: BootstrapDotfilesCommands,
 }
 
 #[derive(Subcommands)]
@@ -493,7 +493,7 @@ pub struct BootstrapFilesStatusArgs {
 #[derive(Args)]
 pub struct BootstrapFilesArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapFilesCommands>,
+    pub command: BootstrapFilesCommands,
 }
 
 #[derive(Subcommands)]
@@ -532,7 +532,7 @@ pub struct BootstrapFirewallStatusArgs {
 #[derive(Args)]
 pub struct BootstrapFirewallArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapFirewallCommands>,
+    pub command: BootstrapFirewallCommands,
 }
 
 #[derive(Subcommands)]
@@ -571,7 +571,7 @@ pub struct BootstrapLaunchdStatusArgs {
 #[derive(Args)]
 pub struct BootstrapLaunchdArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapLaunchdCommands>,
+    pub command: BootstrapLaunchdCommands,
 }
 
 #[derive(Subcommands)]
@@ -610,7 +610,7 @@ pub struct BootstrapLinuxSystemdUnitsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapLinuxSystemdUnitsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapLinuxSystemdUnitsCommands>,
+    pub command: BootstrapLinuxSystemdUnitsCommands,
 }
 
 #[derive(Subcommands)]
@@ -627,7 +627,7 @@ pub enum BootstrapLinuxSystemdUnitsCommands {
 #[derive(Args)]
 pub struct BootstrapLinuxArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapLinuxCommands>,
+    pub command: BootstrapLinuxCommands,
 }
 
 #[derive(Subcommands)]
@@ -663,7 +663,7 @@ pub struct BootstrapMacosDefaultsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsArgs2 {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapMacosDefaultsCommands2>,
+    pub command: BootstrapMacosDefaultsCommands2,
 }
 
 #[derive(Subcommands)]
@@ -702,7 +702,7 @@ pub struct BootstrapMacosLaunchdAgentsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapMacosLaunchdAgentsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapMacosLaunchdAgentsCommands>,
+    pub command: BootstrapMacosLaunchdAgentsCommands,
 }
 
 #[derive(Subcommands)]
@@ -719,7 +719,7 @@ pub enum BootstrapMacosLaunchdAgentsCommands {
 #[derive(Args)]
 pub struct BootstrapMacosArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapMacosCommands>,
+    pub command: BootstrapMacosCommands,
 }
 
 #[derive(Subcommands)]
@@ -758,7 +758,7 @@ pub struct BootstrapMacosDefaultsStatusArgs2 {
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapMacosDefaultsCommands>,
+    pub command: BootstrapMacosDefaultsCommands,
 }
 
 #[derive(Subcommands)]
@@ -797,7 +797,7 @@ pub struct BootstrapMiseShellActivateStatusArgs {
 #[derive(Args)]
 pub struct BootstrapMiseShellActivateArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapMiseShellActivateCommands>,
+    pub command: BootstrapMiseShellActivateCommands,
 }
 
 #[derive(Subcommands)]
@@ -887,7 +887,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesBrewArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapPackagesBrewCommands>,
+    pub command: BootstrapPackagesBrewCommands,
 }
 
 #[derive(Subcommands)]
@@ -1028,7 +1028,7 @@ pub struct BootstrapPackagesUseArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapPackagesCommands>,
+    pub command: BootstrapPackagesCommands,
 }
 
 #[derive(Subcommands)]
@@ -1090,7 +1090,7 @@ pub struct BootstrapPluginsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapPluginsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapPluginsCommands>,
+    pub command: BootstrapPluginsCommands,
 }
 
 #[derive(Subcommands)]
@@ -1283,7 +1283,7 @@ pub struct BootstrapReposUpdateArgs {
 #[derive(Args)]
 pub struct BootstrapReposArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapReposCommands>,
+    pub command: BootstrapReposCommands,
 }
 
 #[derive(Subcommands)]
@@ -1317,7 +1317,7 @@ pub struct BootstrapSecretsStatusArgs {
 #[derive(Args)]
 pub struct BootstrapSecretsArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapSecretsCommands>,
+    pub command: BootstrapSecretsCommands,
 }
 
 #[derive(Subcommands)]
@@ -1353,7 +1353,7 @@ pub struct BootstrapServicesStatusArgs {
 #[derive(Args)]
 pub struct BootstrapServicesArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapServicesCommands>,
+    pub command: BootstrapServicesCommands,
 }
 
 #[derive(Subcommands)]
@@ -1406,7 +1406,7 @@ pub struct BootstrapSystemdStatusArgs {
 #[derive(Args)]
 pub struct BootstrapSystemdArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapSystemdCommands>,
+    pub command: BootstrapSystemdCommands,
 }
 
 #[derive(Subcommands)]
@@ -1445,7 +1445,7 @@ pub struct BootstrapUserStatusArgs {
 #[derive(Args)]
 pub struct BootstrapUserArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<BootstrapUserCommands>,
+    pub command: BootstrapUserCommands,
 }
 
 #[derive(Subcommands)]
@@ -2081,7 +2081,7 @@ pub struct DotfilesUnapplyArgs {
 #[derive(Args)]
 pub struct DotfilesArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<DotfilesCommands>,
+    pub command: DotfilesCommands,
 }
 
 #[derive(Subcommands)]
@@ -2515,7 +2515,7 @@ pub struct GenerateToolStubArgs {
 #[derive(Args)]
 pub struct GenerateArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<GenerateCommands>,
+    pub command: GenerateCommands,
 }
 
 #[derive(Subcommands)]
@@ -2575,7 +2575,7 @@ pub struct GithubTokenArgs {
 #[derive(Args)]
 pub struct GithubArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<GithubCommands>,
+    pub command: GithubCommands,
 }
 
 #[derive(Subcommands)]
@@ -3282,7 +3282,7 @@ pub struct OciRunArgs {
 #[derive(Args)]
 pub struct OciArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<OciCommands>,
+    pub command: OciCommands,
 }
 
 #[derive(Subcommands)]
@@ -4437,7 +4437,7 @@ pub struct SyncRubyArgs {
 #[derive(Args)]
 pub struct SyncArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<SyncCommands>,
+    pub command: SyncCommands,
 }
 
 #[derive(Subcommands)]
@@ -4989,7 +4989,7 @@ pub struct TokenGitlabArgs {
 #[derive(Args)]
 pub struct TokenArgs {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<TokenCommands>,
+    pub command: TokenCommands,
 }
 
 #[derive(Subcommands)]

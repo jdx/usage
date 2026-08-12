@@ -179,9 +179,10 @@ checked-in `mise.usage.kdl` for both parsers.
 
 - [x] **Shadow generation** — `xtask gen-shadow` turns any `.usage.kdl` into a crate
       of derived types. mise's committed 5,592-line spec compiles: 211 commands, 711
-      flags, 128 arguments, four levels deep, in 2.6s. Seventeen things are dropped and
-      the generator names them — 13 secondary flag aliases, 3 `double_dash="automatic"`,
-      1 default on a collecting flag.
+      flags, 128 arguments, four levels deep, in 2.6s. What it cannot express, it
+      counts: 91 command aliases (67 visible, 24 hidden), 13 secondary flag aliases, 3
+      `double_dash="automatic"`, 2 mounts, 2 restart tokens, 1 default on a collecting
+      flag. Aliases are the largest gap and the next thing the derive needs for mise.
 - [ ] **Bench harness** — the clap-equivalent shadow to measure against, `tak` gating in
       CI, and criterion for wall clock. A first measurement of the usage side alone, at
       mise's full scale, is 100k–106k instructions per parse for the parse itself
