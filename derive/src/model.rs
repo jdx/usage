@@ -1462,6 +1462,22 @@ impl ValueEnum {
                      fields would have nothing to build them from",
                 ));
             }
+            // A variant that may not exist cannot be listed. `CHOICES` is a `const` array and
+            // an array literal takes no attributes on its elements, so a `cfg`-ed-out
+            // variant would either leave a word in the list that nothing answers to, or an
+            // arm referring to a variant that is not there. Refused rather than
+            // miscompiled; `cfg` the whole enum, or keep the words and map them yourself.
+            if let Some(cfg) = variant
+                .attrs
+                .iter()
+                .find(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"))
+            {
+                return Err(syn::Error::new_spanned(
+                    cfg,
+                    "a value's variants are a `const` list of words, which cannot have holes \
+                     in it: `cfg` the whole enum instead",
+                ));
+            }
             let mut name = to_kebab(&variant.ident.to_string());
             for attr in attrs(&variant.attrs) {
                 for meta in nested(attr)? {
@@ -1665,6 +1681,28 @@ mod tests {
         assert!(
             err.contains("names two of these values"),
             "unhelpful: {err}"
+        );
+    }
+
+    #[test]
+    fn a_conditional_value_is_refused_rather_than_miscompiled() {
+        // The word list is a `const` array, so a variant that may not exist would leave
+        // either a word nothing answers to or an arm naming a variant that is not there.
+        let err = match value_enum(
+            r#"
+            enum Shell {
+                Bash,
+                #[cfg(windows)]
+                PowerShell,
+            }
+        "#,
+        ) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        };
+        assert!(
+            err.contains("cannot have holes"),
+            "unhelpful message: {err}"
         );
     }
 

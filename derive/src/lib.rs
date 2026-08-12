@@ -264,6 +264,10 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
+/// A variant cannot be `cfg`-ed out: the words are a `const` list, and a list with holes
+/// in it would either offer a word nothing answers to or name a variant that is not there.
+/// `cfg` the whole enum instead.
+///
 /// A field holding one says `value_enum`, which is what puts the words in the spec — so
 /// help, completions and the check that rejects a wrong word all read the same list, and
 /// none of them can drift from the type.
