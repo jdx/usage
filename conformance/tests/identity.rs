@@ -14,7 +14,7 @@ use usage_derive::{Cli, Subcommands};
 mod add {
     use usage_derive::Args;
 
-    /// Add a thing
+    /// Operate on a thing
     #[derive(Args)]
     pub struct Op {
         /// Do it anyway
@@ -26,10 +26,12 @@ mod add {
 mod remove {
     use usage_derive::Args;
 
-    /// Remove a thing
-    ///
-    /// Declared byte-for-byte like `add::Op` above, doc comment included, which is what
-    /// makes the two hash alike.
+    // Byte-for-byte identical to `add::Op`, doc comment included — which is the whole
+    // point, and easy to get wrong: an earlier version of this test gave the two
+    // different doc comments, so their hashes differed and it passed with or without
+    // the fix. The declarations have to be indistinguishable for the module to be the
+    // only thing telling them apart.
+    /// Operate on a thing
     #[derive(Args)]
     pub struct Op {
         /// Do it anyway
