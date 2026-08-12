@@ -241,6 +241,9 @@ impl Cli {
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
         let mut variadic_arg: Option<Span> = None;
+        // A variadic that only takes what follows a `--`, which is the end of the line in
+        // both senses: it holds the remaining words and the separator cannot come twice.
+        let mut spent_separator: Option<Span> = None;
         let mut subcommand_field: Option<Span> = None;
 
         for field in &self.fields {
@@ -292,8 +295,24 @@ impl Cli {
                              is only fillable after a `--`, which stops the variadic",
                         ));
                     }
+                    // A command line has one `--`, so the exemption is good for one
+                    // argument. A second one after the separator would be as unreachable
+                    // as the first case, and there is no third place to put it.
+                    if let Some(first) = spent_separator {
+                        return Err(dup(
+                            field.span,
+                            first,
+                            "nothing can follow a variadic that takes the words after a \
+                             `--`: it has both the rest of the command line and the only \
+                             separator there is",
+                        ));
+                    }
                     if field.shape == Shape::Many {
-                        variadic_arg = Some(field.span);
+                        if *double_dash_required {
+                            spent_separator = Some(field.span);
+                        } else {
+                            variadic_arg = Some(field.span);
+                        }
                     }
                 }
                 Kind::Subcommand { .. } => {
@@ -1287,6 +1306,46 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn only_one_argument_can_live_after_the_separator() {
+        // The exemption is good for one argument, because a command line has one `--`.
+        // A second variadic behind the separator would be as unreachable as an argument
+        // after a plain variadic.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg)]
+                args: Vec<String>,
+                #[usage(arg, double_dash = "required")]
+                rest: Vec<String>,
+                #[usage(arg, double_dash = "required")]
+                more: Vec<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("only separator there is"),
+            "unhelpful message: {err}"
+        );
+
+        // Including a plain argument, which the variadic behind the separator would
+        // already have taken.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, double_dash = "required")]
+                rest: Vec<String>,
+                #[usage(arg)]
+                trailing: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("only separator there is"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]
