@@ -299,6 +299,42 @@ fn the_words_reach_the_spec_from_the_type() {
 }
 
 #[test]
+#[cfg(unix)]
+fn a_choice_that_is_not_utf8_reports_the_bytes_not_the_list() {
+    // The checks run before the struct is built, so a value that is not UTF-8 used to be
+    // compared as an empty string, match none of the choices, and come back as
+    // `InvalidChoice` — a message listing words, about a value that was never a word. The
+    // UTF-8 failure is the real problem and the one worth reporting.
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let bad_bytes = [OsStr::new("--shell"), OsStr::from_bytes(b"ba\xffsh")];
+    match Enumerated::parse_from(&bad_bytes) {
+        Err(Error::InvalidValue(bad)) => {
+            assert_eq!(bad.name, "shell");
+            assert!(
+                bad.reason.contains("utf-8") || bad.reason.contains("UTF-8"),
+                "the reason should be the UTF-8 failure: {}",
+                bad.reason
+            );
+        }
+        Err(Error::InvalidChoice { choices, .. }) => {
+            panic!("reported the choices {choices:?} for a value that is not a word at all")
+        }
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("this should not have parsed"),
+    }
+
+    // A word that *is* text and is not one of the choices still gets the list, which is the
+    // case this check exists for.
+    let a = argv(["--shell", "csh"]);
+    assert!(matches!(
+        Enumerated::parse_from(&a),
+        Err(Error::InvalidChoice { .. })
+    ));
+}
+
+#[test]
 fn a_wrong_word_lists_what_was_expected() {
     // An `InvalidChoice` carrying the list, rather than a conversion error about a type the
     // user never named.

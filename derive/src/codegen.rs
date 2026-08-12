@@ -1537,9 +1537,18 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         Some(quote! {
             for value in #values {
-                // Compared as text, since a choice is a word. Bytes that are not UTF-8
-                // are not any of the choices, and `build` is where that is reported.
-                let __usage_text = ::std::str::from_utf8(value).unwrap_or_default();
+                // Compared as text, since a choice is a word.
+                //
+                // Bytes that are not UTF-8 are passed over rather than reported here. They
+                // are not any of the choices, but saying so would answer the wrong question:
+                // `InvalidChoice` lists words, and this value is not a word at all. Left
+                // alone, it reaches `build`, which reports the UTF-8 failure with the value
+                // in it. Comparing the empty string instead — which is what `unwrap_or_default`
+                // did — made every such value collide with the choices check first.
+                let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
+                else {
+                    continue;
+                };
                 if !#choices.contains(&__usage_text) {
                     return ::std::result::Result::Err(
                         ::usage_argv::Error::InvalidChoice {
