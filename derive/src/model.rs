@@ -11,6 +11,13 @@ use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 /// A CLI, as declared by a struct.
 pub struct Cli {
     pub ident: syn::Ident,
+    /// What this type's keys are derived from.
+    ///
+    /// The whole item rather than its name: two same-named structs in different
+    /// modules would otherwise hash alike, and a macro cannot see a module path. Two
+    /// types now have to be *identical* to collide, which the duplicate-key assertion
+    /// still catches.
+    pub fingerprint: String,
     pub name: String,
     pub bin: Option<String>,
     pub version: Option<String>,
@@ -134,6 +141,7 @@ impl Cli {
         let (about, long_about) = doc_comment(&input.attrs)?;
         let mut cli = Cli {
             ident: input.ident.clone(),
+            fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
             bin: None,
             version: None,
@@ -987,9 +995,15 @@ impl Subcommands {
         // struct — so two commands sharing one would collect into whichever was
         // reached first, and choosing between them would be a coin toss. Rejected
         // rather than silently misbound.
+        //
+        // Compared as whole paths: `type_name` renders only the last segment, so
+        // `add::Op` and `remove::Op` looked identical and two perfectly good commands
+        // were refused.
         let mut types: Vec<(String, Span)> = Vec::new();
         for variant in &variants {
-            let rendered = type_name(&variant.ty);
+            let rendered = quote::ToTokens::to_token_stream(&variant.ty)
+                .to_string()
+                .replace(' ', "");
             if let Some((_, first)) = types.iter().find(|(t, _)| *t == rendered) {
                 return Err(dup(
                     variant.ty.span(),

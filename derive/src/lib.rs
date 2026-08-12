@@ -81,10 +81,16 @@
 //! [`usage_argv::spec::Subcommands`], whose associated consts a parent splices into
 //! its own `static` tables. Nothing is assembled at run time.
 //!
-//! Keys carry a hash of the type they came from, which is how independently
-//! expanded macros avoid handing two fields the same one. `Spec::to_kdl` asserts the
-//! tree has no duplicates, so a collision fails a test rather than binding the wrong
-//! field.
+//! A command inside a command is not a special case: an `Args` struct carries a
+//! `subcommand` field exactly as the root does, to any depth, and generates the same
+//! code for it. mise reaches four levels, so one was never going to be enough.
+//!
+//! Keys carry a hash of the declaration they came from, which is how independently
+//! expanded macros avoid handing two fields the same one. A key chooses which arm to
+//! jump to and the arm then verifies the event came from its own table, so even two
+//! identical declarations in different modules cannot misbind — the event simply goes
+//! unclaimed, and `Spec::to_kdl` asserts the tree holds no duplicate keys, so a
+//! collision fails a test rather than quietly doing the wrong thing.
 //!
 //! # What is decided after the parse
 //!
@@ -138,8 +144,6 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
-//! - **Nesting deeper than one level.** A subcommand's own subcommands need the
-//!   `Args` struct to carry a `subcommand` field too, which it does not yet.
 //! - **`overrides` and `required_unless`.** Both are about one flag's effect on
 //!   another, which needs to know the order they arrived in; nothing records that
 //!   yet.
