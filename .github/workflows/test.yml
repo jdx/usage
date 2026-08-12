@@ -40,9 +40,9 @@ jobs:
           fi
       - run: mise r build
       - run: mise r test
-      # The one code path no test can reach from here: `os_string_from_bytes` is safe on
-      # Unix and `unsafe` on Windows, and every test of it is `#[cfg(unix)]`. A compile
-      # check is not coverage, but it keeps the branch carrying the `unsafe` from rotting
+      # `os_string_from_bytes` has a `cfg` branch per platform, and every test of it is
+      # `#[cfg(unix)]` — so the Windows one is not compiled anywhere else in this pipeline.
+      # A compile check is not coverage, but it is what keeps that branch from rotting
       # unseen.
       - name: check the Windows-only conversion still compiles
         run: |

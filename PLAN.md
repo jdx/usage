@@ -133,24 +133,24 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       is what not corrupting a value is worth. It also retired the hazard of recognising
       `String` by its spelling, since there is no identity case left.
 - [x] **Accepting a value that is not valid UTF-8** — reporting it was the safe half;
-      accepting it is the whole fix, because the operating system does accept `/tmp/\xff`
-      as a filename and a CLI that cannot receive one cannot open the file. A `PathBuf` or
-      `OsString` field now takes the bytes exactly, through
-      `usage_argv::os_string_from_bytes`. On Unix that is the **safe** `OsString::from_vec`,
-      so the question of `unsafe` never arises there; only Windows needs
-      `from_encoded_bytes_unchecked`, because WTF-8 makes the conversion partial. jdx
-      approved the `unsafe` for that case.
+      accepting it is the whole fix, because the operating system does accept `/tmp/\xff` as a
+      filename and a CLI that cannot receive one cannot open the file. A `PathBuf` or
+      `OsString` field takes the bytes exactly, through `usage_argv::os_string_from_bytes`.
 
-      The Windows call rests on an invariant now written down where it can be checked: every
-          sub-slice the parser produces is cut at an ASCII byte (after `-`, after `--`, at `=`,
-          between the letters of a cluster), and an ASCII byte never occurs inside a multi-byte
-          sequence. The one way to break it is a non-ASCII `Flag::shorts` entry, which the derive
-          already refused — that rule is now documented as load-bearing and has a test.
+      **And with no `unsafe` anywhere.** On Unix an `OsString` is an arbitrary byte sequence,
+          so this is the safe `OsString::from_vec` and every byte survives — which is the case that
+          matters, since non-UTF-8 filenames are ordinary there. Windows was going to need
+          `from_encoded_bytes_unchecked`, and jdx approved that, but a *safe* function taking a
+          `Vec<u8>` cannot enforce its precondition: there is no way to know the bytes came from
+          `as_encoded_bytes` rather than from anywhere else, and a safe function whose precondition
+          a caller can violate is unsound however carefully today's callers behave. Greptile flagged
+          exactly that on #844. So Windows goes through UTF-8 and reports what will not convert,
+          which gives up only an unpaired-surrogate argument there.
 
-          Cheaper, not dearer: a `PathBuf` field costs **567 instructions per parse against a
-          `String` field's 660**, since it skips the UTF-8 validation pass, and both allocate
-          once. The gate fixture cannot show this — a spec carries no Rust types, so every shadow
-          field is a `String` — which is why it is measured directly instead.
+          Cheaper than the text path, not dearer: a `PathBuf` field costs **553 instructions per
+          parse against a `String` field's 674**, since it skips the UTF-8 validation pass, and both
+          allocate once. The gate fixture cannot show this — a spec carries no Rust types, so every
+          shadow field is a `String` — which is why it is measured directly.
 
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
