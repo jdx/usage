@@ -139,7 +139,15 @@ jobs:
   report:
     name: Report and gate
     needs: measure
-    if: always() && github.event.pull_request.user.login == 'jdx'
+    # A failed measurement still has something to report — that is the regression case —
+    # so `always()` stays: without a status-check function this job is skipped whenever
+    # `measure` fails, which is precisely when its comment matters. What has to go is the
+    # *cancelled* case: pushing twice to a branch cancels the run in progress, the
+    # artifact was never uploaded, and a superseded run reads as a failed gate.
+    if: >-
+      always() && needs.measure.result != 'cancelled'
+      && needs.measure.result != 'skipped'
+      && github.event.pull_request.user.login == 'jdx'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
