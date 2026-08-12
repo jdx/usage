@@ -53,6 +53,13 @@ impl fmt::Display for Base {
     }
 }
 
+/// The characters the grammar itself uses, which therefore cannot appear in a name.
+///
+/// Without this check a typo keeps the delimiter and becomes a [`Base::Custom`] named after
+/// it — `int>` loads as a type called `int>`, and every consumer treats it as a string. The
+/// escape hatch is for names a newer usage understands, not for text that failed to parse.
+const DELIMITERS: [char; 4] = ['<', '>', ',', '|'];
+
 impl From<&str> for Base {
     fn from(name: &str) -> Self {
         match name {
@@ -136,6 +143,24 @@ impl FromStr for SpecConfigType {
     }
 }
 
+/// A base type, refusing a name that still holds a delimiter.
+///
+/// `Base::from` cannot do this itself: it is infallible on purpose, so a name usage does not
+/// know survives a load. What it must not do is swallow a malformed *expression* as a name.
+fn base(text: &str) -> Result<Base, UsageErr> {
+    if text.is_empty() {
+        // `map<,string>`: a name is missing, not merely unrecognized.
+        return Err(invalid(text, "it is empty"));
+    }
+    if let Some(delimiter) = text.chars().find(|c| DELIMITERS.contains(c)) {
+        return Err(invalid(
+            text,
+            &format!("a stray `{delimiter}` — check the brackets"),
+        ));
+    }
+    Ok(Base::from(text))
+}
+
 fn invalid(text: &str, why: &str) -> UsageErr {
     UsageErr::InvalidInput(
         format!("`{text}` is not a config type: {why}"),
@@ -164,7 +189,7 @@ fn parse_single(text: &str) -> Result<SpecConfigType, UsageErr> {
         return Err(invalid(text, "it is empty"));
     }
     let Some(open) = text.find('<') else {
-        return Ok(SpecConfigType::Base(Base::from(text)));
+        return Ok(SpecConfigType::Base(base(text)?));
     };
     if !text.ends_with('>') {
         return Err(invalid(text, "a `<` without a closing `>`"));
@@ -184,16 +209,10 @@ fn parse_single(text: &str) -> Result<SpecConfigType, UsageErr> {
                     Base::String,
                     Box::new(parse_union(value)?),
                 )),
-                [key, value] => {
-                    let key = key.trim();
-                    if key.contains('<') {
-                        return Err(invalid(text, "a map's key is a plain type"));
-                    }
-                    Ok(SpecConfigType::Map(
-                        Base::from(key),
-                        Box::new(parse_union(value)?),
-                    ))
-                }
+                [key, value] => Ok(SpecConfigType::Map(
+                    base(key.trim())?,
+                    Box::new(parse_union(value)?),
+                )),
                 _ => Err(invalid(text, "a map takes a key and a value")),
             }
         }
@@ -221,10 +240,12 @@ fn split_top_level(text: &str, sep: char) -> Vec<&str> {
         }
     }
     let last = text[start..].trim();
+    // An empty tail only counts when a separator put it there: `"bool"` is one part, while
+    // `"bool|"` is two, the second of which is empty and fails to parse. Dropping empties
+    // here instead made `bool|`, `bool||string` and `map<string,>` load as something else.
     if !last.is_empty() || !parts.is_empty() {
         parts.push(last);
     }
-    parts.retain(|p| !p.is_empty());
     parts
 }
 
@@ -297,7 +318,28 @@ mod tests {
 
     #[test]
     fn a_malformed_type_is_an_error() {
-        for text in ["list<string", "list<>", "map<string, int, extra>", "int<x>"] {
+        for text in [
+            "list<string",
+            "list<>",
+            "map<string, int, extra>",
+            "int<x>",
+            // A missing member, rather than a missing bracket. Each of these used to load as
+            // something else: `bool|` as plain `bool`, `bool||string` as the two-member
+            // union, `map<string,>` as a map to strings — a typo quietly changing what a
+            // setting holds, which the type is the interchange for precisely to avoid.
+            "bool|",
+            "|bool",
+            "bool||string",
+            "map<string,>",
+            "map<,string>",
+            // A stray delimiter is a broken expression, not the name of a type only this
+            // tool knows: `int>` used to become `Custom("int>")` and every consumer treated
+            // it as a string.
+            "int>",
+            "list<string>>",
+            "map<string>, int>",
+            "bool|>",
+        ] {
             assert!(
                 text.parse::<SpecConfigType>().is_err(),
                 "`{text}` should not parse"

@@ -385,12 +385,27 @@ impl SpecConfig {
         for (key, prop) in &other.props {
             self.props.insert(key.to_string(), prop.clone());
         }
+        // Source kinds are a set, so they merge per kind like props do.
+        for (kind, source) in &other.sources {
+            self.sources.insert(kind.to_string(), source.clone());
+        }
+        // Files are not a set but an ordered precedence chain, and there is no meaningful
+        // way to interleave two of them — so a spec that declares any replaces the chain
+        // whole rather than appending to one it never saw. In the case `include` exists for,
+        // only one of the two declares files at all.
+        if !other.files.is_empty() {
+            self.files = other.files.clone();
+        }
     }
 }
 
 impl SpecConfig {
+    /// Whether there is nothing to write out.
+    ///
+    /// All three, not just props: a `config` block that declares only where files live is a
+    /// perfectly good one, and reporting it empty made the writer drop it.
     pub fn is_empty(&self) -> bool {
-        self.props.is_empty()
+        self.props.is_empty() && self.sources.is_empty() && self.files.is_empty()
     }
 }
 
@@ -438,7 +453,10 @@ pub struct SpecConfigProp {
     pub writes_to: Option<String>,
     pub examples: Vec<String>,
     /// A list-valued default, which cannot be written as a single property.
-    pub default_list: Vec<String>,
+    ///
+    /// Typed like the scalar `default`, so `default 1 2 3` for a `list<int>` stays three
+    /// numbers all the way to the JSON schema instead of becoming three strings.
+    pub default_list: Vec<SpecConfigValue>,
     /// Anything a tool needs to carry that usage does not interpret.
     ///
     /// Preserved in order and written back out, so a registry with tool-private metadata
@@ -452,9 +470,19 @@ impl SpecConfigProp {
         Self::default()
     }
 
-    /// Environment variable that sets this property.
+    /// An environment variable that sets this property.
+    ///
+    /// Call it more than once for aliases, highest precedence first, the way
+    /// `env "HK_JOBS" "HK_JOB"` reads in a spec. Both `env` and `envs` are maintained, so a
+    /// consumer can read either — the parser holds the same invariant, and a builder that
+    /// left `envs` empty meant a programmatically built spec serialized without the variable
+    /// every reader of `envs` looks for.
     pub fn env(mut self, env: impl Into<String>) -> Self {
-        self.env = Some(env.into());
+        let env = env.into();
+        if self.env.is_none() {
+            self.env = Some(env.clone());
+        }
+        self.envs.push(env);
         self
     }
 
@@ -549,9 +577,11 @@ impl SpecConfigProp {
             children.nodes_mut().push(string_list("cli", &self.cli));
         }
         if !self.default_list.is_empty() {
-            children
-                .nodes_mut()
-                .push(string_list("default", &self.default_list));
+            let mut node = KdlNode::new("default");
+            for value in &self.default_list {
+                node.push(value.to_kdl_arg());
+            }
+            children.nodes_mut().push(node);
         }
         for (kind, keys) in &self.bindings {
             let mut node = KdlNode::new("source");
@@ -696,16 +726,36 @@ impl SpecConfigProp {
                     "config props cannot nest; write the key as \"a.b\""
                 ),
                 // Where several values, or prose, would not fit on the node.
-                "env" => prop.envs = string_args(&child)?,
-                "cli" => prop.cli = string_args(&child)?,
+                // Extended, not assigned: `example` and `source` already accumulate, and a
+                // second `env` line is the natural parallel — assigning silently dropped the
+                // aliases on the first one.
+                "env" => prop.envs.extend(string_args(&child)?),
+                "cli" => prop.cli.extend(string_args(&child)?),
                 "example" => prop.examples.extend(string_args(&child)?),
                 "long_help" => {
                     child.ensure_arg_len(1..=1)?;
                     prop.long_help = Some(child.arg(0)?.ensure_string()?.to_string());
                 }
                 "default" => {
-                    // A list default, which cannot be written as one property.
-                    prop.default_list = string_args(&child)?;
+                    // A list default, which cannot be written as one property. Accumulated
+                    // across nodes like `env`, `cli` and `example`, rather than assigned —
+                    // clearing the list first meant a second `default` line silently dropped
+                    // everything the first one declared.
+                    for arg in child.args() {
+                        match SpecConfigValue::from_kdl(arg.value) {
+                            Ok(Some(value)) => prop.default_list.push(value),
+                            // `#null` in a list of defaults says nothing at all; a list
+                            // whose default is "one of these is absent" has no meaning.
+                            Ok(None) => bail_parse!(
+                                ctx,
+                                arg.entry.span(),
+                                "a default list holds values, not #null"
+                            ),
+                            Err(err) => {
+                                bail_parse!(ctx, arg.entry.span(), "{}", err.describe())
+                            }
+                        }
+                    }
                 }
                 "source" => {
                     // `source "git" "hk.jobs" "hk.check"` — this setting's keys in a kind
@@ -741,6 +791,7 @@ impl SpecConfigProp {
                                 k => bail_parse!(ctx, choice.span(), "unsupported choice key {k}"),
                             }
                         }
+                        refuse_children(ctx, &choice, "choice")?;
                         prop.choices.push(SpecConfigChoice { value, help });
                     }
                 }
@@ -751,7 +802,14 @@ impl SpecConfigProp {
                     let key = child.arg(0)?.ensure_string()?.to_string();
                     let value = match SpecConfigValue::from_kdl(child.arg(1)?.value) {
                         Ok(Some(value)) => value,
-                        Ok(None) => SpecConfigValue::String(String::new()),
+                        // An extension promises to come back out exactly as it went in, and
+                        // there is no `#null` to come back to — it used to be stored as `""`
+                        // and written as `""`, which is tool-private metadata altered on save.
+                        Ok(None) => bail_parse!(
+                            ctx,
+                            child.span(),
+                            "an extension value cannot be #null; it would not round-trip"
+                        ),
                         Err(err) => {
                             bail_parse!(ctx, child.span(), "extension value: {}", err.describe())
                         }
@@ -792,16 +850,14 @@ impl SpecConfigProp {
 }
 
 /// Every argument of a node, as strings.
+/// The string arguments of a node, refusing anything that is not one.
+///
+/// An environment variable, a flag and a source key are names, so a non-string is a mistake
+/// rather than something to render. Converting instead — which this used to do — turned
+/// `env #true` into a variable named `#true` and wrote it back out quoted, looking for all
+/// the world like somebody had meant it.
 fn string_args(node: &NodeHelper) -> Result<Vec<String>, UsageErr> {
-    node.node
-        .entries()
-        .iter()
-        .filter(|e| e.name().is_none())
-        .map(|e| match e.value() {
-            kdl::KdlValue::String(s) => Ok(s.clone()),
-            other => Ok(other.to_string()),
-        })
-        .collect()
+    node.args().map(|arg| arg.ensure_string()).collect()
 }
 
 /// An enum-valued property, with the accepted spellings in the error.
@@ -1257,7 +1313,10 @@ config {
         assert_eq!(spec.config.props["exclude"].merge, SpecConfigMerge::Union);
         assert_eq!(
             spec.config.props["exclude"].default_list,
-            ["target", "node_modules"]
+            [
+                SpecConfigValue::String("target".into()),
+                SpecConfigValue::String("node_modules".into()),
+            ]
         );
         assert_eq!(spec.config.props["stash"].choices.len(), 2);
         assert_eq!(
@@ -1366,5 +1425,230 @@ config {
         );
         assert_eq!(spec.config.props["jobs"].help.as_deref(), Some("second"));
         assert!(spec.config.props.contains_key("color"));
+    }
+
+    #[test]
+    fn an_included_file_can_declare_sources_and_files() {
+        // The case `include` exists for: a spec with many settings keeps them in their own
+        // file, and that file is where the whole block lives — the source kinds and the file
+        // chain included. Merging only props dropped both, so a settings file could describe
+        // where values come from and have it silently discarded.
+        let mut spec = Spec::parse(&Default::default(), "name \"hk\"\nbin \"hk\"\n").unwrap();
+        let included = Spec::parse(
+            &Default::default(),
+            r#"
+config {
+    source "git" name="git config"
+    file "/etc/hk/config.pkl" scope="system"
+    file "hk.pkl" findup=#true
+    prop "jobs" type="uint"
+}
+"#,
+        )
+        .unwrap();
+
+        spec.merge(included);
+        assert_eq!(
+            spec.config.sources["git"].name.as_deref(),
+            Some("git config")
+        );
+        assert_eq!(spec.config.files.len(), 2);
+        assert_eq!(spec.config.files[1].path, "hk.pkl");
+        assert!(spec.config.files[1].findup);
+    }
+
+    #[test]
+    fn a_block_of_only_files_is_not_empty() {
+        // `is_empty` decides whether the writer emits the block at all, so counting only
+        // props meant a config block that declared just where files live vanished on a round
+        // trip — the same class of loss as the defaults this stack started with.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  file \"x.toml\" findup=#true\n}\n",
+        )
+        .unwrap();
+        assert!(!spec.config.is_empty());
+        // Unquoted: the writer only quotes what KDL requires it to.
+        assert!(spec.to_string().contains("file x.toml"), "{spec}");
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_string_is_refused() {
+        // These are all names — an environment variable, a flag, a key in another source.
+        // Rendering a non-string instead of refusing it produced a variable called `#true`
+        // and wrote it back out quoted, as though somebody had meant it.
+        for body in [
+            "prop \"a\" {\n  env #true\n}",
+            "prop \"a\" {\n  cli 42\n}",
+            "prop \"a\" {\n  source \"git\" 1\n}",
+            "prop \"a\" {\n  example #false\n}",
+        ] {
+            let src = format!("name \"x\"\nbin \"x\"\nconfig {{\n{body}\n}}\n");
+            assert!(
+                Spec::parse(&Default::default(), &src).is_err(),
+                "should not parse:\n{src}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_union_has_no_legacy_type_and_does_not_claim_one() {
+        // `data_type` is the old five-value field and a union is not one of the five. Mapping
+        // it through `simplified()` made `bool|string` say `Boolean` — and that field decides
+        // how a default is read, so the string default came back as a boolean, contradicting
+        // the `value_type` it was derived from.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" type=\"bool|string\" default=\"true\"\n}\n",
+        )
+        .expect("should parse");
+        let prop = &spec.config.props["a"];
+        assert_eq!(prop.data_type, crate::spec::data_types::SpecDataTypes::Null);
+        assert_eq!(
+            prop.default,
+            Some(SpecConfigValue::String("true".into())),
+            "a union's default is left as written"
+        );
+        // The plain boolean it is not the same as still reads as one.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" type=\"bool\" default=\"true\"\n}\n",
+        )
+        .expect("should parse");
+        assert_eq!(
+            spec.config.props["a"].default,
+            Some(SpecConfigValue::Bool(true))
+        );
+    }
+
+    #[test]
+    fn an_extension_that_could_not_round_trip_is_refused() {
+        // `x` nodes promise to come back out exactly as they went in. `#null` had nowhere to
+        // come back to: it was stored as an empty string and written as `""`, which is
+        // tool-private metadata quietly altered by saving the file.
+        let err = Spec::parse(
+            &Default::default(),
+            "config {\n  prop \"a\" {\n    x \"mise.thing\" #null\n  }\n}\n",
+        )
+        .expect_err("should not parse");
+        assert!(
+            detail_of(&err).contains("round-trip"),
+            "refused for the wrong reason: {}",
+            detail_of(&err)
+        );
+    }
+
+    #[test]
+    fn a_second_default_node_adds_to_the_first() {
+        // The same reason `env` and `cli` accumulate: clearing the list first meant a prop
+        // that wrote its default over two lines kept only the second.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" type=\"list<string>\" {\n    default \"one\"\n    default \"two\"\n  }\n}\n",
+        )
+        .expect("should parse");
+        assert_eq!(
+            spec.config.props["a"].default_list,
+            [
+                SpecConfigValue::String("one".into()),
+                SpecConfigValue::String("two".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_second_env_or_cli_node_adds_to_the_first() {
+        // `example` and `source` already accumulate across nodes; `env` and `cli` assigned, so
+        // a spec that wrote them on two lines lost the first line's values without a word.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" {\n    env \"FIRST\"\n    env \"SECOND\"\n    cli \"--one\"\n    cli \"--two\"\n  }\n}\n",
+        )
+        .expect("should parse");
+        let prop = &spec.config.props["a"];
+        assert_eq!(prop.envs, ["FIRST", "SECOND"]);
+        assert_eq!(prop.cli, ["--one", "--two"]);
+    }
+
+    #[test]
+    fn a_block_on_a_node_that_takes_none_is_refused() {
+        // `source` and `file` are properties only, and checked only their properties — so a
+        // nested block was dropped in silence, which is the one thing this vocabulary is
+        // strict about not doing.
+        for src in [
+            "config {\n  source \"git\" {\n    name \"git config\"\n  }\n}\n",
+            "config {\n  file \"x.toml\" {\n    scope \"global\"\n  }\n}\n",
+            // A `choice` is properties-only too, and read its own the same way.
+            "config {\n  prop \"a\" {\n    choices {\n      choice \"x\" {\n        help \"why\"\n      }\n    }\n  }\n}\n",
+        ] {
+            let err = Spec::parse(&Default::default(), src).expect_err(src);
+            assert!(
+                detail_of(&err).contains("not a block"),
+                "refused for the wrong reason: {}",
+                detail_of(&err)
+            );
+        }
+    }
+
+    #[test]
+    fn both_env_spellings_leave_the_same_prop_however_it_was_built() {
+        // Two ways to write one thing — `env="X"` and `env "A" "B"` — so `env` and `envs`
+        // have to agree whichever way a prop arrived. They did after parsing and did not
+        // after building, so a spec assembled in Rust serialized with an empty `envs` and
+        // every consumer that reads that field saw a setting no variable could set.
+        let built = super::SpecConfigProp::new().env("HK_JOBS").env("HK_JOB");
+        assert_eq!(built.env.as_deref(), Some("HK_JOBS"));
+        assert_eq!(built.envs, ["HK_JOBS", "HK_JOB"]);
+
+        // Both spellings at once. The sync only ran when one side was empty, so this left
+        // `env` and `envs` asserting different things — `usage g json` exposing the pair, and
+        // a writer that chooses between them by list length, so a round trip dropped a value.
+        let both = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" env=\"FIRST\" {\n    env \"SECOND\"\n  }\n}\n",
+        )
+        .unwrap();
+        assert_eq!(both.config.props["a"].envs, ["FIRST", "SECOND"]);
+        assert_eq!(both.config.props["a"].env.as_deref(), Some("FIRST"));
+        // And both values survive being written out and read back.
+        let round_tripped: Spec = both.to_string().parse().expect("should reparse");
+        assert_eq!(round_tripped.config.props["a"].envs, ["FIRST", "SECOND"]);
+
+        // The property spelling, parsed.
+        let one = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" env=\"A\"\n}\n",
+        )
+        .unwrap();
+        let one = &one.config.props["a"];
+        assert_eq!(one.env.as_deref(), Some("A"));
+        assert_eq!(one.envs, ["A"]);
+
+        // The list spelling, parsed.
+        let many = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"a\" {\n    env \"A\" \"B\"\n  }\n}\n",
+        )
+        .unwrap();
+        let many = &many.config.props["a"];
+        assert_eq!(many.env.as_deref(), Some("A"));
+        assert_eq!(many.envs, ["A", "B"]);
+    }
+
+    #[test]
+    fn a_list_default_keeps_the_type_it_was_written_as() {
+        // `default 1 2 3` for a `list<int>` is three numbers, and a schema or an SDK that
+        // received three strings would describe the setting wrongly.
+        let spec = Spec::parse(
+            &Default::default(),
+            "name \"x\"\nbin \"x\"\nconfig {\n  prop \"ports\" type=\"list<int>\" {\n    default 80 443\n  }\n}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            spec.config.props["ports"].default_list,
+            [SpecConfigValue::Int(80), SpecConfigValue::Int(443)]
+        );
+        // And it says so again when written back out, rather than gaining quotes.
+        assert!(spec.to_string().contains("default 80 443"), "{spec}");
     }
 }

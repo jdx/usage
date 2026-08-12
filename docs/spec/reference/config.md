@@ -108,7 +108,7 @@ And as child nodes, for anything multi-valued or long:
 | `cli "--jobs" "-j"`               | flags that set it                                             |
 | `env "A" "B"`                     | environment variables, highest precedence first               |
 | `source "git" "a.b"`              | its keys in a declared source kind                            |
-| `default "a" "b"`                 | a list default                                                |
+| `default "a" "b"`                 | a list default, values typed as written (`default 80 443`)    |
 | `long_help "…"`                   | the long form, when a raw string reads better than a property |
 | `example "…"`                     | one invocation worth showing                                  |
 | `choices { choice "a" help="…" }` | the values it accepts, each with its own help                 |
