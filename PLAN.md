@@ -186,6 +186,16 @@ carrying them rather than being worked around.
       engine what a bare word means. So they are emission-only, and the test asserts both
       that they reach the KDL and that binding is unaffected. `default_subcommand` is
       checked at compile time to require a subcommand field, since it names one.
+- [ ] **Routing on `default_subcommand`** — the property above is emitted and nothing more,
+      and that is a gap rather than a decision: usage-lib _routes_ on it while parsing. Given
+      `default_subcommand "run"`, a word naming no subcommand makes its parser descend into
+      `run` and bind the word as **`run`'s** argument, even where the root declares an
+      argument of its own — verified against usage-lib 4.0.0, where `mise build` comes back
+      as `["mise", "run"]` with `TASK = "build"`. This parser keeps the word at the root.
+      Closing it needs `Command` to carry a pointer to its default subcommand and the parser
+      to descend on an unmatched word, so it is parser work rather than emission. It is also
+      the rule behind `mise build` meaning `mise run build`, which mise routes by hand today
+      — so this is one more hack adoption should remove.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
