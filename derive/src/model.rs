@@ -41,6 +41,13 @@ pub struct Field {
     pub name: String,
     pub kind: Kind,
     pub shape: Shape,
+    /// What one value converts into, absent for a switch or a count.
+    ///
+    /// The partial holds text either way — binding decides where a word lands, not what it
+    /// means — and this is what `build` converts it with.
+    pub value_ty: Option<Type>,
+    /// Written as `Option<Vec<T>>`, so "never given" and "given nothing" differ.
+    pub optional_collection: bool,
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub env: Option<String>,
@@ -417,6 +424,8 @@ impl Field {
             // A subcommand field holds a command, not a value, so none of what
             // describes a value applies to it.
             shape: Shape::Bool,
+            value_ty: None,
+            optional_collection: false,
             help: None,
             long_help: None,
             env: None,
@@ -653,7 +662,11 @@ impl Field {
             ));
         }
 
-        let shape = Shape::from_type(&field.ty, count, span)?;
+        let ValueKind {
+            shape,
+            ty: value_ty,
+            optional_collection,
+        } = ValueKind::from_type(&field.ty, count, span)?;
         // The spec records a default and the generated code applies it; anything it
         // cannot apply would be documented and then ignored.
         if let Some(value) = &default {
@@ -847,6 +860,8 @@ impl Field {
             name,
             kind,
             shape,
+            value_ty,
+            optional_collection,
             help,
             long_help,
             env,
@@ -871,12 +886,33 @@ impl Field {
     }
 }
 
-impl Shape {
+/// What a field's type says about the values that reach it.
+pub struct ValueKind {
+    pub shape: Shape,
+    /// What one value converts into: the `T` in `T`, `Option<T>` or `Vec<T>`.
+    ///
+    /// Absent for a switch and for a count, which are decided by how many times the flag
+    /// was given rather than by anything a word says.
+    pub ty: Option<Type>,
+    /// Whether a collection was written as `Option<Vec<T>>`.
+    ///
+    /// The difference from `Vec<T>` is "never given" against "given nothing", which is a
+    /// distinction mise's root draws three times. Values collect the same way; only the
+    /// field it is finally put into differs.
+    pub optional_collection: bool,
+}
+
+impl ValueKind {
     fn from_type(ty: &Type, count: bool, span: Span) -> syn::Result<Self> {
+        let plain = |shape| ValueKind {
+            shape,
+            ty: None,
+            optional_collection: false,
+        };
         let name = type_name(ty);
         if count {
             return match name.as_str() {
-                "u8" | "u16" | "u32" | "u64" | "usize" => Ok(Shape::Count),
+                "u8" | "u16" | "u32" | "u64" | "usize" => Ok(plain(Shape::Count)),
                 other => Err(syn::Error::new(
                     span,
                     format!(
@@ -886,22 +922,35 @@ impl Shape {
                 )),
             };
         }
-        match name.as_str() {
-            "bool" => Ok(Shape::Bool),
-            "String" => Ok(Shape::Required),
-            "Option<String>" => Ok(Shape::Optional),
-            "Vec<String>" => Ok(Shape::Many),
-            other => Err(syn::Error::new(
-                span,
-                format!(
-                    "`{other}` is not supported yet. This version binds values as the \
-                     text they arrive as, so a field is `bool`, `String`, \
-                     `Option<String>`, `Vec<String>`, or an unsigned integer with \
-                     `count`. Parsing into other types arrives with the layer that also \
-                     applies defaults and validates choices"
-                ),
-            )),
+        if name == "bool" {
+            return Ok(plain(Shape::Bool));
         }
+        // Peeled in this order because `Option<Vec<T>>` is both, and reading it as an
+        // optional whose value is a `Vec` would ask `Vec<T>` to parse from one word.
+        if let Some(inner) = peel(ty, "Option").as_ref().and_then(|o| peel(o, "Vec")) {
+            return Ok(ValueKind {
+                shape: Shape::Many,
+                ty: Some(inner),
+                optional_collection: true,
+            });
+        }
+        for (wrapper, shape) in [("Option", Shape::Optional), ("Vec", Shape::Many)] {
+            if let Some(inner) = peel(ty, wrapper) {
+                return Ok(ValueKind {
+                    shape,
+                    ty: Some(inner),
+                    optional_collection: false,
+                });
+            }
+        }
+        // Anything else is one value, converted with `FromStr` — which is where a type
+        // that cannot hold a command-line word finally reports itself, naming the user's
+        // type rather than ours.
+        Ok(ValueKind {
+            shape: Shape::Required,
+            ty: Some(ty.clone()),
+            optional_collection: false,
+        })
     }
 }
 
@@ -914,11 +963,21 @@ impl Shape {
 /// reason about, and is left as the type it is — which then fails to implement the trait,
 /// with an error naming the type the user wrote.
 fn unbox(ty: &Type) -> Option<Type> {
+    peel(ty, "Box")
+}
+
+/// The `T` in a written `Wrapper<T>`, path and all.
+///
+/// Only the last path segment is inspected, so `std::boxed::Box<T>` reads as `Box<T>` and
+/// `std::option::Option<T>` as `Option<T>`. One type argument is required: `Box<T, A>`
+/// names an allocator this cannot reason about, and is left as the type the user wrote so
+/// the error names theirs rather than ours.
+fn peel(ty: &Type, wrapper: &str) -> Option<Type> {
     let Type::Path(path) = ty else {
         return None;
     };
     let last = path.path.segments.last()?;
-    if last.ident != "Box" {
+    if last.ident != wrapper {
         return None;
     }
     let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
@@ -930,7 +989,18 @@ fn unbox(ty: &Type) -> Option<Type> {
     }
 }
 
-fn type_name(ty: &Type) -> String {
+/// A type as written, path and all, with the spaces `quote` leaves out.
+///
+/// Distinct from [`type_name`], which keeps only the last segment: telling
+/// `std::string::String` from somebody's own `my::String` needs the whole path, and
+/// mistaking the two hands a `String` to a field that cannot hold one.
+pub fn rendered_path(ty: &Type) -> String {
+    quote::ToTokens::to_token_stream(ty)
+        .to_string()
+        .replace(' ', "")
+}
+
+pub fn type_name(ty: &Type) -> String {
     match ty {
         Type::Path(path) => {
             let Some(last) = path.path.segments.last() else {
