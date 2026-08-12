@@ -625,3 +625,47 @@ fn flag_relationships_reach_the_spec() {
     assert!(rel.file.is_none());
     assert!(rel.url.is_none());
 }
+
+/// A command whose trailing words are only reachable after a `--`.
+///
+/// mise declares this on `run`, `exec` and `git`: `[ARGS]…` takes the words before the
+/// separator, `[-- ARGS_LAST]…` the ones after. It reads like an argument after a
+/// variadic, which usually cannot be filled — but the `--` is what stops the variadic,
+/// so this one can.
+#[derive(Cli, Debug)]
+#[usage(bin = "sep")]
+struct Separated {
+    /// Words before the separator
+    #[usage(arg, name = "ARGS")]
+    args: Vec<String>,
+    /// Words after it
+    #[usage(arg, name = "ARGS_LAST", double_dash = "required")]
+    args_last: Vec<String>,
+}
+
+#[test]
+fn a_double_dash_argument_can_follow_a_variadic() {
+    let a = argv(["a", "b", "--", "c", "d"]);
+    let sep = Separated::parse_from(&a).expect("should parse");
+    assert_eq!(sep.args, ["a", "b"]);
+    assert_eq!(sep.args_last, ["c", "d"]);
+
+    // Without the separator the first variadic keeps everything.
+    let a = argv(["a", "b", "c"]);
+    let sep = Separated::parse_from(&a).expect("should parse");
+    assert_eq!(sep.args, ["a", "b", "c"]);
+    assert!(sep.args_last.is_empty());
+
+    // And the spec says which is which, so docs and completions agree with the parse.
+    // usage-lib writes the mode as a property rather than in the placeholder; either
+    // spelling reads back the same, and this is the one the writer chose.
+    let kdl = Separated::to_kdl();
+    assert!(
+        kdl.contains(r#"arg "[ARGS_LAST]..." help="Words after it" double_dash="required""#),
+        "{kdl}"
+    );
+    let spec: LibSpec = kdl.parse().expect("valid spec");
+    let last = spec.cmd.args.last().expect("two args");
+    assert_eq!(last.double_dash, usage::SpecDoubleDashChoices::Required);
+    assert!(last.var);
+}

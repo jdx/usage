@@ -275,15 +275,21 @@ impl Cli {
                         seen_short.push((*short, field.span));
                     }
                 }
-                Kind::Arg { .. } => {
-                    // A variadic takes everything left, so anything after it can
-                    // never be filled.
-                    if let Some(first) = variadic_arg {
+                Kind::Arg {
+                    double_dash_required,
+                } => {
+                    // A variadic takes everything left, so anything after it can never
+                    // be filled — unless it requires a `--`, which is precisely what
+                    // stops the variadic. mise declares that on `run`, `exec` and `git`:
+                    // `[ARGS]…` for the words before the separator and `[-- ARGS_LAST]…`
+                    // for the ones after.
+                    if let Some(first) = variadic_arg.filter(|_| !double_dash_required) {
                         return Err(dup(
                             field.span,
                             first,
                             "an argument after a variadic one can never be filled, \
-                             because the variadic takes every remaining word",
+                             because the variadic takes every remaining word — unless it \
+                             is only fillable after a `--`, which stops the variadic",
                         ));
                     }
                     if field.shape == Shape::Many {
