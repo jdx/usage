@@ -264,6 +264,8 @@ static ROOT_META: CommandMeta = CommandMeta {
             var_min: Some(1),
             var_max: Some(5),
             overrides: &["--exclude"],
+            // One target, which the writer puts on the node as a property.
+            required_if: &["--verbose"],
             ..FlagMeta::EMPTY
         },
         FlagMeta {
@@ -284,13 +286,17 @@ static ROOT_META: CommandMeta = CommandMeta {
             long_help: Some("Deletes things.\u{1b}[0m Carefully."),
             effect: Some(Effect::Destructive),
             overrides: &["--keep", "--dry-run"],
+            conflicts: &["--force"],
             ..FlagMeta::EMPTY
         },
-        // More than one default, which cannot be written as a property.
+        // More than one default, which cannot be written as a property. Neither can
+        // more than one conflict or condition, so they go in the same child block.
         FlagMeta {
             flag: &PATHS,
             value_name: Some("path"),
             default: &["/usr/bin", "/usr/local/bin"],
+            conflicts: &["--include", "--prune"],
+            required_if: &["--force", "--prune"],
             ..FlagMeta::EMPTY
         },
     ],
@@ -406,6 +412,32 @@ fn variadic_bounds_and_overrides_survive() {
     assert_eq!(include.var_min, Some(1));
     assert_eq!(include.var_max, Some(5));
     assert_eq!(include.overrides, vec!["--exclude".to_string()]);
+    assert_eq!(include.required_if, vec!["--verbose".to_string()]);
+}
+
+#[test]
+fn conflicts_and_conditions_survive_in_both_spellings() {
+    // One target is a property on the node and several are a child block, so each
+    // list has to be read back in the form the writer chose for it.
+    let spec = parsed();
+    let flag = |name: &str| {
+        spec.cmd
+            .flags
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap_or_else(|| panic!("--{name} should be in the spec"))
+            .clone()
+    };
+
+    assert_eq!(flag("prune").conflicts, vec!["--force".to_string()]);
+    assert_eq!(
+        flag("paths").conflicts,
+        vec!["--include".to_string(), "--prune".to_string()]
+    );
+    assert_eq!(
+        flag("paths").required_if,
+        vec!["--force".to_string(), "--prune".to_string()]
+    );
 }
 
 #[test]

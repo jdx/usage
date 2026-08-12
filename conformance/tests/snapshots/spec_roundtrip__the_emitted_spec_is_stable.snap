@@ -15,7 +15,7 @@ flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading
 }
 flag "--color" help="colorize output" negate="--no-color" default="true"
 flag "-v --verbose" hide=#true count=#true
-flag "--include" help="patterns to include" var=#true var_min=1 var_max=5 overrides="--exclude" {
+flag "--include" help="patterns to include" var=#true var_min=1 var_max=5 overrides="--exclude" required_if="--verbose" {
     arg "<pattern>..."
 }
 flag "--shell" required=#true {
@@ -24,7 +24,7 @@ flag "--shell" required=#true {
         choices "bash" "zsh" "fish"
     }
 }
-flag "--prune" help="delete anything unused" effect="destructive" {
+flag "--prune" help="delete anything unused" effect="destructive" conflicts="--force" {
     long_help "Deletes things.\u{1b}[0m Carefully."
     overrides "--keep" "--dry-run"
 }
@@ -33,6 +33,8 @@ flag "--paths" {
         "/usr/bin"
         "/usr/local/bin"
     }
+    conflicts "--include" "--prune"
+    required_if "--force" "--prune"
     arg "<path>"
 }
 arg "[file]" help="the file" help_heading="Input" env="EX_FILE" default="a.txt"

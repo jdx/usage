@@ -112,9 +112,9 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       paragraph short, whole block long), and spec emission, from usage-native
       attributes. Unsupported field types are a compile error rather than a
       surprise, and the messages point at the offending field.
-- [ ] **Subcommands in the derive** — one command per struct today. Needs an enum
-      of variants, cross-type table references, and a nested command path through
-      the parse function.
+- [x] **Subcommands in the derive** — an enum of variants, each holding the struct
+      that declares its flags, nested to any depth. A command is selected by its
+      position in the parent's table, found from the address the parser hands back.
 - [ ] **Typed values** — fields are text today (`String`, `Option<String>`,
       `Vec<String>`, `bool`, counting integers). Parsing into other types needs an
       error type for value conversion, which is also where `env`, required-ness,
@@ -123,10 +123,11 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
       boxed subcommand variants, headings, `cfg`-gated variants.
-- [ ] **The post-binding layer** — `required`, `choices`, `env` fallback,
-      defaults, `var_min`/`var_max`, `overrides`. These need a value's type, so
-      they belong with the derive rather than in the parser. Closes the 24 corpus
-      vectors usage-argv reports as out of scope.
+- [ ] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
+      `var_min`/`var_max`, `conflicts`, `required_if` and `required_unless` are done;
+      `overrides` is what remains, and it is the one that needs arrival order rather
+      than only whether a flag was given. These need a value's type, so they belong
+      with the derive rather than in the parser.
 
 ### Spec gaps found on the way
 
@@ -140,6 +141,11 @@ carrying them rather than being worked around.
 - [x] **Rendering headings** — help output and generated markdown both group by
       heading now. Unheaded entries keep the default section and come first, and a
       heading with nothing visible in it produces no section.
+- [x] **`conflicts`** — the spec could say `overrides`, `required_if` and
+      `required_unless`, but not that two flags must not be given together, so the
+      forty `conflicts_with` relationships mise declares in clap were being dropped
+      by the bridge. Now a flag property, enforced by usage-lib, and a value from
+      the environment counts on both sides of the check as clap does.
 - [ ] **A mount on the root command** — the spec accepts `mount` only inside a
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate

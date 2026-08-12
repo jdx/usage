@@ -143,6 +143,14 @@ pub struct FlagMeta<'a> {
     pub var_max: Option<usize>,
     /// Flags this one displaces when both are given.
     pub overrides: &'a [&'a str],
+    /// Flags that cannot be given alongside this one.
+    ///
+    /// Where [`overrides`](Self::overrides) resolves a collision by letting the last
+    /// flag win, this reports it: the combination has no meaning, so honouring one
+    /// side silently would hide a mistake.
+    pub conflicts: &'a [&'a str],
+    /// Flags that make this one necessary.
+    pub required_if: &'a [&'a str],
     /// Flags that make this one unnecessary.
     pub required_unless: &'a [&'a str],
     /// Heading to list this flag under in help output. Presentational: it groups
@@ -168,6 +176,8 @@ impl FlagMeta<'_> {
         var_min: None,
         var_max: None,
         overrides: &[],
+        conflicts: &[],
+        required_if: &[],
         required_unless: &[],
         help_heading: None,
         effect: None,
@@ -484,6 +494,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     }
     write_single_default(out, meta.default)?;
     write_single_list(out, "overrides", meta.overrides)?;
+    write_single_list(out, "conflicts", meta.conflicts)?;
+    write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;
 
     let has_children = meta.long_help.is_some()
@@ -491,6 +503,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         || !meta.choices.is_empty()
         || meta.default.len() > 1
         || meta.overrides.len() > 1
+        || meta.conflicts.len() > 1
+        || meta.required_if.len() > 1
         || meta.required_unless.len() > 1;
     if !has_children {
         out.push('\n');
@@ -505,6 +519,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     }
     write_many_defaults(out, meta.default, inner)?;
     write_many_list(out, "overrides", meta.overrides, inner)?;
+    write_many_list(out, "conflicts", meta.conflicts, inner)?;
+    write_many_list(out, "required_if", meta.required_if, inner)?;
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;

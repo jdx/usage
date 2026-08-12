@@ -319,6 +319,11 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let required = field.shape == Shape::Required;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
+    // Written as declared, in the spec's own spelling, so the emitted KDL says what
+    // the struct says.
+    let conflicts = &field.conflicts;
+    let required_if = &field.required_if;
+    let required_unless = &field.required_unless;
 
     quote! {
         pub static #name: FlagMeta = FlagMeta {
@@ -335,6 +340,9 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
+            conflicts: &[#(#conflicts),*],
+            required_if: &[#(#required_if),*],
+            required_unless: &[#(#required_unless),*],
             ..FlagMeta::EMPTY
         };
     }
@@ -1244,9 +1252,96 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // A conflict asks whether two flags both ended up with a value, which is why it
+    // reads `__given_*` rather than the fields themselves: a `bool` flag that was given
+    // as `false` is still a flag the user asked for. Env fallback has already run, so a
+    // value from the environment counts the same as a typed one — clap does that too,
+    // and an asymmetric rule would make the same pair a conflict or not depending on
+    // which side happened to be typed.
+    let conflict_checks = cli.fields.iter().flat_map(move |f| {
+        let given = format_ident!("__given_{}", f.ident);
+        let name = &f.name;
+        f.conflicts.iter().filter_map(move |selector| {
+            // Resolved in the model, which rejects a selector naming nothing.
+            let other = cli.field_for_selector(selector)?;
+            let other_given = format_ident!("__given_{}", other.ident);
+            let other_name = &other.name;
+            Some(quote! {
+                if partial.#given && partial.#other_given {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::ConflictingFlags {
+                            name: #name,
+                            other: #other_name,
+                        },
+                    );
+                }
+            })
+        })
+    });
+
+    // `required_if` and `required_unless` are the same question asked two ways: which
+    // other flags decide whether this one had to be given. Neither needs to know the
+    // order they arrived in — only whether they arrived — so both are answered here,
+    // beside plain required-ness, from the same `__given_*` flags.
+    let relationship_required_checks = cli.fields.iter().filter_map(move |f| {
+        if f.required_if.is_empty() && f.required_unless.is_empty() {
+            return None;
+        }
+        // A field with a default is already filled, so no condition can make it
+        // missing. Plain required-ness skips these too, and so does usage-lib.
+        if f.default.is_some() {
+            return None;
+        }
+        let given = format_ident!("__given_{}", f.ident);
+        let name = &f.name;
+        let selector_given = |selector: &String| {
+            let other = cli.field_for_selector(selector)?;
+            let other_given = format_ident!("__given_{}", other.ident);
+            Some(quote!(partial.#other_given))
+        };
+        let if_given: Vec<_> = f.required_if.iter().filter_map(selector_given).collect();
+        let unless_given: Vec<_> = f
+            .required_unless
+            .iter()
+            .filter_map(selector_given)
+            .collect();
+        // Absent, with nothing standing in for it: a default or an environment
+        // variable has already filled the field and set `__given_*`.
+        let missing = quote! {
+            return ::std::result::Result::Err(
+                ::usage_argv::Error::MissingRequired { name: #name },
+            );
+        };
+        let required_if = (!if_given.is_empty()).then(|| {
+            quote! {
+                if #(#if_given)||* {
+                    #missing
+                }
+            }
+        });
+        let required_unless = (!unless_given.is_empty()).then(|| {
+            quote! {
+                if !(#(#unless_given)||*) {
+                    #missing
+                }
+            }
+        });
+        Some(quote! {
+            if !partial.#given {
+                #required_if
+                #required_unless
+            }
+        })
+    });
+
     quote! {
         #(#env_fallbacks)*
+        // Before required-ness: "you gave two flags that cannot go together" is the
+        // more useful of the two answers when a conflict has also left something
+        // unfilled, and it is the one usage-lib reports.
+        #(#conflict_checks)*
         #(#required_checks)*
+        #(#relationship_required_checks)*
         #(#choice_checks)*
         #(#bound_checks)*
         #sub_check
