@@ -189,6 +189,11 @@
 //! Published early on purpose, so it can be used and argued with — but these are
 //! real limits, not omissions from the docs.
 //!
+//! - **A field whose type shadows the name `String`.** A word reaching a `String` field is
+//!   moved rather than converted, which costs nothing; the type is recognised by how it is
+//!   written, because a macro cannot resolve a name. So `use my_crate::String` followed by
+//!   a `String` field of that type fails to compile. The same change that fixes the next
+//!   item removes this one.
 //! - **Values that are not valid UTF-8.** A word reaches a field through
 //!   `String::from_utf8_lossy`, so a `PathBuf` field holding a path that is not UTF-8
 //!   gets the replacement character rather than the bytes. Rare, and wrong when it
