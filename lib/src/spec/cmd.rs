@@ -809,12 +809,23 @@ impl From<&clap::Command> for SpecCommand {
                 let mut flag: SpecFlag = arg.into();
                 // clap keeps conflicts on the command rather than on the argument, so
                 // this is the only place both are in view. Written with dashes,
-                // matching how the spec refers to a flag everywhere else; clap stores
-                // an id, which for a long flag is its name.
+                // matching how the spec refers to a flag everywhere else.
+                //
+                // A short-only flag is named `-s`, which selectors accept as readily as
+                // `--long`: taking only the long form would have dropped the conflict
+                // and let the spec accept a combination clap rejects.
                 flag.conflicts = cmd
                     .get_arg_conflicts_with(arg)
                     .iter()
-                    .filter_map(|other| other.get_long().map(|long| format!("--{long}")))
+                    .filter_map(|other| match (other.get_long(), other.get_short()) {
+                        (Some(long), _) => Some(format!("--{long}")),
+                        (None, Some(short)) => Some(format!("-{short}")),
+                        // A positional, which the spec has no way to name in a
+                        // conflict. Dropping it is a loss, but writing `--<name>` would
+                        // be a selector matching nothing, which is worse: it reads as a
+                        // relationship that holds.
+                        (None, None) => None,
+                    })
                     .collect();
                 spec.flags.push(flag)
             }

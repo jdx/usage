@@ -740,6 +740,16 @@ mod tests {
         // that rejects either order.
         let stdin = spec.cmd.flags.iter().find(|f| f.name == "stdin").unwrap();
         assert!(stdin.conflicts.is_empty());
+
+        // A short-only target is named `-q`, since that is the only name it has.
+        // Taking only the long form dropped the conflict and left the spec accepting a
+        // combination clap rejects.
+        let shorts = clap::Command::new("ex")
+            .arg(clap::Arg::new("loud").long("loud").conflicts_with("quiet"))
+            .arg(clap::Arg::new("quiet").short('q'));
+        let spec: Spec = (&shorts).into();
+        let loud = spec.cmd.flags.iter().find(|f| f.name == "loud").unwrap();
+        assert_eq!(loud.conflicts, vec!["-q".to_string()]);
     }
 
     #[test]
