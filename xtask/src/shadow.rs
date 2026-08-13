@@ -283,11 +283,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     // A comment's long form always contains its short one, because the short form *is* its
     // first paragraph. Where a spec's two are independent — mise's are entirely different
     // sentences — no comment can say both, so the root declares them instead.
-    let root_declares_about = is_root
-        && match (run.about, run.about_long) {
-            (Some(a), Some(l)) => !l.trim_start().starts_with(a.trim()),
-            _ => false,
-        };
+    // The *same* predicate the comment path uses. Two checks that disagree left a gap in
+    // between: a long form opening with the short one but not then breaking — a trailing period
+    // is enough — was too much for a comment and not enough to be declared, so the program's
+    // description was dropped altogether.
+    let root_declares_about = is_root && needs_declaring(run.about, run.about_long);
     let declared_about: Vec<String> = if root_declares_about {
         [
             run.about.map(|a| format!("about = {:?}", a.trim())),
@@ -1214,6 +1214,32 @@ mod tests {
 
         let (clap, _) = rendered_as(spec, Dialect::Clap);
         assert!(clap.contains(r#"help = "Use shims\nlike so:""#), "{clap}");
+    }
+
+    #[test]
+    fn the_root_describes_itself_however_its_two_forms_relate() {
+        // Two checks that disagreed left a gap between them: a long form opening with the short
+        // one but not then breaking — a trailing period is enough — was too much for a comment
+        // and not enough to be declared, and the program's description vanished. One predicate
+        // decides both now, so every arrangement produces a description somewhere.
+        for long in [
+            "Dev tools.",                    // the short form plus punctuation
+            "Dev tools, and then some more", // the short form plus text, no break
+            "Something else entirely",       // independent
+            "Dev tools\n\nAnd the rest.",    // opens with it and breaks: a comment can say this
+        ] {
+            let spec =
+                format!("name \"ex\"\nbin \"ex\"\nabout \"Dev tools\"\nabout_long {long:?}\n");
+            let (out, _) = rendered(&spec);
+            assert!(
+                out.contains("Dev tools"),
+                "the short form went missing for {long:?}: {out}"
+            );
+            assert!(
+                out.contains(long.split('\n').next().unwrap()),
+                "the long form went missing for {long:?}: {out}"
+            );
+        }
     }
 
     #[test]
