@@ -433,6 +433,118 @@ pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
     std::str::from_utf8(value)
 }
 
+/// How many entries a group of tables holds in total.
+///
+/// The length for [`concat_flags`] and [`concat_args`], which need it as a const generic — so
+/// it has to be computable separately from the concatenation itself.
+///
+/// ```
+/// use usage_argv::{table_len, Flag};
+///
+/// static A: Flag = Flag { name: "a", ..Flag::BOOL };
+/// static B: Flag = Flag { name: "b", ..Flag::BOOL };
+/// const GROUPS: &[&[&Flag]] = &[&[&A], &[], &[&B]];
+/// const N: usize = table_len(GROUPS);
+/// assert_eq!(N, 2);
+/// ```
+pub const fn table_len<T>(groups: &[&[T]]) -> usize {
+    let mut total = 0;
+    let mut i = 0;
+    while i < groups.len() {
+        total += groups[i].len();
+        i += 1;
+    }
+    total
+}
+
+/// Join groups of flag tables into one, at compile time.
+///
+/// This is how `#[usage(flatten)]` stays free. A flattened struct's flags have to appear in
+/// the parent's own table, and the parent's macro expansion cannot see them — it has only a
+/// type. But it can name that type's [`CommandArgs::COMMAND`](crate::spec::CommandArgs::COMMAND),
+/// and a `const fn` can read through it, so the two lists become one `static` array before the
+/// program runs. The parser then walks a single flat slice, exactly as it does for a command
+/// that declared everything itself: flatten costs nothing at run time.
+///
+/// Groups are laid out in the order given, which is what lets a flattened group sit *between*
+/// two of the parent's own declarations — necessary for positional arguments, where order is
+/// the meaning.
+///
+/// `N` must be [`table_len`] of the same groups. It cannot be inferred, and a wrong one fails
+/// to compile rather than leaving the difference filled with padding.
+///
+/// ```
+/// use usage_argv::{concat_flags, table_len, Flag};
+///
+/// static FORCE: Flag = Flag { name: "force", longs: &["force"], ..Flag::BOOL };
+/// static QUIET: Flag = Flag { name: "quiet", longs: &["quiet"], ..Flag::BOOL };
+/// static SHARED: &[&Flag] = &[&QUIET];
+///
+/// const GROUPS: &[&[&Flag]] = &[&[&FORCE], SHARED];
+/// static FLAGS: [&Flag; table_len(GROUPS)] = concat_flags(GROUPS);
+///
+/// assert_eq!(FLAGS.iter().map(|f| f.name).collect::<Vec<_>>(), ["force", "quiet"]);
+/// ```
+pub const fn concat_flags<const N: usize>(
+    groups: &[&[&'static Flag<'static>]],
+) -> [&'static Flag<'static>; N] {
+    // Every slot is written below, but an array has to start somewhere and `MaybeUninit`
+    // would mean `unsafe`. A `Flag` nobody can reach is cheaper than that.
+    static PLACEHOLDER: Flag<'static> = Flag::BOOL;
+    let mut out = [&PLACEHOLDER; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the table would keep a placeholder \
+         that answers to nothing"
+    );
+    out
+}
+
+/// Join groups of argument tables into one, at compile time.
+///
+/// The positional counterpart of [`concat_flags`] — see there for why this exists. Order
+/// matters more here: an argument's position *is* its identity, so a flattened group has to
+/// land exactly where the field was written.
+///
+/// Two functions rather than one generic: each needs a value to fill an array with before
+/// overwriting it, and there is no way to ask a type parameter for one in a `const fn`.
+pub const fn concat_args<const N: usize>(
+    groups: &[&[&'static Arg<'static>]],
+) -> [&'static Arg<'static>; N] {
+    static PLACEHOLDER: Arg<'static> = Arg::REQUIRED;
+    let mut out = [&PLACEHOLDER; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the table would keep a placeholder \
+         that answers to nothing"
+    );
+    out
+}
+
 /// Resolve a subcommand by name or alias, at compile time.
 ///
 /// For [`Command::default_subcommand`], which names a command that a derive cannot see: the
@@ -1429,6 +1541,87 @@ mod tests {
                 Event::Arg {
                     arg: &RUN_TASK,
                     value: b"build"
+                },
+            ]
+        );
+    }
+
+    // A shared table, as a flattened struct's would be. Declared outside the tests so both
+    // can splice it, which is the arrangement it exists to model.
+    static SHARED_QUIET: Flag = Flag {
+        key: 300,
+        name: "quiet",
+        longs: &["quiet"],
+        ..Flag::BOOL
+    };
+    static SHARED_FLAGS: &[&Flag] = &[&SHARED_QUIET];
+    static SHARED_WHAT: Arg = Arg {
+        key: 301,
+        name: "what",
+        ..Arg::REQUIRED
+    };
+    static SHARED_ARGS: &[&Arg] = &[&SHARED_WHAT];
+
+    #[test]
+    fn concatenating_tables_keeps_the_order_they_were_given_in() {
+        // The property positional arguments depend on: a flattened group lands where the
+        // field was written, not at the end. `[&FILE], SHARED, [&REST]` has to stay in that
+        // order or `ex a b c` binds the wrong words.
+        const ARGS: &[&[&Arg]] = &[&[&FILE], SHARED_ARGS, &[&REST]];
+        static TABLE: [&Arg; table_len(ARGS)] = concat_args(ARGS);
+        assert_eq!(
+            TABLE.iter().map(|a| a.name).collect::<Vec<_>>(),
+            ["file", "what", "rest"]
+        );
+
+        // Empty groups contribute nothing and disturb nothing, which is what lets the derive
+        // emit a group per field without checking whether it is empty first.
+        const WITH_GAPS: &[&[&Flag]] = &[&[], &[&FORCE], &[], SHARED_FLAGS, &[]];
+        static FLAGS: [&Flag; table_len(WITH_GAPS)] = concat_flags(WITH_GAPS);
+        // By long form: these fixtures do not all set `name`, and the placeholder's is also
+        // empty — so comparing names could not tell a real entry from a leftover slot.
+        assert_eq!(
+            FLAGS.iter().map(|f| f.longs).collect::<Vec<_>>(),
+            [&["force"], &["quiet"]]
+        );
+    }
+
+    #[test]
+    fn a_concatenated_table_parses_like_a_declared_one() {
+        // The point of doing this at compile time: what the parser walks is one flat slice,
+        // indistinguishable from a command that declared everything itself.
+        const FLAG_GROUPS: &[&[&Flag]] = &[&[&FORCE], SHARED_FLAGS];
+        const ARG_GROUPS: &[&[&Arg]] = &[SHARED_ARGS, &[&REST]];
+        static FLAGS: [&Flag; table_len(FLAG_GROUPS)] = concat_flags(FLAG_GROUPS);
+        static ARGS: [&Arg; table_len(ARG_GROUPS)] = concat_args(ARG_GROUPS);
+        static JOINED: Command = Command {
+            name: "joined",
+            flags: &FLAGS,
+            args: &ARGS,
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--quiet", "one", "two", "--force"]);
+        assert_eq!(
+            parse(&JOINED, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &SHARED_QUIET,
+                    value: None,
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &SHARED_WHAT,
+                    value: b"one"
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"two"
+                },
+                Event::Flag {
+                    flag: &FORCE,
+                    value: None,
+                    negated: false
                 },
             ]
         );

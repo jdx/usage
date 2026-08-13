@@ -66,6 +66,68 @@ pub struct Spec<'a> {
     pub root: &'a CommandMeta<'a>,
 }
 
+/// Join groups of flag metadata into one, at compile time.
+///
+/// The metadata counterpart of [`concat_flags`](crate::concat_flags), for the same reason:
+/// a flattened struct's flags belong in the parent's emitted spec, and the parent's macro
+/// expansion has only a type to reach them through.
+///
+/// Metadata is held by value rather than by reference, so this copies — which is free at
+/// compile time and produces a `static` the writer walks like any other.
+///
+/// `N` must be [`table_len`](crate::table_len) of the same groups.
+pub const fn concat_flag_metas<const N: usize>(
+    groups: &[&[FlagMeta<'static>]],
+) -> [FlagMeta<'static>; N] {
+    let mut out = [FlagMeta::EMPTY; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the metadata would describe a flag \
+         that does not exist"
+    );
+    out
+}
+
+/// Join groups of argument metadata into one, at compile time.
+///
+/// See [`concat_flag_metas`]. Order is the same as the parse tables', because the two are
+/// read together: a spec lists arguments in the order they are filled.
+pub const fn concat_arg_metas<const N: usize>(
+    groups: &[&[ArgMeta<'static>]],
+) -> [ArgMeta<'static>; N] {
+    let mut out = [ArgMeta::EMPTY; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the metadata would describe an \
+         argument that does not exist"
+    );
+    out
+}
+
 /// What a command knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {
