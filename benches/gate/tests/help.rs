@@ -204,3 +204,68 @@ fn every_long_help_matches_the_reference() {
             .join("\n")
     );
 }
+
+/// A command declaring everything mise's spec does not: an example with a description, and the
+/// text that goes above and below the page.
+///
+/// mise carries its Examples in `after_long_help` and declares no `example` nodes at all, so the
+/// 211-page comparison never reaches this code. Three bugs hid there — a missing preamble in both
+/// forms and an example's description printed after its command — which is what a fixture built
+/// from one real CLI cannot catch on its own.
+fn surrounded() -> LibSpec {
+    "name \"ex\"\nbin \"ex\"\ncmd go help=\"Go somewhere\" {\n  \
+     before_help \"Read this first.\"\n  \
+     before_long_help \"Read this first, at length.\"\n  \
+     after_help \"And this after.\"\n  \
+     after_long_help \"And this after, at length.\"\n  \
+     example \"ex go --fast\" help=\"the quick way\"\n}\n"
+        .parse()
+        .expect("valid spec")
+}
+
+#[test]
+fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
+    let spec = surrounded();
+    let go = spec.cmd.subcommands.get("go").expect("go");
+
+    // Built by hand rather than derived: the point is to compare the renderer against the
+    // reference for a shape the shadow does not have.
+    static GO: usage_argv::Command = usage_argv::Command {
+        name: "go",
+        ..usage_argv::Command::EMPTY
+    };
+    static GO_META: CommandMeta = CommandMeta {
+        cmd: &GO,
+        about: Some("Go somewhere"),
+        before_help: Some("Read this first."),
+        before_long_help: Some("Read this first, at length."),
+        after_help: Some("And this after."),
+        after_long_help: Some("And this after, at length."),
+        examples: &[usage_argv::spec::Example {
+            code: "ex go --fast",
+            header: None,
+            help: Some("the quick way"),
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
+        name: "ex",
+        bin: Some("ex"),
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        root: &GO_META,
+    };
+
+    assert_eq!(
+        short_help(&SPEC, &["ex", "go"], &GO_META),
+        usage::docs::cli::render_help(&spec, go, false),
+        "short form"
+    );
+    assert_eq!(
+        long_help(&SPEC, &["ex", "go"], &GO_META),
+        usage::docs::cli::render_help(&spec, go, true),
+        "long form"
+    );
+}

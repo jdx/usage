@@ -217,6 +217,12 @@ fn arg_usage(meta: &ArgMeta<'_>) -> String {
 pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
     let mut out = String::new();
 
+    // Text the command puts above everything else, and below it. The short form has only the
+    // one pair; the long form prefers the long variants.
+    if let Some(before) = meta.before_help {
+        let _ = writeln!(out, "{before}\n");
+    }
+
     // The program, then what it is for. usage-lib prints the name when the spec gives one and
     // the binary otherwise, and only when there is a version to put beside it.
     if let Some(version) = spec.version {
@@ -263,6 +269,9 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
         },
     );
     examples_section(&mut out, meta);
+    if let Some(after) = meta.after_help {
+        let _ = writeln!(out, "\n{after}");
+    }
 
     // usage-lib trims the whole document and puts back one newline, which is what keeps the
     // blank lines between sections from becoming trailing ones.
@@ -410,6 +419,10 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
     let width = terminal_width();
     let mut out = String::new();
 
+    if let Some(before) = meta.before_long_help.or(meta.before_help) {
+        let _ = writeln!(out, "{before}\n");
+    }
+
     if let Some(version) = spec.version {
         let name = if spec.name.is_empty() {
             spec.bin.unwrap_or_default()
@@ -469,10 +482,12 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
             if let Some(header) = example.header {
                 let _ = writeln!(out, "  {header}:");
             }
-            let _ = writeln!(out, "    $ {}", example.code);
+            // The description comes *before* the command, which is the order the reference
+            // prints them in: it introduces the line rather than commenting on it.
             if let Some(help) = example.help {
                 let _ = writeln!(out, "    {help}");
             }
+            let _ = writeln!(out, "    $ {}", example.code);
         }
     }
 
