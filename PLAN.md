@@ -408,6 +408,12 @@ The corpus records these; they are bugs to fix or decisions to revisit, not
 settled behavior. Each is a small change to `lib/src/parse.rs`, and the corpus is
 how a fix gets verified — including telling you to delete the label afterwards.
 
+- [x] Help printed everything marked `hide` — hidden flags, hidden arguments, hidden
+      subcommands. The usage _line_ filtered them already, through `SpecCommand::usage`, so
+      `ex --help` listed a `--secret` that the line above it did not mention; markdown and
+      manpage rendering filtered too. The help templates were the one place that did not.
+      Found while building usage-argv's renderer, which would otherwise have had to reproduce
+      it for parity.
 - [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. This is the
       root of most of the recorded divergences. **Needs a decision**: mise parses

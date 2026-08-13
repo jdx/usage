@@ -5,7 +5,7 @@ use tera::Tera;
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec.clone());
-    let docs_cmd = crate::docs::models::SpecCommand::from(cmd);
+    let docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
 
     let mut ctx = tera::Context::new();
     ctx.insert("spec", &docs_spec);
@@ -17,6 +17,25 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
         "spec_template_short.tera"
     };
     TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
+}
+
+/// The command without anything marked `hide`.
+///
+/// Help showed hidden flags, hidden arguments and hidden subcommands — everything `hide`
+/// exists to keep out of it. The usage *line* filtered them already, through
+/// `SpecCommand::usage`, so `ex --help` listed a `--secret` that the line above it did not
+/// mention. Markdown and manpage rendering filter too; the help templates were the one place
+/// that did not.
+///
+/// Filtered here rather than in the templates, and before the docs model builds its groups, so
+/// that a heading whose every entry is hidden produces no section — the same rule markdown
+/// already follows.
+fn without_hidden(cmd: &SpecCommand) -> SpecCommand {
+    let mut visible = cmd.clone();
+    visible.flags.retain(|flag| !flag.hide);
+    visible.args.retain(|arg| !arg.hide);
+    visible.subcommands.retain(|_, sub| !sub.hide);
+    visible
 }
 
 static TERA: LazyLock<Tera> = LazyLock::new(|| {
@@ -60,6 +79,39 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn test_render_help_omits_hidden_entries() {
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--visible" help="shown"
+flag "--secret" hide=#true help="hidden"
+flag "--filtered" hide=#true help="hidden" help_heading="Filtering"
+arg "[SHOWN]" help="an arg"
+arg "[HIDDEN]" hide=#true help="a hidden arg"
+cmd open help="a command"
+cmd sneaky hide=#true help="a hidden command"
+        "# }
+        .unwrap();
+
+        // `hide` keeps something out of help. The usage line filtered already — through
+        // `SpecCommand::usage` — so before this, `ex --help` listed a `--secret` the line
+        // above it did not mention. A heading whose every entry is hidden produces no
+        // section, which is the rule markdown rendering already followed.
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        Usage: ex [--visible] [SHOWN] <SUBCOMMAND>
+
+        Commands:
+          open  a command
+          help  Print this message or the help of the given subcommand(s)
+
+        Arguments:
+          [SHOWN]  an arg
+
+        Flags:
+          --visible  shown
+        ");
+    }
 
     #[test]
     fn test_render_help_groups_by_heading() {
