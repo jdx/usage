@@ -3356,7 +3356,11 @@ pub struct RegistryArgs {
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
-    #[arg(long = "security")]
+    #[arg(
+        help = "Include security features for each tool's backends in JSON output",
+        long_help = "Include security features for each tool's backends in JSON output.\n\nRequires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.",
+        long = "security"
+    )]
     pub security: bool,
     /// Show only the specified tool's full name
     #[arg(value_name = "NAME")]
@@ -5252,7 +5256,11 @@ pub struct WatchArgs {
     /// multiple confused queries that have landed in my inbox over the years.
     #[arg(long = "emit-events-to", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["environment", "stdio", "file", "json-stdio", "json-file", "none"]), default_value = "none")]
     pub emit_events_to: Option<String>,
-    #[arg(long = "only-emit-events")]
+    #[arg(
+        help = "Only emit events to stdout, run no commands",
+        long_help = "Only emit events to stdout, run no commands.\n\nThis is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.\n\nThis option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.",
+        long = "only-emit-events"
+    )]
     pub only_emit_events: bool,
     /// Add env vars to the command
     ///
@@ -5324,7 +5332,13 @@ pub struct WatchArgs {
     /// This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
     #[arg(long = "filter-file", value_name = "PATH")]
     pub filter_file: Vec<String>,
-    #[arg(long = "filter-prog", short = 'J', value_name = "EXPRESSION")]
+    #[arg(
+        help = "[experimental] Filter programs",
+        long_help = "[experimental] Filter programs.\n\n/!\\ This option is EXPERIMENTAL and may change and/or vanish without notice.\n\nProvide your own custom filter programs in jaq (similar to jq) syntax. Programs are given an event in the same format as described in '--emit-events-to' and must return a boolean. Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.\n\nIn addition to the jaq stdlib, watchexec adds some custom filter definitions:\n\n- 'path | file_meta' returns file metadata or null if the file does not exist.\n\n- 'path | file_size' returns the size of the file at path, or null if it does not exist.\n\n- 'path | file_read(bytes)' returns a string with the first n bytes of the file at path. If the file is smaller than n bytes, the whole file is returned. There is no filter to read the whole file at once to encourage limiting the amount of data read and processed.\n\n- 'string | hash', and 'path | file_hash' return the hash of the string or file at path. No guarantee is made about the algorithm used: treat it as an opaque value.\n\n- 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store. Data is kept in memory only, there is no persistence. Consistency is not guaranteed.\n\n- 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and pass the value through (so '[1] | log(\"debug\") | .[]' will produce a '1' and log '[1]').\n\nAll filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.\n\nIf the argument to this option starts with an '@', the rest of the argument is taken to be the path to a file containing a jaq program.\n\nJaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq or not) rejects an event, execution stops there, and no other filters are run. Additionally, they stop after outputting the first value, so you'll want to use 'any' or 'all' when iterating, otherwise only the first item will be processed, which can be quite confusing!\n\nFind user-contributed programs or submit your own useful ones at <https://github.com/watchexec/watchexec/discussions/592>.\n\n## Examples:\n\nRegexp ignore filter on paths:\n\n'all(.tags[] | select(.kind == \"path\"); .absolute | test(\"[.]test[.]js$\")) | not'\n\nPass any event that creates a file:\n\n'any(.tags[] | select(.kind == \"fs\"); .simple == \"create\")'\n\nPass events that touch executable files:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | metadata | .executable)'\n\nIgnore files that start with shebangs:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | read(2) == \"#!\") | not'",
+        long = "filter-prog",
+        short = 'J',
+        value_name = "EXPRESSION"
+    )]
     pub filter_prog: Vec<String>,
     /// Filename patterns to filter out
     ///
@@ -5513,7 +5527,11 @@ pub struct Cli {
     /// Sets log level to trace
     #[arg(long = "trace", global = true, hide = true)]
     pub trace: bool,
-    #[arg(value_name = "TASK")]
+    #[arg(
+        value_name = "TASK",
+        help = "Task to run",
+        long_help = "Task to run.\n\nShorthand for `mise tasks run <TASK>`."
+    )]
     pub task: Option<String>,
     /// Task arguments
     #[arg(value_name = "TASK_ARGS", hide = true, num_args = 0..)]
@@ -5668,7 +5686,11 @@ pub enum Commands {
     #[command(name = "set", aliases = ["ev", "env-vars"])]
     Set(Box<SetArgs>),
     /// Manage settings
-    #[command(name = "settings")]
+    #[command(
+        name = "settings",
+        about = "Manage settings",
+        long_about = "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`"
+    )]
     Settings(Box<SettingsArgs>),
     /// Sets a tool version for the current session.
     #[command(name = "shell", visible_alias = "sh")]

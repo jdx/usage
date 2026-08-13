@@ -988,7 +988,7 @@ fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
 /// this generator exists to prevent.
 fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> Vec<String> {
     let mut opts = Vec::new();
-    if !needs_declaring(help) {
+    if !needs_declaring(help, long) {
         return opts;
     }
     let (short_key, long_key) = if command {
