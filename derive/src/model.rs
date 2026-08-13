@@ -1041,18 +1041,9 @@ impl Field {
                 ));
             }
         }
-        // `required_unless` says the field may be absent when another flag stands in for
-        // it. A bare `String` has nowhere to put absent, so its type would keep claiming
-        // the value is mandatory and the exception could never take effect.
-        if !required_unless.is_empty() && shape == Shape::Required {
-            return Err(syn::Error::new(
-                span,
-                "`required_unless` says this may be left out, so the field needs \
-                 somewhere to put \"absent\": make it an `Option`",
-            ));
-        }
-
-        // Declared text wins over the comment, which is the point of declaring it.
+        // Declared text wins over the comment, which is the point of declaring it. A comment's
+        // first paragraph is read the way Rust reads one — line breaks inside it become spaces —
+        // so help whose breaks are deliberate has to be given directly.
         let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
 
         // A flag is named after the form it answers to, not after the Rust field holding it.
@@ -1060,8 +1051,8 @@ impl Field {
         // called — and the field name is often not a legal one: `type_` gave a flag called
         // `type-`, which help printed as `type-: -t --type` and errors reported as `type-`.
         //
-        // Only where the field says nothing: an explicit `name` still wins, and a flag with
-        // no long form keeps its short as the name, as usage-lib does.
+        // Only where the field says nothing: an explicit `name` still wins, and a flag with no
+        // long form keeps its short as the name, as usage-lib does.
         if is_flag && !name_given {
             // Only where the name is about to become something that says nothing: a flag with
             // no long form is named after its short one, and `-j <j>` is no use as a
@@ -1079,6 +1070,17 @@ impl Field {
             } else if let Some(short) = shorts.first() {
                 name = short.to_string();
             }
+        }
+
+        // `required_unless` says the field may be absent when another flag stands in for
+        // it. A bare `String` has nowhere to put absent, so its type would keep claiming
+        // the value is mandatory and the exception could never take effect.
+        if !required_unless.is_empty() && shape == Shape::Required {
+            return Err(syn::Error::new(
+                span,
+                "`required_unless` says this may be left out, so the field needs \
+                 somewhere to put \"absent\": make it an `Option`",
+            ));
         }
 
         // `required` is for the one case the type cannot express. Anywhere else it either
@@ -1179,6 +1181,29 @@ impl Field {
         // And an `Option<Vec<_>>` is shaped like any other collection, so `required` was
         // accepted there too — after which the field can never be `None` and the `Option` means
         // nothing at all.
+        // `required` is for the one shape whose type cannot say it. Anywhere else it repeats
+        // what the type says or contradicts it, and a declaration that changes nothing is one
+        // someone will eventually trust. (This guard was lost while two fixes for the same
+        // review finding met in the middle; the test for it is what noticed.)
+        if required_collection && shape != Shape::Many {
+            return Err(syn::Error::new(
+                span,
+                match shape {
+                    Shape::Optional => {
+                        "`required` contradicts `Option`, which is how a field \
+                                        says a value may be left out — drop one or the other"
+                    }
+                    Shape::Required => {
+                        "a bare type is already required: `required` is only for \
+                                        a collecting field, where the type cannot say it"
+                    }
+                    _ => {
+                        "`required` is only for a collecting field, which is the one shape \
+                          whose type cannot say whether a value is needed"
+                    }
+                },
+            ));
+        }
         if required_collection {
             let contradiction = if optional_collection {
                 Some("an `Option<Vec<_>>` says the whole collection may be absent")
