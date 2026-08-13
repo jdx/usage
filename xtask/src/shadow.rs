@@ -956,6 +956,20 @@ fn selector_list(option: &str, selectors: &[String]) -> String {
 }
 
 /// Help text as a doc comment, which is how the derive reads it.
+/// How many line breaks a text opens with, counting `\r\n` as one.
+fn leading_breaks(text: &str) -> usize {
+    let mut rest = text;
+    let mut n = 0;
+    while let Some(tail) = rest
+        .strip_prefix("\r\n")
+        .or_else(|| rest.strip_prefix('\n'))
+    {
+        n += 1;
+        rest = tail;
+    }
+    n
+}
+
 /// Whether help text has to be declared rather than written as a comment.
 ///
 /// A doc comment's first paragraph is read the way Rust reads one, so a line break inside it
@@ -982,9 +996,10 @@ fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
     // the short form at all.
     let independent = match (help, long) {
         (Some(h), Some(l)) => match l.strip_prefix(h.trim()) {
-            Some(rest) => {
-                !(rest.is_empty() || rest.starts_with("\n\n") || rest.starts_with("\r\n\r\n"))
-            }
+            // Exactly two breaks, not at least two: a comment writes one blank line and no
+            // more, so a longer run comes back shortened — `"Short\n\n\nRest"` as
+            // `"Short\n\nRest"`. Declared instead, which says whatever the spec says.
+            Some(rest) => !(rest.is_empty() || leading_breaks(rest) == 2),
             None => true,
         },
         _ => false,
@@ -1252,6 +1267,14 @@ mod tests {
             out.contains(r#"long_help = "Short\nContinuation""#),
             "{out}"
         );
+
+        // And a paragraph gap wider than one blank line, which the comment path would close:
+        // it writes one blank line and no more, so the two-break shape is the only one it can
+        // carry back unchanged.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--z\" help=\"Short\" {\n  long_help \"Short\\n\\n\\nRest\"\n}\n",
+        );
+        assert!(out.contains(r#"long_help = "Short\n\n\nRest""#), "{out}");
 
         let spec = "name \"ex\"\nbin \"ex\"\narg \"<FILES>…\"\n";
         let (usage, _) = rendered_as(spec, Dialect::Usage);
