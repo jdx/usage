@@ -151,6 +151,10 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
     tera.add_raw_templates([
         ("arg_template.md.tera", include_str!("templates/arg_template.md.tera")),
         ("cmd_template.md.tera", include_str!("templates/cmd_template.md.tera")),
+        (
+            "config_template.md.tera",
+            include_str!("templates/config_template.md.tera"),
+        ),
         ("flag_template.md.tera", include_str!("templates/flag_template.md.tera")),
         ("spec_template.md.tera", include_str!("templates/spec_template.md.tera")),
         ("index_template.md.tera", include_str!("templates/index_template.md.tera")),

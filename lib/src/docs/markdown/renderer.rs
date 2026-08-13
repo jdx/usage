@@ -50,6 +50,15 @@ fn escape_md(value: &str, html_encode: bool) -> String {
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
     pub(crate) spec: Spec,
+    /// The config block as the spec wrote it, before any rendering.
+    ///
+    /// `new` renders the whole docs model eagerly, which happens *before* the builder methods
+    /// that set `replace_pre_with_code_fences` and friends — and rendering marks each item
+    /// done, so a later pass no-ops. `render_cmd` avoids this by re-deriving from the raw
+    /// command its caller hands it; config has no such argument, so the raw form is kept here
+    /// instead. Without it, `--replace-pre-with-code-fences` silently did nothing to a
+    /// setting's long help.
+    pub(crate) raw_config: crate::spec::config::SpecConfig,
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
     tera_ctx: tera::Context,
@@ -61,6 +70,7 @@ pub struct MarkdownRenderer {
 impl MarkdownRenderer {
     pub fn new(spec: crate::Spec) -> Self {
         let mut renderer = Self {
+            raw_config: spec.config.clone(),
             spec: spec.into(),
             header_level: 1,
             multi: false,
@@ -73,6 +83,36 @@ impl MarkdownRenderer {
         spec.render_md(&renderer);
         renderer.spec = spec;
         renderer
+    }
+
+    /// The file name the settings page gets in `--multi` mode.
+    ///
+    /// One name, always. `settings.md` was the obvious choice and the wrong one: mise has a
+    /// `settings` command, whose own page lands there, and config is written second — so for
+    /// the very CLI this feature is aimed at, the command's page was silently replaced and the
+    /// index linked both entries to the same file.
+    ///
+    /// Choosing between two names by whether a command is in the way would fix that and
+    /// introduce something worse: the name would move when a command is added or removed
+    /// between runs, leaving the abandoned one behind as a stale page nothing links but the
+    /// docs site still serves. A fixed name cannot do that, and `configuration` is a name CLIs
+    /// give to a *file*, not to a command — the command is called `config`.
+    pub fn config_page(&self) -> &'static str {
+        "configuration.md"
+    }
+
+    /// A visible top-level command whose own page would be written to [`Self::config_page`].
+    ///
+    /// Vanishingly unlikely, and silence is what made the `settings.md` collision hard to see,
+    /// so the one case left is reported rather than guessed at.
+    pub fn config_page_collision(&self) -> Option<&str> {
+        let stem = self.config_page().trim_end_matches(".md");
+        self.spec
+            .cmd
+            .subcommands
+            .values()
+            .find(|cmd| !cmd.hide && cmd.full_cmd == [stem])
+            .map(|cmd| cmd.name.as_str())
     }
 
     pub fn with_header_level(mut self, header_level: usize) -> Self {

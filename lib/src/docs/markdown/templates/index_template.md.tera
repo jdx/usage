@@ -20,4 +20,13 @@
 {{ "#" | repeat(count=header_level) }} Subcommands
 {% endif %}
 - [`{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
-{%- endfor -%}
+{%- endfor %}
+{#- The settings page, written beside this one in `--multi` mode by the same run. Gated on
+    the same condition that decides whether the page exists at all, so the index never links
+    a file that was not written. #}
+{%- if config.props or config.files %}
+
+{{ "#" | repeat(count=header_level) }} Configuration
+
+- [Settings]({{ url_prefix }}/{{ config_page }})
+{%- endif -%}

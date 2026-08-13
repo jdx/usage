@@ -40,4 +40,14 @@
 {{ "#" | repeat(count=header_level) }} `{{ (spec.bin ~ " " ~ full_cmd) | trim }}`
 
 {%- include "cmd_template.md.tera" %}
-{%- endfor -%}
+{%- endfor %}
+{#- Settings after the commands: a reader looking for a flag wants the command list first,
+    and a CLI with no settings renders nothing at all here. #}
+{#- A plain `include`, and the blank line before it kept: `{%- include %}` strips the whitespace
+    in *this* template, so the section's heading was glued onto the last line of the command
+    above it — `Run# Configuration`. And no decrement of `header_level`: the commands render at
+    level 2, so dropping to 1 put `# Configuration` beside the document's own title. -#}
+{%- if config.props or config.files %}
+
+{% include "config_template.md.tera" %}
+{%- endif -%}
