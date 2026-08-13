@@ -697,8 +697,13 @@ impl Field {
             ));
         }
 
-        // A short form is matched as a single byte, so a multi-byte character
-        // could never be recognized. Better to say so than to truncate it.
+        // A short form is matched as a single byte, so a multi-byte character could never be
+        // recognized. Better to say so than to truncate it.
+        //
+        // This also keeps `usage_argv::os_string_from_bytes` sound: a cluster is walked one
+        // byte at a time, and the remainder after a value-taking short becomes that value, so
+        // a non-ASCII short would let a value begin inside a character. `Flag::shorts`
+        // documents the requirement; this is where it is enforced for derived tables.
         if let Some(short) = shorts.iter().find(|c| !c.is_ascii()) {
             return Err(syn::Error::new(
                 span,
@@ -1790,6 +1795,23 @@ mod tests {
             .check_position(&ident, is_root)
             .expect_err("should have been refused")
             .to_string()
+    }
+
+    #[test]
+    fn a_short_form_must_be_ascii() {
+        // Enforced for two reasons now: a multi-byte short could never be matched, and
+        // `os_string_from_bytes` relies on every cut the parser makes landing on an ASCII
+        // byte. A cluster is walked one byte at a time, so this is the rule that keeps a
+        // value from beginning in the middle of a character.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(short = 'é', long)]
+                enable: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("is not ASCII"), "unhelpful message: {err}");
     }
 
     #[test]

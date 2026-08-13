@@ -132,12 +132,26 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       a different file, silently. Costs +656 instructions (1.6%) and one allocation, which
       is what not corrupting a value is worth. It also retired the hazard of recognising
       `String` by its spelling, since there is no identity case left.
-- [ ] **Accepting a value that is not valid UTF-8** — reporting it is not the same as taking
-      it. `PathBuf` could hold the exact bytes, but recovering an `OsString` from them needs
-      `OsStr::from_encoded_bytes_unchecked`, which is `unsafe`, and this crate has none. The
-      call would be sound — the bytes come from `as_encoded_bytes` in the same process, and
-      every split the parser makes is at an ASCII byte, so no multi-byte sequence is ever
-      cut — but introducing `unsafe` is jdx's call to make, not mine.
+- [x] **Accepting a value that is not valid UTF-8** — reporting it was the safe half;
+      accepting it is the whole fix, because the operating system does accept `/tmp/\xff` as a
+      filename and a CLI that cannot receive one cannot open the file. A `PathBuf` or
+      `OsString` field takes the bytes exactly, through `usage_argv::os_string_from_bytes`.
+
+      **And with no `unsafe` anywhere.** On Unix an `OsString` is an arbitrary byte sequence,
+          so this is the safe `OsString::from_vec` and every byte survives — which is the case that
+          matters, since non-UTF-8 filenames are ordinary there. Windows was going to need
+          `from_encoded_bytes_unchecked`, and jdx approved that, but a *safe* function taking a
+          `Vec<u8>` cannot enforce its precondition: there is no way to know the bytes came from
+          `as_encoded_bytes` rather than from anywhere else, and a safe function whose precondition
+          a caller can violate is unsound however carefully today's callers behave. Greptile flagged
+          exactly that on #844. So Windows goes through UTF-8 and reports what will not convert,
+          which gives up only an unpaired-surrogate argument there.
+
+          Cheaper than the text path, not dearer: a `PathBuf` field costs **553 instructions per
+          parse against a `String` field's 674**, since it skips the UTF-8 validation pass, and both
+          allocate once. The gate fixture cannot show this — a spec carries no Rust types, so every
+          shadow field is a `String` — which is why it is measured directly.
+
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,

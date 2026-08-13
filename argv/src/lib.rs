@@ -54,8 +54,14 @@
 //! actually looked at can fail to convert.
 //!
 //! Slicing an `OsStr` into `&str` pieces safely is not possible without
-//! allocating or `unsafe`, and this crate forbids `unsafe`. Bytes are what is
-//! left, and they turn out to be the honest interface anyway.
+//! allocating or `unsafe`. Bytes are what is left, and they turn out to be the
+//! honest interface anyway.
+//!
+//! The reverse conversion is [`os_string_from_bytes`], which lets a `PathBuf`
+//! field hold a filename that is not UTF-8 rather than a mangled copy of one. On
+//! Unix that is lossless and safe; on Windows, where WTF-8 makes it partial, a
+//! value that will not convert is reported. Either way this crate contains no
+//! `unsafe`, which a conversion that guessed would have cost.
 //!
 //! # What this crate does not do
 //!
@@ -75,7 +81,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "spec")]
 pub mod spec;
@@ -141,6 +147,13 @@ pub struct Flag<'a> {
     /// Long forms, written without the leading `--`.
     pub longs: &'a [&'a str],
     /// Short forms, as single bytes.
+    ///
+    /// **Should be ASCII.** A cluster like `-xyz` is walked one byte at a time, so a
+    /// non-ASCII short can never be matched, and the remainder after a value-taking one —
+    /// which becomes its value — would begin in the middle of a character.
+    /// `#[derive(Cli)]` rejects a non-ASCII `short`; a table written by hand should keep to
+    /// it. Nothing is unsound if it does not: the value would simply be cut in a place that
+    /// makes no sense, and on Windows would then fail to convert.
     pub shorts: &'a [u8],
     /// A long form that sets the flag to false, written without the `--`.
     pub negate: Option<&'a str>,
@@ -404,6 +417,49 @@ pub struct InvalidValue<'t> {
 /// but only for the values actually inspected.
 pub fn as_str(value: &[u8]) -> Result<&str, std::str::Utf8Error> {
     std::str::from_utf8(value)
+}
+
+/// Rebuild an [`OsString`] from bytes the parser handed back.
+///
+/// This is the reverse of [`OsStr::as_encoded_bytes`], and it is how a `PathBuf` field
+/// receives a filename the operating system accepts but UTF-8 does not — `/tmp/\xff` stays
+/// `/tmp/\xff` rather than becoming a *different* filename with `U+FFFD` in it.
+///
+/// Where the platform cannot hold those bytes, they are handed back in the `Err` — as
+/// `String::from_utf8` does — so the caller can name the value in its error without this
+/// having to copy it for a case that is nearly never taken.
+///
+/// # Why this is not `unsafe`, and why it is not lossless everywhere
+///
+/// On **Unix** an `OsString` is an arbitrary byte sequence, so the conversion is total and
+/// uses the safe [`OsStringExt::from_vec`]. Every byte survives, which is the case that
+/// matters: non-UTF-8 filenames are ordinary there.
+///
+/// [`OsStringExt::from_vec`]: std::os::unix::ffi::OsStringExt::from_vec
+///
+/// On **Windows** the encoding is WTF-8, where not every byte sequence is valid, and the only
+/// constructor that accepts one is `OsString::from_encoded_bytes_unchecked` — whose
+/// precondition this function cannot enforce. It takes a `Vec<u8>` from a safe caller, so
+/// there is no way to know the bytes came from `as_encoded_bytes` rather than from anywhere
+/// else, and a safe function with a precondition that can be violated is unsound however
+/// carefully its callers behave today.
+///
+/// So on Windows the bytes go through UTF-8, and one that is not valid UTF-8 is refused
+/// rather than assumed. What that gives up is a Windows argument containing an unpaired
+/// surrogate, which is reported instead of accepted; what it buys is that this crate needs no
+/// `unsafe` at all.
+pub fn os_string_from_bytes(value: Vec<u8>) -> Result<OsString, Vec<u8>> {
+    #[cfg(unix)]
+    {
+        Ok(std::os::unix::ffi::OsStringExt::from_vec(value))
+    }
+    #[cfg(not(unix))]
+    {
+        match String::from_utf8(value) {
+            Ok(text) => Ok(OsString::from(text)),
+            Err(bad) => Err(bad.into_bytes()),
+        }
+    }
 }
 
 /// A single-pass parse over `argv`.
@@ -831,8 +887,8 @@ impl<'t, 'v> Parser<'t, 'v> {
 /// View a token as bytes.
 ///
 /// `as_encoded_bytes` is a plain accessor with no conversion and no allocation.
-/// It is only the reverse direction that needs `unsafe`, which is why values
-/// come back as bytes.
+/// The reverse direction is the one with a cost — see [`os_string_from_bytes`] —
+/// which is why values come back as bytes.
 fn bytes<'v>(s: &'v &'v OsStr) -> &'v [u8] {
     s.as_encoded_bytes()
 }

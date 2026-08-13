@@ -760,10 +760,108 @@ fn field_final(field: &Field) -> TokenStream {
     // Recognising it by spelling is safe now: if an adopter's own `String` were mistaken for
     // this one, the mismatch is a compile error rather than a value quietly mangled — and
     // the check that matters, the UTF-8 one, happens either way.
+    let rendered = rendered_path(ty);
     let is_std_string = matches!(
-        rendered_path(ty).as_str(),
+        rendered.as_str(),
         "String" | "std::string::String" | "::std::string::String" | "alloc::string::String"
     );
+
+    // A field that can hold any byte sequence skips UTF-8 entirely, because for these types
+    // rejecting a word would be the wrong answer: the operating system accepts `/tmp/\xff`
+    // as a filename, so a CLI has to be able to receive one. Everything else still converts
+    // through text, since `FromStr` is the only thing an arbitrary type offers.
+    //
+    // Recognised by spelling, with the same reasoning as `String` above: an adopter's own
+    // `PathBuf` would fail to compile rather than quietly take a mangled value, because what
+    // is handed to it is an `OsString` and not a `&str`.
+    let os_target = match rendered.as_str() {
+        "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => {
+            Some(quote!(::std::path::PathBuf::from))
+        }
+        "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => {
+            Some(quote!(::std::convert::identity))
+        }
+        _ => None,
+    };
+    if let Some(build) = os_target {
+        // Lossless on Unix, where any byte sequence is a filename. On Windows the encoding
+        // is WTF-8 and the conversion is partial, so a value that will not convert is
+        // reported the same way any other unconvertible value is — never dropped, and never
+        // replaced by a different filename.
+        let one = |value: TokenStream| {
+            quote! {
+                match ::usage_argv::os_string_from_bytes(#value) {
+                    ::std::result::Result::Ok(__usage_os) => #build(__usage_os),
+                    ::std::result::Result::Err(__usage_bytes) => {
+                        return ::std::result::Result::Err(
+                            ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                ::usage_argv::InvalidValue {
+                                    name: #name,
+                                    value: ::std::string::String::from_utf8_lossy(
+                                        &__usage_bytes,
+                                    )
+                                    .into_owned(),
+                                    reason: ::std::string::ToString::to_string(
+                                        &"this platform cannot hold these bytes in a path",
+                                    ),
+                                },
+                            )),
+                        );
+                    }
+                }
+            }
+        };
+        let converted = one;
+        return match field.shape {
+            // Unreachable: a switch and a count have no `value_ty`, so the early return
+            // above already handled them.
+            Shape::Bool | Shape::Count => quote!(#ident: partial.#ident),
+            Shape::Required => {
+                let value = converted(quote!(partial.#ident));
+                quote!(#ident: #value)
+            }
+            // A `match` rather than `.map`, and a loop rather than `.collect`, for the same
+            // reason the text path below uses them: the conversion can fail, and a `return`
+            // inside a closure would leave the error in the closure's own return type.
+            Shape::Optional => {
+                let value = converted(quote!(__usage_value));
+                quote! {
+                    #ident: match partial.#ident {
+                        ::std::option::Option::Some(__usage_value) => {
+                            ::std::option::Option::Some(#value)
+                        }
+                        ::std::option::Option::None => ::std::option::Option::None,
+                    }
+                }
+            }
+            Shape::Many => {
+                let value = converted(quote!(__usage_value));
+                let collected = quote! {{
+                    let mut __usage_values =
+                        ::std::vec::Vec::with_capacity(partial.#ident.len());
+                    for __usage_value in partial.#ident {
+                        __usage_values.push(#value);
+                    }
+                    __usage_values
+                }};
+                if field.optional_collection {
+                    let given = format_ident!("__given_{}", ident);
+                    // Same as below: whether anything arrived is what tells "never given"
+                    // from "given nothing", which the `Vec` itself cannot.
+                    quote! {
+                        #ident: if partial.#given {
+                            ::std::option::Option::Some(#collected)
+                        } else {
+                            ::std::option::Option::None
+                        }
+                    }
+                } else {
+                    quote!(#ident: #collected)
+                }
+            }
+        };
+    }
+
     let converted = |value: TokenStream| {
         let text = quote! {
             match ::std::string::String::from_utf8(#value) {
