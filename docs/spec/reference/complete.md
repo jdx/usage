@@ -5,6 +5,60 @@
 complete "plugin" run="mycli plugins list"
 ```
 
+## `type` — completions usage supplies itself
+
+Instead of a `run`, a completer can name something usage already knows how to complete. `run`
+and `type` are alternatives; setting both is an error.
+
+```kdl
+complete "path" type="file"
+complete "key" type="config_keys"
+complete "value" type="config_values"
+```
+
+| type            | completes                                                            |
+| --------------- | -------------------------------------------------------------------- |
+| `file`, `path`  | files and directories, relative to the working directory             |
+| `dir`           | directories only                                                     |
+| `config_keys`   | the settings this spec's [`config`](./config.md) block declares      |
+| `config_values` | the values accepted by the setting named earlier on the command line |
+
+An arg or flag with no completer of its own falls back to `file` unless its declared
+`choices` say otherwise, so `type="file"` is only worth writing to be explicit.
+
+### Completing settings
+
+`config_keys` and `config_values` are what a `config get`/`config set` pair wants, and they
+need no `run`: the spec already says what the keys are and what each accepts.
+
+```kdl
+complete "key" type="config_keys"
+complete "value" type="config_values"
+
+cmd "config" {
+    cmd "set" {
+        arg "<key>"
+        arg "<value>"
+    }
+}
+```
+
+`config_keys` offers every `prop` in the block, dotted keys and all, with its `help` as the
+description. A `hide`d setting is left out; a `deprecated` one is still offered — a config
+file in the wild names it, so it must be completable — with its description saying so.
+
+`config_values` looks back along the command line for the last word that names a setting, so
+it does not matter where the key sits relative to the cursor. It offers that setting's
+`choices` with their own help, or `true` and `false` for a boolean. For anything else it stays
+quiet and the file fallback applies, which is what a path-valued setting wants anyway.
+
+Both are _closed_: where the spec enumerates the candidates, a prefix matching none of them
+completes to nothing rather than falling back to filenames. A setting whose values the spec
+does not enumerate keeps the fallback — including a union like `bool|path`, where `true` and
+`false` are offered but a path is still valid, so a path prefix still completes.
+
+Descriptions are reduced to their first line, since one candidate is one row of a menu.
+
 ## Descriptions
 
 If you set `descriptions=#true`, you can provide descriptions for the completions:

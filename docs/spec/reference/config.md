@@ -148,6 +148,16 @@ prop "python.uv_venv_auto" type="bool|string" {
 This is the seam that lets a CLI with special rules describe its settings here without
 usage having to model those rules.
 
+## Completing settings
+
+A `config get`/`config set` pair completes from the block without a `run` of its own — see
+[`complete`](./complete.md#completing-settings):
+
+```kdl
+complete "key" type="config_keys"
+complete "value" type="config_values"
+```
+
 ## Splitting it out
 
 A CLI with many settings does not want them inline. `include` reads another file, resolved

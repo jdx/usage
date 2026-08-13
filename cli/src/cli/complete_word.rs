@@ -10,7 +10,10 @@ use miette::IntoDiagnostic;
 use std::sync::LazyLock;
 use xx::regex;
 
+use usage::parse::{ParseOutput, ParseValue};
 use usage::sh::sh;
+use usage::spec::config::SpecConfigProp;
+use usage::spec::config_type::{Base, SpecConfigType};
 use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecDoubleDashChoices, SpecFlag};
 
 use crate::cli::generate;
@@ -114,6 +117,11 @@ impl CompleteWord {
             .as_ref()
             .is_some_and(|rt| prev_token == Some(rt.as_str()));
 
+        let cx = Ctx {
+            tera: &ctx,
+            spec,
+            parsed: &parsed,
+        };
         let mut has_explicit_choices = false;
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
@@ -136,8 +144,7 @@ impl CompleteWord {
             let mut choices = vec![];
             if let Some(arg) = parsed.cmd.args.first() {
                 let (found, constrained) = self.complete_positional(
-                    &ctx,
-                    spec,
+                    &cx,
                     &parsed.cmd,
                     arg,
                     &ctoken,
@@ -149,14 +156,14 @@ impl CompleteWord {
             choices
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
             let arg = flag.arg.as_ref().unwrap();
-            has_explicit_choices = arg.choices.is_some();
-            self.complete_arg(&ctx, spec, &parsed.cmd, arg, &ctoken)?
+            let (found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
+            has_explicit_choices = closed || arg.choices.is_some();
+            found
         } else {
             let mut choices = vec![];
             if let Some(arg) = parsed.next_arg.as_deref() {
                 let (found, constrained) = self.complete_positional(
-                    &ctx,
-                    spec,
+                    &cx,
                     &parsed.cmd,
                     arg,
                     &ctoken,
@@ -184,8 +191,7 @@ impl CompleteWord {
                         // which is why this goes through the helper at all.
                         if let Some(arg) = default_cmd.args.first() {
                             let (found, _) = self.complete_positional(
-                                &ctx,
-                                spec,
+                                &cx,
                                 default_cmd,
                                 arg,
                                 &ctoken,
@@ -280,14 +286,166 @@ impl CompleteWord {
             .collect()
     }
 
-    fn complete_builtin(&self, type_: &str, ctoken: &str) -> Vec<(String, String)> {
+    /// Completions for a reserved `type=`, and whether the set they came from is *closed*.
+    ///
+    /// Closed means an unmatched prefix has no completions at all, rather than falling
+    /// through to the file fallback: there is a known set of settings, and `config set
+    /// log_leve<TAB>` offering the contents of the working directory is worse than offering
+    /// nothing. `file`/`path`/`dir` are the opposite — they *are* the fallback — so they stay
+    /// open and an empty result there means only that the directory had no match.
+    fn complete_builtin(
+        &self,
+        cx: &Ctx<'_>,
+        type_: &str,
+        ctoken: &str,
+    ) -> (Vec<(String, String)>, bool) {
+        // The two config completers describe values, so they carry their own descriptions
+        // rather than going through the path branch's empty ones.
+        match type_ {
+            "config_keys" => return (self.complete_config_keys(cx.spec, ctoken), true),
+            "config_values" => return self.complete_config_values(cx, ctoken),
+            _ => {}
+        }
         let names = match (type_, env::current_dir()) {
             ("path" | "file", Ok(cwd)) => self.complete_path(&cwd, ctoken, |_| true),
             ("dir", Ok(cwd)) => self.complete_path(&cwd, ctoken, |p| p.is_dir()),
             // ("file", Ok(cwd)) => self.complete_path(&cwd, ctoken, |p| p.is_file()),
             _ => vec![],
         };
-        names.into_iter().map(|n| (n, String::new())).collect()
+        (
+            names.into_iter().map(|n| (n, String::new())).collect(),
+            false,
+        )
+    }
+
+    /// The settings a `config` block declares, for the key argument of a `config get`/`set`.
+    ///
+    /// Every CLI in the fleet writes this by hand — a `run=` shell command that asks the
+    /// binary for its own settings list. Declared as `type="config_keys"`, the spec already
+    /// says what the keys are, so the completion needs no subprocess.
+    ///
+    /// `hide` filters here, which is what distinguishes this from the JSON schema: a hidden
+    /// setting is still settable, so a schema must accept it, but nothing should suggest it.
+    fn complete_config_keys(&self, spec: &Spec, ctoken: &str) -> Vec<(String, String)> {
+        spec.config
+            .props
+            .iter()
+            .filter(|(_, prop)| !prop.hide)
+            .filter(|(key, _)| key.starts_with(ctoken))
+            .map(|(key, prop)| {
+                let help = one_line(prop.help.as_deref());
+                let help = help.as_str();
+                // Still offered when deprecated — it remains settable, and a config file in
+                // the wild still names it — but never without saying so.
+                let description = match &prop.deprecated {
+                    Some(_) if help.is_empty() => "deprecated".to_string(),
+                    Some(_) => format!("deprecated — {help}"),
+                    None => help.to_string(),
+                };
+                (key.clone(), description)
+            })
+            .collect()
+    }
+
+    /// The values the setting named earlier on the command line accepts.
+    ///
+    /// Its `choices` when it declares them, each with its own help; `true`/`false` for a
+    /// boolean. Anything else returns nothing, which lets the file fallback do the obvious
+    /// thing for a path-valued setting.
+    fn complete_config_values(&self, cx: &Ctx<'_>, ctoken: &str) -> (Vec<(String, String)>, bool) {
+        let Some(prop) = self.config_key_before_cursor(cx) else {
+            // Not a setting at all, so there is nothing to be authoritative about and the
+            // usual fallback is as good an answer as any.
+            return (vec![], false);
+        };
+        if !prop.choices.is_empty() {
+            return (
+                prop.choices
+                    .iter()
+                    .map(|choice| (choice.value.display(), one_line(choice.help.as_deref())))
+                    .filter(|(value, _)| value.starts_with(ctoken))
+                    .collect(),
+                // Closed: a spec that lists `choices` is declaring what the setting accepts,
+                // whatever its base type says. `mise`'s `python.uv_venv_auto` is `bool|string`
+                // and lists all four of its values.
+                true,
+            );
+        }
+        // Any boolean anywhere in the type, so `string|bool` behaves like `bool|string`:
+        // `simplified()` returns a union's *first* member, which made the two words appear or
+        // not depending on the order the spec happened to list them in.
+        if holds_a_boolean(&prop.value_type.clone().unwrap_or_default()) {
+            let declared = prop.value_type.clone().unwrap_or_default();
+            return (
+                ["false", "true"]
+                    .into_iter()
+                    .filter(|value| value.starts_with(ctoken))
+                    .map(|value| (value.to_string(), String::new()))
+                    .collect(),
+                // `bool|path` accepts both words *and* any path, so the two words are worth
+                // offering but they are not the whole set: claiming they were meant a prefix
+                // like `src/` completed to nothing at all.
+                !accepts_unenumerable_values(&declared),
+            );
+        }
+        // A path, a number, free text: the spec does not enumerate what belongs here, so the
+        // file fallback is left to do what it does for any other unconstrained argument.
+        (vec![], false)
+    }
+
+    /// The setting a `config_values` completion is for: the most recent *positional* value
+    /// before the cursor that names one.
+    ///
+    /// Taken from the parser's own bindings rather than by scanning the raw words, because the
+    /// key's place on the line is the CLI's business — `config set jobs 4`,
+    /// `config --global set jobs 4` and `config set --toml jobs 4` all have it somewhere
+    /// different — and a raw scan cannot tell a positional from the value of a flag. Given
+    /// `config set jobs --tag color <TAB>`, scanning words found `color`, a setting in its own
+    /// right, and offered its booleans as though the user were setting it.
+    fn config_key_before_cursor<'a>(&self, cx: &Ctx<'a>) -> Option<&'a SpecConfigProp> {
+        // The argument the *spec* says holds a key — the one completed with `config_keys` —
+        // rather than whichever positional happens to name a setting. Both guesses were wrong
+        // in their own direction: scanning backwards took a variadic's own last value
+        // (`set-many log_level color <TAB>` offered `color`'s booleans), and scanning forwards
+        // would take an unrelated positional that happened to name one. The spec already says
+        // which argument is which, so there is nothing to guess.
+        cx.parsed
+            .args
+            .iter()
+            .filter(|(arg, _)| self.completer_type(cx, arg) == Some("config_keys"))
+            .filter_map(|(_, value)| match value {
+                ParseValue::String(word) => Some(word.as_str()),
+                ParseValue::MultiString(words) => words.last().map(String::as_str),
+                ParseValue::Bool(_) | ParseValue::MultiBool(_) => None,
+            })
+            // The nearest one, for a command with more than one key argument — the same rule as
+            // the last element of a variadic. Taking the first offered values for whichever key
+            // came earliest on the line.
+            //
+            // No filter for "did the user type this": a key argument bound from its `default=`
+            // rather than from the line would win the nearest-wins rule below, but a partial
+            // parse does not produce such a binding — measured against a spec shaped exactly
+            // that way, with the defaulted argument *after* the value being completed, where
+            // the guard would have been the only thing standing between them. Unreachable code
+            // in a completion path is worse than the case it defends against;
+            // `complete_word_the_key_is_the_argument_the_spec_says_holds_one` pins the
+            // behaviour so that if a partial parse ever starts filling defaults, this fails.
+            //
+            // Only the nearest: looking further back when it names no setting
+            // offered another key's values for a line whose own key is a typo, where an unknown
+            // key on its own correctly offers nothing.
+            .next_back()
+            .and_then(|word| cx.spec.config.props.get(word))
+    }
+
+    /// The reserved `type=` of the completer for an argument, if it has one.
+    fn completer_type<'a>(&self, cx: &Ctx<'a>, arg: &SpecArg) -> Option<&'a str> {
+        let name = arg.name.to_lowercase();
+        cx.spec
+            .complete
+            .get(&name)
+            .or_else(|| cx.parsed.cmd.complete.get(&name))
+            .and_then(|complete| complete.type_.as_deref())
     }
 
     /// Completions for a positional argument, under the rule the parser enforces for
@@ -302,8 +460,7 @@ impl CompleteWord {
     /// is what suppresses the file-path fallback.
     fn complete_positional(
         &self,
-        ctx: &tera::Context,
-        spec: &Spec,
+        cx: &Ctx<'_>,
         cmd: &SpecCommand,
         arg: &SpecArg,
         ctoken: &str,
@@ -314,73 +471,83 @@ impl CompleteWord {
             let separator = ctoken.is_empty().then(|| ("--".to_string(), String::new()));
             return Ok((separator.into_iter().collect(), true));
         }
-        Ok((
-            self.complete_arg(ctx, spec, cmd, arg, ctoken)?,
-            arg.choices.is_some(),
-        ))
+        let (found, closed) = self.complete_arg(cx, cmd, arg, ctoken)?;
+        Ok((found, closed || arg.choices.is_some()))
     }
 
     fn complete_arg(
         &self,
-        ctx: &tera::Context,
-        spec: &Spec,
+        cx: &Ctx<'_>,
         cmd: &SpecCommand,
         arg: &SpecArg,
         ctoken: &str,
-    ) -> miette::Result<Vec<(String, String)>> {
+    ) -> miette::Result<(Vec<(String, String)>, bool)> {
         static EMPTY_COMPL: LazyLock<SpecComplete> = LazyLock::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");
         let name = arg.name.to_lowercase();
-        let complete = spec
+        let complete = cx
+            .spec
             .complete
             .get(&name)
             .or(cmd.complete.get(&name))
             .unwrap_or(&EMPTY_COMPL);
         let type_ = complete.type_.as_ref().unwrap_or(&name);
 
-        let builtin = self.complete_builtin(type_, ctoken);
-        if !builtin.is_empty() {
-            return Ok(builtin);
+        // A closed completer answers even when its answer is nothing: it knows the whole set
+        // of candidates, so an unmatched prefix means no matches rather than "ask somebody
+        // else". Returning empty-and-open here is what let a mistyped setting name complete
+        // to the contents of the working directory.
+        let (builtin, closed) = self.complete_builtin(cx, type_, ctoken);
+        if !builtin.is_empty() || closed {
+            return Ok((builtin, closed));
         }
 
         if let Some(choices) = &arg.choices {
             let values = choices.values();
-            return Ok(values
-                .into_iter()
-                .map(|c| (c, String::new()))
-                .filter(|(c, _)| c.starts_with(ctoken))
-                .collect());
+            return Ok((
+                values
+                    .into_iter()
+                    .map(|c| (c, String::new()))
+                    .filter(|(c, _)| c.starts_with(ctoken))
+                    .collect(),
+                true,
+            ));
         }
         if let Some(run) = &complete.run {
-            let run = tera::Tera::one_off(run, ctx, false).into_diagnostic()?;
+            let run = tera::Tera::one_off(run, cx.tera, false).into_diagnostic()?;
             trace!("run: {run}");
             let stdout = sh(&run)?;
             // trace!("stdout: {stdout}");
             let re = regex!(r"[^\\]:");
-            return Ok(stdout
-                .lines()
-                .map(|l| {
-                    if complete.descriptions {
-                        match re.find(l).map(|m| l.split_at(m.end() - 1)) {
-                            Some((l, d)) if d.len() <= 1 => {
-                                (l.trim().replace("\\:", ":"), String::new())
+            return Ok((
+                stdout
+                    .lines()
+                    .map(|l| {
+                        if complete.descriptions {
+                            match re.find(l).map(|m| l.split_at(m.end() - 1)) {
+                                Some((l, d)) if d.len() <= 1 => {
+                                    (l.trim().replace("\\:", ":"), String::new())
+                                }
+                                Some((l, d)) => (
+                                    l.trim().replace("\\:", ":"),
+                                    d[1..].trim().replace("\\:", ":"),
+                                ),
+                                None => (l.trim().replace("\\:", ":"), String::new()),
                             }
-                            Some((l, d)) => (
-                                l.trim().replace("\\:", ":"),
-                                d[1..].trim().replace("\\:", ":"),
-                            ),
-                            None => (l.trim().replace("\\:", ":"), String::new()),
+                        } else {
+                            (l.trim().to_string(), String::new())
                         }
-                    } else {
-                        (l.trim().to_string(), String::new())
-                    }
-                })
-                .filter(|(name, _)| name.starts_with(ctoken))
-                .collect());
+                    })
+                    .filter(|(name, _)| name.starts_with(ctoken))
+                    .collect(),
+                // Left open, as it always was: a script that prints nothing may simply have
+                // had nothing to say about this prefix.
+                false,
+            ));
         }
 
-        Ok(vec![])
+        Ok((vec![], false))
     }
 
     fn complete_path(
@@ -440,6 +607,63 @@ impl CompleteWord {
 /// be interpreted by the shell. The result is meant to be inserted by
 /// `compadd -Q` verbatim, so the user sees consistent single-quote quoting
 /// instead of zsh's default mix of backslash and single-quote styles.
+/// What a completion is computed against.
+///
+/// These three always travel together — the template context a `run=` is rendered with, the
+/// spec, and what the parser made of the words before the cursor — so they are one parameter
+/// rather than three threaded through every helper.
+struct Ctx<'a> {
+    tera: &'a tera::Context,
+    spec: &'a Spec,
+    parsed: &'a ParseOutput,
+}
+
+/// A description reduced to one line.
+///
+/// A completion is one row in a menu, and the shells are handed one candidate per line with
+/// tab-separated columns — so a description with a newline in it splits one candidate into
+/// several rows of nonsense. `long_help` is where prose belongs.
+fn one_line(text: Option<&str>) -> String {
+    text.unwrap_or_default()
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+/// Whether this type accepts values no list could enumerate.
+///
+/// A boolean has two values and `choices` names its own, so either can be offered in full.
+/// A path, a number or free text cannot be, so a union containing one is never a closed set —
+/// however many of its members are enumerable.
+fn accepts_unenumerable_values(ty: &SpecConfigType) -> bool {
+    match ty {
+        SpecConfigType::Base(Base::Bool) => false,
+        SpecConfigType::Option(inner) => accepts_unenumerable_values(inner),
+        SpecConfigType::Union(members) => members.iter().any(accepts_unenumerable_values),
+        // Anything else — a path, a number, a string, a list — takes values that cannot be
+        // written down in advance.
+        _ => true,
+    }
+}
+
+/// Whether a boolean is one of the things this type accepts.
+///
+/// A union may list it anywhere, and `option<bool|string>` nests one. Recursive rather than a
+/// look at the first member, because which member comes first is a spec author's formatting
+/// choice and should not decide whether `true` and `false` are offered.
+fn holds_a_boolean(ty: &SpecConfigType) -> bool {
+    match ty {
+        SpecConfigType::Base(Base::Bool) => true,
+        SpecConfigType::Option(inner) => holds_a_boolean(inner),
+        SpecConfigType::Union(members) => members.iter().any(holds_a_boolean),
+        // A list or map *of* booleans is not itself one: what goes on the command line there
+        // is a list, and offering `true` would be offering it in the wrong shape.
+        _ => false,
+    }
+}
+
 fn zsh_shell_quote(s: &str) -> String {
     fn safe(c: char) -> bool {
         matches!(c,
