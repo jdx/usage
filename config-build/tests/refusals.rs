@@ -277,3 +277,171 @@ fn a_spec_that_does_not_parse_says_so_as_the_parser_put_it() {
     let err = source_of_spec("config {\n  prop\n", "mycli.usage.kdl").expect_err("refused");
     assert!(matches!(err, Error::Spec(_)), "{err}");
 }
+
+#[test]
+fn a_setting_that_is_also_a_group_of_settings_is_refused() {
+    // `python` as a setting and `python.compile` as another: one field name with two things to be,
+    // a value and a table. The spec can say it; no struct can hold it.
+    let problems =
+        problems("    prop \"python\" type=\"string\"\n    prop \"python.compile\" type=\"bool\"");
+    assert_eq!(
+        problems,
+        vec![
+            "`python` is a setting and a group of settings: it cannot be both a value and a table"
+        ]
+    );
+}
+
+#[test]
+fn two_keys_that_generate_one_field_are_refused() {
+    // The `prop::` consts do not catch these: `foo-bar.x` and `foo_bar.y` are two distinct consts
+    // and one field, because a dash and an underscore are the same character in an identifier. The
+    // check has to be on the names that are emitted, not on the segments they came from.
+    assert_eq!(
+        problems("    prop \"foo-bar.x\" type=\"string\"\n    prop \"foo_bar.y\" type=\"string\""),
+        vec![
+            "`foo-bar` and `foo_bar` both generate the field `foo_bar`: rename one of them",
+            "`foo-bar` and `foo_bar` are both groups named `SettingsFooBar`: rename one of them"
+        ]
+    );
+
+    // And two groups whose *type* names collide, which a field name does not: a struct name loses
+    // the case of its first letter.
+    assert_eq!(
+        problems("    prop \"a.x\" type=\"string\"\n    prop \"A.y\" type=\"string\""),
+        vec!["`A` and `a` are both groups named `SettingsA`: rename one of them"]
+    );
+}
+
+#[test]
+fn two_groups_that_generate_one_struct_are_refused_however_deep_they_are() {
+    // Struct names are built by concatenation and all declared in one module, so `http.client` and
+    // `http_client` arrive at `SettingsHttpClient` from different depths. Compared among siblings
+    // they are not siblings at all, and the adopter's crate got two structs with one name.
+    assert_eq!(
+        problems(
+            "    prop \"http.client.timeout\" type=\"string\"\n    \
+             prop \"http_client.retries\" type=\"uint\""
+        ),
+        vec![
+            "`http.client` and `http_client` are both groups named `SettingsHttpClient`: \
+             rename one of them"
+        ]
+    );
+}
+
+#[test]
+fn a_key_that_needs_escaping_is_escaped_where_it_becomes_a_literal() {
+    // `a"b` is a nameable key — it has letters in it — and the generated reader quotes the key into
+    // an `expect` message. Interpolated raw, the quote ended that literal early and the rest of the
+    // message read as code, in a file the adopter did not write.
+    let generated = source_of_spec(
+        &spec("    prop \"a\\\"b\" type=\"uint\" default=1"),
+        "mycli.usage.kdl",
+    )
+    .expect("should generate");
+    assert!(
+        generated.contains("`a\\\"b` has a declared default"),
+        "{generated}"
+    );
+    // The same key in `PropMeta`, which was escaped all along, and in a doc comment, where it needs
+    // no escape and only one line.
+    assert!(
+        generated.contains("PropMeta::new(\"a\\\"b\""),
+        "{generated}"
+    );
+    assert!(generated.contains("/// (`a\"b`)"), "{generated}");
+}
+
+#[test]
+fn a_setting_named_after_the_readers_own_bindings_is_still_a_setting() {
+    // `fold` is what the generated reader calls its fold, and an unprefixed local shadowed it: every
+    // read after it, and `fold.finish()`, stopped compiling. Nothing about `fold` is special to a
+    // config file, so the fix is on this side — every local is prefixed.
+    let generated = source_of_spec(
+        &spec("    prop \"fold\" type=\"string\"\n    prop \"resolved\" type=\"bool\""),
+        "mycli.usage.kdl",
+    )
+    .expect("should generate");
+    assert!(
+        generated.contains("let read_fold: Option<String> ="),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("let read_resolved: Option<bool> ="),
+        "{generated}"
+    );
+    // And the fields keep the names the config file uses.
+    assert!(
+        generated.contains("pub fold: Option<String>,"),
+        "{generated}"
+    );
+}
+
+#[test]
+fn a_name_is_built_from_ascii_wherever_it_is_built() {
+    // A Rust identifier is not "any alphanumeric character": `½` is one and cannot appear in an
+    // identifier, and a Unicode digit cannot start one. The `prop::` consts were ASCII already, so
+    // keeping more in the fields made one key produce names from two alphabets — a const the adopter
+    // could compile beside a field they could not.
+    let generated = source_of_spec(
+        &spec("    prop \"caf\u{e9}.si\u{bd}e\" type=\"string\""),
+        "mycli.usage.kdl",
+    )
+    .expect("should generate");
+    assert!(
+        generated.contains("pub const CAF__SI_E: PropId"),
+        "{generated}"
+    );
+    assert!(generated.contains("pub caf_: SettingsCaf,"), "{generated}");
+    assert!(
+        generated.contains("pub si_e: Option<String>,"),
+        "{generated}"
+    );
+    // Every line that *declares* a name is ASCII. The key itself is not — it appears as a string
+    // literal in `PropMeta`, and as data it is exactly what the spec said.
+    for line in generated.lines() {
+        let declares = line.trim_start();
+        let declares = declares.starts_with("pub const ")
+            || declares.starts_with("pub struct ")
+            || declares.starts_with("pub fn ")
+            || declares.starts_with("let ")
+            || (declares.starts_with("pub ") && declares.contains(':'));
+        assert!(
+            !declares || line.is_ascii(),
+            "a generated name kept a character no identifier can hold: {line}"
+        );
+    }
+}
+
+#[test]
+fn a_key_that_starts_with_a_digit_is_a_field_all_the_same() {
+    // `2fa` is a real name for a real setting, and neither a const nor a field can start with a
+    // digit — so both get the same prefix rather than one of them being invalid Rust.
+    let generated = source_of_spec(
+        &spec("    prop \"2fa.token\" type=\"string\""),
+        "mycli.usage.kdl",
+    )
+    .expect("should generate");
+    assert!(
+        generated.contains("pub const _2FA_TOKEN: PropId"),
+        "{generated}"
+    );
+    assert!(generated.contains("pub _2fa: Settings2fa,"), "{generated}");
+}
+
+#[test]
+fn a_key_rust_has_no_spelling_for_is_refused() {
+    // Most keywords are fine as fields — `type` is written `r#type`, and settings called that are
+    // perfectly ordinary. Four are not: there is no `r#self`, so the field cannot be written at all.
+    assert_eq!(
+        problems("    prop \"self\" type=\"string\""),
+        vec!["`self` cannot be a field: `self` is a keyword Rust has no spelling for"]
+    );
+
+    // And the same for a group, whose name becomes a field too.
+    assert_eq!(
+        problems("    prop \"crate.name\" type=\"string\""),
+        vec!["`crate` cannot be a field: `crate` is a keyword Rust has no spelling for"]
+    );
+}

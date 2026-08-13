@@ -48,6 +48,9 @@ config {
 
     prop "task.output" type="string" default="prefix" help="How task output is interleaved"
 
+    // A keyword as a key, which is ordinary in a config file and needs `r#` in Rust.
+    prop "match" type="string" default="all" help="Which files to match"
+
     prop "either" type="bool|string" help="A \"union\" only hk understands"
 
     prop "timeout" type="option<duration>" help="How long to wait, if at all"

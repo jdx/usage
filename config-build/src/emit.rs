@@ -27,6 +27,8 @@ pub(crate) fn registry(config: &SpecConfig, name: &str) -> Result<String, Vec<St
         let _ = writeln!(body, "{}", prop_meta(key, prop, &mut problems));
     }
 
+    let settings = crate::settings::settings(&props, &idents, &mut problems);
+
     if !problems.is_empty() {
         return Err(problems);
     }
@@ -70,6 +72,7 @@ pub(crate) fn registry(config: &SpecConfig, name: &str) -> Result<String, Vec<St
         let _ = writeln!(out, "    pub const {ident}: PropId = PropId({index});");
     }
     let _ = writeln!(out, "}}");
+    out.push_str(&settings);
     Ok(out)
 }
 

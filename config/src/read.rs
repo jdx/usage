@@ -197,6 +197,15 @@ fn mismatch(expected: &'static str, value: &Value) -> TypeError {
     }
 }
 
+impl FromValue for Value {
+    // A value read as itself, for a field whose type the spec left open: `object` says the keys are
+    // not described, and a union says usage cannot decide what belongs. Neither is a shape a
+    // narrower Rust type could hold without the generator inventing one.
+    fn from_value(value: &Value) -> Result<Self, TypeError> {
+        Ok(value.clone())
+    }
+}
+
 impl FromValue for bool {
     fn from_value(value: &Value) -> Result<Self, TypeError> {
         match value {
