@@ -31,44 +31,31 @@
 //! # Example
 //!
 //! ```
-//! use usage_config::{resolve, Layers, Origin, PropMeta, Registry, SourceKind, Ty, Value};
-//! use usage_config::{Layer, LayerCtx, LayerError, LayerOutput};
+//! use usage_config::{resolve, Const, EnvLayer, Layers, PropMeta, Registry, Ty, Value};
 //!
 //! // Normally generated from the spec by usage-config-build.
 //! static PROPS: &[PropMeta] = &[PropMeta {
 //!     envs: &["MYCLI_JOBS"],
-//!     default: Some(usage_config::Const::Int(4)),
+//!     default: Some(Const::Int(4)),
 //!     ..PropMeta::new("jobs", Ty::Uint)
 //! }];
 //! const REGISTRY: Registry = Registry::new(PROPS);
 //!
-//! // A layer reads one kind of place. This one stands in for the environment.
-//! struct Env;
-//! impl Layer for Env {
-//!     fn source(&self) -> SourceKind {
-//!         SourceKind::ENV
-//!     }
-//!     fn load(&self, ctx: &LayerCtx) -> Result<LayerOutput, LayerError> {
-//!         let mut out = LayerOutput::new();
-//!         let id = ctx.prop("jobs").expect("declared").id;
-//!         match ctx.entry(id, "8", Origin::new(SourceKind::ENV, "MYCLI_JOBS")) {
-//!             Ok(entry) => out.push(entry),
-//!             Err(warning) => out.warn(warning),
-//!         }
-//!         Ok(out)
-//!     }
-//! }
-//!
-//! let env = Env;
+//! // The environment is described rather than reached for, so a test never touches the process.
+//! // `EnvLayer::from_process` is what a CLI uses.
+//! let env = EnvLayer::new([("MYCLI_JOBS".to_string(), "8".to_string())]);
 //! let resolved = resolve(REGISTRY, Layers::new().then(&env))?;
+//!
 //! assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
+//! // And where it came from is the variable the user set, not "the environment".
 //! assert_eq!(
 //!     resolved.origin(REGISTRY.lookup("jobs").unwrap().id).unwrap().describe(),
 //!     "MYCLI_JOBS",
 //! );
-//! # Ok::<(), LayerError>(())
+//! # Ok::<(), usage_config::LayerError>(())
 //! ```
 
+pub mod env;
 pub mod explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub mod files;
@@ -80,6 +67,7 @@ pub mod source;
 pub mod ty;
 pub mod value;
 
+pub use env::EnvLayer;
 pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub use files::{FileLayer, Format};
