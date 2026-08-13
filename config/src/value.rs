@@ -157,6 +157,23 @@ pub enum Const {
 }
 
 impl Const {
+    /// Whether `value` is this constant.
+    ///
+    /// Without building the `Value` it stands for: this runs once per declared choice for every
+    /// value a layer supplies, and a setting with choices is usually a string, where the comparison
+    /// would otherwise allocate a copy of the choice to throw away.
+    pub fn matches(self, value: &Value) -> bool {
+        match (self, value) {
+            (Self::Bool(a), Value::Bool(b)) => a == *b,
+            (Self::Int(a), Value::Int(b)) => a == *b,
+            (Self::Float(a), Value::Float(b)) => a == *b,
+            (Self::Str(a), Value::String(b)) => a == b,
+            // A list or a table is not something a `choice` node can hold, and comparing one to a
+            // scalar is not a near miss to be generous about.
+            _ => false,
+        }
+    }
+
     /// The owned value this stands for.
     pub fn to_value(self) -> Value {
         match self {

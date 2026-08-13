@@ -66,6 +66,11 @@ pub fn explain(resolved: &Resolved, key: &str) -> Option<String> {
     // The spec's own spelling, not the prose an error message uses: a reader searching the docs
     // for "a non-negative integer" finds nothing, and `uint` is what the author wrote.
     let _ = writeln!(out, "  {:<8}{}", "type", meta.ty.name());
+    // What it will take, when it says. A user reading an explanation because their value was refused
+    // needs the list here rather than in a warning they have already scrolled past.
+    if !meta.choices.is_empty() {
+        let _ = writeln!(out, "  {:<8}{}", "one of", one_line(&meta.allowed()));
+    }
     if let Some(help) = meta.help {
         // Through the same helper as everything else: an adopter's help is a doc comment, and a
         // doc comment with a second paragraph in it split one fact into several records.
