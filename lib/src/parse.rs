@@ -766,8 +766,14 @@ fn parse_partial_with_env(
             }
         } else {
             // Found a word that's not a flag or subcommand
-            // Check if we should use the default_subcommand (only once)
-            if !used_default_subcommand {
+            // Check if we should use the default_subcommand (only once, and only at the
+            // root, which is the only place a spec can declare one — `out.cmds` holds just
+            // the root until something descends). Without that second condition the one
+            // declared name is looked up wherever the parser happens to be standing, so an
+            // unrelated command acquires a default because a name matched one level down:
+            // with `default_subcommand "ls"` at the top, `ex config zzz` descended into
+            // `config ls`.
+            if !used_default_subcommand && out.cmds.len() == 1 {
                 if let Some(default_name) = &spec.default_subcommand {
                     if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
                         let mut subcommand = subcommand.clone();
@@ -2733,6 +2739,61 @@ cmd "build" {
         // Should have used "other" subcommand
         assert_eq!(parsed.cmds.len(), 2);
         assert_eq!(parsed.cmds[1].name, "other");
+    }
+
+    #[test]
+    fn test_default_subcommand_applies_only_at_the_root() {
+        // `default_subcommand` is declared once, for the whole spec, and only at the top. It
+        // was being looked up wherever the parser happened to be standing, so a command with
+        // an unrelated subcommand of the same name acquired a default of its own: with
+        // `default_subcommand "ls"`, `ex config zzz` descended into `config ls` and bound
+        // `zzz` there. Nothing declared that, and nothing could have.
+        let mut config_ls = SpecCommand::builder().name("ls").build();
+        config_ls.args.push(SpecArg::builder().name("what").build());
+        let mut config_cmd = SpecCommand::builder().name("config").build();
+        config_cmd.subcommands.insert("ls".to_string(), config_ls);
+
+        // The root's own `ls`, which is what its default points at. It takes an argument so
+        // that a routed word has somewhere to land.
+        let mut root_ls = SpecCommand::builder().name("ls").build();
+        root_ls.args.push(SpecArg::builder().name("what").build());
+        let mut cmd = SpecCommand::builder().name("ex").build();
+        cmd.subcommands.insert("ls".to_string(), root_ls);
+        cmd.subcommands.insert("config".to_string(), config_cmd);
+
+        let spec = Spec {
+            name: "ex".to_string(),
+            bin: "ex".to_string(),
+            cmd,
+            default_subcommand: Some("ls".to_string()),
+            ..Default::default()
+        };
+
+        // `config` has an `ls`, but `config` did not declare a default, so `zzz` is `config`'s
+        // own business — and `config` takes no argument, so this is an error rather than a
+        // silent descent.
+        let input = vec!["ex".to_string(), "config".to_string(), "zzz".to_string()];
+        assert!(
+            parse(&spec, &input).is_err(),
+            "`config` has no default subcommand and no argument, so `zzz` cannot bind"
+        );
+
+        // At the root, where it is declared, it still applies.
+        let input = vec!["ex".to_string(), "zzz".to_string()];
+        let parsed = parse(&spec, &input).expect("the root's default applies");
+        assert_eq!(
+            parsed
+                .cmds
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            ["ex", "ls"]
+        );
+        assert_eq!(
+            parsed.args.values().next().map(|v| v.to_string()),
+            Some("zzz".to_string()),
+            "and the word binds inside the command it reached"
+        );
     }
 
     #[test]
