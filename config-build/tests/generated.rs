@@ -183,3 +183,78 @@ fn a_file_read_against_the_generated_registry_means_what_the_spec_said() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn the_settings_struct_holds_what_each_type_says() {
+    // The struct is generated, so this is the compiler agreeing as much as it is a test: every
+    // field below has to exist, with that type, or this file does not build.
+    let resolved = resolve(SETTINGS_REGISTRY, Layers::new()).expect("resolves");
+    let settings = Settings::read(&resolved).expect("every default fits its field");
+
+    // A declared default means the field is the value itself — there is nothing to unwrap for a
+    // setting that always has one.
+    assert_eq!(settings.jobs, 4u64);
+    assert_eq!(settings.stash, "git");
+    assert!(!settings.trusted);
+    assert_eq!(settings.ports, vec![80u64, 443]);
+    // A dotted key is a nested struct, spelled the way the config file spells it.
+    assert_eq!(settings.task.output, "prefix");
+    // No default, or `option<…>`: absent is a state the type can hold, so nothing fails at run
+    // time for a shape the spec allows.
+    assert_eq!(settings.exclude, None);
+    assert_eq!(settings.timeout, None);
+    assert_eq!(settings.ci, None);
+    // A keyword is an unremarkable name for a setting, and `r#` is how Rust spells it — for the
+    // field and for the local the generated reader binds it to, which is what `let match: …` taught
+    // me the hard way.
+    assert_eq!(settings.r#match, "all");
+    // A union has no Rust type. The value arrives as it was written, which is what declaring one
+    // asked for.
+    assert_eq!(settings.either, None);
+    // And an old name is not a field at all: `concurrency` folds into `jobs`, so a field for it
+    // would be a second name for one value.
+    assert_eq!(
+        SETTINGS_REGISTRY.get(prop::CONCURRENCY).renamed_to,
+        Some("jobs")
+    );
+}
+
+#[test]
+fn a_file_fills_the_struct_and_a_bad_value_names_itself() {
+    let dir =
+        std::env::temp_dir().join(format!("usage_config_build_struct_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("dir");
+
+    let path = dir.join("hk.toml");
+    std::fs::write(
+        &path,
+        "jobs = 8\nexclude = \"target,dist\"\npath = \"/bin\"\n[task]\noutput = \"interleave\"\n",
+    )
+    .expect("write");
+    let layer = FileLayer::at(&path, FileScope::Project);
+    let resolved = resolve(SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    let settings = Settings::read(&resolved).expect("reads");
+    assert_eq!(settings.jobs, 8);
+    assert_eq!(
+        settings.exclude,
+        Some(vec!["target".to_string(), "dist".to_string()])
+    );
+    assert_eq!(
+        settings.path,
+        Some(vec![std::path::PathBuf::from("/bin")]),
+        "a `list<path>` arrives as paths"
+    );
+    assert_eq!(settings.task.output, "interleave");
+
+    // And the failure a struct read can still have: a hook writing past the declared type, which
+    // is the one place the merge did not check. The error names the setting and the hook.
+    let mut resolved = resolve(SETTINGS_REGISTRY, Layers::new()).expect("resolves");
+    resolved.coerced(prop::JOBS, Value::Int(-1), "one job when raw");
+    let err = Settings::read(&resolved).expect_err("a `uint` field cannot hold -1");
+    assert_eq!(
+        err.to_string(),
+        "jobs expected a non-negative integer but has `-1` (set by one job when raw)"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

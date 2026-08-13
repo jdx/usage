@@ -35,6 +35,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
 mod emit;
+mod settings;
 
 /// Read `spec` and write the registry to `$OUT_DIR/settings.rs`.
 ///

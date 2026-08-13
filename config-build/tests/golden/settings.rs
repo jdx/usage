@@ -40,6 +40,11 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
         ..::usage_config::PropMeta::new("log_level", ::usage_config::Ty::String)
     },
     ::usage_config::PropMeta {
+        default: Some(::usage_config::Const::Str("all")),
+        help: Some("Which files to match"),
+        ..::usage_config::PropMeta::new("match", ::usage_config::Ty::String)
+    },
+    ::usage_config::PropMeta {
         parse: Some(::usage_config::Parser::ListByOsPathSeparator),
         envs: &["HK_PATH"],
         ..::usage_config::PropMeta::new("path", ::usage_config::Ty::List(&::usage_config::Ty::Path))
@@ -94,18 +99,112 @@ pub mod prop {
     pub const JOBS: PropId = PropId(4);
     /// `log_level`
     pub const LOG_LEVEL: PropId = PropId(5);
+    /// `match` — Which files to match
+    pub const MATCH: PropId = PropId(6);
     /// `path`
-    pub const PATH: PropId = PropId(6);
+    pub const PATH: PropId = PropId(7);
     /// `ports`
-    pub const PORTS: PropId = PropId(7);
+    pub const PORTS: PropId = PropId(8);
     /// `stash` — How to stash before a run
-    pub const STASH: PropId = PropId(8);
+    pub const STASH: PropId = PropId(9);
     /// `task.output` — How task output is interleaved
-    pub const TASK_OUTPUT: PropId = PropId(9);
+    pub const TASK_OUTPUT: PropId = PropId(10);
     /// `timeout` — How long to wait, if at all
-    pub const TIMEOUT: PropId = PropId(10);
+    pub const TIMEOUT: PropId = PropId(11);
     /// `trusted` — Whether this checkout may run its own hooks
-    pub const TRUSTED: PropId = PropId(11);
+    pub const TRUSTED: PropId = PropId(12);
     /// `url_replacements` — Rewrite these URL prefixes
-    pub const URL_REPLACEMENTS: PropId = PropId(12);
+    pub const URL_REPLACEMENTS: PropId = PropId(13);
+}
+
+/// Every setting, as the types a CLI holds them in.
+///
+/// Read with [`Settings::read`] from a resolution, which is the only way to build one:
+/// the values, and every reason one could not be read, come from the merge.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Settings {
+    pub task: SettingsTask,
+    /// (`ci`)
+    pub ci: Option<bool>,
+    /// A "union" only hk understands
+    /// (`either`)
+    pub either: Option<::usage_config::Value>,
+    /// Paths to leave alone
+    /// (`exclude`)
+    pub exclude: Option<Vec<String>>,
+    /// How many jobs to run at once
+    /// (`jobs`)
+    pub jobs: u64,
+    /// (`log_level`)
+    pub log_level: String,
+    /// Which files to match
+    /// (`match`)
+    pub r#match: String,
+    /// (`path`)
+    pub path: Option<Vec<::std::path::PathBuf>>,
+    /// (`ports`)
+    pub ports: Vec<u64>,
+    /// How to stash before a run
+    /// (`stash`)
+    pub stash: String,
+    /// How long to wait, if at all
+    /// (`timeout`)
+    pub timeout: Option<String>,
+    /// Whether this checkout may run its own hooks
+    /// (`trusted`)
+    pub trusted: bool,
+    /// Rewrite these URL prefixes
+    /// (`url_replacements`)
+    pub url_replacements: Option<::std::collections::BTreeMap<String, String>>,
+}
+
+/// The `task` settings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SettingsTask {
+    /// How task output is interleaved
+    /// (`task.output`)
+    pub output: String,
+}
+
+impl Settings {
+    /// This resolution's values, as their types.
+    ///
+    /// Every setting is read before anything is returned, so the error is the whole list of
+    /// what is wrong rather than the first thing found.
+    pub fn read(
+        resolved: &::usage_config::Resolved,
+    ) -> ::std::result::Result<Self, ::usage_config::ReadErrors> {
+        let mut fold = resolved.fold();
+        let read_task_output: Option<String> = fold.required(prop::TASK_OUTPUT);
+        let read_ci: Option<bool> = fold.optional(prop::CI);
+        let read_either: Option<::usage_config::Value> = fold.optional(prop::EITHER);
+        let read_exclude: Option<Vec<String>> = fold.optional(prop::EXCLUDE);
+        let read_jobs: Option<u64> = fold.required(prop::JOBS);
+        let read_log_level: Option<String> = fold.required(prop::LOG_LEVEL);
+        let read_match: Option<String> = fold.required(prop::MATCH);
+        let read_path: Option<Vec<::std::path::PathBuf>> = fold.optional(prop::PATH);
+        let read_ports: Option<Vec<u64>> = fold.required(prop::PORTS);
+        let read_stash: Option<String> = fold.required(prop::STASH);
+        let read_timeout: Option<String> = fold.optional(prop::TIMEOUT);
+        let read_trusted: Option<bool> = fold.required(prop::TRUSTED);
+        let read_url_replacements: Option<::std::collections::BTreeMap<String, String>> = fold.optional(prop::URL_REPLACEMENTS);
+        fold.finish()?;
+        ::std::result::Result::Ok(Self {
+            task: SettingsTask {
+                output: read_task_output.expect("`task.output` has a declared default, so the fold has already reported any absence"),
+            },
+            ci: read_ci,
+            either: read_either,
+            exclude: read_exclude,
+            jobs: read_jobs.expect("`jobs` has a declared default, so the fold has already reported any absence"),
+            log_level: read_log_level.expect("`log_level` has a declared default, so the fold has already reported any absence"),
+            r#match: read_match.expect("`match` has a declared default, so the fold has already reported any absence"),
+            path: read_path,
+            ports: read_ports.expect("`ports` has a declared default, so the fold has already reported any absence"),
+            stash: read_stash.expect("`stash` has a declared default, so the fold has already reported any absence"),
+            timeout: read_timeout,
+            trusted: read_trusted.expect("`trusted` has a declared default, so the fold has already reported any absence"),
+            url_replacements: read_url_replacements,
+        })
+    }
 }
