@@ -1053,6 +1053,13 @@ impl Field {
         // Only where the field says nothing: an explicit `name` still wins, and a flag with
         // no long form keeps its short as the name, as usage-lib does.
         if is_flag && !name_given {
+            // The placeholder for the flag's value keeps the descriptive name, because the name
+            // about to be overwritten is the only descriptive one there is: help and the KDL
+            // both fall back to `flag.name` for it, so a short-only `-j` rendered `-j <j>` where
+            // the field is called `jobs`.
+            if value_name.is_none() && shape != Shape::Bool && shape != Shape::Count {
+                value_name = Some(name.clone());
+            }
             if let Some(long) = longs.first() {
                 name = long.clone();
             } else if let Some(short) = shorts.first() {
