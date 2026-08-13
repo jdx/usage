@@ -65,6 +65,32 @@ impl Ty {
         }
     }
 
+    /// This type as the spec spells it: `uint`, `list<string>`, `option<path>`.
+    ///
+    /// Distinct from [`Ty::describe`], which is prose for an error message. An explanation shows
+    /// the author's own vocabulary, because that is what a reader will search the docs for —
+    /// "type a positive integer" sends them looking for something no spec says.
+    pub fn name(self) -> String {
+        match self {
+            Self::Bool => "bool".into(),
+            Self::Int => "int".into(),
+            Self::Uint => "uint".into(),
+            Self::Float => "float".into(),
+            Self::String => "string".into(),
+            Self::Path => "path".into(),
+            Self::Url => "url".into(),
+            Self::Duration => "duration".into(),
+            Self::Object => "object".into(),
+            Self::List(inner) => format!("list<{}>", inner.name()),
+            Self::Set(inner) => format!("set<{}>", inner.name()),
+            Self::Map(value) => format!("map<string, {}>", value.name()),
+            Self::Option(inner) => format!("option<{}>", inner.name()),
+            // A union or a type only the tool understands: the registry keeps no spelling for
+            // it, and inventing one would be worse than admitting the fact.
+            Self::Any => "any".into(),
+        }
+    }
+
     /// The name of this type as an error message should say it.
     pub fn describe(self) -> &'static str {
         match self.inner() {
@@ -159,7 +185,7 @@ impl Ty {
                 found @ (Value::List(_) | Value::Map(_)),
             ) => Err(TypeError {
                 expected: ty.describe(),
-                found: found.display(),
+                found: crate::value::shown(&found),
             }),
             (Self::String | Self::Path | Self::Url | Self::Duration, other) => {
                 Ok(Value::String(other.display()))
@@ -182,7 +208,7 @@ impl Ty {
 
             (ty, found) => Err(TypeError {
                 expected: ty.describe(),
-                found: found.display(),
+                found: crate::value::shown(&found),
             }),
         }
     }
