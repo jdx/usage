@@ -603,6 +603,13 @@ fn usage_flag_opts(
             if flag.var {
                 opts.push("var".into());
             }
+            // Required, said the only way a collecting flag can say it. A scalar flag says it
+            // by *type* — `String` rather than `Option<String>` — and a `Vec` has no such
+            // spelling, so without this a spec demanding one-or-more values came back as a
+            // shadow that accepted none, describing `[VALUE]…` where the source said `…`.
+            if flag.required {
+                opts.push("required".into());
+            }
             if arg.var {
                 // A variadic argument on a flag: one occurrence taking several values,
                 // which is a different claim from a repeatable flag.
@@ -645,6 +652,7 @@ fn usage_flag_opts(
     if flag.required && flag.arg.is_none() {
         skipped.note("`required` on a flag that takes no value");
     }
+
     opts
 }
 
@@ -1049,6 +1057,24 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn a_required_collecting_flag_stays_required() {
+        // A scalar flag says "required" by type — `String` rather than `Option<String>`. A
+        // collecting one is a `Vec` either way, so it says it with `required`; without that the
+        // shadow accepted none of a flag the source spec demanded at least one of, and its
+        // regenerated spec described `[VALUE]…` where the original said `…`.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--tag <TAG>\" required=#true var=#true help=\"Tags\"\n",
+        );
+        assert!(out.contains("required"), "{out}");
+        assert!(out.contains("::std::vec::Vec<"), "it collects: {out}");
+
+        // A collecting flag that is *not* required must not gain it.
+        let (out, _) =
+            rendered("name \"ex\"\nbin \"ex\"\nflag \"--tag <TAG>\" var=#true help=\"Tags\"\n");
+        assert!(!out.contains("required"), "{out}");
     }
 
     #[test]

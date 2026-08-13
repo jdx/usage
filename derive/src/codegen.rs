@@ -1857,9 +1857,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     let required_checks = cli.fields.iter().filter_map(|f| {
-        // A `String` has nowhere to put "absent", so the type is the declaration.
-        // Anything with a default or an environment variable is already filled.
-        if f.shape != Shape::Required || f.default.is_some() {
+        // A `String` has nowhere to put "absent", so the type is the declaration; a collection
+        // has nothing in its type to say it and declares `required` instead.
+        //
+        // The same expression the metadata is built from, deliberately: checking only the shape
+        // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
+        // manpage and the completions, and accepted zero values from the CLI that actually ran.
+        // One expression cannot disagree with itself.
+        if !(f.shape == Shape::Required || f.required_collection) || f.default.is_some() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
