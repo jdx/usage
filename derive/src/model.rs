@@ -31,6 +31,10 @@ pub struct Cli {
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
     pub default_subcommand: Option<String>,
+    /// Declared descriptions, for the case a doc comment cannot express: a long form that does
+    /// not contain the short one.
+    pub about_attr: Option<String>,
+    pub long_about_attr: Option<String>,
     /// The word that starts another invocation of the same command: mise's `:::`.
     pub restart_token: Option<String>,
     /// A command to run for subcommands discovered at completion time.
@@ -212,6 +216,8 @@ impl Cli {
             long_about,
             unknown_flags: None,
             default_subcommand: None,
+            about_attr: None,
+            long_about_attr: None,
             restart_token: None,
             mount: None,
             fields: Vec::new(),
@@ -224,6 +230,14 @@ impl Cli {
                     "name" => cli.name = string_value(&meta)?,
                     "bin" => cli.bin = Some(string_value(&meta)?),
                     "version" => cli.version = Some(string_value(&meta)?),
+                    // A doc comment's long form always contains its short one — the short form
+                    // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
+                    // independent, and mise's differ entirely: "Dev tools, env vars, and tasks
+                    // in one CLI" against "mise prepares your development environment before
+                    // each command runs." There is no comment that says both, so they can be
+                    // declared.
+                    "about" => cli.about_attr = Some(string_value(&meta)?),
+                    "long_about" => cli.long_about_attr = Some(string_value(&meta)?),
                     // A Rust CLI usually owns every flag it accepts, which is the
                     // case the stricter reading is for — but it is still opt-in,
                     // since a wrapper forwarding options wants the default.
@@ -259,6 +273,14 @@ impl Cli {
                     }
                 }
             }
+        }
+
+        // Declared descriptions win over the comment, which is the point of declaring them.
+        if let Some(about) = cli.about_attr.take() {
+            cli.about = Some(about);
+        }
+        if let Some(long) = cli.long_about_attr.take() {
+            cli.long_about = Some(long);
         }
 
         for field in &named.named {
@@ -1562,7 +1584,12 @@ fn doc_comment(attrs: &[Attribute]) -> syn::Result<(Option<String>, Option<Strin
                 lit: Lit::Str(s), ..
             }) = &nv.value
             {
-                lines.push(s.value().trim().to_string());
+                // Only the one space `///` conventionally adds, and trailing space. Trimming
+                // each line outright flattened every indented example in a CLI's help — and
+                // mise's help is full of them, since an indented block is how a spec shows a
+                // command to type.
+                let raw = s.value();
+                lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
             }
         }
     }

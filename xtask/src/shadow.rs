@@ -280,7 +280,28 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     // The root's own description is the *spec's* `about`, not the root command's help — a
     // spec puts it at the top level, and the root command usually has none. Taken from the
     // command first all the same, since a spec may say both.
-    let (about, about_long) = if is_root {
+    // A comment's long form always contains its short one, because the short form *is* its
+    // first paragraph. Where a spec's two are independent — mise's are entirely different
+    // sentences — no comment can say both, so the root declares them instead.
+    let root_declares_about = is_root
+        && match (run.about, run.about_long) {
+            (Some(a), Some(l)) => !l.trim_start().starts_with(a.trim()),
+            _ => false,
+        };
+    let declared_about: Vec<String> = if root_declares_about {
+        [
+            run.about.map(|a| format!("about = {:?}", a.trim())),
+            run.about_long
+                .map(|l| format!("long_about = {:?}", l.trim_end())),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    } else {
+        Vec::new()
+    };
+
+    let (about, about_long) = if is_root && !root_declares_about {
         (
             cmd.help.as_deref().or(run.about),
             cmd.help_long.as_deref().or(run.about_long),
@@ -295,6 +316,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     let mut usage_opts: Vec<String> = Vec::new();
     if is_root {
         usage_opts.push(format!("bin = {bin:?}"));
+        usage_opts.extend(declared_about.iter().cloned());
     }
     for (present, declaration, what) in [
         (
@@ -331,7 +353,13 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         }
         (true, Dialect::Clap) => {
             out.push_str("#[derive(Parser)]\n");
-            out.push_str(&format!("#[command(name = {bin:?})]\n"));
+            // The descriptions go here too when a comment cannot carry them. clap takes an
+            // independent `about` and `long_about`, and skipping the comment without writing
+            // them left the clap shadow not describing the program at all — a fixture for
+            // comparing two frameworks cannot have one of them missing the CLI's own about.
+            let mut opts = vec![format!("name = {bin:?}")];
+            opts.extend(declared_about.iter().cloned());
+            out.push_str(&format!("#[command({})]\n", opts.join(", ")));
         }
         (false, Dialect::Usage) => {
             out.push_str("#[derive(Args)]\n");

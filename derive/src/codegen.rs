@@ -1615,15 +1615,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         // A doc comment on the variant wins over the struct's, since that is where a
         // reader of the enum expects to describe the command. Absent one, the
         // struct's own description carries through.
-        let (about, long_about) = match &v.help {
-            Some(_) => (
-                option_str(v.help.as_deref()),
-                option_str(v.long_help.as_deref()),
-            ),
-            None => (
-                quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.about),
-                quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.long_about),
-            ),
+        // Each falls back on its own. A variant that gives a short description was suppressing
+        // the struct's long one, which is exactly how a generated CLI is shaped: the enum says
+        // what the command is for in a line, and the struct's own comment carries the rest. The
+        // long form went missing from help for every command written that way.
+        let about = match v.help.as_deref() {
+            Some(help) => option_str(Some(help)),
+            None => quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.about),
+        };
+        let long_about = match v.long_help.as_deref() {
+            Some(long) => option_str(Some(long)),
+            None => quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.long_about),
         };
         // Which of the table's aliases are hidden. The visible ones are not listed
         // anywhere: `cmd.aliases` minus these is what help and completions show.

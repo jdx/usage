@@ -5476,11 +5476,12 @@ pub struct WhichArgs {
     pub bin_name: Option<String>,
 }
 
-/// Dev tools, env vars, and tasks in one CLI
-///
-/// mise prepares your development environment before each command runs. https://github.com/jdx/mise
 #[derive(Parser)]
-#[command(name = "mise")]
+#[command(
+    name = "mise",
+    about = "Dev tools, env vars, and tasks in one CLI",
+    long_about = "mise prepares your development environment before each command runs. https://github.com/jdx/mise"
+)]
 pub struct Cli {
     /// Continue running tasks even if one fails
     #[arg(long = "continue-on-error", short = 'c', hide = true)]
