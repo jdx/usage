@@ -1628,12 +1628,16 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         // Which of the table's aliases are hidden. The visible ones are not listed
         // anywhere: `cmd.aliases` minus these is what help and completions show.
         let hidden = &v.hidden_aliases;
+        // A hidden command still answers to its name; it is simply not offered. Declared on
+        // the variant, which is where the command itself is declared.
+        let hide = v.hide;
         quote! {
             pub static #name: ::usage_argv::spec::CommandMeta =
                 ::usage_argv::spec::CommandMeta {
                     cmd: &#cmd,
                     about: #about,
                     long_about: #long_about,
+                    hide: #hide,
                     hidden_aliases: &[#(#hidden),*],
                     ..*<#ty as ::usage_argv::spec::CommandArgs>::META
                 };

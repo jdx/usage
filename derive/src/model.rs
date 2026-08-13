@@ -692,6 +692,8 @@ impl Field {
         let mut help_heading = None;
         let mut value_name = None;
         let mut required_collection = false;
+        let mut help_attr: Option<String> = None;
+        let mut long_help_attr: Option<String> = None;
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
@@ -777,6 +779,11 @@ impl Field {
                     "default" => default = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
+                    // Help text a doc comment cannot carry. A comment's first paragraph is
+                    // read the way Rust reads one — line breaks inside it are spaces — so
+                    // help whose breaks are meant literally has to be given directly.
+                    "help" => help_attr = Some(string_value(&meta)?),
+                    "long_help" => long_help_attr = Some(string_value(&meta)?),
                     "required" => required_collection = flag_value(&meta)?,
                     "double_dash" => {
                         let mode = string_value(&meta)?;
@@ -1034,24 +1041,18 @@ impl Field {
                 ));
             }
         }
-        // `required_unless` says the field may be absent when another flag stands in for
-        // it. A bare `String` has nowhere to put absent, so its type would keep claiming
-        // the value is mandatory and the exception could never take effect.
-        if !required_unless.is_empty() && shape == Shape::Required {
-            return Err(syn::Error::new(
-                span,
-                "`required_unless` says this may be left out, so the field needs \
-                 somewhere to put \"absent\": make it an `Option`",
-            ));
-        }
+        // Declared text wins over the comment, which is the point of declaring it. A comment's
+        // first paragraph is read the way Rust reads one — line breaks inside it become spaces —
+        // so help whose breaks are deliberate has to be given directly.
+        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
 
         // A flag is named after the form it answers to, not after the Rust field holding it.
         // usage-lib derives the name the same way, so the two agree about what a flag is
         // called — and the field name is often not a legal one: `type_` gave a flag called
         // `type-`, which help printed as `type-: -t --type` and errors reported as `type-`.
         //
-        // Only where the field says nothing: an explicit `name` still wins, and a flag with
-        // no long form keeps its short as the name, as usage-lib does.
+        // Only where the field says nothing: an explicit `name` still wins, and a flag with no
+        // long form keeps its short as the name, as usage-lib does.
         if is_flag && !name_given {
             // Only where the name is about to become something that says nothing: a flag with
             // no long form is named after its short one, and `-j <j>` is no use as a
@@ -1069,6 +1070,17 @@ impl Field {
             } else if let Some(short) = shorts.first() {
                 name = short.to_string();
             }
+        }
+
+        // `required_unless` says the field may be absent when another flag stands in for
+        // it. A bare `String` has nowhere to put absent, so its type would keep claiming
+        // the value is mandatory and the exception could never take effect.
+        if !required_unless.is_empty() && shape == Shape::Required {
+            return Err(syn::Error::new(
+                span,
+                "`required_unless` says this may be left out, so the field needs \
+                 somewhere to put \"absent\": make it an `Option`",
+            ));
         }
 
         // `required` is for the one case the type cannot express. Anywhere else it either
@@ -1169,6 +1181,29 @@ impl Field {
         // And an `Option<Vec<_>>` is shaped like any other collection, so `required` was
         // accepted there too — after which the field can never be `None` and the `Option` means
         // nothing at all.
+        // `required` is for the one shape whose type cannot say it. Anywhere else it repeats
+        // what the type says or contradicts it, and a declaration that changes nothing is one
+        // someone will eventually trust. (This guard was lost while two fixes for the same
+        // review finding met in the middle; the test for it is what noticed.)
+        if required_collection && shape != Shape::Many {
+            return Err(syn::Error::new(
+                span,
+                match shape {
+                    Shape::Optional => {
+                        "`required` contradicts `Option`, which is how a field \
+                                        says a value may be left out — drop one or the other"
+                    }
+                    Shape::Required => {
+                        "a bare type is already required: `required` is only for \
+                                        a collecting field, where the type cannot say it"
+                    }
+                    _ => {
+                        "`required` is only for a collecting field, which is the one shape \
+                          whose type cannot say whether a value is needed"
+                    }
+                },
+            ));
+        }
         if required_collection {
             let contradiction = if optional_collection {
                 Some("an `Option<Vec<_>>` says the whole collection may be absent")
@@ -1580,6 +1615,12 @@ pub struct Subcommands {
 /// One variant: a command name and the struct holding its flags and arguments.
 pub struct Variant {
     pub ident: syn::Ident,
+    /// Whether the command is kept out of help and completions.
+    ///
+    /// A spec says `hide=#true` on a `cmd`; mise hides eight commands that way, `asdf` and
+    /// `dotfiles` among them. Without this the derive could declare the command but not that
+    /// it is unadvertised, so help listed things a user was not meant to be offered.
+    pub hide: bool,
     /// The command name, which is the variant name in kebab-case unless `name`
     /// says otherwise.
     pub name: String,
@@ -1692,6 +1733,9 @@ impl Variant {
         let mut name = to_kebab(&variant.ident.to_string());
         let mut aliases: Vec<String> = Vec::new();
         let mut hidden_aliases: Vec<String> = Vec::new();
+        let mut hide = false;
+        let mut help_attr: Option<String> = None;
+        let mut long_help_attr: Option<String> = None;
 
         for attr in attrs(&variant.attrs) {
             for meta in nested(attr)? {
@@ -1701,6 +1745,11 @@ impl Variant {
                     // One as a value or several as a list, as the relationship options do.
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
+                    "hide" => hide = flag_value(&meta)?,
+                    // As on a field: a comment's paragraph is flowed, so text whose line
+                    // breaks matter is declared instead.
+                    "help" => help_attr = Some(string_value(&meta)?),
+                    "long_help" => long_help_attr = Some(string_value(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -1756,8 +1805,10 @@ impl Variant {
             None => (held, false),
         };
 
+        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
         Ok(Variant {
             ident: variant.ident.clone(),
+            hide,
             name,
             ty,
             boxed,

@@ -133,6 +133,8 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
         &mut Run {
             bin: &spec.bin,
             default_subcommand: spec.default_subcommand.as_deref(),
+            about: spec.about.as_deref(),
+            about_long: spec.about_long.as_deref(),
             dialect,
             skipped: &mut skipped,
             names: &mut names,
@@ -242,6 +244,9 @@ struct Run<'a> {
     bin: &'a str,
     /// Only the root has one, and only it declares it.
     default_subcommand: Option<&'a str>,
+    /// The spec's own description, which belongs to the root.
+    about: Option<&'a str>,
+    about_long: Option<&'a str>,
     dialect: Dialect,
     skipped: &'a mut Skipped,
     names: &'a mut Names,
@@ -272,7 +277,18 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         emit_command(out, sub, sub_ty, false, run);
     }
 
-    doc_comment(out, cmd.help.as_deref(), cmd.help_long.as_deref(), 0);
+    // The root's own description is the *spec's* `about`, not the root command's help — a
+    // spec puts it at the top level, and the root command usually has none. Taken from the
+    // command first all the same, since a spec may say both.
+    let (about, about_long) = if is_root {
+        (
+            cmd.help.as_deref().or(run.about),
+            cmd.help_long.as_deref().or(run.about_long),
+        )
+    } else {
+        (cmd.help.as_deref(), cmd.help_long.as_deref())
+    };
+    doc_comment(out, about, about_long, 0);
     // The command-level properties. The usage dialect declares them; clap has no way to say
     // any of them, so on that side they are counted as dropped — the shadow would otherwise
     // look more faithful than it is.
@@ -407,6 +423,13 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             // be measuring a smaller CLI than the one it claims to shadow.
             match dialect {
                 Dialect::Usage => {
+                    opts.extend(declared_help(sub.help.as_deref(), sub.help_long.as_deref()));
+                    // `hide=#true` on a `cmd`: the command works and is not advertised. mise
+                    // hides eight, `asdf` and `dotfiles` among them, and help listed every one
+                    // of them before the variant could say so.
+                    if sub.hide {
+                        opts.push("hide".into());
+                    }
                     if !sub.aliases.is_empty() {
                         opts.push(alias_list("alias", &sub.aliases));
                     }
@@ -417,6 +440,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                 // clap spells one and several differently, and repeating the singular
                 // form is not the same as the plural one.
                 Dialect::Clap => {
+                    opts.extend(declared_help_clap(
+                        sub.help.as_deref(),
+                        sub.help_long.as_deref(),
+                        true,
+                    ));
                     match sub.aliases.as_slice() {
                         [] => {}
                         [one] => opts.push(format!("visible_alias = {one:?}")),
@@ -537,7 +565,11 @@ fn usage_flag_opts(
     ty: &str,
     skipped: &mut Skipped,
 ) -> Vec<String> {
-    let mut opts: Vec<String> = Vec::new();
+    // `flag.help_long`, not `long` — that is the flag's long *name*, which every other caller of
+    // this function gets right. Passing it here emitted `long_help = "shims"` for a flag called
+    // `--shims`, so the shadow dropped the real long help and its regenerated spec said the
+    // flag's own name where the source said a paragraph.
+    let mut opts: Vec<String> = declared_help(flag.help.as_deref(), flag.help_long.as_deref());
     // Written out rather than bare, because the field name may have been sanitized —
     // `--type` becomes `type_`, and a bare `long` would rename the flag.
     if let Some(long) = long {
@@ -662,7 +694,8 @@ fn clap_flag_opts(
     ids: &BTreeMap<String, String>,
     skipped: &mut Skipped,
 ) -> Vec<String> {
-    let mut opts: Vec<String> = Vec::new();
+    let mut opts: Vec<String> =
+        declared_help_clap(flag.help.as_deref(), flag.help_long.as_deref(), false);
     if let Some(long) = long {
         opts.push(format!("long = {long:?}"));
     }
@@ -760,6 +793,7 @@ fn emit_arg(out: &mut String, arg: &SpecArg, field: &str, dialect: Dialect, skip
 
 fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec!["arg".into(), format!("name = {:?}", arg.name)];
+    opts.extend(declared_help(arg.help.as_deref(), arg.help_long.as_deref()));
     if arg.hide {
         opts.push("hide".into());
     }
@@ -811,6 +845,11 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
 
 fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec![format!("value_name = {:?}", arg.name)];
+    opts.extend(declared_help_clap(
+        arg.help.as_deref(),
+        arg.help_long.as_deref(),
+        false,
+    ));
     if arg.hide {
         opts.push("hide = true".into());
     }
@@ -884,12 +923,67 @@ fn selector_list(option: &str, selectors: &[String]) -> String {
 }
 
 /// Help text as a doc comment, which is how the derive reads it.
+/// Whether help text has to be declared rather than written as a comment.
+///
+/// A doc comment's first paragraph is read the way Rust reads one, so a line break inside it
+/// becomes a space. mise's specs use multi-line `help` on 37 commands and flags, and every one
+/// of them came back with its lines run together — so where the break is part of the text, the
+/// generated code declares it instead.
+fn needs_declaring(help: Option<&str>) -> bool {
+    help.map(|h| h.trim().contains('\n')).unwrap_or(false)
+}
+
+/// The same declarations in clap's vocabulary.
+///
+/// clap takes `help`/`long_help` on an argument and `about`/`long_about` on a command, so there
+/// is nothing it cannot say — but it does not read the *usage* attribute list. Skipping the
+/// comment without writing clap's own left the clap shadow with no text at all for every command
+/// and flag whose help a comment cannot carry, and *uncounted*, which is the silent-drop class
+/// this generator exists to prevent.
+fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> Vec<String> {
+    let mut opts = Vec::new();
+    if !needs_declaring(help) {
+        return opts;
+    }
+    let (short_key, long_key) = if command {
+        ("about", "long_about")
+    } else {
+        ("help", "long_help")
+    };
+    if let Some(help) = help.filter(|h| !h.trim().is_empty()) {
+        opts.push(format!("{short_key} = {:?}", help.trim()));
+    }
+    if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
+        opts.push(format!("{long_key} = {:?}", long.trim_end()));
+    }
+    opts
+}
+
+/// The `help = "..."` option for text a comment would reflow.
+fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
+    let mut opts = Vec::new();
+    if let Some(help) = help.filter(|h| needs_declaring(Some(h))) {
+        opts.push(format!("help = {:?}", help.trim()));
+        // The long form goes with it: read from the comment, it would be measured against a
+        // short form that no longer matches, and written in full twice over.
+        if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
+            opts.push(format!("long_help = {:?}", long.trim_end()));
+        }
+    }
+    opts
+}
+
 fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: usize) {
     let indent = "    ".repeat(depth);
+    // Declared instead, by `declared_help`.
+    if needs_declaring(help) {
+        return;
+    }
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
-        // Every generated item gets one, so the shadow does not depend on whether the
-        // derive requires help text.
-        writeln!(out, "{indent}/// Undocumented").expect("writing to a String");
+        // Nothing at all where the spec says nothing. A placeholder was standing in — the
+        // derive does not require help text — and it became *real* help: the shadow told a
+        // reader that `--output` was "Undocumented" where mise's spec leaves it bare, which a
+        // fixture for comparing help output cannot do.
         return;
     };
     for line in help.lines() {
@@ -1057,6 +1151,39 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn both_dialects_carry_help_a_comment_cannot() {
+        // Multi-line help is skipped as a comment for *both* dialects, and only one of them was
+        // writing it as an attribute — so the clap shadow had no text for those flags at all,
+        // uncounted. clap can say it: `help` and `long_help` on an argument.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=#\"\"\"\nUse shims\nlike so:\n\"\"\"#\n";
+
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains(r#"help = "Use shims\nlike so:""#), "{usage}");
+
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains(r#"help = "Use shims\nlike so:""#), "{clap}");
+    }
+
+    #[test]
+    fn a_flags_long_help_is_its_long_help_and_not_its_name() {
+        // The long *name* was passed where the long *help* belongs, so a flag called `--shims`
+        // with a paragraph of extended help emitted `long_help = "shims"` — the shadow dropped
+        // the real text, and its regenerated spec said the flag's own name instead.
+        // The short help has to be *multi-line* to reach this path at all: a one-line help is
+        // written as a doc comment, and `declared_help` — where the bug lived — is only called
+        // for help a comment cannot carry. Without that, the mutation survived.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=\"Use shims\\nacross tools\" \\
+                long_help=\"Use shims\\nacross tools\\n\\nAnd here is why.\"\n",
+        );
+        assert!(
+            !out.contains(r#"long_help = "shims""#),
+            "the flag's name became its long help: {out}"
+        );
+        assert!(out.contains("And here is why."), "{out}");
     }
 
     #[test]

@@ -10,7 +10,7 @@
 //! consumer is wrong about.
 
 use usage::Spec as LibSpec;
-use usage_derive::Cli;
+use usage_derive::{Args, Cli, Subcommands};
 
 /// A flag reachable only by its short form, whose value still needs a name.
 #[derive(Cli)]
@@ -170,4 +170,86 @@ fn a_required_collection_still_binds_like_a_collection() {
     // value name is a placeholder in help, and a counted flag counted before this too.
     assert_eq!(ex.jobs.as_deref(), Some("4"));
     assert_eq!(ex.verbose, 2);
+}
+
+/// A command whose help text has line breaks that matter, and a hidden sibling.
+#[derive(Args)]
+struct Shims {
+    /// Undocumented on purpose: the help is declared below, not commented.
+    #[usage(
+        long,
+        help = "Use shims instead of modifying PATH\nEffectively the same as:"
+    )]
+    shims: bool,
+}
+
+#[derive(Args)]
+struct Internal {
+    #[usage(long)]
+    force: bool,
+}
+
+#[derive(Subcommands)]
+enum Commands {
+    /// Activate the thing
+    Activate(Box<Shims>),
+    /// Simulate something for compatibility
+    #[usage(hide)]
+    Asdf(Box<Internal>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "verbatim")]
+struct Verbatim {
+    #[usage(subcommand)]
+    command: Option<Commands>,
+}
+
+#[test]
+fn help_text_can_keep_line_breaks_a_comment_would_flow() {
+    // A doc comment's first paragraph is read the way Rust reads one, so a line break inside
+    // it becomes a space — which is right for prose and wrong for help whose shape is
+    // deliberate. 37 of mise's flags and commands declare multi-line help, and every one came
+    // back with its lines run together until this existed.
+    let spec: LibSpec = Verbatim::to_kdl().parse().expect("valid spec");
+    let activate = spec.cmd.subcommands.get("activate").expect("activate");
+    let shims = activate
+        .flags
+        .iter()
+        .find(|f| f.name == "shims")
+        .expect("--shims");
+    assert_eq!(
+        shims.help.as_deref(),
+        Some("Use shims instead of modifying PATH\nEffectively the same as:")
+    );
+}
+
+#[test]
+fn a_command_can_be_hidden() {
+    // `hide=#true` on a `cmd`. The command still answers to its name; it is not offered.
+    let spec: LibSpec = Verbatim::to_kdl().parse().expect("valid spec");
+    let asdf = spec.cmd.subcommands.get("asdf").expect("asdf");
+    assert!(asdf.hide, "declared hidden");
+    assert!(
+        !spec.cmd.subcommands.get("activate").expect("activate").hide,
+        "and its sibling is not"
+    );
+
+    // Still reachable, which is the whole point of hidden rather than absent — and its flags
+    // bind as any other command's do.
+    use std::ffi::OsStr;
+    let argv = [OsStr::new("asdf"), OsStr::new("--force")];
+    let parsed = Verbatim::parse_from(&argv).expect("a hidden command still parses");
+    let Some(Commands::Asdf(internal)) = parsed.command else {
+        panic!("expected the hidden command")
+    };
+    assert!(internal.force);
+
+    // And the visible sibling, whose declared help is the subject of the test above.
+    let argv = [OsStr::new("activate"), OsStr::new("--shims")];
+    let parsed = Verbatim::parse_from(&argv).expect("should parse");
+    let Some(Commands::Activate(shims)) = parsed.command else {
+        panic!("expected activate")
+    };
+    assert!(shims.shims);
 }
