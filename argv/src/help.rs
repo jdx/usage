@@ -20,6 +20,7 @@
 use core::fmt::Write as _;
 
 use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec};
+use crate::Command;
 use crate::DoubleDash;
 
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
@@ -667,4 +668,50 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
         out,
         "  help\n    Print this message or the help of the given subcommand(s)"
     );
+}
+
+/// The path and metadata for a command, found by identity within a spec.
+///
+/// [`Error::Help`](crate::Error::Help) carries the `Command` the request was about, because the
+/// parse tables are what a parse walks and the metadata is behind a feature. Rendering needs the
+/// metadata and the path a user typed to reach it, and both are in the tree — so this walks it,
+/// comparing addresses rather than names, which two commands can share.
+///
+/// `None` when the command is not in this spec, which means the two came from different CLIs.
+pub fn find<'a>(
+    spec: &'a Spec<'a>,
+    cmd: &Command<'_>,
+) -> Option<(Vec<&'a str>, &'a CommandMeta<'a>)> {
+    fn walk<'a>(
+        path: &mut Vec<&'a str>,
+        meta: &'a CommandMeta<'a>,
+        cmd: &Command<'_>,
+    ) -> Option<&'a CommandMeta<'a>> {
+        if core::ptr::eq(meta.cmd, cmd) {
+            return Some(meta);
+        }
+        for sub in meta.subcommands {
+            path.push(sub.cmd.name);
+            if let Some(found) = walk(path, sub, cmd) {
+                return Some(found);
+            }
+            path.pop();
+        }
+        None
+    }
+
+    let mut path = vec![spec.bin.unwrap_or(spec.name)];
+    walk(&mut path, spec.root, cmd).map(|meta| (path, meta))
+}
+
+/// The page a help request asks for, ready to print.
+///
+/// The two forms differ as clap has them: `-h` is the short one and `--help` the long one.
+pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> {
+    let (path, meta) = find(spec, cmd)?;
+    Some(if long {
+        long_help(spec, &path, meta)
+    } else {
+        short_help(spec, &path, meta)
+    })
 }

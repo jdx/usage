@@ -265,14 +265,14 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
 
 ### Then: what a CLI framework has to have
 
-- [x] **Help rendering** — `-h` and `--help` both match usage-lib byte for byte across all 211
-      of mise's commands: the usage line, the descriptions, commands, arguments and flags grouped
-      by heading, examples, the surrounding text, hidden-item filtering, and for the long form the
-      column alignment and wrapping to `COLUMNS`. What is left is the wiring — `--help`/`-h` on
-      every command, `Error::Help`, and a real `help` subcommand. Holding it to parity found ten
-      things a spec could say that the derive could not, plus two bugs in usage-lib's own
-      renderer; the last of them was `after_long_help`, which 115 of mise's commands use to carry
-      their Examples section, so a page without it was missing what a reader came for.
+- [x] **Help rendering** — `-h` and `--help` both match usage-lib byte for byte across all 211 of
+      mise's commands, and both are wired: the parser recognises them itself, after a command's own
+      flags so a CLI that declares its own keeps it, and a request comes back as `Error::Help`
+      carrying the command it was asked about. `parse()` renders and exits; `parse_from` returns
+      it, so a library embedding this decides for itself. Costs 111 instructions, since the check
+      is only reached by a flag that matched nothing. What is left is the `help` _subcommand_,
+      which every CLI with subcommands should have. Holding the rendering to parity found ten
+      things a spec could say that the derive could not, and two bugs in usage-lib's own renderer.
 - [ ] **Completions, self-contained** — `<bin> completion <shell>` emits the
       script; a hidden `<bin> complete-word` serves requests from the binary's own
       embedded spec. Same dispatch shape usage-cli uses today, without requiring

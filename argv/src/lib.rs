@@ -387,6 +387,16 @@ pub enum Error<'t, 'v> {
     InvalidValue(::std::boxed::Box<InvalidValue<'t>>),
     /// A subcommand was required, and none was given.
     MissingSubcommand,
+    /// `--help` or `-h` was given, and `cmd` is what it was asked about.
+    ///
+    /// Not a failure, and returned as one anyway: a parse that stops to print help has not
+    /// produced a value, and every caller already handles the "no value" shape. clap does the
+    /// same thing for the same reason.
+    ///
+    /// `long` distinguishes the two: `-h` prints the short form and `--help` the long one, as
+    /// clap has them. The caller renders — this crate does not print, because a library that
+    /// writes to stdout on its own is one an adopter cannot embed.
+    Help { cmd: &'t Command<'t>, long: bool },
 }
 
 /// The high half of every key one declaration's items get.
@@ -545,6 +555,40 @@ pub const fn concat_args<const N: usize>(
          that answers to nothing"
     );
     out
+}
+
+/// The key `--help` answers to, and the one `-h` does.
+///
+/// Reserved rather than generated: a derive builds keys from a hash of the type they came from
+/// in the high half and an index in the low half, so the top of the range belongs to nobody.
+/// Generated code compares against these to tell a help request from a flag of its own.
+pub const HELP_LONG_KEY: u64 = u64::MAX;
+/// See [`HELP_LONG_KEY`].
+pub const HELP_SHORT_KEY: u64 = u64::MAX - 1;
+
+/// `--help`, which every command answers to.
+///
+/// In the parse table and *not* in the metadata, which is the whole trick: the parser has to
+/// recognise the flag, and help output must not list it — a spec does not declare `--help`, so
+/// showing one would make the rendered page disagree with the spec it came from.
+pub static HELP_LONG: Flag<'static> = Flag {
+    key: HELP_LONG_KEY,
+    name: "help",
+    longs: &["help"],
+    ..Flag::BOOL
+};
+
+/// `-h`, which prints the shorter form.
+pub static HELP_SHORT: Flag<'static> = Flag {
+    key: HELP_SHORT_KEY,
+    name: "help",
+    shorts: b"h",
+    ..Flag::BOOL
+};
+
+/// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
+pub fn is_help_flag(flag: &Flag<'_>) -> bool {
+    flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY
 }
 
 /// Resolve a subcommand by name or alias, at compile time.
@@ -885,6 +929,16 @@ impl<'t, 'v> Parser<'t, 'v> {
             });
         }
 
+        // Every CLI answers to `--help`, and none of them declares it. Asked *after* the
+        // command's own flags, so a CLI that declares its own `--help` keeps it.
+        if name == b"help" {
+            return Ok(Event::Flag {
+                flag: &HELP_LONG,
+                value: None,
+                negated: false,
+            });
+        }
+
         if self.cmd.unknown_flags == UnknownFlags::Error {
             return Err(Error::UnknownFlag { token });
         }
@@ -1092,7 +1146,15 @@ impl<'t, 'v> Parser<'t, 'v> {
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
-        self.in_scope().find(|f| f.shorts.contains(&byte))
+        self.in_scope()
+            .find(|f| f.shorts.contains(&byte))
+            // As for `--help`: supplied by the parser, and only where the command has not
+            // declared a `-h` of its own.
+            .or(if byte == b'h' {
+                Some(&HELP_SHORT)
+            } else {
+                None
+            })
     }
 
     fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
