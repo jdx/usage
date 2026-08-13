@@ -252,6 +252,17 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       something cannot say so. Worth deciding whether that is a gap or a deliberate
       restriction.
 
+- [x] **Three things a spec could say that the derive could not** — a flag's value name
+      (`--tool <TOOL>` came back as `--tool <tool>`, since the flag's own name was all there
+      was), a collecting argument that needs at least one value (`<TARGET>…`, which a `Vec`
+      cannot express because it has no bare-versus-`Option` shape), and `var` on a counted flag
+      (a count _is_ repetition, so it is inferred now rather than needing told). All three were
+      dropped by `gen-shadow` without being counted, which is the part that made them invisible:
+      the report is the thing that was supposed to prevent exactly this. Found by rendering
+      mise's help from the shadow and diffing every line against usage-lib's — 23 of 211 differed,
+      and every difference traced to one of these. They matter past help text, since the emitted
+      spec is what docs, manpages, completions and the SDK generators read.
+
 ### Then: what a CLI framework has to have
 
 - [ ] **Help rendering** — `--help` and `-h` from the static metadata, with

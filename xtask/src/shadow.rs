@@ -576,7 +576,20 @@ fn usage_flag_opts(
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
+    // A repeatable flag that takes no value: `-v --verbose var=#true count=#true`. The
+    // `var` was reaching the shadow only through the branch below, which a valueless flag
+    // never enters — so a spec that said the flag could be given again came back saying it
+    // could not. `count` implies it now, but a plain repeatable switch still has to say so.
+    if flag.arg.is_none() && flag.var && !flag.count {
+        opts.push("var".into());
+    }
     if let Some(arg) = flag.arg.as_ref() {
+        // The placeholder for the value: `TOOL` in `--tool <TOOL>`. Without it the flag's own
+        // name stands in, so `--tool <TOOL>` came back as `--tool <tool>` — 14 of mise's
+        // flags read differently in help for no reason but this.
+        if arg.name != flag.name {
+            opts.push(format!("value_name = {:?}", arg.name));
+        }
         if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
         }
@@ -769,6 +782,12 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
         }
     }
     if arg.var {
+        // `<TARGET>…` means one or more. A `Vec` field cannot say that — it has no bare form
+        // to contrast with an `Option` — so it takes an explicit `required`, without which the
+        // shadow described `[TARGET]…` for the eight of mise's arguments that demand a value.
+        if arg.required {
+            opts.push("required".into());
+        }
         if let Some(min) = arg.var_min {
             opts.push(format!("var_min = {min}"));
         }
