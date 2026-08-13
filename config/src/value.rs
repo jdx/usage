@@ -89,7 +89,17 @@ impl Value {
         match self {
             Self::Bool(b) => b.to_string(),
             Self::Int(i) => i.to_string(),
-            Self::Float(f) => f.to_string(),
+            // With its point, because `1` is how an *integer* is written and this is not one. Left
+            // as `f64::to_string` gives it, a whole-number float and an integer were the same text —
+            // so a `choice 1.0` accepted `1` and refused the `1.0` the spec had written, and the
+            // list of what a setting allows said `1` back to an author who had not typed that.
+            Self::Float(f) => {
+                let text = f.to_string();
+                match f.is_finite() && !text.contains(['.', 'e', 'E']) {
+                    true => format!("{text}.0"),
+                    false => text,
+                }
+            }
             Self::String(s) => s.clone(),
             Self::List(items) => items
                 .iter()
@@ -157,20 +167,32 @@ pub enum Const {
 }
 
 impl Const {
-    /// Whether `value` is this constant.
+    /// Whether `value` is this constant, or is written the same way.
     ///
-    /// Without building the `Value` it stands for: this runs once per declared choice for every
-    /// value a layer supplies, and a setting with choices is usually a string, where the comparison
-    /// would otherwise allocate a copy of the choice to throw away.
+    /// The same shape compares directly, without building the `Value` this stands for: the strict
+    /// case is the common one, it runs once per declared choice for every value supplied, and a
+    /// setting with choices is usually a string — where the comparison would otherwise allocate a
+    /// copy of the choice to throw away.
+    ///
+    /// The shapes differing is not a mismatch, though, and this is the part worth explaining. A spec
+    /// writes `choice 4` under `type="string"` as readily as `choice "4"`, and by the time a value
+    /// reaches here it has been coerced to the *declared* type — so the choice is an integer and the
+    /// value is the string `4`, and a strict comparison refuses a value the spec plainly allows.
+    /// Comparing what they are written as is the same question the coercion already answered:
+    /// `Ty::String` turns `4` into `"4"`, and `Ty::Float` turns `1` into `1.0`, whose text is `1`
+    /// either way. Only scalars get here — [`PropMeta::refuses`](crate::PropMeta::refuses) walks a
+    /// list or a table item by item first — so there is no way for `a,b` the string to be mistaken
+    /// for `[a, b]` the list.
     pub fn matches(self, value: &Value) -> bool {
         match (self, value) {
             (Self::Bool(a), Value::Bool(b)) => a == *b,
             (Self::Int(a), Value::Int(b)) => a == *b,
             (Self::Float(a), Value::Float(b)) => a == *b,
             (Self::Str(a), Value::String(b)) => a == b,
-            // A list or a table is not something a `choice` node can hold, and comparing one to a
-            // scalar is not a near miss to be generous about.
-            _ => false,
+            // A list or a table is not something a `choice` node can hold, and one of those is not a
+            // scalar written differently.
+            (Self::List(_) | Self::Map(_), _) | (_, Value::List(_) | Value::Map(_)) => false,
+            (choice, value) => choice.to_value().display() == value.display(),
         }
     }
 
@@ -250,6 +272,37 @@ mod tests {
             )),
             "k="
         );
+    }
+
+    #[test]
+    fn a_choice_and_a_value_written_the_same_way_are_the_same_choice() {
+        // A spec writes `choice 4` under `type="string"` as readily as `choice "4"`, and by the time
+        // a value reaches the check it has been coerced to the *declared* type — so the choice is an
+        // integer, the value is the string `4`, and comparing shapes refused a value the spec plainly
+        // allows.
+        assert!(Const::Int(4).matches(&Value::from("4")));
+        assert!(Const::Str("4").matches(&Value::Int(4)));
+        assert!(Const::Bool(true).matches(&Value::from("true")));
+        // A float and an integer are *not* the same text, and should not be: `1.0` is a float and
+        // `1` is not one. The pair that matters — `type="float"` with `choice 1` — is settled before
+        // this by the coercion, which reads the choice as a float, and `PropMeta::refuses` has a test
+        // for that.
+        assert!(!Const::Int(1).matches(&Value::Float(1.0)));
+        assert_eq!(Value::Float(1.0).display(), "1.0");
+        assert_eq!(Value::Float(0.5).display(), "0.5");
+        assert_eq!(Value::Int(1).display(), "1");
+
+        // The same shape still compares as itself, and different values are still different.
+        assert!(Const::Str("git").matches(&Value::from("git")));
+        assert!(!Const::Str("git").matches(&Value::from("svn")));
+        assert!(!Const::Int(4).matches(&Value::Int(5)));
+
+        // A collection is never compared to a scalar: `PropMeta::refuses` walks one item by item
+        // first, so `a,b` the string cannot be mistaken for `[a, b]` the list.
+        const ITEMS: &[Const] = &[Const::Str("a"), Const::Str("b")];
+        let list = Value::List(vec![Value::from("a"), Value::from("b")]);
+        assert!(!Const::Str("a,b").matches(&list));
+        assert!(!Const::List(ITEMS).matches(&Value::from("a,b")));
     }
 
     #[test]

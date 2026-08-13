@@ -139,12 +139,29 @@ impl PropMeta {
         if self.choices.is_empty() {
             return None;
         }
-        match value {
-            Value::List(items) => items.iter().find_map(|item| self.refuses(item)),
-            Value::Map(entries) => entries.values().find_map(|item| self.refuses(item)),
-            scalar => match self.choices.iter().any(|choice| choice.matches(scalar)) {
+        self.refuses_as(self.ty, value)
+    }
+
+    /// The same, for the type this level of the value is held to.
+    ///
+    /// Threaded down through a collection because a choice is compared *as the declared type reads
+    /// it*, and the declared type of an item is not the declared type of the list it is in.
+    fn refuses_as<'v>(&self, ty: Ty, value: &'v Value) -> Option<&'v Value> {
+        // On the *declared* type, not on the shape of what arrived. Following the value instead, a
+        // scalar-choiced setting the spec left open — `any`, a union — accepted `[1]` for `choice 1`,
+        // because the walk went looking for items in something that was never declared to have any.
+        match (ty.inner(), value) {
+            (Ty::List(item) | Ty::Set(item), Value::List(items)) => {
+                items.iter().find_map(|value| self.refuses_as(*item, value))
+            }
+            (Ty::Map(item), Value::Map(entries)) => entries
+                .values()
+                .find_map(|value| self.refuses_as(*item, value)),
+            // Anything else is compared whole, and a scalar choice is not a list however many items
+            // it has: `Const::matches` says as much, and this is where that is asked.
+            _ => match self.choices.iter().any(|choice| allows(ty, choice, value)) {
                 true => None,
-                false => Some(scalar),
+                false => Some(value),
             },
         }
     }
@@ -156,6 +173,25 @@ impl PropMeta {
             .map(|choice| choice.to_value().display())
             .collect::<Vec<_>>()
             .join(", ")
+    }
+}
+
+/// Whether `choice` is `value`, read the way the declared type reads them both.
+///
+/// The value arrived here through `Ty::coerce`, and the choice has not: a spec writes `choice "yes"`
+/// under `type="bool"` and the value `yes` becomes `Bool(true)`, so comparing them as written refuses
+/// a value the spec plainly allows. Reading the choice the same way is what makes the two comparable
+/// — it is the same question the coercion already answered.
+fn allows(ty: Ty, choice: &Const, value: &Value) -> bool {
+    match ty.coerce(choice.to_value()) {
+        Ok(coerced) if coerced == *value => true,
+        // Coercion did not settle it, so the question falls back to what the two are written as.
+        // `any` is where that matters most — a union coerces *nothing*, so a `choice 4` and the
+        // string `4` a file supplied stay an integer and a string — and I had this as the `Err` arm,
+        // which `any` never takes, since coercing there succeeds by doing nothing at all. It is also
+        // the arm for a choice the declared type cannot read, which is one nothing can supply
+        // either.
+        _ => choice.matches(value),
     }
 }
 
