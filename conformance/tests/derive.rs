@@ -373,6 +373,110 @@ fn the_spec_is_valid_and_says_what_was_declared() {
     assert!(!spec.cmd.args[1].required);
 }
 
+/// A positional that must be filled by the *type* and carries a default.
+#[derive(Cli, Debug)]
+#[usage(bin = "ex")]
+struct Defaulted {
+    /// Where to look
+    #[usage(arg, default = ".")]
+    dir: String,
+
+    /// Where to write
+    #[usage(long, default = "-")]
+    out: String,
+}
+
+/// Enough defaulted positionals that the usage line collapses them to one placeholder.
+#[derive(Cli, Debug)]
+#[usage(bin = "ex")]
+struct ManyDefaulted {
+    /// A defaulted flag
+    #[usage(long, default = "1")]
+    alpha: String,
+    /// Another
+    #[usage(long, default = "2")]
+    beta: String,
+    /// A third, past the point where the line collapses them
+    #[usage(long, default = "3")]
+    gamma: String,
+
+    /// First
+    #[usage(arg, default = "a")]
+    one: String,
+    /// Second
+    #[usage(arg, default = "b")]
+    two: String,
+    /// Third
+    #[usage(arg, default = "c")]
+    three: String,
+}
+
+#[test]
+fn a_defaulted_argument_reads_as_optional_in_both_renderers() {
+    // The two sides have to agree, and this is the case where they did not. usage-lib clears
+    // `required` while *parsing* a spec that declares a default, then renders from `required`
+    // alone — so it writes `[dir]`. usage-argv kept the two separate and read `required` on its
+    // own, writing `<dir>` for an argument the parser is perfectly happy to omit.
+    //
+    // mise's own spec does not catch this: every defaulted positional in it is written
+    // `required=#false default=…`, so there is nothing to normalize. A *derived* one is
+    // required by its type and defaulted by its attribute, which is exactly the shape that
+    // diverges.
+    let spec: LibSpec = Defaulted::to_kdl().parse().expect("valid spec");
+    let theirs = format!("ex {}", spec.cmd.usage()).trim().to_string();
+    let ours = usage_argv::help::usage_line(&["ex"], Defaulted::spec().root);
+    assert_eq!(ours, theirs, "the two renderers disagree");
+    assert!(
+        ours.contains("[dir]"),
+        "a defaulted argument is optional: {ours}"
+    );
+    // A flag says it the same way, and had the same bug: usage-lib clears `required` on a flag
+    // that declares a default too.
+    assert!(
+        ours.contains("[--out"),
+        "a defaulted flag is optional: {ours}"
+    );
+
+    // And an argument with no default still reads as required, so the assertion above is about
+    // the default rather than about everything being optional.
+    let plain: LibSpec = Ex::to_kdl().parse().expect("valid spec");
+    let plain_line = usage_argv::help::usage_line(&["ex"], Ex::spec().root);
+    assert_eq!(
+        plain_line,
+        format!("ex {}", plain.cmd.usage()).trim().to_string()
+    );
+    assert!(plain_line.contains("<file>"), "{plain_line}");
+
+    // Past the point where the line collapses them into one placeholder, the same signal
+    // decides whether it reads `<ARGS>…` or `[ARGS]…` — and all of these are omittable.
+    let many = usage_argv::help::usage_line(&["ex"], ManyDefaulted::spec().root);
+    assert!(
+        many.contains("[ARGS]…"),
+        "collapsed defaulted arguments are optional: {many}"
+    );
+    // Flags collapse by the same rule, from the same signal.
+    assert!(
+        many.contains("[FLAGS]"),
+        "collapsed defaulted flags are optional: {many}"
+    );
+
+    // And they really are omittable, which is the claim the brackets make: parsing nothing
+    // fills every one of them from its default.
+    let nothing = argv([]);
+    let filled = ManyDefaulted::parse_from(&nothing).expect("all defaulted");
+    assert_eq!(
+        (filled.one, filled.two, filled.three),
+        ("a".into(), "b".into(), "c".into())
+    );
+    assert_eq!(
+        (filled.alpha, filled.beta, filled.gamma),
+        ("1".into(), "2".into(), "3".into())
+    );
+    let dir = Defaulted::parse_from(&nothing).expect("defaulted");
+    assert_eq!(dir.dir, ".");
+    assert_eq!(dir.out, "-");
+}
+
 #[test]
 fn the_spec_renders_as_docs() {
     // The reason the spec exists: `usage g markdown|manpage` at build time.

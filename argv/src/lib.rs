@@ -84,6 +84,8 @@
 use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "spec")]
+pub mod help;
+#[cfg(feature = "spec")]
 pub mod spec;
 
 /// How deep a command tree this parser will descend.
