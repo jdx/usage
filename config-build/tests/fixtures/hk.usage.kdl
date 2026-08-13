@@ -1,0 +1,66 @@
+name "hk"
+bin "hk"
+
+// A settings block with one of everything this generator has to carry, modelled on hk's own
+// registry — the fleet's most featureful, and the first CLI that will adopt this.
+config {
+    source "git" name="git config" doc_hint="git config `{key}`"
+    source "pkl" name="hk.pkl"
+
+    file "/etc/hk/config.toml" scope="system"
+    file "~/.config/hk/config.toml" scope="global"
+    file "hk.toml" findup=#true
+
+    prop "jobs" type="uint" default=4 default_note="0 = one per core" \
+        help="How many jobs to run at once" {
+        env "HK_JOBS" "HK_JOB"
+        source "git" "hk.jobs"
+        cli "--jobs" "-j"
+    }
+
+    prop "exclude" type="list<string>" merge="union" parse="list_by_comma" \
+        help="Paths to leave alone" {
+        env "HK_EXCLUDE"
+        source "pkl" "exclude" "defaults.exclude"
+    }
+
+    prop "path" type="list<path>" parse="list_by_os_path_separator" {
+        env "HK_PATH"
+    }
+
+    prop "stash" type="string" default="git" help="How to stash before a run" {
+        choices {
+            choice "git" help="git stash"
+            choice "patch-file" help="A patch on disk"
+            choice "none"
+        }
+    }
+
+    prop "url_replacements" type="map<string, string>" merge="deep" \
+        help="Rewrite these URL prefixes"
+
+    prop "trusted" type="bool" scope="global" default=#false \
+        help="Whether this checkout may run its own hooks"
+
+    prop "ci" type="bool" scope="env" hide=#true {
+        env "CI"
+    }
+
+    prop "task.output" type="string" default="prefix" help="How task output is interleaved"
+
+    prop "either" type="bool|string" help="A \"union\" only hk understands"
+
+    prop "timeout" type="option<duration>" help="How long to wait, if at all"
+
+    prop "log_level" type="string" default="info" {
+        env "HK_LOG_LEVEL"
+        x "hk.parse_env" "lowercase"
+    }
+
+    prop "concurrency" type="uint" deprecated="Use jobs instead." renamed_to="jobs" \
+        deprecated_warn_at="2026.12.0"
+
+    prop "ports" type="list<uint>" {
+        default 80 443
+    }
+}

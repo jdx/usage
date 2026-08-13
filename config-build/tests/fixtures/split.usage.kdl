@@ -1,0 +1,5 @@
+name "split"
+bin "split"
+
+// The shape a CLI with many settings uses: the settings live in a file of their own.
+include file="./split-settings.usage.kdl"
