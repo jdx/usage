@@ -49,16 +49,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
     let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
 
-    let flag_refs = (0..flags.len()).map(|i| {
-        let name = format_ident!("FLAG_{i}");
-        quote!(&#name)
-    });
-    let arg_refs = (0..args.len()).map(|i| {
-        let name = format_ident!("ARG_{i}");
-        quote!(&#name)
-    });
-    let flag_meta_refs = (0..flags.len()).map(|i| format_ident!("FLAG_META_{i}"));
-    let arg_meta_refs = (0..args.len()).map(|i| format_ident!("ARG_META_{i}"));
+    // Both the plain slices and, when a field is flattened, the joined arrays.
+    let tables = tables(cli);
+    let table_decls = &tables.decls;
+    let meta_table_decls = &tables.meta_decls;
+    let flag_table_ref = &tables.flags;
+    let arg_table_ref = &tables.args;
+    let flag_meta_table_ref = &tables.flag_metas;
+    let arg_meta_table_ref = &tables.arg_metas;
 
     let name = &cli.name;
     let bin = option_str(cli.bin.as_deref());
@@ -81,7 +79,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
     let partial = partial_struct(cli);
-    let defaults = partial_defaults(cli);
+    let defaults = partial_defaults(cli, false);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
@@ -111,13 +109,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
+            #table_decls
 
             pub static ROOT: Command = Command {
                 unknown_flags: #unknown_flags,
                 name: #name,
                 key: #root_key,
-                flags: &[#(#flag_refs),*],
-                args: &[#(#arg_refs),*],
+                flags: #flag_table_ref,
+                args: #arg_table_ref,
                 #sub_commands
                 #sub_default
                 ..Command::EMPTY
@@ -125,6 +124,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             #(#flag_metas)*
             #(#arg_metas)*
+            #meta_table_decls
 
             pub static ROOT_META: CommandMeta = CommandMeta {
                 cmd: &ROOT,
@@ -132,8 +132,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 mount: #mount,
-                flags: &[#(#flag_meta_refs),*],
-                args: &[#(#arg_meta_refs),*],
+                flags: #flag_meta_table_ref,
+                args: #arg_meta_table_ref,
                 #sub_metas
                 ..CommandMeta::EMPTY
             };
@@ -505,6 +505,154 @@ fn key_ident(kind: &str, index: Option<usize>) -> proc_macro2::Ident {
 /// from the parent scope is not in scope inside it — so a reference to the user's own
 /// type has to say `super::`. An absolute path already resolves from anywhere and is
 /// left alone.
+/// The table expressions for one command, and whatever has to be declared to build them.
+///
+/// Without a `flatten` these are the plain slices the derive has always emitted, so nothing
+/// about an existing CLI's generated code changes. With one, the flattened struct's tables
+/// have to appear inside the parent's — at the position the field was written, because for
+/// positional arguments the position is the meaning — which needs the const-concat helpers
+/// and a `static` to hold each joined array.
+struct Tables {
+    /// Declared before the `Command`: the parse-table groups and their joined arrays.
+    decls: TokenStream,
+    /// Declared after the per-field metadata, which it reads — so it cannot share `decls`.
+    meta_decls: TokenStream,
+    flags: TokenStream,
+    args: TokenStream,
+    flag_metas: TokenStream,
+    arg_metas: TokenStream,
+}
+
+/// Build the four expressions, splicing any flattened groups into place.
+///
+/// Used by both emitters. The first version of the typed-value conversion was wired into only
+/// one of them, which compiled in the tests and not in an adopter's crate — so anything that
+/// belongs to "what a command's tables are" goes here, once.
+fn tables(cli: &Cli) -> Tables {
+    // What a group is: a run of this struct's own declarations, or one flattened struct's
+    // whole table. Walked in field order so the runs and the splices interleave correctly.
+    let mut flag_groups: Vec<TokenStream> = Vec::new();
+    let mut arg_groups: Vec<TokenStream> = Vec::new();
+    let mut flag_meta_groups: Vec<TokenStream> = Vec::new();
+    let mut arg_meta_groups: Vec<TokenStream> = Vec::new();
+    let mut own_flags: Vec<usize> = Vec::new();
+    let mut own_args: Vec<usize> = Vec::new();
+    let (mut flag_at, mut arg_at) = (0usize, 0usize);
+    let mut flattened = false;
+
+    // Flush the runs collected so far, so that what follows lands after them.
+    fn flush_flags(
+        own: &mut Vec<usize>,
+        groups: &mut Vec<TokenStream>,
+        metas: &mut Vec<TokenStream>,
+    ) {
+        if own.is_empty() {
+            return;
+        }
+        let refs = own.iter().map(|i| {
+            let name = format_ident!("FLAG_{i}");
+            quote!(&#name)
+        });
+        groups.push(quote!(&[#(#refs),*]));
+        let meta_refs = own.iter().map(|i| format_ident!("FLAG_META_{i}"));
+        metas.push(quote!(&[#(#meta_refs),*]));
+        own.clear();
+    }
+    fn flush_args(
+        own: &mut Vec<usize>,
+        groups: &mut Vec<TokenStream>,
+        metas: &mut Vec<TokenStream>,
+    ) {
+        if own.is_empty() {
+            return;
+        }
+        let refs = own.iter().map(|i| {
+            let name = format_ident!("ARG_{i}");
+            quote!(&#name)
+        });
+        groups.push(quote!(&[#(#refs),*]));
+        let meta_refs = own.iter().map(|i| format_ident!("ARG_META_{i}"));
+        metas.push(quote!(&[#(#meta_refs),*]));
+        own.clear();
+    }
+
+    for field in &cli.fields {
+        match &field.kind {
+            Kind::Flag { .. } => {
+                own_flags.push(flag_at);
+                flag_at += 1;
+            }
+            Kind::Arg { .. } => {
+                own_args.push(arg_at);
+                arg_at += 1;
+            }
+            Kind::Flatten { ty } => {
+                flattened = true;
+                flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
+                flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
+                let ty = in_module(ty);
+                flag_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.flags));
+                arg_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.args));
+                flag_meta_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.flags));
+                arg_meta_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.args));
+            }
+            Kind::Subcommand { .. } => {}
+        }
+    }
+    flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
+    flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
+
+    if !flattened {
+        // The shape every CLI without a flatten already had.
+        let flag_refs = (0..flag_at).map(|i| {
+            let name = format_ident!("FLAG_{i}");
+            quote!(&#name)
+        });
+        let arg_refs = (0..arg_at).map(|i| {
+            let name = format_ident!("ARG_{i}");
+            quote!(&#name)
+        });
+        let flag_meta_refs = (0..flag_at).map(|i| format_ident!("FLAG_META_{i}"));
+        let arg_meta_refs = (0..arg_at).map(|i| format_ident!("ARG_META_{i}"));
+        return Tables {
+            decls: TokenStream::new(),
+            meta_decls: TokenStream::new(),
+            flags: quote!(&[#(#flag_refs),*]),
+            args: quote!(&[#(#arg_refs),*]),
+            flag_metas: quote!(&[#(#flag_meta_refs),*]),
+            arg_metas: quote!(&[#(#arg_meta_refs),*]),
+        };
+    }
+
+    Tables {
+        decls: quote! {
+            const FLAG_GROUPS: &[&[&::usage_argv::Flag<'static>]] = &[#(#flag_groups),*];
+            const ARG_GROUPS: &[&[&::usage_argv::Arg<'static>]] = &[#(#arg_groups),*];
+            static FLAGS: [&::usage_argv::Flag<'static>;
+                ::usage_argv::table_len(FLAG_GROUPS)] =
+                ::usage_argv::concat_flags(FLAG_GROUPS);
+            static ARGS: [&::usage_argv::Arg<'static>; ::usage_argv::table_len(ARG_GROUPS)] =
+                ::usage_argv::concat_args(ARG_GROUPS);
+        },
+        meta_decls: quote! {
+            const FLAG_META_GROUPS: &[&[::usage_argv::spec::FlagMeta<'static>]] =
+                &[#(#flag_meta_groups),*];
+            const ARG_META_GROUPS: &[&[::usage_argv::spec::ArgMeta<'static>]] =
+                &[#(#arg_meta_groups),*];
+            static FLAG_METAS: [::usage_argv::spec::FlagMeta<'static>;
+                ::usage_argv::table_len(FLAG_META_GROUPS)] =
+                ::usage_argv::spec::concat_flag_metas(FLAG_META_GROUPS);
+            static ARG_METAS: [::usage_argv::spec::ArgMeta<'static>;
+                ::usage_argv::table_len(ARG_META_GROUPS)] =
+                ::usage_argv::spec::concat_arg_metas(ARG_META_GROUPS);
+        },
+        flags: quote!(&FLAGS),
+        args: quote!(&ARGS),
+        flag_metas: quote!(&FLAG_METAS),
+        arg_metas: quote!(&ARG_METAS),
+    }
+}
+
 fn in_module(ty: &syn::Type) -> TokenStream {
     let syn::Type::Path(path) = ty else {
         return quote!(#ty);
@@ -666,6 +814,15 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             // Its values live in the enum's own partial.
             return None;
         }
+        // A flattened struct accumulates into its own partial, whose shape only its derive
+        // knows — reached through the trait, like everything else about it.
+        if let Kind::Flatten { ty } = &f.kind {
+            let ident = &f.ident;
+            let ty = in_module(ty);
+            return Some(quote! {
+                pub #ident: <#ty as ::usage_argv::spec::CommandArgs>::Partial,
+            });
+        }
         let ident = &f.ident;
         let ty = match f.shape {
             Shape::Bool => quote!(bool),
@@ -709,13 +866,32 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 ///
 /// A declared `default` has to be in place before parsing starts, since nothing
 /// later distinguishes "the default" from "what the user typed".
-fn partial_defaults(cli: &Cli) -> TokenStream {
+/// `inside_module` says where this will be spliced, which changes how a flattened struct's
+/// type has to be named: the root's defaults are built in `parse_from`, in the impl beside the
+/// user's struct, while a nested command's are built by `start()` inside the generated module —
+/// where the same path needs a `super::`. Nothing else in here cares, and getting it wrong is a
+/// compile error in the adopter's crate rather than here, so it is a parameter rather than a
+/// guess.
+fn partial_defaults(cli: &Cli, inside_module: bool) -> TokenStream {
     let sub_starts = subcommand_parts(cli)
         .map(|p| p.partial_starts)
         .unwrap_or_default();
     let plain = cli.fields.iter().filter_map(|f| {
         if matches!(f.kind, Kind::Subcommand { .. }) {
             return None;
+        }
+        // `start()` rather than `Default`, so the flattened struct's own defaults are in
+        // place before parsing — the same reason this function exists at all.
+        if let Kind::Flatten { ty } = &f.kind {
+            let ident = &f.ident;
+            let ty = if inside_module {
+                in_module(ty)
+            } else {
+                quote!(#ty)
+            };
+            return Some(quote! {
+                #ident: <#ty as ::usage_argv::spec::CommandArgs>::start(),
+            });
         }
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
@@ -749,6 +925,17 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
 fn field_final(field: &Field) -> TokenStream {
     let ident = &field.ident;
     let name = &field.name;
+    if let Kind::Flatten { ty } = &field.kind {
+        // Built by its own derive, which is also what makes a nested flatten work: this is
+        // the same call at every level.
+        //
+        // Named directly rather than through `in_module`: `build` is emitted in the impl
+        // beside the user's struct, not inside the generated module, so a `super::` here
+        // would climb one level too far.
+        return quote! {
+            #ident: <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#ident)?
+        };
+    }
     let Some(ty) = field.value_ty.as_ref() else {
         // A switch or a count: nothing was parsed from a word.
         return quote!(#ident: partial.#ident);
@@ -995,6 +1182,21 @@ fn reset_to_default(field: &Field) -> TokenStream {
 /// Take one event and say whether it belonged to this command.
 fn apply_fn(cli: &Cli) -> TokenStream {
     let route = subcommand_parts(cli).map(|p| p.route).unwrap_or_default();
+    // A flattened struct's flags are in this command's table, but its *keys* were minted in
+    // its own expansion — so they cannot be matched here. Its `apply` recognises them, and
+    // says whether it took the event.
+    let flattened = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        let ty = in_module(ty);
+        Some(quote! {
+            if <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
+                return true;
+            }
+        })
+    });
     let flags: Vec<&Field> = cli
         .fields
         .iter()
@@ -1015,6 +1217,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
         ) -> bool {
             use ::usage_argv::Event;
             #route
+            #(#flattened)*
             // Each arm evaluates to whether it claimed the event, rather than
             // returning: a command with no flags of its own would otherwise have every
             // arm diverge, leaving an unreachable tail.
@@ -1149,8 +1352,12 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                     partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                 }
             }
+            // Only the selected one is asked — see `Subcommands::apply`. The selection is
+            // set just above, so a command word reaches the command it named on the same
+            // event that selected it.
             if <#in_mod as ::usage_argv::spec::Subcommands>::apply(
                 &mut partial.__usage_sub,
+                partial.__usage_selected,
                 event,
             ) {
                 return true;
@@ -1193,22 +1400,20 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
     let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
     let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
-    let flag_refs = (0..flags.len()).map(|i| {
-        let name = format_ident!("FLAG_{i}");
-        quote!(&#name)
-    });
-    let arg_refs = (0..args.len()).map(|i| {
-        let name = format_ident!("ARG_{i}");
-        quote!(&#name)
-    });
-    let flag_meta_refs = (0..flags.len()).map(|i| format_ident!("FLAG_META_{i}"));
-    let arg_meta_refs = (0..args.len()).map(|i| format_ident!("ARG_META_{i}"));
+    // Both the plain slices and, when a field is flattened, the joined arrays.
+    let tables = tables(cli);
+    let table_decls = &tables.decls;
+    let meta_table_decls = &tables.meta_decls;
+    let flag_table_ref = &tables.flags;
+    let arg_table_ref = &tables.args;
+    let flag_meta_table_ref = &tables.flag_metas;
+    let arg_meta_table_ref = &tables.arg_metas;
 
     let name = &cli.name;
     let about = option_str(cli.about.as_deref());
     let long_about = option_str(cli.long_about.as_deref());
     let partial = partial_struct(cli);
-    let defaults = partial_defaults(cli);
+    let defaults = partial_defaults(cli, true);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let parts = subcommand_parts(cli);
@@ -1245,18 +1450,20 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
+            #table_decls
 
             pub static COMMAND: Command = Command {
                 name: #name,
                 key: #command_key,
-                flags: &[#(#flag_refs),*],
-                args: &[#(#arg_refs),*],
+                flags: #flag_table_ref,
+                args: #arg_table_ref,
                 #sub_commands
                 ..Command::EMPTY
             };
 
             #(#flag_metas)*
             #(#arg_metas)*
+            #meta_table_decls
 
             pub static COMMAND_META: CommandMeta = CommandMeta {
                 cmd: &COMMAND,
@@ -1264,8 +1471,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 mount: #mount,
-                flags: &[#(#flag_meta_refs),*],
-                args: &[#(#arg_meta_refs),*],
+                flags: #flag_meta_table_ref,
+                args: #arg_meta_table_ref,
                 #sub_metas
                 ..CommandMeta::EMPTY
             };
@@ -1363,8 +1570,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
         quote! {
-            if <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#field, event) {
-                return true;
+            ::std::option::Option::Some(#i) => {
+                <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#field, event)
             }
         }
     });
@@ -1494,10 +1701,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 
             fn apply(
                 partial: &mut Self::Partial,
+                selected: ::std::option::Option<usize>,
                 event: &::usage_argv::Event<'_, '_>,
             ) -> bool {
-                #(#applies)*
-                false
+                match selected {
+                    #(#applies)*
+                    // Nothing selected yet, or a position that cannot be produced: the event
+                    // is not one of these commands'.
+                    _ => false,
+                }
             }
 
             fn check<'t, 'v>(
@@ -1548,6 +1760,26 @@ fn displaced_guard(cli: &Cli, field: &Field) -> TokenStream {
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
+    // A flattened struct declares its own required-ness and choices, and only it knows them.
+    //
+    // Run before this command's own required-ness, on the same principle that puts conflicts
+    // first: what the user typed wrong is more useful to hear about than what they left out.
+    // `config --format yaml` should say `yaml` is not one of the choices, even if `--file` is
+    // also missing.
+    //
+    // No finer promise than that. These checks are grouped by kind rather than by field, so
+    // there is no "in declaration order" to offer — a flattened group's errors interleave with
+    // this command's by kind, not by where the field was written.
+    let flattened_checks = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        let ty = in_module(ty);
+        Some(quote! {
+            <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+        })
+    });
     // Applied here rather than in `start`, and this is not a detail: `start` builds the
     // partial for *every* command in the CLI, selected or not, so a declared default was
     // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
@@ -1836,6 +2068,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#flattened_checks)*
         #(#required_checks)*
         #(#relationship_required_checks)*
         #(#choice_checks)*

@@ -32,22 +32,81 @@ use crate::{Arg, Command, DoubleDash, Flag};
 /// to see other expansions — it hashes the type name to keep them apart. That makes
 /// a collision astronomically unlikely rather than impossible, so it is checked
 /// where a CLI is written out, which every adopter does in a test.
+///
+/// Checked *per command*, not across the tree. A key only ever decides between the flags of
+/// the one command in scope, and `#[usage(flatten)]` makes sharing one across commands
+/// ordinary rather than suspect: mise gives a single `ConfigLs` to both `config` and
+/// `config ls`, so that declaration — and its key — is in both tables by design. An earlier
+/// version of this check looked at the whole tree and called that an error.
 fn duplicate_key(cmd: &Command<'_>) -> Option<u64> {
-    let mut keys = std::vec::Vec::new();
-    collect_keys(cmd, &mut keys);
+    let mut keys: std::vec::Vec<u64> = cmd
+        .flags
+        .iter()
+        .map(|f| f.key)
+        .chain(cmd.args.iter().map(|a| a.key))
+        .collect();
     keys.sort_unstable();
-    keys.windows(2)
-        .find(|pair| pair[0] == pair[1])
-        .map(|pair| pair[0])
+    if let Some(pair) = keys.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0]);
+    }
+    cmd.subcommands.iter().find_map(|sub| duplicate_key(sub))
 }
 
-fn collect_keys(cmd: &Command<'_>, keys: &mut std::vec::Vec<u64>) {
-    keys.push(cmd.key);
-    keys.extend(cmd.flags.iter().map(|f| f.key));
-    keys.extend(cmd.args.iter().map(|a| a.key));
-    for sub in cmd.subcommands {
-        collect_keys(sub, keys);
+/// A long or short form that two flags on the same command both answer to, if any.
+///
+/// Within one struct the derive catches this, but `#[usage(flatten)]` joins declarations from
+/// two expansions that cannot see each other — so `--quiet` on a parent and `--quiet` on the
+/// struct it flattens compiles, and then only the first is ever reached. Checked here for the
+/// same reason keys are: this is where the whole tree is visible, and writing a spec out is
+/// something every adopter does in a test.
+fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
+    let mut forms: std::vec::Vec<std::string::String> = std::vec::Vec::new();
+    for flag in cmd.flags {
+        for long in flag.longs.iter().chain(flag.negate.iter()) {
+            forms.push(std::format!("--{long}"));
+        }
+        for short in flag.shorts {
+            forms.push(std::format!("-{}", *short as char));
+        }
     }
+    forms.sort_unstable();
+    if let Some(pair) = forms.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0].clone());
+    }
+    cmd.subcommands
+        .iter()
+        .find_map(|sub| duplicate_flag_form(sub))
+}
+
+/// An argument that no word could ever reach, if any.
+///
+/// An unbounded variadic takes every remaining word, so what follows it can never be filled —
+/// unless something stops the variadic. Two things do: an argument only fillable after a `--`,
+/// because the separator ends the collecting, and a `var_max`, because a bounded variadic hands
+/// over the words past its bound. mise relies on the first on `run`, `exec` and `git`.
+///
+/// `#[derive(Args)]` applies that rule to one struct's own arguments. It cannot apply it across
+/// a `#[usage(flatten)]`: the variadic may be on one side of the boundary and the argument that
+/// follows it on the other, and neither expansion can see the other's fields. Checked here for
+/// the same reason the duplicate checks are — this is where the joined table is visible.
+///
+/// Returns the name of the unreachable argument.
+fn unfillable_arg<'a>(cmd: &Command<'a>) -> Option<&'a str> {
+    let mut variadic: Option<&Arg<'_>> = None;
+    for arg in cmd.args {
+        // A `--` stops the collecting, so an argument behind one is still reachable — but only
+        // one separator exists, so nothing can follow *that*.
+        let stopped_by_separator = arg.double_dash == DoubleDash::Required;
+        if let Some(before) = variadic {
+            if !stopped_by_separator || before.double_dash == DoubleDash::Required {
+                return Some(arg.name);
+            }
+        }
+        if arg.var && arg.var_max.is_none() {
+            variadic = Some(arg);
+        }
+    }
+    cmd.subcommands.iter().find_map(|sub| unfillable_arg(sub))
 }
 
 /// A whole CLI: the root command plus what describes the program itself.
@@ -318,10 +377,27 @@ impl Spec<'_> {
     pub fn to_kdl(&self) -> String {
         debug_assert!(
             duplicate_key(self.root.cmd).is_none(),
-            "two things in this CLI share a key ({:?}), so a parse would bind the \
-             wrong one. A derive builds keys from a hash of the type they came from, \
-             so this means two type names collided.",
+            "two things on the same command share a key ({:?}), so a parse would bind the \
+             wrong one. A derive builds keys from a hash of the type they came from, so this \
+             means two type names collided — or one struct was flattened into the same \
+             command twice.",
             duplicate_key(self.root.cmd)
+        );
+        debug_assert!(
+            duplicate_flag_form(self.root.cmd).is_none(),
+            "two flags on the same command answer to {:?}, so only one of them could ever \
+             be reached. With `flatten` this is the collision neither expansion can see: \
+             the parent and the struct it flattens each declared it.",
+            duplicate_flag_form(self.root.cmd)
+        );
+        debug_assert!(
+            unfillable_arg(self.root.cmd).is_none(),
+            "no word could ever reach the argument {:?}, because an unbounded variadic before \
+             it takes every remaining one. With `flatten` this is the arrangement neither \
+             expansion can see: the variadic and the argument after it were declared in \
+             different structs. Give the variadic a `var_max`, or make the later argument \
+             fillable only after a `--`.",
+            unfillable_arg(self.root.cmd)
         );
         let mut out = String::new();
         // Unwrap-free: writing into a String cannot fail, and `write!` returning
@@ -899,8 +975,22 @@ pub trait Subcommands: Sized {
     /// The metadata for the variants, in the same order.
     const METAS: &'static [&'static CommandMeta<'static>];
 
-    /// Take one event, and say whether it belonged to one of these commands.
-    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+    /// Take one event, and say whether it belonged to the selected command.
+    ///
+    /// `selected` is a position in [`Subcommands::COMMANDS`], or `None` before any of them
+    /// has been reached — in which case the event cannot be theirs and nothing is asked.
+    ///
+    /// Only the selected one is asked, which is both cheaper and *necessary*. Cheaper because
+    /// a CLI with a hundred subcommands would otherwise offer every event to all hundred.
+    /// Necessary because two commands can legitimately hold the same declaration once
+    /// `#[usage(flatten)]` exists: mise gives one `ConfigLs` to both `config` and `config ls`,
+    /// so the same key is in both tables, and whichever was asked first would claim the event
+    /// — including a command the user never named.
+    fn apply(
+        partial: &mut Self::Partial,
+        selected: Option<usize>,
+        event: &crate::Event<'_, '_>,
+    ) -> bool;
 
     /// Check the selected command's requirements, and nothing else's.
     ///
@@ -935,6 +1025,69 @@ mod tests {
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    #[test]
+    fn an_argument_no_word_can_reach_is_caught_where_the_table_is_joined() {
+        // The arrangement `flatten` makes possible and neither expansion can see: an
+        // unbounded variadic declared in one struct and an argument after it in another. The
+        // derive checks this within a struct; across the boundary it has no way to.
+        static FILES: Arg = Arg {
+            name: "files",
+            ..Arg::VAR
+        };
+        static AFTER: Arg = Arg {
+            name: "after",
+            ..Arg::REQUIRED
+        };
+        static BROKEN: Command = Command {
+            name: "ex",
+            args: &[&FILES, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&BROKEN), Some("after"));
+
+        // A bound stops the variadic, so what follows is reachable.
+        static BOUNDED: Arg = Arg {
+            name: "files",
+            var_max: Some(2),
+            ..Arg::VAR
+        };
+        static WITH_BOUND: Command = Command {
+            name: "ex",
+            args: &[&BOUNDED, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&WITH_BOUND), None);
+
+        // So does a `--`, which is what mise's `run`, `exec` and `git` rely on.
+        static PAST_SEPARATOR: Arg = Arg {
+            name: "args_last",
+            double_dash: DoubleDash::Required,
+            ..Arg::VAR
+        };
+        static WITH_SEPARATOR: Command = Command {
+            name: "ex",
+            args: &[&FILES, &PAST_SEPARATOR],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&WITH_SEPARATOR), None);
+
+        // But only one separator exists, so nothing can follow the variadic behind it.
+        static AFTER_THE_SEPARATOR: Command = Command {
+            name: "ex",
+            args: &[&PAST_SEPARATOR, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&AFTER_THE_SEPARATOR), Some("after"));
+
+        // Found at any depth, since a flattened struct can be used by a nested command.
+        static NESTED: Command = Command {
+            name: "outer",
+            subcommands: &[&BROKEN],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&NESTED), Some("after"));
     }
 
     #[test]
