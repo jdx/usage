@@ -10,6 +10,7 @@ pub use cli::Cli;
 mod cli;
 mod command_effects;
 pub mod env;
+mod schema;
 mod usage_spec;
 
 #[cfg(test)]
