@@ -166,10 +166,16 @@ impl LayerCtx {
         // binding carries the same information as one built from a key.
         let (id, renamed_from) = self.folded(id);
         match self.parse(id, raw) {
-            Ok(value) => Ok(Entry {
-                renamed_from,
-                ..Entry::new(id, value, origin)
-            }),
+            Ok(value) => {
+                let key = renamed_from.unwrap_or(self.registry.get(id).key);
+                if let Some(refused) = self.refused(id, &value, key, &origin) {
+                    return Err(refused);
+                }
+                Ok(Entry {
+                    renamed_from,
+                    ..Entry::new(id, value, origin)
+                })
+            }
             Err(err) => {
                 // The name that was written, not the one it folded to: a message about a key
                 // the user cannot find in their own file is no help.
@@ -187,6 +193,26 @@ impl LayerCtx {
 }
 
 impl LayerCtx {
+    /// The warning for a value the setting's `choice` nodes do not allow, if it is one.
+    ///
+    /// Beside the type check and for the same reason: a declared type and a declared set of values
+    /// are both the spec saying what may be here, and a value that is neither costs its own key and
+    /// nothing else. Until this, choices reached the docs, the JSON schema and completions, and
+    /// nothing that *resolved* a value — so a CLI documenting three allowed values took a fourth
+    /// without a word, and only failed later, somewhere that could not say why.
+    fn refused(&self, id: PropId, value: &Value, key: &str, origin: &Origin) -> Option<Warning> {
+        let meta = self.registry.get(id);
+        let refused = meta.refuses(value)?;
+        Some(Warning::at(
+            format!(
+                "{key} expected one of {} but has `{}`",
+                meta.allowed(),
+                crate::value::shown(refused)
+            ),
+            origin.clone(),
+        ))
+    }
+
     /// An entry for a dotted key, which is what a layer reading a file has in hand.
     ///
     /// The path worth taking: it looks the key up, follows a rename while remembering the name
@@ -222,10 +248,16 @@ impl LayerCtx {
         };
         let meta = self.registry.get(found.id);
         match meta.ty.coerce(value) {
-            Ok(value) => Ok(Entry {
-                renamed_from: found.renamed_from,
-                ..Entry::new(found.id, value, origin)
-            }),
+            Ok(value) => {
+                let key = found.renamed_from.unwrap_or(meta.key);
+                if let Some(refused) = self.refused(found.id, &value, key, &origin) {
+                    return Err(refused);
+                }
+                Ok(Entry {
+                    renamed_from: found.renamed_from,
+                    ..Entry::new(found.id, value, origin)
+                })
+            }
             Err(err) => Err(Warning::at(
                 format!(
                     "{} expected {} but has `{}`",
@@ -253,6 +285,7 @@ mod tests {
     use super::*;
     use crate::registry::PropMeta;
     use crate::ty::{Parser, Ty};
+    use crate::value::Const;
 
     static PROPS: &[PropMeta] = &[
         PropMeta::new("jobs", Ty::Uint),
@@ -260,8 +293,92 @@ mod tests {
             parse: Some(Parser::ListByComma),
             ..PropMeta::new("exclude", Ty::List(&Ty::String))
         },
+        // A setting the spec limits to three values, which is hk's `stash` and mise's nine
+        // enum-valued settings.
+        PropMeta {
+            choices: &[
+                Const::Str("git"),
+                Const::Str("patch-file"),
+                Const::Str("none"),
+            ],
+            ..PropMeta::new("stash", Ty::String)
+        },
+        // Choices on a list: each *item* is one of them, the way the JSON schema reads it.
+        PropMeta {
+            parse: Some(Parser::ListByComma),
+            choices: &[Const::Str("lint"), Const::Str("test")],
+            ..PropMeta::new("skip", Ty::List(&Ty::String))
+        },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn a_value_the_spec_does_not_allow_is_refused_with_the_list_of_what_is() {
+        // Choices reached the docs, the JSON schema and completions, and nothing that *resolved* a
+        // value: a CLI documenting three allowed values took a fourth in silence, and failed later
+        // somewhere that could not say why.
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::ENV, "HK_STASH");
+        let warning = ctx
+            .entry_for_key("stash", "svn", origin.clone())
+            .expect_err("not one of the three");
+        assert_eq!(
+            warning.message,
+            "stash expected one of git, patch-file, none but has `svn`"
+        );
+        // And a value that is one of them is just a value.
+        assert_eq!(
+            ctx.entry_for_key("stash", "git", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::from("git"))
+        );
+
+        // A list is checked item by item, and the *item* is what the message quotes — naming the
+        // whole list would leave the user to work out which of five items was the problem.
+        let warning = ctx
+            .entry_for_key("skip", "lint,fmt", origin.clone())
+            .expect_err("`fmt` is not one of them");
+        assert_eq!(
+            warning.message,
+            "skip expected one of lint, test but has `fmt`"
+        );
+        assert!(ctx.entry_for_key("skip", "lint,test", origin).is_ok());
+    }
+
+    #[test]
+    fn a_setting_with_no_choices_takes_what_its_type_takes() {
+        // Most settings say nothing about their values, and the check has to cost them nothing and
+        // refuse them nothing.
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::ENV, "HK_JOBS");
+        assert_eq!(
+            ctx.entry_for_key("jobs", "8", origin).map(|e| e.value),
+            Ok(Value::Int(8))
+        );
+    }
+
+    #[test]
+    fn a_structured_value_is_held_to_the_same_choices() {
+        // The other way a value arrives — a table or a list out of a file, which never passes
+        // through a parser. Checking one path and not the other is how a rule ends up applying to
+        // the environment and not to the file beside it.
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::FILE, "hk.toml");
+        let warning = ctx
+            .entry_from_value(
+                "skip",
+                Value::List(vec![Value::from("test"), Value::from("deploy")]),
+                origin.clone(),
+            )
+            .expect_err("`deploy` is not one of them");
+        assert_eq!(
+            warning.message,
+            "skip expected one of lint, test but has `deploy`"
+        );
+        assert!(ctx
+            .entry_from_value("skip", Value::List(vec![Value::from("test")]), origin)
+            .is_ok());
+    }
 
     #[test]
     fn a_raw_string_is_read_the_way_the_spec_says() {

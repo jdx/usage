@@ -10,7 +10,7 @@
 
 use crate::source::SourceKind;
 use crate::ty::{Parser, Ty};
-use crate::value::Const;
+use crate::value::{Const, Value};
 
 /// A setting's index in its registry.
 ///
@@ -76,6 +76,12 @@ pub struct PropMeta {
     /// asks the registry for its own kind and iterates what it finds, which is the whole
     /// mechanism behind hk's git and pkl layers and aube's `.npmrc`.
     pub bindings: &'static [(&'static str, &'static str)],
+    /// The only values this setting accepts, when it says.
+    ///
+    /// Empty means anything the type allows. Declared in the spec as `choice` nodes, where they
+    /// already reach the docs, the JSON schema and completions — and, until this, nothing that
+    /// *resolved* a value, so a CLI documenting three allowed values accepted a fourth in silence.
+    pub choices: &'static [Const],
     /// Kept out of documentation and completions. Still settable.
     pub hide: bool,
     /// Why not to use this any more.
@@ -98,6 +104,7 @@ impl PropMeta {
             parse: None,
             envs: &[],
             bindings: &[],
+            choices: &[],
             hide: false,
             deprecated: None,
             renamed_to: None,
@@ -119,6 +126,37 @@ pub struct Lookup {
     /// The key that was asked for, when it is not the key that was found — an old name still
     /// in somebody's config file. Carried so a warning can name it.
     pub renamed_from: Option<&'static str>,
+}
+
+impl PropMeta {
+    /// The first value here that this setting does not allow, if there is one.
+    ///
+    /// A collection is checked item by item, because choices on a `list<string>` mean each item is
+    /// one of them — the same rule `usage g json-schema` follows, which puts the enum on every value
+    /// position rather than on the container. Returning the offender rather than a bool is what lets
+    /// the warning quote the item that is wrong instead of the whole list it was in.
+    pub fn refuses<'v>(&self, value: &'v Value) -> Option<&'v Value> {
+        if self.choices.is_empty() {
+            return None;
+        }
+        match value {
+            Value::List(items) => items.iter().find_map(|item| self.refuses(item)),
+            Value::Map(entries) => entries.values().find_map(|item| self.refuses(item)),
+            scalar => match self.choices.iter().any(|choice| choice.matches(scalar)) {
+                true => None,
+                false => Some(scalar),
+            },
+        }
+    }
+
+    /// What it allows, written the way the spec declared them, for a message.
+    pub fn allowed(&self) -> String {
+        self.choices
+            .iter()
+            .map(|choice| choice.to_value().display())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl Registry {
