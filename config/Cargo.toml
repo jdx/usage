@@ -1,0 +1,20 @@
+[package]
+name = "usage-config"
+description = "Layered configuration resolution for usage specs, with provenance"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# Nothing here parses KDL: a spec is read at *build* time by usage-config-build, which emits
+# the registry as consts. This crate is what runs in the CLI, so it carries no spec parser,
+# no serde_json, and no format reader it was not asked for.
+[dependencies]
+
+[package.metadata.release]
+shared-version = true
+release = true
