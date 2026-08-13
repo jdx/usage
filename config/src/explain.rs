@@ -64,7 +64,7 @@ pub fn explain(resolved: &Resolved, key: &str) -> Option<String> {
         let _ = writeln!(out, "  {verb:<8}{}", one_line(origin.describe()));
     }
     // The spec's own spelling, not the prose an error message uses: a reader searching the docs
-    // for "a positive integer" finds nothing, and `uint` is what the author wrote.
+    // for "a non-negative integer" finds nothing, and `uint` is what the author wrote.
     let _ = writeln!(out, "  {:<8}{}", "type", meta.ty.name());
     if let Some(help) = meta.help {
         // Through the same helper as everything else: an adopter's help is a doc comment, and a

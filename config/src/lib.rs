@@ -73,6 +73,7 @@ pub mod explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub mod files;
 pub mod layer;
+pub mod read;
 pub mod registry;
 pub mod resolve;
 pub mod source;
@@ -83,6 +84,7 @@ pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub use files::{FileLayer, Format};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning};
+pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};
 pub use registry::{Lookup, Merge, PropId, PropMeta, Registry, Scope};
 pub use resolve::{resolve, Layers, Resolved};
 pub use source::{FileScope, Origin, SourceKind, Trust};
