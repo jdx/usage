@@ -336,7 +336,7 @@ mod tests {
         // twice, for exactly the warnings that had bothered to be specific.
         assert_eq!(
             warning.message,
-            "jobs expected a positive integer but has `lots`"
+            "jobs expected a non-negative integer but has `lots`"
         );
         assert_eq!(warning.origin, Some(origin));
 

@@ -69,7 +69,7 @@ impl Ty {
     ///
     /// Distinct from [`Ty::describe`], which is prose for an error message. An explanation shows
     /// the author's own vocabulary, because that is what a reader will search the docs for —
-    /// "type a positive integer" sends them looking for something no spec says.
+    /// "type a non-negative integer" sends them looking for something no spec says.
     pub fn name(self) -> String {
         match self {
             Self::Bool => "bool".into(),
@@ -96,7 +96,7 @@ impl Ty {
         match self.inner() {
             Self::Bool => "a boolean",
             Self::Int => "an integer",
-            Self::Uint => "a positive integer",
+            Self::Uint => "a non-negative integer",
             Self::Float => "a number",
             Self::String => "a string",
             Self::Path => "a path",
