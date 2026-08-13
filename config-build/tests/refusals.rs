@@ -36,6 +36,31 @@ fn the_checked_in_registry_is_what_the_generator_produces() {
 }
 
 #[test]
+fn the_name_in_the_header_stays_on_its_own_comment() {
+    // The header says which spec the file came from, in a *line* comment — and the name is a file
+    // name, or whatever a caller hands to `source_of_spec`. A newline in it ended that comment and
+    // everything after it read as code, in a file the adopter did not write.
+    let generated = source_of_spec(
+        &spec("    prop \"jobs\" type=\"uint\""),
+        "mycli.usage.kdl\nstruct Oops;",
+    )
+    .expect("should generate");
+    let first = generated.lines().next().unwrap_or_default();
+    assert!(first.starts_with("// @generated"), "{generated}");
+    assert!(
+        first.contains("mycli.usage.kdl struct Oops;"),
+        "{generated}"
+    );
+    // Nothing escaped onto a line of its own.
+    assert!(
+        !generated
+            .lines()
+            .any(|line| line.starts_with("struct Oops;")),
+        "the name ended its own comment:\n{generated}"
+    );
+}
+
+#[test]
 fn an_included_spec_is_watched_and_read() {
     // `include` is how a CLI with many settings keeps them in a file of their own, which makes that
     // file the one most likely to be edited — and watching only the file the build script names left
@@ -60,6 +85,19 @@ fn an_included_spec_is_watched_and_read() {
     let generated = source("tests/fixtures/split.usage.kdl").expect("generates");
     assert!(generated.contains("PropMeta::new(\"jobs\""), "{generated}");
     assert!(generated.contains("SPLIT_JOBS"), "{generated}");
+
+    // The list `generate_to` *prints* is the list it returns, which is the only way a test in this
+    // process can see it: `println!` to cargo goes nowhere it can read.
+    let out = std::env::temp_dir()
+        .join(format!("usage_config_build_watch_{}", std::process::id()))
+        .join("settings.rs");
+    let printed =
+        usage_config_build::generate_to("tests/fixtures/split.usage.kdl", &out).expect("generates");
+    assert_eq!(
+        printed, watched,
+        "what it watched is what it said it watched"
+    );
+    let _ = std::fs::remove_dir_all(out.parent().unwrap_or(&out));
 }
 
 #[test]

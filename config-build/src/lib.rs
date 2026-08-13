@@ -47,21 +47,28 @@ pub fn generate(spec: impl AsRef<Path>) -> Result<PathBuf, Error> {
     Ok(out)
 }
 
-/// Read `spec` and write the registry to `out`.
+/// Read `spec` and write the registry to `out`, returning the files it told cargo to watch.
 ///
 /// For a caller that keeps generated code in the repository rather than in `OUT_DIR` — which is
-/// how this crate tests itself, and how a CLI that wants its registry reviewable does it.
-pub fn generate_to(spec: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<(), Error> {
+/// how this crate tests itself, and how a CLI that wants its registry reviewable does it. The
+/// returned list is what was printed, rather than a second list assembled the same way: printing is
+/// not something a test in this process can see, and a watch list nothing checks is one that can
+/// quietly lose a file.
+pub fn generate_to(spec: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
     let spec = spec.as_ref();
     // Before anything can fail, so a spec that does not parse is still watched and the next build
     // is not a stale success.
     println!("cargo::rerun-if-changed={}", spec.display());
-    let source = source(spec)?;
-    // And every file the spec *included*, which is where a CLI with many settings keeps them — so
+    let parsed = parse(spec)?;
+    // Every file the spec *included*, which is where a CLI with many settings keeps them — so
     // watching only the file the build script names left editing the settings rebuilding nothing.
-    for watched in watched(spec)?.into_iter().skip(1) {
-        println!("cargo::rerun-if-changed={}", watched.display());
+    // Printed before the registry is built, so a spec whose settings are *refused* still watches the
+    // file its author is about to go and edit.
+    for included in parsed.sources.iter().skip(1) {
+        println!("cargo::rerun-if-changed={}", included.display());
     }
+    let watching = parsed.sources.clone();
+    let source = source_of(&parsed.config, &name_of(spec))?;
     let out = out.as_ref();
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).map_err(|err| Error::Io {
@@ -72,12 +79,13 @@ pub fn generate_to(spec: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<(), 
     // Only when it differs, so a checked-in registry keeps its mtime and nothing downstream
     // rebuilds for a generator that produced the same bytes.
     if std::fs::read_to_string(out).is_ok_and(|existing| existing == source) {
-        return Ok(());
+        return Ok(watching);
     }
     std::fs::write(out, source).map_err(|err| Error::Io {
         path: out.to_path_buf(),
         why: err.to_string(),
-    })
+    })?;
+    Ok(watching)
 }
 
 /// Every file a build should watch: the spec, then each `include`, recursively.
@@ -86,20 +94,28 @@ pub fn generate_to(spec: impl AsRef<Path>, out: impl AsRef<Path>) -> Result<(), 
 /// the registry somewhere of its own, or generating other things from the same spec — wants the list
 /// rather than the printing.
 pub fn watched(spec: impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
-    let parsed =
-        usage::Spec::parse_file(spec.as_ref()).map_err(|err| Error::Spec(err.to_string()))?;
-    Ok(parsed.sources)
+    Ok(parse(spec.as_ref())?.sources)
 }
 
 /// The Rust source a spec's `config` block becomes.
 pub fn source(spec: impl AsRef<Path>) -> Result<String, Error> {
     let spec = spec.as_ref();
-    let parsed = usage::Spec::parse_file(spec).map_err(|err| Error::Spec(err.to_string()))?;
-    let name = spec
-        .file_name()
+    source_of(&parse(spec)?.config, &name_of(spec))
+}
+
+/// The spec, read once.
+///
+/// [`generate_to`] wants two things from it — the files to watch and the registry to write — and
+/// asking for them one at a time parsed the whole spec twice on every build.
+fn parse(spec: &Path) -> Result<usage::Spec, Error> {
+    usage::Spec::parse_file(spec).map_err(|err| Error::Spec(err.to_string()))
+}
+
+/// What the generated header calls the spec it came from.
+fn name_of(spec: &Path) -> String {
+    spec.file_name()
         .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| spec.display().to_string());
-    source_of(&parsed.config, &name)
+        .unwrap_or_else(|| spec.display().to_string())
 }
 
 /// The same, from a spec that is already in memory.
