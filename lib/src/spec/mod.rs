@@ -4,6 +4,7 @@ pub mod choices;
 pub mod cmd;
 pub mod complete;
 pub mod config;
+pub mod config_type;
 mod context;
 pub mod data_types;
 pub mod effect;
