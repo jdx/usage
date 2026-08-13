@@ -249,6 +249,10 @@ impl Cli {
     /// attribute is required at the root and a mistake below it, or the reverse. Called with
     /// `is_root` from each derive.
     ///
+    /// The *name* a `default_subcommand` gives is not checked here. It is resolved by
+    /// `usage_argv::find_subcommand` during const evaluation, so a name no subcommand answers
+    /// to fails to compile there.
+    ///
     /// Every rule here exists because the *spec* cannot express the thing anywhere else.
     /// Without them a declaration is accepted, dropped on the way to the KDL, and missed —
     /// or, for a root `mount`, trips a `debug_assert!` in the writer, which is a poor way to

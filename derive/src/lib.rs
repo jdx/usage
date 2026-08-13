@@ -228,6 +228,8 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Args, attributes(usage))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
+    // declared once for the whole spec and does not.
     let parsed = model::Cli::from_input(&input)
         .and_then(|cli| cli.check_position(&input.ident, false).map(|()| cli));
     match parsed {

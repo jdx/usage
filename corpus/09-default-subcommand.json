@@ -1,0 +1,141 @@
+{
+  "section": "default-subcommand",
+  "about": "Where a word goes when it names no subcommand. `default_subcommand` makes `mise build` mean `mise run build`: the word selects nothing, so the parser descends into the named command and the word is re-examined there. It is declared once, for the whole spec.",
+  "vectors": [
+    {
+      "id": "default-route",
+      "doc": "A word naming no subcommand descends into the default one and binds as its argument.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["build"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": {
+            "TASK": "build"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-beats-the-root-own-arg",
+      "doc": "The declaring command's own positional does not win. This is what makes the property more than a synonym for an argument, and it is mise's shape exactly: the root has `[TASK]` and `run` has one too.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[ROOT_TASK]\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["build"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": {
+            "TASK": "build"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-not-used-when-named",
+      "doc": "A word that does name a subcommand selects it; the default is only for words that name nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\ncmd \"install\"\n",
+      "argv": ["install"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"]
+        }
+      }
+    },
+    {
+      "id": "default-word-reexamined",
+      "doc": "The word is examined again against the command it reached, so it can name one of *its* subcommands. mise's mounted task names arrive this way.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\" {\n  cmd \"lint\"\n}\n",
+      "argv": ["lint"],
+      "expect": {
+        "ok": {
+          "cmd": ["run", "lint"]
+        }
+      }
+    },
+    {
+      "id": "default-flag-before-the-word",
+      "doc": "Routing happens at the word, so a flag typed before it was addressed to the command the user was at.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\nflag \"--verbose\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["--verbose", "build"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": {
+            "TASK": "build"
+          },
+          "flags": {
+            "verbose": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-after-separator",
+      "doc": "Past `--` no subcommand can be selected, so there is no default to reach either: the word is a value of whatever the command declares.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[ROOT_TASK]\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["--", "build"],
+      "expect": {
+        "ok": {
+          "cmd": [],
+          "args": {
+            "ROOT_TASK": "build"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-is-declared-for-the-root",
+      "doc": "`default_subcommand` names one command for the whole program. A nested command that happens to have a subcommand of that name does not thereby acquire a default of its own.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"ls\"\ncmd \"ls\"\ncmd \"config\" {\n  cmd \"ls\" {\n    arg \"[WHAT]\"\n  }\n}\n",
+      "argv": ["config", "zzz"],
+      "expect": {
+        "error": "unexpected_arg"
+      },
+      "reference": {
+        "diverges": "usage-lib holds the one name for the whole spec and applies it at whichever command it is standing on, so `ex config zzz` descends into `config ls` and binds `zzz` there. That makes an unrelated command acquire a default because a name happened to match one level down, which reads as accidental rather than declared \u2014 the property is written once, at the top, and nothing says it applies anywhere else."
+      }
+    },
+    {
+      "id": "default-not-taken-by-an-unknown-flag",
+      "doc": "A dash-prefixed token naming no flag is a value, and was never a candidate to select a command \u2014 so it binds where it was typed rather than in the default subcommand. usage-lib stops looking for subcommands at an unrecognised flag for the same reason.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[ROOT_TASK]\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["--wat"],
+      "expect": {
+        "ok": {
+          "cmd": [],
+          "args": {
+            "ROOT_TASK": "--wat"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-not-taken-by-an-unknown-short",
+      "doc": "The same for a short form, which reaches the positional by a different route through the parser.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[ROOT_TASK]\"\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["-x"],
+      "expect": {
+        "ok": {
+          "cmd": [],
+          "args": {
+            "ROOT_TASK": "-x"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-named-by-an-alias",
+      "doc": "`default_subcommand` may name an alias rather than the canonical name, which usage-lib resolves against names, aliases and hidden aliases alike.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"r\"\ncmd \"run\" {\n  alias \"r\"\n  arg \"[TASK]\"\n}\n",
+      "argv": ["build"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": {
+            "TASK": "build"
+          }
+        }
+      }
+    }
+  ]
+}

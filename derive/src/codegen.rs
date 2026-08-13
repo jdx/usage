@@ -73,6 +73,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|p| p.commands.clone())
         .unwrap_or_default();
+    let sub_default = parts
+        .as_ref()
+        .map(|p| p.default.clone())
+        .unwrap_or_default();
     let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
@@ -115,6 +119,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 flags: &[#(#flag_refs),*],
                 args: &[#(#arg_refs),*],
                 #sub_commands
+                #sub_default
                 ..Command::EMPTY
             };
 
@@ -1047,6 +1052,8 @@ fn apply_fn(cli: &Cli) -> TokenStream {
 struct SubcommandParts {
     /// `subcommands:` for the `Command` table.
     commands: TokenStream,
+    /// `default_subcommand:` for the `Command` table, when one is declared.
+    default: TokenStream,
     /// `subcommands:` for the `CommandMeta`.
     metas: TokenStream,
     /// Fields the partial needs to carry.
@@ -1098,6 +1105,21 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 
     Some(SubcommandParts {
         commands: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS,),
+        // Resolved from the name at compile time. The variants are another expansion, so the
+        // name is all there is to go on here — but `find_subcommand` searches the list during
+        // const evaluation, which means a name no subcommand answers to fails to compile
+        // rather than being emitted into a spec that nothing checks.
+        default: match cli.default_subcommand.as_deref() {
+            ::std::option::Option::Some(name) => quote! {
+                default_subcommand: ::std::option::Option::Some(
+                    ::usage_argv::find_subcommand(
+                        <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS,
+                        #name,
+                    ),
+                ),
+            },
+            ::std::option::Option::None => TokenStream::new(),
+        },
         metas: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::METAS,),
         partial_fields: quote! {
             pub __usage_sub: <#in_mod as ::usage_argv::spec::Subcommands>::Partial,

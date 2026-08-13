@@ -54,18 +54,45 @@ fn a_task_runs_with_arguments_after_a_separator() {
 }
 
 #[test]
-fn a_bare_task_lands_on_the_root_positional() {
-    // `mise build -- --verbose` fills the root's own `[TASK]`, with the words after the
-    // separator kept apart.
+fn a_bare_task_routes_through_run_and_then_needs_the_mount() {
+    // `mise build` used to fill the root's own `[TASK]` here, because the derive could not
+    // declare `default_subcommand`. Now it can, so the shadow does what mise's spec says:
+    // `build` names no subcommand, so the parser descends into `run`.
     //
-    // Real mise routes this through `run`, because its spec sets `default_subcommand
-    // run` — which the derive cannot declare, so the shadow answers at the root
-    // instead. One of the differences `gen-shadow` counts rather than one it hides.
+    // And there it stops, because mise's spec gives `run` no positional arguments at all —
+    // `src/cli/usage.rs` clears them and adds `mount run="mise tasks --usage"`, so the task
+    // names are supposed to come from running that. usage-argv does not execute mounts (a
+    // subprocess mid-parse is not something a hot path should do), so there is nothing for
+    // the word to bind to.
+    //
+    // Worth being plain about, because it bounds what routing alone buys: `mise build`
+    // working end to end needs the mount as well, and mise's own hand-rolled routing cannot
+    // be deleted on the strength of this rule by itself.
+    let a = argv(["build"]);
+    match Cli::parse_from(&a) {
+        Err(usage_argv::Error::UnexpectedArg { token }) => {
+            assert_eq!(
+                token, b"build",
+                "descended into `run`, which has no argument"
+            );
+        }
+        Err(other) => panic!("wrong error: {other:?}"),
+        Ok(_) => panic!("`run` has no positional in mise's spec, so this cannot bind"),
+    }
+
+    // The separator behaves the same way: routing happens at the word, and the words after
+    // `--` were never candidates for it.
     let a = argv(["build", "--", "--verbose"]);
-    let cli = Cli::parse_from(&a).expect("should parse");
-    assert_eq!(cli.task.as_deref(), Some("build"));
-    assert_eq!(cli.task_args_last, ["--verbose"]);
-    assert!(cli.command.is_none(), "`build` is not a subcommand");
+    assert!(matches!(
+        Cli::parse_from(&a),
+        Err(usage_argv::Error::UnexpectedArg { .. })
+    ));
+
+    // A word that *does* name a command is unaffected, which is the case that matters for
+    // every other invocation in this file.
+    let a = argv(["ls"]);
+    let cli = Cli::parse_from(&a).expect("`ls` names a command");
+    assert!(cli.command.is_some());
 }
 
 #[test]
@@ -126,9 +153,9 @@ fn a_command_that_requires_a_subcommand_refuses_to_stand_alone() {
     let a = argv(["bootstrap", "accounts", "status"]);
     Cli::parse_from(&a).expect("`accounts status` should parse");
 
-    // And the root does not require one, because `mise <task>` is a whole invocation.
-    let a = argv(["build"]);
-    Cli::parse_from(&a).expect("a bare task should parse");
+    // And the root does not require one: `mise` alone is a whole invocation.
+    let a: [&std::ffi::OsStr; 0] = [];
+    Cli::parse_from(&a).expect("a bare `mise` should parse");
 }
 
 #[test]
