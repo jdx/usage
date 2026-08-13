@@ -353,7 +353,13 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         }
         (true, Dialect::Clap) => {
             out.push_str("#[derive(Parser)]\n");
-            out.push_str(&format!("#[command(name = {bin:?})]\n"));
+            // The descriptions go here too when a comment cannot carry them. clap takes an
+            // independent `about` and `long_about`, and skipping the comment without writing
+            // them left the clap shadow not describing the program at all — a fixture for
+            // comparing two frameworks cannot have one of them missing the CLI's own about.
+            let mut opts = vec![format!("name = {bin:?}")];
+            opts.extend(declared_about.iter().cloned());
+            out.push_str(&format!("#[command({})]\n", opts.join(", ")));
         }
         (false, Dialect::Usage) => {
             out.push_str("#[derive(Args)]\n");
