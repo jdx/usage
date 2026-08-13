@@ -560,7 +560,11 @@ fn usage_flag_opts(
     ty: &str,
     skipped: &mut Skipped,
 ) -> Vec<String> {
-    let mut opts: Vec<String> = declared_help(flag.help.as_deref(), long);
+    // `flag.help_long`, not `long` — that is the flag's long *name*, which every other caller of
+    // this function gets right. Passing it here emitted `long_help = "shims"` for a flag called
+    // `--shims`, so the shadow dropped the real long help and its regenerated spec said the
+    // flag's own name where the source said a paragraph.
+    let mut opts: Vec<String> = declared_help(flag.help.as_deref(), flag.help_long.as_deref());
     // Written out rather than bare, because the field name may have been sanitized —
     // `--type` becomes `type_`, and a bare `long` would rename the flag.
     if let Some(long) = long {
@@ -1110,6 +1114,25 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn a_flags_long_help_is_its_long_help_and_not_its_name() {
+        // The long *name* was passed where the long *help* belongs, so a flag called `--shims`
+        // with a paragraph of extended help emitted `long_help = "shims"` — the shadow dropped
+        // the real text, and its regenerated spec said the flag's own name instead.
+        // The short help has to be *multi-line* to reach this path at all: a one-line help is
+        // written as a doc comment, and `declared_help` — where the bug lived — is only called
+        // for help a comment cannot carry. Without that, the mutation survived.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=\"Use shims\\nacross tools\" \\
+                long_help=\"Use shims\\nacross tools\\n\\nAnd here is why.\"\n",
+        );
+        assert!(
+            !out.contains(r#"long_help = "shims""#),
+            "the flag's name became its long help: {out}"
+        );
+        assert!(out.contains("And here is why."), "{out}");
     }
 
     #[test]

@@ -235,9 +235,21 @@ fn a_command_can_be_hidden() {
         "and its sibling is not"
     );
 
-    // Still reachable, which is the whole point of hidden rather than absent.
+    // Still reachable, which is the whole point of hidden rather than absent — and its flags
+    // bind as any other command's do.
     use std::ffi::OsStr;
     let argv = [OsStr::new("asdf"), OsStr::new("--force")];
     let parsed = Verbatim::parse_from(&argv).expect("a hidden command still parses");
-    assert!(matches!(parsed.command, Some(Commands::Asdf(_))));
+    let Some(Commands::Asdf(internal)) = parsed.command else {
+        panic!("expected the hidden command")
+    };
+    assert!(internal.force);
+
+    // And the visible sibling, whose declared help is the subject of the test above.
+    let argv = [OsStr::new("activate"), OsStr::new("--shims")];
+    let parsed = Verbatim::parse_from(&argv).expect("should parse");
+    let Some(Commands::Activate(shims)) = parsed.command else {
+        panic!("expected activate")
+    };
+    assert!(shims.shims);
 }
