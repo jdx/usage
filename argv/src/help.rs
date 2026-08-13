@@ -70,12 +70,12 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
     // what a user is invited to type.
     let flags: usize = meta.flags.iter().filter(|f| !f.hide).count();
     if flags > 0 {
-        let required = meta.flags.iter().any(|f| !f.hide && f.required);
+        let required = meta.flags.iter().any(|f| !f.hide && flag_demanded(f));
         if flags <= INLINE_LIMIT {
             for flag in meta.flags.iter().filter(|f| !f.hide) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
-                let (open, close) = if flag.required {
+                let (open, close) = if flag_demanded(flag) {
                     ('<', '>')
                 } else {
                     ('[', ']')
@@ -91,7 +91,7 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
 
     let args: usize = meta.args.iter().filter(|a| !a.hide).count();
     if args > 0 {
-        let required = meta.args.iter().any(|a| !a.hide && a.required);
+        let required = meta.args.iter().any(|a| !a.hide && demanded(a));
         if args <= INLINE_LIMIT {
             for arg in meta.args.iter().filter(|a| !a.hide) {
                 let _ = write!(out, " {}", arg_usage(arg));
@@ -162,10 +162,32 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
 }
 
 /// How one positional argument appears: `<TOOL>`, `[FILES]…`, `-- <ARGS>`.
+/// Whether a flag must be given, which is not quite what `required` says.
+///
+/// Same rule as [`demanded`], for the same reason: usage-lib clears `required` on a flag that
+/// declares a default before rendering, so reading the flag alone printed `<--out>` for a flag
+/// the parser fills when it is left out.
+fn flag_demanded(meta: &FlagMeta<'_>) -> bool {
+    meta.required && meta.default.is_empty()
+}
+
+/// Whether an argument must be given, which is not quite what `required` says.
+///
+/// usage-lib clears `required` while *parsing* a spec that declares a default — a defaulted
+/// argument is one the user may leave out — and then renders the usage line from `required`
+/// alone. The derive keeps the two separate, so reading `required` on its own printed `<file>`
+/// where usage-lib prints `[file]`, for an argument the parser is perfectly happy to omit.
+///
+/// Applied here rather than by clearing the flag in the metadata, because the metadata is what
+/// the emitted spec is built from and `required` there means what the author wrote.
+fn demanded(meta: &ArgMeta<'_>) -> bool {
+    meta.required && meta.default.is_empty()
+}
+
 fn arg_usage(meta: &ArgMeta<'_>) -> String {
     let arg = meta.arg;
     let mut out = String::new();
-    let (open, close) = if meta.required {
+    let (open, close) = if demanded(meta) {
         ('<', '>')
     } else {
         ('[', ']')
