@@ -957,8 +957,26 @@ fn selector_list(option: &str, selectors: &[String]) -> String {
 /// becomes a space. mise's specs use multi-line `help` on 37 commands and flags, and every one
 /// of them came back with its lines run together — so where the break is part of the text, the
 /// generated code declares it instead.
-fn needs_declaring(help: Option<&str>) -> bool {
-    help.map(|h| h.trim().contains('\n')).unwrap_or(false)
+fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
+    // A break inside the first paragraph becomes a space.
+    let flowed = help.map(|h| h.trim().contains('\n')).unwrap_or(false);
+    // And a comment's long form always *contains* its short one, because the short form is the
+    // comment's first paragraph. Where a spec's two are independent — `cmd settings` says
+    // "Manage settings" and then "Show current settings…" — no comment says both, and reading
+    // one back gave the short form twice with the long text after it.
+    // Exactly, not nearly: the comment path reconstructs the long form as "short + rest", so it
+    // is only lossless when the long form opens with the short one and then breaks. mise's specs
+    // often end that opening sentence with a period the short form leaves off, and the
+    // punctuation was being thrown away to make the two match — "Task to run." came back as
+    // "Task to run".
+    let independent = match (help, long) {
+        (Some(h), Some(l)) => match l.trim_start().strip_prefix(h.trim()) {
+            Some(rest) => !(rest.is_empty() || rest.starts_with('\n') || rest.starts_with('\r')),
+            None => true,
+        },
+        _ => false,
+    };
+    flowed || independent
 }
 
 /// The same declarations in clap's vocabulary.
@@ -990,7 +1008,10 @@ fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> 
 /// The `help = "..."` option for text a comment would reflow.
 fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
     let mut opts = Vec::new();
-    if let Some(help) = help.filter(|h| needs_declaring(Some(h))) {
+    if needs_declaring(help, long) {
+        let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
+            return opts;
+        };
         opts.push(format!("help = {:?}", help.trim()));
         // The long form goes with it: read from the comment, it would be measured against a
         // short form that no longer matches, and written in full twice over.
@@ -1004,7 +1025,7 @@ fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
 fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: usize) {
     let indent = "    ".repeat(depth);
     // Declared instead, by `declared_help`.
-    if needs_declaring(help) {
+    if needs_declaring(help, long) {
         return;
     }
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
@@ -1272,12 +1293,19 @@ mod tests {
         // really has: a long form whose first sentence ends in a period the short form
         // leaves off, which left the period stranded on a line of its own, and an
         // indented example, which lost its indentation.
+        // A long form whose first sentence ends in a period the short form leaves off is
+        // declared now rather than written as a comment — the comment path reconstructs it as
+        // "short + rest" and the punctuation lives exactly between them, so there is nowhere
+        // for it to go. What matters either way is that the text survives whole.
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--security\" help=\"Include security info\" \\
                 long_help=\"Include security info.\\n\\nRequires --json.\"\n",
         );
         assert!(!out.contains("/// ."), "a stranded period: {out}");
-        assert!(out.contains("/// Requires --json."), "{out}");
+        assert!(
+            out.contains(r#"long_help = "Include security info.\n\nRequires --json.""#),
+            "{out}"
+        );
 
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=\"Use shims\" \\
@@ -1290,11 +1318,23 @@ mod tests {
     }
 
     #[test]
-    fn a_long_form_that_only_adds_a_period_says_nothing() {
+    fn a_long_form_that_only_adds_a_period_is_declared_rather_than_lost() {
+        // This used to emit one comment and drop the period, on the grounds that the two forms
+        // said the same thing. They do — but the *spec* does not say the same thing, and the
+        // regenerated one has to. Rendering mise's help against usage-lib's showed it: the
+        // reference prints "Task to run." and the shadow printed "Task to run".
+        //
+        // So the pair is declared, which is the only way a comment cannot mangle it: a comment
+        // reconstructs the long form as "short + rest", and the punctuation lives between them.
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--force\" help=\"Do it\" long_help=\"Do it.\"\n",
         );
-        assert_eq!(out.matches("/// Do it").count(), 1, "{out}");
+        assert!(out.contains(r#"help = "Do it""#), "{out}");
+        assert!(out.contains(r#"long_help = "Do it.""#), "{out}");
+        assert!(
+            !out.contains("/// Do it"),
+            "declared, so there is no comment to disagree with it: {out}"
+        );
     }
 
     #[test]
