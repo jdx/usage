@@ -318,6 +318,19 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         usage_opts.push(format!("bin = {bin:?}"));
         usage_opts.extend(declared_about.iter().cloned());
     }
+    // Text around the rest of the page. clap spells the long forms the same way, so both
+    // dialects can carry them.
+    for (node, text) in [
+        ("before_help", cmd.before_help.as_deref()),
+        ("before_long_help", cmd.before_help_long.as_deref()),
+        ("after_help", cmd.after_help.as_deref()),
+        ("after_long_help", cmd.after_help_long.as_deref()),
+    ] {
+        if let Some(text) = text.filter(|t| !t.trim().is_empty()) {
+            usage_opts.push(format!("{node} = {:?}", text.trim_end()));
+        }
+    }
+
     for (present, declaration, what) in [
         (
             is_root && run.default_subcommand.is_some(),
@@ -1049,7 +1062,9 @@ fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
         // The long form goes with it: read from the comment, it would be measured against a
         // short form that no longer matches, and written in full twice over.
         if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
-            opts.push(format!("long_help = {:?}", long.trim_end()));
+            // Not trimmed: a long form that *ends* with a blank line means it, and the reference
+            // prints that emptiness — `plugins ls-remote` closes on one.
+            opts.push(format!("long_help = {:?}", long));
         }
     }
     opts

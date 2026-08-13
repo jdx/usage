@@ -42,6 +42,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let before_help = option_str(cli.before_help.as_deref());
+    let before_long_help = option_str(cli.before_long_help.as_deref());
+    let after_help = option_str(cli.after_help.as_deref());
+    let after_long_help = option_str(cli.after_long_help.as_deref());
     let root_key = key_ident("COMMAND", None);
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
@@ -132,6 +136,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 mount: #mount,
+                before_help: #before_help,
+                before_long_help: #before_long_help,
+                after_help: #after_help,
+                after_long_help: #after_long_help,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas
@@ -1389,6 +1397,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let command_key = key_ident("COMMAND", None);
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let before_help = option_str(cli.before_help.as_deref());
+    let before_long_help = option_str(cli.before_long_help.as_deref());
+    let after_help = option_str(cli.after_help.as_deref());
+    let after_long_help = option_str(cli.after_long_help.as_deref());
 
     let flags: Vec<&Field> = cli
         .fields
@@ -1477,6 +1489,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 mount: #mount,
+                before_help: #before_help,
+                before_long_help: #before_long_help,
+                after_help: #after_help,
+                after_long_help: #after_long_help,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas

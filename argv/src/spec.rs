@@ -213,6 +213,15 @@ pub struct CommandMeta<'a> {
     /// A token that starts a fresh invocation of this command, such as mise's
     /// `:::`.
     pub restart_token: Option<&'a str>,
+    /// Text printed above the usage line, and below everything else.
+    ///
+    /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
+    /// section in `after_long_help` on 115 commands, which is where the reference renders it
+    /// from — so a help page without these is missing the part a reader came for.
+    pub before_help: Option<&'a str>,
+    pub before_long_help: Option<&'a str>,
+    pub after_help: Option<&'a str>,
+    pub after_long_help: Option<&'a str>,
     pub examples: &'a [Example<'a>],
     /// Metadata for `cmd.flags`, in the same order.
     pub flags: &'a [FlagMeta<'a>],
@@ -233,6 +242,10 @@ impl CommandMeta<'_> {
         effect: None,
         mount: None,
         restart_token: None,
+        before_help: None,
+        before_long_help: None,
+        after_help: None,
+        after_long_help: None,
         examples: &[],
         flags: &[],
         args: &[],
@@ -560,6 +573,19 @@ fn write_command(
     if let Some(long_about) = meta.long_about {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_about))?;
+    }
+    // Text around the rest of the page. Written in the spec's order so a round trip reads the
+    // same way it was written.
+    for (node, text) in [
+        ("before_help", meta.before_help),
+        ("before_long_help", meta.before_long_help),
+        ("after_help", meta.after_help),
+        ("after_long_help", meta.after_long_help),
+    ] {
+        if let Some(text) = text {
+            indent(out, inner)?;
+            writeln!(out, "{node} {}", quoted(text))?;
+        }
     }
     if let Some(mount) = meta.mount {
         indent(out, inner)?;

@@ -11,7 +11,7 @@
 //! by hand.
 
 use usage::{Spec as LibSpec, SpecCommand};
-use usage_argv::help::{short_help, usage_line};
+use usage_argv::help::{long_help, short_help, usage_line};
 use usage_argv::spec::CommandMeta;
 
 /// mise's committed spec, which the shadow was generated from.
@@ -154,6 +154,48 @@ fn every_short_help_matches_the_reference() {
         differences.len(),
         commands.len(),
         // Two is enough to work from, and the whole set would bury the count.
+        differences
+            .iter()
+            .take(2)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
+
+#[test]
+fn every_long_help_matches_the_reference() {
+    // `--help`: the same content through the wider layout — help aligned into a column and
+    // wrapped, long descriptions preferred, annotations on their own lines. Both sides read
+    // `COLUMNS` the same way and fall back to the same 80, so they agree about where a line
+    // ends whatever the environment says.
+    let spec = mise_spec();
+    let root = shadow_mise::Cli::spec();
+
+    let mut commands = Vec::new();
+    walk(vec!["mise"], root.root, &mut commands);
+
+    let mut differences = Vec::new();
+    for (path, meta) in &commands {
+        let ours = long_help(root, path, meta);
+        let Some(cmd) = lib_command(&spec, &path[1..]) else {
+            continue;
+        };
+        let theirs = usage::docs::cli::render_help(&spec, cmd, true);
+        if ours != theirs {
+            differences.push(format!(
+                "{}\n{}",
+                path.join(" "),
+                first_diff(&ours, &theirs)
+            ));
+        }
+    }
+
+    assert!(
+        differences.is_empty(),
+        "{} of {} long help pages differ:\n{}",
+        differences.len(),
+        commands.len(),
         differences
             .iter()
             .take(2)
