@@ -45,6 +45,31 @@ fn a_short_only_flag_keeps_a_descriptive_placeholder() {
     assert_eq!(parsed.jobs.as_deref(), Some("4"));
 }
 
+/// A flag whose long form differs from the Rust field holding it.
+#[derive(Cli)]
+#[usage(bin = "renamed")]
+struct Renamed {
+    /// What sort of thing
+    #[usage(long = "type", short = 't')]
+    type_: Option<String>,
+}
+
+#[test]
+fn a_renamed_flag_takes_its_placeholder_from_the_form_not_the_field() {
+    // The value name falls back to the flag's name, and the flag is named after its long form —
+    // so a field called `type_` must not drag its kebab-cased ident into the placeholder and
+    // render `--type <type->`.
+    let spec: LibSpec = Renamed::to_kdl().parse().expect("valid spec");
+    let flag = &spec.cmd.flags[0];
+    assert_eq!(flag.name, "type");
+    assert_eq!(flag.arg.as_ref().expect("takes a value").name, "type");
+
+    use std::ffi::OsStr;
+    let argv = [OsStr::new("--type"), OsStr::new("toml")];
+    let parsed = Renamed::parse_from(&argv).expect("should parse");
+    assert_eq!(parsed.type_.as_deref(), Some("toml"));
+}
+
 /// A CLI declaring all three.
 #[derive(Cli)]
 #[usage(bin = "ex")]
