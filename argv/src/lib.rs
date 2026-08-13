@@ -1971,6 +1971,79 @@ mod tests {
     }
 
     #[test]
+    fn a_wrapper_still_forwards_a_help_flag() {
+        // Supplying `--help` must not take the two forwarding mechanisms away from a wrapper,
+        // which is the one place a CLI means to hand the token on rather than answer it.
+        static ARGS: Arg = Arg {
+            key: 24,
+            name: "args",
+            ..Arg::VAR
+        };
+        static WRAP: Command = Command {
+            name: "wrap",
+            args: &[&ARGS],
+            ..Command::EMPTY
+        };
+
+        // A typed separator: everything after it is a value, `--help` included.
+        let a = argv(["--", "--help", "-h"]);
+        assert_eq!(
+            parse(&WRAP, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &ARGS,
+                    value: b"--help"
+                },
+                Event::Arg {
+                    arg: &ARGS,
+                    value: b"-h"
+                },
+            ]
+        );
+
+        // And `automatic`, for the wrapper whose caller should not have to type one: the
+        // first value stops flag interpretation, so the flags after it forward.
+        static AUTO_ARGS: Arg = Arg {
+            key: 25,
+            name: "args",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static AUTO_WRAP: Command = Command {
+            name: "wrap",
+            args: &[&AUTO_ARGS],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["node", "--help"]);
+        assert_eq!(
+            parse(&AUTO_WRAP, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &AUTO_ARGS,
+                    value: b"node"
+                },
+                Event::Arg {
+                    arg: &AUTO_ARGS,
+                    value: b"--help"
+                },
+            ]
+        );
+
+        // Before either takes effect, though, the wrapper's own help is what `--help` asks
+        // for — `mise run --help` is a question about `run`, not a value for it.
+        let a = argv(["--help"]);
+        assert_eq!(
+            parse(&AUTO_WRAP, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &HELP_LONG,
+                value: None,
+                negated: false
+            }]
+        );
+    }
+
+    #[test]
     fn double_dash_required_arg() {
         static CMD: Arg = Arg {
             key: 20,
