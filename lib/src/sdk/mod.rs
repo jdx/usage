@@ -52,14 +52,38 @@ pub(crate) fn escape_py_docstring(s: &str) -> String {
     s.replace('\\', r"\\").replace(r#"""""#, r#"\"\"\""#)
 }
 
-/// Escape backslashes and double quotes for Python string literals.
-pub(crate) fn escape_py_string(s: &str) -> String {
-    s.replace('\\', r"\\").replace('"', r#"\""#)
+/// Escape a string for a double-quoted literal.
+///
+/// Backslashes, quotes, and control characters — the last of these because neither language
+/// can carry one literally inside a quoted string, so a value with a newline in it wrote a
+/// module that fails to import rather than one that says something wrong. Help text and
+/// config defaults both really do contain them.
+///
+/// Python and TypeScript spell all of these the same way, so one function serves both.
+fn escape_string_literal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str(r"\\"),
+            '"' => out.push_str(r#"\""#),
+            '\n' => out.push_str(r"\n"),
+            '\r' => out.push_str(r"\r"),
+            '\t' => out.push_str(r"\t"),
+            c if c.is_control() => out.push_str(&format!("\\x{:02x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
-/// Escape backslashes and double quotes for TypeScript string literals.
+/// Escape a string for a Python literal.
+pub(crate) fn escape_py_string(s: &str) -> String {
+    escape_string_literal(s)
+}
+
+/// Escape a string for a TypeScript literal.
 pub(crate) fn escape_ts_string(s: &str) -> String {
-    s.replace('\\', r"\\").replace('"', r#"\""#)
+    escape_string_literal(s)
 }
 
 /// A simple code writer with indentation management.
