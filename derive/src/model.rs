@@ -676,6 +676,7 @@ impl Field {
         }
 
         let mut name = to_kebab(&ident.to_string());
+        let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
         let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
@@ -708,7 +709,10 @@ impl Field {
                 match ident_of(&path).as_str() {
                     // Stripped, so a dashed spelling cannot leak into the spec name
                     // or into a long form derived from it.
-                    "name" => name = strip_dashes(&string_value(&meta)?),
+                    "name" => {
+                        name = strip_dashes(&string_value(&meta)?);
+                        name_given = true;
+                    }
                     // Bare `long` takes the field name; `long = "x"` overrides it.
                     // A bare `long` is counted and resolved after the loop, so it
                     // picks up a `name` written later. Explicit ones are stored
@@ -1039,6 +1043,21 @@ impl Field {
                 "`required_unless` says this may be left out, so the field needs \
                  somewhere to put \"absent\": make it an `Option`",
             ));
+        }
+
+        // A flag is named after the form it answers to, not after the Rust field holding it.
+        // usage-lib derives the name the same way, so the two agree about what a flag is
+        // called — and the field name is often not a legal one: `type_` gave a flag called
+        // `type-`, which help printed as `type-: -t --type` and errors reported as `type-`.
+        //
+        // Only where the field says nothing: an explicit `name` still wins, and a flag with
+        // no long form keeps its short as the name, as usage-lib does.
+        if is_flag && !name_given {
+            if let Some(long) = longs.first() {
+                name = long.clone();
+            } else if let Some(short) = shorts.first() {
+                name = short.to_string();
+            }
         }
 
         // `required` is for the one case the type cannot express. Anywhere else it either
