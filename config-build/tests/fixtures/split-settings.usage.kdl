@@ -1,0 +1,5 @@
+config {
+    prop "jobs" type="uint" default=2 help="How many jobs to run at once" {
+        env "SPLIT_JOBS"
+    }
+}

@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "argv",
     "config",
+    "config-build",
     "derive",
     "clap_usage",
     "cli",

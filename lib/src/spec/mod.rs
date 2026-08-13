@@ -19,7 +19,7 @@ use log::{info, warn};
 use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use xx::file;
 
@@ -41,6 +41,16 @@ pub struct Spec {
     pub version: Option<String>,
     pub usage: String,
     pub complete: IndexMap<String, SpecComplete>,
+    /// Every file this spec was read from: its own path, then each `include`, recursively.
+    ///
+    /// What a build script has to watch. A generator that watches only the file it was pointed at
+    /// rebuilds nothing when an included file changes — and `include` is how a CLI with many
+    /// settings keeps them in a file of their own, so that is the file most likely to be edited.
+    ///
+    /// Not serialized: it is where the spec came from rather than part of what it says, and `usage g
+    /// json` describes the latter.
+    #[serde(skip)]
+    pub sources: Vec<PathBuf>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_code_link_template: Option<String>,
@@ -178,6 +188,11 @@ impl Spec {
         let mut schema = Self {
             ..Default::default()
         };
+        // The file being read, before anything in it can fail: a build script that watches this list
+        // should watch a spec that does not parse too, or the next build is a stale success.
+        if !ctx.file.as_os_str().is_empty() {
+            schema.sources.push(ctx.file.clone());
+        }
         for node in kdl.nodes().iter().map(|n| NodeHelper::new(ctx, n)) {
             match node.name() {
                 "name" => schema.name = node.arg(0)?.ensure_string()?,
@@ -339,6 +354,8 @@ impl Spec {
         merge_opt!(unknown_flags);
         merge_extend!(complete);
         merge_extend!(examples);
+        // An included spec brings the files *it* read, which is how a nested include is watched.
+        merge_extend!(sources);
 
         if !other.config.is_empty() {
             self.config.merge(&other.config);
