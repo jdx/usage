@@ -305,7 +305,7 @@ pub struct BootstrapDotfilesAddArgs {
     #[arg(long = "yes", short = 'y')]
     pub yes: bool,
     /// Targets to add or update
-    #[arg(value_name = "TARGET", num_args = 0..)]
+    #[arg(value_name = "TARGET", required = true, num_args = 0..)]
     pub target: Vec<String>,
 }
 
@@ -801,7 +801,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
     #[arg(long = "path", short = 'p', value_name = "PATH")]
     pub path: Option<String>,
     /// Tap name(s), e.g. `owner/repo`
-    #[arg(value_name = "TAPS", num_args = 0..)]
+    #[arg(value_name = "TAPS", required = true, num_args = 0..)]
     pub taps: Vec<String>,
 }
 
@@ -937,7 +937,7 @@ pub struct BootstrapPackagesUseArgs {
     #[arg(long = "yes", short = 'y')]
     pub yes: bool,
     /// Packages in `manager:package[@version]` form
-    #[arg(value_name = "PACKAGE", num_args = 0..)]
+    #[arg(value_name = "PACKAGE", required = true, num_args = 0..)]
     pub package: Vec<String>,
 }
 
@@ -1113,7 +1113,7 @@ pub struct BootstrapReposExecArgs {
     #[arg(value_name = "PATH", num_args = 0..)]
     pub path: Vec<String>,
     /// Command and arguments to run in each repo
-    #[arg(value_name = "COMMAND", num_args = 0.., last = true)]
+    #[arg(value_name = "COMMAND", required = true, num_args = 0.., last = true)]
     pub command: Vec<String>,
 }
 
@@ -1734,7 +1734,7 @@ pub struct DotfilesAddArgs {
     #[arg(long = "yes", short = 'y')]
     pub yes: bool,
     /// Targets to add or update
-    #[arg(value_name = "TARGET", num_args = 0..)]
+    #[arg(value_name = "TARGET", required = true, num_args = 0..)]
     pub target: Vec<String>,
 }
 
@@ -3081,13 +3081,6 @@ pub struct PluginsLsArgs {
     pub user: bool,
 }
 
-/// List all available remote plugins
-///
-/// The full list is here: https://github.com/jdx/mise/blob/main/registry/
-///
-/// Examples:
-///
-///     $ mise plugins ls-remote
 #[derive(Args)]
 pub struct PluginsLsRemoteArgs {
     /// Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git
@@ -3177,7 +3170,7 @@ pub enum PluginsCommands {
     #[command(name = "ls", visible_alias = "list")]
     Ls(Box<PluginsLsArgs>),
     /// List all available remote plugins
-    #[command(name = "ls-remote", visible_aliases = ["list-remote", "list-all"])]
+    #[command(name = "ls-remote", about = "List all available remote plugins", long_about = "\nList all available remote plugins\n\nThe full list is here: https://github.com/jdx/mise/blob/main/registry/\n\nExamples:\n\n    $ mise plugins ls-remote", visible_aliases = ["list-remote", "list-all"])]
     LsRemote(Box<PluginsLsRemoteArgs>),
     /// Removes a plugin
     #[command(name = "uninstall", visible_aliases = ["remove", "rm"])]
@@ -3197,7 +3190,7 @@ pub struct DepsAddArgs {
     #[arg(long = "dev", short = 'D')]
     pub dev: bool,
     /// Package(s) to add (e.g., npm:react, npm:@types/react@19)
-    #[arg(value_name = "PACKAGES", num_args = 0..)]
+    #[arg(value_name = "PACKAGES", required = true, num_args = 0..)]
     pub packages: Vec<String>,
 }
 
@@ -3243,7 +3236,7 @@ pub struct DepsInstallArgs {
 #[derive(Args)]
 pub struct DepsRemoveArgs {
     /// Package(s) to remove (e.g., npm:lodash)
-    #[arg(value_name = "PACKAGES", num_args = 0..)]
+    #[arg(value_name = "PACKAGES", required = true, num_args = 0..)]
     pub packages: Vec<String>,
 }
 
@@ -3861,7 +3854,7 @@ pub struct ShellArgs {
     #[arg(long = "raw")]
     pub raw: bool,
     /// Tool(s) to use
-    #[arg(value_name = "TOOL@VERSION", num_args = 0..)]
+    #[arg(value_name = "TOOL@VERSION", required = true, num_args = 0..)]
     pub tool_version: Vec<String>,
 }
 
@@ -4712,7 +4705,7 @@ pub struct UnuseArgs {
     #[arg(long = "no-prune")]
     pub no_prune: bool,
     /// Tool(s) to remove
-    #[arg(value_name = "INSTALLED_TOOL@VERSION", num_args = 0..)]
+    #[arg(value_name = "INSTALLED_TOOL@VERSION", required = true, num_args = 0..)]
     pub installed_tool_version: Vec<String>,
 }
 

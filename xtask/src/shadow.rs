@@ -873,6 +873,11 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
 
 fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec![format!("value_name = {:?}", arg.name)];
+    // clap reads a `Vec` as optional whatever the spec says, so a required variadic has to say
+    // so — the same declaration the usage dialect needed, for the same reason.
+    if arg.required && arg.var {
+        opts.push("required = true".into());
+    }
     opts.extend(declared_help_clap(
         arg.help.as_deref(),
         arg.help_long.as_deref(),
@@ -969,14 +974,26 @@ fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
     // often end that opening sentence with a period the short form leaves off, and the
     // punctuation was being thrown away to make the two match — "Task to run." came back as
     // "Task to run".
+    //
+    // Untrimmed and by *paragraph*: the comment path reconstructs the long form as "short, blank
+    // line, rest", so it is lossless only when the long form opens with the short one exactly and
+    // then breaks twice. A single newline came back doubled — `"Short\nContinuation"` as
+    // `"Short\n\nContinuation"` — and a long form opening with a blank line does not open with
+    // the short form at all.
     let independent = match (help, long) {
-        (Some(h), Some(l)) => match l.trim_start().strip_prefix(h.trim()) {
-            Some(rest) => !(rest.is_empty() || rest.starts_with('\n') || rest.starts_with('\r')),
+        (Some(h), Some(l)) => match l.strip_prefix(h.trim()) {
+            Some(rest) => {
+                !(rest.is_empty() || rest.starts_with("\n\n") || rest.starts_with("\r\n\r\n"))
+            }
             None => true,
         },
         _ => false,
     };
-    flowed || independent
+    // A long form with no short one cannot be a comment at all: a comment's first paragraph *is*
+    // the short form, so writing one would invent a short help the spec never gave.
+    let long_only =
+        long.is_some_and(|l| !l.trim().is_empty()) && !help.is_some_and(|h| !h.trim().is_empty());
+    flowed || independent || long_only
 }
 
 /// The same declarations in clap's vocabulary.
@@ -1009,10 +1026,11 @@ fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> 
 fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
     let mut opts = Vec::new();
     if needs_declaring(help, long) {
-        let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
-            return opts;
-        };
-        opts.push(format!("help = {:?}", help.trim()));
+        // The long form stands on its own: a spec may give only `long_help`, and returning early
+        // for want of a short one dropped the whole description.
+        if let Some(help) = help.filter(|h| !h.trim().is_empty()) {
+            opts.push(format!("help = {:?}", help.trim()));
+        }
         // The long form goes with it: read from the comment, it would be measured against a
         // short form that no longer matches, and written in full twice over.
         if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
@@ -1214,6 +1232,32 @@ mod tests {
 
         let (clap, _) = rendered_as(spec, Dialect::Clap);
         assert!(clap.contains(r#"help = "Use shims\nlike so:""#), "{clap}");
+    }
+
+    #[test]
+    fn a_description_survives_whatever_shape_it_is_in() {
+        // Three shapes a comment cannot carry, each of which lost text before: a long form with
+        // no short one at all, a long form that continues on the next *line* rather than after a
+        // blank one (the comment path would double the break), and a required variadic, which
+        // clap reads as optional whatever the spec says.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--x\" {\n  long_help \"Only the long form\"\n}\n",
+        );
+        assert!(out.contains(r#"long_help = "Only the long form""#), "{out}");
+
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--y\" help=\"Short\" {\n  long_help \"Short\\nContinuation\"\n}\n",
+        );
+        assert!(
+            out.contains(r#"long_help = "Short\nContinuation""#),
+            "{out}"
+        );
+
+        let spec = "name \"ex\"\nbin \"ex\"\narg \"<FILES>…\"\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains("required"), "{usage}");
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains("required = true"), "{clap}");
     }
 
     #[test]

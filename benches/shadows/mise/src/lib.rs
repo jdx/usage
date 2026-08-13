@@ -3280,13 +3280,6 @@ pub struct PluginsLsArgs {
     pub user: bool,
 }
 
-/// List all available remote plugins
-///
-/// The full list is here: https://github.com/jdx/mise/blob/main/registry/
-///
-/// Examples:
-///
-///     $ mise plugins ls-remote
 #[derive(Args)]
 pub struct PluginsLsRemoteArgs {
     /// Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git
@@ -3376,7 +3369,12 @@ pub enum PluginsCommands {
     #[usage(name = "ls", alias = "list")]
     Ls(Box<PluginsLsArgs>),
     /// List all available remote plugins
-    #[usage(name = "ls-remote", alias("list-remote", "list-all"))]
+    #[usage(
+        name = "ls-remote",
+        help = "List all available remote plugins",
+        long_help = "\nList all available remote plugins\n\nThe full list is here: https://github.com/jdx/mise/blob/main/registry/\n\nExamples:\n\n    $ mise plugins ls-remote",
+        alias("list-remote", "list-all")
+    )]
     LsRemote(Box<PluginsLsRemoteArgs>),
     /// Removes a plugin
     #[usage(name = "uninstall", alias("remove", "rm"))]
