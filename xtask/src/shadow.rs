@@ -440,6 +440,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                 // clap spells one and several differently, and repeating the singular
                 // form is not the same as the plural one.
                 Dialect::Clap => {
+                    opts.extend(declared_help_clap(
+                        sub.help.as_deref(),
+                        sub.help_long.as_deref(),
+                        true,
+                    ));
                     match sub.aliases.as_slice() {
                         [] => {}
                         [one] => opts.push(format!("visible_alias = {one:?}")),
@@ -689,7 +694,8 @@ fn clap_flag_opts(
     ids: &BTreeMap<String, String>,
     skipped: &mut Skipped,
 ) -> Vec<String> {
-    let mut opts: Vec<String> = Vec::new();
+    let mut opts: Vec<String> =
+        declared_help_clap(flag.help.as_deref(), flag.help_long.as_deref(), false);
     if let Some(long) = long {
         opts.push(format!("long = {long:?}"));
     }
@@ -839,6 +845,11 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
 
 fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec![format!("value_name = {:?}", arg.name)];
+    opts.extend(declared_help_clap(
+        arg.help.as_deref(),
+        arg.help_long.as_deref(),
+        false,
+    ));
     if arg.hide {
         opts.push("hide = true".into());
     }
@@ -920,6 +931,32 @@ fn selector_list(option: &str, selectors: &[String]) -> String {
 /// generated code declares it instead.
 fn needs_declaring(help: Option<&str>) -> bool {
     help.map(|h| h.trim().contains('\n')).unwrap_or(false)
+}
+
+/// The same declarations in clap's vocabulary.
+///
+/// clap takes `help`/`long_help` on an argument and `about`/`long_about` on a command, so there
+/// is nothing it cannot say — but it does not read the *usage* attribute list. Skipping the
+/// comment without writing clap's own left the clap shadow with no text at all for every command
+/// and flag whose help a comment cannot carry, and *uncounted*, which is the silent-drop class
+/// this generator exists to prevent.
+fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> Vec<String> {
+    let mut opts = Vec::new();
+    if !needs_declaring(help) {
+        return opts;
+    }
+    let (short_key, long_key) = if command {
+        ("about", "long_about")
+    } else {
+        ("help", "long_help")
+    };
+    if let Some(help) = help.filter(|h| !h.trim().is_empty()) {
+        opts.push(format!("{short_key} = {:?}", help.trim()));
+    }
+    if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
+        opts.push(format!("{long_key} = {:?}", long.trim_end()));
+    }
+    opts
 }
 
 /// The `help = "..."` option for text a comment would reflow.
@@ -1114,6 +1151,20 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn both_dialects_carry_help_a_comment_cannot() {
+        // Multi-line help is skipped as a comment for *both* dialects, and only one of them was
+        // writing it as an attribute — so the clap shadow had no text for those flags at all,
+        // uncounted. clap can say it: `help` and `long_help` on an argument.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=#\"\"\"\nUse shims\nlike so:\n\"\"\"#\n";
+
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains(r#"help = "Use shims\nlike so:""#), "{usage}");
+
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains(r#"help = "Use shims\nlike so:""#), "{clap}");
     }
 
     #[test]
