@@ -692,6 +692,8 @@ impl Field {
         let mut help_heading = None;
         let mut value_name = None;
         let mut required_collection = false;
+        let mut help_attr: Option<String> = None;
+        let mut long_help_attr: Option<String> = None;
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
@@ -777,6 +779,11 @@ impl Field {
                     "default" => default = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
+                    // Help text a doc comment cannot carry. A comment's first paragraph is
+                    // read the way Rust reads one — line breaks inside it are spaces — so
+                    // help whose breaks are meant literally has to be given directly.
+                    "help" => help_attr = Some(string_value(&meta)?),
+                    "long_help" => long_help_attr = Some(string_value(&meta)?),
                     "required" => required_collection = flag_value(&meta)?,
                     "double_dash" => {
                         let mode = string_value(&meta)?;
@@ -1044,6 +1051,9 @@ impl Field {
                  somewhere to put \"absent\": make it an `Option`",
             ));
         }
+
+        // Declared text wins over the comment, which is the point of declaring it.
+        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
 
         // A flag is named after the form it answers to, not after the Rust field holding it.
         // usage-lib derives the name the same way, so the two agree about what a flag is
@@ -1580,6 +1590,12 @@ pub struct Subcommands {
 /// One variant: a command name and the struct holding its flags and arguments.
 pub struct Variant {
     pub ident: syn::Ident,
+    /// Whether the command is kept out of help and completions.
+    ///
+    /// A spec says `hide=#true` on a `cmd`; mise hides eight commands that way, `asdf` and
+    /// `dotfiles` among them. Without this the derive could declare the command but not that
+    /// it is unadvertised, so help listed things a user was not meant to be offered.
+    pub hide: bool,
     /// The command name, which is the variant name in kebab-case unless `name`
     /// says otherwise.
     pub name: String,
@@ -1692,6 +1708,9 @@ impl Variant {
         let mut name = to_kebab(&variant.ident.to_string());
         let mut aliases: Vec<String> = Vec::new();
         let mut hidden_aliases: Vec<String> = Vec::new();
+        let mut hide = false;
+        let mut help_attr: Option<String> = None;
+        let mut long_help_attr: Option<String> = None;
 
         for attr in attrs(&variant.attrs) {
             for meta in nested(attr)? {
@@ -1701,6 +1720,11 @@ impl Variant {
                     // One as a value or several as a list, as the relationship options do.
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
+                    "hide" => hide = flag_value(&meta)?,
+                    // As on a field: a comment's paragraph is flowed, so text whose line
+                    // breaks matter is declared instead.
+                    "help" => help_attr = Some(string_value(&meta)?),
+                    "long_help" => long_help_attr = Some(string_value(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -1756,8 +1780,10 @@ impl Variant {
             None => (held, false),
         };
 
+        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
         Ok(Variant {
             ident: variant.ident.clone(),
+            hide,
             name,
             ty,
             boxed,

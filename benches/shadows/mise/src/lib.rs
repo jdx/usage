@@ -42,14 +42,11 @@ pub struct ActivateArgs {
     /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
     #[usage(long = "no-hook-env")]
     pub no_hook_env: bool,
-    /// Use shims instead of modifying PATH
-    /// Effectively the same as:
-    ///
-    ///     PATH="$HOME/.local/share/mise/shims:$PATH"
-    ///
-    /// `mise activate --shims` does not support all the features of `mise activate`.
-    /// See https://mise.jdx.dev/dev-tools/shims.html#shims-vs-path for more information
-    #[usage(long = "shims")]
+    #[usage(
+        help = "Use shims instead of modifying PATH\nEffectively the same as:",
+        long_help = "shims",
+        long = "shims"
+    )]
     pub shims: bool,
     /// Show "mise: <TOOL>@<VERSION>" message when changing directories
     #[usage(long = "status", hide)]
@@ -76,14 +73,6 @@ pub struct ToolAliasGetArgs {
     pub alias: ::std::string::String,
 }
 
-/// List tool version aliases
-/// Shows the aliases that can be specified.
-/// These can come from user config or from plugins in `bin/list-aliases`.
-///
-/// For user config, aliases are defined like the following in `~/.config/mise/config.toml`:
-///
-///     [tool_alias.node.versions]
-///     lts = "22.0.0"
 #[derive(Args)]
 pub struct ToolAliasLsArgs {
     /// Don't show table header
@@ -141,10 +130,12 @@ pub enum ToolAliasCommands {
     /// Show an alias for a tool
     #[usage(name = "get")]
     Get(Box<ToolAliasGetArgs>),
-    /// List tool version aliases
-    /// Shows the aliases that can be specified.
-    /// These can come from user config or from plugins in `bin/list-aliases`.
-    #[usage(name = "ls", alias = "list")]
+    #[usage(
+        name = "ls",
+        help = "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.",
+        long_help = "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.\n\nFor user config, aliases are defined like the following in `~/.config/mise/config.toml`:\n\n    [tool_alias.node.versions]\n    lts = \"22.0.0\"",
+        alias = "list"
+    )]
     Ls(Box<ToolAliasLsArgs>),
     /// Add/update an alias for a tool/backend
     #[usage(name = "set", alias("add", "create"))]
@@ -189,33 +180,25 @@ pub struct BinPathsArgs {
     /// Output executable entries in JSON format (implies --bin-names)
     #[usage(long = "json", short = 'J')]
     pub json: bool,
-    /// Tool(s) to look up
-    /// e.g.: ruby@3
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(arg, name = "TOOL@VERSION", help = "Tool(s) to look up\ne.g.: ruby@3")]
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapApplyAccountPlanArgs {}
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapApplyServicePlanArgs {}
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapApplyFirewallPlanArgs {}
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapApplySystemPlanArgs {}
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapInspectSystemFilesArgs {}
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapInspectFirewallPlanArgs {}
 
@@ -384,9 +367,11 @@ pub struct BootstrapDotfilesStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
     pub json: bool,
-    /// Exit with code 1 if any configured dotfiles are not in their desired
-    /// state (missing, source missing, differs)
-    #[usage(long = "missing")]
+    #[usage(
+        help = "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)",
+        long_help = "missing",
+        long = "missing"
+    )]
     pub missing: bool,
     /// Only show these targets
     #[usage(arg, name = "TARGET")]
@@ -524,7 +509,6 @@ pub enum BootstrapFirewallCommands {
     Status(Box<BootstrapFirewallStatusArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapLaunchdApplyArgs {
     /// Print the commands that would run without running them
@@ -535,7 +519,6 @@ pub struct BootstrapLaunchdApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapLaunchdStatusArgs {
     /// Output in JSON format
@@ -555,15 +538,12 @@ pub struct BootstrapLaunchdArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapLaunchdCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapLaunchdApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapLaunchdStatusArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapLinuxSystemdUnitsApplyArgs {
     /// Print the commands that would run without running them
@@ -574,7 +554,6 @@ pub struct BootstrapLinuxSystemdUnitsApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapLinuxSystemdUnitsStatusArgs {
     /// Output in JSON format
@@ -594,10 +573,8 @@ pub struct BootstrapLinuxSystemdUnitsArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapLinuxSystemdUnitsCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapLinuxSystemdUnitsApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapLinuxSystemdUnitsStatusArgs>),
 }
@@ -616,7 +593,6 @@ pub enum BootstrapLinuxCommands {
     SystemdUnits(Box<BootstrapLinuxSystemdUnitsArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsApplyArgs {
     /// Print the commands that would run without running them
@@ -627,7 +603,6 @@ pub struct BootstrapMacosDefaultsApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsStatusArgs {
     /// Output in JSON format
@@ -647,15 +622,12 @@ pub struct BootstrapMacosDefaultsArgs2 {
 
 #[derive(Subcommands)]
 pub enum BootstrapMacosDefaultsCommands2 {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapMacosDefaultsApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapMacosDefaultsStatusArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosLaunchdAgentsApplyArgs {
     /// Print the commands that would run without running them
@@ -666,7 +638,6 @@ pub struct BootstrapMacosLaunchdAgentsApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosLaunchdAgentsStatusArgs {
     /// Output in JSON format
@@ -686,10 +657,8 @@ pub struct BootstrapMacosLaunchdAgentsArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapMacosLaunchdAgentsCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapMacosLaunchdAgentsApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapMacosLaunchdAgentsStatusArgs>),
 }
@@ -711,7 +680,6 @@ pub enum BootstrapMacosCommands {
     LaunchdAgents(Box<BootstrapMacosLaunchdAgentsArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsApplyArgs2 {
     /// Print the commands that would run without running them
@@ -722,7 +690,6 @@ pub struct BootstrapMacosDefaultsApplyArgs2 {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMacosDefaultsStatusArgs2 {
     /// Output in JSON format
@@ -742,15 +709,12 @@ pub struct BootstrapMacosDefaultsArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapMacosDefaultsCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapMacosDefaultsApplyArgs2>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapMacosDefaultsStatusArgs2>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMiseShellActivateApplyArgs {
     /// Print the actions that would run without writing anything
@@ -761,7 +725,6 @@ pub struct BootstrapMiseShellActivateApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapMiseShellActivateStatusArgs {
     /// Output in JSON format
@@ -781,10 +744,8 @@ pub struct BootstrapMiseShellActivateArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapMiseShellActivateCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapMiseShellActivateApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapMiseShellActivateStatusArgs>),
 }
@@ -1049,7 +1010,6 @@ pub struct BootstrapPlanArgs {
     pub prompt_secrets: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapPluginsApplyArgs {
     /// Print what would happen without installing plugins
@@ -1057,7 +1017,6 @@ pub struct BootstrapPluginsApplyArgs {
     pub dry_run: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapPluginsStatusArgs {
     /// Exit with code 1 if a declared plugin is missing
@@ -1074,10 +1033,8 @@ pub struct BootstrapPluginsArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapPluginsCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapPluginsApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapPluginsStatusArgs>),
 }
@@ -1211,7 +1168,6 @@ pub struct BootstrapRemoteArgs {
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapReposApplyArgs {
     /// Print the commands that would run without running them
@@ -1222,7 +1178,6 @@ pub struct BootstrapReposApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapReposExecArgs {
     /// Continue running in other repos after a command fails
@@ -1239,7 +1194,6 @@ pub struct BootstrapReposExecArgs {
     pub command: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapReposStatusArgs {
     /// Output in JSON format
@@ -1250,7 +1204,6 @@ pub struct BootstrapReposStatusArgs {
     pub missing: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapReposUpdateArgs {
     /// Print the commands that would run without running them
@@ -1273,16 +1226,12 @@ pub struct BootstrapReposArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapReposCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapReposApplyArgs>),
-    /// Undocumented
     #[usage(name = "exec")]
     Exec(Box<BootstrapReposExecArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapReposStatusArgs>),
-    /// Undocumented
     #[usage(name = "update")]
     Update(Box<BootstrapReposUpdateArgs>),
 }
@@ -1365,7 +1314,6 @@ pub struct BootstrapStatusArgs {
     pub prompt_secrets: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapSystemdApplyArgs {
     /// Print the commands that would run without running them
@@ -1376,7 +1324,6 @@ pub struct BootstrapSystemdApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapSystemdStatusArgs {
     /// Output in JSON format
@@ -1396,15 +1343,12 @@ pub struct BootstrapSystemdArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapSystemdCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapSystemdApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapSystemdStatusArgs>),
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapUserApplyArgs {
     /// Print the commands that would run without running them
@@ -1415,7 +1359,6 @@ pub struct BootstrapUserApplyArgs {
     pub yes: bool,
 }
 
-/// Undocumented
 #[derive(Args)]
 pub struct BootstrapUserStatusArgs {
     /// Output in JSON format
@@ -1435,10 +1378,8 @@ pub struct BootstrapUserArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapUserCommands {
-    /// Undocumented
     #[usage(name = "apply")]
     Apply(Box<BootstrapUserApplyArgs>),
-    /// Undocumented
     #[usage(name = "status")]
     Status(Box<BootstrapUserStatusArgs>),
 }
@@ -1579,23 +1520,17 @@ pub struct BootstrapArgs {
 
 #[derive(Subcommands)]
 pub enum BootstrapCommands {
-    /// Undocumented
-    #[usage(name = "__apply-account-plan")]
+    #[usage(name = "__apply-account-plan", hide)]
     ApplyAccountPlan(Box<BootstrapApplyAccountPlanArgs>),
-    /// Undocumented
-    #[usage(name = "__apply-service-plan")]
+    #[usage(name = "__apply-service-plan", hide)]
     ApplyServicePlan(Box<BootstrapApplyServicePlanArgs>),
-    /// Undocumented
-    #[usage(name = "__apply-firewall-plan")]
+    #[usage(name = "__apply-firewall-plan", hide)]
     ApplyFirewallPlan(Box<BootstrapApplyFirewallPlanArgs>),
-    /// Undocumented
-    #[usage(name = "__apply-system-plan")]
+    #[usage(name = "__apply-system-plan", hide)]
     ApplySystemPlan(Box<BootstrapApplySystemPlanArgs>),
-    /// Undocumented
-    #[usage(name = "__inspect-system-files")]
+    #[usage(name = "__inspect-system-files", hide)]
     InspectSystemFiles(Box<BootstrapInspectSystemFilesArgs>),
-    /// Undocumented
-    #[usage(name = "__inspect-firewall-plan")]
+    #[usage(name = "__inspect-firewall-plan", hide)]
     InspectFirewallPlan(Box<BootstrapInspectFirewallPlanArgs>),
     /// Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
     #[usage(name = "accounts")]
@@ -1613,7 +1548,7 @@ pub enum BootstrapCommands {
     #[usage(name = "firewall")]
     Firewall(Box<BootstrapFirewallArgs>),
     /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
-    #[usage(name = "launchd")]
+    #[usage(name = "launchd", hide)]
     Launchd(Box<BootstrapLaunchdArgs>),
     /// Manage Linux bootstrap config from `[bootstrap.linux]`
     #[usage(name = "linux")]
@@ -1622,7 +1557,7 @@ pub enum BootstrapCommands {
     #[usage(name = "macos")]
     Macos(Box<BootstrapMacosArgs>),
     /// Manage macOS defaults from `[bootstrap.macos.defaults]`
-    #[usage(name = "macos-defaults")]
+    #[usage(name = "macos-defaults", hide)]
     MacosDefaults(Box<BootstrapMacosDefaultsArgs>),
     /// Manage mise shell activation from `[bootstrap.mise_shell_activate]`
     #[usage(name = "mise-shell-activate", alias_hidden = "shell")]
@@ -1652,7 +1587,7 @@ pub enum BootstrapCommands {
     #[usage(name = "status", alias = "ls")]
     Status(Box<BootstrapStatusArgs>),
     /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
-    #[usage(name = "systemd")]
+    #[usage(name = "systemd", hide)]
     Systemd(Box<BootstrapSystemdArgs>),
     /// Manage current-user bootstrap settings from `[bootstrap.user]`
     #[usage(name = "user")]
@@ -1748,13 +1683,12 @@ pub struct CompletionArgs {
     /// you may source it separately or enable this flag to enable it in the script.
     #[usage(long = "include-bash-completion-lib")]
     pub include_bash_completion_lib: bool,
-    /// Always use usage for completions.
-    /// Currently, usage is the default for fish and bash but not zsh since it has a few quirks
-    /// to work out first.
-    ///
-    /// This requires the `usage` CLI to be installed.
-    /// https://usage.jdx.dev
-    #[usage(long = "usage", hide)]
+    #[usage(
+        help = "Always use usage for completions.\nCurrently, usage is the default for fish and bash but not zsh since it has a few quirks\nto work out first.",
+        long_help = "usage",
+        long = "usage",
+        hide
+    )]
     pub usage: bool,
     /// Shell type to generate completions for
     #[usage(arg, name = "SHELL", choices("bash", "fish", "powershell", "zsh"))]
@@ -1800,7 +1734,6 @@ pub struct ConfigSetArgs {
     /// If not provided, the nearest mise.toml file will be used
     #[usage(long = "file", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(
         long = "type",
         short = 't',
@@ -1873,13 +1806,9 @@ pub struct DeactivateArgs {}
 #[derive(Args)]
 pub struct DirenvActivateArgs {}
 
-/// [internal] This is an internal command that writes an envrc file
-/// for direnv to consume.
 #[derive(Args)]
 pub struct DirenvEnvrcArgs {}
 
-/// [internal] This is an internal command that writes an envrc file
-/// for direnv to consume.
 #[derive(Args)]
 pub struct DirenvExecArgs {}
 
@@ -1899,15 +1828,19 @@ pub struct DirenvArgs {
 #[derive(Subcommands)]
 pub enum DirenvCommands {
     /// Output direnv function to use mise inside direnv
-    #[usage(name = "activate")]
+    #[usage(name = "activate", hide)]
     Activate(Box<DirenvActivateArgs>),
-    /// [internal] This is an internal command that writes an envrc file
-    /// for direnv to consume.
-    #[usage(name = "envrc")]
+    #[usage(
+        name = "envrc",
+        help = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume.",
+        hide
+    )]
     Envrc(Box<DirenvEnvrcArgs>),
-    /// [internal] This is an internal command that writes an envrc file
-    /// for direnv to consume.
-    #[usage(name = "exec")]
+    #[usage(
+        name = "exec",
+        help = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume.",
+        hide
+    )]
     Exec(Box<DirenvExecArgs>),
 }
 
@@ -1998,9 +1931,11 @@ pub struct DotfilesStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
     pub json: bool,
-    /// Exit with code 1 if any configured dotfiles are not in their desired
-    /// state (missing, source missing, differs)
-    #[usage(long = "missing")]
+    #[usage(
+        help = "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)",
+        long_help = "missing",
+        long = "missing"
+    )]
     pub missing: bool,
     /// Only show these targets
     #[usage(arg, name = "TARGET")]
@@ -2040,19 +1975,19 @@ pub struct DotfilesArgs {
 #[derive(Subcommands)]
 pub enum DotfilesCommands {
     /// Add or update dotfiles in `[dotfiles]`
-    #[usage(name = "add")]
+    #[usage(name = "add", hide)]
     Add(Box<DotfilesAddArgs>),
     /// Apply dotfiles from `[dotfiles]`
-    #[usage(name = "apply")]
+    #[usage(name = "apply", hide)]
     Apply(Box<DotfilesApplyArgs>),
     /// Edit a managed dotfile source
-    #[usage(name = "edit")]
+    #[usage(name = "edit", hide)]
     Edit(Box<DotfilesEditArgs>),
     /// Show the status of dotfiles from `[dotfiles]`
-    #[usage(name = "status", alias = "ls")]
+    #[usage(name = "status", hide, alias = "ls")]
     Status(Box<DotfilesStatusArgs>),
     /// Remove dotfiles applied from `[dotfiles]`
-    #[usage(name = "unapply")]
+    #[usage(name = "unapply", hide)]
     Unapply(Box<DotfilesUnapplyArgs>),
 }
 
@@ -2067,7 +2002,6 @@ pub struct DoctorPathArgs {
 /// Check mise installation for possible problems
 #[derive(Args)]
 pub struct DoctorArgs {
-    /// Undocumented
     #[usage(long = "json", short = 'J')]
     pub json: bool,
     #[usage(subcommand)]
@@ -2146,17 +2080,29 @@ pub struct ExecArgs {
     /// Command string to execute
     #[usage(long = "command", short = 'c', value_name = "C")]
     pub command: ::std::option::Option<::std::string::String>,
-    /// Number of jobs to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
-    /// Allow specific env var through (implies --deny-env for everything else)
-    /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", value_name = "VAR", var)]
+    #[usage(
+        help = "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'",
+        long_help = "allow-env",
+        long = "allow-env",
+        value_name = "VAR",
+        var
+    )]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
-    /// Allow network to specific host (implies --deny-net for everything else)
-    /// macOS only in v1; on Linux falls back to allowing all network
-    #[usage(long = "allow-net", value_name = "HOST", var)]
+    #[usage(
+        help = "Allow network to specific host (implies --deny-net for everything else)\nmacOS only in v1; on Linux falls back to allowing all network",
+        long_help = "allow-net",
+        long = "allow-net",
+        value_name = "HOST",
+        var
+    )]
     pub allow_net: ::std::vec::Vec<::std::string::String>,
     /// Allow reads from specific path (implies --deny-read for everything else)
     #[usage(long = "allow-read", value_name = "PATH", var)]
@@ -2337,7 +2283,6 @@ pub struct GenerateTaskDocsArgs {
     /// root directory to search for tasks
     #[usage(long = "root", short = 'r', value_name = "ROOT")]
     pub root: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(
         long = "style",
         short = 's',
@@ -2508,7 +2453,7 @@ pub struct GithubArgs {
 #[derive(Subcommands)]
 pub enum GithubCommands {
     /// Display the GitHub token mise will use for a given host
-    #[usage(name = "token")]
+    #[usage(name = "token", hide)]
     Token(Box<GithubTokenArgs>),
 }
 
@@ -2524,26 +2469,29 @@ pub enum GithubCommands {
 /// Use `mise local` to set a tool version locally in the current directory.
 #[derive(Args)]
 pub struct GlobalArgs {
-    /// Save fuzzy version to `~/.tool-versions`
-    /// e.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions
-    /// this is the default behavior unless MISE_ASDF_COMPAT=1
-    #[usage(long = "fuzzy")]
+    #[usage(
+        help = "Save fuzzy version to `~/.tool-versions`\ne.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless MISE_ASDF_COMPAT=1",
+        long_help = "fuzzy",
+        long = "fuzzy"
+    )]
     pub fuzzy: bool,
     /// Get the path of the global config file
     #[usage(long = "path")]
     pub path: bool,
-    /// Save exact version to `~/.tool-versions`
-    /// e.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions
-    #[usage(long = "pin")]
+    #[usage(
+        help = "Save exact version to `~/.tool-versions`\ne.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions",
+        long_help = "pin",
+        long = "pin"
+    )]
     pub pin: bool,
     /// Remove the tool(s) from ~/.tool-versions
     #[usage(long = "remove", value_name = "TOOL", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
-    /// Tool(s) to add to .tool-versions
-    /// e.g.: node@20
-    /// If this is a single tool with no version, the current value of the global
-    /// .tool-versions will be displayed
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(
+        arg,
+        name = "TOOL@VERSION",
+        help = "Tool(s) to add to .tool-versions\ne.g.: node@20\nIf this is a single tool with no version, the current value of the global\n.tool-versions will be displayed"
+    )]
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -2637,9 +2585,13 @@ pub struct InstallArgs {
     /// Force reinstall even if already installed
     #[usage(long = "force", short = 'f')]
     pub force: bool,
-    /// Number of jobs to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Show what would be installed without actually installing
     #[usage(long = "dry-run", short = 'n')]
@@ -2731,9 +2683,11 @@ pub struct LinkArgs {
     /// Tool name and version to create a symlink for
     #[usage(arg, name = "TOOL@VERSION")]
     pub tool_version: ::std::string::String,
-    /// The local path to the tool version
-    /// e.g.: ~/.nvm/versions/node/v20.0.0
-    #[usage(arg, name = "PATH")]
+    #[usage(
+        arg,
+        name = "PATH",
+        help = "The local path to the tool version\ne.g.: ~/.nvm/versions/node/v20.0.0"
+    )]
     pub path: ::std::string::String,
 }
 
@@ -2745,9 +2699,12 @@ pub struct LinkArgs {
 /// is set. A future v2 release of mise will default to using `mise.toml`.
 #[derive(Args)]
 pub struct LocalArgs {
-    /// Recurse up to find a .tool-versions file rather than using the current directory only
-    /// by default this command will only set the tool in the current directory ("$PWD/.tool-versions")
-    #[usage(long = "parent", short = 'p')]
+    #[usage(
+        help = "Recurse up to find a .tool-versions file rather than using the current directory only\nby default this command will only set the tool in the current directory (\"$PWD/.tool-versions\")",
+        long_help = "parent",
+        long = "parent",
+        short = 'p'
+    )]
     pub parent: bool,
     /// Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1
     #[usage(long = "fuzzy")]
@@ -2755,18 +2712,20 @@ pub struct LocalArgs {
     /// Get the path of the config file
     #[usage(long = "path")]
     pub path: bool,
-    /// Save exact version to `.tool-versions`
-    /// e.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions
-    #[usage(long = "pin")]
+    #[usage(
+        help = "Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions",
+        long_help = "pin",
+        long = "pin"
+    )]
     pub pin: bool,
     /// Remove the tool(s) from .tool-versions
     #[usage(long = "remove", value_name = "TOOL", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
-    /// Tool(s) to add to .tool-versions/mise.toml
-    /// e.g.: node@20
-    /// if this is a single tool with no version,
-    /// the current value of .tool-versions/mise.toml will be displayed
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(
+        arg,
+        name = "TOOL@VERSION",
+        help = "Tool(s) to add to .tool-versions/mise.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/mise.toml will be displayed"
+    )]
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -2778,9 +2737,12 @@ pub struct LocalArgs {
 /// Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 #[derive(Args)]
 pub struct LockArgs {
-    /// Target only global config lockfiles (~/.config/mise/mise.lock and system config)
-    /// By default, only the active project config root is locked
-    #[usage(long = "global", short = 'g')]
+    #[usage(
+        help = "Target only global config lockfiles (~/.config/mise/mise.lock and system config)\nBy default, only the active project config root is locked",
+        long_help = "global",
+        long = "global",
+        short = 'g'
+    )]
     pub global: bool,
     /// Number of jobs to run in parallel
     #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
@@ -2788,10 +2750,14 @@ pub struct LockArgs {
     /// Show what would be updated without making changes
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
-    /// Comma-separated list of platforms to target
-    /// e.g.: linux-x64,macos-arm64,windows-x64
-    /// If not specified, all platforms already in lockfile will be updated
-    #[usage(long = "platform", short = 'p', value_name = "PLATFORM", var)]
+    #[usage(
+        help = "Comma-separated list of platforms to target\ne.g.: linux-x64,macos-arm64,windows-x64\nIf not specified, all platforms already in lockfile will be updated",
+        long_help = "platform",
+        long = "platform",
+        short = 'p',
+        value_name = "PLATFORM",
+        var
+    )]
     pub platform: ::std::vec::Vec<::std::string::String>,
     /// Re-resolve fuzzy version selectors against the latest available versions
     ///
@@ -2815,9 +2781,11 @@ pub struct LockArgs {
     /// detect available updates without writing the lockfile.
     #[usage(long = "json")]
     pub json: bool,
-    /// Update mise.local.lock instead of mise.lock
-    /// Use for tools defined in .local.toml configs
-    #[usage(long = "local")]
+    #[usage(
+        help = "Update mise.local.lock instead of mise.lock\nUse for tools defined in .local.toml configs",
+        long_help = "local",
+        long = "local"
+    )]
     pub local: bool,
     /// Only lock versions released before this age or date
     ///
@@ -2827,10 +2795,11 @@ pub struct LockArgs {
     /// Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
     #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
-    /// Tool(s) to update in lockfile
-    /// e.g.: node python
-    /// If not specified, all tools in lockfile will be updated
-    #[usage(arg, name = "TOOL")]
+    #[usage(
+        arg,
+        name = "TOOL",
+        help = "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all tools in lockfile will be updated"
+    )]
     pub tool: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -2864,7 +2833,6 @@ pub struct LsArgs {
     /// Don't fetch information such as outdated versions
     #[usage(long = "offline", short = 'o', hide)]
     pub offline: bool,
-    /// Undocumented
     #[usage(long = "plugin", short = 'p', hide, value_name = "TOOL_FLAG")]
     pub plugin: ::std::option::Option<::std::string::String>,
     /// Display all tracked config sources for tools
@@ -2912,11 +2880,11 @@ pub struct LsRemoteArgs {
     /// Disable checking the mise-versions host
     #[usage(long = "no-versions-host")]
     pub no_versions_host: bool,
-    /// Include pre-release versions in the output for backends that report
-    /// upstream prerelease metadata or opt in to regex-based prerelease
-    /// detection. Equivalent to setting `MISE_PRERELEASES=1` or the
-    /// `prereleases` setting for the duration of this command.
-    #[usage(long = "prerelease")]
+    #[usage(
+        help = "Include pre-release versions in the output for backends that report\nupstream prerelease metadata or opt in to regex-based prerelease\ndetection. Equivalent to setting `MISE_PRERELEASES=1` or the\n`prereleases` setting for the duration of this command.",
+        long_help = "prerelease",
+        long = "prerelease"
+    )]
     pub prerelease: bool,
     /// Fail if release metadata fetches fail
     ///
@@ -2929,9 +2897,11 @@ pub struct LsRemoteArgs {
     /// Tool to get versions for
     #[usage(arg, name = "TOOL@VERSION")]
     pub tool_version: ::std::option::Option<::std::string::String>,
-    /// The version prefix to use when querying the latest version
-    /// same as the first argument after the "@"
-    #[usage(arg, name = "PREFIX")]
+    #[usage(
+        arg,
+        name = "PREFIX",
+        help = "The version prefix to use when querying the latest version\nsame as the first argument after the \"@\""
+    )]
     pub prefix: ::std::option::Option<::std::string::String>,
 }
 
@@ -3199,10 +3169,11 @@ pub struct OutdatedArgs {
     /// Don't show table header
     #[usage(long = "no-header")]
     pub no_header: bool,
-    /// Tool(s) to show outdated versions for
-    /// e.g.: node@20 python@3.10
-    /// If not specified, all tools in global and local configs will be shown
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(
+        arg,
+        name = "TOOL@VERSION",
+        help = "Tool(s) to show outdated versions for\ne.g.: node@20 python@3.10\nIf not specified, all tools in global and local configs will be shown"
+    )]
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3231,10 +3202,12 @@ pub struct PatronsArgs {
 /// This behavior can be modified in ~/.config/mise/config.toml
 #[derive(Args)]
 pub struct PluginsInstallArgs {
-    /// Install all missing plugins
-    /// This will only install plugins that have matching shorthands.
-    /// i.e.: they don't need the full git repo url
-    #[usage(long = "all", short = 'a')]
+    #[usage(
+        help = "Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url",
+        long_help = "all",
+        long = "all",
+        short = 'a'
+    )]
     pub all: bool,
     /// Reinstall even if plugin exists
     #[usage(long = "force", short = 'f')]
@@ -3245,15 +3218,15 @@ pub struct PluginsInstallArgs {
     /// Show installation output
     #[usage(long = "verbose", short = 'v', count)]
     pub verbose: u8,
-    /// The name of the plugin to install
-    /// e.g.: cmake, poetry
-    /// Can specify multiple plugins: `mise plugins install cmake poetry`
-    #[usage(arg, name = "NEW_PLUGIN")]
+    #[usage(
+        arg,
+        name = "NEW_PLUGIN",
+        help = "The name of the plugin to install\ne.g.: cmake, poetry\nCan specify multiple plugins: `mise plugins install cmake poetry`"
+    )]
     pub new_plugin: ::std::option::Option<::std::string::String>,
     /// The git url of the plugin
     #[usage(arg, name = "GIT_URL")]
     pub git_url: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(arg, name = "REST", hide)]
     pub rest: ::std::vec::Vec<::std::string::String>,
 }
@@ -3266,13 +3239,17 @@ pub struct PluginsLinkArgs {
     /// Overwrite existing plugin
     #[usage(long = "force", short = 'f')]
     pub force: bool,
-    /// The name of the plugin
-    /// e.g.: cmake, poetry
-    #[usage(arg, name = "NAME")]
+    #[usage(
+        arg,
+        name = "NAME",
+        help = "The name of the plugin\ne.g.: cmake, poetry"
+    )]
     pub name: ::std::string::String,
-    /// The local path to the plugin
-    /// e.g.: ./vfox-cmake
-    #[usage(arg, name = "DIR")]
+    #[usage(
+        arg,
+        name = "DIR",
+        help = "The local path to the plugin\ne.g.: ./vfox-cmake"
+    )]
     pub dir: ::std::option::Option<::std::string::String>,
 }
 
@@ -3281,25 +3258,42 @@ pub struct PluginsLinkArgs {
 /// Can also show remotely available plugins to install.
 #[derive(Args)]
 pub struct PluginsLsArgs {
-    /// List all available remote plugins
-    /// Same as `mise plugins ls-remote`
-    #[usage(long = "all", short = 'a', hide)]
+    #[usage(
+        help = "List all available remote plugins\nSame as `mise plugins ls-remote`",
+        long_help = "all",
+        long = "all",
+        short = 'a',
+        hide
+    )]
     pub all: bool,
-    /// The built-in plugins only
-    /// Normally these are not shown
-    #[usage(long = "core", short = 'c', hide)]
+    #[usage(
+        help = "The built-in plugins only\nNormally these are not shown",
+        long_help = "core",
+        long = "core",
+        short = 'c',
+        hide
+    )]
     pub core: bool,
-    /// Show plugins with available updates
-    /// Checks the remote for newer versions and only displays plugins that are outdated
-    #[usage(long = "outdated", short = 'o')]
+    #[usage(
+        help = "Show plugins with available updates\nChecks the remote for newer versions and only displays plugins that are outdated",
+        long_help = "outdated",
+        long = "outdated",
+        short = 'o'
+    )]
     pub outdated: bool,
-    /// Show the git url for each plugin
-    /// e.g.: https://github.com/mise-plugins/vfox-cmake.git
-    #[usage(long = "urls", short = 'u')]
+    #[usage(
+        help = "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git",
+        long_help = "urls",
+        long = "urls",
+        short = 'u'
+    )]
     pub urls: bool,
-    /// Show the git refs for each plugin
-    /// e.g.: main 1234abc
-    #[usage(long = "refs", hide)]
+    #[usage(
+        help = "Show the git refs for each plugin\ne.g.: main 1234abc",
+        long_help = "refs",
+        long = "refs",
+        hide
+    )]
     pub refs: bool,
     /// List installed plugins
     #[usage(long = "user", hide)]
@@ -3342,9 +3336,13 @@ pub struct PluginsUninstallArgs {
 /// note: this updates the plugin itself, not the runtime versions
 #[derive(Args)]
 pub struct PluginsUpdateArgs {
-    /// Number of jobs to run in parallel
-    /// Default: 4
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\nDefault: 4",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Plugin(s) to update
     #[usage(arg, name = "PLUGIN")]
@@ -3359,17 +3357,26 @@ pub struct PluginsArgs {
     /// same as `mise plugins ls-remote`
     #[usage(long = "all", short = 'a', hide)]
     pub all: bool,
-    /// The built-in plugins only
-    /// Normally these are not shown
-    #[usage(long = "core", short = 'c')]
+    #[usage(
+        help = "The built-in plugins only\nNormally these are not shown",
+        long_help = "core",
+        long = "core",
+        short = 'c'
+    )]
     pub core: bool,
-    /// Show the git url for each plugin
-    /// e.g.: https://github.com/mise-plugins/vfox-cmake.git
-    #[usage(long = "urls", short = 'u')]
+    #[usage(
+        help = "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git",
+        long_help = "urls",
+        long = "urls",
+        short = 'u'
+    )]
     pub urls: bool,
-    /// Show the git refs for each plugin
-    /// e.g.: main 1234abc
-    #[usage(long = "refs", hide)]
+    #[usage(
+        help = "Show the git refs for each plugin\ne.g.: main 1234abc",
+        long_help = "refs",
+        long = "refs",
+        hide
+    )]
     pub refs: bool,
     /// List installed plugins
     ///
@@ -3609,10 +3616,8 @@ pub struct ReshimArgs {
     /// Removes all shims before reshimming
     #[usage(long = "force", short = 'f')]
     pub force: bool,
-    /// Undocumented
     #[usage(arg, name = "TOOL", hide)]
     pub tool: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(arg, name = "VERSION", hide)]
     pub version: ::std::option::Option<::std::string::String>,
 }
@@ -3648,16 +3653,22 @@ pub struct RunArgs {
     /// Run matching tasks only for projects affected by Git changes
     #[usage(long = "affected")]
     pub affected: bool,
-    /// Git base revision for --affected
-    /// Defaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1
-    #[usage(long = "affected-base", value_name = "REV")]
+    #[usage(
+        help = "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1",
+        long_help = "affected-base",
+        long = "affected-base",
+        value_name = "REV"
+    )]
     pub affected_base: ::std::option::Option<::std::string::String>,
     /// Explain why projects and tasks were selected by --affected
     #[usage(long = "affected-explain")]
     pub affected_explain: bool,
-    /// Git head revision for --affected
-    /// Defaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD
-    #[usage(long = "affected-head", value_name = "REV")]
+    #[usage(
+        help = "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD",
+        long_help = "affected-head",
+        long = "affected-head",
+        value_name = "REV"
+    )]
     pub affected_head: ::std::option::Option<::std::string::String>,
     /// Output affected projects and tasks as JSON without running tasks
     #[usage(long = "affected-json")]
@@ -3671,10 +3682,13 @@ pub struct RunArgs {
     /// Force the tasks to run even if outputs are up to date
     #[usage(long = "force", short = 'f')]
     pub force: bool,
-    /// Number of tasks to run in parallel
-    /// [default: 4]
-    /// Configure with `jobs` config or `MISE_JOBS` env var
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Don't actually run the task(s), just print them in order of execution
     #[usage(long = "dry-run", short = 'n')]
@@ -3693,10 +3707,12 @@ pub struct RunArgs {
     /// Don't show extra output
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
-    /// Read/write directly to stdin/stdout/stderr instead of by line
-    /// Redactions are not applied with this option
-    /// Configure with `raw` config or `MISE_RAW` env var
-    #[usage(long = "raw", short = 'r')]
+    #[usage(
+        help = "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var",
+        long_help = "raw",
+        long = "raw",
+        short = 'r'
+    )]
     pub raw: bool,
     /// Shell to use to run toml tasks
     ///
@@ -3711,9 +3727,13 @@ pub struct RunArgs {
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
     #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION", var)]
     pub tool: ::std::vec::Vec<::std::string::String>,
-    /// Allow specific env var through (implies --deny-env for everything else)
-    /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", value_name = "VAR", var)]
+    #[usage(
+        help = "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'",
+        long_help = "allow-env",
+        long = "allow-env",
+        value_name = "VAR",
+        var
+    )]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
     /// Allow network to specific host (implies --deny-net for everything else)
     #[usage(long = "allow-net", value_name = "HOST", var)]
@@ -3785,9 +3805,12 @@ pub struct RunArgs {
     /// Report task output cache hits, restored bytes, and time saved
     #[usage(long = "task-cache-stats")]
     pub task_cache_stats: bool,
-    /// Timeout for the task to complete
-    /// e.g.: 30s, 5m
-    #[usage(long = "timeout", value_name = "TIMEOUT")]
+    #[usage(
+        help = "Timeout for the task to complete\ne.g.: 30s, 5m",
+        long_help = "timeout",
+        long = "timeout",
+        value_name = "TIMEOUT"
+    )]
     pub timeout: ::std::option::Option<::std::string::String>,
     /// Shows elapsed time after each task completes
     ///
@@ -3909,9 +3932,11 @@ pub struct SetArgs {
     /// When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
     #[usage(long = "stdin")]
     pub stdin: bool,
-    /// Environment variable(s) to set
-    /// e.g.: NODE_ENV=production
-    #[usage(arg, name = "ENV_VAR")]
+    #[usage(
+        arg,
+        name = "ENV_VAR",
+        help = "Environment variable(s) to set\ne.g.: NODE_ENV=production"
+    )]
     pub env_var: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4075,9 +4100,13 @@ pub enum SettingsCommands {
 /// such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
 #[derive(Args)]
 pub struct ShellArgs {
-    /// Number of jobs to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Removes a previously set version
     #[usage(long = "unset", short = 'u')]
@@ -4277,7 +4306,6 @@ pub struct TasksAddArgs {
     /// Tasks name to add
     #[usage(arg, name = "TASK")]
     pub task: ::std::string::String,
-    /// Undocumented
     #[usage(arg, name = "RUN", double_dash = "required")]
     pub run: ::std::vec::Vec<::std::string::String>,
 }
@@ -4294,10 +4322,11 @@ pub struct TasksDepsArgs {
     /// Show hidden tasks
     #[usage(long = "hidden")]
     pub hidden: bool,
-    /// Tasks to show dependencies for
-    /// Can specify multiple tasks by separating with spaces
-    /// e.g.: mise tasks deps lint test check
-    #[usage(arg, name = "TASKS")]
+    #[usage(
+        arg,
+        name = "TASKS",
+        help = "Tasks to show dependencies for\nCan specify multiple tasks by separating with spaces\ne.g.: mise tasks deps lint test check"
+    )]
     pub tasks: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4339,13 +4368,6 @@ pub struct TasksInfoArgs {
     pub task: ::std::string::String,
 }
 
-/// List available tasks to execute
-/// These may be included from the config file or from the project's .mise/tasks directory
-/// mise will merge all tasks from all parent directories into this list.
-///
-/// So if you have global tasks in `~/.config/mise/tasks/*` and project-specific tasks in
-/// ~/myproject/.mise/tasks/*, then they'll both be available but the project-specific
-/// tasks will override the global ones if they have the same name.
 #[derive(Args)]
 pub struct TasksLsArgs {
     /// Only show global tasks
@@ -4360,9 +4382,11 @@ pub struct TasksLsArgs {
     /// Show all columns
     #[usage(long = "extended", short = 'x')]
     pub extended: bool,
-    /// Load all tasks from the entire monorepo, including sibling directories.
-    /// By default, only tasks from the current directory hierarchy are loaded.
-    #[usage(long = "all")]
+    #[usage(
+        help = "Load all tasks from the entire monorepo, including sibling directories.\nBy default, only tasks from the current directory hierarchy are loaded.",
+        long_help = "all",
+        long = "all"
+    )]
     pub all: bool,
     /// Display tasks for usage completion
     #[usage(long = "complete", hide)]
@@ -4386,7 +4410,6 @@ pub struct TasksLsArgs {
     /// Sort order. Default is asc.
     #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
     pub sort_order: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(long = "usage", hide)]
     pub usage: bool,
 }
@@ -4422,16 +4445,22 @@ pub struct TasksRunArgs {
     /// Run matching tasks only for projects affected by Git changes
     #[usage(long = "affected")]
     pub affected: bool,
-    /// Git base revision for --affected
-    /// Defaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1
-    #[usage(long = "affected-base", value_name = "REV")]
+    #[usage(
+        help = "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1",
+        long_help = "affected-base",
+        long = "affected-base",
+        value_name = "REV"
+    )]
     pub affected_base: ::std::option::Option<::std::string::String>,
     /// Explain why projects and tasks were selected by --affected
     #[usage(long = "affected-explain")]
     pub affected_explain: bool,
-    /// Git head revision for --affected
-    /// Defaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD
-    #[usage(long = "affected-head", value_name = "REV")]
+    #[usage(
+        help = "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD",
+        long_help = "affected-head",
+        long = "affected-head",
+        value_name = "REV"
+    )]
     pub affected_head: ::std::option::Option<::std::string::String>,
     /// Output affected projects and tasks as JSON without running tasks
     #[usage(long = "affected-json")]
@@ -4445,10 +4474,13 @@ pub struct TasksRunArgs {
     /// Force the tasks to run even if outputs are up to date
     #[usage(long = "force", short = 'f')]
     pub force: bool,
-    /// Number of tasks to run in parallel
-    /// [default: 4]
-    /// Configure with `jobs` config or `MISE_JOBS` env var
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Don't actually run the task(s), just print them in order of execution
     #[usage(long = "dry-run", short = 'n')]
@@ -4467,10 +4499,12 @@ pub struct TasksRunArgs {
     /// Don't show extra output
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
-    /// Read/write directly to stdin/stdout/stderr instead of by line
-    /// Redactions are not applied with this option
-    /// Configure with `raw` config or `MISE_RAW` env var
-    #[usage(long = "raw", short = 'r')]
+    #[usage(
+        help = "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var",
+        long_help = "raw",
+        long = "raw",
+        short = 'r'
+    )]
     pub raw: bool,
     /// Shell to use to run toml tasks
     ///
@@ -4485,9 +4519,13 @@ pub struct TasksRunArgs {
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
     #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION", var)]
     pub tool: ::std::vec::Vec<::std::string::String>,
-    /// Allow specific env var through (implies --deny-env for everything else)
-    /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", value_name = "VAR", var)]
+    #[usage(
+        help = "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'",
+        long_help = "allow-env",
+        long = "allow-env",
+        value_name = "VAR",
+        var
+    )]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
     /// Allow network to specific host (implies --deny-net for everything else)
     #[usage(long = "allow-net", value_name = "HOST", var)]
@@ -4559,19 +4597,24 @@ pub struct TasksRunArgs {
     /// Report task output cache hits, restored bytes, and time saved
     #[usage(long = "task-cache-stats")]
     pub task_cache_stats: bool,
-    /// Timeout for the task to complete
-    /// e.g.: 30s, 5m
-    #[usage(long = "timeout", value_name = "TIMEOUT")]
+    #[usage(
+        help = "Timeout for the task to complete\ne.g.: 30s, 5m",
+        long_help = "timeout",
+        long = "timeout",
+        value_name = "TIMEOUT"
+    )]
     pub timeout: ::std::option::Option<::std::string::String>,
     /// Shows elapsed time after each task completes
     ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
     #[usage(long = "timings", hide)]
     pub timings: bool,
-    /// Tasks to run
-    /// Can specify multiple tasks by separating with `:::`
-    /// e.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2
-    #[usage(arg, name = "TASK", default = "default")]
+    #[usage(
+        arg,
+        name = "TASK",
+        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2",
+        default = "default"
+    )]
     pub task: ::std::option::Option<::std::string::String>,
     /// Arguments to pass to the tasks. Use ":::" to separate tasks
     #[usage(arg, name = "ARGS")]
@@ -4590,9 +4633,11 @@ pub struct TasksValidateArgs {
     /// Output validation results in JSON format
     #[usage(long = "json")]
     pub json: bool,
-    /// Tasks to validate
-    /// If not specified, validates all tasks
-    #[usage(arg, name = "TASKS")]
+    #[usage(
+        arg,
+        name = "TASKS",
+        help = "Tasks to validate\nIf not specified, validates all tasks"
+    )]
     pub tasks: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4611,9 +4656,11 @@ pub struct TasksArgs {
     /// Show all columns
     #[usage(long = "extended", short = 'x')]
     pub extended: bool,
-    /// Load all tasks from the entire monorepo, including sibling directories.
-    /// By default, only tasks from the current directory hierarchy are loaded.
-    #[usage(long = "all")]
+    #[usage(
+        help = "Load all tasks from the entire monorepo, including sibling directories.\nBy default, only tasks from the current directory hierarchy are loaded.",
+        long_help = "all",
+        long = "all"
+    )]
     pub all: bool,
     /// Display tasks for usage completion
     #[usage(long = "complete", hide)]
@@ -4637,7 +4684,6 @@ pub struct TasksArgs {
     /// Sort order. Default is asc.
     #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
     pub sort_order: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(long = "usage", hide)]
     pub usage: bool,
     /// Task name to get info of
@@ -4664,10 +4710,11 @@ pub enum TasksCommands {
     /// Get information about a task
     #[usage(name = "info")]
     Info(Box<TasksInfoArgs>),
-    /// List available tasks to execute
-    /// These may be included from the config file or from the project's .mise/tasks directory
-    /// mise will merge all tasks from all parent directories into this list.
-    #[usage(name = "ls")]
+    #[usage(
+        name = "ls",
+        help = "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.",
+        long_help = "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.\n\nSo if you have global tasks in `~/.config/mise/tasks/*` and project-specific tasks in\n~/myproject/.mise/tasks/*, then they'll both be available but the project-specific\ntasks will override the global ones if they have the same name."
+    )]
     Ls(Box<TasksLsArgs>),
     /// Run task(s)
     #[usage(name = "run", alias = "r")]
@@ -4683,9 +4730,13 @@ pub struct TestToolArgs {
     /// Test every tool specified in registry/
     #[usage(long = "all", short = 'a')]
     pub all: bool,
-    /// Number of tool tests to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of tool tests to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Test all tools specified in config files
     #[usage(long = "all-config")]
@@ -4852,9 +4903,11 @@ pub struct TrustArgs {
     /// Do not trust this config and ignore it in the future
     #[usage(long = "ignore")]
     pub ignore: bool,
-    /// Show the trusted status of config files from the current directory and its parents.
-    /// Does not trust or untrust any files.
-    #[usage(long = "show")]
+    #[usage(
+        help = "Show the trusted status of config files from the current directory and its parents.\nDoes not trust or untrust any files.",
+        long_help = "show",
+        long = "show"
+    )]
     pub show: bool,
     /// No longer trust this config, will prompt in the future
     #[usage(long = "untrust")]
@@ -4900,9 +4953,11 @@ pub struct UnsetArgs {
     /// Use the global config file
     #[usage(long = "global", short = 'g')]
     pub global: bool,
-    /// Environment variable(s) to remove
-    /// e.g.: NODE_ENV
-    #[usage(arg, name = "ENV_KEY")]
+    #[usage(
+        arg,
+        name = "ENV_KEY",
+        help = "Environment variable(s) to remove\ne.g.: NODE_ENV"
+    )]
     pub env_key: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4965,9 +5020,13 @@ pub struct UpgradeArgs {
     /// Display multiselect menu to choose which tools to upgrade
     #[usage(long = "interactive", short = 'i')]
     pub interactive: bool,
-    /// Number of jobs to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
@@ -4981,9 +5040,14 @@ pub struct UpgradeArgs {
     /// Just print what would be done, don't actually do it
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
-    /// Tool(s) to exclude from upgrading
-    /// e.g.: go python
-    #[usage(long = "exclude", short = 'x', value_name = "INSTALLED_TOOL", var)]
+    #[usage(
+        help = "Tool(s) to exclude from upgrading\ne.g.: go python",
+        long_help = "exclude",
+        long = "exclude",
+        short = 'x',
+        value_name = "INSTALLED_TOOL",
+        var
+    )]
     pub exclude: ::std::vec::Vec<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are outdated tools
     ///
@@ -5021,10 +5085,11 @@ pub struct UpgradeArgs {
     /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[usage(long = "raw")]
     pub raw: bool,
-    /// Tool(s) to upgrade
-    /// e.g.: node@20 python@3.10
-    /// If not specified, all current tools will be upgraded
-    #[usage(arg, name = "INSTALLED_TOOL@VERSION")]
+    #[usage(
+        arg,
+        name = "INSTALLED_TOOL@VERSION",
+        help = "Tool(s) to upgrade\ne.g.: node@20 python@3.10\nIf not specified, all current tools will be upgraded"
+    )]
     pub installed_tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -5064,9 +5129,13 @@ pub struct UseArgs {
     /// Use the global config file (`~/.config/mise/config.toml`) instead of the local one
     #[usage(long = "global", short = 'g')]
     pub global: bool,
-    /// Number of jobs to run in parallel
-    /// [default: 4]
-    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[usage(
+        help = "Number of jobs to run in parallel\n[default: 4]",
+        long_help = "jobs",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Perform a dry run, showing what would be installed and modified without making changes
     #[usage(long = "dry-run", short = 'n')]
@@ -5092,13 +5161,11 @@ pub struct UseArgs {
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
-    /// Save exact version to config file
-    /// e.g.: `mise use --pin node@20` will save 20.0.0 as the version
-    /// Set `MISE_PIN=1` to make this the default behavior
-    ///
-    /// Consider using mise.lock as a better alternative to pinning in mise.toml:
-    /// https://mise.jdx.dev/configuration/settings.html#lockfile
-    #[usage(long = "pin")]
+    #[usage(
+        help = "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior",
+        long_help = "pin",
+        long = "pin"
+    )]
     pub pin: bool,
     /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`
     #[usage(long = "raw")]
@@ -5142,9 +5209,15 @@ pub struct WatchArgs {
     /// Tasks to run
     #[usage(long = "task-flag", short = 't', hide, value_name = "TASK_FLAG", var)]
     pub task_flag: ::std::vec::Vec<::std::string::String>,
-    /// Files to watch
-    /// Defaults to sources from the task(s)
-    #[usage(long = "glob", short = 'g', hide, value_name = "GLOB", var)]
+    #[usage(
+        help = "Files to watch\nDefaults to sources from the task(s)",
+        long_help = "glob",
+        long = "glob",
+        short = 'g',
+        hide,
+        value_name = "GLOB",
+        var
+    )]
     pub glob: ::std::vec::Vec<::std::string::String>,
     /// Run only the specified tasks skipping all dependencies
     #[usage(long = "skip-deps")]
@@ -5675,10 +5748,11 @@ pub struct WatchArgs {
     /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
     #[usage(long = "manual")]
     pub manual: bool,
-    /// Tasks to run
-    /// Can specify multiple tasks by separating with `:::`
-    /// e.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`
-    #[usage(arg, name = "TASK")]
+    #[usage(
+        arg,
+        name = "TASK",
+        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`"
+    )]
     pub task: ::std::option::Option<::std::string::String>,
     /// Task and arguments to run
     #[usage(arg, name = "ARGS")]
@@ -5690,17 +5764,18 @@ pub struct WatchArgs {
 /// The tool must be installed for this to work.
 #[derive(Args)]
 pub struct WhereArgs {
-    /// Tool(s) to look up
-    /// e.g.: ruby@3
-    /// if "@<PREFIX>" is specified, it will show the latest installed version
-    /// that matches the prefix
-    /// otherwise, it will show the current, active installed version
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(
+        arg,
+        name = "TOOL@VERSION",
+        help = "Tool(s) to look up\ne.g.: ruby@3\nif \"@<PREFIX>\" is specified, it will show the latest installed version\nthat matches the prefix\notherwise, it will show the current, active installed version"
+    )]
     pub tool_version: ::std::string::String,
-    /// the version prefix to use when querying the latest version
-    /// same as the first argument after the "@"
-    /// used for asdf compatibility
-    #[usage(arg, name = "ASDF_VERSION", hide)]
+    #[usage(
+        arg,
+        name = "ASDF_VERSION",
+        help = "the version prefix to use when querying the latest version\nsame as the first argument after the \"@\"\nused for asdf compatibility",
+        hide
+    )]
     pub asdf_version: ::std::option::Option<::std::string::String>,
 }
 
@@ -5709,11 +5784,14 @@ pub struct WhereArgs {
 /// Use this to figure out what version of a tool is currently active.
 #[derive(Args)]
 pub struct WhichArgs {
-    /// Use a specific tool@version
-    /// e.g.: `mise which npm --tool=node@20`
-    #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION")]
+    #[usage(
+        help = "Use a specific tool@version\ne.g.: `mise which npm --tool=node@20`",
+        long_help = "tool",
+        long = "tool",
+        short = 't',
+        value_name = "TOOL@VERSION"
+    )]
     pub tool: ::std::option::Option<::std::string::String>,
-    /// Undocumented
     #[usage(long = "complete", hide)]
     pub complete: bool,
     /// Show the plugin name instead of the path
@@ -5727,7 +5805,9 @@ pub struct WhichArgs {
     pub bin_name: ::std::option::Option<::std::string::String>,
 }
 
-/// Undocumented
+/// Dev tools, env vars, and tasks in one CLI
+///
+/// mise prepares your development environment before each command runs. https://github.com/jdx/mise
 #[derive(Cli)]
 #[usage(bin = "mise", default_subcommand = "run")]
 pub struct Cli {
@@ -5762,7 +5842,6 @@ pub struct Cli {
     /// Suppress non-error messages
     #[usage(long = "quiet", short = 'q', global)]
     pub quiet: bool,
-    /// Undocumented
     #[usage(long = "shell", short = 's', hide, value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
@@ -5771,7 +5850,6 @@ pub struct Cli {
     /// Show extra output (use -vv for even more)
     #[usage(long = "verbose", short = 'v', global, count)]
     pub verbose: u8,
-    /// Undocumented
     #[usage(long = "version", short = 'V', hide)]
     pub version: bool,
     /// Answer yes to all confirmation prompts
@@ -5780,7 +5858,6 @@ pub struct Cli {
     /// Sets log level to debug
     #[usage(long = "debug", global, hide)]
     pub debug: bool,
-    /// Undocumented
     #[usage(
         long = "log-level",
         global,
@@ -5809,7 +5886,6 @@ pub struct Cli {
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
     #[usage(long = "no-timings", hide)]
     pub no_timings: bool,
-    /// Undocumented
     #[usage(long = "output", value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// Read/write directly to stdin/stdout/stderr instead of by line
@@ -5841,7 +5917,6 @@ pub struct Cli {
     /// Task arguments
     #[usage(arg, name = "TASK_ARGS", hide)]
     pub task_args: ::std::vec::Vec<::std::string::String>,
-    /// Undocumented
     #[usage(arg, name = "TASK_ARGS_LAST", hide, double_dash = "required")]
     pub task_args_last: ::std::vec::Vec<::std::string::String>,
     #[usage(subcommand)]
@@ -5857,7 +5932,7 @@ pub enum Commands {
     #[usage(name = "tool-alias", alias_hidden("alias", "aliases"))]
     ToolAlias(Box<ToolAliasArgs>),
     /// [internal] simulates asdf for plugins that call "asdf" internally
-    #[usage(name = "asdf")]
+    #[usage(name = "asdf", hide)]
     Asdf(Box<AsdfArgs>),
     /// Manage backends
     #[usage(name = "backends", alias_hidden("b", "backend", "backend-list"))]
@@ -5878,16 +5953,16 @@ pub enum Commands {
     #[usage(name = "config", alias = "cfg", alias_hidden = "toml")]
     Config(Box<ConfigArgs>),
     /// Shows current active and installed runtime versions
-    #[usage(name = "current")]
+    #[usage(name = "current", hide)]
     Current(Box<CurrentArgs>),
     /// Disable mise for current shell session
     #[usage(name = "deactivate")]
     Deactivate(Box<DeactivateArgs>),
     /// Output direnv function to use mise inside direnv
-    #[usage(name = "direnv")]
+    #[usage(name = "direnv", hide)]
     Direnv(Box<DirenvArgs>),
     /// Manage dotfiles from `[dotfiles]` (deprecated)
-    #[usage(name = "dotfiles")]
+    #[usage(name = "dotfiles", hide)]
     Dotfiles(Box<DotfilesArgs>),
     /// Check mise installation for possible problems
     #[usage(name = "doctor", alias = "dr")]
@@ -5908,16 +5983,16 @@ pub enum Commands {
     #[usage(name = "generate", alias = "gen", alias_hidden = "g")]
     Generate(Box<GenerateArgs>),
     /// GitHub related commands
-    #[usage(name = "github")]
+    #[usage(name = "github", hide)]
     Github(Box<GithubArgs>),
     /// Sets/gets the global tool version(s)
-    #[usage(name = "global")]
+    #[usage(name = "global", hide)]
     Global(Box<GlobalArgs>),
     /// [internal] called by activate hook to update env vars directory change
-    #[usage(name = "hook-env")]
+    #[usage(name = "hook-env", hide)]
     HookEnv(Box<HookEnvArgs>),
     /// [internal] called by shell when a command is not found
-    #[usage(name = "hook-not-found")]
+    #[usage(name = "hook-not-found", hide)]
     HookNotFound(Box<HookNotFoundArgs>),
     /// Removes mise CLI and all related data
     #[usage(name = "implode")]
@@ -5938,7 +6013,7 @@ pub enum Commands {
     #[usage(name = "link", alias = "ln")]
     Link(Box<LinkArgs>),
     /// Sets/gets tool version in local .tool-versions or mise.toml
-    #[usage(name = "local", alias_hidden = "l")]
+    #[usage(name = "local", hide, alias_hidden = "l")]
     Local(Box<LocalArgs>),
     /// Update lockfile checksums and URLs for all specified platforms
     #[usage(name = "lock")]
@@ -5974,7 +6049,7 @@ pub enum Commands {
     #[usage(name = "registry")]
     Registry(Box<RegistryArgs>),
     /// internal command to generate markdown from help
-    #[usage(name = "render-help")]
+    #[usage(name = "render-help", hide)]
     RenderHelp(Box<RenderHelpArgs>),
     /// Creates new shims based on bin paths from currently installed tools.
     #[usage(name = "reshim")]
@@ -6040,7 +6115,7 @@ pub enum Commands {
     #[usage(name = "upgrade", alias = "up")]
     Upgrade(Box<UpgradeArgs>),
     /// Generate a usage CLI spec
-    #[usage(name = "usage")]
+    #[usage(name = "usage", hide)]
     Usage(Box<UsageArgs>),
     /// Installs a tool and adds the version to mise.toml.
     #[usage(name = "use", alias = "u")]

@@ -11,7 +11,7 @@
 //! by hand.
 
 use usage::{Spec as LibSpec, SpecCommand};
-use usage_argv::help::usage_line;
+use usage_argv::help::{short_help, usage_line};
 use usage_argv::spec::CommandMeta;
 
 /// mise's committed spec, which the shadow was generated from.
@@ -98,5 +98,67 @@ fn the_root_line_is_what_a_user_would_recognise() {
     assert!(
         line.ends_with("<SUBCOMMAND>"),
         "mise has subcommands, so the line should end by saying so: {line}"
+    );
+}
+
+/// The first line that differs, with a little context — a whole help page twice over is not
+/// something anyone reads.
+fn first_diff(ours: &str, theirs: &str) -> String {
+    let mine: Vec<&str> = ours.lines().collect();
+    let ref_: Vec<&str> = theirs.lines().collect();
+    for (i, (a, b)) in mine.iter().zip(ref_.iter()).enumerate() {
+        if a != b {
+            return format!("  line {}:\n    ours: {a:?}\n     lib: {b:?}", i + 1);
+        }
+    }
+    format!(
+        "  same for {} lines, then ours has {} and the reference {}",
+        mine.len().min(ref_.len()),
+        mine.len(),
+        ref_.len()
+    )
+}
+
+#[test]
+fn every_short_help_matches_the_reference() {
+    // The same standard as the usage line, over the whole document: `-h` for all 211 of
+    // mise's commands, byte for byte against usage-lib's. This is the test that decides
+    // whether an adopter's help output changes, so it compares the text rather than a
+    // summary of it.
+    let spec = mise_spec();
+    let root = shadow_mise::Cli::spec();
+
+    let mut commands = Vec::new();
+    walk(vec!["mise"], root.root, &mut commands);
+
+    let mut differences = Vec::new();
+    for (path, meta) in &commands {
+        let ours = short_help(root, path, meta);
+        let Some(cmd) = lib_command(&spec, &path[1..]) else {
+            differences.push(format!("{}: not in the spec", path.join(" ")));
+            continue;
+        };
+        let theirs = usage::docs::cli::render_help(&spec, cmd, false);
+        if ours != theirs {
+            differences.push(format!(
+                "{}\n{}",
+                path.join(" "),
+                first_diff(&ours, &theirs)
+            ));
+        }
+    }
+
+    assert!(
+        differences.is_empty(),
+        "{} of {} help pages differ:\n{}",
+        differences.len(),
+        commands.len(),
+        // Two is enough to work from, and the whole set would bury the count.
+        differences
+            .iter()
+            .take(2)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }

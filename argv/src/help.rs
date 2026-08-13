@@ -19,7 +19,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, FlagMeta};
+use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
 use crate::DoubleDash;
 
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
@@ -205,4 +205,183 @@ fn arg_usage(meta: &ArgMeta<'_>) -> String {
         out.push('…');
     }
     out
+}
+
+/// Everything `-h` prints.
+///
+/// The short form: one line per entry, its help beside it. `--help` renders the same content
+/// through a wider layout, which is the next thing to build — the two differ in presentation
+/// and in which help text they prefer, not in what they cover.
+///
+/// `path` is the command as invoked, as for [`usage_line`].
+pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+    let mut out = String::new();
+
+    // The program, then what it is for. usage-lib prints the name when the spec gives one and
+    // the binary otherwise, and only when there is a version to put beside it.
+    if let Some(version) = spec.version {
+        let name = if spec.name.is_empty() {
+            spec.bin.unwrap_or_default()
+        } else {
+            spec.name
+        };
+        let _ = writeln!(out, "{name} {version}");
+    }
+    if let Some(about) = spec.about {
+        let _ = writeln!(out, "{about}\n");
+    }
+    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+
+    // The path without the binary, which is what a listed subcommand shows: usage-lib prints
+    // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
+    // than the child's own name.
+    commands_section(&mut out, &path[1.min(path.len())..], meta);
+    groups_section(
+        &mut out,
+        "Arguments",
+        meta.args.iter().filter(|a| !a.hide),
+        |a| a.help_heading,
+        |out, a| {
+            let _ = write!(out, "  {}", arg_usage(a));
+            if let Some(help) = a.help {
+                let _ = write!(out, "  {help}");
+            }
+            annotations(out, a.choices, a.env, a.default);
+        },
+    );
+    groups_section(
+        &mut out,
+        "Flags",
+        meta.flags.iter().filter(|f| !f.hide),
+        |f| f.help_heading,
+        |out, f| {
+            let _ = write!(out, "  {}", display_usage(f));
+            if let Some(help) = f.help {
+                let _ = write!(out, "  {help}");
+            }
+            annotations(out, f.choices, f.env, &[]);
+        },
+    );
+    examples_section(&mut out, meta);
+
+    // usage-lib trims the whole document and puts back one newline, which is what keeps the
+    // blank lines between sections from becoming trailing ones.
+    let trimmed = out.trim();
+    let mut done = String::with_capacity(trimmed.len() + 1);
+    done.push_str(trimmed);
+    done.push('\n');
+    done
+}
+
+/// The list of subcommands, and the `help` command every CLI with subcommands has.
+fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+    let visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
+    // every one of them is hidden. The usage *line* still says `<SUBCOMMAND>`, because
+    // usage-lib computes it before filtering and stores it; matching the reference means
+    // matching that too, odd as the pair looks together.
+    if visible.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\nCommands:");
+
+    // Sorted by the rendered usage rather than by name, as usage-lib sorts them — for a
+    // command with no flags or arguments the two agree, and where they differ this is the
+    // order a reader sees in the reference.
+    let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
+        .iter()
+        .map(|sub| {
+            let mut sub_path: Vec<&str> = path.to_vec();
+            sub_path.push(sub.cmd.name);
+            (usage_line(&sub_path, sub), *sub)
+        })
+        .collect();
+    lines.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (usage, sub) in &lines {
+        let _ = write!(out, "  {usage}");
+        // Visible aliases only: a hidden alias works and is not advertised, which is the
+        // whole of the distinction.
+        let visible_aliases: Vec<&str> = sub
+            .cmd
+            .aliases
+            .iter()
+            .copied()
+            .filter(|a| !sub.hidden_aliases.contains(a))
+            .collect();
+        if !visible_aliases.is_empty() {
+            let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+        }
+        if let Some(about) = sub.about {
+            let _ = write!(out, "  {about}");
+        }
+        out.push('\n');
+    }
+    let _ = writeln!(
+        out,
+        "  help  Print this message or the help of the given subcommand(s)"
+    );
+}
+
+/// One section per heading, unheaded first, in the order the headings first appear.
+fn groups_section<'m, T: 'm>(
+    out: &mut String,
+    default_title: &str,
+    items: impl Iterator<Item = &'m T> + Clone,
+    heading_of: impl Fn(&T) -> Option<&'m str>,
+    mut write_item: impl FnMut(&mut String, &T),
+) {
+    // Headings in first-seen order, with the unheaded group before them. Collected rather
+    // than sorted so that "first seen" means what it says.
+    let mut headings: Vec<Option<&str>> = Vec::new();
+    for item in items.clone() {
+        let heading = heading_of(item);
+        if !headings.contains(&heading) {
+            headings.push(heading);
+        }
+    }
+    headings.sort_by_key(|h| h.is_some());
+
+    for heading in headings {
+        let _ = writeln!(out, "\n{}:", heading.unwrap_or(default_title));
+        for item in items.clone().filter(|i| heading_of(i) == heading) {
+            write_item(out, item);
+        }
+    }
+}
+
+/// The bracketed notes after an entry's help: choices, environment, default.
+fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &[&str]) {
+    if !choices.is_empty() {
+        let _ = write!(out, " [{}]", choices.join(", "));
+    }
+    if let Some(env) = env {
+        let _ = write!(out, " [env: {env}]");
+    }
+    if !default.is_empty() {
+        let _ = write!(out, " (default: {})", default.join(", "));
+    }
+    out.push('\n');
+}
+
+/// A flag as the flags section lists it, which includes its negation.
+fn display_usage(meta: &FlagMeta<'_>) -> String {
+    let usage = flag_usage(meta);
+    match meta.flag.negate {
+        Some(negate) => format!("{usage} / --{negate}"),
+        None => usage,
+    }
+}
+
+fn examples_section(out: &mut String, meta: &CommandMeta<'_>) {
+    if meta.examples.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\nExamples:");
+    for example in meta.examples {
+        if let Some(header) = example.header {
+            let _ = writeln!(out, "  {header}:");
+        }
+        let _ = writeln!(out, "    $ {}", example.code);
+    }
 }

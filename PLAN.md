@@ -265,16 +265,14 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
 
 ### Then: what a CLI framework has to have
 
-- [ ] **Help rendering** — `--help` and `-h` from the static metadata, with headings and
-      hidden-item filtering. The **usage line** is done: `usage_argv::help::usage_line` builds
-      it from the tables, and all 211 of mise's commands come out byte-identical to usage-lib's,
-      which is the standard that matters — an adopter's help changing is a visible regression
-      even when it is one bracket. usage-lib renders through a tera template over a runtime
-      model, which this crate has no equivalent of, so the rules are reimplemented and the
-      parity test is what keeps them honest. Getting there also forced a fourth naming fix: a
-      flag is named after the form it answers to, as usage-lib names it, not after the Rust
-      field holding it — `type_` had been giving a flag called `type-`, which help printed and
-      errors reported.
+- [ ] **Help rendering** — `-h` is done and matches usage-lib byte for byte across all 211 of
+      mise's commands: the usage line, the about, the commands list, arguments and flags grouped
+      by heading, examples, hidden-item filtering. `--help`'s wider layout, which aligns help
+      into a column and wraps to `COLUMNS`, is next, then the `--help`/`-h` wiring in the derive.
+      Holding it to parity found six more things a spec could say that the derive could not —
+      value names, required collections, `var` on a count, the spec's own `about`, `hide` on a
+      command, and help text whose line breaks matter — plus a bug in usage-lib, which printed
+      everything marked `hide`.
 - [ ] **Completions, self-contained** — `<bin> completion <shell>` emits the
       script; a hidden `<bin> complete-word` serves requests from the binary's own
       embedded spec. Same dispatch shape usage-cli uses today, without requiring
