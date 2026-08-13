@@ -272,7 +272,14 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       Holding it to parity found six more things a spec could say that the derive could not —
       value names, required collections, `var` on a count, the spec's own `about`, `hide` on a
       command, and help text whose line breaks matter — plus a bug in usage-lib, which printed
-      everything marked `hide`.
+      everything marked `hide`. Then three more, found while starting on `--help`: a variant's short
+      description was hiding the struct's long one, which is the shape every generated CLI has;
+      a doc comment's lines were trimmed one by one, flattening every indented example in help;
+      and a program could not describe itself twice over, since a comment's long form always
+      contains its short one where a spec keeps the two independent. `--help`'s own layout is
+      written and not yet at parity — 123 of 211 pages differ, each remaining cause a metadata
+      path where the shadow's description is not the spec's — so it is held back rather than
+      shipped wrong.
 - [ ] **Completions, self-contained** — `<bin> completion <shell>` emits the
       script; a hidden `<bin> complete-word` serves requests from the binary's own
       embedded spec. Same dispatch shape usage-cli uses today, without requiring

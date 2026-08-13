@@ -5759,11 +5759,13 @@ pub struct WhichArgs {
     pub bin_name: ::std::option::Option<::std::string::String>,
 }
 
-/// Dev tools, env vars, and tasks in one CLI
-///
-/// mise prepares your development environment before each command runs. https://github.com/jdx/mise
 #[derive(Cli)]
-#[usage(bin = "mise", default_subcommand = "run")]
+#[usage(
+    bin = "mise",
+    about = "Dev tools, env vars, and tasks in one CLI",
+    long_about = "mise prepares your development environment before each command runs. https://github.com/jdx/mise",
+    default_subcommand = "run"
+)]
 pub struct Cli {
     /// Continue running tasks even if one fails
     #[usage(long = "continue-on-error", short = 'c', hide)]

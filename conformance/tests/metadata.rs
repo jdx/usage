@@ -253,3 +253,98 @@ fn a_command_can_be_hidden() {
     };
     assert!(shims.shims);
 }
+
+/// A command whose short description is on the enum and whose long one is on the struct.
+///
+/// The shape every generated CLI has, and mise's own: the variant says what the command is for
+/// in a line, and the struct's comment carries the detail.
+#[derive(Args)]
+/// Initializes mise in the current shell session
+///
+/// This should go into your shell's rc file.
+/// Otherwise, it will only take effect in the current session.
+///
+///     echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
+struct ActivateArgs {
+    /// Use shims instead of modifying PATH
+    #[usage(long)]
+    shims: bool,
+}
+
+#[derive(Subcommands)]
+enum SplitCommands {
+    /// Initializes mise in the current shell session
+    Activate(Box<ActivateArgs>),
+}
+
+#[derive(Cli)]
+#[usage(
+    bin = "split",
+    about = "Dev tools, env vars, and tasks in one CLI",
+    long_about = "split prepares your development environment before each command runs."
+)]
+struct Split {
+    #[usage(subcommand)]
+    command: Option<SplitCommands>,
+}
+
+#[test]
+fn a_variants_short_description_does_not_hide_the_structs_long_one() {
+    // Each falls back on its own. A variant that gave a short description was suppressing the
+    // struct's long one, so the long form went missing from help for every command written the
+    // way generated CLIs are written.
+    let spec: LibSpec = Split::to_kdl().parse().expect("valid spec");
+    let activate = spec.cmd.subcommands.get("activate").expect("activate");
+    assert_eq!(
+        activate.help.as_deref(),
+        Some("Initializes mise in the current shell session"),
+        "the variant's line"
+    );
+    let long = activate.help_long.as_deref().expect("the struct's detail");
+    assert!(long.contains("rc file"), "{long}");
+}
+
+#[test]
+fn an_indented_example_in_help_keeps_its_indentation() {
+    // A doc comment's lines were trimmed one by one, which flattened every indented block in a
+    // CLI's help — and an indented block is how a spec shows a command to type. mise's help is
+    // full of them.
+    let spec: LibSpec = Split::to_kdl().parse().expect("valid spec");
+    let activate = spec.cmd.subcommands.get("activate").expect("activate");
+    let long = activate.help_long.as_deref().expect("long help");
+    assert!(
+        long.contains("\n    echo 'eval"),
+        "the example should still be indented:\n{long}"
+    );
+}
+
+#[test]
+fn a_program_can_describe_itself_twice_over() {
+    // A comment's long form always contains its short one, because the short form *is* its
+    // first paragraph. A spec keeps the two independent, and mise's differ entirely — so there
+    // is no comment that says both.
+    let spec: LibSpec = Split::to_kdl().parse().expect("valid spec");
+    assert_eq!(
+        spec.about.as_deref(),
+        Some("Dev tools, env vars, and tasks in one CLI")
+    );
+    assert_eq!(
+        spec.about_long.as_deref(),
+        Some("split prepares your development environment before each command runs.")
+    );
+}
+
+#[test]
+fn the_split_description_cli_still_parses() {
+    // Reading what the fixture declares, which is also how these structs avoid being dead
+    // code: a test CLI nobody parses is a warning, and CI denies warnings.
+    use std::ffi::OsStr;
+
+    let argv = [OsStr::new("activate"), OsStr::new("--shims")];
+    let Some(SplitCommands::Activate(activate)) =
+        Split::parse_from(&argv).expect("should parse").command
+    else {
+        panic!("expected activate")
+    };
+    assert!(activate.shims);
+}
