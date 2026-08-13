@@ -32,22 +32,50 @@ use crate::{Arg, Command, DoubleDash, Flag};
 /// to see other expansions — it hashes the type name to keep them apart. That makes
 /// a collision astronomically unlikely rather than impossible, so it is checked
 /// where a CLI is written out, which every adopter does in a test.
+///
+/// Checked *per command*, not across the tree. A key only ever decides between the flags of
+/// the one command in scope, and `#[usage(flatten)]` makes sharing one across commands
+/// ordinary rather than suspect: mise gives a single `ConfigLs` to both `config` and
+/// `config ls`, so that declaration — and its key — is in both tables by design. An earlier
+/// version of this check looked at the whole tree and called that an error.
 fn duplicate_key(cmd: &Command<'_>) -> Option<u64> {
-    let mut keys = std::vec::Vec::new();
-    collect_keys(cmd, &mut keys);
+    let mut keys: std::vec::Vec<u64> = cmd
+        .flags
+        .iter()
+        .map(|f| f.key)
+        .chain(cmd.args.iter().map(|a| a.key))
+        .collect();
     keys.sort_unstable();
-    keys.windows(2)
-        .find(|pair| pair[0] == pair[1])
-        .map(|pair| pair[0])
+    if let Some(pair) = keys.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0]);
+    }
+    cmd.subcommands.iter().find_map(|sub| duplicate_key(sub))
 }
 
-fn collect_keys(cmd: &Command<'_>, keys: &mut std::vec::Vec<u64>) {
-    keys.push(cmd.key);
-    keys.extend(cmd.flags.iter().map(|f| f.key));
-    keys.extend(cmd.args.iter().map(|a| a.key));
-    for sub in cmd.subcommands {
-        collect_keys(sub, keys);
+/// A long or short form that two flags on the same command both answer to, if any.
+///
+/// Within one struct the derive catches this, but `#[usage(flatten)]` joins declarations from
+/// two expansions that cannot see each other — so `--quiet` on a parent and `--quiet` on the
+/// struct it flattens compiles, and then only the first is ever reached. Checked here for the
+/// same reason keys are: this is where the whole tree is visible, and writing a spec out is
+/// something every adopter does in a test.
+fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
+    let mut forms: std::vec::Vec<std::string::String> = std::vec::Vec::new();
+    for flag in cmd.flags {
+        for long in flag.longs.iter().chain(flag.negate.iter()) {
+            forms.push(std::format!("--{long}"));
+        }
+        for short in flag.shorts {
+            forms.push(std::format!("-{}", *short as char));
+        }
     }
+    forms.sort_unstable();
+    if let Some(pair) = forms.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0].clone());
+    }
+    cmd.subcommands
+        .iter()
+        .find_map(|sub| duplicate_flag_form(sub))
 }
 
 /// A whole CLI: the root command plus what describes the program itself.
@@ -318,10 +346,18 @@ impl Spec<'_> {
     pub fn to_kdl(&self) -> String {
         debug_assert!(
             duplicate_key(self.root.cmd).is_none(),
-            "two things in this CLI share a key ({:?}), so a parse would bind the \
-             wrong one. A derive builds keys from a hash of the type they came from, \
-             so this means two type names collided.",
+            "two things on the same command share a key ({:?}), so a parse would bind the \
+             wrong one. A derive builds keys from a hash of the type they came from, so this \
+             means two type names collided — or one struct was flattened into the same \
+             command twice.",
             duplicate_key(self.root.cmd)
+        );
+        debug_assert!(
+            duplicate_flag_form(self.root.cmd).is_none(),
+            "two flags on the same command answer to {:?}, so only one of them could ever \
+             be reached. With `flatten` this is the collision neither expansion can see: \
+             the parent and the struct it flattens each declared it.",
+            duplicate_flag_form(self.root.cmd)
         );
         let mut out = String::new();
         // Unwrap-free: writing into a String cannot fail, and `write!` returning
@@ -899,8 +935,22 @@ pub trait Subcommands: Sized {
     /// The metadata for the variants, in the same order.
     const METAS: &'static [&'static CommandMeta<'static>];
 
-    /// Take one event, and say whether it belonged to one of these commands.
-    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+    /// Take one event, and say whether it belonged to the selected command.
+    ///
+    /// `selected` is a position in [`Subcommands::COMMANDS`], or `None` before any of them
+    /// has been reached — in which case the event cannot be theirs and nothing is asked.
+    ///
+    /// Only the selected one is asked, which is both cheaper and *necessary*. Cheaper because
+    /// a CLI with a hundred subcommands would otherwise offer every event to all hundred.
+    /// Necessary because two commands can legitimately hold the same declaration once
+    /// `#[usage(flatten)]` exists: mise gives one `ConfigLs` to both `config` and `config ls`,
+    /// so the same key is in both tables, and whichever was asked first would claim the event
+    /// — including a command the user never named.
+    fn apply(
+        partial: &mut Self::Partial,
+        selected: Option<usize>,
+        event: &crate::Event<'_, '_>,
+    ) -> bool;
 
     /// Check the selected command's requirements, and nothing else's.
     ///

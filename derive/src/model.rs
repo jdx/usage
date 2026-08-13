@@ -116,6 +116,21 @@ pub enum Kind {
     /// enum's definition: the generated code names it through the
     /// [`Subcommands`](usage_argv::spec::Subcommands) trait, which is also how it
     /// reaches the type that accumulates a subcommand's values.
+    /// Holds a struct whose flags and arguments belong to *this* command.
+    ///
+    /// A Rust-side device for sharing declarations between commands — mise writes one
+    /// `ConfigLs` and gives it to both `config` and `config ls`. The spec has no such idea,
+    /// and does not need one: the emitted KDL lists the flags inline, exactly as a
+    /// hand-written command would.
+    ///
+    /// The type is carried rather than resolved, as for a subcommand: the derive cannot see
+    /// the other struct's fields, so everything goes through
+    /// [`CommandArgs`](usage_argv::spec::CommandArgs) — including the tables, which are
+    /// joined into the parent's at compile time.
+    Flatten {
+        /// The struct's type, as written.
+        ty: syn::Type,
+    },
     Subcommand {
         /// The enum's type, as written.
         ty: syn::Type,
@@ -370,6 +385,12 @@ impl Cli {
                         seen_short.push((*short, field.span));
                     }
                 }
+                // Nothing to check here: the flattened struct's own derive checked its
+                // declarations, and a collision *across* the two is invisible from either
+                // side — both expansions see a type name and no fields. That case is caught
+                // where the whole tree is visible, by the duplicate-form check in
+                // `Spec::to_kdl`.
+                Kind::Flatten { .. } => {}
                 Kind::Arg {
                     double_dash_required,
                 } => {
@@ -465,6 +486,95 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 }
 
 impl Field {
+    /// A field marked `#[usage(flatten)]`, if this is one.
+    ///
+    /// Recognized before flags and arguments for the same reason a subcommand is: the field
+    /// holds a whole command's worth of declarations, so none of what describes a single
+    /// value applies to it. A doc comment on it describes nothing that reaches the spec,
+    /// since the flattened struct's own fields carry their own help.
+    fn flatten(
+        field: &syn::Field,
+        ident: &syn::Ident,
+        span: proc_macro2::Span,
+    ) -> syn::Result<Option<Self>> {
+        let mut found = false;
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                if ident_of(&meta.path().clone()) != "flatten" {
+                    continue;
+                }
+                if !matches!(meta, Meta::Path(_)) {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        "`flatten` takes no value: the struct it holds is the field's type",
+                    ));
+                }
+                found = true;
+            }
+        }
+        if !found {
+            return Ok(None);
+        }
+
+        // Nothing else may be declared beside it. `#[usage(flatten, long)]` reads as though
+        // the flattening were also a flag, and there is no such thing.
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                let name = ident_of(&meta.path().clone());
+                if name != "flatten" {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        format!(
+                            "`flatten` cannot be combined with `{name}`: the flattened \
+                             struct's own fields declare what they are"
+                        ),
+                    ));
+                }
+            }
+        }
+
+        // `Option<T>` would mean "the whole group, or nothing" — which needs a rule for what
+        // makes it present, and clap's answer (any of its fields given) is not obviously the
+        // right one. Refused for now rather than guessed at; nothing in the fleet uses it.
+        if type_name(&field.ty).starts_with("Option<") {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                "`flatten` on an `Option` is not supported: it would have to decide when the \
+                 group counts as given. Hold the struct directly",
+            ));
+        }
+
+        Ok(Some(Field {
+            ident: ident.clone(),
+            ty: field.ty.clone(),
+            name: to_kebab(&ident.to_string()),
+            kind: Kind::Flatten {
+                ty: field.ty.clone(),
+            },
+            // A flattened field holds declarations, not a value, so none of what describes a
+            // value applies — the same as a subcommand field.
+            shape: Shape::Bool,
+            value_ty: None,
+            optional_collection: false,
+            help: None,
+            long_help: None,
+            env: None,
+            default: None,
+            help_heading: None,
+            choices: Vec::new(),
+            value_enum: false,
+            var_min: None,
+            var_max: None,
+            overrides: Vec::new(),
+            conflicts: Vec::new(),
+            required_if: Vec::new(),
+            required_unless: Vec::new(),
+            hide: false,
+            repeatable: false,
+            span,
+        }))
+    }
+
     /// A field marked `#[usage(subcommand)]`, if this is one.
     fn subcommand(
         field: &syn::Field,
@@ -542,6 +652,9 @@ impl Field {
         // their options, so it is recognized before any of them are read.
         if let Some(subcommand) = Self::subcommand(field, &ident, span)? {
             return Ok(subcommand);
+        }
+        if let Some(flattened) = Self::flatten(field, &ident, span)? {
+            return Ok(flattened);
         }
 
         let mut name = to_kebab(&ident.to_string());
@@ -1816,6 +1929,53 @@ mod tests {
         "#,
         );
         assert!(err.contains("is not ASCII"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn flatten_cannot_be_combined_with_a_flag() {
+        // `#[usage(flatten, long)]` reads as though the flattening were also a flag, and
+        // there is no such thing — the flattened struct's own fields say what they are.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(flatten, long)]
+                shared: Shared,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("cannot be combined with `long`"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn flatten_takes_no_value() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(flatten = "shared")]
+                shared: Shared,
+            }
+        "#,
+        );
+        assert!(err.contains("takes no value"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn flatten_on_an_option_is_refused_rather_than_guessed_at() {
+        // `Option<T>` would mean "the whole group, or nothing", which needs a rule for when
+        // the group counts as given. clap's answer is "any of its fields" — defensible, not
+        // obviously right, and nothing in the fleet asks for it. Refused until something does.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(flatten)]
+                shared: Option<Shared>,
+            }
+        "#,
+        );
+        assert!(err.contains("not supported"), "unhelpful message: {err}");
     }
 
     #[test]

@@ -148,6 +148,28 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       since it skips the UTF-8 validation pass, and both allocate once. The gate fixture cannot show
       this — a spec carries no Rust types, so every shadow field is a `String` — which is why it is
       measured directly.
+- [x] **`flatten`** — one struct's declarations belonging to another command, which mise does
+      ten times: `ConfigLs` is written once and given to both `config` and `config ls`. The tables are
+      joined at compile time by `concat_flags`/`concat_args`, so the parser walks one flat slice and
+      flatten costs nothing at run time; a flattened group lands at the field's position, which
+      positional arguments require. Everything else is delegation through `CommandArgs` — partial,
+      `start`, `apply`, `check`, `build` — which is also why nesting works without anything extra.
+      Nothing new in the spec: the emitted KDL lists the flags inline, exactly as a hand-written
+      command would. It turned up a bug worth more than the feature. `Subcommands::apply` offered
+      every event to _every_ variant and took the first that claimed it, which was harmless only
+      because keys were unique per command — and flatten breaks that, since two commands sharing a
+      declaration share its key. So `config --no-header` bound the flag on the unselected `config ls`.
+      Now only the _selected_ variant is asked, which is both correct and much cheaper: at mise's
+      scale the root had ~100 variants, each asked per event. **29,850 instructions and 822 ns, from
+      40,179 and 1,893 ns** — 26% fewer instructions and 57% less wall time, measured against the
+      parent branch on one machine. 176× clap's instruction count. Allocations unchanged: 0 bare, 4
+      bound. `duplicate_key` had to change with it: it asserted no key appeared twice in the whole
+      tree, and sharing one across commands is now ordinary rather than suspect. Checked per command
+      instead, which is the level a key actually decides anything at. The collision flatten _can_
+      still cause — a parent and the struct it flattens both declaring `--quiet` — is invisible to
+      both expansions, so `Spec::to_kdl` grew a duplicate-form check beside the key one, where the
+      whole tree is visible. `Option<T>` flatten is refused rather than guessed at: it needs a rule
+      for when the group counts as given, and nothing in the fleet asks for one.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
