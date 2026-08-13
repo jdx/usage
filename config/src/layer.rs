@@ -205,6 +205,41 @@ impl LayerCtx {
         entry.renamed_from = found.renamed_from.or(entry.renamed_from);
         Ok(entry)
     }
+
+    /// An entry for a dotted key whose value already has a shape.
+    ///
+    /// A file has structure of its own — an array is an array, a table is a table — and there is
+    /// no text a named parser could turn into one, so a layer reading a structured format hands
+    /// the value over as it found it. It still goes through the declared type, which is what
+    /// keeps the promise that a value of the wrong type costs a warning and not a wrong value:
+    /// a `map<string, string>` given a number inside it says so, rather than storing it.
+    pub fn entry_from_value(
+        &self,
+        key: &str,
+        value: Value,
+        origin: Origin,
+    ) -> Result<Entry, Warning> {
+        let Some(found) = self.prop(key) else {
+            return Err(Warning::at(format!("unknown setting `{key}`"), origin));
+        };
+        let meta = self.registry.get(found.id);
+        match meta.ty.coerce(value) {
+            Ok(value) => Ok(Entry {
+                renamed_from: found.renamed_from,
+                ..Entry::new(found.id, value, origin)
+            }),
+            Err(err) => Err(Warning::at(
+                format!(
+                    "{} expected {} but {} has `{}`",
+                    found.renamed_from.unwrap_or(meta.key),
+                    err.expected,
+                    origin.describe(),
+                    err.found
+                ),
+                origin,
+            )),
+        }
+    }
 }
 
 /// A source of configuration values.

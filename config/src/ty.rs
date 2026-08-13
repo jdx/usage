@@ -149,8 +149,18 @@ impl Ty {
             (Self::String | Self::Path | Self::Url | Self::Duration, Value::String(s)) => {
                 Ok(Value::String(s))
             }
-            // A path or a URL is text, and a number written where text was expected is text
-            // that happens to look like a number — `MISE_PYTHON_VERSION=3` should not fail.
+            // A number written where text was expected is text that happens to look like a
+            // number — `MISE_PYTHON_VERSION=3` should not fail. A *collection* is not text,
+            // though: rendering one gave `"k=v"` or `"a,b"`, which is a value nobody wrote, and
+            // for a structured source it turned a table the file really did contain into a
+            // string that only looks like one.
+            (
+                Self::String | Self::Path | Self::Url | Self::Duration,
+                found @ (Value::List(_) | Value::Map(_)),
+            ) => Err(TypeError {
+                expected: ty.describe(),
+                found: found.display(),
+            }),
             (Self::String | Self::Path | Self::Url | Self::Duration, other) => {
                 Ok(Value::String(other.display()))
             }
@@ -267,6 +277,24 @@ mod tests {
         assert_eq!(Ty::Float.coerce(s(" 1.5 ")), Ok(Value::Float(1.5)));
         // Whitespace around a number is a typo, not a different number.
         assert_eq!(Ty::Int.coerce(s(" 4 ")), Ok(Value::Int(4)));
+    }
+
+    #[test]
+    fn a_collection_is_not_text() {
+        // A number written where text was expected is text that happens to look like one. A list
+        // or a table is not: rendering one produced `a,b` or `k=v`, a value nobody wrote — and
+        // for a file, which really can hold a table, it turned that table into a string that only
+        // looks like one.
+        assert!(Ty::String
+            .coerce(Value::List(vec![Value::from("a")]))
+            .is_err());
+        assert!(Ty::Path
+            .coerce(Value::Map(
+                [("k".to_string(), Value::from("v"))].into_iter().collect()
+            ))
+            .is_err());
+        // A scalar still converts, which is the rule this is narrowing rather than replacing.
+        assert_eq!(Ty::String.coerce(Value::Int(3)), Ok(s("3")));
     }
 
     #[test]
