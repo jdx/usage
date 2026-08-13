@@ -186,6 +186,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 about: #about,
                 long_about: #long_about,
                 default_subcommand: #default_subcommand,
+                // A CLI declares these on its root, which is where they are emitted — the
+                // spec-level pair exists for the fallback a hand-written spec can use.
+                before_help: ::std::option::Option::None,
+                before_long_help: ::std::option::Option::None,
+                after_help: ::std::option::Option::None,
+                after_long_help: ::std::option::Option::None,
                 root: &ROOT_META,
             };
         }

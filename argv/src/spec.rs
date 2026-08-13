@@ -122,7 +122,34 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
+    /// Text around every page, where a command does not give its own.
+    ///
+    /// usage-lib falls back to the spec's when the command is silent, so a preamble declared
+    /// once at the top appears on every page — which is what it is for.
+    pub before_help: Option<&'a str>,
+    pub before_long_help: Option<&'a str>,
+    pub after_help: Option<&'a str>,
+    pub after_long_help: Option<&'a str>,
     pub root: &'a CommandMeta<'a>,
+}
+
+impl Spec<'_> {
+    /// A spec with nothing declared but a root, for use with struct update syntax.
+    ///
+    /// Here so that gaining a field does not break every literal that builds one.
+    pub const EMPTY: Spec<'static> = Spec {
+        name: "",
+        bin: None,
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        before_help: None,
+        before_long_help: None,
+        after_help: None,
+        after_long_help: None,
+        root: &CommandMeta::EMPTY,
+    };
 }
 
 /// Join groups of flag metadata into one, at compile time.
@@ -441,6 +468,25 @@ impl Spec<'_> {
         }
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
+        }
+        // The text around the page. The root's nodes are written here rather than by
+        // `write_body`, so these had to be repeated — and were not, which left a root's
+        // preamble out of the spec that docs, manpages and completions read.
+        for (node, text) in [
+            ("before_help", self.before_help.or(self.root.before_help)),
+            (
+                "before_long_help",
+                self.before_long_help.or(self.root.before_long_help),
+            ),
+            ("after_help", self.after_help.or(self.root.after_help)),
+            (
+                "after_long_help",
+                self.after_long_help.or(self.root.after_long_help),
+            ),
+        ] {
+            if let Some(text) = text {
+                prop(out, node, text)?;
+            }
         }
         // The root's own nodes sit at the top level rather than inside a `cmd`
         // block, so they are written here instead of by write_command.

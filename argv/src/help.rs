@@ -219,7 +219,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
-    if let Some(before) = meta.before_help {
+    if let Some(before) = meta.before_help.or(spec.before_help) {
         let _ = writeln!(out, "{before}\n");
     }
 
@@ -269,7 +269,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
         },
     );
     examples_section(&mut out, meta);
-    if let Some(after) = meta.after_help {
+    if let Some(after) = meta.after_help.or(spec.after_help) {
         let _ = writeln!(out, "\n{after}");
     }
 
@@ -419,7 +419,12 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
     let width = terminal_width();
     let mut out = String::new();
 
-    if let Some(before) = meta.before_long_help.or(meta.before_help) {
+    if let Some(before) = meta
+        .before_long_help
+        .or(meta.before_help)
+        .or(spec.before_long_help)
+        .or(spec.before_help)
+    {
         let _ = writeln!(out, "{before}\n");
     }
 
@@ -493,7 +498,12 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
 
     // mise puts an Examples section here on 115 commands, which is why a page without it is
     // missing the part a reader came for.
-    if let Some(after) = meta.after_long_help.or(meta.after_help) {
+    if let Some(after) = meta
+        .after_long_help
+        .or(meta.after_help)
+        .or(spec.after_long_help)
+        .or(spec.after_help)
+    {
         let _ = writeln!(out, "\n{after}");
     }
 

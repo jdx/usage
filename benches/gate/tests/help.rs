@@ -271,11 +271,8 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
         name: "ex",
         bin: Some("ex"),
-        version: None,
-        about: None,
-        long_about: None,
-        default_subcommand: None,
         root: &GO_META,
+        ..usage_argv::spec::Spec::EMPTY
     };
 
     assert_eq!(
@@ -288,4 +285,85 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
         usage::docs::cli::render_help(&spec, go, true),
         "long form"
     );
+}
+
+#[test]
+fn a_spec_can_surround_every_page_at_once() {
+    // usage-lib falls back to the spec's text when a command declares none, so a preamble
+    // written once at the top appears on every page — which is the point of writing it there.
+    // The renderer stopped at the command, so it never appeared at all.
+    let spec: LibSpec = "name \"ex\"\nbin \"ex\"\nbefore_help \"Above every page.\"\n\
+         after_help \"Below every page.\"\ncmd go help=\"Go\"\n"
+        .parse()
+        .expect("valid spec");
+    let go = spec.cmd.subcommands.get("go").expect("go");
+
+    static GO: usage_argv::Command = usage_argv::Command {
+        name: "go",
+        ..usage_argv::Command::EMPTY
+    };
+    static GO_META: CommandMeta = CommandMeta {
+        cmd: &GO,
+        about: Some("Go"),
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
+        name: "ex",
+        bin: Some("ex"),
+        before_help: Some("Above every page."),
+        after_help: Some("Below every page."),
+        root: &GO_META,
+        ..usage_argv::spec::Spec::EMPTY
+    };
+
+    for long in [false, true] {
+        let ours = if long {
+            long_help(&SPEC, &["ex", "go"], &GO_META)
+        } else {
+            short_help(&SPEC, &["ex", "go"], &GO_META)
+        };
+        assert_eq!(
+            ours,
+            usage::docs::cli::render_help(&spec, go, long),
+            "{}",
+            if long { "long form" } else { "short form" }
+        );
+    }
+}
+
+#[test]
+fn the_root_writes_its_own_surrounding_text() {
+    // The root's nodes are written by a different path from every other command's, and that
+    // path did not repeat these — so a root's preamble was rendered and then missing from the
+    // spec that docs, manpages and completions read.
+    static ROOT: usage_argv::Command = usage_argv::Command {
+        name: "ex",
+        ..usage_argv::Command::EMPTY
+    };
+    static ROOT_META: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        before_help: Some("Above."),
+        after_long_help: Some("Below, at length."),
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
+        name: "ex",
+        bin: Some("ex"),
+        root: &ROOT_META,
+        ..usage_argv::spec::Spec::EMPTY
+    };
+
+    let kdl = SPEC.to_kdl();
+    assert!(kdl.contains(r#"before_help "Above.""#), "{kdl}");
+    assert!(
+        kdl.contains(r#"after_long_help "Below, at length.""#),
+        "{kdl}"
+    );
+
+    // And it parses back as what it said, which is the only claim that matters.
+    // Read back on the *spec*, which is where usage-lib puts a top-level declaration — the
+    // same place its template looks for the fallback.
+    let parsed: LibSpec = kdl.parse().expect("valid spec");
+    assert_eq!(parsed.before_help.as_deref(), Some("Above."));
+    assert_eq!(parsed.after_help_long.as_deref(), Some("Below, at length."));
 }
