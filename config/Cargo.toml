@@ -11,9 +11,19 @@ authors = { workspace = true }
 license = { workspace = true }
 
 # Nothing here parses KDL: a spec is read at *build* time by usage-config-build, which emits
-# the registry as consts. This crate is what runs in the CLI, so it carries no spec parser,
-# no serde_json, and no format reader it was not asked for.
+# the registry as consts. This crate is what runs in the CLI, so it carries no spec parser
+# and no format reader it was not asked for.
 [dependencies]
+toml = { version = "0.9", optional = true }
+serde_json = { version = "1", optional = true }
+
+# Reading config files is opt-in, one format at a time, so the default is still no
+# dependencies at all: a CLI whose files are pkl or `.npmrc` writes its own layer against
+# `Layer` and takes nothing it does not use.
+[features]
+default = []
+toml = ["dep:toml"]
+json = ["dep:serde_json"]
 
 [package.metadata.release]
 shared-version = true

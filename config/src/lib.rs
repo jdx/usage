@@ -69,6 +69,8 @@
 //! # Ok::<(), LayerError>(())
 //! ```
 
+#[cfg(any(feature = "toml", feature = "json"))]
+pub mod files;
 pub mod layer;
 pub mod registry;
 pub mod resolve;
@@ -76,6 +78,8 @@ pub mod source;
 pub mod ty;
 pub mod value;
 
+#[cfg(any(feature = "toml", feature = "json"))]
+pub use files::{FileLayer, Format};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning};
 pub use registry::{Lookup, Merge, PropId, PropMeta, Registry, Scope};
 pub use resolve::{resolve, Layers, Resolved};
