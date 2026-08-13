@@ -69,6 +69,7 @@
 //! # Ok::<(), LayerError>(())
 //! ```
 
+pub mod explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub mod files;
 pub mod layer;
@@ -78,6 +79,7 @@ pub mod source;
 pub mod ty;
 pub mod value;
 
+pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json"))]
 pub use files::{FileLayer, Format};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning};

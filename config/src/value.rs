@@ -9,6 +9,55 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+/// Text on one line, whatever it contains.
+///
+/// Everything this crate prints is line-oriented — one setting per line for a listing, one fact
+/// per line for an explanation, one warning or failure per line — so anything interpolated into a
+/// line has to stay on it. Three kinds of thing can carry a newline and all three did: a value (a
+/// multi-line string is perfectly ordinary in TOML), an origin (a path may contain one), and a
+/// message that quotes either of them. Lives here beside [`Value::display`] because that is what
+/// it is usually wrapped around, and one rule shared by every renderer is one rule.
+pub(crate) fn one_line(text: &str) -> String {
+    // Newlines only. Escaping backslashes as well made `C:\Users\me\hk.toml` render with
+    // doubled separators — a path a reader would copy and find nothing at, which is a worse
+    // failure than the ambiguity it bought: this output is for a human, and the one thing it
+    // needs is that a record stays on its line.
+    text.replace('\n', "\\n").replace('\r', "\\r")
+}
+
+/// A value as one line of output, with its shape shown when there is nothing in it.
+///
+/// [`Value::display`] writes a value the way a user would type it, and three values are typed as
+/// nothing at all: the empty string, the empty list, the empty map. Interpolated into `key = {}`
+/// that produced a line ending after the `=` — a trailing space and a truncated look for a value
+/// that is perfectly ordinary, since clearing a list is how a declared default is turned off
+/// (`HK_EXCLUDE=`). Emptiness is a fact about a value and worth a word, so it gets the spelling
+/// its own format would use.
+///
+/// Not folded into `display` itself, which is also what `config get` prints: there, an empty
+/// setting printing nothing is exactly right, and `[]` would be a value nobody wrote.
+pub(crate) fn shown(value: &Value) -> String {
+    match value {
+        // Asked of the *value*, not of its text. Read from the text, a one-item list holding the
+        // empty string looked exactly like a cleared one — `[]` for a list that has something in
+        // it, which says the opposite of what is true.
+        Value::List(items) if items.is_empty() => "[]".to_string(),
+        Value::Map(entries) if entries.is_empty() => "{}".to_string(),
+        Value::String(text) if text.is_empty() => "\"\"".to_string(),
+        // A list is joined with commas, which hides any item whose own text is empty: one empty
+        // string came out as nothing (a cleared list), and two came out as `,`. So when an item
+        // would disappear, the whole list is written out item by item instead — `[""]` is one item
+        // and reads as one, `[a,""]` is two.
+        Value::List(items) if items.iter().any(|item| item.display().is_empty()) => {
+            let items: Vec<String> = items.iter().map(shown).collect();
+            format!("[{}]", items.join(","))
+        }
+        // Everything else writes something: a number and a boolean always do, and a map's keys are
+        // in its text even when its values are empty.
+        other => one_line(&other.display()),
+    }
+}
+
 /// A resolved configuration value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -145,6 +194,44 @@ mod tests {
         assert_eq!(
             Const::Map(PAIRS).to_value(),
             Value::Map([("a".to_string(), Value::Bool(true))].into_iter().collect())
+        );
+    }
+
+    #[test]
+    fn an_empty_value_is_told_apart_from_a_value_that_writes_as_nothing() {
+        // The distinction `explain`, `list` and every type error rest on. A cleared list is a
+        // supported state — `HK_EXCLUDE=` turns a declared default off — and a list holding one
+        // empty string is a different one, though their text is identical.
+        assert_eq!(shown(&Value::List(Vec::new())), "[]");
+        assert_eq!(shown(&Value::List(vec![Value::from("")])), "[\"\"]");
+        assert_eq!(
+            shown(&Value::List(vec![Value::from(""), Value::from("")])),
+            "[\"\",\"\"]"
+        );
+        assert_eq!(shown(&Value::from("")), "\"\"");
+        assert_eq!(shown(&Value::Map(BTreeMap::new())), "{}");
+
+        // And anything with text of its own is that text, unquoted and unbracketed: this is output
+        // a person reads, not a serializer.
+        assert_eq!(shown(&Value::from("git")), "git");
+        assert_eq!(shown(&Value::Int(0)), "0");
+        assert_eq!(shown(&Value::Bool(false)), "false");
+        assert_eq!(
+            shown(&Value::List(vec![Value::from("a"), Value::from("b")])),
+            "a,b"
+        );
+        // A list with one empty item among several is written out too, since that item is the one
+        // the comma-joined form would lose.
+        assert_eq!(
+            shown(&Value::List(vec![Value::from("a"), Value::from("")])),
+            "[a,\"\"]"
+        );
+        // A map whose value is empty still has its key in the text, which is enough to read.
+        assert_eq!(
+            shown(&Value::Map(
+                [("k".to_string(), Value::from(""))].into_iter().collect()
+            )),
+            "k="
         );
     }
 

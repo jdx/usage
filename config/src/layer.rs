@@ -174,13 +174,11 @@ impl LayerCtx {
                 // The name that was written, not the one it folded to: a message about a key
                 // the user cannot find in their own file is no help.
                 let key = renamed_from.unwrap_or(self.registry.get(id).key);
+                // Without the origin in the text: the warning carries it, and a renderer that
+                // adds it — as `explain::warnings` does for every warning — printed the place
+                // twice for exactly the warnings that had bothered to name it.
                 Err(Warning::at(
-                    format!(
-                        "{key} expected {} but {} has `{}`",
-                        err.expected,
-                        origin.describe(),
-                        err.found
-                    ),
+                    format!("{key} expected {} but has `{}`", err.expected, err.found),
                     origin,
                 ))
             }
@@ -230,10 +228,9 @@ impl LayerCtx {
             }),
             Err(err) => Err(Warning::at(
                 format!(
-                    "{} expected {} but {} has `{}`",
+                    "{} expected {} but has `{}`",
                     found.renamed_from.unwrap_or(meta.key),
                     err.expected,
-                    origin.describe(),
                     err.found
                 ),
                 origin,
@@ -334,9 +331,12 @@ mod tests {
         let warning = ctx
             .entry(jobs, "lots", origin.clone())
             .expect_err("should not be an entry");
+        // The message says what is wrong; the `origin` says where. Naming the place in both
+        // meant every renderer that shows the origin — as `explain::warnings` does — printed it
+        // twice, for exactly the warnings that had bothered to be specific.
         assert_eq!(
             warning.message,
-            "jobs expected a positive integer but HK_JOBS has `lots`"
+            "jobs expected a positive integer but has `lots`"
         );
         assert_eq!(warning.origin, Some(origin));
 
