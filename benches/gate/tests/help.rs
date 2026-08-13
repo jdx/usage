@@ -178,7 +178,11 @@ fn every_long_help_matches_the_reference() {
     let mut differences = Vec::new();
     for (path, meta) in &commands {
         let ours = long_help(root, path, meta);
+        // Recorded rather than skipped, as the short-form test records it: a command in the
+        // shadow that the spec does not have is a difference between the two, and passing
+        // silently on it would let an extra or misnamed command through.
         let Some(cmd) = lib_command(&spec, &path[1..]) else {
+            differences.push(format!("{}: not in the spec", path.join(" ")));
             continue;
         };
         let theirs = usage::docs::cli::render_help(&spec, cmd, true);
@@ -218,7 +222,10 @@ fn surrounded() -> LibSpec {
      before_long_help \"Read this first, at length.\"\n  \
      after_help \"And this after.\"\n  \
      after_long_help \"And this after, at length.\"\n  \
-     example \"ex go --fast\" help=\"the quick way\"\n}\n"
+     example \"ex go --fast\" help=\"the quick way\"\n  \
+     long_help \"Go somewhere.\"\n  \
+     flag \"--deep\" help=\"Dig\" {\n    \
+     long_help \"Dig deeper.\\n\\n    indented\\n    \\nand a line of only spaces above\"\n  }\n}\n"
         .parse()
         .expect("valid spec")
 }
@@ -230,17 +237,30 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
 
     // Built by hand rather than derived: the point is to compare the renderer against the
     // reference for a shape the shadow does not have.
+    static DEEP: usage_argv::Flag = usage_argv::Flag {
+        name: "deep",
+        longs: &["deep"],
+        ..usage_argv::Flag::BOOL
+    };
     static GO: usage_argv::Command = usage_argv::Command {
         name: "go",
+        flags: &[&DEEP],
         ..usage_argv::Command::EMPTY
     };
     static GO_META: CommandMeta = CommandMeta {
         cmd: &GO,
         about: Some("Go somewhere"),
+        long_about: Some("Go somewhere."),
         before_help: Some("Read this first."),
         before_long_help: Some("Read this first, at length."),
         after_help: Some("And this after."),
         after_long_help: Some("And this after, at length."),
+        flags: &[usage_argv::spec::FlagMeta {
+            flag: &DEEP,
+            help: Some("Dig"),
+            long_help: Some("Dig deeper.\n\n    indented\n    \nand a line of only spaces above"),
+            ..usage_argv::spec::FlagMeta::EMPTY
+        }],
         examples: &[usage_argv::spec::Example {
             code: "ex go --fast",
             header: None,

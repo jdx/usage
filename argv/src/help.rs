@@ -515,7 +515,10 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
         // left blank. That is not a choice: the reference writes the indent literally before the
         // text and indents the *rest* with a filter that skips blanks, so an opening empty line
         // comes out as whitespace and a later one does not.
-        if i == 0 || !line.trim().is_empty() {
+        // `is_empty`, not `trim().is_empty()`: the reference's filter skips a line with nothing
+        // on it and still indents one that holds only spaces, so emptying the latter would lose
+        // whitespace the author wrote.
+        if i == 0 || !line.is_empty() {
             let _ = writeln!(out, "{pad}{line}");
         } else {
             out.push('\n');
