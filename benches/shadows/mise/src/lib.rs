@@ -33,6 +33,7 @@ pub struct ActivateArgs {
         long = "shell",
         short = 's',
         hide,
+        value_name = "SHELL",
         choices("bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh")
     )]
     pub shell: ::std::option::Option<::std::string::String>,
@@ -126,7 +127,7 @@ pub struct ToolAliasUnsetArgs {
 #[derive(Args)]
 pub struct ToolAliasArgs {
     /// Filter aliases by tool
-    #[usage(long = "tool", short = 'p')]
+    #[usage(long = "tool", short = 'p', value_name = "TOOL")]
     pub tool: ::std::option::Option<::std::string::String>,
     /// Don't show table header
     #[usage(long = "no-header")]
@@ -313,7 +314,7 @@ pub struct BootstrapDotfilesAddArgs {
     #[usage(long = "local", short = 'l')]
     pub local: bool,
     /// Dotfile mode to write
-    #[usage(long = "mode", short = 'm')]
+    #[usage(long = "mode", short = 'm', value_name = "MODE")]
     pub mode: ::std::option::Option<::std::string::String>,
     /// Print the config/source updates without writing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -322,16 +323,16 @@ pub struct BootstrapDotfilesAddArgs {
     #[usage(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Source path to use for a single target
-    #[usage(long = "source", short = 's')]
+    #[usage(long = "source", short = 's', value_name = "PATH")]
     pub source: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt
     #[usage(long = "yes", short = 'y')]
     pub yes: bool,
     /// Targets to add or update
-    #[usage(arg, name = "TARGET")]
+    #[usage(arg, name = "TARGET", required)]
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -364,10 +365,10 @@ pub struct BootstrapDotfilesEditArgs {
     #[usage(long = "apply")]
     pub apply: bool,
     /// Dotfile mode to use if the target is not yet managed
-    #[usage(long = "mode", short = 'm')]
+    #[usage(long = "mode", short = 'm', value_name = "MODE")]
     pub mode: ::std::option::Option<::std::string::String>,
     /// Source path to use if the target is not yet managed
-    #[usage(long = "source", short = 's')]
+    #[usage(long = "source", short = 's', value_name = "PATH")]
     pub source: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt when adding an unmanaged target
     #[usage(long = "yes", short = 'y')]
@@ -801,7 +802,7 @@ pub enum BootstrapMiseShellActivateCommands {
 #[derive(Args)]
 pub struct BootstrapPackagesApplyArgs {
     /// Only install packages for this built-in or plugin manager
-    #[usage(long = "manager", short = 'm')]
+    #[usage(long = "manager", short = 'm', value_name = "MANAGER")]
     pub manager: ::std::option::Option<::std::string::String>,
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -827,7 +828,7 @@ pub struct BootstrapPackagesBrewTapArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Tap name, e.g. `owner/repo`
     #[usage(arg, name = "TAP")]
@@ -847,10 +848,10 @@ pub struct BootstrapPackagesBrewUntapArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Tap name(s), e.g. `owner/repo`
-    #[usage(arg, name = "TAPS")]
+    #[usage(arg, name = "TAPS", required)]
     pub taps: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -882,13 +883,19 @@ pub enum BootstrapPackagesBrewCommands {
 #[derive(Args)]
 pub struct BootstrapPackagesImportArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
-    #[usage(long = "env", short = 'e')]
+    #[usage(long = "env", short = 'e', value_name = "ENV")]
     pub env: ::std::option::Option<::std::string::String>,
     /// Write to the global config (~/.config/mise/config.toml)
     #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Only import packages for this manager. Currently only `brew` is supported
-    #[usage(long = "manager", short = 'm', choices("brew"), default = "brew")]
+    #[usage(
+        long = "manager",
+        short = 'm',
+        value_name = "MANAGER",
+        choices("brew"),
+        default = "brew"
+    )]
     pub manager: ::std::option::Option<::std::string::String>,
     /// Import every linked formula, including dependencies
     #[usage(long = "all")]
@@ -897,7 +904,7 @@ pub struct BootstrapPackagesImportArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
 }
 
@@ -909,7 +916,13 @@ pub struct BootstrapPackagesImportArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesPruneArgs {
     /// Only prune packages for this manager. Currently only `brew` is supported
-    #[usage(long = "manager", short = 'm', choices("brew"), default = "brew")]
+    #[usage(
+        long = "manager",
+        short = 'm',
+        value_name = "MANAGER",
+        choices("brew"),
+        default = "brew"
+    )]
     pub manager: ::std::option::Option<::std::string::String>,
     /// Print what would be removed without deleting anything
     #[usage(long = "dry-run", short = 'n')]
@@ -944,7 +957,7 @@ pub struct BootstrapPackagesStatusArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesUpgradeArgs {
     /// Only upgrade packages for this built-in or plugin manager
-    #[usage(long = "manager", short = 'm')]
+    #[usage(long = "manager", short = 'm', value_name = "MANAGER")]
     pub manager: ::std::option::Option<::std::string::String>,
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -971,7 +984,7 @@ pub struct BootstrapPackagesUpgradeArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesUseArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
-    #[usage(long = "env", short = 'e')]
+    #[usage(long = "env", short = 'e', value_name = "ENV")]
     pub env: ::std::option::Option<::std::string::String>,
     /// Write to the global config (~/.config/mise/config.toml) instead of the local one
     #[usage(long = "global", short = 'g')]
@@ -980,13 +993,13 @@ pub struct BootstrapPackagesUseArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt
     #[usage(long = "yes", short = 'y')]
     pub yes: bool,
     /// Packages in `manager:package[@version]` form
-    #[usage(arg, name = "PACKAGE")]
+    #[usage(arg, name = "PACKAGE", required)]
     pub package: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1076,13 +1089,17 @@ pub struct BootstrapRemoteArgs {
     #[usage(long = "all")]
     pub all: bool,
     /// Explicit remote shell command that installs mise and places it on PATH
-    #[usage(long = "bootstrap-command")]
+    #[usage(long = "bootstrap-command", value_name = "COMMAND")]
     pub bootstrap_command: ::std::option::Option<::std::string::String>,
     /// SSH connection timeout in seconds
-    #[usage(long = "connect-timeout", default = "10")]
+    #[usage(
+        long = "connect-timeout",
+        value_name = "CONNECT_TIMEOUT",
+        default = "10"
+    )]
     pub connect_timeout: ::std::option::Option<::std::string::String>,
     /// Additional archive pattern to exclude; repeat for multiple patterns
-    #[usage(long = "exclude", var)]
+    #[usage(long = "exclude", value_name = "PATTERN", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
     /// Stop after the first failed target
     #[usage(long = "fail-fast")]
@@ -1091,10 +1108,10 @@ pub struct BootstrapRemoteArgs {
     #[usage(long = "force-dotfiles")]
     pub force_dotfiles: bool,
     /// Ad-hoc SSH destination (`[user@]host`); repeat for multiple hosts
-    #[usage(long = "host", var)]
+    #[usage(long = "host", value_name = "[USER@]HOST", var)]
     pub host: ::std::vec::Vec<::std::string::String>,
     /// SSH identity file override
-    #[usage(long = "identity-file", short = 'i')]
+    #[usage(long = "identity-file", short = 'i', value_name = "IDENTITY_FILE")]
     pub identity_file: ::std::option::Option<::std::string::String>,
     /// Print the remote bootstrap changes without applying them
     #[usage(long = "dry-run", short = 'n')]
@@ -1103,11 +1120,12 @@ pub struct BootstrapRemoteArgs {
     #[usage(long = "keep-staging")]
     pub keep_staging: bool,
     /// Local mise binary to upload (escape hatch for custom architectures)
-    #[usage(long = "mise-bin")]
+    #[usage(long = "mise-bin", value_name = "MISE_BIN")]
     pub mise_bin: ::std::option::Option<::std::string::String>,
     /// Run only one or more remote bootstrap parts
     #[usage(
         long = "only",
+        value_name = "ONLY",
         choices(
             "plugins",
             "packages",
@@ -1135,17 +1153,18 @@ pub struct BootstrapRemoteArgs {
     )]
     pub only: ::std::vec::Vec<::std::string::String>,
     /// SSH port override
-    #[usage(long = "port")]
+    #[usage(long = "port", value_name = "PORT")]
     pub port: ::std::option::Option<::std::string::String>,
     /// Prompt securely for missing secret inputs on the remote host
     #[usage(long = "prompt-secrets")]
     pub prompt_secrets: bool,
     /// Existing mise executable name or path; relative paths use the staged project
-    #[usage(long = "remote-mise")]
+    #[usage(long = "remote-mise", value_name = "COMMAND")]
     pub remote_mise: ::std::option::Option<::std::string::String>,
     /// Skip one or more remote bootstrap parts
     #[usage(
         long = "skip",
+        value_name = "SKIP",
         choices(
             "plugins",
             "packages",
@@ -1173,13 +1192,13 @@ pub struct BootstrapRemoteArgs {
     )]
     pub skip: ::std::vec::Vec<::std::string::String>,
     /// Local directory archived and sent to each target
-    #[usage(long = "source")]
+    #[usage(long = "source", value_name = "SOURCE")]
     pub source: ::std::option::Option<::std::string::String>,
     /// OpenSSH `-o` option; repeat for multiple options
-    #[usage(long = "ssh-option", var)]
+    #[usage(long = "ssh-option", value_name = "OPTION", var)]
     pub ssh_option: ::std::vec::Vec<::std::string::String>,
     /// Select configured hosts with this tag; repeat to match any tag
-    #[usage(long = "tag", var)]
+    #[usage(long = "tag", value_name = "TAG", var)]
     pub tag: ::std::vec::Vec<::std::string::String>,
     /// Refresh package manager metadata and update configured repos remotely
     #[usage(long = "update")]
@@ -1216,7 +1235,7 @@ pub struct BootstrapReposExecArgs {
     #[usage(arg, name = "PATH")]
     pub path: ::std::vec::Vec<::std::string::String>,
     /// Command and arguments to run in each repo
-    #[usage(arg, name = "COMMAND", double_dash = "required")]
+    #[usage(arg, name = "COMMAND", required, double_dash = "required")]
     pub command: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1489,6 +1508,7 @@ pub struct BootstrapArgs {
     /// Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
     #[usage(
         long = "only",
+        value_name = "ONLY",
         choices(
             "plugins",
             "packages",
@@ -1523,6 +1543,7 @@ pub struct BootstrapArgs {
     /// Can be passed multiple times or as a comma-separated list.
     #[usage(
         long = "skip",
+        value_name = "SKIP",
         choices(
             "plugins",
             "packages",
@@ -1645,7 +1666,7 @@ pub struct CacheClearArgs {
     #[usage(long = "outdate", hide)]
     pub outdate: bool,
     /// Clear output cache entries for a task name or pattern
-    #[usage(long = "task")]
+    #[usage(long = "task", value_name = "TASK")]
     pub task: ::std::option::Option<::std::string::String>,
     /// Tool(s) to clear cache for e.g.: node, python
     #[usage(arg, name = "TOOL")]
@@ -1717,6 +1738,7 @@ pub struct CompletionArgs {
         long = "shell",
         short = 's',
         hide,
+        value_name = "SHELL_TYPE",
         choices("bash", "fish", "powershell", "zsh")
     )]
     pub shell: ::std::option::Option<::std::string::String>,
@@ -1747,7 +1769,7 @@ pub struct ConfigGetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[usage(long = "file", short = 'f')]
+    #[usage(long = "file", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// The path of the config to display
     #[usage(arg, name = "KEY")]
@@ -1776,12 +1798,13 @@ pub struct ConfigSetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[usage(long = "file", short = 'f')]
+    #[usage(long = "file", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// Undocumented
     #[usage(
         long = "type",
         short = 't',
+        value_name = "TYPE",
         choices("infer", "string", "integer", "float", "bool", "list", "set"),
         default = "infer"
     )]
@@ -1905,7 +1928,7 @@ pub struct DotfilesAddArgs {
     #[usage(long = "local", short = 'l')]
     pub local: bool,
     /// Dotfile mode to write
-    #[usage(long = "mode", short = 'm')]
+    #[usage(long = "mode", short = 'm', value_name = "MODE")]
     pub mode: ::std::option::Option<::std::string::String>,
     /// Print the config/source updates without writing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -1914,16 +1937,16 @@ pub struct DotfilesAddArgs {
     #[usage(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Source path to use for a single target
-    #[usage(long = "source", short = 's')]
+    #[usage(long = "source", short = 's', value_name = "PATH")]
     pub source: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt
     #[usage(long = "yes", short = 'y')]
     pub yes: bool,
     /// Targets to add or update
-    #[usage(arg, name = "TARGET")]
+    #[usage(arg, name = "TARGET", required)]
     pub target: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1956,10 +1979,10 @@ pub struct DotfilesEditArgs {
     #[usage(long = "apply")]
     pub apply: bool,
     /// Dotfile mode to use if the target is not yet managed
-    #[usage(long = "mode", short = 'm')]
+    #[usage(long = "mode", short = 'm', value_name = "MODE")]
     pub mode: ::std::option::Option<::std::string::String>,
     /// Source path to use if the target is not yet managed
-    #[usage(long = "source", short = 's')]
+    #[usage(long = "source", short = 's', value_name = "PATH")]
     pub source: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt when adding an unmanaged target
     #[usage(long = "yes", short = 'y')]
@@ -2068,7 +2091,7 @@ pub struct EnArgs {
     /// Shell to start
     ///
     /// Defaults to $SHELL
-    #[usage(long = "shell", short = 's')]
+    #[usage(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Directory to start the shell in
     #[usage(arg, name = "DIR", default = ".")]
@@ -2091,6 +2114,7 @@ pub struct EnvArgs {
     #[usage(
         long = "shell",
         short = 's',
+        value_name = "SHELL",
         choices("bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh")
     )]
     pub shell: ::std::option::Option<::std::string::String>,
@@ -2120,25 +2144,25 @@ pub struct EnvArgs {
 #[derive(Args)]
 pub struct ExecArgs {
     /// Command string to execute
-    #[usage(long = "command", short = 'c')]
+    #[usage(long = "command", short = 'c', value_name = "C")]
     pub command: ::std::option::Option<::std::string::String>,
     /// Number of jobs to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Allow specific env var through (implies --deny-env for everything else)
     /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", var)]
+    #[usage(long = "allow-env", value_name = "VAR", var)]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
     /// Allow network to specific host (implies --deny-net for everything else)
     /// macOS only in v1; on Linux falls back to allowing all network
-    #[usage(long = "allow-net", var)]
+    #[usage(long = "allow-net", value_name = "HOST", var)]
     pub allow_net: ::std::vec::Vec<::std::string::String>,
     /// Allow reads from specific path (implies --deny-read for everything else)
-    #[usage(long = "allow-read", var)]
+    #[usage(long = "allow-read", value_name = "PATH", var)]
     pub allow_read: ::std::vec::Vec<::std::string::String>,
     /// Allow writes to specific path (implies --deny-write for everything else)
-    #[usage(long = "allow-write", var)]
+    #[usage(long = "allow-write", value_name = "PATH", var)]
     pub allow_write: ::std::vec::Vec<::std::string::String>,
     /// Block reads, writes, network, and env vars
     #[usage(long = "deny-all")]
@@ -2199,13 +2223,17 @@ pub struct GenerateBootstrapArgs {
     #[usage(long = "localize", short = 'l')]
     pub localize: bool,
     /// Specify mise version to fetch
-    #[usage(long = "version", short = 'V')]
+    #[usage(long = "version", short = 'V', value_name = "VERSION")]
     pub version: ::std::option::Option<::std::string::String>,
     /// instead of outputting the script to stdout, write to a file and make it executable
-    #[usage(long = "write", short = 'w')]
+    #[usage(long = "write", short = 'w', value_name = "WRITE")]
     pub write: ::std::option::Option<::std::string::String>,
     /// Directory to put localized data into
-    #[usage(long = "localized-dir", default = ".mise")]
+    #[usage(
+        long = "localized-dir",
+        value_name = "LOCALIZED_DIR",
+        default = ".mise"
+    )]
     pub localized_dir: ::std::option::Option<::std::string::String>,
 }
 
@@ -2219,7 +2247,7 @@ pub struct GenerateConfigArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Path to a .tool-versions file to import tools from
-    #[usage(long = "tool-versions", short = 't')]
+    #[usage(long = "tool-versions", short = 't', value_name = "TOOL_VERSIONS")]
     pub tool_versions: ::std::option::Option<::std::string::String>,
     /// Path to the config file to create
     #[usage(arg, name = "PATH")]
@@ -2230,13 +2258,13 @@ pub struct GenerateConfigArgs {
 #[derive(Args)]
 pub struct GenerateDevcontainerArgs {
     /// The image to use for the devcontainer
-    #[usage(long = "image", short = 'i')]
+    #[usage(long = "image", short = 'i', value_name = "IMAGE")]
     pub image: ::std::option::Option<::std::string::String>,
     /// Bind the mise-data-volume to the devcontainer
     #[usage(long = "mount-mise-data", short = 'm')]
     pub mount_mise_data: bool,
     /// The name of the devcontainer
-    #[usage(long = "name", short = 'n')]
+    #[usage(long = "name", short = 'n', value_name = "NAME")]
     pub name: ::std::option::Option<::std::string::String>,
     /// write to .devcontainer/devcontainer.json
     #[usage(long = "write", short = 'w')]
@@ -2254,13 +2282,18 @@ pub struct GenerateDevcontainerArgs {
 #[derive(Args)]
 pub struct GenerateGitPreCommitArgs {
     /// The task to run when the pre-commit hook is triggered
-    #[usage(long = "task", short = 't', default = "pre-commit")]
+    #[usage(
+        long = "task",
+        short = 't',
+        value_name = "TASK",
+        default = "pre-commit"
+    )]
     pub task: ::std::option::Option<::std::string::String>,
     /// write to .git/hooks/pre-commit and make it executable
     #[usage(long = "write", short = 'w')]
     pub write: bool,
     /// Which hook to generate (saves to .git/hooks/$hook)
-    #[usage(long = "hook", default = "pre-commit")]
+    #[usage(long = "hook", value_name = "HOOK", default = "pre-commit")]
     pub hook: ::std::option::Option<::std::string::String>,
 }
 
@@ -2271,13 +2304,13 @@ pub struct GenerateGitPreCommitArgs {
 #[derive(Args)]
 pub struct GenerateGithubActionArgs {
     /// The task to run when the workflow is triggered
-    #[usage(long = "task", short = 't', default = "ci")]
+    #[usage(long = "task", short = 't', value_name = "TASK", default = "ci")]
     pub task: ::std::option::Option<::std::string::String>,
     /// write to .github/workflows/$name.yml
     #[usage(long = "write", short = 'w')]
     pub write: bool,
     /// the name of the workflow to generate
-    #[usage(long = "name", default = "ci")]
+    #[usage(long = "name", value_name = "NAME", default = "ci")]
     pub name: ::std::option::Option<::std::string::String>,
 }
 
@@ -2299,15 +2332,16 @@ pub struct GenerateTaskDocsArgs {
     #[usage(long = "multi", short = 'm')]
     pub multi: bool,
     /// writes the generated docs to a file/directory
-    #[usage(long = "output", short = 'o')]
+    #[usage(long = "output", short = 'o', value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// root directory to search for tasks
-    #[usage(long = "root", short = 'r')]
+    #[usage(long = "root", short = 'r', value_name = "ROOT")]
     pub root: ::std::option::Option<::std::string::String>,
     /// Undocumented
     #[usage(
         long = "style",
         short = 's',
+        value_name = "STYLE",
         choices("simple", "detailed"),
         default = "simple"
     )]
@@ -2321,12 +2355,17 @@ pub struct GenerateTaskDocsArgs {
 #[derive(Args)]
 pub struct GenerateTaskStubsArgs {
     /// Directory to create task stubs inside of
-    #[usage(long = "dir", short = 'd', default = "bin")]
+    #[usage(long = "dir", short = 'd', value_name = "DIR", default = "bin")]
     pub dir: ::std::option::Option<::std::string::String>,
     /// Path to a mise bin to use when running the task stub.
     ///
     /// Use `--mise-bin=./bin/mise` to use a mise bin generated from `mise generate bootstrap`
-    #[usage(long = "mise-bin", short = 'm', default = "mise")]
+    #[usage(
+        long = "mise-bin",
+        short = 'm',
+        value_name = "MISE_BIN",
+        default = "mise"
+    )]
     pub mise_bin: ::std::option::Option<::std::string::String>,
 }
 
@@ -2344,7 +2383,7 @@ pub struct GenerateToolStubArgs {
     /// Binary path within the extracted archive
     ///
     /// If not specified and the archive is downloaded, will auto-detect the most likely binary
-    #[usage(long = "bin", short = 'b')]
+    #[usage(long = "bin", short = 'b', value_name = "BIN")]
     pub bin: ::std::option::Option<::std::string::String>,
     /// Wrap stub in a bootstrap script that installs mise if not already present
     ///
@@ -2358,7 +2397,7 @@ pub struct GenerateToolStubArgs {
     ///
     /// By default, uses the latest version from the install script.
     /// Use this to pin to a specific version (e.g., "2025.1.0").
-    #[usage(long = "bootstrap-version")]
+    #[usage(long = "bootstrap-version", value_name = "BOOTSTRAP_VERSION")]
     pub bootstrap_version: ::std::option::Option<::std::string::String>,
     /// Fetch checksums and sizes for an existing tool stub file
     ///
@@ -2366,7 +2405,7 @@ pub struct GenerateToolStubArgs {
     #[usage(long = "fetch")]
     pub fetch: bool,
     /// HTTP backend type to use
-    #[usage(long = "http", default = "http")]
+    #[usage(long = "http", value_name = "HTTP", default = "http")]
     pub http: ::std::option::Option<::std::string::String>,
     /// Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls
     #[usage(long = "lock")]
@@ -2374,7 +2413,7 @@ pub struct GenerateToolStubArgs {
     /// Platform-specific binary paths in the format platform:path
     ///
     /// Examples: --platform-bin windows-x64:tool.exe --platform-bin linux-x64:bin/tool
-    #[usage(long = "platform-bin", var)]
+    #[usage(long = "platform-bin", value_name = "PLATFORM_BIN", var)]
     pub platform_bin: ::std::vec::Vec<::std::string::String>,
     /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
     ///
@@ -2383,7 +2422,7 @@ pub struct GenerateToolStubArgs {
     /// If only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.
     ///
     /// Examples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
-    #[usage(long = "platform-url", var)]
+    #[usage(long = "platform-url", value_name = "PLATFORM_URL", var)]
     pub platform_url: ::std::vec::Vec<::std::string::String>,
     /// Skip downloading for checksum and binary path detection (faster but less informative)
     #[usage(long = "skip-download")]
@@ -2391,10 +2430,10 @@ pub struct GenerateToolStubArgs {
     /// URL for downloading the tool
     ///
     /// Example: https://github.com/owner/repo/releases/download/v2.0.0/tool-linux-x64.tar.gz
-    #[usage(long = "url", short = 'u')]
+    #[usage(long = "url", short = 'u', value_name = "URL")]
     pub url: ::std::option::Option<::std::string::String>,
     /// Version of the tool
-    #[usage(long = "version", default = "latest")]
+    #[usage(long = "version", value_name = "VERSION", default = "latest")]
     pub version: ::std::option::Option<::std::string::String>,
     /// Output file path for the tool stub
     #[usage(arg, name = "OUTPUT")]
@@ -2498,7 +2537,7 @@ pub struct GlobalArgs {
     #[usage(long = "pin")]
     pub pin: bool,
     /// Remove the tool(s) from ~/.tool-versions
-    #[usage(long = "remove", var)]
+    #[usage(long = "remove", value_name = "TOOL", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Tool(s) to add to .tool-versions
     /// e.g.: node@20
@@ -2521,11 +2560,17 @@ pub struct HookEnvArgs {
     #[usage(
         long = "shell",
         short = 's',
+        value_name = "SHELL",
         choices("bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh")
     )]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Reason for calling hook-env (e.g., "precmd", "chpwd")
-    #[usage(long = "reason", hide, choices("precmd", "chpwd"))]
+    #[usage(
+        long = "reason",
+        hide,
+        value_name = "REASON",
+        choices("precmd", "chpwd")
+    )]
     pub reason: ::std::option::Option<::std::string::String>,
     /// Show "mise: <TOOL>@<VERSION>" message when changing directories
     #[usage(long = "status", hide)]
@@ -2539,6 +2584,7 @@ pub struct HookNotFoundArgs {
     #[usage(
         long = "shell",
         short = 's',
+        value_name = "SHELL",
         choices("bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh")
     )]
     pub shell: ::std::option::Option<::std::string::String>,
@@ -2570,7 +2616,7 @@ pub struct EditArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Path to a .tool-versions file to import tools from
-    #[usage(long = "tool-versions", short = 't')]
+    #[usage(long = "tool-versions", short = 't', value_name = "TOOL_VERSIONS")]
     pub tool_versions: ::std::option::Option<::std::string::String>,
     /// Path to the config file to create
     #[usage(arg, name = "PATH")]
@@ -2593,7 +2639,7 @@ pub struct InstallArgs {
     pub force: bool,
     /// Number of jobs to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Show what would be installed without actually installing
     #[usage(long = "dry-run", short = 'n')]
@@ -2611,7 +2657,7 @@ pub struct InstallArgs {
     /// Only install versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Install tools from every [monorepo].config_roots config root
     ///
@@ -2626,7 +2672,7 @@ pub struct InstallArgs {
     ///
     /// Installs to the specified directory instead of the default install location.
     /// May require elevated permissions depending on the path.
-    #[usage(long = "shared")]
+    #[usage(long = "shared", value_name = "SHARED")]
     pub shared: ::std::option::Option<::std::string::String>,
     /// Install tool(s) to the system-wide shared directory
     ///
@@ -2664,7 +2710,7 @@ pub struct LatestArgs {
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     /// Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Tool to get the latest version of
     #[usage(arg, name = "TOOL@VERSION")]
@@ -2714,7 +2760,7 @@ pub struct LocalArgs {
     #[usage(long = "pin")]
     pub pin: bool,
     /// Remove the tool(s) from .tool-versions
-    #[usage(long = "remove", var)]
+    #[usage(long = "remove", value_name = "TOOL", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Tool(s) to add to .tool-versions/mise.toml
     /// e.g.: node@20
@@ -2737,7 +2783,7 @@ pub struct LockArgs {
     #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Number of jobs to run in parallel
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Show what would be updated without making changes
     #[usage(long = "dry-run", short = 'n')]
@@ -2745,7 +2791,7 @@ pub struct LockArgs {
     /// Comma-separated list of platforms to target
     /// e.g.: linux-x64,macos-arm64,windows-x64
     /// If not specified, all platforms already in lockfile will be updated
-    #[usage(long = "platform", short = 'p', var)]
+    #[usage(long = "platform", short = 'p', value_name = "PLATFORM", var)]
     pub platform: ::std::vec::Vec<::std::string::String>,
     /// Re-resolve fuzzy version selectors against the latest available versions
     ///
@@ -2779,7 +2825,7 @@ pub struct LockArgs {
     /// This only affects fuzzy version matches like "20" or "latest".
     /// Explicitly pinned versions like "22.5.0" are not filtered.
     /// Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Tool(s) to update in lockfile
     /// e.g.: node python
@@ -2819,7 +2865,7 @@ pub struct LsArgs {
     #[usage(long = "offline", short = 'o', hide)]
     pub offline: bool,
     /// Undocumented
-    #[usage(long = "plugin", short = 'p', hide)]
+    #[usage(long = "plugin", short = 'p', hide, value_name = "TOOL_FLAG")]
     pub plugin: ::std::option::Option<::std::string::String>,
     /// Display all tracked config sources for tools
     #[usage(long = "all-sources")]
@@ -2837,7 +2883,7 @@ pub struct LsArgs {
     #[usage(long = "outdated")]
     pub outdated: bool,
     /// Display versions matching this prefix
-    #[usage(long = "prefix")]
+    #[usage(long = "prefix", value_name = "PREFIX")]
     pub prefix: ::std::option::Option<::std::string::String>,
     /// List only tools that can be pruned with `mise prune`
     #[usage(long = "prunable")]
@@ -2858,7 +2904,7 @@ pub struct LsRemoteArgs {
     /// Only show versions released before this age or date
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Output in JSON format (includes version metadata like created_at timestamps when available)
     #[usage(long = "json", short = 'J')]
@@ -2929,13 +2975,18 @@ pub struct McpArgs {}
 #[derive(Args)]
 pub struct OciBuildArgs {
     /// Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)
-    #[usage(long = "copy", var)]
+    #[usage(long = "copy", value_name = "HOST_PATH:IMAGE_PATH", var)]
     pub copy: ::std::vec::Vec<::std::string::String>,
     /// Output directory for the OCI image layout
-    #[usage(long = "output", short = 'o', default = "./mise-oci")]
+    #[usage(
+        long = "output",
+        short = 'o',
+        value_name = "OUTPUT",
+        default = "./mise-oci"
+    )]
     pub output: ::std::option::Option<::std::string::String>,
     /// Base image reference (overrides [oci].from and the oci.default_from setting)
-    #[usage(long = "from")]
+    #[usage(long = "from", value_name = "FROM")]
     pub from: ::std::option::Option<::std::string::String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
@@ -2943,10 +2994,10 @@ pub struct OciBuildArgs {
     #[usage(long = "include-global")]
     pub include_global: bool,
     /// Tag to record in the image index (the org.opencontainers.image.ref.name annotation)
-    #[usage(long = "tag", short = 't')]
+    #[usage(long = "tag", short = 't', value_name = "TAG")]
     pub tag: ::std::option::Option<::std::string::String>,
     /// Where to place tool installs inside the image (default: /mise)
-    #[usage(long = "mount-point")]
+    #[usage(long = "mount-point", value_name = "MOUNT_POINT")]
     pub mount_point: ::std::option::Option<::std::string::String>,
     /// Do not embed the currently-running mise binary at /usr/local/bin/mise
     #[usage(long = "no-mise")]
@@ -2954,7 +3005,7 @@ pub struct OciBuildArgs {
     /// UID[:GID] to assign to every tar entry in generated layers
     ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
-    #[usage(long = "owner")]
+    #[usage(long = "owner", value_name = "UID[:GID]")]
     pub owner: ::std::option::Option<::std::string::String>,
 }
 
@@ -2982,13 +3033,13 @@ pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
     ///
     /// Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
-    #[usage(long = "cache-from")]
+    #[usage(long = "cache-from", value_name = "REF")]
     pub cache_from: ::std::option::Option<::std::string::String>,
     /// Base image for the build (ignored with --image-dir)
-    #[usage(long = "from")]
+    #[usage(long = "from", value_name = "FROM")]
     pub from: ::std::option::Option<::std::string::String>,
     /// Push an already-built OCI image layout (skip the build step)
-    #[usage(long = "image-dir")]
+    #[usage(long = "image-dir", value_name = "IMAGE_DIR")]
     pub image_dir: ::std::option::Option<::std::string::String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
@@ -2996,7 +3047,7 @@ pub struct OciPushArgs {
     #[usage(long = "include-global")]
     pub include_global: bool,
     /// Override in-image mount point (ignored with --image-dir)
-    #[usage(long = "mount-point")]
+    #[usage(long = "mount-point", value_name = "MOUNT_POINT")]
     pub mount_point: ::std::option::Option<::std::string::String>,
     /// Don't reuse tool layers from the previously pushed image
     #[usage(long = "no-cache")]
@@ -3007,7 +3058,7 @@ pub struct OciPushArgs {
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
-    #[usage(long = "owner")]
+    #[usage(long = "owner", value_name = "UID[:GID]")]
     pub owner: ::std::option::Option<::std::string::String>,
     /// Maintain the tag as a multi-arch image index
     ///
@@ -3031,13 +3082,18 @@ pub struct OciPushArgs {
 #[derive(Args)]
 pub struct OciRunArgs {
     /// Container engine to use (`auto`, `podman`, or `docker`)
-    #[usage(long = "engine", choices("auto", "podman", "docker"), default = "auto")]
+    #[usage(
+        long = "engine",
+        value_name = "ENGINE",
+        choices("auto", "podman", "docker"),
+        default = "auto"
+    )]
     pub engine: ::std::option::Option<::std::string::String>,
     /// Base image reference for the build (ignored with --image-dir)
-    #[usage(long = "from")]
+    #[usage(long = "from", value_name = "FROM")]
     pub from: ::std::option::Option<::std::string::String>,
     /// Use an already-built OCI image layout instead of building fresh
-    #[usage(long = "image-dir")]
+    #[usage(long = "image-dir", value_name = "IMAGE_DIR")]
     pub image_dir: ::std::option::Option<::std::string::String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
@@ -3050,7 +3106,7 @@ pub struct OciRunArgs {
     #[usage(long = "keep")]
     pub keep: bool,
     /// Override in-image mount point (ignored with --image-dir)
-    #[usage(long = "mount-point")]
+    #[usage(long = "mount-point", value_name = "MOUNT_POINT")]
     pub mount_point: ::std::option::Option<::std::string::String>,
     /// Don't embed the mise binary (ignored with --image-dir)
     #[usage(long = "no-mise")]
@@ -3058,15 +3114,15 @@ pub struct OciRunArgs {
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
     /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
-    #[usage(long = "owner")]
+    #[usage(long = "owner", value_name = "UID[:GID]")]
     pub owner: ::std::option::Option<::std::string::String>,
     /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
     ///
     /// Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
-    #[usage(long = "volume", var)]
+    #[usage(long = "volume", value_name = "HOST:CONTAINER", var)]
     pub volume: ::std::vec::Vec<::std::string::String>,
     /// Set environment variable in the container (repeatable, `KEY=VAL`)
-    #[usage(long = "env", short = 'e', var)]
+    #[usage(long = "env", short = 'e', value_name = "KEY=VAL", var)]
     pub env: ::std::vec::Vec<::std::string::String>,
     /// Run interactively (pass `-i` to the engine)
     #[usage(long = "interactive", short = 'i')]
@@ -3075,7 +3131,7 @@ pub struct OciRunArgs {
     #[usage(long = "tty", short = 't')]
     pub tty: bool,
     /// Working directory inside the container
-    #[usage(long = "workdir", short = 'w')]
+    #[usage(long = "workdir", short = 'w', value_name = "WORKDIR")]
     pub workdir: ::std::option::Option<::std::string::String>,
     /// Command and arguments to run inside the container (after `--`)
     #[usage(arg, name = "CMD", double_dash = "required")]
@@ -3184,7 +3240,7 @@ pub struct PluginsInstallArgs {
     #[usage(long = "force", short = 'f')]
     pub force: bool,
     /// Number of jobs to run in parallel
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Show installation output
     #[usage(long = "verbose", short = 'v', count)]
@@ -3288,7 +3344,7 @@ pub struct PluginsUninstallArgs {
 pub struct PluginsUpdateArgs {
     /// Number of jobs to run in parallel
     /// Default: 4
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Plugin(s) to update
     #[usage(arg, name = "PLUGIN")]
@@ -3357,7 +3413,7 @@ pub struct DepsAddArgs {
     #[usage(long = "dev", short = 'D')]
     pub dev: bool,
     /// Package(s) to add (e.g., npm:react, npm:@types/react@19)
-    #[usage(arg, name = "PACKAGES")]
+    #[usage(arg, name = "PACKAGES", required)]
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3386,10 +3442,10 @@ pub struct DepsInstallArgs {
     #[usage(long = "monorepo")]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
-    #[usage(long = "only", var)]
+    #[usage(long = "only", value_name = "ONLY", var)]
     pub only: ::std::vec::Vec<::std::string::String>,
     /// Skip specific deps rule(s)
-    #[usage(long = "skip", var)]
+    #[usage(long = "skip", value_name = "SKIP", var)]
     pub skip: ::std::vec::Vec<::std::string::String>,
     /// Provider to operate on (runs only this provider, or use with --explain)
     #[usage(arg, name = "PROVIDER")]
@@ -3403,7 +3459,7 @@ pub struct DepsInstallArgs {
 #[derive(Args)]
 pub struct DepsRemoveArgs {
     /// Package(s) to remove (e.g., npm:lodash)
-    #[usage(arg, name = "PACKAGES")]
+    #[usage(arg, name = "PACKAGES", required)]
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3437,10 +3493,10 @@ pub struct DepsArgs {
     #[usage(long = "monorepo")]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
-    #[usage(long = "only", var)]
+    #[usage(long = "only", value_name = "ONLY", var)]
     pub only: ::std::vec::Vec<::std::string::String>,
     /// Skip specific deps rule(s)
-    #[usage(long = "skip", var)]
+    #[usage(long = "skip", value_name = "SKIP", var)]
     pub skip: ::std::vec::Vec<::std::string::String>,
     /// Provider to operate on (runs only this provider, or use with --explain)
     #[usage(arg, name = "PROVIDER")]
@@ -3505,7 +3561,7 @@ pub struct PruneArgs {
 #[derive(Args)]
 pub struct RegistryArgs {
     /// Show only tools for this backend
-    #[usage(long = "backend", short = 'b')]
+    #[usage(long = "backend", short = 'b', value_name = "BACKEND")]
     pub backend: ::std::option::Option<::std::string::String>,
     /// Print all tools with descriptions for shell completions
     #[usage(long = "complete", hide)]
@@ -3594,14 +3650,14 @@ pub struct RunArgs {
     pub affected: bool,
     /// Git base revision for --affected
     /// Defaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1
-    #[usage(long = "affected-base")]
+    #[usage(long = "affected-base", value_name = "REV")]
     pub affected_base: ::std::option::Option<::std::string::String>,
     /// Explain why projects and tasks were selected by --affected
     #[usage(long = "affected-explain")]
     pub affected_explain: bool,
     /// Git head revision for --affected
     /// Defaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD
-    #[usage(long = "affected-head")]
+    #[usage(long = "affected-head", value_name = "REV")]
     pub affected_head: ::std::option::Option<::std::string::String>,
     /// Output affected projects and tasks as JSON without running tasks
     #[usage(long = "affected-json")]
@@ -3610,7 +3666,7 @@ pub struct RunArgs {
     #[usage(long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
     /// Change to this directory before executing the command
-    #[usage(long = "cd", short = 'C')]
+    #[usage(long = "cd", short = 'C', value_name = "CD")]
     pub cd: ::std::option::Option<::std::string::String>,
     /// Force the tasks to run even if outputs are up to date
     #[usage(long = "force", short = 'f')]
@@ -3618,7 +3674,7 @@ pub struct RunArgs {
     /// Number of tasks to run in parallel
     /// [default: 4]
     /// Configure with `jobs` config or `MISE_JOBS` env var
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Don't actually run the task(s), just print them in order of execution
     #[usage(long = "dry-run", short = 'n')]
@@ -3632,7 +3688,7 @@ pub struct RunArgs {
     /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
     /// - `quiet` - Don't show extra output
     /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
-    #[usage(long = "output", short = 'o')]
+    #[usage(long = "output", short = 'o', value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// Don't show extra output
     #[usage(long = "quiet", short = 'q')]
@@ -3647,26 +3703,26 @@ pub struct RunArgs {
     /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
     /// Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
     /// Or it can be overridden with the `shell` property on a task.
-    #[usage(long = "shell", short = 's')]
+    #[usage(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Don't show any output except for errors
     #[usage(long = "silent", short = 'S')]
     pub silent: bool,
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[usage(long = "tool", short = 't', var)]
+    #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION", var)]
     pub tool: ::std::vec::Vec<::std::string::String>,
     /// Allow specific env var through (implies --deny-env for everything else)
     /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", var)]
+    #[usage(long = "allow-env", value_name = "VAR", var)]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
     /// Allow network to specific host (implies --deny-net for everything else)
-    #[usage(long = "allow-net", var)]
+    #[usage(long = "allow-net", value_name = "HOST", var)]
     pub allow_net: ::std::vec::Vec<::std::string::String>,
     /// Allow reads from specific path (implies --deny-read for everything else)
-    #[usage(long = "allow-read", var)]
+    #[usage(long = "allow-read", value_name = "PATH", var)]
     pub allow_read: ::std::vec::Vec<::std::string::String>,
     /// Allow writes to specific path (implies --deny-write for everything else)
-    #[usage(long = "allow-write", var)]
+    #[usage(long = "allow-write", value_name = "PATH", var)]
     pub allow_write: ::std::vec::Vec<::std::string::String>,
     /// Block reads, writes, network, and env vars
     #[usage(long = "deny-all")]
@@ -3715,6 +3771,7 @@ pub struct RunArgs {
     /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
     #[usage(
         long = "task-cache",
+        value_name = "TASK_CACHE",
         choices("read-write", "read-only", "write-only", "off", "local-only"),
         default = "read-write"
     )]
@@ -3730,7 +3787,7 @@ pub struct RunArgs {
     pub task_cache_stats: bool,
     /// Timeout for the task to complete
     /// e.g.: 30s, 5m
-    #[usage(long = "timeout")]
+    #[usage(long = "timeout", value_name = "TIMEOUT")]
     pub timeout: ::std::option::Option<::std::string::String>,
     /// Shows elapsed time after each task completes
     ///
@@ -3754,6 +3811,7 @@ pub struct SearchArgs {
     #[usage(
         long = "match-type",
         short = 'm',
+        value_name = "MATCH_TYPE",
         choices("equal", "contains", "fuzzy"),
         default = "fuzzy"
     )]
@@ -3802,7 +3860,7 @@ pub struct SelfUpdateArgs {
 #[derive(Args)]
 pub struct SetArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[usage(long = "env", short = 'E')]
+    #[usage(long = "env", short = 'E', value_name = "ENV")]
     pub env: ::std::option::Option<::std::string::String>,
     /// Set the environment variable in the global config file
     #[usage(long = "global", short = 'g')]
@@ -3813,17 +3871,17 @@ pub struct SetArgs {
     /// [experimental] Age identity file for encryption
     ///
     /// Defaults to ~/.config/mise/age.txt if it exists
-    #[usage(long = "age-key-file")]
+    #[usage(long = "age-key-file", value_name = "PATH")]
     pub age_key_file: ::std::option::Option<::std::string::String>,
     /// [experimental] Age recipient (x25519 public key) for encryption
     ///
     /// Can be used multiple times. Requires --age-encrypt.
-    #[usage(long = "age-recipient", var)]
+    #[usage(long = "age-recipient", value_name = "RECIPIENT", var)]
     pub age_recipient: ::std::vec::Vec<::std::string::String>,
     /// [experimental] SSH recipient (public key or path) for age encryption
     ///
     /// Can be used multiple times. Requires --age-encrypt.
-    #[usage(long = "age-ssh-recipient", var)]
+    #[usage(long = "age-ssh-recipient", value_name = "PATH_OR_PUBKEY", var)]
     pub age_ssh_recipient: ::std::vec::Vec<::std::string::String>,
     /// Render completions
     #[usage(long = "complete", hide)]
@@ -3833,7 +3891,7 @@ pub struct SetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
     /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[usage(long = "file")]
+    #[usage(long = "file", value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// Show raw values instead of redacting secrets
     #[usage(long = "no-redact")]
@@ -3844,7 +3902,7 @@ pub struct SetArgs {
     /// Remove the environment variable from config file
     ///
     /// Can be used multiple times.
-    #[usage(long = "remove", hide, var)]
+    #[usage(long = "remove", hide, value_name = "ENV_KEY", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Read the value from stdin (for multiline input)
     ///
@@ -4019,7 +4077,7 @@ pub enum SettingsCommands {
 pub struct ShellArgs {
     /// Number of jobs to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Removes a previously set version
     #[usage(long = "unset", short = 'u')]
@@ -4028,7 +4086,7 @@ pub struct ShellArgs {
     #[usage(long = "raw")]
     pub raw: bool,
     /// Tool(s) to use
-    #[usage(arg, name = "TOOL@VERSION")]
+    #[usage(arg, name = "TOOL@VERSION", required)]
     pub tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4172,13 +4230,13 @@ pub enum SyncCommands {
 #[derive(Args)]
 pub struct TasksAddArgs {
     /// Other names for the task
-    #[usage(long = "alias", short = 'a', var)]
+    #[usage(long = "alias", short = 'a', value_name = "ALIAS", var)]
     pub alias: ::std::vec::Vec<::std::string::String>,
     /// Add dependencies to the task
-    #[usage(long = "depends", short = 'd', var)]
+    #[usage(long = "depends", short = 'd', value_name = "DEPENDS", var)]
     pub depends: ::std::vec::Vec<::std::string::String>,
     /// Run the task in a specific directory
-    #[usage(long = "dir", short = 'D')]
+    #[usage(long = "dir", short = 'D', value_name = "DIR")]
     pub dir: ::std::option::Option<::std::string::String>,
     /// Create a file task instead of a toml task
     #[usage(long = "file", short = 'f')]
@@ -4193,25 +4251,25 @@ pub struct TasksAddArgs {
     #[usage(long = "raw", short = 'r')]
     pub raw: bool,
     /// Glob patterns of files this task uses as input
-    #[usage(long = "sources", short = 's', var)]
+    #[usage(long = "sources", short = 's', value_name = "SOURCES", var)]
     pub sources: ::std::vec::Vec<::std::string::String>,
     /// Wait for these tasks to complete if they are to run
-    #[usage(long = "wait-for", short = 'w', var)]
+    #[usage(long = "wait-for", short = 'w', value_name = "WAIT_FOR", var)]
     pub wait_for: ::std::vec::Vec<::std::string::String>,
     /// Dependencies to run after the task runs
-    #[usage(long = "depends-post", var)]
+    #[usage(long = "depends-post", value_name = "DEPENDS_POST", var)]
     pub depends_post: ::std::vec::Vec<::std::string::String>,
     /// Description of the task
-    #[usage(long = "description")]
+    #[usage(long = "description", value_name = "DESCRIPTION")]
     pub description: ::std::option::Option<::std::string::String>,
     /// Glob patterns of files this task creates, to skip if they are not modified
-    #[usage(long = "outputs", var)]
+    #[usage(long = "outputs", value_name = "OUTPUTS", var)]
     pub outputs: ::std::vec::Vec<::std::string::String>,
     /// Command to run on windows
-    #[usage(long = "run-windows")]
+    #[usage(long = "run-windows", value_name = "RUN_WINDOWS")]
     pub run_windows: ::std::option::Option<::std::string::String>,
     /// Run the task in a specific shell
-    #[usage(long = "shell")]
+    #[usage(long = "shell", value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Do not print the command or its output
     #[usage(long = "silent")]
@@ -4319,10 +4377,14 @@ pub struct TasksLsArgs {
     #[usage(long = "no-header")]
     pub no_header: bool,
     /// Sort by column. Default is name.
-    #[usage(long = "sort", choices("name", "alias", "description", "source"))]
+    #[usage(
+        long = "sort",
+        value_name = "COLUMN",
+        choices("name", "alias", "description", "source")
+    )]
     pub sort: ::std::option::Option<::std::string::String>,
     /// Sort order. Default is asc.
-    #[usage(long = "sort-order", choices("asc", "desc"))]
+    #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
     pub sort_order: ::std::option::Option<::std::string::String>,
     /// Undocumented
     #[usage(long = "usage", hide)]
@@ -4362,14 +4424,14 @@ pub struct TasksRunArgs {
     pub affected: bool,
     /// Git base revision for --affected
     /// Defaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1
-    #[usage(long = "affected-base")]
+    #[usage(long = "affected-base", value_name = "REV")]
     pub affected_base: ::std::option::Option<::std::string::String>,
     /// Explain why projects and tasks were selected by --affected
     #[usage(long = "affected-explain")]
     pub affected_explain: bool,
     /// Git head revision for --affected
     /// Defaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD
-    #[usage(long = "affected-head")]
+    #[usage(long = "affected-head", value_name = "REV")]
     pub affected_head: ::std::option::Option<::std::string::String>,
     /// Output affected projects and tasks as JSON without running tasks
     #[usage(long = "affected-json")]
@@ -4378,7 +4440,7 @@ pub struct TasksRunArgs {
     #[usage(long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
     /// Change to this directory before executing the command
-    #[usage(long = "cd", short = 'C')]
+    #[usage(long = "cd", short = 'C', value_name = "CD")]
     pub cd: ::std::option::Option<::std::string::String>,
     /// Force the tasks to run even if outputs are up to date
     #[usage(long = "force", short = 'f')]
@@ -4386,7 +4448,7 @@ pub struct TasksRunArgs {
     /// Number of tasks to run in parallel
     /// [default: 4]
     /// Configure with `jobs` config or `MISE_JOBS` env var
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Don't actually run the task(s), just print them in order of execution
     #[usage(long = "dry-run", short = 'n')]
@@ -4400,7 +4462,7 @@ pub struct TasksRunArgs {
     /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
     /// - `quiet` - Don't show extra output
     /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
-    #[usage(long = "output", short = 'o')]
+    #[usage(long = "output", short = 'o', value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// Don't show extra output
     #[usage(long = "quiet", short = 'q')]
@@ -4415,26 +4477,26 @@ pub struct TasksRunArgs {
     /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
     /// Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
     /// Or it can be overridden with the `shell` property on a task.
-    #[usage(long = "shell", short = 's')]
+    #[usage(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Don't show any output except for errors
     #[usage(long = "silent", short = 'S')]
     pub silent: bool,
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[usage(long = "tool", short = 't', var)]
+    #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION", var)]
     pub tool: ::std::vec::Vec<::std::string::String>,
     /// Allow specific env var through (implies --deny-env for everything else)
     /// Supports wildcards, e.g. --allow-env='MYAPP_*'
-    #[usage(long = "allow-env", var)]
+    #[usage(long = "allow-env", value_name = "VAR", var)]
     pub allow_env: ::std::vec::Vec<::std::string::String>,
     /// Allow network to specific host (implies --deny-net for everything else)
-    #[usage(long = "allow-net", var)]
+    #[usage(long = "allow-net", value_name = "HOST", var)]
     pub allow_net: ::std::vec::Vec<::std::string::String>,
     /// Allow reads from specific path (implies --deny-read for everything else)
-    #[usage(long = "allow-read", var)]
+    #[usage(long = "allow-read", value_name = "PATH", var)]
     pub allow_read: ::std::vec::Vec<::std::string::String>,
     /// Allow writes to specific path (implies --deny-write for everything else)
-    #[usage(long = "allow-write", var)]
+    #[usage(long = "allow-write", value_name = "PATH", var)]
     pub allow_write: ::std::vec::Vec<::std::string::String>,
     /// Block reads, writes, network, and env vars
     #[usage(long = "deny-all")]
@@ -4483,6 +4545,7 @@ pub struct TasksRunArgs {
     /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
     #[usage(
         long = "task-cache",
+        value_name = "TASK_CACHE",
         choices("read-write", "read-only", "write-only", "off", "local-only"),
         default = "read-write"
     )]
@@ -4498,7 +4561,7 @@ pub struct TasksRunArgs {
     pub task_cache_stats: bool,
     /// Timeout for the task to complete
     /// e.g.: 30s, 5m
-    #[usage(long = "timeout")]
+    #[usage(long = "timeout", value_name = "TIMEOUT")]
     pub timeout: ::std::option::Option<::std::string::String>,
     /// Shows elapsed time after each task completes
     ///
@@ -4565,10 +4628,14 @@ pub struct TasksArgs {
     #[usage(long = "no-header")]
     pub no_header: bool,
     /// Sort by column. Default is name.
-    #[usage(long = "sort", choices("name", "alias", "description", "source"))]
+    #[usage(
+        long = "sort",
+        value_name = "COLUMN",
+        choices("name", "alias", "description", "source")
+    )]
     pub sort: ::std::option::Option<::std::string::String>,
     /// Sort order. Default is asc.
-    #[usage(long = "sort-order", choices("asc", "desc"))]
+    #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
     pub sort_order: ::std::option::Option<::std::string::String>,
     /// Undocumented
     #[usage(long = "usage", hide)]
@@ -4618,7 +4685,7 @@ pub struct TestToolArgs {
     pub all: bool,
     /// Number of tool tests to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Test all tools specified in config files
     #[usage(long = "all-config")]
@@ -4828,7 +4895,7 @@ pub struct UnsetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[usage(long = "file", short = 'f')]
+    #[usage(long = "file", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// Use the global config file
     #[usage(long = "global", short = 'g')]
@@ -4868,7 +4935,7 @@ pub struct UntrustArgs {
 #[derive(Args)]
 pub struct UnuseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[usage(long = "env", short = 'e')]
+    #[usage(long = "env", short = 'e', value_name = "ENV")]
     pub env: ::std::option::Option<::std::string::String>,
     /// Use the global config file (`~/.config/mise/config.toml`) instead of the local one
     #[usage(long = "global", short = 'g')]
@@ -4876,13 +4943,13 @@ pub struct UnuseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Do not also prune the installed version
     #[usage(long = "no-prune")]
     pub no_prune: bool,
     /// Tool(s) to remove
-    #[usage(arg, name = "INSTALLED_TOOL@VERSION")]
+    #[usage(arg, name = "INSTALLED_TOOL@VERSION", required)]
     pub installed_tool_version: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4900,7 +4967,7 @@ pub struct UpgradeArgs {
     pub interactive: bool,
     /// Number of jobs to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
@@ -4916,7 +4983,7 @@ pub struct UpgradeArgs {
     pub dry_run: bool,
     /// Tool(s) to exclude from upgrading
     /// e.g.: go python
-    #[usage(long = "exclude", short = 'x', var)]
+    #[usage(long = "exclude", short = 'x', value_name = "INSTALLED_TOOL", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are outdated tools
     ///
@@ -4939,7 +5006,7 @@ pub struct UpgradeArgs {
     ///
     /// This only affects fuzzy version matches like "20" or "latest".
     /// Explicitly pinned versions like "22.5.0" are not filtered.
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.
     #[usage(long = "monorepo")]
@@ -4989,7 +5056,7 @@ pub struct UsageArgs {}
 #[derive(Args)]
 pub struct UseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[usage(long = "env", short = 'e')]
+    #[usage(long = "env", short = 'e', value_name = "ENV")]
     pub env: ::std::option::Option<::std::string::String>,
     /// Force reinstall even if already installed
     #[usage(long = "force", short = 'f')]
@@ -4999,7 +5066,7 @@ pub struct UseArgs {
     pub global: bool,
     /// Number of jobs to run in parallel
     /// [default: 4]
-    #[usage(long = "jobs", short = 'j')]
+    #[usage(long = "jobs", short = 'j', value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Perform a dry run, showing what would be installed and modified without making changes
     #[usage(long = "dry-run", short = 'n')]
@@ -5007,7 +5074,7 @@ pub struct UseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[usage(long = "path", short = 'p')]
+    #[usage(long = "path", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
     ///
@@ -5023,7 +5090,7 @@ pub struct UseArgs {
     /// Only install versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[usage(long = "minimum-release-age")]
+    #[usage(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
     pub minimum_release_age: ::std::option::Option<::std::string::String>,
     /// Save exact version to config file
     /// e.g.: `mise use --pin node@20` will save 20.0.0 as the version
@@ -5037,7 +5104,7 @@ pub struct UseArgs {
     #[usage(long = "raw")]
     pub raw: bool,
     /// Remove the tool(s) from config file
-    #[usage(long = "remove", var)]
+    #[usage(long = "remove", value_name = "TOOL", var)]
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Tool(s) to add to config file
     ///
@@ -5073,11 +5140,11 @@ pub struct VersionArgs {
 #[derive(Args)]
 pub struct WatchArgs {
     /// Tasks to run
-    #[usage(long = "task-flag", short = 't', hide, var)]
+    #[usage(long = "task-flag", short = 't', hide, value_name = "TASK_FLAG", var)]
     pub task_flag: ::std::vec::Vec<::std::string::String>,
     /// Files to watch
     /// Defaults to sources from the task(s)
-    #[usage(long = "glob", short = 'g', hide, var)]
+    #[usage(long = "glob", short = 'g', hide, value_name = "GLOB", var)]
     pub glob: ::std::vec::Vec<::std::string::String>,
     /// Run only the specified tasks skipping all dependencies
     #[usage(long = "skip-deps")]
@@ -5093,14 +5160,14 @@ pub struct WatchArgs {
     /// This option can be specified multiple times to watch multiple files or directories.
     ///
     /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
-    #[usage(long = "watch", short = 'w', var)]
+    #[usage(long = "watch", short = 'w', value_name = "PATH", var)]
     pub watch: ::std::vec::Vec<::std::string::String>,
     /// Watch a specific directory, non-recursively
     ///
     /// Unlike '-w', folders watched with this option are not recursed into.
     ///
     /// This option can be specified multiple times to watch multiple directories non-recursively.
-    #[usage(long = "watch-non-recursive", short = 'W', var)]
+    #[usage(long = "watch-non-recursive", short = 'W', value_name = "PATH", var)]
     pub watch_non_recursive: ::std::vec::Vec<::std::string::String>,
     /// Watch files and directories from a file
     ///
@@ -5109,12 +5176,17 @@ pub struct WatchArgs {
     /// For more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.
     ///
     /// The special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.
-    #[usage(long = "watch-file", short = 'F')]
+    #[usage(long = "watch-file", short = 'F', value_name = "PATH")]
     pub watch_file: ::std::option::Option<::std::string::String>,
     /// Clear screen before running command
     ///
     /// If this doesn't completely clear the screen, try '--clear=reset'.
-    #[usage(long = "clear", short = 'c', choices("clear", "reset"))]
+    #[usage(
+        long = "clear",
+        short = 'c',
+        value_name = "MODE",
+        choices("clear", "reset")
+    )]
     pub clear: ::std::option::Option<::std::string::String>,
     /// What to do when receiving events while the command is running
     ///
@@ -5124,6 +5196,7 @@ pub struct WatchArgs {
     #[usage(
         long = "on-busy-update",
         short = 'o',
+        value_name = "MODE",
         choices("queue", "do-nothing", "restart", "signal"),
         default = "do-nothing"
     )]
@@ -5140,7 +5213,7 @@ pub struct WatchArgs {
     /// See the long documentation for '--stop-signal' for syntax.
     ///
     /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
-    #[usage(long = "signal", short = 's')]
+    #[usage(long = "signal", short = 's', value_name = "SIGNAL")]
     pub signal: ::std::option::Option<::std::string::String>,
     /// Signal to send to stop the command
     ///
@@ -5151,7 +5224,7 @@ pub struct WatchArgs {
     /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"), or a signal number (like "15"). All input is case-insensitive.
     ///
     /// On Windows this option is technically supported but only supports the "KILL" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE" events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are respectively mapped to these.
-    #[usage(long = "stop-signal")]
+    #[usage(long = "stop-signal", value_name = "SIGNAL")]
     pub stop_signal: ::std::option::Option<::std::string::String>,
     /// Time to wait for the command to exit gracefully
     ///
@@ -5162,7 +5235,7 @@ pub struct WatchArgs {
     /// The default is 10 seconds. Set to 0 to immediately force-kill the command.
     ///
     /// This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
-    #[usage(long = "stop-timeout", default = "10s")]
+    #[usage(long = "stop-timeout", value_name = "TIMEOUT", default = "10s")]
     pub stop_timeout: ::std::option::Option<::std::string::String>,
     /// Translate signals from the OS to signals to send to the command
     ///
@@ -5173,7 +5246,7 @@ pub struct WatchArgs {
     /// This option can be specified multiple times to map multiple signals.
     ///
     /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot yet deliver other "signals" than a STOP.
-    #[usage(long = "map-signal", var)]
+    #[usage(long = "map-signal", value_name = "SIGNAL:SIGNAL", var)]
     pub map_signal: ::std::vec::Vec<::std::string::String>,
     /// Time to wait for new events before taking action
     ///
@@ -5184,7 +5257,12 @@ pub struct WatchArgs {
     /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 50 milliseconds. Setting to 0 is highly discouraged.
-    #[usage(long = "debounce", short = 'd', default = "50ms")]
+    #[usage(
+        long = "debounce",
+        short = 'd',
+        value_name = "TIMEOUT",
+        default = "50ms"
+    )]
     pub debounce: ::std::option::Option<::std::string::String>,
     /// Exit when stdin closes
     ///
@@ -5265,7 +5343,7 @@ pub struct WatchArgs {
     /// This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
     ///
     /// Takes a unit-less value in seconds, or a time span value such as "2min 5s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
-    #[usage(long = "delay-run")]
+    #[usage(long = "delay-run", value_name = "DURATION")]
     pub delay_run: ::std::option::Option<::std::string::String>,
     /// Poll for filesystem changes
     ///
@@ -5274,7 +5352,7 @@ pub struct WatchArgs {
     /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// Aliased as '--force-poll'.
-    #[usage(long = "poll")]
+    #[usage(long = "poll", value_name = "INTERVAL")]
     pub poll: ::std::option::Option<::std::string::String>,
     /// Use a different shell
     ///
@@ -5311,7 +5389,7 @@ pub struct WatchArgs {
     /// Use with a unix shell and options:
     ///
     /// $ watchexec --shell='zsh -x -o shwordsplit' -- scr
-    #[usage(long = "shell")]
+    #[usage(long = "shell", value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Shorthand for '--shell=none'
     #[usage(short = 'n')]
@@ -5418,6 +5496,7 @@ pub struct WatchArgs {
     /// multiple confused queries that have landed in my inbox over the years.
     #[usage(
         long = "emit-events-to",
+        value_name = "MODE",
         choices("environment", "stdio", "file", "json-stdio", "json-file", "none"),
         default = "none"
     )]
@@ -5434,7 +5513,7 @@ pub struct WatchArgs {
     /// This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
     ///
     /// Use key=value syntax. Multiple variables can be set by repeating the option.
-    #[usage(long = "env", short = 'E', var)]
+    #[usage(long = "env", short = 'E', value_name = "KEY=VALUE", var)]
     pub env: ::std::vec::Vec<::std::string::String>,
     /// Configure how the process is wrapped
     ///
@@ -5443,7 +5522,11 @@ pub struct WatchArgs {
     /// Some Unix programs prefer running in a session, while others do not work in a process group.
     ///
     /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
-    #[usage(long = "wrap-process", choices("group", "session", "none"))]
+    #[usage(
+        long = "wrap-process",
+        value_name = "MODE",
+        choices("group", "session", "none")
+    )]
     pub wrap_process: ::std::option::Option<::std::string::String>,
     /// Alert when commands start and end
     ///
@@ -5453,7 +5536,12 @@ pub struct WatchArgs {
     /// When to use terminal colours
     ///
     /// Setting the environment variable `NO_COLOR` to any value is equivalent to `--color=never`.
-    #[usage(long = "color", choices("auto", "always", "never"), default = "auto")]
+    #[usage(
+        long = "color",
+        value_name = "MODE",
+        choices("auto", "always", "never"),
+        default = "auto"
+    )]
     pub color: ::std::option::Option<::std::string::String>,
     /// Print how long the command took to run
     ///
@@ -5475,29 +5563,29 @@ pub struct WatchArgs {
     /// The project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
     ///
     /// When set, Watchexec will also not bother searching, which can be significantly faster.
-    #[usage(long = "project-origin")]
+    #[usage(long = "project-origin", value_name = "DIRECTORY")]
     pub project_origin: ::std::option::Option<::std::string::String>,
     /// Set the working directory
     ///
     /// By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
-    #[usage(long = "workdir")]
+    #[usage(long = "workdir", value_name = "DIRECTORY")]
     pub workdir: ::std::option::Option<::std::string::String>,
     /// Filename extensions to filter to
     ///
     /// This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
-    #[usage(long = "exts", short = 'e', var)]
+    #[usage(long = "exts", short = 'e', value_name = "EXTENSIONS", var)]
     pub exts: ::std::vec::Vec<::std::string::String>,
     /// Filename patterns to filter to
     ///
     /// Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-    #[usage(long = "filter", short = 'f', var)]
+    #[usage(long = "filter", short = 'f', value_name = "PATTERN", var)]
     pub filter: ::std::vec::Vec<::std::string::String>,
     /// Files to load filters from
     ///
     /// Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
     ///
     /// This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
-    #[usage(long = "filter-file", var)]
+    #[usage(long = "filter-file", value_name = "PATH", var)]
     pub filter_file: ::std::vec::Vec<::std::string::String>,
     /// [experimental] Filter programs
     ///
@@ -5544,19 +5632,19 @@ pub struct WatchArgs {
     /// Ignore files that start with shebangs:
     ///
     /// 'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | read(2) == "#!") | not'
-    #[usage(long = "filter-prog", short = 'J', var)]
+    #[usage(long = "filter-prog", short = 'J', value_name = "EXPRESSION", var)]
     pub filter_prog: ::std::vec::Vec<::std::string::String>,
     /// Filename patterns to filter out
     ///
     /// Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-    #[usage(long = "ignore", short = 'i', var)]
+    #[usage(long = "ignore", short = 'i', value_name = "PATTERN", var)]
     pub ignore: ::std::vec::Vec<::std::string::String>,
     /// Files to load ignores from
     ///
     /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
     ///
     /// This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
-    #[usage(long = "ignore-file", var)]
+    #[usage(long = "ignore-file", value_name = "PATH", var)]
     pub ignore_file: ::std::vec::Vec<::std::string::String>,
     /// Filesystem events to filter to
     ///
@@ -5565,6 +5653,7 @@ pub struct WatchArgs {
     /// This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
     #[usage(
         long = "fs-events",
+        value_name = "EVENTS",
         choices("access", "create", "remove", "rename", "modify", "metadata"),
         var
     )]
@@ -5622,7 +5711,7 @@ pub struct WhereArgs {
 pub struct WhichArgs {
     /// Use a specific tool@version
     /// e.g.: `mise which npm --tool=node@20`
-    #[usage(long = "tool", short = 't')]
+    #[usage(long = "tool", short = 't', value_name = "TOOL@VERSION")]
     pub tool: ::std::option::Option<::std::string::String>,
     /// Undocumented
     #[usage(long = "complete", hide)]
@@ -5646,31 +5735,38 @@ pub struct Cli {
     #[usage(long = "continue-on-error", short = 'c', hide)]
     pub continue_on_error: bool,
     /// Change directory before running command
-    #[usage(long = "cd", short = 'C', global)]
+    #[usage(long = "cd", short = 'C', global, value_name = "DIR")]
     pub cd: ::std::option::Option<::std::string::String>,
     /// Set the environment for loading `mise.<ENV>.toml`
-    #[usage(long = "env", short = 'E', global, var)]
+    #[usage(long = "env", short = 'E', global, value_name = "ENV", var)]
     pub env: ::std::vec::Vec<::std::string::String>,
     /// Force the operation
     #[usage(long = "force", short = 'f', hide)]
     pub force: bool,
     /// How many jobs to run in parallel [default: 8]
-    #[usage(long = "jobs", short = 'j', global)]
+    #[usage(long = "jobs", short = 'j', global, value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
     /// Dry run, don't actually do anything
     #[usage(long = "dry-run", short = 'n', hide)]
     pub dry_run: bool,
     /// Set the profile (environment)
-    #[usage(long = "profile", short = 'P', global, hide, var)]
+    #[usage(
+        long = "profile",
+        short = 'P',
+        global,
+        hide,
+        value_name = "PROFILE",
+        var
+    )]
     pub profile: ::std::vec::Vec<::std::string::String>,
     /// Suppress non-error messages
     #[usage(long = "quiet", short = 'q', global)]
     pub quiet: bool,
     /// Undocumented
-    #[usage(long = "shell", short = 's', hide)]
+    #[usage(long = "shell", short = 's', hide, value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[usage(long = "tool", short = 't', hide, var)]
+    #[usage(long = "tool", short = 't', hide, value_name = "TOOL@VERSION", var)]
     pub tool: ::std::vec::Vec<::std::string::String>,
     /// Show extra output (use -vv for even more)
     #[usage(long = "verbose", short = 'v', global, count)]
@@ -5689,6 +5785,7 @@ pub struct Cli {
         long = "log-level",
         global,
         hide,
+        value_name = "LEVEL",
         choices("trace", "debug", "info", "warning", "error")
     )]
     pub log_level: ::std::option::Option<::std::string::String>,
@@ -5713,7 +5810,7 @@ pub struct Cli {
     #[usage(long = "no-timings", hide)]
     pub no_timings: bool,
     /// Undocumented
-    #[usage(long = "output")]
+    #[usage(long = "output", value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// Read/write directly to stdin/stdout/stderr instead of by line
     #[usage(long = "raw", global)]

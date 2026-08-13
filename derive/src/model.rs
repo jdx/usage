@@ -69,6 +69,20 @@ pub struct Field {
     pub env: Option<String>,
     pub default: Option<String>,
     pub help_heading: Option<String>,
+    /// Whether a collecting argument needs at least one value.
+    ///
+    /// Required-ness is normally the type's to say: a bare `String` has nowhere to put
+    /// "absent" and an `Option` does. A `Vec` has neither shape, so `<TARGET>…` — a spec's
+    /// way of saying "one or more" — could not be declared at all, and came back as
+    /// `[TARGET]…`. This is the one place it has to be stated rather than inferred.
+    pub required_collection: bool,
+    /// The placeholder for a flag's value in help and in the emitted spec: `n` in
+    /// `--jobs <n>`.
+    ///
+    /// Only meaningful on a flag that takes one. Without it the flag's own name stands in,
+    /// which reads oddly when the two differ in case or shape — a spec saying
+    /// `--tool <TOOL>` came back as `--tool <tool>`, because the name was all there was.
+    pub value_name: Option<String>,
     /// The values this may take. Checked after the parse, since a choice list is
     /// about what a value *means* rather than which token it came from.
     pub choices: Vec<String>,
@@ -561,6 +575,8 @@ impl Field {
             env: None,
             default: None,
             help_heading: None,
+            value_name: None,
+            required_collection: false,
             choices: Vec::new(),
             value_enum: false,
             var_min: None,
@@ -626,6 +642,8 @@ impl Field {
             env: None,
             default: None,
             help_heading: None,
+            value_name: None,
+            required_collection: false,
             choices: Vec::new(),
             value_enum: false,
             var_min: None,
@@ -671,6 +689,8 @@ impl Field {
         let mut env = None;
         let mut default = None;
         let mut help_heading = None;
+        let mut value_name = None;
+        let mut required_collection = false;
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
@@ -752,6 +772,8 @@ impl Field {
                     "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "value_name" => value_name = Some(string_value(&meta)?),
+                    "required" => required_collection = flag_value(&meta)?,
                     "double_dash" => {
                         let mode = string_value(&meta)?;
                         match mode.as_str() {
@@ -776,7 +798,8 @@ impl Field {
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `overrides`, \
                                  `conflicts`, `required_if`, \
-                                 `required_unless`, `help_heading`, and `double_dash`"
+                                 `required_unless`, `help_heading`, `value_name`, \
+                                 `required`, and `double_dash`"
                             ),
                         ));
                     }
@@ -1018,11 +1041,41 @@ impl Field {
             ));
         }
 
+        // `required` is for the one case the type cannot express. Anywhere else it either
+        // repeats what the type says or contradicts it, and both are worth refusing: a
+        // declaration that changes nothing is a declaration someone will trust.
+        if required_collection && shape != Shape::Many {
+            return Err(syn::Error::new(
+                span,
+                match shape {
+                    Shape::Optional => {
+                        "`required` contradicts `Option`, which is how a \
+                                        field says a value may be left out — drop one or \
+                                        the other"
+                    }
+                    Shape::Required => {
+                        "a bare type is already required: `required` is only \
+                                        for a collecting field, where the type cannot say it"
+                    }
+                    _ => {
+                        "`required` is only for a collecting field, which is the one shape \
+                          whose type cannot say whether a value is needed"
+                    }
+                },
+            ));
+        }
+
         // A `Vec` flag collects, so it is repeatable whether or not it says so —
         // unless it is `variadic`, which is the other way of collecting. Emitting
         // both would claim a flag is repeatable *and* that its argument is variadic,
         // which the grammar treats as two different things.
-        let repeatable = repeatable || (is_flag && shape == Shape::Many && !variadic);
+        //
+        // A `count` flag is repeatable by definition: `-vvv` is three occurrences, and
+        // counting them is the whole point. Left uninferred, the emitted spec said `count`
+        // without `var` where mise's says both, and help rendered `-v --verbose` for a flag
+        // that can be given again.
+        let repeatable =
+            repeatable || (is_flag && !variadic && (shape == Shape::Many || shape == Shape::Count));
 
         let kind = if is_flag {
             if variadic && repeatable {
@@ -1074,6 +1127,62 @@ impl Field {
             }
         };
 
+        // `required` on a collection is the only way a `Vec` can say it, and it means *always*.
+        // Two declarations contradict that, and both compiled:
+        //
+        // A sibling `required_if` or `required_unless` says "only sometimes", and the check for
+        // plain required-ness runs first and unconditionally — so the condition was accepted,
+        // emitted into the spec, and never consulted. For a scalar the two cannot meet, because
+        // `required_unless` needs somewhere to put "absent" and so only goes on an `Option`; a
+        // collection has no such type to keep them apart, so this does.
+        //
+        // And an `Option<Vec<_>>` is shaped like any other collection, so `required` was
+        // accepted there too — after which the field can never be `None` and the `Option` means
+        // nothing at all.
+        if required_collection {
+            let contradiction = if optional_collection {
+                Some("an `Option<Vec<_>>` says the whole collection may be absent")
+            } else if !required_if.is_empty() {
+                Some("`required_if` says it is required only sometimes")
+            } else if !required_unless.is_empty() {
+                Some("`required_unless` says it is required only sometimes")
+            } else {
+                None
+            };
+            if let Some(why) = contradiction {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "`required` on a collection means one or more values, always, but {why}"
+                    ),
+                ));
+            }
+        }
+
+        // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
+        // A positional argument is named by `name`, and a `bool` or `count` flag has no value
+        // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
+        // to show it. Accepting it there compiled and dropped it: the declaration read as though
+        // it had done something.
+        if value_name.is_some() {
+            let unusable = match &kind {
+                Kind::Arg { .. } => Some(
+                    "a positional argument is named by `name`, which is the placeholder help \
+                     shows",
+                ),
+                Kind::Flag { .. } if matches!(shape, Shape::Bool | Shape::Count) => {
+                    Some("this flag takes no value, so there is no placeholder to name")
+                }
+                _ => None,
+            };
+            if let Some(why) = unusable {
+                return Err(syn::Error::new(
+                    span,
+                    format!("`value_name` names the placeholder a flag's value gets: {why}"),
+                ));
+            }
+        }
+
         Ok(Field {
             ident,
             ty: field.ty.clone(),
@@ -1087,6 +1196,8 @@ impl Field {
             env,
             default,
             help_heading,
+            value_name,
+            required_collection,
             choices,
             value_enum,
             var_min,
@@ -1767,6 +1878,88 @@ mod tests {
     }
 
     #[test]
+    fn the_list_of_field_options_reads_as_a_sentence() {
+        // A line continuation without its backslash left a long run of spaces in the middle of
+        // the message, so the one place that tells an author what a field accepts looked
+        // corrupted.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, nonsense)]
+                out: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("unknown option `nonsense`"), "{err}");
+        assert!(
+            !err.contains("  "),
+            "the list of options has a run of spaces in it: {err}"
+        );
+    }
+
+    #[test]
+    fn required_on_a_collection_is_refused_where_it_would_contradict_itself() {
+        // `required` on a `Vec` means one or more values, always — and the check for it runs
+        // unconditionally, because that is what it says. Each of these declarations means
+        // something else, and all three compiled: the condition was emitted into the spec and
+        // never consulted, and the `Option` could never be `None`.
+        for decl in [
+            "#[usage(long, required, required_if = \"--other\")]\n                tag: Vec<String>,\n                #[usage(long)]\n                other: bool,",
+            "#[usage(long, required, required_unless(\"--other\"))]\n                tag: Vec<String>,\n                #[usage(long)]\n                other: bool,",
+            "#[usage(long, required)]\n                tag: Option<Vec<String>>,",
+        ] {
+            let err = rejection(&format!("struct Ex {{\n                {decl}\n            }}"));
+            assert!(
+                err.contains("one or more values, always"),
+                "unhelpful message for `{decl}`: {err}"
+            );
+        }
+        // A plain required collection is still fine, which is what the refusals are protecting.
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, required)]
+                tag: Vec<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert!(cli.fields[0].required_collection);
+    }
+
+    #[test]
+    fn value_name_is_refused_where_there_is_no_value_to_name() {
+        // It names the placeholder a flag's *value* gets in help. `arg_meta` never emits it, and
+        // a valueless flag has no placeholder to put it in — so on a positional or a
+        // `bool`/`count` flag the declaration compiled and was dropped, reading as though it had
+        // done something.
+        for decl in [
+            "#[usage(arg, value_name = \"FILE\")]\n                out: String,",
+            "#[usage(long, value_name = \"FILE\")]\n                out: bool,",
+            "#[usage(long, count, value_name = \"FILE\")]\n                out: u8,",
+        ] {
+            let err = rejection(&format!(
+                "struct Ex {{\n                {decl}\n            }}"
+            ));
+            assert!(
+                err.contains("placeholder"),
+                "unhelpful message for `{decl}`: {err}"
+            );
+        }
+        // And where there *is* a value, it still works.
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, value_name = "FILE")]
+                out: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert_eq!(
+            cli.fields[0].value_name.as_deref(),
+            Some("FILE"),
+            "a value-taking flag keeps it"
+        );
+    }
+
+    #[test]
     fn a_selector_naming_nothing_is_a_compile_error() {
         let err = rejection(
             r#"
@@ -1929,6 +2122,32 @@ mod tests {
         "#,
         );
         assert!(err.contains("is not ASCII"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn required_is_refused_where_the_type_already_answers() {
+        // Required-ness is the type's to say everywhere but a collecting field. Accepting it
+        // elsewhere would mean a declaration that either repeats the type or contradicts it,
+        // and someone would eventually trust the wrong one.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, required)]
+                target: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("contradicts `Option`"), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, required)]
+                target: String,
+            }
+        "#,
+        );
+        assert!(err.contains("already required"), "unhelpful: {err}");
     }
 
     #[test]

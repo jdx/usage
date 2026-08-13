@@ -335,6 +335,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
+    let value_name = option_str(field.value_name.as_deref());
     let default = match field.default.as_deref() {
         Some(d) => quote!(&[#d]),
         None => quote!(&[]),
@@ -345,7 +346,9 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     // Same rule as an argument: a `String` has nowhere to put "absent". The runtime
     // check already enforced it; the spec has to say it too, or docs and completions
     // describe a different CLI from the one that runs.
-    let required = field.shape == Shape::Required;
+    // A collecting field's type cannot say whether one value is needed, so `required` may
+    // declare it. Every other shape gets its answer from the type.
+    let required = field.shape == Shape::Required || field.required_collection;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
@@ -363,6 +366,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
             env: #env,
             default: #default,
             help_heading: #help_heading,
+            value_name: #value_name,
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
@@ -392,7 +396,9 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
     };
     let hide = field.hide;
     // `String` must be filled; `Option` and `Vec` need not be.
-    let required = field.shape == Shape::Required;
+    // A collecting field's type cannot say whether one value is needed, so `required` may
+    // declare it. Every other shape gets its answer from the type.
+    let required = field.shape == Shape::Required || field.required_collection;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
 
@@ -1851,9 +1857,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     let required_checks = cli.fields.iter().filter_map(|f| {
-        // A `String` has nowhere to put "absent", so the type is the declaration.
-        // Anything with a default or an environment variable is already filled.
-        if f.shape != Shape::Required || f.default.is_some() {
+        // A `String` has nowhere to put "absent", so the type is the declaration; a collection
+        // has nothing in its type to say it and declares `required` instead.
+        //
+        // The same expression the metadata is built from, deliberately: checking only the shape
+        // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
+        // manpage and the completions, and accepted zero values from the CLI that actually ran.
+        // One expression cannot disagree with itself.
+        if !(f.shape == Shape::Required || f.required_collection) || f.default.is_some() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);

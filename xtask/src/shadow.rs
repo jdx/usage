@@ -576,7 +576,20 @@ fn usage_flag_opts(
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
+    // A repeatable flag that takes no value: `-v --verbose var=#true count=#true`. The
+    // `var` was reaching the shadow only through the branch below, which a valueless flag
+    // never enters — so a spec that said the flag could be given again came back saying it
+    // could not. `count` implies it now, but a plain repeatable switch still has to say so.
+    if flag.arg.is_none() && flag.var && !flag.count {
+        opts.push("var".into());
+    }
     if let Some(arg) = flag.arg.as_ref() {
+        // The placeholder for the value: `TOOL` in `--tool <TOOL>`. Without it the flag's own
+        // name stands in, so `--tool <TOOL>` came back as `--tool <tool>` — 14 of mise's
+        // flags read differently in help for no reason but this.
+        if arg.name != flag.name {
+            opts.push(format!("value_name = {:?}", arg.name));
+        }
         if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
         }
@@ -589,6 +602,13 @@ fn usage_flag_opts(
             }
             if flag.var {
                 opts.push("var".into());
+            }
+            // Required, said the only way a collecting flag can say it. A scalar flag says it
+            // by *type* — `String` rather than `Option<String>` — and a `Vec` has no such
+            // spelling, so without this a spec demanding one-or-more values came back as a
+            // shadow that accepted none, describing `[VALUE]…` where the source said `…`.
+            if flag.required {
+                opts.push("required".into());
             }
             if arg.var {
                 // A variadic argument on a flag: one occurrence taking several values,
@@ -632,6 +652,7 @@ fn usage_flag_opts(
     if flag.required && flag.arg.is_none() {
         skipped.note("`required` on a flag that takes no value");
     }
+
     opts
 }
 
@@ -769,6 +790,12 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
         }
     }
     if arg.var {
+        // `<TARGET>…` means one or more. A `Vec` field cannot say that — it has no bare form
+        // to contrast with an `Option` — so it takes an explicit `required`, without which the
+        // shadow described `[TARGET]…` for the eight of mise's arguments that demand a value.
+        if arg.required {
+            opts.push("required".into());
+        }
         if let Some(min) = arg.var_min {
             opts.push(format!("var_min = {min}"));
         }
@@ -1030,6 +1057,24 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn a_required_collecting_flag_stays_required() {
+        // A scalar flag says "required" by type — `String` rather than `Option<String>`. A
+        // collecting one is a `Vec` either way, so it says it with `required`; without that the
+        // shadow accepted none of a flag the source spec demanded at least one of, and its
+        // regenerated spec described `[VALUE]…` where the original said `…`.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--tag <TAG>\" required=#true var=#true help=\"Tags\"\n",
+        );
+        assert!(out.contains("required"), "{out}");
+        assert!(out.contains("::std::vec::Vec<"), "it collects: {out}");
+
+        // A collecting flag that is *not* required must not gain it.
+        let (out, _) =
+            rendered("name \"ex\"\nbin \"ex\"\nflag \"--tag <TAG>\" var=#true help=\"Tags\"\n");
+        assert!(!out.contains("required"), "{out}");
     }
 
     #[test]

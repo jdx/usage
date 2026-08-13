@@ -149,6 +149,49 @@ fn a_bare_short_uses_the_renamed_name() {
     assert_eq!(spec.cmd.flags[0].long, vec!["quiet".to_string()]);
 }
 
+/// A collection that must not be empty, declared the only way a collection can say so.
+#[derive(Cli, Debug)]
+#[usage(bin = "ex")]
+struct MustHaveSome {
+    /// Files to read
+    #[usage(arg, required)]
+    files: Vec<String>,
+
+    /// Tags to apply
+    #[usage(long, required)]
+    tag: Vec<String>,
+}
+
+#[test]
+fn a_required_collection_is_required_at_parse_time_too() {
+    // The spec says one-or-more, so the parser has to agree. It did not: the required check
+    // looked only at the *shape*, and a `Vec` has the same shape whether or not it declared
+    // `required` — so the help, the manpage and the completions all promised a value the CLI
+    // then ran happily without.
+    let spec: LibSpec = MustHaveSome::to_kdl().parse().expect("valid spec");
+    assert!(spec.cmd.args[0].required, "the spec's claim");
+    assert!(spec.cmd.flags.iter().any(|f| f.name == "tag" && f.required));
+
+    let no_files = argv(["--tag", "t"]);
+    let err = MustHaveSome::parse_from(&no_files).expect_err("no files given");
+    assert!(
+        format!("{err:?}").contains("files"),
+        "should name the missing collection: {err:?}"
+    );
+    let no_tags = argv(["f"]);
+    let err = MustHaveSome::parse_from(&no_tags).expect_err("no tags given");
+    assert!(
+        format!("{err:?}").contains("tag"),
+        "should name the missing collection: {err:?}"
+    );
+
+    // And one value each is enough — `required` on a collection is one-or-more, not all-of.
+    let both = argv(["--tag", "t", "f"]);
+    let cli = MustHaveSome::parse_from(&both).expect("should parse");
+    assert_eq!(cli.files, ["f"]);
+    assert_eq!(cli.tag, ["t"]);
+}
+
 #[test]
 fn a_variadic_flag_is_not_also_repeatable() {
     // Two different claims: `var` says the flag may be repeated, a variadic
