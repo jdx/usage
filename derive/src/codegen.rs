@@ -1761,8 +1761,15 @@ fn displaced_guard(cli: &Cli, field: &Field) -> TokenStream {
 fn post_binding(cli: &Cli) -> TokenStream {
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
     // A flattened struct declares its own required-ness and choices, and only it knows them.
-    // Run before this command's own checks, in field order, so the first thing reported is
-    // the first thing declared.
+    //
+    // Run before this command's own required-ness, on the same principle that puts conflicts
+    // first: what the user typed wrong is more useful to hear about than what they left out.
+    // `config --format yaml` should say `yaml` is not one of the choices, even if `--file` is
+    // also missing.
+    //
+    // No finer promise than that. These checks are grouped by kind rather than by field, so
+    // there is no "in declaration order" to offer — a flattened group's errors interleave with
+    // this command's by kind, not by where the field was written.
     let flattened_checks = cli.fields.iter().filter_map(|f| {
         let Kind::Flatten { ty } = &f.kind else {
             return None;
@@ -2061,11 +2068,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#flattened_checks)*
         #(#required_checks)*
         #(#relationship_required_checks)*
         #(#choice_checks)*
         #(#bound_checks)*
-        #(#flattened_checks)*
         #sub_check
     }
 }

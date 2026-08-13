@@ -171,6 +171,65 @@ fn the_spec_shows_the_flags_inline() {
     assert!(!kdl.contains("listing"), "{kdl}");
 }
 
+/// A parent with a required flag of its own, to pit against a flattened rule.
+#[derive(Args)]
+struct Strict {
+    /// Which file — a bare `String`, so it is required
+    #[usage(long)]
+    file: String,
+    #[usage(flatten)]
+    listing: Listing,
+}
+
+#[derive(Subcommands)]
+enum StrictCommands {
+    /// Be strict
+    Strict(Box<Strict>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "strict")]
+struct StrictCli {
+    #[usage(subcommand)]
+    command: Option<StrictCommands>,
+}
+
+#[test]
+fn a_flattened_rule_is_reported_before_the_parent_notices_something_missing() {
+    // Both fail: `yaml` is not a choice, and `--file` was never given. The choice error is
+    // the useful one — it is about a word the user typed, where the other is about one they
+    // did not. Same principle that already puts conflicts before required-ness.
+    //
+    // Asserted because the ordering is easy to get wrong by moving one line, and a comment
+    // claiming it is not the same as a test holding it: the first version of this splice ran
+    // the flattened checks last while its comment said otherwise.
+    let a = argv(["strict", "--format", "yaml"]);
+    match StrictCli::parse_from(&a) {
+        Err(Error::InvalidChoice { name, .. }) => assert_eq!(name, "format"),
+        Err(other) => panic!("the choice error should come first, got: {other:?}"),
+        Ok(_) => panic!("neither rule was satisfied"),
+    }
+
+    // And with nothing typed wrong, the missing flag is still reported.
+    let a = argv(["strict"]);
+    assert!(matches!(
+        StrictCli::parse_from(&a),
+        Err(Error::MissingRequired { .. })
+    ));
+
+    // Satisfying both gives both: a required flag of the parent's own alongside the group it
+    // flattened, which is the arrangement the two rules were competing over.
+    let a = argv(["strict", "--file", "mise.toml", "--format", "json"]);
+    let Some(StrictCommands::Strict(strict)) = StrictCli::parse_from(&a)
+        .expect("both rules satisfied")
+        .command
+    else {
+        panic!("expected `strict`")
+    };
+    assert_eq!(strict.file, "mise.toml");
+    assert_eq!(strict.listing.format.as_deref(), Some("json"));
+}
+
 /// A struct that flattens something which itself flattens.
 #[derive(Args)]
 struct Outer {

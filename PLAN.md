@@ -169,7 +169,11 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       still cause — a parent and the struct it flattens both declaring `--quiet` — is invisible to
       both expansions, so `Spec::to_kdl` grew a duplicate-form check beside the key one, where the
       whole tree is visible. `Option<T>` flatten is refused rather than guessed at: it needs a rule
-      for when the group counts as given, and nothing in the fleet asks for one.
+      for when the group counts as given, and nothing in the fleet asks for one. Two more checks live
+      in `Spec::to_kdl` for the same reason as the duplicate-form one: an argument no word can reach —
+      an unbounded variadic on one side of a flatten and a later positional on the other — and the
+      flag-form collision. Both are invisible to either expansion and visible where the tables are
+      joined.
 - [ ] **`usage-derive` v1** — everything mise needs: constraints
       (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
       `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,

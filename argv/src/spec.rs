@@ -78,6 +78,37 @@ fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
         .find_map(|sub| duplicate_flag_form(sub))
 }
 
+/// An argument that no word could ever reach, if any.
+///
+/// An unbounded variadic takes every remaining word, so what follows it can never be filled —
+/// unless something stops the variadic. Two things do: an argument only fillable after a `--`,
+/// because the separator ends the collecting, and a `var_max`, because a bounded variadic hands
+/// over the words past its bound. mise relies on the first on `run`, `exec` and `git`.
+///
+/// `#[derive(Args)]` applies that rule to one struct's own arguments. It cannot apply it across
+/// a `#[usage(flatten)]`: the variadic may be on one side of the boundary and the argument that
+/// follows it on the other, and neither expansion can see the other's fields. Checked here for
+/// the same reason the duplicate checks are — this is where the joined table is visible.
+///
+/// Returns the name of the unreachable argument.
+fn unfillable_arg<'a>(cmd: &Command<'a>) -> Option<&'a str> {
+    let mut variadic: Option<&Arg<'_>> = None;
+    for arg in cmd.args {
+        // A `--` stops the collecting, so an argument behind one is still reachable — but only
+        // one separator exists, so nothing can follow *that*.
+        let stopped_by_separator = arg.double_dash == DoubleDash::Required;
+        if let Some(before) = variadic {
+            if !stopped_by_separator || before.double_dash == DoubleDash::Required {
+                return Some(arg.name);
+            }
+        }
+        if arg.var && arg.var_max.is_none() {
+            variadic = Some(arg);
+        }
+    }
+    cmd.subcommands.iter().find_map(|sub| unfillable_arg(sub))
+}
+
 /// A whole CLI: the root command plus what describes the program itself.
 #[derive(Debug, Clone, Copy)]
 pub struct Spec<'a> {
@@ -358,6 +389,15 @@ impl Spec<'_> {
              be reached. With `flatten` this is the collision neither expansion can see: \
              the parent and the struct it flattens each declared it.",
             duplicate_flag_form(self.root.cmd)
+        );
+        debug_assert!(
+            unfillable_arg(self.root.cmd).is_none(),
+            "no word could ever reach the argument {:?}, because an unbounded variadic before \
+             it takes every remaining one. With `flatten` this is the arrangement neither \
+             expansion can see: the variadic and the argument after it were declared in \
+             different structs. Give the variadic a `var_max`, or make the later argument \
+             fillable only after a `--`.",
+            unfillable_arg(self.root.cmd)
         );
         let mut out = String::new();
         // Unwrap-free: writing into a String cannot fail, and `write!` returning
@@ -985,6 +1025,69 @@ mod tests {
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    #[test]
+    fn an_argument_no_word_can_reach_is_caught_where_the_table_is_joined() {
+        // The arrangement `flatten` makes possible and neither expansion can see: an
+        // unbounded variadic declared in one struct and an argument after it in another. The
+        // derive checks this within a struct; across the boundary it has no way to.
+        static FILES: Arg = Arg {
+            name: "files",
+            ..Arg::VAR
+        };
+        static AFTER: Arg = Arg {
+            name: "after",
+            ..Arg::REQUIRED
+        };
+        static BROKEN: Command = Command {
+            name: "ex",
+            args: &[&FILES, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&BROKEN), Some("after"));
+
+        // A bound stops the variadic, so what follows is reachable.
+        static BOUNDED: Arg = Arg {
+            name: "files",
+            var_max: Some(2),
+            ..Arg::VAR
+        };
+        static WITH_BOUND: Command = Command {
+            name: "ex",
+            args: &[&BOUNDED, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&WITH_BOUND), None);
+
+        // So does a `--`, which is what mise's `run`, `exec` and `git` rely on.
+        static PAST_SEPARATOR: Arg = Arg {
+            name: "args_last",
+            double_dash: DoubleDash::Required,
+            ..Arg::VAR
+        };
+        static WITH_SEPARATOR: Command = Command {
+            name: "ex",
+            args: &[&FILES, &PAST_SEPARATOR],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&WITH_SEPARATOR), None);
+
+        // But only one separator exists, so nothing can follow the variadic behind it.
+        static AFTER_THE_SEPARATOR: Command = Command {
+            name: "ex",
+            args: &[&PAST_SEPARATOR, &AFTER],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&AFTER_THE_SEPARATOR), Some("after"));
+
+        // Found at any depth, since a flattened struct can be used by a nested command.
+        static NESTED: Command = Command {
+            name: "outer",
+            subcommands: &[&BROKEN],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&NESTED), Some("after"));
     }
 
     #[test]
