@@ -798,6 +798,32 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.separator_seen
     }
 
+    /// Whether flag interpretation has stopped, for any reason.
+    ///
+    /// Wider than [`double_dash_seen`](Self::double_dash_seen), and the question completion
+    /// asks: past a separator *or* past the first value of an `automatic` argument, a
+    /// dash-prefixed word is a value, so there is no flag there to offer.
+    pub fn flags_stopped(&self) -> bool {
+        self.flags_stopped
+    }
+
+    /// The positional the next word would fill, if there is one left.
+    ///
+    /// A variadic stays here until it reaches its bound, which is what makes it the answer to
+    /// "what could go where the cursor is" as many times as it can be filled.
+    pub fn pending_arg(&self) -> Option<&'t Arg<'t>> {
+        self.next_arg()
+    }
+
+    /// Flags a word here could name: this command's own, then any ancestor's globals.
+    ///
+    /// The same set the parser itself would look in, so what is offered and what is accepted
+    /// cannot disagree — including the shadowing rule, where a subcommand redeclaring an
+    /// inherited name hides it.
+    pub fn flags_in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
+        self.in_scope()
+    }
+
     /// Read the next event.
     ///
     /// Returns `None` when `argv` is exhausted. An `Err` is terminal: the parse
