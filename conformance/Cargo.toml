@@ -12,9 +12,11 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+kdl = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 usage-argv = { workspace = true, features = ["spec", "complete"] }
+usage-config = { workspace = true }
 usage-lib = { workspace = true }
 
 [dev-dependencies]

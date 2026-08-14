@@ -1,0 +1,78 @@
+section "scope"
+about "Which places may set which settings. mise treats this as a security property rather than a preference: a setting that decides whether code runs must not be settable by a file a pull request can add. The question the merge asks is how far a place is trusted, not what kind of place it is — a pkl file and a git config inside a checkout are exactly as much a thing a repository carries as a TOML file is."
+
+vector "global-refuses-a-project-file" doc="A `global` setting is not settable by anything a checkout can carry, and the refusal costs that value alone." {
+  setting "trusted" type="bool" scope="global" default=#false
+  setting "jobs" type="uint"
+  layer "file" id="./hk.toml" trust="project" {
+    value "trusted" "true"
+    value "jobs" "2"
+  }
+  expect {
+    value "trusted" #false
+    value "jobs" 2
+    origin "trusted" "the default"
+    warning "out-of-scope"
+  }
+}
+
+vector "global-takes-an-operators-file" doc="The same setting from a file only the machine's owner can write is allowed." {
+  setting "trusted" type="bool" scope="global" default=#false
+  layer "file" id="~/.config/hk.toml" trust="operator" {
+    value "trusted" "true"
+  }
+  expect {
+    value "trusted" #true
+  }
+}
+
+vector "global-takes-the-environment" doc="The environment is the user's own, so it may set a `global` setting." {
+  setting "trusted" type="bool" scope="global" default=#false
+  layer "env" id="EX_TRUSTED" {
+    value "trusted" "yes"
+  }
+  expect {
+    value "trusted" #true
+  }
+}
+
+vector "env-scope-refuses-any-file" doc="An `env` setting is never settable by a file, however much that file is trusted." {
+  setting "config_file" type="path" scope="env"
+  layer "file" id="~/.config/hk.toml" trust="operator" {
+    value "config_file" "/etc/other.toml"
+  }
+  expect {
+    warning "out-of-scope"
+  }
+}
+
+vector "env-scope-takes-the-environment" doc="Which is the one place it does come from." {
+  setting "config_file" type="path" scope="env"
+  layer "env" id="EX_CONFIG_FILE" {
+    value "config_file" "/etc/other.toml"
+  }
+  expect {
+    value "config_file" "/etc/other.toml"
+  }
+}
+
+vector "a-source-usage-does-not-know-is-not-trusted-by-default" doc="A kind usage has no name for — a git config, a pkl file — is taken to be something a repository could carry until its layer says otherwise, because a check each new layer has to remember is one a new layer will forget." {
+  setting "trusted" type="bool" scope="global" default=#false
+  layer "git" id="hk.trusted" {
+    value "trusted" "true"
+  }
+  expect {
+    value "trusted" #false
+    warning "out-of-scope"
+  }
+}
+
+vector "a-source-usage-does-not-know-can-say-it-is-trusted" doc="And says so itself when it is: a git config read from the user's home is theirs, not a checkout's." {
+  setting "trusted" type="bool" scope="global" default=#false
+  layer "git" id="~/.gitconfig hk.trusted" trust="operator" {
+    value "trusted" "true"
+  }
+  expect {
+    value "trusted" #true
+  }
+}

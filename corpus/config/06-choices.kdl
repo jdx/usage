@@ -1,0 +1,107 @@
+section "choices"
+about "A setting that names the values it takes. The declaration reaches the docs, the schema and the completions, and it has to reach resolution too, or a CLI documents three values and accepts a fourth in silence. A refused value costs its own key, like a value of the wrong type, and the message says what the setting will take."
+
+vector "a-declared-choice-is-taken" doc="One of the values a setting names is simply its value." {
+  setting "stash" type="string" default="git" {
+    choice "git"
+    choice "patch-file"
+    choice "none"
+  }
+  layer "env" id="HK_STASH" {
+    value "stash" "none"
+  }
+  expect {
+    value "stash" "none"
+  }
+}
+
+vector "anything-else-is-refused" doc="And a value it does not name is refused, leaving the value it had." {
+  setting "stash" type="string" default="git" {
+    choice "git"
+    choice "patch-file"
+    choice "none"
+  }
+  layer "env" id="HK_STASH" {
+    value "stash" "svn"
+  }
+  expect {
+    value "stash" "git"
+    origin "stash" "the default"
+    warning "not-allowed"
+  }
+}
+
+vector "a-collection-is-held-to-them-item-by-item" doc="Choices on a list mean each item is one of them — the rule the JSON schema follows, where the enum goes on every value position rather than on the container." {
+  setting "skip" type="list<string>" parse="list_by_comma" {
+    choice "lint"
+    choice "test"
+  }
+  layer "env" id="HK_SKIP" {
+    value "skip" "lint,fmt"
+  }
+  expect {
+    warning "not-allowed"
+  }
+}
+
+vector "every-item-being-one-of-them-is-allowed" doc="The same setting with items it names." {
+  setting "skip" type="list<string>" parse="list_by_comma" {
+    choice "lint"
+    choice "test"
+  }
+  layer "env" id="HK_SKIP" {
+    value "skip" "test,lint"
+  }
+  expect {
+    list "skip" "test" "lint"
+  }
+}
+
+vector "a-choice-is-read-as-the-declared-type" doc="A spec writes `choice \"yes\"` under a boolean as readily as `choice #true`, and a value is coerced before it is compared — so the two have to be read the same way." {
+  setting "colour" type="bool" {
+    choice "yes"
+    choice "no"
+  }
+  layer "env" id="HK_COLOUR" {
+    value "colour" "true"
+  }
+  expect {
+    value "colour" #true
+  }
+}
+
+vector "a-type-nothing-coerces-compares-its-choices-as-written" doc="A union coerces nothing, so a choice and a value can only be compared as they are written." {
+  setting "level" type="int|string" {
+    choice 1
+    choice 2
+  }
+  layer "env" id="HK_LEVEL" {
+    value "level" "2"
+  }
+  expect {
+    value "level" "2"
+  }
+}
+
+vector "the-type-is-asked-before-the-choices" doc="A value that is not the declared type at all is reported as that, because there is nothing useful to say about which choice it is not." {
+  setting "jobs" type="uint" {
+    choice 1
+    choice 2
+  }
+  layer "env" {
+    value "jobs" "lots"
+  }
+  expect {
+    warning "wrong-type"
+  }
+}
+
+vector "a-setting-with-no-choices-takes-what-its-type-takes" doc="Most settings name no values, and the check costs them nothing and refuses them nothing." {
+  setting "name" type="string"
+  layer "env" {
+    value "name" "anything at all"
+  }
+  expect {
+    value "name" "anything at all"
+  }
+}
