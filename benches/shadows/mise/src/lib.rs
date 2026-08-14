@@ -326,7 +326,7 @@ pub struct BootstrapDotfilesAddArgs {
     #[usage(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Source path to use for a single target
     #[usage(long = "source", short = 's', value_name = "PATH")]
@@ -826,7 +826,7 @@ pub struct BootstrapPackagesBrewTapArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Tap name, e.g. `owner/repo`
     #[usage(arg, name = "TAP")]
@@ -849,7 +849,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Tap name(s), e.g. `owner/repo`
     #[usage(arg, name = "TAPS", required)]
@@ -908,7 +908,7 @@ pub struct BootstrapPackagesImportArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
 }
 
@@ -1009,7 +1009,7 @@ pub struct BootstrapPackagesUseArgs {
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Skip the confirmation prompt
     #[usage(long = "yes", short = 'y')]
@@ -1765,7 +1765,7 @@ pub struct ConfigGetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[usage(long = "file", short = 'f', value_name = "FILE")]
+    #[usage(long = "file", long = "path", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// The path of the config to display
     #[usage(arg, name = "KEY")]
@@ -1800,7 +1800,7 @@ pub struct ConfigSetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[usage(long = "file", short = 'f', value_name = "FILE")]
+    #[usage(long = "file", long = "path", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     #[usage(
         long = "type",
@@ -1951,7 +1951,7 @@ pub struct DotfilesAddArgs {
     #[usage(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Source path to use for a single target
     #[usage(long = "source", short = 's', value_name = "PATH")]
@@ -4099,7 +4099,7 @@ pub struct SetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
     /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[usage(long = "file", value_name = "FILE")]
+    #[usage(long = "file", long = "path", value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// Show raw values instead of redacting secrets
     #[usage(long = "no-redact")]
@@ -4110,7 +4110,14 @@ pub struct SetArgs {
     /// Remove the environment variable from config file
     ///
     /// Can be used multiple times.
-    #[usage(long = "remove", hide, value_name = "ENV_KEY", var)]
+    #[usage(
+        long = "remove",
+        long = "rm",
+        long = "unset",
+        hide,
+        value_name = "ENV_KEY",
+        var
+    )]
     pub remove: ::std::vec::Vec<::std::string::String>,
     /// Read the value from stdin (for multiline input)
     ///
@@ -5186,7 +5193,7 @@ pub struct UnsetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[usage(long = "file", short = 'f', value_name = "FILE")]
+    #[usage(long = "file", long = "path", short = 'f', value_name = "FILE")]
     pub file: ::std::option::Option<::std::string::String>,
     /// Use the global config file
     #[usage(long = "global", short = 'g')]
@@ -5239,7 +5246,7 @@ pub struct UnuseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Do not also prune the installed version
     #[usage(long = "no-prune")]
@@ -5387,7 +5394,7 @@ pub struct UseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[usage(long = "path", short = 'p', value_name = "PATH")]
+    #[usage(long = "path", long = "file", short = 'p', value_name = "PATH")]
     pub path: ::std::option::Option<::std::string::String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
     ///

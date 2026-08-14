@@ -616,11 +616,15 @@ fn usage_flag_opts(
     if let Some(long) = long {
         opts.push(format!("long = {long:?}"));
     }
-    if let Some(short) = flag.short.first() {
-        opts.push(format!("short = {short:?}"));
+    // Every *other* long, in the order the spec gives them. The derive takes `long` more than
+    // once and the parse table holds a list, so a flag written `-p --path --file` is expressible
+    // exactly — it was being dropped here, and the drop was invisible in the help comparison
+    // (which renders one long form per flag) until a completion offered every name.
+    for extra in flag.long.iter().skip(1) {
+        opts.push(format!("long = {extra:?}"));
     }
-    if flag.long.len() > 1 || flag.short.len() > 1 {
-        skipped.note("a flag's second long or short form");
+    for short in &flag.short {
+        opts.push(format!("short = {short:?}"));
     }
     if let Some(negate) = &flag.negate {
         opts.push(format!("negate = {negate:?}"));
@@ -743,11 +747,15 @@ fn clap_flag_opts(
     if let Some(short) = flag.short.first() {
         opts.push(format!("short = {short:?}"));
     }
-    // Deliberately dropped on both sides: the usage derive cannot declare a second long
-    // form, and giving clap one would make it answer a larger grammar than the shadow it
-    // is being compared against.
-    if flag.long.len() > 1 || flag.short.len() > 1 {
-        skipped.note("a flag's second long or short form");
+    // clap spells the other forms as aliases of this argument rather than as more names on
+    // it. The grammar is the same either way — which is the point, since the two shadows are
+    // compared for the cost of parsing the same command line, and a name one side accepts and
+    // the other rejects is not the same command line.
+    for extra in flag.long.iter().skip(1) {
+        opts.push(format!("alias = {extra:?}"));
+    }
+    for extra in flag.short.iter().skip(1) {
+        opts.push(format!("short_alias = {extra:?}"));
     }
     // clap spells a negation as a second argument with `ArgAction::SetFalse`, not as a
     // property of this one, so it is out of reach of a field-by-field translation.
@@ -1262,6 +1270,24 @@ mod tests {
 
         let (clap, _) = rendered_as(spec, Dialect::Clap);
         assert!(clap.contains(r#"help = "Use shims\nlike so:""#), "{clap}");
+    }
+
+    #[test]
+    fn a_flag_keeps_every_name_it_answers_to() {
+        // `-p --path --file` is one flag with three names, and a shadow that answers to two of
+        // them is a different CLI. The derive takes `long` more than once, so the whole set is
+        // expressible — it was being dropped, and nothing noticed until a completion offered
+        // every name rather than the one help prints.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"-p --path --file\" help=\"Where\" {\n  arg \"<path>\"\n}\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains(r#"long = "path""#), "{usage}");
+        assert!(usage.contains(r#"long = "file""#), "{usage}");
+
+        // clap spells the rest as aliases of the same argument. Different spelling, same
+        // grammar — which is what the two shadows are compared for.
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains(r#"long = "path""#), "{clap}");
+        assert!(clap.contains(r#"alias = "file""#), "{clap}");
     }
 
     #[test]
