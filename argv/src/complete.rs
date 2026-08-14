@@ -80,7 +80,9 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     Position {
         cmd: parser.command(),
         flags_possible: !parser.flags_stopped(),
-        awaiting_value,
+        // A variadic flag still claiming words is standing in the same place a flag waiting
+        // for its first value is: the next word belongs to it, not to the positional after it.
+        awaiting_value: awaiting_value.or_else(|| parser.collecting()),
         next_arg: parser.pending_arg(),
     }
 }
@@ -365,6 +367,14 @@ mod tests {
         longs: &["jobs"],
         ..Flag::VALUE
     };
+    /// A flag that keeps claiming words once it has one.
+    static TOOLS: Flag = Flag {
+        key: 8,
+        name: "tools",
+        longs: &["tools"],
+        variadic: true,
+        ..Flag::VALUE
+    };
     static TOOL: Arg = Arg {
         key: 3,
         name: "TOOL",
@@ -372,7 +382,7 @@ mod tests {
     };
     static USE: Command = Command {
         name: "use",
-        flags: &[&JOBS],
+        flags: &[&JOBS, &TOOLS],
         args: &[&TOOL],
         ..Command::EMPTY
     };
@@ -429,6 +439,20 @@ mod tests {
         // A flag that takes none does not, and neither does one already given its value.
         assert!(position_at("mise use --jobs 4 ").awaiting_value.is_none());
         assert!(position_at("mise --verbose ").awaiting_value.is_none());
+    }
+
+    #[test]
+    fn a_variadic_flag_still_claiming_words_holds_the_cursor() {
+        // `mise use --tools node ⌶` — the next word is another tool, because the parser would
+        // bind it to the flag rather than to the positional after it. The state saying so is
+        // cleared by the very call that ends the walk, so it has to be read on the way.
+        let p = position_at("mise use --tools node ");
+        assert_eq!(p.awaiting_value.map(|f| f.name), Some("tools"));
+
+        // Until something that could not be a value comes along, which is when the parser
+        // stops claiming too.
+        let p = position_at("mise use --tools node -- ");
+        assert!(p.awaiting_value.is_none());
     }
 
     #[test]

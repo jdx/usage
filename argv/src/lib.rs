@@ -807,6 +807,15 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.flags_stopped
     }
 
+    /// A variadic flag that is still claiming words.
+    ///
+    /// Asked *between* events, because the answer is gone by the end: the call that finds argv
+    /// exhausted is the one that clears it. A completion needs it — the next word after
+    /// `--tools a ⌶` is another tool, not the positional that follows.
+    pub fn collecting(&self) -> Option<&'t Flag<'t>> {
+        self.collecting
+    }
+
     /// The positional the next word would fill, if there is one left.
     ///
     /// A variadic stays here until it reaches its bound, which is what makes it the answer to
@@ -872,7 +881,12 @@ impl<'t, 'v> Parser<'t, 'v> {
                         negated: false,
                     }));
                 }
-                _ => self.collecting = None,
+                // A token that could be something else ends the run — but the *end of argv*
+                // decides nothing. Clearing there threw away the answer to "would the next
+                // word be claimed?", which is the question a completion asks and no parse
+                // ever does: once argv is exhausted there are no more events either way.
+                Some(_) => self.collecting = None,
+                None => {}
             }
         }
 
