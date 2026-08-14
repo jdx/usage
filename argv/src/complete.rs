@@ -175,7 +175,8 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
     let described = answer.candidates.iter().any(|c| c.description.is_some());
 
     for candidate in &answer.candidates {
-        let description = candidate.description.unwrap_or_default();
+        let description = one_line(candidate.description.unwrap_or_default());
+        let description = description.as_str();
         match shell {
             Shell::Bash => out.push_str(&candidate.value),
             Shell::Zsh => {
@@ -208,6 +209,36 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
             out.push('\n');
         }
         None => {}
+    }
+    out
+}
+
+/// A description with nothing in it that a line-based protocol would read as structure.
+///
+/// One line per candidate, fields separated by tabs — so a description containing either splits
+/// one candidate into several rows, or invents a field. mise declares multi-line `help` on 37 of
+/// its commands and flags, so this is the common case rather than a defensive one.
+///
+/// Collapsed rather than truncated at the first line: a description written across two lines is
+/// one sentence to a reader, and showing half of it is worse than showing it spaced.
+fn one_line(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut spaced = false;
+    for c in text.chars() {
+        if matches!(c, '\n' | '\r' | '\t') {
+            // One space for a run of them, and never a leading one.
+            if !spaced && !out.is_empty() {
+                out.push(' ');
+                spaced = true;
+            }
+        } else {
+            out.push(c);
+            spaced = false;
+        }
+    }
+    // A trailing break became a trailing space.
+    while out.ends_with(' ') {
+        out.pop();
     }
     out
 }
@@ -1747,5 +1778,45 @@ mod tests {
         let answer = complete(&SPEC, &at_end("mise use "));
         let out = render(&answer, Shell::Bash);
         assert!(!out.contains('\u{1}'), "{out:?}");
+    }
+    #[test]
+    fn a_description_written_across_lines_stays_one_row() {
+        // One line per candidate and tabs between fields, so a description containing either
+        // would split one candidate into several rows or invent a field. mise writes multi-line
+        // `help` on 37 of its commands and flags, so this is the ordinary case.
+        static WORDY: Command = Command {
+            name: "wordy",
+            ..Command::EMPTY
+        };
+        static WORDY_META: CommandMeta = CommandMeta {
+            cmd: &WORDY,
+            about: Some("First line\nsecond line\n\nand a\ttab"),
+            ..CommandMeta::EMPTY
+        };
+        static WORDY_ROOT: Command = Command {
+            name: "ex",
+            subcommands: &[&WORDY],
+            ..Command::EMPTY
+        };
+        static WORDY_ROOT_META: CommandMeta = CommandMeta {
+            cmd: &WORDY_ROOT,
+            subcommands: &[&WORDY_META],
+            ..CommandMeta::EMPTY
+        };
+        static WORDY_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &WORDY_ROOT_META,
+            ..Spec::EMPTY
+        };
+
+        let answer = complete(&WORDY_SPEC, &split("ex w", 4, Shell::Fish));
+        let out = render(&answer, Shell::Fish);
+        assert_eq!(out, "wordy\tFirst line second line and a tab\n");
+        assert_eq!(out.lines().count(), 1, "one candidate, one row");
+
+        // zsh keeps its three fields, and no more.
+        let out = render(&answer, Shell::Zsh);
+        assert_eq!(out.matches('\t').count(), 2, "{out:?}");
     }
 }

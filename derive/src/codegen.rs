@@ -302,6 +302,10 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         return (TokenStream::new(), TokenStream::new());
     }
     let functions = quote! {
+        // Says what is missing, where the alternative is `unresolved module complete` — which
+        // names the symptom and not the attribute that asked for it.
+        ::usage_argv::__usage_needs_complete_feature!();
+
         /// The word a shell is completing, answered from this CLI's own tables.
         ///
         /// `None` when argv is an ordinary invocation. The request is recognized before the

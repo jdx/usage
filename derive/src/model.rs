@@ -334,6 +334,16 @@ impl Cli {
     /// learn that an attribute was in the wrong place.
     pub fn check_position(&self, ident: &syn::Ident, is_root: bool) -> syn::Result<()> {
         if !is_root {
+            // The completion command answers for the whole CLI, so it is declared where the
+            // whole CLI is. Accepted silently on an `Args`, it generated nothing and said
+            // nothing, which reads as a CLI that has completions and does not.
+            if self.completion {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "`completion` belongs on the root, where `#[derive(Cli)]` is: the hidden \
+                     command it adds answers for the whole program, not for one of its commands",
+                ));
+            }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
                 return Err(syn::Error::new_spanned(
