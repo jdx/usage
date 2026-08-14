@@ -35,6 +35,13 @@ pub struct Cli {
     /// not contain the short one.
     pub about_attr: Option<String>,
     pub long_about_attr: Option<String>,
+    /// Text around the rest of the help page. mise puts an Examples section in
+    /// `after_long_help` on 115 commands, and a page without it is missing what a reader came
+    /// for. Nothing derives these from the code, so they are declared.
+    pub before_help: Option<String>,
+    pub before_long_help: Option<String>,
+    pub after_help: Option<String>,
+    pub after_long_help: Option<String>,
     /// The word that starts another invocation of the same command: mise's `:::`.
     pub restart_token: Option<String>,
     /// A command to run for subcommands discovered at completion time.
@@ -218,6 +225,10 @@ impl Cli {
             default_subcommand: None,
             about_attr: None,
             long_about_attr: None,
+            before_help: None,
+            before_long_help: None,
+            after_help: None,
+            after_long_help: None,
             restart_token: None,
             mount: None,
             fields: Vec::new(),
@@ -238,6 +249,10 @@ impl Cli {
                     // declared.
                     "about" => cli.about_attr = Some(string_value(&meta)?),
                     "long_about" => cli.long_about_attr = Some(string_value(&meta)?),
+                    "before_help" => cli.before_help = Some(string_value(&meta)?),
+                    "before_long_help" => cli.before_long_help = Some(string_value(&meta)?),
+                    "after_help" => cli.after_help = Some(string_value(&meta)?),
+                    "after_long_help" => cli.after_long_help = Some(string_value(&meta)?),
                     // A Rust CLI usually owns every flag it accepts, which is the
                     // case the stricter reading is for — but it is still opt-in,
                     // since a wrapper forwarding options wants the default.

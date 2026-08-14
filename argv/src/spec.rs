@@ -122,7 +122,29 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
+    /// The root command, and the home of everything a spec declares at its top level.
+    ///
+    /// A KDL spec has one place for surrounding text and examples — the top level — and the
+    /// reference reads what is written there as the root's *and* as the default for every
+    /// other page. So they live here, on the root's metadata, rather than in a second set of
+    /// fields on the spec: two homes for one declaration is two answers to one question, and
+    /// `to_kdl` and the renderer picked differently.
     pub root: &'a CommandMeta<'a>,
+}
+
+impl Spec<'_> {
+    /// A spec with nothing declared but a root, for use with struct update syntax.
+    ///
+    /// Here so that gaining a field does not break every literal that builds one.
+    pub const EMPTY: Spec<'static> = Spec {
+        name: "",
+        bin: None,
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        root: &CommandMeta::EMPTY,
+    };
 }
 
 /// Join groups of flag metadata into one, at compile time.
@@ -213,6 +235,15 @@ pub struct CommandMeta<'a> {
     /// A token that starts a fresh invocation of this command, such as mise's
     /// `:::`.
     pub restart_token: Option<&'a str>,
+    /// Text printed above the usage line, and below everything else.
+    ///
+    /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
+    /// section in `after_long_help` on 115 commands, which is where the reference renders it
+    /// from — so a help page without these is missing the part a reader came for.
+    pub before_help: Option<&'a str>,
+    pub before_long_help: Option<&'a str>,
+    pub after_help: Option<&'a str>,
+    pub after_long_help: Option<&'a str>,
     pub examples: &'a [Example<'a>],
     /// Metadata for `cmd.flags`, in the same order.
     pub flags: &'a [FlagMeta<'a>],
@@ -233,6 +264,10 @@ impl CommandMeta<'_> {
         effect: None,
         mount: None,
         restart_token: None,
+        before_help: None,
+        before_long_help: None,
+        after_help: None,
+        after_long_help: None,
         examples: &[],
         flags: &[],
         args: &[],
@@ -429,6 +464,19 @@ impl Spec<'_> {
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
+        // The text around the page. The root's nodes are written here rather than by
+        // `write_body`, so these had to be repeated — and were not, which left a root's
+        // preamble out of the spec that docs, manpages and completions read.
+        for (node, text) in [
+            ("before_help", self.root.before_help),
+            ("before_long_help", self.root.before_long_help),
+            ("after_help", self.root.after_help),
+            ("after_long_help", self.root.after_long_help),
+        ] {
+            if let Some(text) = text {
+                prop(out, node, text)?;
+            }
+        }
         // The root's own nodes sit at the top level rather than inside a `cmd`
         // block, so they are written here instead of by write_command.
         //
@@ -560,6 +608,19 @@ fn write_command(
     if let Some(long_about) = meta.long_about {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_about))?;
+    }
+    // Text around the rest of the page. Written in the spec's order so a round trip reads the
+    // same way it was written.
+    for (node, text) in [
+        ("before_help", meta.before_help),
+        ("before_long_help", meta.before_long_help),
+        ("after_help", meta.after_help),
+        ("after_long_help", meta.after_long_help),
+    ] {
+        if let Some(text) = text {
+            indent(out, inner)?;
+            writeln!(out, "{node} {}", quoted(text))?;
+        }
     }
     if let Some(mount) = meta.mount {
         indent(out, inner)?;

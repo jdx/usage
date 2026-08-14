@@ -19,7 +19,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
+use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec};
 use crate::DoubleDash;
 
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
@@ -217,6 +217,12 @@ fn arg_usage(meta: &ArgMeta<'_>) -> String {
 pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
     let mut out = String::new();
 
+    // Text the command puts above everything else, and below it. The short form has only the
+    // one pair; the long form prefers the long variants.
+    if let Some(before) = meta.before_help.or(spec.root.before_help) {
+        let _ = writeln!(out, "{before}\n");
+    }
+
     // The program, then what it is for. usage-lib prints the name when the spec gives one and
     // the binary otherwise, and only when there is a version to put beside it.
     if let Some(version) = spec.version {
@@ -262,7 +268,10 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
             annotations(out, f.choices, f.env, &[]);
         },
     );
-    examples_section(&mut out, meta);
+    examples_section(&mut out, spec, meta);
+    if let Some(after) = meta.after_help.or(spec.root.after_help) {
+        let _ = writeln!(out, "\n{after}");
+    }
 
     // usage-lib trims the whole document and puts back one newline, which is what keeps the
     // blank lines between sections from becoming trailing ones.
@@ -373,15 +382,289 @@ fn display_usage(meta: &FlagMeta<'_>) -> String {
     }
 }
 
-fn examples_section(out: &mut String, meta: &CommandMeta<'_>) {
-    if meta.examples.is_empty() {
+fn examples_section(out: &mut String, spec: &Spec<'_>, meta: &CommandMeta<'_>) {
+    let examples = page_examples(spec, meta);
+    if examples.is_empty() {
         return;
     }
     let _ = writeln!(out, "\nExamples:");
-    for example in meta.examples {
+    for example in examples {
         if let Some(header) = example.header {
             let _ = writeln!(out, "  {header}:");
         }
         let _ = writeln!(out, "    $ {}", example.code);
     }
+}
+
+/// The examples a page shows: the command's own, or the spec's where it has none.
+///
+/// Top-level `example` nodes are the root's, and the reference shows them on every page whose
+/// command declares none of its own — the same rule the text around a page follows, and for
+/// the same reason: the top level is where a spec says something about the whole CLI.
+fn page_examples<'a>(spec: &Spec<'a>, meta: &CommandMeta<'a>) -> &'a [Example<'a>] {
+    if meta.examples.is_empty() {
+        spec.root.examples
+    } else {
+        meta.examples
+    }
+}
+
+/// The width help is wrapped to, from `COLUMNS`.
+///
+/// usage-lib reads the same variable and falls back to the same 80, so the two agree about
+/// where a line ends whatever the terminal says.
+fn terminal_width() -> usize {
+    std::env::var("COLUMNS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(80)
+}
+
+/// Everything `--help` prints.
+///
+/// The same content as [`short_help`] through a wider layout: help is aligned into a column and
+/// wrapped, the long form of each description is preferred over the short one, and the
+/// annotations — choices, environment, default — each get their own line.
+///
+/// An entry whose help contains a line break is laid out as a block instead, its text indented
+/// under the usage rather than beside it, because there is no column that keeps a line the
+/// author already broke readable.
+pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+    let width = terminal_width();
+    let mut out = String::new();
+
+    if let Some(before) = meta
+        .before_long_help
+        .or(meta.before_help)
+        .or(spec.root.before_long_help)
+        .or(spec.root.before_help)
+    {
+        let _ = writeln!(out, "{before}\n");
+    }
+
+    if let Some(version) = spec.version {
+        let name = if spec.name.is_empty() {
+            spec.bin.unwrap_or_default()
+        } else {
+            spec.name
+        };
+        let _ = writeln!(out, "{name} {version}");
+    }
+    if let Some(about) = spec.long_about.or(spec.about) {
+        let _ = writeln!(out, "{about}\n");
+    }
+    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+
+    long_commands_section(&mut out, &path[1.min(path.len())..], meta);
+
+    // One column width per section, over its visible entries — the same two the reference
+    // computes, and separately, so a long flag does not push the arguments out.
+    let args: Vec<&ArgMeta<'_>> = meta.args.iter().filter(|a| !a.hide).collect();
+    let arg_col = args
+        .iter()
+        .map(|a| arg_usage(a).chars().count())
+        .max()
+        .unwrap_or(0);
+    groups_section(
+        &mut out,
+        "Arguments",
+        args.iter().copied(),
+        |a| a.help_heading,
+        |out, a| {
+            let text = a.long_help.or(a.help);
+            entry(out, &arg_usage(a), text, arg_col, width);
+            long_annotations(out, a.choices, a.env, a.default);
+        },
+    );
+
+    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
+    let flag_col = flags
+        .iter()
+        .map(|f| display_usage(f).chars().count())
+        .max()
+        .unwrap_or(0);
+    groups_section(
+        &mut out,
+        "Flags",
+        flags.iter().copied(),
+        |f| f.help_heading,
+        |out, f| {
+            let text = f.long_help.or(f.help);
+            entry(out, &display_usage(f), text, flag_col, width);
+            long_annotations(out, f.choices, f.env, &[]);
+        },
+    );
+
+    let examples = page_examples(spec, meta);
+    if !examples.is_empty() {
+        let _ = writeln!(out, "\nExamples:");
+        for example in examples {
+            if let Some(header) = example.header {
+                let _ = writeln!(out, "  {header}:");
+            }
+            // The description comes *before* the command, which is the order the reference
+            // prints them in: it introduces the line rather than commenting on it.
+            if let Some(help) = example.help {
+                let _ = writeln!(out, "    {help}");
+            }
+            let _ = writeln!(out, "    $ {}", example.code);
+        }
+    }
+
+    // mise puts an Examples section here on 115 commands, which is why a page without it is
+    // missing the part a reader came for.
+    if let Some(after) = meta
+        .after_long_help
+        .or(meta.after_help)
+        .or(spec.root.after_long_help)
+        .or(spec.root.after_help)
+    {
+        let _ = writeln!(out, "\n{after}");
+    }
+
+    let trimmed = out.trim();
+    let mut done = String::with_capacity(trimmed.len() + 1);
+    done.push_str(trimmed);
+    done.push('\n');
+    done
+}
+
+/// Write text with every line indented, leaving blank lines blank.
+///
+/// An indented empty line would be trailing whitespace, which the reference does not emit and
+/// a diff would show as a line that is not empty.
+fn write_indented(out: &mut String, text: &str, indent: usize) {
+    let pad = " ".repeat(indent);
+    for (i, line) in text.lines().enumerate() {
+        // The first line is always indented, even when it is empty, and later blank lines are
+        // left blank. That is not a choice: the reference writes the indent literally before the
+        // text and indents the *rest* with a filter that skips blanks, so an opening empty line
+        // comes out as whitespace and a later one does not.
+        // `is_empty`, not `trim().is_empty()`: the reference's filter skips a line with nothing
+        // on it and still indents one that holds only spaces, so emptying the latter would lose
+        // whitespace the author wrote.
+        if i == 0 || !line.is_empty() {
+            let _ = writeln!(out, "{pad}{line}");
+        } else {
+            out.push('\n');
+        }
+    }
+    // A text that ends with a break has a blank line at the end, and `lines()` does not report
+    // it. The reference writes the text verbatim, so the blank is part of what it prints.
+    if text.ends_with('\n') {
+        out.push('\n');
+    }
+}
+
+/// One entry: its usage, and its help either beside it or beneath it.
+fn entry(out: &mut String, usage: &str, help: Option<&str>, col: usize, width: usize) {
+    let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
+        let _ = writeln!(out, "  {usage}");
+        return;
+    };
+
+    // The column layout only works for text that has not been broken already, and only when
+    // there is room left for it to say anything.
+    let indent = 2 + col + 2;
+    let room = width.saturating_sub(indent);
+    if help.contains('\n') || room < 10 {
+        let _ = writeln!(out, "  {usage}");
+        write_indented(out, help, 4);
+        return;
+    }
+
+    let lines = wrap(help, room);
+    let _ = writeln!(out, "  {usage:<col$}  {}", lines[0]);
+    for line in &lines[1..] {
+        let _ = writeln!(out, "{}{line}", " ".repeat(indent));
+    }
+    // No blank line after a wrapped entry. The reference's template asks for one, and its
+    // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
+    // directly by the next, and matching means matching that.
+}
+
+/// Break text at word boundaries to fit a width, keeping any breaks it already has.
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for paragraph in text.split('\n') {
+        if paragraph.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+        let mut line = String::new();
+        for word in paragraph.split_whitespace() {
+            let word_width = word.chars().count();
+            if !line.is_empty() && line.chars().count() + 1 + word_width > width {
+                lines.push(std::mem::take(&mut line));
+            }
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(word);
+        }
+        if !line.is_empty() {
+            lines.push(line);
+        }
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+    lines
+}
+
+/// The annotations, each on its own line as the wider layout puts them.
+fn long_annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &[&str]) {
+    if !choices.is_empty() {
+        let _ = writeln!(out, "    [possible values: {}]", choices.join(", "));
+    }
+    if let Some(env) = env {
+        let _ = writeln!(out, "    [env: {env}]");
+    }
+    if !default.is_empty() {
+        let _ = writeln!(out, "    (default: {})", default.join(", "));
+    }
+}
+
+/// The commands list, with each command's help beneath its usage.
+fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+    let visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    if visible.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\nCommands:");
+
+    let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
+        .iter()
+        .map(|sub| {
+            let mut sub_path: Vec<&str> = path.to_vec();
+            sub_path.push(sub.cmd.name);
+            (usage_line(&sub_path, sub), *sub)
+        })
+        .collect();
+    lines.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (usage, sub) in &lines {
+        let _ = write!(out, "  {usage}");
+        let visible_aliases: Vec<&str> = sub
+            .cmd
+            .aliases
+            .iter()
+            .copied()
+            .filter(|a| !sub.hidden_aliases.contains(a))
+            .collect();
+        if !visible_aliases.is_empty() {
+            let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+        }
+        out.push('\n');
+        if let Some(about) = sub.long_about.or(sub.about) {
+            write_indented(out, about, 4);
+        }
+        // A blank line between entries, which the wider layout can afford and which keeps a
+        // multi-line description from running into the next command's name.
+        out.push('\n');
+    }
+    let _ = writeln!(
+        out,
+        "  help\n    Print this message or the help of the given subcommand(s)"
+    );
 }

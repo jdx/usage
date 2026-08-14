@@ -348,3 +348,62 @@ fn the_split_description_cli_still_parses() {
     };
     assert!(activate.shims);
 }
+
+/// A CLI whose root says something above and below every page.
+#[derive(Args)]
+struct Inner {
+    /// A value
+    #[usage(arg, name = "VALUE")]
+    value: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum SurroundedCommands {
+    /// Do the thing
+    Go(Box<Inner>),
+}
+
+#[derive(Cli)]
+#[usage(
+    bin = "surrounded",
+    before_help = "Read this first.",
+    after_help = "And this after."
+)]
+struct Surrounded {
+    #[usage(subcommand)]
+    command: Option<SurroundedCommands>,
+}
+
+#[test]
+fn the_roots_surrounding_text_reaches_every_page() {
+    // A root has nowhere else to put this: `to_kdl` writes it at the top level, and the
+    // reference reads text there as the default for *every* page, not just the root's. Emitted
+    // only on the root's metadata, the preamble a CLI declared vanished from every subcommand
+    // page — and reappeared when the same CLI was rendered from its own emitted KDL, which is
+    // two answers to one question.
+    let spec = Surrounded::spec();
+    assert_eq!(spec.root.before_help, Some("Read this first."));
+    assert_eq!(spec.root.after_help, Some("And this after."));
+
+    let go = spec.root.subcommands[0];
+    let page = usage_argv::help::short_help(spec, &["surrounded", "go"], go);
+    assert!(page.starts_with("Read this first.\n"), "{page}");
+    assert!(page.trim_end().ends_with("And this after."), "{page}");
+
+    // The same CLI still parses, so what the pages describe is what it does.
+    let argv = [
+        std::ffi::OsStr::new("go"),
+        std::ffi::OsStr::new("something"),
+    ];
+    let parsed = Surrounded::parse_from(&argv).expect("a subcommand and its value");
+    let Some(SurroundedCommands::Go(inner)) = parsed.command else {
+        panic!("expected go")
+    };
+    assert_eq!(inner.value.as_deref(), Some("something"));
+
+    // And the reference agrees, reading the KDL this CLI writes.
+    let kdl = spec.to_kdl();
+    let lib: LibSpec = kdl.parse().expect("valid spec");
+    let lib_go = lib.cmd.subcommands.get("go").expect("go");
+    assert_eq!(page, usage::docs::cli::render_help(&lib, lib_go, false));
+}
