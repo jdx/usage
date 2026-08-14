@@ -18,6 +18,10 @@ license = { workspace = true }
 # Cold-path metadata and spec emission. Off by default so a CLI that wants only
 # a parser does not carry it.
 spec = []
+# Splitting a command line for completion. Off by default for the same reason, and
+# separate from `spec` because a CLI can want one without the other: completion needs
+# to split a line whether or not the binary can also emit its own spec.
+complete = []
 
 [package.metadata.release]
 shared-version = true
