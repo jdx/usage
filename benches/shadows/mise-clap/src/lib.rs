@@ -296,7 +296,7 @@ pub struct BootstrapDotfilesAddArgs {
     #[arg(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Source path to use for a single target
     #[arg(long = "source", short = 's', value_name = "PATH")]
@@ -778,7 +778,7 @@ pub struct BootstrapPackagesBrewTapArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Tap name, e.g. `owner/repo`
     #[arg(value_name = "TAP")]
@@ -798,7 +798,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Tap name(s), e.g. `owner/repo`
     #[arg(value_name = "TAPS", required = true, num_args = 0..)]
@@ -848,7 +848,7 @@ pub struct BootstrapPackagesImportArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
 }
 
@@ -931,7 +931,7 @@ pub struct BootstrapPackagesUseArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Skip the confirmation prompt
     #[arg(long = "yes", short = 'y')]
@@ -1566,7 +1566,7 @@ pub struct ConfigGetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[arg(long = "file", short = 'f', value_name = "FILE")]
+    #[arg(long = "file", short = 'f', alias = "path", value_name = "FILE")]
     pub file: Option<String>,
     /// The path of the config to display
     #[arg(value_name = "KEY")]
@@ -1595,7 +1595,7 @@ pub struct ConfigSetArgs {
     /// Can be a file path or directory. If a directory is provided, the config file in that directory is used.
     ///
     /// If not provided, the nearest mise.toml file will be used
-    #[arg(long = "file", short = 'f', value_name = "FILE")]
+    #[arg(long = "file", short = 'f', alias = "path", value_name = "FILE")]
     pub file: Option<String>,
     #[arg(long = "type", short = 't', value_name = "TYPE", value_parser = ::clap::builder::PossibleValuesParser::new(["infer", "string", "integer", "float", "bool", "list", "set"]), default_value = "infer")]
     pub type_: Option<String>,
@@ -1725,7 +1725,7 @@ pub struct DotfilesAddArgs {
     #[arg(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Source path to use for a single target
     #[arg(long = "source", short = 's', value_name = "PATH")]
@@ -3666,7 +3666,7 @@ pub struct SetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
     /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[arg(long = "file", value_name = "FILE")]
+    #[arg(long = "file", alias = "path", value_name = "FILE")]
     pub file: Option<String>,
     /// Show raw values instead of redacting secrets
     #[arg(long = "no-redact")]
@@ -3677,7 +3677,13 @@ pub struct SetArgs {
     /// Remove the environment variable from config file
     ///
     /// Can be used multiple times.
-    #[arg(long = "remove", hide = true, value_name = "ENV_KEY")]
+    #[arg(
+        long = "remove",
+        alias = "rm",
+        alias = "unset",
+        hide = true,
+        value_name = "ENV_KEY"
+    )]
     pub remove: Vec<String>,
     /// Read the value from stdin (for multiline input)
     ///
@@ -4653,7 +4659,7 @@ pub struct UnsetArgs {
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
     /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
-    #[arg(long = "file", short = 'f', value_name = "FILE")]
+    #[arg(long = "file", short = 'f', alias = "path", value_name = "FILE")]
     pub file: Option<String>,
     /// Use the global config file
     #[arg(long = "global", short = 'g')]
@@ -4699,7 +4705,7 @@ pub struct UnuseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Do not also prune the installed version
     #[arg(long = "no-prune")]
@@ -4836,7 +4842,7 @@ pub struct UseArgs {
     /// Specify a path to a config file or directory
     ///
     /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[arg(long = "path", short = 'p', value_name = "PATH")]
+    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
     pub path: Option<String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
     ///

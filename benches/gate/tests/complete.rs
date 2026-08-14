@@ -6,8 +6,8 @@
 //! rules drift. Here both are asked the same question about mise's real spec and their answers
 //! compared.
 //!
-//! Of eighteen lines tried across mise's tree, thirteen agree exactly — including sets of
-//! forty and twenty-one candidates. The five that do not are here rather than quietly dropped,
+//! Of eighteen lines tried across mise's tree, fifteen agree exactly — including sets of forty
+//! and twenty-one candidates. The three that do not are here rather than quietly dropped,
 //! because a parity test that only lists what passes is a test that says nothing:
 //!
 //! - `mise ⌶` — the reference runs the `run=` completion mise's root declares for `[TASK]`,
@@ -15,11 +15,11 @@
 //!   later stage answers those in-process; nothing here can produce them.
 //! - `mise settings ⌶` — the reference offers all 273 settings from a `type="config_keys"`
 //!   completion. Also a later stage: the reserved `type=` vocabulary is not read here yet.
-//! - `mise use --⌶` and `mise use -⌶` — the reference offers `--file`, which is the second
-//!   long form of `flag "-p --path --file"`. The derive has no vocabulary for a second long
-//!   form, so `gen-shadow` drops it — one of the thirteen it reports dropping. Worth knowing:
-//!   this gap is invisible in the help comparison, which renders one long form per flag, and
-//!   shows up here because a completion offers every name a flag answers to.
+//!
+//! A fourth was a real gap, now closed: `flag "-p --path --file"` has a second long form that
+//! `gen-shadow` dropped, so `mise use --⌶` was missing `--file`. The derive could express it
+//! all along. The gap was invisible in the help comparison, which renders one long form per
+//! flag, and showed up here because a completion offers every name a flag answers to.
 //!
 //! Each one is a difference between the *shadow* and the spec rather than between the two
 //! completion implementations, which is the same standard the help comparison holds.
@@ -98,6 +98,8 @@ fn the_subcommands_offered_are_the_reference_s() {
 #[test]
 fn the_long_flags_offered_are_the_reference_s() {
     assert_same("mise --");
+    // Every long form a flag answers to, including the second of `-p --path --file`.
+    assert_same("mise use --");
     assert_same("mise install --");
     assert_same("mise run --");
     assert_same("mise config ls --");
@@ -111,6 +113,7 @@ fn the_long_flags_offered_are_the_reference_s() {
 fn the_short_flags_offered_are_the_reference_s() {
     // A lone dash offers both forms; a letter narrows to the flag that has it.
     assert_same("mise -");
+    assert_same("mise use -");
     assert_same("mise use -g");
     assert_same("mise install -f");
 }
