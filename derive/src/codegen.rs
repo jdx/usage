@@ -186,15 +186,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 about: #about,
                 long_about: #long_about,
                 default_subcommand: #default_subcommand,
-                // The root's surrounding text is also the spec's, because a spec has nowhere
-                // else to put the root's: `to_kdl` writes it at the top level, and the
-                // reference reads text there as the default for *every* page. Emitting it in
-                // both places is what makes the two descriptions of one CLI agree — declared
-                // here, or parsed back from the KDL this derive writes.
-                before_help: #before_help,
-                before_long_help: #before_long_help,
-                after_help: #after_help,
-                after_long_help: #after_long_help,
                 root: &ROOT_META,
             };
         }

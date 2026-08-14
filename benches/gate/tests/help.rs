@@ -298,6 +298,8 @@ fn a_spec_can_surround_every_page_at_once() {
         .expect("valid spec");
     let go = spec.cmd.subcommands.get("go").expect("go");
 
+    // The text sits on the *root*, which is what a top-level declaration is: the page under
+    // test is a subcommand, so the fallback is what puts it there.
     static GO: usage_argv::Command = usage_argv::Command {
         name: "go",
         ..usage_argv::Command::EMPTY
@@ -307,12 +309,22 @@ fn a_spec_can_surround_every_page_at_once() {
         about: Some("Go"),
         ..CommandMeta::EMPTY
     };
+    static ROOT: usage_argv::Command = usage_argv::Command {
+        name: "ex",
+        subcommands: &[&GO],
+        ..usage_argv::Command::EMPTY
+    };
+    static ROOT_META: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        before_help: Some("Above every page."),
+        after_help: Some("Below every page."),
+        subcommands: &[&GO_META],
+        ..CommandMeta::EMPTY
+    };
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
         name: "ex",
         bin: Some("ex"),
-        before_help: Some("Above every page."),
-        after_help: Some("Below every page."),
-        root: &GO_META,
+        root: &ROOT_META,
         ..usage_argv::spec::Spec::EMPTY
     };
 
@@ -366,4 +378,80 @@ fn the_root_writes_its_own_surrounding_text() {
     let parsed: LibSpec = kdl.parse().expect("valid spec");
     assert_eq!(parsed.before_help.as_deref(), Some("Above."));
     assert_eq!(parsed.after_help_long.as_deref(), Some("Below, at length."));
+}
+
+#[test]
+fn a_specs_examples_reach_a_page_that_has_none() {
+    // Top-level `example` nodes are the root's, and the reference shows them on every page
+    // whose command declares none — the same rule the text around a page follows. Rendering
+    // only the command's own meant a CLI's examples appeared on its root page and nowhere
+    // else, while the same CLI read back from `to_kdl` showed them everywhere.
+    let spec: LibSpec =
+        "name \"ex\"\nbin \"ex\"\nexample \"ex go --fast\" help=\"the quick way\"\n\
+         cmd go help=\"Go\"\ncmd own help=\"Own\" {\n  example \"ex own --mine\"\n}\n"
+            .parse()
+            .expect("valid spec");
+
+    static GO: usage_argv::Command = usage_argv::Command {
+        name: "go",
+        ..usage_argv::Command::EMPTY
+    };
+    static OWN: usage_argv::Command = usage_argv::Command {
+        name: "own",
+        ..usage_argv::Command::EMPTY
+    };
+    static GO_META: CommandMeta = CommandMeta {
+        cmd: &GO,
+        about: Some("Go"),
+        ..CommandMeta::EMPTY
+    };
+    static OWN_META: CommandMeta = CommandMeta {
+        cmd: &OWN,
+        about: Some("Own"),
+        examples: &[usage_argv::spec::Example {
+            code: "ex own --mine",
+            header: None,
+            help: None,
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static ROOT: usage_argv::Command = usage_argv::Command {
+        name: "ex",
+        subcommands: &[&GO, &OWN],
+        ..usage_argv::Command::EMPTY
+    };
+    static ROOT_META: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        examples: &[usage_argv::spec::Example {
+            code: "ex go --fast",
+            header: None,
+            help: Some("the quick way"),
+        }],
+        subcommands: &[&GO_META, &OWN_META],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
+        name: "ex",
+        bin: Some("ex"),
+        root: &ROOT_META,
+        ..usage_argv::spec::Spec::EMPTY
+    };
+
+    // `go` borrows the spec's; `own` keeps its own, and does not also show the spec's.
+    for (name, meta) in [("go", &GO_META), ("own", &OWN_META)] {
+        let cmd = spec.cmd.subcommands.get(name).expect("in the spec");
+        for long in [false, true] {
+            let ours = if long {
+                long_help(&SPEC, &["ex", name], meta)
+            } else {
+                short_help(&SPEC, &["ex", name], meta)
+            };
+            assert_eq!(
+                ours,
+                usage::docs::cli::render_help(&spec, cmd, long),
+                "{name}, {} form",
+                if long { "long" } else { "short" }
+            );
+        }
+    }
 }

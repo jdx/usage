@@ -122,14 +122,13 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
-    /// Text around every page, where a command does not give its own.
+    /// The root command, and the home of everything a spec declares at its top level.
     ///
-    /// usage-lib falls back to the spec's when the command is silent, so a preamble declared
-    /// once at the top appears on every page — which is what it is for.
-    pub before_help: Option<&'a str>,
-    pub before_long_help: Option<&'a str>,
-    pub after_help: Option<&'a str>,
-    pub after_long_help: Option<&'a str>,
+    /// A KDL spec has one place for surrounding text and examples — the top level — and the
+    /// reference reads what is written there as the root's *and* as the default for every
+    /// other page. So they live here, on the root's metadata, rather than in a second set of
+    /// fields on the spec: two homes for one declaration is two answers to one question, and
+    /// `to_kdl` and the renderer picked differently.
     pub root: &'a CommandMeta<'a>,
 }
 
@@ -144,10 +143,6 @@ impl Spec<'_> {
         about: None,
         long_about: None,
         default_subcommand: None,
-        before_help: None,
-        before_long_help: None,
-        after_help: None,
-        after_long_help: None,
         root: &CommandMeta::EMPTY,
     };
 }
@@ -473,16 +468,10 @@ impl Spec<'_> {
         // `write_body`, so these had to be repeated — and were not, which left a root's
         // preamble out of the spec that docs, manpages and completions read.
         for (node, text) in [
-            ("before_help", self.before_help.or(self.root.before_help)),
-            (
-                "before_long_help",
-                self.before_long_help.or(self.root.before_long_help),
-            ),
-            ("after_help", self.after_help.or(self.root.after_help)),
-            (
-                "after_long_help",
-                self.after_long_help.or(self.root.after_long_help),
-            ),
+            ("before_help", self.root.before_help),
+            ("before_long_help", self.root.before_long_help),
+            ("after_help", self.root.after_help),
+            ("after_long_help", self.root.after_long_help),
         ] {
             if let Some(text) = text {
                 prop(out, node, text)?;

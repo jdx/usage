@@ -382,8 +382,8 @@ fn the_roots_surrounding_text_reaches_every_page() {
     // page — and reappeared when the same CLI was rendered from its own emitted KDL, which is
     // two answers to one question.
     let spec = Surrounded::spec();
-    assert_eq!(spec.before_help, Some("Read this first."));
-    assert_eq!(spec.after_help, Some("And this after."));
+    assert_eq!(spec.root.before_help, Some("Read this first."));
+    assert_eq!(spec.root.after_help, Some("And this after."));
 
     let go = spec.root.subcommands[0];
     let page = usage_argv::help::short_help(spec, &["surrounded", "go"], go);

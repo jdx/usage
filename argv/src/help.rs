@@ -19,7 +19,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
+use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec};
 use crate::DoubleDash;
 
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
@@ -219,7 +219,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
-    if let Some(before) = meta.before_help.or(spec.before_help) {
+    if let Some(before) = meta.before_help.or(spec.root.before_help) {
         let _ = writeln!(out, "{before}\n");
     }
 
@@ -268,8 +268,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
             annotations(out, f.choices, f.env, &[]);
         },
     );
-    examples_section(&mut out, meta);
-    if let Some(after) = meta.after_help.or(spec.after_help) {
+    examples_section(&mut out, spec, meta);
+    if let Some(after) = meta.after_help.or(spec.root.after_help) {
         let _ = writeln!(out, "\n{after}");
     }
 
@@ -382,16 +382,30 @@ fn display_usage(meta: &FlagMeta<'_>) -> String {
     }
 }
 
-fn examples_section(out: &mut String, meta: &CommandMeta<'_>) {
-    if meta.examples.is_empty() {
+fn examples_section(out: &mut String, spec: &Spec<'_>, meta: &CommandMeta<'_>) {
+    let examples = page_examples(spec, meta);
+    if examples.is_empty() {
         return;
     }
     let _ = writeln!(out, "\nExamples:");
-    for example in meta.examples {
+    for example in examples {
         if let Some(header) = example.header {
             let _ = writeln!(out, "  {header}:");
         }
         let _ = writeln!(out, "    $ {}", example.code);
+    }
+}
+
+/// The examples a page shows: the command's own, or the spec's where it has none.
+///
+/// Top-level `example` nodes are the root's, and the reference shows them on every page whose
+/// command declares none of its own — the same rule the text around a page follows, and for
+/// the same reason: the top level is where a spec says something about the whole CLI.
+fn page_examples<'a>(spec: &Spec<'a>, meta: &CommandMeta<'a>) -> &'a [Example<'a>] {
+    if meta.examples.is_empty() {
+        spec.root.examples
+    } else {
+        meta.examples
     }
 }
 
@@ -422,8 +436,8 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
     if let Some(before) = meta
         .before_long_help
         .or(meta.before_help)
-        .or(spec.before_long_help)
-        .or(spec.before_help)
+        .or(spec.root.before_long_help)
+        .or(spec.root.before_help)
     {
         let _ = writeln!(out, "{before}\n");
     }
@@ -481,9 +495,10 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
         },
     );
 
-    if !meta.examples.is_empty() {
+    let examples = page_examples(spec, meta);
+    if !examples.is_empty() {
         let _ = writeln!(out, "\nExamples:");
-        for example in meta.examples {
+        for example in examples {
             if let Some(header) = example.header {
                 let _ = writeln!(out, "  {header}:");
             }
@@ -501,8 +516,8 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
     if let Some(after) = meta
         .after_long_help
         .or(meta.after_help)
-        .or(spec.after_long_help)
-        .or(spec.after_help)
+        .or(spec.root.after_long_help)
+        .or(spec.root.after_help)
     {
         let _ = writeln!(out, "\n{after}");
     }

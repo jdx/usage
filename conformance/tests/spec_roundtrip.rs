@@ -326,7 +326,6 @@ static SPEC: Spec = Spec {
     long_about: Some("Does things, at length."),
     default_subcommand: Some("run"),
     root: &ROOT_META,
-    ..Spec::EMPTY
 };
 
 fn parsed() -> LibSpec {
