@@ -224,10 +224,24 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 while let ::std::option::Option::Some(__usage_event) =
                     __usage_parser.next_event()
                 {
+                    let __usage_event = __usage_event?;
+                    // Asked *before* the event is applied, and answered with the command in
+                    // scope: `mise config --help` is a question about `config`, and the parser
+                    // is what knows how deep the words reached.
+                    if let ::usage_argv::Event::Flag { flag, .. } = &__usage_event {
+                        if flag.key == ::usage_argv::HELP_LONG_KEY
+                            || flag.key == ::usage_argv::HELP_SHORT_KEY
+                        {
+                            return ::std::result::Result::Err(::usage_argv::Error::Help {
+                                cmd: __usage_parser.command(),
+                                long: flag.key == ::usage_argv::HELP_LONG_KEY,
+                            });
+                        }
+                    }
                     // `apply` handles this command's own fields and routes anything
                     // else into its subcommands, which is why a nested command needs
                     // nothing extra here.
-                    #module::apply(&mut partial, &__usage_event?);
+                    #module::apply(&mut partial, &__usage_event);
                 }
 
                 #module::check(&mut partial)?;
@@ -247,7 +261,28 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // The error borrows argv, so it cannot outlive this function;
                 // rendering it here is what makes the signature usable. Better
                 // diagnostics are a separate piece of work.
-                Self::parse_from(&__usage_argv).map_err(|e| ::std::format!("{e:?}"))
+                match Self::parse_from(&__usage_argv) {
+                    ::std::result::Result::Ok(parsed) => ::std::result::Result::Ok(parsed),
+                    // A help request is not a failure, and this is the one place that knows
+                    // the process is the caller: print the page and leave successfully, which
+                    // is what a user typing `--help` asked for. `parse_from` returns it
+                    // instead, so a library embedding this decides for itself.
+                    ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
+                        match ::usage_argv::help::render(Self::spec(), cmd, long) {
+                            ::std::option::Option::Some(page) => {
+                                ::std::print!("{page}");
+                                ::std::process::exit(0);
+                            }
+                            // Only reachable if the command came from another CLI's tables.
+                            ::std::option::Option::None => ::std::result::Result::Err(
+                                "help was asked for a command this program does not have".into(),
+                            ),
+                        }
+                    }
+                    ::std::result::Result::Err(e) => {
+                        ::std::result::Result::Err(::std::format!("{e:?}"))
+                    }
+                }
             }
         }
     }

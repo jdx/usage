@@ -387,6 +387,16 @@ pub enum Error<'t, 'v> {
     InvalidValue(::std::boxed::Box<InvalidValue<'t>>),
     /// A subcommand was required, and none was given.
     MissingSubcommand,
+    /// `--help` or `-h` was given, and `cmd` is what it was asked about.
+    ///
+    /// Not a failure, and returned as one anyway: a parse that stops to print help has not
+    /// produced a value, and every caller already handles the "no value" shape. clap does the
+    /// same thing for the same reason.
+    ///
+    /// `long` distinguishes the two: `-h` prints the short form and `--help` the long one, as
+    /// clap has them. The caller renders — this crate does not print, because a library that
+    /// writes to stdout on its own is one an adopter cannot embed.
+    Help { cmd: &'t Command<'t>, long: bool },
 }
 
 /// The high half of every key one declaration's items get.
@@ -545,6 +555,40 @@ pub const fn concat_args<const N: usize>(
          that answers to nothing"
     );
     out
+}
+
+/// The key `--help` answers to, and the one `-h` does.
+///
+/// Reserved rather than generated: a derive builds keys from a hash of the type they came from
+/// in the high half and an index in the low half, so the top of the range belongs to nobody.
+/// Generated code compares against these to tell a help request from a flag of its own.
+pub const HELP_LONG_KEY: u64 = u64::MAX;
+/// See [`HELP_LONG_KEY`].
+pub const HELP_SHORT_KEY: u64 = u64::MAX - 1;
+
+/// `--help`, which every command answers to.
+///
+/// In the parse table and *not* in the metadata, which is the whole trick: the parser has to
+/// recognise the flag, and help output must not list it — a spec does not declare `--help`, so
+/// showing one would make the rendered page disagree with the spec it came from.
+pub static HELP_LONG: Flag<'static> = Flag {
+    key: HELP_LONG_KEY,
+    name: "help",
+    longs: &["help"],
+    ..Flag::BOOL
+};
+
+/// `-h`, which prints the shorter form.
+pub static HELP_SHORT: Flag<'static> = Flag {
+    key: HELP_SHORT_KEY,
+    name: "help",
+    shorts: b"h",
+    ..Flag::BOOL
+};
+
+/// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
+pub fn is_help_flag(flag: &Flag<'_>) -> bool {
+    flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY
 }
 
 /// Resolve a subcommand by name or alias, at compile time.
@@ -885,6 +929,16 @@ impl<'t, 'v> Parser<'t, 'v> {
             });
         }
 
+        // Every CLI answers to `--help`, and none of them declares it. Asked *after* the
+        // command's own flags, so a CLI that declares its own `--help` keeps it.
+        if name == b"help" {
+            return Ok(Event::Flag {
+                flag: &HELP_LONG,
+                value: None,
+                negated: false,
+            });
+        }
+
         if self.cmd.unknown_flags == UnknownFlags::Error {
             return Err(Error::UnknownFlag { token });
         }
@@ -1092,7 +1146,15 @@ impl<'t, 'v> Parser<'t, 'v> {
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
-        self.in_scope().find(|f| f.shorts.contains(&byte))
+        self.in_scope()
+            .find(|f| f.shorts.contains(&byte))
+            // As for `--help`: supplied by the parser, and only where the command has not
+            // declared a `-h` of its own.
+            .or(if byte == b'h' {
+                Some(&HELP_SHORT)
+            } else {
+                None
+            })
     }
 
     fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
@@ -1905,6 +1967,79 @@ mod tests {
         assert!(
             !parser.double_dash_seen(),
             "automatic mode must not claim a separator was given"
+        );
+    }
+
+    #[test]
+    fn a_wrapper_still_forwards_a_help_flag() {
+        // Supplying `--help` must not take the two forwarding mechanisms away from a wrapper,
+        // which is the one place a CLI means to hand the token on rather than answer it.
+        static ARGS: Arg = Arg {
+            key: 24,
+            name: "args",
+            ..Arg::VAR
+        };
+        static WRAP: Command = Command {
+            name: "wrap",
+            args: &[&ARGS],
+            ..Command::EMPTY
+        };
+
+        // A typed separator: everything after it is a value, `--help` included.
+        let a = argv(["--", "--help", "-h"]);
+        assert_eq!(
+            parse(&WRAP, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &ARGS,
+                    value: b"--help"
+                },
+                Event::Arg {
+                    arg: &ARGS,
+                    value: b"-h"
+                },
+            ]
+        );
+
+        // And `automatic`, for the wrapper whose caller should not have to type one: the
+        // first value stops flag interpretation, so the flags after it forward.
+        static AUTO_ARGS: Arg = Arg {
+            key: 25,
+            name: "args",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static AUTO_WRAP: Command = Command {
+            name: "wrap",
+            args: &[&AUTO_ARGS],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["node", "--help"]);
+        assert_eq!(
+            parse(&AUTO_WRAP, &a).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &AUTO_ARGS,
+                    value: b"node"
+                },
+                Event::Arg {
+                    arg: &AUTO_ARGS,
+                    value: b"--help"
+                },
+            ]
+        );
+
+        // Before either takes effect, though, the wrapper's own help is what `--help` asks
+        // for — `mise run --help` is a question about `run`, not a value for it.
+        let a = argv(["--help"]);
+        assert_eq!(
+            parse(&AUTO_WRAP, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &HELP_LONG,
+                value: None,
+                negated: false
+            }]
         );
     }
 
