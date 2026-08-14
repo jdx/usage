@@ -148,6 +148,85 @@ pub struct Completions<'a> {
     pub files: Option<Files>,
 }
 
+/// The line a shell reads to mean "paths belong here too".
+///
+/// A whole line rather than a flag on the protocol, because every one of the five shells can
+/// already split output into lines and look at the last one. `\x01` opens it because no
+/// candidate this crate produces can contain a control character, so it cannot be mistaken for
+/// one.
+pub const FILES_MARKER: &str = "\u{1}files";
+/// See [`FILES_MARKER`]. Directories only.
+pub const DIRS_MARKER: &str = "\u{1}dirs";
+
+/// Write an answer the way `shell` reads it.
+///
+/// One line per candidate, in the shape the shell's own completion machinery expects — which is
+/// where the five differ. bash reads values only; fish, nu and PowerShell take a description
+/// after a tab; zsh takes a third field, the text to insert, because what it displays and what
+/// it types are not always the same string.
+///
+/// A trailing [`FILES_MARKER`] says the generated script should hand the position to the
+/// shell's own path completion afterwards.
+pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
+    let mut out = String::new();
+    // Descriptions are all-or-nothing per answer: a column that appears on some rows and not
+    // others reads as missing data rather than as an absent description, which is the reason
+    // the reference decides this per answer too.
+    let described = answer.candidates.iter().any(|c| c.description.is_some());
+
+    for candidate in &answer.candidates {
+        let description = candidate.description.unwrap_or_default();
+        match shell {
+            Shell::Bash => out.push_str(&candidate.value),
+            Shell::Zsh => {
+                // Display, then description, then what to type: a candidate containing a space
+                // or a quote has to reach the command line intact.
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&zsh_quote(&candidate.value));
+            }
+            Shell::Fish | Shell::Nu | Shell::PowerShell => {
+                out.push_str(&candidate.value);
+                if described {
+                    out.push('\t');
+                    out.push_str(description);
+                }
+            }
+        }
+        out.push('\n');
+    }
+
+    match answer.files {
+        Some(Files::Any) => {
+            out.push_str(FILES_MARKER);
+            out.push('\n');
+        }
+        Some(Files::Dirs) => {
+            out.push_str(DIRS_MARKER);
+            out.push('\n');
+        }
+        None => {}
+    }
+    out
+}
+
+/// A candidate as zsh would have to see it typed.
+///
+/// The same rule the reference uses: left alone when every character is safe, and otherwise
+/// single-quoted with the close-open dance around any apostrophe.
+fn zsh_quote(value: &str) -> String {
+    let safe = |c: char| {
+        c.is_ascii_alphanumeric()
+            || matches!(c, '_' | '-' | '.' | '/' | ':' | '@' | '+' | '=' | '%' | ',')
+    };
+    if !value.is_empty() && value.chars().all(safe) {
+        return value.to_string();
+    }
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
 /// The paths an argument or value name asks for, by the name itself.
 ///
 /// The reference resolves a completer by the *lowercased name* and falls back to treating that
@@ -1594,5 +1673,79 @@ mod tests {
         let mistyped = answer("mise ship fast ::: zzz");
         assert!(mistyped.candidates.is_empty());
         assert_eq!(mistyped.files, None, "a mistyped choice is still a choice");
+    }
+
+    #[test]
+    fn each_shell_is_written_the_way_it_reads() {
+        let answer = complete(&SPEC, &at_end("mise pl"));
+
+        // bash shows values and nothing else.
+        assert_eq!(render(&answer, Shell::Bash), "plugins\n");
+
+        // fish, nu and PowerShell take a description after a tab.
+        assert_eq!(render(&answer, Shell::Fish), "plugins\tManage plugins\n");
+
+        // zsh takes a third field: what to type, which is not always what is shown.
+        assert_eq!(
+            render(&answer, Shell::Zsh),
+            "plugins\tManage plugins\tplugins\n"
+        );
+    }
+
+    #[test]
+    fn a_candidate_a_shell_could_not_read_is_quoted_for_zsh() {
+        static ODD: Command = Command {
+            name: "with space",
+            ..Command::EMPTY
+        };
+        static ODD_META: CommandMeta = CommandMeta {
+            cmd: &ODD,
+            about: Some("Odd"),
+            ..CommandMeta::EMPTY
+        };
+        static ODD_ROOT: Command = Command {
+            name: "ex",
+            subcommands: &[&ODD],
+            ..Command::EMPTY
+        };
+        static ODD_ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ODD_ROOT,
+            subcommands: &[&ODD_META],
+            ..CommandMeta::EMPTY
+        };
+        static ODD_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &ODD_ROOT_META,
+            ..Spec::EMPTY
+        };
+
+        let answer = complete(&ODD_SPEC, &split("ex ", 3, Shell::Zsh));
+        let line = render(&answer, Shell::Zsh);
+        // Shown as it is, typed as the shell needs it.
+        assert!(
+            line.starts_with("with space\tOdd\t'with space'"),
+            "{line:?}"
+        );
+    }
+
+    #[test]
+    fn the_marker_is_the_last_line_when_paths_belong() {
+        let answer = complete(&SPEC, &at_end("mise edit "));
+        let out = render(&answer, Shell::Bash);
+        assert_eq!(out.lines().last(), Some(FILES_MARKER));
+        // And the candidates are still there in front of it.
+        assert!(out.starts_with("mise.local.toml\nmise.toml\n"), "{out:?}");
+
+        let answer = complete(&SPEC, &at_end("mise edit --into "));
+        assert_eq!(
+            render(&answer, Shell::Fish).lines().last(),
+            Some(DIRS_MARKER)
+        );
+
+        // And absent where paths do not belong, rather than saying "none".
+        let answer = complete(&SPEC, &at_end("mise use "));
+        let out = render(&answer, Shell::Bash);
+        assert!(!out.contains('\u{1}'), "{out:?}");
     }
 }

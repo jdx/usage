@@ -21,6 +21,13 @@ pub struct Cli {
     pub name: String,
     pub bin: Option<String>,
     pub version: Option<String>,
+    /// Whether this CLI answers a completion request.
+    ///
+    /// Opt in rather than supplied like `--help`: it is a hidden command a binary carries and a
+    /// protocol a generated script depends on, so a CLI says when it wants both. The script
+    /// generator is emitted under the same flag, which makes a script that calls a command the
+    /// binary lacks a compile error rather than a puzzle at the prompt.
+    pub completion: bool,
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
@@ -218,6 +225,7 @@ impl Cli {
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
             bin: None,
+            completion: false,
             version: None,
             about,
             long_about,
@@ -240,6 +248,7 @@ impl Cli {
                 match ident_of(&path).as_str() {
                     "name" => cli.name = string_value(&meta)?,
                     "bin" => cli.bin = Some(string_value(&meta)?),
+                    "completion" => cli.completion = true,
                     "version" => cli.version = Some(string_value(&meta)?),
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
