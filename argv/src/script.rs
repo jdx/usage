@@ -28,17 +28,23 @@ use crate::complete::Shell;
 /// out loud rather than leaving to be discovered at a prompt.
 pub fn script(bin: &str, shell: Shell) -> String {
     // A hard assertion, not a debug one: the alternative is a release build quietly writing a
-    // script that registers half a name, which is the failure this says out loud. The name comes
-    // from the spec its author wrote, not from anything a user typed.
+    // script that registers half a name, or one whose apostrophe closes the quoting around it
+    // and turns the rest into something else entirely. The name comes from the spec its author
+    // wrote, not from anything a user typed, so this is a mistake surfacing where it can be
+    // fixed. The accepted set is what binaries are actually called.
     assert!(
-        !bin.contains(char::is_whitespace),
-        "a completion script cannot register a binary whose name is not one shell word \
-         ({bin:?}): zsh's `#compdef` line has nowhere to put a quote"
+        !bin.is_empty()
+            && bin
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '+')),
+        "a completion script cannot register {bin:?}: a binary's name has to be one plain \
+         shell word, and zsh's `#compdef` line has nowhere to put a quote even if it were \
+         quoted everywhere else"
     );
     let ident = shell_ident(bin);
     match shell {
         Shell::Bash => bash(bin, &ident),
-        Shell::Zsh => zsh(bin, &ident),
+        Shell::Zsh => zsh(bin),
         Shell::Fish => fish(bin, &ident),
         Shell::Nu => nu(bin, &ident),
         Shell::PowerShell => powershell(bin),
@@ -118,7 +124,12 @@ complete -F _usage_complete_{ident} '{bin}'
     )
 }
 
-fn zsh(bin: &str, ident: &str) -> String {
+/// zsh's script, whose function is named after the *binary* rather than sanitized.
+///
+/// `compinit` autoloads a file from `$fpath` called `_mise` and calls the function of that name,
+/// so `_my-tool` is what a `my-tool` completion has to define — and zsh, unlike an identifier,
+/// is perfectly happy with the dash.
+fn zsh(bin: &str) -> String {
     let head = header(bin, Shell::Zsh, "#");
     // `compadd` rather than `_describe`, which groups matches sharing a `:`-separated prefix and
     // shows one per group — so mise's `release:create`, `release:docs-sync` and `release:pr`
@@ -127,7 +138,7 @@ fn zsh(bin: &str, ident: &str) -> String {
     format!(
         r#"{head}#compdef {bin}
 
-_usage_complete_{ident}() {{
+_{bin}() {{
     local -a values=() descriptions=() inserts=()
     local __usage_files= __usage_line __usage_menu=0
     # `$BUFFER[1,CURSOR]` is the text before the cursor, cut with zsh's own offset — see the
@@ -175,7 +186,14 @@ _usage_complete_{ident}() {{
     esac
     return $__usage_ret
 }}
-compdef _usage_complete_{ident} '{bin}'
+# Installed either way. Dropped in `$fpath` as `_{bin}`, compinit autoloads the file and calls
+# the function named after it — which is why the function is `_{bin}` and not something tidier.
+# Sourced from a config instead, nothing has called it yet, so it registers itself.
+if [ "$funcstack[1]" = "_{bin}" ]; then
+    _{bin} "$@"
+else
+    compdef _{bin} '{bin}'
+fi
 "#,
     )
 }
@@ -251,6 +269,12 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     # `null` is how a nushell completer says "you do this one", and what it does is complete
     # paths. So an answer that is only the marker returns null rather than nothing, which would
     # mean "there is nothing here".
+    #
+    # Where there are candidates *and* paths, nushell can be told one or the other and not both:
+    # returning a list means "these are the completions", and there is no option beside it for
+    # "and files too". The candidates win, because they are what this CLI knows and a path is
+    # something the user can finish typing. Every other shell here appends both; this is
+    # nushell's completer interface rather than a decision of this design.
     if ($candidates | is-empty) and $wants_files {{ null }} else {{ $candidates }}
 }}
 
@@ -352,12 +376,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "one shell word")]
+    #[should_panic(expected = "one plain shell word")]
     fn a_name_no_script_could_register_is_refused() {
         // zsh's `#compdef` line is read by `compinit` before shell quoting exists, so a name
         // that is not one word cannot be registered there by anyone. Refused loudly, in release
         // builds too, rather than written into a script that looks fine and completes nothing.
         script("my tool", Shell::Zsh);
+    }
+
+    #[test]
+    #[should_panic(expected = "one plain shell word")]
+    fn a_name_carrying_a_quote_is_refused_too() {
+        // The interpolations are single-quoted, so an apostrophe would close the quoting and
+        // hand the rest of the line to the shell as syntax.
+        script("it's", Shell::Bash);
     }
 
     #[test]

@@ -312,7 +312,7 @@ fn zsh_presents_the_three_columns_it_was_given() {
     let out = fixture.run(
         "zsh",
         &format!(
-            "{ZSH_STUBS}\nsource ./script\nBUFFER='ex i'\nCURSOR=4\n_usage_complete_ex\n\
+            "{ZSH_STUBS}\nsource ./script\nBUFFER='ex i'\nCURSOR=4\n_ex\n\
              print -r -- \"insert_mode=${{compstate[insert]:-none}}\"\n"
         ),
     );
@@ -346,7 +346,7 @@ fn zsh_hands_paths_to_files_and_forces_a_menu_when_a_value_needs_quoting() {
     let out = fixture.run(
         "zsh",
         &format!(
-            "{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_usage_complete_ex\n\
+            "{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n\
              print -r -- \"insert_mode=${{compstate[insert]:-none}}\"\n"
         ),
     );
@@ -365,7 +365,7 @@ fn zsh_hands_paths_to_files_and_forces_a_menu_when_a_value_needs_quoting() {
     );
     let out = fixture.run(
         "zsh",
-        &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_usage_complete_ex\n"),
+        &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
     );
     assert!(out.contains("_files:-/"), "{out}");
 }
@@ -397,10 +397,7 @@ printf '%s\n' "${COMPREPLY[@]}"
         let fixture = Fixture::echoing("zsh-cursor", Shell::Zsh);
         let out = fixture.run(
             "zsh",
-            &format!(
-                "{ZSH_STUBS}\nsource ./script\nBUFFER='ex ünicode here'\nCURSOR=6\n\
-                 _usage_complete_ex\n"
-            ),
+            &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex ünicode here'\nCURSOR=6\n_ex\n"),
         );
         // Reported as a candidate by the stand-in, so it comes back through `display`.
         assert!(out.contains("display:line=[ex üni]"), "zsh: {out}");
@@ -413,4 +410,39 @@ printf '%s\n' "${COMPREPLY[@]}"
         let out = fixture.run("fish", "source ./script; __usage_complete_ex");
         assert!(out.starts_with("line=["), "fish: {out}");
     }
+}
+
+#[test]
+fn the_zsh_script_works_however_it_was_installed() {
+    if !available("zsh") {
+        println!("zsh is not installed; skipping");
+        return;
+    }
+    // Two installs, and a script has to survive both. Dropped in `$fpath` as `_ex`, compinit
+    // autoloads the file and calls the function *named after it* — which is why the function is
+    // `_ex` rather than something tidier, and what a mismatched name would silently break.
+    // Sourced from a config instead, nothing has called it yet, so it has to register itself.
+    let fixture = Fixture::new("zsh-install", Shell::Zsh, "install\tInstall\tinstall\n");
+
+    // Sourced: the tail should register, not complete.
+    let out = fixture.run(
+        "zsh",
+        &format!("{ZSH_STUBS}\ncompdef() {{ print -r -- \"compdef:$*\" }}\nsource ./script\n"),
+    );
+    assert!(
+        out.contains("compdef:_ex ex"),
+        "sourcing should register: {out}"
+    );
+
+    // Autoloaded: the file defines `_ex`, and calling it by that name completes.
+    let out = fixture.run(
+        "zsh",
+        &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex i'\nCURSOR=4\n_ex\n"),
+    );
+    assert!(out.contains("display:install"), "autoload path: {out}");
+
+    // And the name in the `#compdef` line is the one compinit will look for.
+    let script_text = script("ex", Shell::Zsh);
+    assert!(script_text.contains("#compdef ex"), "{script_text}");
+    assert!(script_text.contains("_ex() {"), "{script_text}");
 }
