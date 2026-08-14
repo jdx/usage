@@ -262,6 +262,61 @@ impl Registry {
         (0..self.props.len()).map(|i| PropId(i as u16))
     }
 
+    /// Every way the flags a spec *declares* and the flags a CLI *binds* disagree.
+    ///
+    /// Empty means they agree. This is the check hk needed and did not have: it declares eighteen
+    /// `sources.cli` bindings and reads five, because the declaration lives in a spec and the
+    /// reading lives in a hand-written struct, and nothing has ever compared the two. A spec that
+    /// documents `--jobs` and a CLI that never puts it anywhere is a promise to a user that no test
+    /// could catch.
+    ///
+    /// `bound` is what the CLI actually does: pairs of a flag and the setting it sets. A CLI whose
+    /// flags come from `usage::Cli` can generate that list; one that binds by hand writes it out,
+    /// which is still one list rather than two behaviours.
+    ///
+    /// Both directions are reported, because they are different mistakes. A declared flag nothing
+    /// binds is documentation for something that does not happen. A bound flag the setting does not
+    /// declare happens without being documented — the user cannot discover it, and `explain` cannot
+    /// name it.
+    pub fn drift(&self, bound: &[(&str, &str)]) -> Vec<String> {
+        let mut problems = Vec::new();
+
+        for (flag, key) in bound {
+            let Some(found) = self.lookup(key) else {
+                problems.push(format!(
+                    "`{flag}` is bound to `{key}`, which is not a setting"
+                ));
+                continue;
+            };
+            let meta = self.get(found.id);
+            if !meta.cli.contains(flag) {
+                problems.push(format!(
+                    "`{flag}` is bound to `{}`, which does not declare it: add `cli \"{flag}\"` to the spec",
+                    meta.key
+                ));
+            }
+        }
+
+        for id in self.ids() {
+            let meta = self.get(id);
+            for flag in meta.cli {
+                // Compared against the *setting* the binding names rather than the flag alone: a CLI
+                // may bind `--jobs` to something, and binding it to the wrong setting is not the same
+                // as binding it.
+                let bound_here = bound.iter().any(|(bound_flag, key)| {
+                    bound_flag == flag && self.lookup(key).is_some_and(|found| found.id == id)
+                });
+                if !bound_here {
+                    problems.push(format!(
+                        "`{}` says `{flag}` sets it, and nothing does",
+                        meta.key
+                    ));
+                }
+            }
+        }
+        problems
+    }
+
     /// Every setting bound to `kind`, with its key in that source.
     ///
     /// The generic mechanism a custom layer is written against: a git layer asks for `"git"`
@@ -288,6 +343,7 @@ mod tests {
         PropMeta {
             key: "jobs",
             envs: &["HK_JOBS", "HK_JOB"],
+            cli: &["--jobs", "-j"],
             bindings: &[("git", "hk.jobs"), ("pkl", "jobs")],
             ..PropMeta::new("jobs", Ty::Uint)
         },
@@ -302,11 +358,86 @@ mod tests {
             ..PropMeta::new("threads", Ty::Uint)
         },
         PropMeta {
+            // Declares a flag, which is what hk's dead `sources.cli` lines look like from here.
+            cli: &["--check"],
             bindings: &[("git", "hk.check")],
             ..PropMeta::new("check", Ty::Bool)
         },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn a_cli_that_binds_what_the_spec_declares_has_no_drift() {
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "check")];
+        assert_eq!(REGISTRY.drift(&bound), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_declared_flag_nothing_binds_is_reported() {
+        // hk's thirteen dead `sources.cli` lines, and the reason they lasted: the declaration is in a
+        // spec, the reading is in a hand-written struct, and nothing compared them. A user reads
+        // `--check` in the documentation and it does nothing at all.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`check` says `--check` sets it, and nothing does"]
+        );
+
+        // Every spelling counts. `-j` is as much a promise as `--jobs` is.
+        let bound = [("--jobs", "jobs"), ("--check", "check")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`jobs` says `-j` sets it, and nothing does"]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_to_the_wrong_setting_is_not_a_flag_that_is_bound() {
+        // The failure a flag-only comparison would miss: `--check` is bound, so a check that only
+        // asked "is this flag bound anywhere" would pass — while `check` is still set by nothing and
+        // `jobs` is now set by a flag it never declared.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "jobs")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec![
+                "`--check` is bound to `jobs`, which does not declare it: add `cli \"--check\"` to the spec",
+                "`check` says `--check` sets it, and nothing does"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_to_a_setting_that_does_not_exist_is_reported() {
+        let bound = [
+            ("--jobs", "jobs"),
+            ("-j", "jobs"),
+            ("--check", "check"),
+            ("--nonesuch", "nonesuch"),
+        ];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`--nonesuch` is bound to `nonesuch`, which is not a setting"]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_through_an_old_name_is_bound() {
+        // A CLI written before a rename binds the name it knew. The value lands on the setting that
+        // replaced it, so the binding is real — reporting it as drift would make living through a
+        // rename impossible.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "check")];
+        assert_eq!(REGISTRY.drift(&bound), Vec::<String>::new());
+        let through_old_name = [
+            ("--jobs", "concurrency"),
+            ("-j", "jobs"),
+            ("--check", "check"),
+        ];
+        assert_eq!(
+            REGISTRY.drift(&through_old_name),
+            Vec::<String>::new(),
+            "`concurrency` is `jobs`, and `jobs` declares `--jobs`"
+        );
+    }
 
     #[test]
     fn a_key_resolves_to_its_own_index() {
