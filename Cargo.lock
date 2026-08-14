@@ -793,6 +793,7 @@ dependencies = [
  "shadow-mise",
  "shadow-mise-clap",
  "usage-argv",
+ "usage-cli",
  "usage-lib",
 ]
 

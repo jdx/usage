@@ -2,7 +2,7 @@ use crate::usage_spec;
 use clap::{Parser, Subcommand};
 use miette::Result;
 
-mod complete_word;
+pub mod complete_word;
 mod exec;
 pub(crate) mod generate;
 mod lint;

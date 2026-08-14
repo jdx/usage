@@ -15,6 +15,7 @@
 //! as argv had the line been run — the parser downstream should see exactly what it would see
 //! in a real invocation.
 
+use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
 use crate::{Arg, Command, Error, Flag, Parser};
 
 /// Where the cursor is, in the grammar rather than in the line.
@@ -24,7 +25,7 @@ use crate::{Arg, Command, Error, Flag, Parser};
 /// whether flag interpretation is still on at all. This is that state, read off a real parse
 /// of the words before the cursor rather than guessed at — so what is offered and what would
 /// be accepted are decided by the same tables.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Position<'t> {
     /// The command in scope: the deepest one the words selected.
     pub cmd: &'t Command<'t>,
@@ -37,6 +38,21 @@ pub struct Position<'t> {
     pub awaiting_value: Option<&'t Flag<'t>>,
     /// The positional a word here would fill, if any are left.
     pub next_arg: Option<&'t Arg<'t>>,
+    /// Whether a `--` has been typed.
+    ///
+    /// Narrower than `flags_possible`, which is also false past an `automatic` argument. An
+    /// argument that requires a separator is asking for *this* one specifically.
+    pub separator_seen: bool,
+    /// Whether the word here names a command to *read about* rather than one to run.
+    ///
+    /// True after `help`, where the only thing that belongs is a command name — not the
+    /// arguments of whatever the root would otherwise fall back to.
+    pub help_topic: bool,
+    /// The flags a word here could name: this command's own, then any ancestor's globals.
+    ///
+    /// Taken from the parser rather than gathered again, so what is offered is what would be
+    /// accepted — shadowing included.
+    pub flags: Vec<&'t Flag<'t>>,
 }
 
 /// Walk the words before the cursor, and report what the cursor is at.
@@ -71,6 +87,9 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     flags_possible: false,
                     awaiting_value: None,
                     next_arg: None,
+                    separator_seen: false,
+                    help_topic: true,
+                    flags: Vec::new(),
                 }
             }
             Err(_) => break,
@@ -84,7 +103,249 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
         // for its first value is: the next word belongs to it, not to the positional after it.
         awaiting_value: awaiting_value.or_else(|| parser.collecting()),
         next_arg: parser.pending_arg(),
+        separator_seen: parser.double_dash_seen(),
+        help_topic: false,
+        flags: parser.flags_in_scope().collect(),
     }
+}
+
+/// Something a shell could offer at the cursor.
+///
+/// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
+/// only the value. It is borrowed from the spec rather than built, because it is already
+/// there — the help text a page would print for the same thing.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Candidate<'a> {
+    pub value: String,
+    pub description: Option<&'a str>,
+}
+
+/// What could be typed at the cursor, given a spec and a split line.
+///
+/// The rules are usage-lib's, because a CLI's completions should not change with the
+/// implementation that answers them:
+///
+/// - a lone `-` offers both forms, `--…` offers longs, `-…` offers shorts;
+/// - a flag waiting for its value offers that flag's choices, and nothing else;
+/// - otherwise the next positional's choices and the subcommands, aliases included.
+///
+/// Hidden things are never offered, in any branch. What is *not* here yet: the file fallback
+/// for a word nothing is known about, and the `run=` completions a spec can declare.
+pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
+    let position = walk(spec.root.cmd, split.argv());
+    let meta = crate::help::find(spec, position.cmd).map(|(_, meta)| meta);
+    let token = split.prefix.as_str();
+
+    let mut out = if position.flags_possible && token == "-" {
+        // Both forms, because a lone dash says nothing about which was meant.
+        let mut both = short_flags(spec, &position, "");
+        both.extend(long_flags(spec, &position, ""));
+        both
+    } else if position.flags_possible && token.starts_with("--") {
+        long_flags(spec, &position, token)
+    } else if position.flags_possible && token.starts_with('-') {
+        short_flags(spec, &position, token)
+    } else if restarted(meta, split) {
+        // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
+        // command — the cursor is at that command's *first* argument again, whatever the
+        // words before the token filled.
+        meta.and_then(|m| m.args.first())
+            .map(|m| positional(m, &position, token))
+            .unwrap_or_default()
+    } else if let Some(flag) = position.awaiting_value {
+        flag_meta(spec.root, flag)
+            .map(|m| choices(m.choices, token))
+            .unwrap_or_default()
+    } else {
+        let mut found = Vec::new();
+        if let Some(arg) = position.next_arg {
+            if let Some(m) = arg_meta(spec.root, arg) {
+                found.extend(positional(m, &position, token));
+            }
+        }
+        if let Some(meta) = meta {
+            found.extend(subcommands(meta, token));
+        }
+        // At the root, a word may also be meant for the command the root falls back to —
+        // `mise build` is `mise run build` — so what that command's first argument accepts is
+        // a candidate here too. Only its first: the words that would fill the rest have not
+        // been typed, since the subcommand name itself was elided.
+        if core::ptr::eq(position.cmd, spec.root.cmd) && !position.help_topic {
+            if let Some(default) = spec.default_subcommand {
+                // By any name it answers to: `default_subcommand` names a command, and a
+                // spec may name it the way its author refers to it rather than canonically.
+                let target = spec
+                    .root
+                    .subcommands
+                    .iter()
+                    .find(|sub| sub.cmd.name == default || sub.cmd.aliases.contains(&default));
+                if let Some(arg) = target.and_then(|sub| sub.args.first()) {
+                    found.extend(positional(arg, &position, token));
+                }
+            }
+        }
+        found
+    };
+
+    out.sort();
+    out.dedup_by(|a, b| a.value == b.value);
+    out
+}
+
+/// Whether the word before the cursor is this command's restart token.
+///
+/// mise writes `:::` between two runs of the same command, and what follows one is a fresh
+/// invocation — so the cursor is back at the first argument rather than wherever the previous
+/// words had reached.
+fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
+    let Some(token) = meta.and_then(|m| m.restart_token) else {
+        return false;
+    };
+    split.cword > 0 && split.words[split.cword - 1] == token
+}
+
+/// The subcommands a word here could name, each under every name it answers to.
+///
+/// Aliases are offered beside canonical names — someone who types `mise ls<TAB>` means `list`
+/// and should see it — except the hidden ones, which the parser answers to but nothing
+/// advertises. A hidden command is offered under none of its names at all.
+fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>> {
+    let mut out = Vec::new();
+    for sub in meta.subcommands {
+        if sub.hide {
+            continue;
+        }
+        for name in core::iter::once(&sub.cmd.name).chain(sub.cmd.aliases.iter()) {
+            // A hidden alias is one the parser answers to but nothing advertises — usually an
+            // old name kept working after a rename. The parse table holds it beside the
+            // visible ones because both must be *accepted*; only the metadata says which are
+            // meant to be *offered*.
+            if sub.hidden_aliases.contains(name) {
+                continue;
+            }
+            if name.starts_with(token) {
+                out.push(Candidate {
+                    value: (*name).to_string(),
+                    description: sub.about,
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The long forms of every flag in scope, and the negations of those that have one.
+fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+    let mut out = Vec::new();
+    for flag in &position.flags {
+        let meta = flag_meta(spec.root, flag);
+        if meta.is_some_and(|m| m.hide) {
+            continue;
+        }
+        let description = meta.and_then(|m| m.help);
+        for long in flag.longs {
+            let value = format!("--{long}");
+            if value.starts_with(token) {
+                out.push(Candidate { value, description });
+            }
+        }
+        // A negation is a way to write the same flag, so it carries the same help — the
+        // reference leaves it bare, which reads as a flag nobody documented.
+        if let Some(negate) = flag.negate {
+            // The table holds it the way the parser matches it — with the dashes already
+            // taken off — so a candidate has to put them back. Offered bare, it never matched
+            // a `--` the user had typed, and a lone `-` offered a word no shell would accept.
+            let value = format!("--{negate}");
+            if value.starts_with(token) {
+                out.push(Candidate { value, description });
+            }
+        }
+    }
+    out
+}
+
+/// The short forms of every flag in scope.
+///
+/// A token of `-x` is asking about the letter `x`, so only that letter's flag is offered:
+/// bundling means anything else would be a candidate for a different position in the token.
+fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+    let wanted = token.as_bytes().get(1).copied();
+    let mut out = Vec::new();
+    for flag in &position.flags {
+        let meta = flag_meta(spec.root, flag);
+        if meta.is_some_and(|m| m.hide) {
+            continue;
+        }
+        for &short in flag.shorts {
+            // Written out rather than with `is_none_or`, which this crate's MSRV predates.
+            let asked_about = match wanted {
+                None => true,
+                Some(letter) => letter == short,
+            };
+            if asked_about {
+                out.push(Candidate {
+                    value: format!("-{}", short as char),
+                    description: meta.and_then(|m| m.help),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// What a positional accepts here — its choices, or the separator that has to come first.
+///
+/// An argument declared `double_dash = "required"` is not fillable until a `--` has been
+/// typed, so its values are not candidates yet: the parser would reject every one of them. The
+/// only useful thing to offer is the separator itself, and only when nothing has been typed to
+/// filter it away.
+fn positional<'a>(
+    meta: &'a ArgMeta<'a>,
+    position: &Position<'_>,
+    token: &str,
+) -> Vec<Candidate<'a>> {
+    if meta.arg.double_dash == crate::DoubleDash::Required && !position.separator_seen {
+        if token.is_empty() {
+            return vec![Candidate {
+                value: "--".to_string(),
+                description: None,
+            }];
+        }
+        return Vec::new();
+    }
+    choices(meta.choices, token)
+}
+
+/// The declared values of a flag or argument, filtered by what has been typed.
+fn choices<'a>(declared: &'a [&'a str], token: &str) -> Vec<Candidate<'a>> {
+    declared
+        .iter()
+        .filter(|c| c.starts_with(token))
+        .map(|c| Candidate {
+            value: (*c).to_string(),
+            description: None,
+        })
+        .collect()
+}
+
+/// The metadata for a flag, wherever in the tree it was declared.
+///
+/// By identity rather than by name: a global flag's metadata sits on the command that declared
+/// it, which is an ancestor of the one being completed, and two commands may declare different
+/// flags under one name.
+fn flag_meta<'a>(meta: &'a CommandMeta<'a>, flag: &Flag<'_>) -> Option<&'a FlagMeta<'a>> {
+    meta.flags
+        .iter()
+        .find(|m| core::ptr::eq(m.flag, flag))
+        .or_else(|| meta.subcommands.iter().find_map(|sub| flag_meta(sub, flag)))
+}
+
+/// The metadata for an argument, wherever in the tree it was declared.
+fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<'a>> {
+    meta.args
+        .iter()
+        .find(|m| core::ptr::eq(m.arg, arg))
+        .or_else(|| meta.subcommands.iter().find_map(|sub| arg_meta(sub, arg)))
 }
 
 /// Which shell's quoting rules a line follows.
@@ -359,6 +620,8 @@ mod tests {
         longs: &["verbose"],
         shorts: b"v",
         global: true,
+        // Held without its dashes, which is how the parser matches it.
+        negate: Some("quiet"),
         ..Flag::BOOL
     };
     static JOBS: Flag = Flag {
@@ -382,6 +645,7 @@ mod tests {
     };
     static USE: Command = Command {
         name: "use",
+        aliases: &["u"],
         flags: &[&JOBS, &TOOLS],
         args: &[&TOOL],
         ..Command::EMPTY
@@ -401,6 +665,34 @@ mod tests {
         name: "ls",
         ..Command::EMPTY
     };
+    /// Two arguments and a restart token, so that "back at the first" is a different answer
+    /// from "wherever the words reached".
+    static FIRST: Arg = Arg {
+        key: 5,
+        name: "FIRST",
+        ..Arg::REQUIRED
+    };
+    static SECOND: Arg = Arg {
+        key: 6,
+        name: "SECOND",
+        ..Arg::REQUIRED
+    };
+    static TASK: Command = Command {
+        name: "task",
+        args: &[&FIRST, &SECOND],
+        ..Command::EMPTY
+    };
+    static AFTER: Arg = Arg {
+        key: 7,
+        name: "AFTER",
+        double_dash: crate::DoubleDash::Required,
+        ..Arg::REQUIRED
+    };
+    static WRAP: Command = Command {
+        name: "wrap",
+        args: &[&AFTER],
+        ..Command::EMPTY
+    };
     static PLUGINS: Command = Command {
         name: "plugins",
         subcommands: &[&LS],
@@ -412,6 +704,137 @@ mod tests {
         subcommands: &[&USE, &EXEC, &PLUGINS],
         ..Command::EMPTY
     };
+
+    /// The same tree's metadata: help text, choices, and what is hidden.
+    static SECRET: Command = Command {
+        name: "secret",
+        ..Command::EMPTY
+    };
+    static LIST: Command = Command {
+        name: "list",
+        // `l` is answered to but never advertised — an old name kept working.
+        aliases: &["ls", "l"],
+        ..Command::EMPTY
+    };
+    static META_LS: CommandMeta = CommandMeta {
+        cmd: &LS,
+        about: Some("List them"),
+        ..CommandMeta::EMPTY
+    };
+    static META_PLUGINS: CommandMeta = CommandMeta {
+        cmd: &PLUGINS,
+        about: Some("Manage plugins"),
+        subcommands: &[&META_LS],
+        ..CommandMeta::EMPTY
+    };
+    static META_USE: CommandMeta = CommandMeta {
+        cmd: &USE,
+        about: Some("Use a tool"),
+        flags: &[FlagMeta {
+            flag: &JOBS,
+            help: Some("How many at once"),
+            choices: &["1", "2", "4"],
+            ..FlagMeta::EMPTY
+        }],
+        args: &[ArgMeta {
+            arg: &TOOL,
+            help: Some("Which tool"),
+            choices: &["node", "python"],
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static META_WRAP: CommandMeta = CommandMeta {
+        cmd: &WRAP,
+        about: Some("Wrap something"),
+        args: &[ArgMeta {
+            arg: &AFTER,
+            choices: &["red", "blue"],
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static META_TASK: CommandMeta = CommandMeta {
+        cmd: &TASK,
+        about: Some("Do two things"),
+        restart_token: Some(":::"),
+        args: &[
+            ArgMeta {
+                arg: &FIRST,
+                choices: &["one", "two"],
+                ..ArgMeta::EMPTY
+            },
+            ArgMeta {
+                arg: &SECOND,
+                choices: &["alpha", "beta"],
+                ..ArgMeta::EMPTY
+            },
+        ],
+        ..CommandMeta::EMPTY
+    };
+    static META_EXEC: CommandMeta = CommandMeta {
+        cmd: &EXEC,
+        about: Some("Run something"),
+        args: &[ArgMeta {
+            arg: &FORWARDED,
+            help: Some("What to run"),
+            choices: &["one", "two"],
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static META_SECRET: CommandMeta = CommandMeta {
+        cmd: &SECRET,
+        about: Some("Not for you"),
+        hide: true,
+        ..CommandMeta::EMPTY
+    };
+    static META_LIST: CommandMeta = CommandMeta {
+        cmd: &LIST,
+        about: Some("List everything"),
+        hidden_aliases: &["l"],
+        ..CommandMeta::EMPTY
+    };
+    static META_ROOT: CommandMeta = CommandMeta {
+        cmd: &ROOT_WITH_META,
+        flags: &[FlagMeta {
+            flag: &GLOBAL,
+            help: Some("Say more"),
+            ..FlagMeta::EMPTY
+        }],
+        subcommands: &[
+            &META_USE,
+            &META_EXEC,
+            &META_PLUGINS,
+            &META_SECRET,
+            &META_LIST,
+            &META_TASK,
+            &META_WRAP,
+        ],
+        ..CommandMeta::EMPTY
+    };
+    static ROOT_WITH_META: Command = Command {
+        name: "mise",
+        flags: &[&GLOBAL],
+        subcommands: &[&USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP],
+        ..Command::EMPTY
+    };
+    static SPEC: Spec = Spec {
+        name: "mise",
+        bin: Some("mise"),
+        root: &META_ROOT,
+        // What a word at the root falls back to, as mise's `run` does.
+        default_subcommand: Some("u"),
+        ..Spec::EMPTY
+    };
+
+    /// What a shell would be offered at the end of a line.
+    fn offered(line: &str) -> Vec<String> {
+        candidates(&SPEC, &at_end(line))
+            .into_iter()
+            .map(|c| c.value)
+            .collect()
+    }
 
     /// The position at the cursor of a line, which is what a completion asks about.
     fn position_at(line: &str) -> Position<'static> {
@@ -679,5 +1102,146 @@ mod tests {
         let s = split(line, 6, Shell::Bash);
         assert_eq!(s.cword, 1);
         assert_eq!(s.prefix, "");
+    }
+    #[test]
+    fn a_word_that_could_name_a_command_offers_the_commands() {
+        assert_eq!(
+            offered("mise "),
+            // `node` and `python` are the fallback command's, which the root offers too — see
+            // `the_root_offers_what_the_command_it_falls_back_to_accepts`.
+            ["exec", "list", "ls", "node", "plugins", "python", "task", "u", "use", "wrap"],
+            "sorted, and a hidden command is offered under none of its names"
+        );
+        assert_eq!(offered("mise pl"), ["plugins"]);
+        // An alias is a name someone types meaning the command, so it is offered too — but
+        // not a hidden one, which the parser answers to and nothing advertises.
+        assert_eq!(offered("mise l"), ["list", "ls"]);
+        assert_eq!(offered("mise plugins "), ["ls"]);
+    }
+
+    #[test]
+    fn a_dash_offers_the_flags_that_would_be_accepted_there() {
+        // Both forms for a lone dash, since it says nothing about which was meant.
+        assert_eq!(offered("mise -"), ["--quiet", "--verbose", "-v"]);
+        assert_eq!(offered("mise --"), ["--quiet", "--verbose"]);
+
+        // Inside a subcommand: its own flags and the globals it inherits, which is exactly
+        // what the parser would accept there.
+        assert_eq!(
+            offered("mise use --"),
+            ["--jobs", "--quiet", "--tools", "--verbose"]
+        );
+        // A short token asks about one letter, because bundling means any other letter would
+        // be a candidate for a different position in the token.
+        assert_eq!(offered("mise use -v"), ["-v"]);
+        assert!(
+            offered("mise use -j").is_empty(),
+            "--jobs has no short form"
+        );
+    }
+
+    #[test]
+    fn a_flag_waiting_for_its_value_offers_that_flags_choices() {
+        assert_eq!(offered("mise use --jobs "), ["1", "2", "4"]);
+        assert_eq!(offered("mise use --jobs 2"), ["2"]);
+        // And nothing else: the subcommands and the positional are not candidates for a
+        // value that a flag has already claimed.
+        assert!(!offered("mise use --jobs ").contains(&"node".to_string()));
+    }
+
+    #[test]
+    fn a_positional_offers_its_choices() {
+        assert_eq!(offered("mise use "), ["node", "python"]);
+        assert_eq!(offered("mise use p"), ["python"]);
+    }
+
+    #[test]
+    fn past_a_separator_a_dash_is_not_a_flag() {
+        // `--` stops flag interpretation, so there is no flag to offer — the word there is a
+        // value, and the only candidates are what a value could be.
+        assert!(offered("mise use -- -").is_empty());
+        // The fallback command's values are still offered past a separator: `--` says the
+        // word is not a flag, not that it is not a word.
+        assert_eq!(
+            offered("mise -- "),
+            ["exec", "list", "ls", "node", "plugins", "python", "task", "u", "use", "wrap"]
+        );
+    }
+
+    #[test]
+    fn a_candidate_carries_the_help_a_page_would_print() {
+        let found = candidates(&SPEC, &at_end("mise use --"));
+        let jobs = found.iter().find(|c| c.value == "--jobs").expect("--jobs");
+        assert_eq!(jobs.description, Some("How many at once"));
+
+        let found = candidates(&SPEC, &at_end("mise p"));
+        assert_eq!(found[0].description, Some("Manage plugins"));
+    }
+    #[test]
+    fn a_help_topic_offers_the_commands_under_it() {
+        // The candidate half of the same rule: after `mise help plugins ⌶` the useful answer
+        // is what can be read about under `plugins`, and nothing else belongs there.
+        assert_eq!(offered("mise help plugins "), ["ls"]);
+        // And nothing the root would fall back to: `mise help ⌶` is asking for a command to
+        // read about, not for a word to run.
+        assert_eq!(
+            offered("mise help "),
+            ["exec", "list", "ls", "plugins", "task", "u", "use", "wrap"]
+        );
+    }
+    #[test]
+    fn a_negation_is_offered_the_way_it_is_typed() {
+        // The table holds it without dashes, because that is what the parser matches once a
+        // token's `--` has been taken off. A candidate is what the user types, so it needs
+        // them back — offered bare it matched no `--` prefix and no shell would accept it.
+        assert!(offered("mise --").contains(&"--quiet".to_string()));
+        assert_eq!(offered("mise --q"), ["--quiet"]);
+    }
+
+    #[test]
+    fn a_restart_token_puts_the_cursor_back_at_the_first_argument() {
+        // `mise task one ::: ⌶` starts a fresh invocation of the same command, so the words
+        // before the token do not decide what comes after it: the cursor is back at the first
+        // argument, not at the second one the words had reached.
+        assert_eq!(offered("mise task one "), ["alpha", "beta"]);
+        assert_eq!(offered("mise task one ::: "), ["one", "two"]);
+        assert_eq!(offered("mise task one ::: t"), ["two"]);
+    }
+
+    #[test]
+    fn the_root_offers_what_the_command_it_falls_back_to_accepts() {
+        // `mise build` means `mise run build`, so a word at the root may be meant for the
+        // default subcommand — and what its first argument accepts belongs here too, beside
+        // the subcommand names themselves.
+        let found = offered("mise ");
+        assert!(found.contains(&"use".to_string()), "{found:?}");
+        assert!(found.contains(&"node".to_string()), "{found:?}");
+        assert!(found.contains(&"python".to_string()), "{found:?}");
+
+        // Filtered like everything else, and not offered inside a subcommand: the fallback is
+        // the root's rule.
+        assert_eq!(offered("mise n"), ["node"]);
+        assert!(!offered("mise plugins ").contains(&"node".to_string()));
+    }
+    #[test]
+    fn an_argument_that_needs_a_separator_offers_the_separator() {
+        // `mise wrap ⌶` cannot take `red` yet — the parser rejects every value until a `--`
+        // has been typed — so offering the choices would be offering words that do not work.
+        assert_eq!(offered("mise wrap "), ["--"]);
+        // Nothing once something has been typed: the separator no longer matches, and the
+        // values are still not fillable.
+        assert!(offered("mise wrap r").is_empty());
+        // Past the separator they are.
+        assert_eq!(offered("mise wrap -- "), ["blue", "red"]);
+        assert_eq!(offered("mise wrap -- r"), ["red"]);
+    }
+
+    #[test]
+    fn the_fallback_command_is_found_by_any_name_it_answers_to() {
+        // `default_subcommand` names a command, and a spec may name it the way its author
+        // refers to it — here `u` rather than `use`. Resolving only canonical names silently
+        // dropped the fallback's values.
+        let found = offered("mise ");
+        assert!(found.contains(&"node".to_string()), "{found:?}");
     }
 }
