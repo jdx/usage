@@ -586,6 +586,17 @@ pub static HELP_SHORT: Flag<'static> = Flag {
     ..Flag::BOOL
 };
 
+/// A named subcommand of a given command, by name or alias.
+///
+/// Free rather than a method because `help` resolves a path *without* descending: the words
+/// after it are a question about a command rather than a walk into one.
+fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
+    cmd.subcommands
+        .iter()
+        .copied()
+        .find(|c| c.name.as_bytes() == name || c.aliases.iter().any(|a| a.as_bytes() == name))
+}
+
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
 pub fn is_help_flag(flag: &Flag<'_>) -> bool {
     flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY
@@ -1029,6 +1040,31 @@ impl<'t, 'v> Parser<'t, 'v> {
             if let Some(sub) = self.find_subcommand(token) {
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
+            }
+
+            // `ex help config ls` — the line every page with a Commands section has printed
+            // all along ("help  Print this message or the help of the given subcommand(s)"),
+            // and which until now did nothing. The page is what decides the condition here:
+            // it prints that line where there are subcommands, so that is where the word is
+            // answered, and to a leaf `help` is a word like any other.
+            //
+            // Asked *after* the subcommand lookup, so a CLI that declares a `help` of its own
+            // keeps it — the same rule the two help flags follow.
+            //
+            // The words after it name a command, resolved here rather than descended into:
+            // descending would bind them, and they are a question rather than an invocation.
+            if token == b"help" && !self.cmd.subcommands.is_empty() {
+                let mut cmd = self.cmd;
+                while let Some(next) = self.argv.get(self.pos) {
+                    let Some(sub) = find_named(cmd, bytes(next)) else {
+                        break;
+                    };
+                    cmd = sub;
+                    self.pos += 1;
+                }
+                // The long form, as `ex config --help` gives: someone who typed a whole word to
+                // ask for help wants the fuller answer.
+                return Err(Error::Help { cmd, long: true });
             }
 
             // A word that names no subcommand goes to the default one, if there is one.

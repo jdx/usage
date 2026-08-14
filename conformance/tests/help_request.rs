@@ -158,3 +158,158 @@ fn help_wins_over_what_would_otherwise_be_an_error() {
     let parsed = Strict::parse_from(&argv).expect("nothing missing");
     assert_eq!(parsed.file, "mise.toml");
 }
+
+/// A tree deep enough to ask about a nested command.
+#[derive(Args)]
+struct Set {
+    /// Which key
+    #[usage(arg, name = "KEY")]
+    key: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum ConfigCommands {
+    /// Set a value
+    Set(Box<Set>),
+}
+
+#[derive(Args)]
+struct Config {
+    #[usage(subcommand)]
+    command: Option<ConfigCommands>,
+}
+
+#[derive(Subcommands)]
+enum DeepCommands {
+    /// Manage config
+    #[usage(alias = "cfg")]
+    Config(Box<Config>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "deep")]
+struct Deep {
+    #[usage(subcommand)]
+    command: Option<DeepCommands>,
+}
+
+fn ask_deep(tokens: &[&str]) -> String {
+    let argv: Vec<&OsStr> = tokens.iter().map(OsStr::new).collect();
+    match Deep::parse_from(&argv) {
+        Err(Error::Help { cmd, long }) => {
+            assert!(long, "the `help` command gives the fuller answer");
+            usage_argv::help::render(Deep::spec(), cmd, long).expect("this CLI's own command")
+        }
+        Err(other) => panic!("expected a help request, got {other:?}"),
+        Ok(_) => panic!("expected a help request, not a parse"),
+    }
+}
+
+/// The `Usage:` line of a page — which command it is about, said exactly.
+fn usage_line_of(page: &str) -> &str {
+    page.lines()
+        .find_map(|l| l.strip_prefix("Usage: "))
+        .expect("every page has a usage line")
+}
+
+#[test]
+fn the_help_command_answers_about_the_command_it_names() {
+    // What the page itself advertises — "help  Print this message or the help of the given
+    // subcommand(s)" — and what it did not do until now.
+    assert_eq!(usage_line_of(&ask_deep(&["help"])), "deep <SUBCOMMAND>");
+    assert_eq!(
+        usage_line_of(&ask_deep(&["help", "config"])),
+        "deep config <SUBCOMMAND>"
+    );
+
+    // Every name a command answers to, since `help` is asking about the command rather than
+    // about the word: `ex help cfg` is a question about `config`.
+    assert_eq!(
+        usage_line_of(&ask_deep(&["help", "cfg"])),
+        "deep config <SUBCOMMAND>"
+    );
+
+    // The whole path, not just the first word.
+    let page = ask_deep(&["help", "config", "set"]);
+    assert_eq!(usage_line_of(&page), "deep config set [KEY]");
+    assert!(page.contains("Which key"), "{page}");
+}
+
+#[test]
+fn help_stops_at_a_word_that_names_no_command() {
+    // `deep help config nonsense` answers about `config` rather than failing: the words after
+    // `help` are a question, and the most useful answer to a half-recognised one is the page
+    // for as far as it got.
+    let page = ask_deep(&["help", "config", "nonsense"]);
+    assert_eq!(usage_line_of(&page), "deep config <SUBCOMMAND>");
+}
+
+#[test]
+fn a_leaf_command_has_no_help_command() {
+    // The page prints that line only where there are subcommands, so `help` is a word like any
+    // other to a command that has none — here, `set`'s own `KEY`.
+    let argv = [OsStr::new("config"), OsStr::new("set"), OsStr::new("help")];
+    let parsed = Deep::parse_from(&argv).expect("a word, not a request");
+    let Some(DeepCommands::Config(config)) = parsed.command else {
+        panic!("expected config")
+    };
+    let Some(ConfigCommands::Set(set)) = config.command else {
+        panic!("expected set")
+    };
+    assert_eq!(set.key.as_deref(), Some("help"));
+}
+
+/// A CLI that means something else by `help` — the command counterpart of a declared
+/// `--help` flag.
+#[derive(Args)]
+struct OwnHelp {
+    /// What to look up
+    #[usage(arg, name = "TOPIC")]
+    topic: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum OwnCommands {
+    /// Open the manual
+    Help(Box<OwnHelp>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "own")]
+struct OwnCli {
+    #[usage(subcommand)]
+    command: Option<OwnCommands>,
+}
+
+#[test]
+fn a_cli_that_declares_its_own_help_command_keeps_it() {
+    // Asked after the subcommand lookup, so a CLI that declares `help` still gets its own
+    // command and its own arguments, as one declaring `--help` keeps that.
+    let argv = [OsStr::new("help"), OsStr::new("topic")];
+    let parsed = OwnCli::parse_from(&argv).expect("the CLI's own command, not a help request");
+    let Some(OwnCommands::Help(help)) = parsed.command else {
+        panic!("expected the declared help command")
+    };
+    assert_eq!(help.topic.as_deref(), Some("topic"));
+}
+
+#[test]
+fn the_page_advertises_exactly_where_the_word_works() {
+    // The page prints "help  Print this message…" at the end of its Commands section, so the
+    // word has to work wherever that line appears and nowhere else — a page promising a
+    // command that does nothing, or a command no page mentions, are the same defect twice.
+    let spec = Deep::spec();
+    let root_page = usage_argv::help::short_help(spec, &["deep"], spec.root);
+    assert!(
+        root_page.contains("\n  help  Print this message"),
+        "{root_page}"
+    );
+
+    let config = spec.root.subcommands[0];
+    let set = config.subcommands[0];
+    let leaf_page = usage_argv::help::short_help(spec, &["deep", "config", "set"], set);
+    assert!(
+        !leaf_page.contains("help  Print this message"),
+        "a leaf promises nothing: {leaf_page}"
+    );
+}
