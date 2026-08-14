@@ -27,7 +27,10 @@ use crate::complete::Shell;
 /// single shell word therefore cannot be completed in zsh by anyone, which the assertion says
 /// out loud rather than leaving to be discovered at a prompt.
 pub fn script(bin: &str, shell: Shell) -> String {
-    debug_assert!(
+    // A hard assertion, not a debug one: the alternative is a release build quietly writing a
+    // script that registers half a name, which is the failure this says out loud. The name comes
+    // from the spec its author wrote, not from anything a user typed.
+    assert!(
         !bin.contains(char::is_whitespace),
         "a completion script cannot register a binary whose name is not one shell word \
          ({bin:?}): zsh's `#compdef` line has nowhere to put a quote"
@@ -309,7 +312,10 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         # PowerShell's own, so that `~`, drive-relative paths and provider paths behave as they
         # do everywhere else in the shell.
         foreach ($path in [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)) {{
-            if ($files -eq 'dirs' -and -not (Test-Path -Path $path.CompletionText -PathType Container)) {{
+            # By what PowerShell said it is, not by testing the path again: `CompletionText` is
+            # the text to *insert* and may already carry quoting, so a directory whose name needs
+            # quotes would fail a `Test-Path` and vanish from a dirs-only completion.
+            if ($files -eq 'dirs' -and $path.ResultType -ne 'ProviderContainer') {{
                 continue
             }}
             $results.Add($path)
@@ -343,6 +349,15 @@ mod tests {
             assert!(!out.contains("usage complete-word"), "{shell:?}");
             assert!(!out.contains("XDG_CACHE_HOME"), "{shell:?}");
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "one shell word")]
+    fn a_name_no_script_could_register_is_refused() {
+        // zsh's `#compdef` line is read by `compinit` before shell quoting exists, so a name
+        // that is not one word cannot be registered there by anyone. Refused loudly, in release
+        // builds too, rather than written into a script that looks fine and completes nothing.
+        script("my tool", Shell::Zsh);
     }
 
     #[test]
