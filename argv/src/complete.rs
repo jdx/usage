@@ -60,6 +60,11 @@ impl Shell {
     fn backtick_escapes(self) -> bool {
         matches!(self, Shell::PowerShell)
     }
+
+    /// Whether a quote inside a quoted string is written by doubling it.
+    fn doubles_quotes(self) -> bool {
+        matches!(self, Shell::PowerShell)
+    }
 }
 
 /// A command line as the shell would have passed it, plus where the cursor was.
@@ -111,32 +116,60 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     let mut chars = line.char_indices().peekable();
     let mut quote: Option<char> = None;
 
+    // The cursor is reached before the character it sits in front of is read, so the word in
+    // hand is the word being completed and what is in it is the prefix.
+    //
+    // A macro rather than a closure because it writes to four locals the loop also writes to,
+    // and it has to run at *two* places: at the top of each character, and again before an
+    // escape swallows the one after it. Only checking the top meant a cursor sitting on an
+    // escaped character was never noticed, and the split described the last word of the line
+    // instead of the one being typed.
+    macro_rules! reached {
+        ($idx:expr) => {
+            if $idx == cursor && prefix.is_none() {
+                cword = Some(words.len());
+                prefix = Some(word.clone());
+                cursor_in_word = started;
+            }
+        };
+    }
+
     while let Some((i, c)) = chars.next() {
-        // The cursor is reached before the character it sits in front of is read, so the word
-        // in hand is the word being completed and what is in it is the prefix.
-        if i == cursor && prefix.is_none() {
-            cword = Some(words.len());
-            prefix = Some(word.clone());
-            cursor_in_word = started;
-        }
+        reached!(i);
 
         match quote {
             Some('\'') => {
                 if c == '\'' {
-                    quote = None;
+                    // PowerShell writes a quote inside a quoted string by doubling it; the
+                    // POSIX-shaped shells have no such rule, and there a second quote always
+                    // ends the string.
+                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some('\'') {
+                        reached!(chars.peek().expect("peeked just above").0);
+                        word.push('\'');
+                        chars.next();
+                    } else {
+                        quote = None;
+                    }
                 } else {
                     word.push(c);
                 }
             }
             Some(q) => {
                 if c == q {
-                    quote = None;
+                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some(q) {
+                        reached!(chars.peek().expect("peeked just above").0);
+                        word.push(q);
+                        chars.next();
+                    } else {
+                        quote = None;
+                    }
                 } else if is_escape(c, shell) {
                     // Inside double quotes an escape is only an escape before a character it
                     // could mean something to; before anything else it is a literal, which is
                     // why a Windows path in double quotes survives.
                     match chars.peek() {
-                        Some(&(_, next)) if escapable_in_quotes(next, shell) => {
+                        Some(&(j, next)) if escapable_in_quotes(next, shell) => {
+                            reached!(j);
                             word.push(next);
                             chars.next();
                         }
@@ -151,10 +184,13 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     quote = Some(c);
                     started = true;
                 } else if is_escape(c, shell) {
-                    if let Some(&(_, next)) = chars.peek() {
+                    // Before the check, because the escape has already started the word: a
+                    // cursor on the escaped character is inside it, not in the gap before it.
+                    started = true;
+                    if let Some(&(j, next)) = chars.peek() {
+                        reached!(j);
                         word.push(next);
                         chars.next();
-                        started = true;
                     } else {
                         // A trailing escape is a line the user is still typing, not a mistake
                         // to report: it escapes the character they have not typed yet.
@@ -338,6 +374,44 @@ mod tests {
         let s = split("mise   use", 6, Shell::Bash);
         assert_eq!(s.words, ["mise", "", "use"]);
         assert_eq!(s.cword, 1);
+    }
+
+    #[test]
+    fn a_cursor_on_an_escaped_character_is_still_in_its_word() {
+        // `mise run my\ ⌶task` — the cursor sits on the character the escape swallowed, which
+        // the loop never stops at on its own. Missing it made the split describe the last word
+        // of the line rather than the one being typed.
+        // The backslash is at 11 and the space it escapes at 12, which is where the cursor is.
+        let line = r"mise run my\ task and more";
+        let s = split(line, 12, Shell::Bash);
+        assert_eq!(s.cword, 2);
+        assert_eq!(s.prefix, "my");
+        assert_eq!(s.words, ["mise", "run", "my task", "and", "more"]);
+
+        // The same inside double quotes, where the escape applies to the quote it precedes.
+        let line = r#"mise run "say \"hi" then"#;
+        let s = split(line, 15, Shell::Bash);
+        assert_eq!(s.cword, 2);
+        assert_eq!(s.prefix, "say ");
+    }
+
+    #[test]
+    fn powershell_writes_a_quote_by_doubling_it() {
+        // Documented as PowerShell's rule, and now done: `''` inside a quoted string is one
+        // quote rather than the end of the string and the start of another.
+        let s = split("mise run 'it''s here", 20, Shell::PowerShell);
+        assert_eq!(s.words, ["mise", "run", "it's here"]);
+        assert_eq!(s.prefix, "it's here");
+
+        let s = split(r#"mise run "say ""hi"#, 18, Shell::PowerShell);
+        assert_eq!(s.words, ["mise", "run", r#"say "hi"#]);
+
+        // And not POSIX's rule, in either quote: there a second quote ends the string, so
+        // `'it''s` is two pieces of one word rather than an escaped quote.
+        let s = split("mise run 'it''s", 15, Shell::Bash);
+        assert_eq!(s.words, ["mise", "run", "its"]);
+        let s = split(r#"mise run "it""s"#, 15, Shell::Bash);
+        assert_eq!(s.words, ["mise", "run", "its"]);
     }
 
     #[test]
