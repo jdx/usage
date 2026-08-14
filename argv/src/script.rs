@@ -41,27 +41,32 @@ pub fn script(bin: &str, shell: Shell) -> String {
          shell word, and zsh's `#compdef` line has nowhere to put a quote even if it were \
          quoted everywhere else"
     );
-    let ident = shell_ident(bin);
     match shell {
-        Shell::Bash => bash(bin, &ident),
+        Shell::Bash => bash(bin),
         Shell::Zsh => zsh(bin),
-        Shell::Fish => fish(bin, &ident),
-        Shell::Nu => nu(bin, &ident),
+        Shell::Fish => fish(bin),
+        Shell::Nu => nu(bin, &nu_ident(bin)),
         Shell::PowerShell => powershell(bin),
     }
 }
 
-/// A name a shell will accept for a function, derived from a binary's.
+/// A nushell identifier for a binary's name, one name to one identifier.
 ///
-/// `my-tool` and `my.tool` are ordinary binary names and neither is an identifier, so anything
-/// that is not a letter, a digit or an underscore becomes one.
-fn shell_ident(bin: &str) -> String {
+/// The other four shells take a binary's name verbatim as part of a function name — bash, zsh and
+/// fish all accept `-`, `.` and `+` there, which is worth knowing because sanitizing them away is
+/// what makes two names collide. nushell binds a variable, where `-` would be read as
+/// subtraction, so its name has to be escaped rather than flattened: flattening mapped `foo-bar`
+/// and `foo+bar` both to `foo_bar`, and two scripts loaded together would each have completed the
+/// other's binary.
+fn nu_ident(bin: &str) -> String {
     let mut out = String::with_capacity(bin.len());
     for c in bin.chars() {
         if c.is_ascii_alphanumeric() {
             out.push(c);
         } else {
-            out.push('_');
+            // The underscore is escaped too, so that no escape can be spelled by hand into a
+            // name and collide with the character it stands for.
+            out.push_str(&format!("_x{:02x}", c as u32));
         }
     }
     out
@@ -77,11 +82,11 @@ fn header(bin: &str, shell: Shell, comment: &str) -> String {
     )
 }
 
-fn bash(bin: &str, ident: &str) -> String {
+fn bash(bin: &str) -> String {
     let head = header(bin, Shell::Bash, "#");
     format!(
         r#"{head}
-_usage_complete_{ident}() {{
+_usage_complete_{bin}() {{
     local __usage_out __usage_line __usage_files=
     # Truncated here rather than passed with an offset: every shell counts a cursor in its own
     # units — characters in a UTF-8 locale for bash and zsh, characters for fish and PowerShell —
@@ -119,7 +124,7 @@ _usage_complete_{ident}() {{
         (( ${{#__usage_paths[@]}} )) && COMPREPLY+=("${{__usage_paths[@]}}")
     fi
 }}
-complete -F _usage_complete_{ident} '{bin}'
+complete -F _usage_complete_{bin} '{bin}'
 "#,
     )
 }
@@ -198,13 +203,13 @@ fi
     )
 }
 
-fn fish(bin: &str, ident: &str) -> String {
+fn fish(bin: &str) -> String {
     let head = header(bin, Shell::Fish, "#");
     // `commandline -cp` is the line up to the cursor, so the cursor is its length — fish has no
     // separate offset to pass, and needs none.
     format!(
         r#"{head}
-function __usage_complete_{ident}
+function __usage_complete_{bin}
     set -l line (commandline -cp)
     # `commandline -cp` is already cut at the cursor, so there is nothing to say about where
     # the cursor is: the end of what it gives is where the cursor was.
@@ -234,7 +239,7 @@ end
 
 # `-f` so fish offers no filenames of its own: this CLI says when they belong, and the function
 # produces them itself when they do.
-complete -c '{bin}' -f -a '(__usage_complete_{ident})'
+complete -c '{bin}' -f -a '(__usage_complete_{bin})'
 "#,
     )
 }
@@ -393,14 +398,35 @@ mod tests {
     }
 
     #[test]
+    fn two_names_that_are_not_identifiers_do_not_become_one() {
+        // `foo-bar` and `foo+bar` are two binaries. Flattening both to `foo_bar` meant that with
+        // two scripts loaded, completing one ran the other's completer — so bash, zsh and fish
+        // take the name verbatim (all three accept these characters in a function name) and
+        // nushell, which cannot, escapes rather than flattens.
+        for shell in [Shell::Bash, Shell::Zsh, Shell::Fish, Shell::Nu] {
+            let dash = script("foo-bar", shell);
+            let plus = script("foo+bar", shell);
+            assert_ne!(dash, plus, "{shell:?} generated the same script for both");
+            // And neither borrows the other's function name.
+            assert!(!dash.contains("foo+bar"), "{shell:?} dash: {dash}");
+            assert!(!plus.contains("foo-bar"), "{shell:?} plus: {plus}");
+        }
+
+        assert_eq!(nu_ident("foo-bar"), "foo_x2dbar");
+        assert_eq!(nu_ident("foo+bar"), "foo_x2bbar");
+        // The underscore is escaped too, so a name cannot spell an escape and collide with what
+        // it stands for.
+        assert_ne!(nu_ident("foo_x2dbar"), nu_ident("foo-bar"));
+    }
+
+    #[test]
     fn a_binary_name_that_is_not_an_identifier_still_gives_one() {
-        // `my-tool` and `my.tool` are ordinary names for a binary and neither can name a shell
-        // function, so the function is named after a sanitized version while the *command* keeps
-        // its own name.
+        // `my-tool` is an ordinary name for a binary, and bash is perfectly happy with it in a
+        // function name — which is why nothing is sanitized away here.
         let out = script("my-tool", Shell::Bash);
-        assert!(out.contains("_usage_complete_my_tool()"), "{out}");
+        assert!(out.contains("_usage_complete_my-tool()"), "{out}");
         assert!(
-            out.contains(r"complete -F _usage_complete_my_tool 'my-tool'"),
+            out.contains(r"complete -F _usage_complete_my-tool 'my-tool'"),
             "{out}"
         );
         // Quoted at every invocation too, so a name needing quotes at least runs — see the
