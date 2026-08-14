@@ -117,3 +117,51 @@ fn the_short_flags_offered_are_the_reference_s() {
     assert_same("mise use -g");
     assert_same("mise install -f");
 }
+
+/// Where the reference reads the directory, this says the shell should.
+///
+/// The one deliberate divergence in the completion path, so it is checked as an equivalence
+/// rather than waived: for a line whose answer is paths, the reference's candidates must all be
+/// entries that exist in the working directory, and ours must be the marker saying so. A
+/// difference either way — a listing where we claim to know the answer, or a marker where the
+/// reference had real candidates — fails.
+#[test]
+fn where_the_reference_lists_files_this_asks_the_shell_for_them() {
+    use usage_argv::complete::{complete, Files};
+
+    let spec = mise_spec();
+    let cwd = std::env::current_dir().expect("a working directory");
+    let entries: Vec<String> = std::fs::read_dir(&cwd)
+        .expect("readable")
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    assert!(
+        !entries.is_empty(),
+        "the fixture needs a non-empty directory"
+    );
+
+    // `mise trust ⌶` takes a `[CONFIG_FILE]`, which the reference completes as a path.
+    for line in ["mise trust ", "mise config get --file "] {
+        let s = split(line, line.len(), Shell::Bash);
+        let ours = complete(shadow_mise::Cli::spec(), &s);
+        let theirs = usage_cli::complete_candidates(&spec, &s.words, s.cword, "bash")
+            .expect("the reference should answer");
+
+        assert_eq!(
+            ours.files,
+            Some(Files::Any),
+            "{line:?} should hand paths to the shell, got {ours:?}"
+        );
+        // Every name the reference offered is something in this directory — i.e. it answered
+        // with a listing, which is the thing we are replacing rather than contradicting.
+        for (value, _) in &theirs {
+            let bare = value.trim_end_matches('/');
+            assert!(
+                entries.iter().any(|e| e == bare),
+                "{line:?}: the reference offered {value:?}, which is not a directory entry — so \
+                 it was not doing file completion and the marker is wrong here"
+            );
+        }
+    }
+}
