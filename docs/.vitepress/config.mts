@@ -74,6 +74,7 @@ export default defineConfig({
         link: "/spec/",
         items: [
           { text: "argv grammar", link: "/spec/argv" },
+          { text: "config resolution", link: "/spec/resolution" },
           {
             text: "Reference",
             link: "/spec/reference/",

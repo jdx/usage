@@ -4,9 +4,9 @@ Test vectors for configuration resolution. Each one pairs a set of settings with
 the layers that supply values, and the resolution the two must produce.
 
 The [`config` block](https://usage.jdx.dev/spec/reference/config) is how a spec
-_declares_ settings. What a resolution does with them has no prose page yet, so
-until it has one these vectors are the definition — which is the wrong way round,
-and the page is worth writing.
+_declares_ settings; [resolution](https://usage.jdx.dev/spec/resolution) is what
+happens to them. That page is the prose and these vectors are the same rules made
+executable, the way the argv grammar and its corpus sit together.
 
 The vectors are KDL because KDL is usage's canonical format. If you are writing a
 usage config resolver in another language, this directory is the definition of
