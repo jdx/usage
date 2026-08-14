@@ -59,6 +59,20 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                 awaiting_value = Some(flag);
                 break;
             }
+            // `ex help config ⌶` is asking which command to read about, and the answer is a
+            // command under `config` — the one the help request already resolved. The parser
+            // never descended into it, on purpose (a topic is a question, not an invocation),
+            // so the position has to be taken from the request rather than from the parser.
+            //
+            // Nothing else can be typed there: a topic takes no flags and fills no argument.
+            Err(Error::Help { cmd, .. }) => {
+                return Position {
+                    cmd,
+                    flags_possible: false,
+                    awaiting_value: None,
+                    next_arg: None,
+                }
+            }
             Err(_) => break,
         }
     }
@@ -440,6 +454,20 @@ mod tests {
         // another tool: the flags there are the other tool's, and this CLI has none to offer.
         assert!(!position_at("mise exec node ").flags_possible);
         assert!(position_at("mise exec ").flags_possible);
+    }
+
+    #[test]
+    fn a_help_topic_puts_the_cursor_under_the_command_it_named() {
+        // `mise help plugins ⌶` asks which command to read about, and the candidates are
+        // `plugins`'s own — not the root's, which is where the parser stayed, since a topic is
+        // resolved without being descended into.
+        let p = position_at("mise help plugins ");
+        assert_eq!(p.cmd.name, "plugins");
+        assert!(!p.flags_possible, "a topic takes no flags");
+        assert!(p.next_arg.is_none(), "and fills no argument");
+
+        // And with no topic yet, the cursor is under the command `help` was typed in.
+        assert_eq!(position_at("mise help ").cmd.name, "mise");
     }
 
     #[test]
