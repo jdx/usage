@@ -13,11 +13,14 @@ publish = false
 clap = { version = "4", features = ["derive", "env"] }
 shadow-mise = { path = "../shadows/mise" }
 shadow-mise-clap = { path = "../shadows/mise-clap" }
-usage-argv = { path = "../../argv", features = ["spec"] }
+usage-argv = { path = "../../argv", features = ["spec", "complete"] }
 
 # The oracle for help rendering. A dev-dependency because nothing the gate *builds* needs it:
 # it is here so the shadow's rendered help can be compared against usage-lib's over mise's
 # whole spec, which is the only fixture big enough to be convincing.
 [dev-dependencies]
 usage-lib = { path = "../../lib" }
+# The oracle for completions, for the same reason: the reference's candidate list is what
+# "the same candidates" is measured against.
+usage-cli = { path = "../../cli" }
 

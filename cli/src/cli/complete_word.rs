@@ -44,6 +44,27 @@ pub struct CompleteWord {
     shell: String,
 }
 
+/// The candidates for a partially-typed command line, as data rather than as printed lines.
+///
+/// A seam for the conformance comparison: usage-argv computes the same list from compiled
+/// tables, and "the same" is only a checkable claim if this side's answer can be read instead
+/// of watched going past on stdout.
+pub fn candidates(
+    spec: &Spec,
+    words: &[String],
+    cword: usize,
+    shell: &str,
+) -> miette::Result<Vec<(String, String)>> {
+    CompleteWord {
+        words: words.to_vec(),
+        file: None,
+        spec: None,
+        cword: Some(cword),
+        shell: shell.to_string(),
+    }
+    .complete_word(spec)
+}
+
 impl CompleteWord {
     pub fn run(&self) -> miette::Result<()> {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
@@ -85,7 +106,7 @@ impl CompleteWord {
         Ok(())
     }
 
-    fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
+    pub fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self.words.get(cword).cloned().unwrap_or_default();
         let words: Vec<_> = self.words.iter().take(cword).cloned().collect();
