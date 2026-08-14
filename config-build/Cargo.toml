@@ -14,6 +14,10 @@ license = { workspace = true }
 # parser lives here and `usage-config` carries none of it.
 [dependencies]
 usage-lib = { workspace = true }
+# For the *rules*, not for the generated code: a default has to be held to the same choices, and read
+# by the same coercion, that the runtime will apply — and a second implementation of those rules here
+# is exactly the drift this crate removes elsewhere. It carries no dependencies of its own.
+usage-config = { workspace = true }
 
 # The generated code is compiled and run in the tests, which is the only way to know it is code
 # rather than plausible text.

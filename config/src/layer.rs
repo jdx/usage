@@ -293,6 +293,19 @@ mod tests {
             parse: Some(Parser::ListByComma),
             ..PropMeta::new("exclude", Ty::List(&Ty::String))
         },
+        // A `bool` whose choices are written the way a person says them, which the coercion turns
+        // into the same two values.
+        PropMeta {
+            choices: &[Const::Str("yes"), Const::Str("no")],
+            ..PropMeta::new("colour", Ty::Bool)
+        },
+        // A type usage cannot know — a union — with its choices written as numbers. Nothing is
+        // coerced here by declaration, so a value out of a file stays a string and the choice stays
+        // an integer, and only their written forms can answer whether they are the same.
+        PropMeta {
+            choices: &[Const::Int(1), Const::Int(2)],
+            ..PropMeta::new("level", Ty::Any)
+        },
         // A setting the spec limits to three values, which is hk's `stash` and mise's nine
         // enum-valued settings.
         PropMeta {
@@ -302,6 +315,15 @@ mod tests {
                 Const::Str("none"),
             ],
             ..PropMeta::new("stash", Ty::String)
+        },
+        // A list whose *items* are booleans, with the choices written as words. Unusual, and the one
+        // shape where the item's own type is the only thing that makes the comparison work: read as
+        // the list it is in, `yes` becomes a one-item list and matches nothing, and read as text it
+        // is `yes` against `true`.
+        PropMeta {
+            parse: Some(Parser::ListByComma),
+            choices: &[Const::Str("yes"), Const::Str("no")],
+            ..PropMeta::new("flags", Ty::List(&Ty::Bool))
         },
         // Choices on a list: each *item* is one of them, the way the JSON schema reads it.
         PropMeta {
@@ -343,6 +365,115 @@ mod tests {
             "skip expected one of lint, test but has `fmt`"
         );
         assert!(ctx.entry_for_key("skip", "lint,test", origin).is_ok());
+    }
+
+    #[test]
+    fn a_choice_is_read_the_way_the_declared_type_reads_it() {
+        // `choice "yes"` under `type="bool"`: the value `yes` is coerced to `true` on its way in, so
+        // comparing the two as written refused a value the spec plainly allows. The choice is read
+        // the same way the value was, which is the same question the coercion already answered.
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::ENV, "HK_COLOUR");
+        assert_eq!(
+            ctx.entry_for_key("colour", "yes", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::Bool(true))
+        );
+        // `no` is the other declared choice, and `true` is neither of them written down — but it is
+        // what `yes` reads as, so it is allowed for the same reason.
+        assert_eq!(
+            ctx.entry_for_key("colour", "no", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::Bool(false))
+        );
+        assert_eq!(
+            ctx.entry_for_key("colour", "true", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::Bool(true))
+        );
+
+        // And inside a collection it is the *item's* type that reads the choice, not the list's:
+        // read as the list, `yes` becomes a one-item list and matches nothing at all.
+        assert_eq!(
+            ctx.entry_for_key("flags", "yes,no", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::List(vec![Value::Bool(true), Value::Bool(false)]))
+        );
+        // The type is asked first, which is why this says what it says: `maybe` is not a boolean, and
+        // there is nothing useful to say about which *choice* it is not. With both spellings of a
+        // boolean declared as choices, every boolean is one of them — so for this setting the choices
+        // can only refuse what the type has already refused.
+        let warning = ctx
+            .entry_for_key("flags", "yes,maybe", origin)
+            .expect_err("`maybe` is not a boolean");
+        assert_eq!(warning.message, "flags expected a boolean but has `maybe`");
+    }
+
+    #[test]
+    fn a_float_choice_is_the_number_the_spec_wrote() {
+        // Rendered without its point, a whole-number float was the same text as an integer — so a
+        // `choice 1.0` under a *string* type accepted `1` and refused the `1.0` the spec had written.
+        static PROPS: &[PropMeta] = &[
+            PropMeta {
+                choices: &[Const::Float(1.0), Const::Float(1.5)],
+                ..PropMeta::new("scale", Ty::String)
+            },
+            // And where the type *is* a float, the coercion settles it before any text is compared.
+            PropMeta {
+                choices: &[Const::Int(1), Const::Float(1.5)],
+                ..PropMeta::new("ratio", Ty::Float)
+            },
+        ];
+        const REGISTRY: Registry = Registry::new(PROPS);
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::ENV, "HK_SCALE");
+
+        assert_eq!(
+            ctx.entry_for_key("scale", "1.0", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::from("1.0"))
+        );
+        let warning = ctx
+            .entry_for_key("scale", "1", origin.clone())
+            .expect_err("`1` is not `1.0`");
+        assert_eq!(
+            warning.message,
+            "scale expected one of 1.0, 1.5 but has `1`"
+        );
+
+        // `choice 1` under `type="float"` is the float one, because that is what the type reads it
+        // as — the case the point-less rendering used to settle by accident.
+        assert_eq!(
+            ctx.entry_for_key("ratio", "1", origin)
+                .map(|entry| entry.value),
+            Ok(Value::Float(1.0))
+        );
+    }
+
+    #[test]
+    fn a_type_nothing_coerces_compares_its_choices_as_written() {
+        // `any` coerces nothing, by declaration — so a value arrives as the string a file or an
+        // environment variable wrote, the choice stays the integer the spec wrote, and comparing them
+        // after a coercion that did nothing refuses a value the spec allows.
+        let ctx = LayerCtx::new(REGISTRY);
+        let origin = Origin::new(SourceKind::ENV, "HK_LEVEL");
+        assert_eq!(
+            ctx.entry_for_key("level", "2", origin.clone())
+                .map(|entry| entry.value),
+            Ok(Value::from("2"))
+        );
+        let warning = ctx
+            .entry_for_key("level", "3", origin.clone())
+            .expect_err("not one of them");
+        assert_eq!(warning.message, "level expected one of 1, 2 but has `3`");
+
+        // And a *list* of them is not one of them. Nothing declared this setting to have items, so
+        // there is nothing to walk into: following the value's shape instead, `[1]` was accepted for
+        // `choice 1` — and for a type the spec left open, a value's shape is whatever a file wrote.
+        let warning = ctx
+            .entry_from_value("level", Value::List(vec![Value::Int(1)]), origin)
+            .expect_err("a list of one choice is not that choice");
+        assert_eq!(warning.message, "level expected one of 1, 2 but has `1`");
     }
 
     #[test]

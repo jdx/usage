@@ -166,6 +166,222 @@ fn an_old_name_with_a_list_default_is_refused_too() {
 }
 
 #[test]
+fn a_default_the_choices_do_not_allow_is_refused() {
+    // At run time this is seeded as the bottom layer and then refused by the same check every other
+    // value goes through — a warning on every run of a shipped binary, for a mistake only the author
+    // of the spec can fix. So it is refused where the author will see it.
+    assert_eq!(
+        problems(
+            "    prop \"stash\" type=\"string\" default=\"svn\" {\n        \
+             choices {\n            choice \"git\"\n            choice \"none\"\n        }\n    }"
+        ),
+        vec!["`stash` defaults to `svn`, which is not one of the values it allows: git, none"]
+    );
+
+    // And a list default is held to them item by item, the way the values themselves are.
+    assert_eq!(
+        problems(
+            "    prop \"skip\" type=\"list<string>\" {\n        default \"lint\" \"deploy\"\n        \
+             choices {\n            choice \"lint\"\n            choice \"test\"\n        }\n    }"
+        ),
+        vec!["`skip` defaults to `deploy`, which is not one of the values it allows: lint, test"]
+    );
+}
+
+#[test]
+fn a_value_the_declared_type_cannot_read_is_refused_wherever_it_is_declared() {
+    // `choice 1` under `type="bool"`, which reads booleans and their spellings and not numbers: a
+    // choice nobody can ever pick, so *every* value the setting is given would be refused at run
+    // time. It was caught only by accident, through the default not matching those choices — a
+    // message that blames the wrong end of the mistake.
+    assert_eq!(
+        problems(
+            "    prop \"colour\" type=\"bool\" default=#true {\n        \
+             choices {\n            choice 1\n            choice 0\n        }\n    }"
+        ),
+        vec![
+            "`colour` has a choice `1`, which is not a boolean",
+            "`colour` has a choice `0`, which is not a boolean"
+        ]
+    );
+
+    // And a *default* the type cannot read, which nothing else catches at all: it is seeded straight
+    // into the resolution, passing through no coercion, and then read by whatever holds it.
+    assert_eq!(
+        problems("    prop \"colour\" type=\"bool\" default=1"),
+        vec!["`colour` defaults to `1`, which is not a boolean"]
+    );
+
+    // A choice that is merely unreachable is the same mistake in a quieter form: it appears in the
+    // docs as a value one may set, and no value can ever be it.
+    assert_eq!(
+        problems(
+            "    prop \"jobs\" type=\"uint\" default=1 {\n        \
+             choices {\n            choice 1\n            choice \"lots\"\n        }\n    }"
+        ),
+        vec!["`jobs` has a choice `lots`, which is not a non-negative integer"]
+    );
+}
+
+#[test]
+fn the_spec_and_the_runtime_write_a_value_the_same_way() {
+    // Three crates render a value and all three have to agree, because a default is coerced by the
+    // *spec's* parser and its choices are read by the *runtime's* — so one character of difference
+    // refused a `default=1.0` beside a `choice 1.0`, written identically. usage-lib cannot depend on
+    // usage-config, so the rule exists in both; this is the one place that can see them at once, and
+    // it is here so that a change to either is a failure rather than a surprise.
+    for value in [
+        0.0_f64,
+        1.0,
+        -1.0,
+        0.5,
+        1.25,
+        1e3,
+        1e300,
+        f64::MIN,
+        f64::MAX,
+    ] {
+        assert_eq!(
+            usage::spec::config::SpecConfigValue::Float(value).display(),
+            usage_config::Value::Float(value).display(),
+            "the two crates write {value} differently"
+        );
+    }
+}
+
+#[test]
+fn a_list_default_under_a_type_with_no_items_is_one_value() {
+    // `any` takes a list perfectly well, and a scalar choice is not one however many items it has.
+    // Checked item by item — which is right only where the type declares items — `default 1 2` beside
+    // `choice 1` and `choice 2` passed, and the whole list is what a seeded default *is*: refused by
+    // its own choices at run time, and never checked again.
+    assert_eq!(
+        problems(
+            "    prop \"level\" type=\"int|string\" {\n        default 1 2\n        \
+             choices {\n            choice 1\n            choice 2\n        }\n    }"
+        ),
+        vec!["`level` defaults to `1,2`, which is not one of the values it allows: 1, 2"]
+    );
+
+    // A union whose *first arm* is a list is still a union: what is emitted for it is `Ty::Any`,
+    // which compares a value whole — so asking the spec's `simplified` type, which collapses a union
+    // to that first arm, accepted a default the generated registry would refuse.
+    assert_eq!(
+        problems(
+            "    prop \"level\" type=\"list<uint>|uint\" {\n        default 1 2\n        \
+             choices {\n            choice 1\n            choice 2\n        }\n    }"
+        ),
+        vec!["`level` defaults to `1,2`, which is not one of the values it allows: 1, 2"]
+    );
+
+    // Where the type *does* declare items, each of them is one of the choices, as before — including
+    // through an `option`, which the runtime looks through as well.
+    for ty in ["list<uint>", "set<uint>", "option<list<uint>>"] {
+        source_of_spec(
+            &spec(&format!(
+                "    prop \"ports\" type=\"{ty}\" {{\n        default 1 2\n        \
+                 choices {{\n            choice 1\n            choice 2\n        }}\n    }}"
+            )),
+            "mycli.usage.kdl",
+        )
+        .unwrap_or_else(|err| panic!("each item is one of them, for `{ty}`: {err}"));
+    }
+}
+
+#[test]
+fn a_value_reads_here_the_way_it_reads_at_run_time() {
+    // The generator and the runtime have to agree about what a value *is*, or this crate accepts a
+    // registry the registry itself refuses. They drifted the moment one of them learned that a
+    // whole-number float is `1.0` and not `1`: `default="1"` beside `choice 1.0` was accepted here
+    // and refused there — and a seeded default is never checked again, so it would simply have been
+    // the effective value.
+    assert_eq!(
+        problems(
+            "    prop \"scale\" type=\"string\" default=\"1\" {\n        \
+             choices {\n            choice 1.0\n        }\n    }"
+        ),
+        vec!["`scale` defaults to `1`, which is not one of the values it allows: 1.0"]
+    );
+    // And the spelling the spec wrote is the one that is one of them.
+    source_of_spec(
+        &spec(
+            "    prop \"scale\" type=\"string\" default=\"1.0\" {\n        \
+             choices {\n            choice 1.0\n        }\n    }",
+        ),
+        "mycli.usage.kdl",
+    )
+    .expect("`1.0` is `1.0`");
+}
+
+#[test]
+fn a_default_no_choice_can_be_is_refused_however_it_is_written() {
+    // `default="3"` beside `choice 1`: written differently, and still not one of them once both are
+    // read as the declared type. Skipping the pair because their literals differ let this through on
+    // the assumption that resolution would refuse it later — and a *seeded* default never passes the
+    // check a supplied value does, so it would have become the effective value with nothing said.
+    assert_eq!(
+        problems(
+            "    prop \"level\" type=\"int\" default=\"3\" {\n        \
+             choices {\n            choice 1\n            choice 2\n        }\n    }"
+        ),
+        vec!["`level` defaults to `3`, which is not one of the values it allows: 1, 2"]
+    );
+}
+
+#[test]
+fn a_default_written_unlike_its_choices_is_still_one_of_them() {
+    // `choice "yes"` under `type="bool"`: read as the declared type — through the same `Ty::coerce`
+    // the run time uses — `#true` *is* one of them, and refusing a spec that resolves perfectly well
+    // would be the worse mistake of the two.
+    let generated = source_of_spec(
+        &spec(
+            "    prop \"colour\" type=\"bool\" default=#true {\n        \
+             choices {\n            choice \"yes\"\n            choice \"no\"\n        }\n    }",
+        ),
+        "mycli.usage.kdl",
+    )
+    .expect("should generate");
+    assert!(generated.contains("Const::Bool(true)"), "{generated}");
+    assert!(generated.contains("Const::Str(\"yes\")"), "{generated}");
+
+    // A union coerces nothing, so its choice and its default stay an integer and a string — and only
+    // what they are written as can say whether they are the same. Refusing here would refuse a spec
+    // the run time accepts, which is the worse way round to be wrong.
+    source_of_spec(
+        &spec(
+            "    prop \"level\" type=\"int|string\" default=\"1\" {\n        \
+             choices {\n            choice 1\n            choice 2\n        }\n    }",
+        ),
+        "mycli.usage.kdl",
+    )
+    .expect("a union takes what it is given");
+
+    // And inside a list it is the *item's* type that reads them: read as the list, `yes` is a
+    // one-item list and matches nothing.
+    let generated = source_of_spec(
+        &spec(
+            "    prop \"flags\" type=\"list<bool>\" {\n        default \"yes\"\n        \
+             choices {\n            choice #true\n            choice #false\n        }\n    }",
+        ),
+        "mycli.usage.kdl",
+    )
+    .expect("`yes` is `true` once an item is read as a bool");
+    // And it is emitted as the boolean it *is*: a default is seeded straight into the resolution
+    // with no coercion, so emitting the string it was written as would fail the first read of a
+    // registry this crate had just accepted.
+    assert!(
+        generated.contains("Const::List(&[::usage_config::Const::Bool(true)])"),
+        "{generated}"
+    );
+    // The choices keep the spelling the spec gave them: they are documentation as much as values,
+    // and the comparison reads them when it needs to.
+    assert!(
+        generated.contains("choices: &[::usage_config::Const::Bool(true)"),
+        "{generated}"
+    );
+}
+
+#[test]
 fn a_default_declared_twice_is_refused() {
     // `default=1` beside a `default 80 443` node. The spec takes both — I checked, rather than
     // trusting the comment I had written saying it did not — and there is no reading of a property

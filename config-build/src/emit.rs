@@ -140,6 +140,10 @@ fn prop_meta(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -> St
         }
         let _ = writeln!(fields, "        bindings: &[{}],", pairs.join(", "));
     }
+    if !prop.choices.is_empty() {
+        let values: Vec<String> = prop.choices.iter().map(|c| value_const(&c.value)).collect();
+        let _ = writeln!(fields, "        choices: &[{}],", values.join(", "));
+    }
     if prop.hide {
         let _ = writeln!(fields, "        hide: true,");
     }
@@ -252,15 +256,203 @@ fn default_const(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -
             "`{key}` declares a default twice, as `default=` and as a `default` node: keep one"
         ));
     }
+    // Anything declared here that the declared type cannot read is a value nothing can ever hold: a
+    // `choice` nobody can pick — `choice 1` under `type="bool"`, which reads booleans and their
+    // spellings and not numbers — or a default that is seeded straight into the resolution and then
+    // read by nothing, since a seeded default passes through no coercion at all.
+    let scalar = scalar_ty(prop.value_type.as_ref());
+    let mut unreadable = Vec::new();
+    for (what, value) in prop
+        .default
+        .iter()
+        .chain(prop.default_list.iter())
+        .map(|value| ("defaults to", value))
+        .chain(prop.choices.iter().map(|c| ("has a choice", &c.value)))
+    {
+        if scalar.coerce(runtime_value(value)).is_err() {
+            unreadable.push(what);
+            problems.push(format!(
+                "`{key}` {what} `{}`, which is not {}",
+                display(value),
+                scalar.describe()
+            ));
+        }
+    }
+
+    // A declared default the declared choices do not allow. At run time it is seeded as the bottom
+    // layer and read by whatever holds it, so this is the only place it can be caught at all.
+    //
+    // Compared only when every choice is one a value could be: against a choice nothing can read,
+    // "not one of the values it allows" is a second message for the same mistake, and it blames the
+    // wrong end of it.
+    if !prop.choices.is_empty() && unreadable.is_empty() {
+        // Read the way the run time will read them — through the same `Ty::coerce` — because that is
+        // the only comparison that means anything: a spec writes `default="1"` beside `choice 1`, or
+        // `choice "yes"` under `type="bool"`, and neither is a mismatch once both are the declared
+        // type. Comparing spec literals refused those; comparing only same-shaped literals let
+        // `default="3"` beside `choice 1` through, and a *seeded* default never passes the check a
+        // supplied value does, so it would have become the effective value with nothing said.
+        let allowed = |value: &SpecConfigValue| {
+            let target = scalar.coerce(runtime_value(value));
+            prop.choices.iter().any(|choice| {
+                match (&target, scalar.coerce(runtime_value(&choice.value))) {
+                    (Ok(value), Ok(coerced)) if *value == coerced => true,
+                    // Coercion did not settle it: compare what the two are written as, exactly as the
+                    // run time does. `any` is where that matters — it coerces nothing, so a union's
+                    // `choice 1` and a `default="1"` stay an integer and a string, and stopping at
+                    // the arm above would refuse a spec the run time accepts.
+                    _ => display(value) == display(&choice.value),
+                }
+            })
+        };
+        // A list default under a type that declares no items is one value, not several: `any` takes
+        // a list perfectly well, and a scalar choice is not one however many items it has. Checked
+        // item by item, `default 1 2` beside `choice 1` and `choice 2` passed — and then the whole
+        // list is what a seeded default *is*, refused by its own choices and never checked again.
+        let declares_items = declares_items(prop.value_type.as_ref());
+        if !declares_items && !prop.default_list.is_empty() {
+            let written = prop
+                .default_list
+                .iter()
+                .map(display)
+                .collect::<Vec<_>>()
+                .join(",");
+            problems.push(format!(
+                "`{key}` defaults to `{written}`, which is not one of the values it allows: {}",
+                prop.choices
+                    .iter()
+                    .map(|c| display(&c.value))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        let items = match declares_items {
+            true => prop.default_list.as_slice(),
+            false => &[],
+        };
+        for value in prop.default.iter().chain(items.iter()) {
+            if !allowed(value) {
+                problems.push(format!(
+                    "`{key}` defaults to `{}`, which is not one of the values it allows: {}",
+                    display(value),
+                    prop.choices
+                        .iter()
+                        .map(|c| display(&c.value))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+        }
+    }
     // A list default is a child node rather than a value, and either may be the one that is there.
     if !prop.default_list.is_empty() {
-        let items: Vec<String> = prop.default_list.iter().map(value_const).collect();
+        let items: Vec<String> = prop
+            .default_list
+            .iter()
+            .map(|value| coerced_const(scalar, value))
+            .collect();
         return Some(format!(
             "::usage_config::Const::List(&[{}])",
             items.join(", ")
         ));
     }
-    prop.default.as_ref().map(value_const)
+    prop.default
+        .as_ref()
+        .map(|value| coerced_const(scalar, value))
+}
+
+/// A declared default as the value its type says it is.
+///
+/// Emitted *coerced*, because a default is seeded straight into the resolution and passes through no
+/// coercion on the way: `default "yes"` under `list<bool>` is a boolean by the time anything reads
+/// it, and emitted as the string it was written as, the read fails on a registry this crate had just
+/// accepted. A value the type cannot read is refused above, so this only ever converts what the run
+/// time would have converted itself.
+///
+/// A *scalar* default arrives already converted — the spec's own parser reads it as the declared
+/// type — so for that one this is belt and braces, and only the list form is observably fixed by it.
+/// Applied to both because which of them the parser happens to cover is not something this should
+/// depend on.
+///
+/// Choices are *not* put through this: they are documentation as much as values — the message says
+/// "one of yes, no" because that is what a user may write — and the comparison coerces them at the
+/// moment it needs them.
+fn coerced_const(ty: usage_config::Ty, value: &SpecConfigValue) -> String {
+    match ty.coerce(runtime_value(value)) {
+        Ok(usage_config::Value::Bool(b)) => format!("::usage_config::Const::Bool({b})"),
+        Ok(usage_config::Value::Int(i)) => format!("::usage_config::Const::Int({i})"),
+        Ok(usage_config::Value::Float(f)) => format!("::usage_config::Const::Float({f:?})"),
+        Ok(usage_config::Value::String(s)) => {
+            format!("::usage_config::Const::Str({})", rust_str(&s))
+        }
+        // A collection cannot come out of coercing a scalar, and a value the type cannot read is
+        // already a refusal — either way the generation does not survive to be emitted.
+        _ => value_const(value),
+    }
+}
+
+/// Whether the type this emits has items of its own, which is what makes an item-wise check right.
+///
+/// Asked of the type that is *emitted*, not of the one the spec wrote: `simplified` collapses a union
+/// to its first member, so a `list<string>|string` looked like a list — while what is emitted for any
+/// union is `Ty::Any`, which compares a value whole and would refuse the very default this had just
+/// accepted. `option<T>` is looked through for the same reason the runtime looks through it.
+fn declares_items(declared: Option<&SpecConfigType>) -> bool {
+    match declared {
+        Some(SpecConfigType::List(_) | SpecConfigType::Set(_) | SpecConfigType::Map(..)) => true,
+        Some(SpecConfigType::Option(inner)) => declares_items(Some(inner)),
+        _ => false,
+    }
+}
+
+/// The type a *scalar* of this setting is read as.
+///
+/// Defaults and choices are scalars, so a collection is asked about what is in it. Every base type is
+/// `const`-constructible without a reference, which is what makes this possible at build time at all:
+/// the composite `Ty`s borrow, and nothing here can hand out a `&'static Ty`.
+fn scalar_ty(declared: Option<&SpecConfigType>) -> usage_config::Ty {
+    fn of(ty: &SpecConfigType) -> usage_config::Ty {
+        match ty {
+            SpecConfigType::Base(base) => match base {
+                Base::Bool => usage_config::Ty::Bool,
+                Base::String => usage_config::Ty::String,
+                Base::Int => usage_config::Ty::Int,
+                Base::Uint => usage_config::Ty::Uint,
+                Base::Float => usage_config::Ty::Float,
+                Base::Path => usage_config::Ty::Path,
+                Base::Url => usage_config::Ty::Url,
+                Base::Duration => usage_config::Ty::Duration,
+                Base::Object => usage_config::Ty::Object,
+                Base::Custom(_) => usage_config::Ty::Any,
+            },
+            SpecConfigType::List(inner) | SpecConfigType::Set(inner) => of(inner),
+            SpecConfigType::Map(_, value) => of(value),
+            SpecConfigType::Option(inner) => of(inner),
+            // A union coerces nothing, and neither does this.
+            SpecConfigType::Union(_) => usage_config::Ty::Any,
+        }
+    }
+    declared.map_or(usage_config::Ty::String, of)
+}
+
+/// A spec value as the runtime holds one, for the coercion above.
+fn runtime_value(value: &SpecConfigValue) -> usage_config::Value {
+    match value {
+        SpecConfigValue::Bool(b) => usage_config::Value::Bool(*b),
+        SpecConfigValue::Int(i) => usage_config::Value::Int(*i),
+        SpecConfigValue::Float(f) => usage_config::Value::Float(*f),
+        SpecConfigValue::String(s) => usage_config::Value::String(s.clone()),
+    }
+}
+
+/// A spec value as a user would have written it, for a message and for the comparison that falls
+/// back to one.
+///
+/// Through the *runtime's* renderer, which is the only way the two can agree about anything: written
+/// here as well, they drifted the moment one of them learned that a whole-number float is `1.0` and
+/// not `1` — and this side would then have accepted a default the generated registry refuses.
+fn display(value: &SpecConfigValue) -> String {
+    runtime_value(value).display()
 }
 
 fn value_const(value: &SpecConfigValue) -> String {

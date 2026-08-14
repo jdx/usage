@@ -26,10 +26,15 @@ fn every_declared_default_resolves_as_its_type() {
     let output: Option<String> = fold.required(prop::TASK_OUTPUT);
     let ports: Option<Vec<u64>> = fold.required(prop::PORTS);
     let timeout: Option<String> = fold.optional(prop::TIMEOUT);
+    let format: Option<String> = fold.required(prop::LOG_FORMAT);
     fold.finish().expect("every default fits its type");
 
     assert_eq!(jobs, Some(4));
     assert_eq!(stash, Some("git".to_string()));
+    // Written `default=1` under a `string` type, and seeded with no coercion on the way — so it has
+    // to have been *emitted* as the string it is, or this read fails on a registry the generator
+    // accepted.
+    assert_eq!(format, Some("1".to_string()));
     assert_eq!(trusted, Some(false));
     assert_eq!(output, Some("prefix".to_string()));
     // A list default is a child node in the spec and stays typed all the way here: three numbers,
@@ -87,6 +92,21 @@ fn what_the_spec_said_about_each_setting_is_what_the_registry_holds() {
     assert_eq!(meta(prop::PATH).parse, Some(Parser::ListByOsPathSeparator));
     assert_eq!(meta(prop::JOBS).parse, None);
     assert!(meta(prop::CI).hide);
+
+    // What the spec says a setting will take, which until now reached the docs and the schema and
+    // nothing that resolved a value.
+    assert_eq!(
+        meta(prop::STASH).choices,
+        &[
+            usage_config::Const::Str("git"),
+            usage_config::Const::Str("patch-file"),
+            usage_config::Const::Str("none")
+        ]
+    );
+    assert!(
+        meta(prop::JOBS).choices.is_empty(),
+        "most settings say nothing"
+    );
     assert!(!meta(prop::JOBS).hide);
 
     // The environment in precedence order, and help as the spec wrote it — quotes and all.
@@ -115,6 +135,44 @@ fn what_the_spec_said_about_each_setting_is_what_the_registry_holds() {
             (prop::EXCLUDE, "defaults.exclude")
         ]
     );
+}
+
+#[test]
+fn a_value_the_spec_does_not_allow_is_refused_through_the_generated_registry() {
+    // End to end for the choices: declared as `choice` nodes in the spec, carried into the registry
+    // by the generator, and enforced by the merge — the three places that used to disagree.
+    let dir =
+        std::env::temp_dir().join(format!("usage_config_build_choice_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("dir");
+    let path = dir.join("hk.toml");
+    std::fs::write(&path, "stash = \"svn\"\n").expect("write");
+
+    let layer = FileLayer::at(&path, FileScope::Project);
+    let resolved = resolve(SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    // The declared default stands, because a refused value costs its own key and nothing else.
+    assert_eq!(resolved.get_key("stash"), Some(&Value::from("git")));
+    let warnings = usage_config::explain::warnings(&resolved);
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.starts_with("stash expected one of git, patch-file, none but has `svn`")),
+        "{warnings:?}"
+    );
+
+    // And a choice written as a number under a `string` type is the value it names once the value
+    // has been coerced: comparing the shapes refused a value the spec plainly allows.
+    let path = dir.join("formats.toml");
+    std::fs::write(&path, "log_format = 2\n").expect("write");
+    let layer = FileLayer::at(&path, FileScope::Project);
+    let resolved = resolve(SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    assert_eq!(resolved.get_key("log_format"), Some(&Value::from("2")));
+    assert!(
+        usage_config::explain::warnings(&resolved).is_empty(),
+        "{:?}",
+        usage_config::explain::warnings(&resolved)
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

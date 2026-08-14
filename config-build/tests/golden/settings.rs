@@ -35,6 +35,12 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
         ..::usage_config::PropMeta::new("jobs", ::usage_config::Ty::Uint)
     },
     ::usage_config::PropMeta {
+        default: Some(::usage_config::Const::Str("1")),
+        choices: &[::usage_config::Const::Int(1), ::usage_config::Const::Int(2)],
+        help: Some("Which log format to use"),
+        ..::usage_config::PropMeta::new("log_format", ::usage_config::Ty::String)
+    },
+    ::usage_config::PropMeta {
         default: Some(::usage_config::Const::Str("info")),
         envs: &["HK_LOG_LEVEL"],
         ..::usage_config::PropMeta::new("log_level", ::usage_config::Ty::String)
@@ -55,6 +61,7 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
     },
     ::usage_config::PropMeta {
         default: Some(::usage_config::Const::Str("git")),
+        choices: &[::usage_config::Const::Str("git"), ::usage_config::Const::Str("patch-file"), ::usage_config::Const::Str("none")],
         help: Some("How to stash before a run"),
         ..::usage_config::PropMeta::new("stash", ::usage_config::Ty::String)
     },
@@ -97,24 +104,26 @@ pub mod prop {
     pub const EXCLUDE: PropId = PropId(3);
     /// `jobs` — How many jobs to run at once
     pub const JOBS: PropId = PropId(4);
+    /// `log_format` — Which log format to use
+    pub const LOG_FORMAT: PropId = PropId(5);
     /// `log_level`
-    pub const LOG_LEVEL: PropId = PropId(5);
+    pub const LOG_LEVEL: PropId = PropId(6);
     /// `match` — Which files to match
-    pub const MATCH: PropId = PropId(6);
+    pub const MATCH: PropId = PropId(7);
     /// `path`
-    pub const PATH: PropId = PropId(7);
+    pub const PATH: PropId = PropId(8);
     /// `ports`
-    pub const PORTS: PropId = PropId(8);
+    pub const PORTS: PropId = PropId(9);
     /// `stash` — How to stash before a run
-    pub const STASH: PropId = PropId(9);
+    pub const STASH: PropId = PropId(10);
     /// `task.output` — How task output is interleaved
-    pub const TASK_OUTPUT: PropId = PropId(10);
+    pub const TASK_OUTPUT: PropId = PropId(11);
     /// `timeout` — How long to wait, if at all
-    pub const TIMEOUT: PropId = PropId(11);
+    pub const TIMEOUT: PropId = PropId(12);
     /// `trusted` — Whether this checkout may run its own hooks
-    pub const TRUSTED: PropId = PropId(12);
+    pub const TRUSTED: PropId = PropId(13);
     /// `url_replacements` — Rewrite these URL prefixes
-    pub const URL_REPLACEMENTS: PropId = PropId(13);
+    pub const URL_REPLACEMENTS: PropId = PropId(14);
 }
 
 /// Every setting, as the types a CLI holds them in.
@@ -135,6 +144,9 @@ pub struct Settings {
     /// How many jobs to run at once
     /// (`jobs`)
     pub jobs: u64,
+    /// Which log format to use
+    /// (`log_format`)
+    pub log_format: String,
     /// (`log_level`)
     pub log_level: String,
     /// Which files to match
@@ -180,6 +192,7 @@ impl Settings {
         let read_either: Option<::usage_config::Value> = fold.optional(prop::EITHER);
         let read_exclude: Option<Vec<String>> = fold.optional(prop::EXCLUDE);
         let read_jobs: Option<u64> = fold.required(prop::JOBS);
+        let read_log_format: Option<String> = fold.required(prop::LOG_FORMAT);
         let read_log_level: Option<String> = fold.required(prop::LOG_LEVEL);
         let read_match: Option<String> = fold.required(prop::MATCH);
         let read_path: Option<Vec<::std::path::PathBuf>> = fold.optional(prop::PATH);
@@ -197,6 +210,7 @@ impl Settings {
             either: read_either,
             exclude: read_exclude,
             jobs: read_jobs.expect("`jobs` has a declared default, so the fold has already reported any absence"),
+            log_format: read_log_format.expect("`log_format` has a declared default, so the fold has already reported any absence"),
             log_level: read_log_level.expect("`log_level` has a declared default, so the fold has already reported any absence"),
             r#match: read_match.expect("`match` has a declared default, so the fold has already reported any absence"),
             path: read_path,

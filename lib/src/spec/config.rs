@@ -150,7 +150,18 @@ impl SpecConfigValue {
         match self {
             Self::Bool(b) => b.to_string(),
             Self::Int(i) => i.to_string(),
-            Self::Float(f) => f.to_string(),
+            // With its point, because `1` is how an *integer* is written and this is not one. This
+            // is also what `usage-config` writes a float as, and the two have to agree: a spec's
+            // `default=1.0` on a string-typed prop is coerced *here* and its `choice 1.0` is read
+            // *there*, so a difference of one character refused a default and a choice that were
+            // written identically. `usage-config-build` has a test that holds the two together.
+            Self::Float(f) => {
+                let text = f.to_string();
+                match f.is_finite() && !text.contains(['.', 'e', 'E']) {
+                    true => format!("{text}.0"),
+                    false => text,
+                }
+            }
             Self::String(s) => s.clone(),
         }
     }

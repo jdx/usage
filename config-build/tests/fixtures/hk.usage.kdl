@@ -36,6 +36,17 @@ config {
         }
     }
 
+    // Choices written as numbers under a `string` type, which is as ordinary a thing to write as
+    // quoting them — and which the registry has to accept once the value is coerced to text.
+    // The default written as a number under a `string` type, which is the shape a default has to be
+    // *coerced* for: it is seeded straight into the resolution and read by whatever holds it.
+    prop "log_format" type="string" default=1 help="Which log format to use" {
+        choices {
+            choice 1 help="The old one"
+            choice 2 help="The one with colour"
+        }
+    }
+
     prop "url_replacements" type="map<string, string>" merge="deep" \
         help="Rewrite these URL prefixes"
 
