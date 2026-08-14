@@ -55,6 +55,7 @@
 //! # Ok::<(), usage_config::LayerError>(())
 //! ```
 
+pub mod cli;
 pub mod env;
 pub mod explain;
 #[cfg(any(feature = "toml", feature = "json"))]
@@ -67,6 +68,7 @@ pub mod source;
 pub mod ty;
 pub mod value;
 
+pub use cli::CliLayer;
 pub use env::EnvLayer;
 pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json"))]
