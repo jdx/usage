@@ -42,26 +42,76 @@ impl Entry {
 /// Returned rather than printed. mise queues these until its logging is up, and a library
 /// that writes to stderr on its own cannot be used by anything that has an opinion about
 /// output.
+///
+/// Built through [`Warning::new`] or [`Warning::at`] rather than as a literal: this has gained a
+/// field once already, and a warning is something a layer *reports* rather than a shape anything
+/// downstream should be pattern-matched against exhaustively. Reading the fields, and matching with
+/// `..`, are unaffected.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct Warning {
     pub message: String,
     /// Where the value that caused it came from, when there was one.
     pub origin: Option<Origin>,
+    /// What sort of thing happened, for a caller that wants to treat them differently.
+    pub kind: WarningKind,
+}
+
+/// The kinds of thing a resolution has to say.
+///
+/// The message is for a person and its wording is nobody's contract; this is what a *program* can
+/// act on. mise wants its deprecations queued and printed once its logging is up while a bad value
+/// goes to stderr immediately; a `--strict` mode wants to exit on anything but a deprecation; the
+/// conformance corpus wants to pin what happened without pinning how it was worded, since that is a
+/// quality-of-implementation concern and differs between implementations by design.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WarningKind {
+    /// A key no setting declares. A config file written for a newer binary read by an older one.
+    UnknownSetting,
+    /// A value the declared type cannot read.
+    WrongType,
+    /// A value the declared `choice` nodes do not allow.
+    NotAllowed,
+    /// A place that may not set this setting: a `scope="global"` setting from a checkout.
+    OutOfScope,
+    /// A setting whose spec says not to use it any more.
+    Deprecated,
+    /// A value that arrived under an old name and was read as the setting that replaced it.
+    Renamed,
+    /// A value that was passed over because another name for the same setting won.
+    NotRead,
+    /// Something a layer of the CLI's own says, which this crate has no name for.
+    #[default]
+    Other,
 }
 
 impl Warning {
+    /// A warning of no particular kind, which is what a custom layer's own complaints are.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
             origin: None,
+            kind: WarningKind::Other,
         }
     }
 
+    /// The same, about a value that came from somewhere nameable.
     pub fn at(message: impl Into<String>, origin: Origin) -> Self {
         Self {
             message: message.into(),
             origin: Some(origin),
+            kind: WarningKind::Other,
         }
+    }
+
+    /// This warning, classified.
+    ///
+    /// Chained rather than an argument so the two constructors keep reading as they did, and so a
+    /// layer that has nothing useful to say about the kind is not made to invent one.
+    pub fn of(mut self, kind: WarningKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
@@ -186,7 +236,8 @@ impl LayerCtx {
                 Err(Warning::at(
                     format!("{key} expected {} but has `{}`", err.expected, err.found),
                     origin,
-                ))
+                )
+                .of(WarningKind::WrongType))
             }
         }
     }
@@ -203,14 +254,17 @@ impl LayerCtx {
     fn refused(&self, id: PropId, value: &Value, key: &str, origin: &Origin) -> Option<Warning> {
         let meta = self.registry.get(id);
         let refused = meta.refuses(value)?;
-        Some(Warning::at(
-            format!(
-                "{key} expected one of {} but has `{}`",
-                meta.allowed(),
-                crate::value::shown(refused)
-            ),
-            origin.clone(),
-        ))
+        Some(
+            Warning::at(
+                format!(
+                    "{key} expected one of {} but has `{}`",
+                    meta.allowed(),
+                    crate::value::shown(refused)
+                ),
+                origin.clone(),
+            )
+            .of(WarningKind::NotAllowed),
+        )
     }
 
     /// An entry for a dotted key, which is what a layer reading a file has in hand.
@@ -221,7 +275,8 @@ impl LayerCtx {
     /// do, and the reason a deprecated key in somebody's config file gets reported at all.
     pub fn entry_for_key(&self, key: &str, raw: &str, origin: Origin) -> Result<Entry, Warning> {
         let Some(found) = self.prop(key) else {
-            return Err(Warning::at(format!("unknown setting `{key}`"), origin));
+            return Err(Warning::at(format!("unknown setting `{key}`"), origin)
+                .of(WarningKind::UnknownSetting));
         };
         let mut entry = self.entry(found.id, raw, origin)?;
         // `lookup` already folded, so `entry` had nothing left to fold and nothing to report;
@@ -244,7 +299,8 @@ impl LayerCtx {
         origin: Origin,
     ) -> Result<Entry, Warning> {
         let Some(found) = self.prop(key) else {
-            return Err(Warning::at(format!("unknown setting `{key}`"), origin));
+            return Err(Warning::at(format!("unknown setting `{key}`"), origin)
+                .of(WarningKind::UnknownSetting));
         };
         let meta = self.registry.get(found.id);
         match meta.ty.coerce(value) {
@@ -266,7 +322,8 @@ impl LayerCtx {
                     err.found
                 ),
                 origin,
-            )),
+            )
+            .of(WarningKind::WrongType)),
         }
     }
 }
@@ -282,6 +339,7 @@ pub trait Layer {
 
 #[cfg(test)]
 mod tests {
+    use super::WarningKind;
     use super::*;
     use crate::registry::PropMeta;
     use crate::ty::{Parser, Ty};
@@ -347,6 +405,15 @@ mod tests {
         assert_eq!(
             warning.message,
             "stash expected one of git, patch-file, none but has `svn`"
+        );
+        // Which is a different sort of thing from a value of the wrong *type*, and a caller that
+        // treats them differently needs to be able to tell.
+        assert_eq!(warning.kind, WarningKind::NotAllowed);
+        assert_eq!(
+            ctx.entry_for_key("jobs", "lots", origin.clone())
+                .expect_err("not a number")
+                .kind,
+            WarningKind::WrongType
         );
         // And a value that is one of them is just a value.
         assert_eq!(

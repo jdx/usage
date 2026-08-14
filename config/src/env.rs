@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
-use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput, Warning};
+use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
 use crate::registry::PropId;
 use crate::source::{Origin, SourceKind};
 
@@ -133,13 +133,16 @@ impl Layer for EnvLayer {
             for (id, set_as, raw) in candidates {
                 let origin = Origin::new(SourceKind::ENV, set_as);
                 if let Some(first) = read_by {
-                    out.warn(Warning::at(
-                        format!(
-                            "{set_as} was not read: {first} also sets {}",
-                            registry.get(target).key
-                        ),
-                        origin,
-                    ));
+                    out.warn(
+                        Warning::at(
+                            format!(
+                                "{set_as} was not read: {first} also sets {}",
+                                registry.get(target).key
+                            ),
+                            origin,
+                        )
+                        .of(WarningKind::NotRead),
+                    );
                     continue;
                 }
                 match ctx.entry(id, raw, origin) {
@@ -387,6 +390,18 @@ mod tests {
                 .iter()
                 .any(|w| w.starts_with("HK_THREADS was not read: HK_CONCURRENCY also sets jobs")),
             "{warnings:?}"
+        );
+        // Three kinds at once, which is what living through a rename actually produces: the name
+        // that was passed over, and — for the one that *was* read — that it is deprecated and what
+        // it was read as. A variable passed over is its own sort of thing: nothing is wrong with the
+        // value, and a `--strict` mode that stops for a bad one should not stop for this.
+        assert_eq!(
+            resolved.warnings.iter().map(|w| w.kind).collect::<Vec<_>>(),
+            vec![
+                WarningKind::NotRead,
+                WarningKind::Deprecated,
+                WarningKind::Renamed
+            ]
         );
 
         // And the current name still beats both of them.

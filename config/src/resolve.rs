@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::layer::{Layer, LayerCtx, LayerError, Warning};
+use crate::layer::{Layer, LayerCtx, LayerError, Warning, WarningKind};
 use crate::registry::{Merge, PropId, Registry, Scope};
 use crate::source::{Origin, SourceKind, Trust};
 use crate::value::Value;
@@ -189,24 +189,30 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
                 // rename, `written.key` is the *replacement's* name, so a refused value was
                 // reported under a key that does not appear in the file the user would go and
                 // edit.
-                resolved.warnings.push(Warning::at(
-                    format!("{written_key} {refusal}"),
-                    entry.origin,
-                ));
+                resolved.warnings.push(
+                    Warning::at(format!("{written_key} {refusal}"), entry.origin)
+                        .of(WarningKind::OutOfScope),
+                );
                 continue;
             }
             if let Some(why) = as_written.deprecated {
-                resolved.warnings.push(Warning::at(
-                    format!("{written_key} is deprecated: {why}"),
-                    entry.origin.clone(),
-                ));
+                resolved.warnings.push(
+                    Warning::at(
+                        format!("{written_key} is deprecated: {why}"),
+                        entry.origin.clone(),
+                    )
+                    .of(WarningKind::Deprecated),
+                );
             }
             if written_key != meta.key {
                 // Both names: the key the user wrote, and the one it was read as.
-                resolved.warnings.push(Warning::at(
-                    format!("{written_key} was read as {}", meta.key),
-                    entry.origin.clone(),
-                ));
+                resolved.warnings.push(
+                    Warning::at(
+                        format!("{written_key} was read as {}", meta.key),
+                        entry.origin.clone(),
+                    )
+                    .of(WarningKind::Renamed),
+                );
             }
             let index = prop.index();
             let merged = match meta.merge {
@@ -383,6 +389,60 @@ mod tests {
         PropMeta::new("undeclared_default", Ty::String),
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn every_warning_says_what_sort_of_thing_it_is() {
+        // The message is for a person and its wording is nobody's contract. This is what a program
+        // acts on: mise queues its deprecations until logging is up while a bad value goes to stderr
+        // at once, a `--strict` mode exits on everything but a deprecation, and the conformance
+        // corpus pins what happened without pinning how it was said.
+        let ctx = LayerCtx::new(REGISTRY);
+        let file = Origin::file("hk.toml", FileScope::Project);
+
+        // Every kind this crate produces, from the place that produces it.
+        let unknown = ctx
+            .entry_for_key("nonesuch", "1", file.clone())
+            .expect_err("no such setting");
+        assert_eq!(unknown.kind, WarningKind::UnknownSetting);
+        let wrong = ctx
+            .entry_for_key("jobs", "lots", file.clone())
+            .expect_err("not a number");
+        assert_eq!(wrong.kind, WarningKind::WrongType);
+        let shaped = ctx
+            .entry_from_value("jobs", Value::from("lots"), file.clone())
+            .expect_err("still not a number");
+        assert_eq!(shaped.kind, WarningKind::WrongType);
+
+        // And the three the *merge* adds, which no layer can know about on its own: whether a place
+        // is allowed to set a setting, and what its name turned out to mean.
+        let layer = Fixed {
+            kind: SourceKind::FILE,
+            entries: vec![
+                Entry::new(id("trusted"), Value::Bool(true), file.clone()),
+                // The *unfolded* id, which is what a layer reading `Registry::ids` hands over —
+                // `lookup` folds a rename, so going through it could not reproduce the case.
+                Entry::new(raw_id("renamed_jobs"), Value::Int(8), file),
+            ],
+        };
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
+        let kinds: Vec<WarningKind> = resolved.warnings.iter().map(|w| w.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                WarningKind::OutOfScope,
+                WarningKind::Deprecated,
+                WarningKind::Renamed
+            ],
+            "{:?}",
+            resolved.warnings
+        );
+
+        // A layer of the CLI's own says whatever it likes, and is not made to invent a kind for it.
+        assert_eq!(
+            Warning::new("the git config could not be read").kind,
+            WarningKind::Other
+        );
+    }
 
     /// A layer holding whatever a test hands it.
     struct Fixed {
