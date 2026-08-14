@@ -798,6 +798,41 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.separator_seen
     }
 
+    /// Whether flag interpretation has stopped, for any reason.
+    ///
+    /// Wider than [`double_dash_seen`](Self::double_dash_seen), and the question completion
+    /// asks: past a separator *or* past the first value of an `automatic` argument, a
+    /// dash-prefixed word is a value, so there is no flag there to offer.
+    pub fn flags_stopped(&self) -> bool {
+        self.flags_stopped
+    }
+
+    /// A variadic flag that is still claiming words.
+    ///
+    /// Asked *between* events, because the answer is gone by the end: the call that finds argv
+    /// exhausted is the one that clears it. A completion needs it — the next word after
+    /// `--tools a ⌶` is another tool, not the positional that follows.
+    pub fn collecting(&self) -> Option<&'t Flag<'t>> {
+        self.collecting
+    }
+
+    /// The positional the next word would fill, if there is one left.
+    ///
+    /// A variadic stays here until it reaches its bound, which is what makes it the answer to
+    /// "what could go where the cursor is" as many times as it can be filled.
+    pub fn pending_arg(&self) -> Option<&'t Arg<'t>> {
+        self.next_arg()
+    }
+
+    /// Flags a word here could name: this command's own, then any ancestor's globals.
+    ///
+    /// The same set the parser itself would look in, so what is offered and what is accepted
+    /// cannot disagree — including the shadowing rule, where a subcommand redeclaring an
+    /// inherited name hides it.
+    pub fn flags_in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
+        self.in_scope()
+    }
+
     /// Read the next event.
     ///
     /// Returns `None` when `argv` is exhausted. An `Err` is terminal: the parse
@@ -846,7 +881,12 @@ impl<'t, 'v> Parser<'t, 'v> {
                         negated: false,
                     }));
                 }
-                _ => self.collecting = None,
+                // A token that could be something else ends the run — but the *end of argv*
+                // decides nothing. Clearing there threw away the answer to "would the next
+                // word be claimed?", which is the question a completion asks and no parse
+                // ever does: once argv is exhausted there are no more events either way.
+                Some(_) => self.collecting = None,
+                None => {}
             }
         }
 
