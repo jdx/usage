@@ -1,0 +1,80 @@
+section "renames"
+about "Living through a rename. An old name keeps working — an upgrade that silently changed what a machine's config meant would be worse than the rename — and the user is told, once, what to write instead. The old name is not a second setting: it has no value of its own, and every read of it answers about the one that replaced it."
+
+vector "an-old-name-sets-the-new-one" doc="A value written under a name that has been renamed lands on the setting that replaced it." {
+  setting "jobs" type="uint" default=4
+  setting "concurrency" type="uint" renamed-to="jobs"
+  layer "file" id="hk.toml" {
+    value "concurrency" "8"
+  }
+  expect {
+    value "jobs" 8
+    warning "renamed"
+  }
+}
+
+vector "a-deprecated-old-name-says-why" doc="With a notice on it, the user is told what to write instead — and still told what it was read as." {
+  setting "jobs" type="uint" default=4
+  setting "concurrency" type="uint" renamed-to="jobs" deprecated="Use jobs instead."
+  layer "file" id="hk.toml" {
+    value "concurrency" "8"
+  }
+  expect {
+    value "jobs" 8
+    warning "deprecated"
+    warning "renamed"
+  }
+}
+
+vector "the-new-name-beats-the-old-one-in-a-lower-layer" doc="Precedence is unchanged by a rename: the higher layer wins whichever name it used." {
+  setting "jobs" type="uint"
+  setting "concurrency" type="uint" renamed-to="jobs"
+  layer "env" id="EX_JOBS" {
+    value "jobs" "6"
+  }
+  layer "file" id="hk.toml" {
+    value "concurrency" "8"
+  }
+  expect {
+    value "jobs" 6
+    warning "renamed"
+  }
+}
+
+vector "an-old-name-in-a-higher-layer-still-wins" doc="And the other way round, because the fold happens before precedence rather than instead of it." {
+  setting "jobs" type="uint"
+  setting "concurrency" type="uint" renamed-to="jobs"
+  layer "env" id="EX_CONCURRENCY" {
+    value "concurrency" "8"
+  }
+  layer "file" id="hk.toml" {
+    value "jobs" "6"
+  }
+  expect {
+    value "jobs" 8
+    warning "renamed"
+  }
+}
+
+vector "an-old-name-is-deprecated-without-being-renamed" doc="A setting can be on its way out without having a replacement: the value applies and the notice is given." {
+  setting "old_jobs" type="uint" deprecated="This will be removed."
+  layer "file" id="hk.toml" {
+    value "old_jobs" "3"
+  }
+  expect {
+    value "old_jobs" 3
+    warning "deprecated"
+  }
+}
+
+vector "an-old-names-scope-is-the-new-ones" doc="A refusal is reported under the name the user wrote, since that is the one in the file they would go and edit — but the rule applied is the replacement's." {
+  setting "trusted" type="bool" scope="global" default=#false
+  setting "old_trusted" type="bool" renamed-to="trusted"
+  layer "file" id="./hk.toml" trust="project" {
+    value "old_trusted" "true"
+  }
+  expect {
+    value "trusted" #false
+    warning "out-of-scope"
+  }
+}

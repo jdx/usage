@@ -2106,9 +2106,11 @@ name = "usage-conformance"
 version = "0.0.0"
 dependencies = [
  "insta",
+ "kdl",
  "serde",
  "serde_json",
  "usage-argv",
+ "usage-config",
  "usage-derive",
  "usage-lib",
 ]

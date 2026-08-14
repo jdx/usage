@@ -1,0 +1,109 @@
+section "merging"
+about "What happens when more than one layer has something to say about the same setting. Replacing is the default and the only sensible one for a scalar; a collection may instead be declared to accumulate, which is how a project's exclusions add to a machine's rather than hiding them. The policy is the setting's, declared once, rather than each layer's to decide."
+
+vector "replace-takes-the-highest" doc="A `replace` setting takes the highest layer's value and forgets the rest." {
+  setting "exclude" type="list<string>" parse="list_by_comma"
+  layer "env" id="EX_EXCLUDE" {
+    value "exclude" "target"
+  }
+  layer "file" id="hk.toml" {
+    value "exclude" "vendor,dist"
+  }
+  expect {
+    list "exclude" "target"
+  }
+}
+
+vector "union-keeps-every-layer" doc="A `union` setting takes the items from every layer, lowest first, so the nearest file's additions come last." {
+  setting "exclude" type="list<string>" merge="union" parse="list_by_comma"
+  layer "env" id="EX_EXCLUDE" {
+    value "exclude" "target"
+  }
+  layer "file" id="hk.toml" {
+    value "exclude" "vendor,dist"
+  }
+  expect {
+    list "exclude" "vendor" "dist" "target"
+  }
+}
+
+vector "union-includes-the-declared-default" doc="The declared default is the bottom layer, so a union adds to it rather than replacing it." {
+  setting "exclude" type="list<string>" merge="union" parse="list_by_comma" {
+    default "target"
+  }
+  layer "file" id="hk.toml" {
+    value "exclude" "vendor"
+  }
+  expect {
+    list "exclude" "target" "vendor"
+  }
+}
+
+vector "union-of-lists-keeps-a-repeat" doc="A list keeps duplicates — that is what makes it a list rather than a set — so an item two layers both name appears twice." {
+  setting "exclude" type="list<string>" merge="union" parse="list_by_comma"
+  layer "env" id="EX_EXCLUDE" {
+    value "exclude" "target,extra"
+  }
+  layer "file" id="hk.toml" {
+    value "exclude" "target,vendor"
+  }
+  expect {
+    list "exclude" "target" "vendor" "target" "extra"
+  }
+}
+
+vector "a-set-drops-repeats-within-one-layer" doc="A `set` drops duplicates, within one layer's value as much as across two." {
+  setting "tags" type="set<string>" merge="union" parse="list_by_comma"
+  layer "env" id="EX_TAGS" {
+    value "tags" "a,b,a"
+  }
+  expect {
+    list "tags" "a" "b"
+  }
+}
+
+vector "deep-merges-a-table-key-by-key" doc="A `deep` map takes every layer's keys, with the higher layer winning a key they share." {
+  setting "urls" type="map<string, string>" merge="deep"
+  layer "env" id="EX_URLS" {
+    shaped "urls" {
+      value "github" "https://github.com/"
+    }
+  }
+  layer "file" id="hk.toml" {
+    shaped "urls" {
+      value "github" "git@github.com:"
+      value "gitlab" "https://gitlab.com/"
+    }
+  }
+  expect {
+    map "urls" {
+      value "github" "https://github.com/"
+      value "gitlab" "https://gitlab.com/"
+    }
+  }
+}
+
+vector "an-emptied-list-clears-a-default" doc="An empty value is a value: it is how a user turns a declared default off, and a union has nothing left to add to." {
+  setting "exclude" type="list<string>" merge="union" parse="list_by_comma" {
+    default "target"
+  }
+  layer "env" id="EX_EXCLUDE" {
+    value "exclude" ""
+  }
+  expect {
+    list "exclude"
+  }
+}
+
+vector "union-of-sets-drops-a-repeat" doc="The same two layers under a `set`: the item appears once, keeping the position the lower layer gave it." {
+  setting "tags" type="set<string>" merge="union" parse="list_by_comma"
+  layer "env" id="EX_TAGS" {
+    value "tags" "a,extra"
+  }
+  layer "file" id="hk.toml" {
+    value "tags" "a,b"
+  }
+  expect {
+    list "tags" "a" "b" "extra"
+  }
+}

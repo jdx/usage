@@ -1,0 +1,129 @@
+section "types"
+about "What a declared type does to a value on its way in. Every layer that reads text — an environment, an `.npmrc`, a git config — hands over a string, and the declared type is the only thing that says whether `1` is the number one, the string `1`, or a list of one. A value the type cannot read costs its own key and nothing else: a typo in a system-wide file must not stop a CLI from starting for every user on the machine."
+
+vector "text-becomes-the-declared-type" doc="The same text reads as three different values under three different declarations." {
+  setting "jobs" type="uint"
+  setting "name" type="string"
+  setting "ratio" type="float"
+  layer "env" {
+    value "jobs" "8"
+    value "name" "8"
+    value "ratio" "8"
+  }
+  expect {
+    value "jobs" 8
+    value "name" "8"
+    value "ratio" 8.0
+  }
+}
+
+vector "the-boolean-spellings" doc="The spellings every registry in the fleet accepts. Deliberately not `anything non-empty is true`: `FOO=false` meaning true is the kind of surprise a config system exists to prevent." {
+  setting "a" type="bool"
+  setting "b" type="bool"
+  setting "c" type="bool"
+  setting "d" type="bool"
+  setting "e" type="bool"
+  setting "f" type="bool"
+  layer "env" {
+    value "a" "true"
+    value "b" "1"
+    value "c" "yes"
+    value "d" "false"
+    value "e" "0"
+    value "f" "off"
+  }
+  expect {
+    value "a" #true
+    value "b" #true
+    value "c" #true
+    value "d" #false
+    value "e" #false
+    value "f" #false
+  }
+}
+
+vector "one-value-for-a-list-is-a-list-of-one" doc="A list-typed setting given a bare value means a list of one, which is what every registry in the fleet relies on for `MISE_ENV=production`." {
+  setting "env" type="list<string>"
+  layer "env" id="MISE_ENV" {
+    value "env" "production"
+  }
+  expect {
+    list "env" "production"
+  }
+}
+
+vector "an-empty-string-is-no-items" doc="And an empty string is no items rather than one empty item, which is what turning a declared default off relies on." {
+  setting "env" type="list<string>" {
+    default "dev"
+  }
+  layer "env" id="MISE_ENV" {
+    value "env" ""
+  }
+  expect {
+    list "env"
+  }
+}
+
+vector "a-named-parser-splits-before-the-type-reads" doc="A declared parser turns one string into several values, so no layer has to know that a setting is comma-separated." {
+  setting "exclude" type="list<string>" parse="list_by_comma"
+  setting "path" type="list<path>" parse="list_by_colon"
+  layer "env" {
+    value "exclude" "target,vendor"
+    value "path" "/usr/bin:/bin"
+  }
+  expect {
+    list "exclude" "target" "vendor"
+    list "path" "/usr/bin" "/bin"
+  }
+}
+
+vector "a-value-the-type-cannot-read-costs-its-own-key" doc="The setting keeps the value it had, everything else in the layer applies, and the user is told." {
+  setting "jobs" type="uint" default=4
+  setting "name" type="string"
+  layer "file" id="hk.toml" {
+    value "jobs" "lots"
+    value "name" "hk"
+  }
+  expect {
+    value "jobs" 4
+    value "name" "hk"
+    origin "jobs" "the default"
+    warning "wrong-type"
+  }
+}
+
+vector "a-negative-number-is-not-a-uint" doc="`uint` is what a setting says when a value below zero is not one of its values." {
+  setting "jobs" type="uint"
+  layer "env" {
+    value "jobs" "-1"
+  }
+  expect {
+    warning "wrong-type"
+  }
+}
+
+vector "a-table-where-a-scalar-was-declared-is-refused" doc="A structured value out of a file is held to the declared type too: rendering a table as text would give a value nobody wrote." {
+  setting "name" type="string"
+  layer "file" id="hk.toml" {
+    shaped "name" {
+      value "a" "b"
+    }
+  }
+  expect {
+    warning "wrong-type"
+  }
+}
+
+vector "a-type-only-the-tool-understands-takes-what-it-is-given" doc="A union, or a name usage does not know, coerces nothing: the spec has said usage cannot decide what belongs there." {
+  setting "either" type="bool|string"
+  layer "file" id="hk.toml" {
+    shaped "either" {
+      value "a" "b"
+    }
+  }
+  expect {
+    map "either" {
+      value "a" "b"
+    }
+  }
+}

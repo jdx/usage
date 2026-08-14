@@ -1,0 +1,101 @@
+section "precedence"
+about "Which layer's value a setting ends up with. The order is fixed and not negotiable — the command line, then the environment, then files nearest-first, then whatever a CLI puts below them, then the declared default — and which layers a CLI has is its own business. A layer that supplies nothing for a setting is not a layer that clears it."
+
+vector "default-when-nothing-supplies" doc="A declared default is the value when no layer has one." {
+  setting "jobs" type="uint" default=4
+  expect {
+    value "jobs" 4
+    origin "jobs" "the default"
+  }
+}
+
+vector "no-default-is-no-value" doc="A setting with no default and nothing supplied has no value at all, rather than an empty one." {
+  setting "profile" type="string"
+  expect {
+  }
+}
+
+vector "one-layer-beats-the-default" doc="Any layer at all beats the declared default." {
+  setting "jobs" type="uint" default=4
+  layer "file" id="hk.toml" {
+    value "jobs" "2"
+  }
+  expect {
+    value "jobs" 2
+    origin "jobs" "hk.toml"
+  }
+}
+
+vector "cli-beats-env-beats-file" doc="The declared order decides: the command line, then the environment, then a file." {
+  setting "jobs" type="uint" default=4
+  layer "cli" id="--jobs" {
+    value "jobs" "8"
+  }
+  layer "env" id="EX_JOBS" {
+    value "jobs" "6"
+  }
+  layer "file" id="hk.toml" {
+    value "jobs" "2"
+  }
+  expect {
+    value "jobs" 8
+    origin "jobs" "--jobs"
+  }
+}
+
+vector "env-beats-file" doc="With no command line, the environment wins over a file." {
+  setting "jobs" type="uint" default=4
+  layer "env" id="EX_JOBS" {
+    value "jobs" "6"
+  }
+  layer "file" id="hk.toml" {
+    value "jobs" "2"
+  }
+  expect {
+    value "jobs" 6
+    origin "jobs" "EX_JOBS"
+  }
+}
+
+vector "nearest-file-wins" doc="Among files, the one listed first wins — which is the nearest to where the user is standing." {
+  setting "jobs" type="uint"
+  layer "file" id="./hk.toml" {
+    value "jobs" "2"
+  }
+  layer "file" id="~/.config/hk.toml" {
+    value "jobs" "9"
+  }
+  expect {
+    value "jobs" 2
+    origin "jobs" "./hk.toml"
+  }
+}
+
+vector "a-layer-that-says-nothing-changes-nothing" doc="A higher layer with no value for a setting leaves the lower one alone." {
+  setting "jobs" type="uint"
+  setting "profile" type="string"
+  layer "cli" {
+    value "profile" "release"
+  }
+  layer "file" id="hk.toml" {
+    value "jobs" "2"
+  }
+  expect {
+    value "jobs" 2
+    value "profile" "release"
+    origin "jobs" "hk.toml"
+    origin "profile" "cli"
+  }
+}
+
+vector "a-key-nobody-declares-is-a-warning-and-nothing-else" doc="An unknown key is reported and the rest of the layer still applies: a file written for a newer binary must still work with an older one." {
+  setting "jobs" type="uint"
+  layer "file" id="hk.toml" {
+    value "jobs" "2"
+    value "from_the_future" "yes"
+  }
+  expect {
+    value "jobs" 2
+    warning "unknown-setting"
+  }
+}

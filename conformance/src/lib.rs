@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub mod argv;
+pub mod config;
 pub mod reference;
 
 /// One `corpus/*.json` file: a themed group of vectors.
@@ -175,9 +176,23 @@ pub enum Reference {
 
 /// Load every `*.json` file in a corpus directory, sorted by file name.
 pub fn load(dir: impl AsRef<Path>) -> Result<Vec<VectorFile>, String> {
+    load_as(dir)
+}
+
+/// The corpus directory, resolved against this crate rather than the process's
+/// working directory.
+pub fn corpus_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus")
+}
+
+/// Load every `*.json` file in a directory as `T`, sorted by file name.
+///
+/// The same walk [`load`] does, for a corpus whose vectors are a different shape: a config vector
+/// describes a registry and some layers rather than a spec and an argv.
+pub fn load_as<T: serde::de::DeserializeOwned>(dir: impl AsRef<Path>) -> Result<Vec<T>, String> {
     let dir = dir.as_ref();
-    // An unreadable entry is an error rather than something to skip: silently
-    // dropping one would let CI validate a partial corpus and still pass.
+    // An unreadable entry is an error rather than something to skip: silently dropping one would
+    // let CI validate a partial corpus and still pass.
     let mut paths: Vec<_> = std::fs::read_dir(dir)
         .map_err(|e| format!("reading {}: {e}", dir.display()))?
         .map(|entry| {
@@ -199,10 +214,4 @@ pub fn load(dir: impl AsRef<Path>) -> Result<Vec<VectorFile>, String> {
             serde_json::from_str(&text).map_err(|e| format!("parsing {}: {e}", p.display()))
         })
         .collect()
-}
-
-/// The corpus directory, resolved against this crate rather than the process's
-/// working directory.
-pub fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus")
 }
