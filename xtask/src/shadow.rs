@@ -283,11 +283,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     // A comment's long form always contains its short one, because the short form *is* its
     // first paragraph. Where a spec's two are independent — mise's are entirely different
     // sentences — no comment can say both, so the root declares them instead.
-    let root_declares_about = is_root
-        && match (run.about, run.about_long) {
-            (Some(a), Some(l)) => !l.trim_start().starts_with(a.trim()),
-            _ => false,
-        };
+    // The *same* predicate the comment path uses. Two checks that disagree left a gap in
+    // between: a long form opening with the short one but not then breaking — a trailing period
+    // is enough — was too much for a comment and not enough to be declared, so the program's
+    // description was dropped altogether.
+    let root_declares_about = is_root && needs_declaring(run.about, run.about_long);
     let declared_about: Vec<String> = if root_declares_about {
         [
             run.about.map(|a| format!("about = {:?}", a.trim())),
@@ -873,6 +873,11 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
 
 fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec![format!("value_name = {:?}", arg.name)];
+    // clap reads a `Vec` as optional whatever the spec says, so a required variadic has to say
+    // so — the same declaration the usage dialect needed, for the same reason.
+    if arg.required && arg.var {
+        opts.push("required = true".into());
+    }
     opts.extend(declared_help_clap(
         arg.help.as_deref(),
         arg.help_long.as_deref(),
@@ -951,14 +956,59 @@ fn selector_list(option: &str, selectors: &[String]) -> String {
 }
 
 /// Help text as a doc comment, which is how the derive reads it.
+/// How many line breaks a text opens with, counting `\r\n` as one.
+fn leading_breaks(text: &str) -> usize {
+    let mut rest = text;
+    let mut n = 0;
+    while let Some(tail) = rest
+        .strip_prefix("\r\n")
+        .or_else(|| rest.strip_prefix('\n'))
+    {
+        n += 1;
+        rest = tail;
+    }
+    n
+}
+
 /// Whether help text has to be declared rather than written as a comment.
 ///
 /// A doc comment's first paragraph is read the way Rust reads one, so a line break inside it
 /// becomes a space. mise's specs use multi-line `help` on 37 commands and flags, and every one
 /// of them came back with its lines run together — so where the break is part of the text, the
 /// generated code declares it instead.
-fn needs_declaring(help: Option<&str>) -> bool {
-    help.map(|h| h.trim().contains('\n')).unwrap_or(false)
+fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
+    // A break inside the first paragraph becomes a space.
+    let flowed = help.map(|h| h.trim().contains('\n')).unwrap_or(false);
+    // And a comment's long form always *contains* its short one, because the short form is the
+    // comment's first paragraph. Where a spec's two are independent — `cmd settings` says
+    // "Manage settings" and then "Show current settings…" — no comment says both, and reading
+    // one back gave the short form twice with the long text after it.
+    // Exactly, not nearly: the comment path reconstructs the long form as "short + rest", so it
+    // is only lossless when the long form opens with the short one and then breaks. mise's specs
+    // often end that opening sentence with a period the short form leaves off, and the
+    // punctuation was being thrown away to make the two match — "Task to run." came back as
+    // "Task to run".
+    //
+    // Untrimmed and by *paragraph*: the comment path reconstructs the long form as "short, blank
+    // line, rest", so it is lossless only when the long form opens with the short one exactly and
+    // then breaks twice. A single newline came back doubled — `"Short\nContinuation"` as
+    // `"Short\n\nContinuation"` — and a long form opening with a blank line does not open with
+    // the short form at all.
+    let independent = match (help, long) {
+        (Some(h), Some(l)) => match l.strip_prefix(h.trim()) {
+            // Exactly two breaks, not at least two: a comment writes one blank line and no
+            // more, so a longer run comes back shortened — `"Short\n\n\nRest"` as
+            // `"Short\n\nRest"`. Declared instead, which says whatever the spec says.
+            Some(rest) => !(rest.is_empty() || leading_breaks(rest) == 2),
+            None => true,
+        },
+        _ => false,
+    };
+    // A long form with no short one cannot be a comment at all: a comment's first paragraph *is*
+    // the short form, so writing one would invent a short help the spec never gave.
+    let long_only =
+        long.is_some_and(|l| !l.trim().is_empty()) && !help.is_some_and(|h| !h.trim().is_empty());
+    flowed || independent || long_only
 }
 
 /// The same declarations in clap's vocabulary.
@@ -970,7 +1020,7 @@ fn needs_declaring(help: Option<&str>) -> bool {
 /// this generator exists to prevent.
 fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> Vec<String> {
     let mut opts = Vec::new();
-    if !needs_declaring(help) {
+    if !needs_declaring(help, long) {
         return opts;
     }
     let (short_key, long_key) = if command {
@@ -990,8 +1040,12 @@ fn declared_help_clap(help: Option<&str>, long: Option<&str>, command: bool) -> 
 /// The `help = "..."` option for text a comment would reflow.
 fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
     let mut opts = Vec::new();
-    if let Some(help) = help.filter(|h| needs_declaring(Some(h))) {
-        opts.push(format!("help = {:?}", help.trim()));
+    if needs_declaring(help, long) {
+        // The long form stands on its own: a spec may give only `long_help`, and returning early
+        // for want of a short one dropped the whole description.
+        if let Some(help) = help.filter(|h| !h.trim().is_empty()) {
+            opts.push(format!("help = {:?}", help.trim()));
+        }
         // The long form goes with it: read from the comment, it would be measured against a
         // short form that no longer matches, and written in full twice over.
         if let Some(long) = long.filter(|l| !l.trim().is_empty()) {
@@ -1004,7 +1058,7 @@ fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
 fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: usize) {
     let indent = "    ".repeat(depth);
     // Declared instead, by `declared_help`.
-    if needs_declaring(help) {
+    if needs_declaring(help, long) {
         return;
     }
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
@@ -1196,6 +1250,66 @@ mod tests {
     }
 
     #[test]
+    fn a_description_survives_whatever_shape_it_is_in() {
+        // Three shapes a comment cannot carry, each of which lost text before: a long form with
+        // no short one at all, a long form that continues on the next *line* rather than after a
+        // blank one (the comment path would double the break), and a required variadic, which
+        // clap reads as optional whatever the spec says.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--x\" {\n  long_help \"Only the long form\"\n}\n",
+        );
+        assert!(out.contains(r#"long_help = "Only the long form""#), "{out}");
+
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--y\" help=\"Short\" {\n  long_help \"Short\\nContinuation\"\n}\n",
+        );
+        assert!(
+            out.contains(r#"long_help = "Short\nContinuation""#),
+            "{out}"
+        );
+
+        // And a paragraph gap wider than one blank line, which the comment path would close:
+        // it writes one blank line and no more, so the two-break shape is the only one it can
+        // carry back unchanged.
+        let (out, _) = rendered(
+            "name \"ex\"\nbin \"ex\"\nflag \"--z\" help=\"Short\" {\n  long_help \"Short\\n\\n\\nRest\"\n}\n",
+        );
+        assert!(out.contains(r#"long_help = "Short\n\n\nRest""#), "{out}");
+
+        let spec = "name \"ex\"\nbin \"ex\"\narg \"<FILES>…\"\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains("required"), "{usage}");
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains("required = true"), "{clap}");
+    }
+
+    #[test]
+    fn the_root_describes_itself_however_its_two_forms_relate() {
+        // Two checks that disagreed left a gap between them: a long form opening with the short
+        // one but not then breaking — a trailing period is enough — was too much for a comment
+        // and not enough to be declared, and the program's description vanished. One predicate
+        // decides both now, so every arrangement produces a description somewhere.
+        for long in [
+            "Dev tools.",                    // the short form plus punctuation
+            "Dev tools, and then some more", // the short form plus text, no break
+            "Something else entirely",       // independent
+            "Dev tools\n\nAnd the rest.",    // opens with it and breaks: a comment can say this
+        ] {
+            let spec =
+                format!("name \"ex\"\nbin \"ex\"\nabout \"Dev tools\"\nabout_long {long:?}\n");
+            let (out, _) = rendered(&spec);
+            assert!(
+                out.contains("Dev tools"),
+                "the short form went missing for {long:?}: {out}"
+            );
+            assert!(
+                out.contains(long.split('\n').next().unwrap()),
+                "the long form went missing for {long:?}: {out}"
+            );
+        }
+    }
+
+    #[test]
     fn a_flags_long_help_is_its_long_help_and_not_its_name() {
         // The long *name* was passed where the long *help* belongs, so a flag called `--shims`
         // with a paragraph of extended help emitted `long_help = "shims"` — the shadow dropped
@@ -1272,12 +1386,19 @@ mod tests {
         // really has: a long form whose first sentence ends in a period the short form
         // leaves off, which left the period stranded on a line of its own, and an
         // indented example, which lost its indentation.
+        // A long form whose first sentence ends in a period the short form leaves off is
+        // declared now rather than written as a comment — the comment path reconstructs it as
+        // "short + rest" and the punctuation lives exactly between them, so there is nowhere
+        // for it to go. What matters either way is that the text survives whole.
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--security\" help=\"Include security info\" \\
                 long_help=\"Include security info.\\n\\nRequires --json.\"\n",
         );
         assert!(!out.contains("/// ."), "a stranded period: {out}");
-        assert!(out.contains("/// Requires --json."), "{out}");
+        assert!(
+            out.contains(r#"long_help = "Include security info.\n\nRequires --json.""#),
+            "{out}"
+        );
 
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--shims\" help=\"Use shims\" \\
@@ -1290,11 +1411,23 @@ mod tests {
     }
 
     #[test]
-    fn a_long_form_that_only_adds_a_period_says_nothing() {
+    fn a_long_form_that_only_adds_a_period_is_declared_rather_than_lost() {
+        // This used to emit one comment and drop the period, on the grounds that the two forms
+        // said the same thing. They do — but the *spec* does not say the same thing, and the
+        // regenerated one has to. Rendering mise's help against usage-lib's showed it: the
+        // reference prints "Task to run." and the shadow printed "Task to run".
+        //
+        // So the pair is declared, which is the only way a comment cannot mangle it: a comment
+        // reconstructs the long form as "short + rest", and the punctuation lives between them.
         let (out, _) = rendered(
             "name \"ex\"\nbin \"ex\"\nflag \"--force\" help=\"Do it\" long_help=\"Do it.\"\n",
         );
-        assert_eq!(out.matches("/// Do it").count(), 1, "{out}");
+        assert!(out.contains(r#"help = "Do it""#), "{out}");
+        assert!(out.contains(r#"long_help = "Do it.""#), "{out}");
+        assert!(
+            !out.contains("/// Do it"),
+            "declared, so there is no comment to disagree with it: {out}"
+        );
     }
 
     #[test]
