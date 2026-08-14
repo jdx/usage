@@ -98,8 +98,13 @@ pub fn explain(resolved: &Resolved, key: &str) -> Option<String> {
     // The blank line opens whichever of these comes first, rather than belonging to the
     // environment: a setting with git or pkl bindings and no environment variables had its
     // `also` line jammed against the type or the help above it, reading as part of them.
-    if !meta.envs.is_empty() || !meta.bindings.is_empty() {
+    if !meta.envs.is_empty() || !meta.cli.is_empty() || !meta.bindings.is_empty() {
         let _ = writeln!(out);
+    }
+    if !meta.cli.is_empty() {
+        // Before the environment, because it is the way a user is most likely to reach for next: an
+        // explanation that listed the variables and not the flag answered half the question.
+        let _ = writeln!(out, "  command line {}", one_line(&meta.cli.join(", ")));
     }
     if !meta.envs.is_empty() {
         let _ = writeln!(out, "  environment  {}", one_line(&meta.envs.join(", ")));
@@ -203,6 +208,7 @@ mod tests {
         PropMeta {
             default: Some(Const::Int(4)),
             envs: &["HK_JOBS", "HK_JOB"],
+            cli: &["--jobs", "-j"],
             bindings: &[("git", "hk.jobs")],
             help: Some("How many jobs to run at once"),
             ..PropMeta::new("jobs", Ty::Uint)
@@ -287,6 +293,10 @@ mod tests {
         for line in text.lines() {
             assert_eq!(line, line.trim_end(), "trailing space:\n{text}");
         }
+        // The flag, before the variables: a user reading an explanation because they do not like the
+        // answer reaches for the command line first, and listing the variables alone answered half
+        // the question they asked.
+        assert!(text.contains("command line --jobs, -j"), "{text}");
         // And where else it could come from, which is the other half of the question.
         assert!(text.contains("environment  HK_JOBS, HK_JOB"), "{text}");
         assert!(text.contains("also         git hk.jobs"), "{text}");

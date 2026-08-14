@@ -72,6 +72,13 @@ pub struct PropMeta {
     pub parse: Option<Parser>,
     /// Environment variables that set it, highest precedence first.
     pub envs: &'static [&'static str],
+    /// The flags that set it, as the spec's `cli` node declares them: `["--jobs", "-j"]`.
+    ///
+    /// Documentation for the most part — an explanation that lists the environment variables and not
+    /// the flag is answering half the question a user asked. It is also what a generated test can
+    /// hold the *executable* binding against, since a spec that declares `--jobs` and a CLI that
+    /// never reads it into the setting is the shape of hk's thirteen dead `sources.cli` lines.
+    pub cli: &'static [&'static str],
     /// Its keys in sources usage does not know about: `[("git", "hk.jobs")]`. A custom layer
     /// asks the registry for its own kind and iterates what it finds, which is the whole
     /// mechanism behind hk's git and pkl layers and aube's `.npmrc`.
@@ -103,6 +110,7 @@ impl PropMeta {
             scope: Scope::Any,
             parse: None,
             envs: &[],
+            cli: &[],
             bindings: &[],
             choices: &[],
             hide: false,

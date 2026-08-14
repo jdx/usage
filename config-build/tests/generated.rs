@@ -109,6 +109,15 @@ fn what_the_spec_said_about_each_setting_is_what_the_registry_holds() {
     );
     assert!(!meta(prop::JOBS).hide);
 
+    // The flags that set it, which the spec declares beside the environment variables and which the
+    // generator used to read and drop — leaving the registry unable to say a setting is settable from
+    // the command line at all.
+    assert_eq!(meta(prop::JOBS).cli, &["--jobs", "-j"]);
+    assert!(
+        meta(prop::EXCLUDE).cli.is_empty(),
+        "most settings have no flag"
+    );
+
     // The environment in precedence order, and help as the spec wrote it — quotes and all.
     assert_eq!(meta(prop::JOBS).envs, &["HK_JOBS", "HK_JOB"]);
     assert_eq!(meta(prop::CI).envs, &["CI"]);
