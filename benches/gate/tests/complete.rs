@@ -110,6 +110,28 @@ fn the_long_flags_offered_are_the_reference_s() {
 }
 
 #[test]
+fn a_prefix_matching_no_declared_choice_is_answered_the_same_way() {
+    // `mise activate zsx⌶` — the argument declares its whole set, so nothing matching means no
+    // matches, not "here is the working directory". Both sides must agree, and both must be
+    // empty: this is the case where a filtered-list test would have passed while the rule was
+    // wrong, because the rule is about what the position *declares*.
+    let spec = mise_spec();
+    for line in ["mise activate zs", "mise activate zsx"] {
+        let s = split(line, line.len(), Shell::Bash);
+        let ours = usage_argv::complete::complete(shadow_mise::Cli::spec(), &s);
+        let theirs = usage_cli::complete_candidates(&spec, &s.words, s.cword, "bash")
+            .expect("the reference should answer");
+        let theirs: Vec<String> = theirs.into_iter().map(|(v, _)| v).collect();
+        let ours_values: Vec<String> = ours.candidates.iter().map(|c| c.value.clone()).collect();
+        assert_eq!(ours_values, theirs, "{line:?}");
+        assert_eq!(
+            ours.files, None,
+            "{line:?} declares its set, so no paths belong"
+        );
+    }
+}
+
+#[test]
 fn the_short_flags_offered_are_the_reference_s() {
     // A lone dash offers both forms; a letter narrows to the flag that has it.
     assert_same("mise -");

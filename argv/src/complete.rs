@@ -186,22 +186,44 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     // suppresses its own listing there for the same reason.
     let flag_like = position.flags_possible && token.starts_with('-');
 
-    // The name a value here would have, which is what says whether paths belong.
-    let named = if let Some(flag) = position.awaiting_value {
-        flag_meta(spec.root, flag)
-            .and_then(|m| m.value_name)
-            .or(Some(flag.name))
+    // The name a value here would have, which is what says whether paths belong, and whether
+    // that value declares its own set.
+    let (named, declares_choices) = if let Some(flag) = position.awaiting_value {
+        let meta = flag_meta(spec.root, flag);
+        (
+            meta.and_then(|m| m.value_name).or(Some(flag.name)),
+            meta.is_some_and(|m| !m.choices.is_empty()),
+        )
+    } else if let Some(arg) = position.next_arg {
+        let meta = arg_meta(spec.root, arg);
+        (Some(arg.name), meta.is_some_and(|m| !m.choices.is_empty()))
     } else {
-        position.next_arg.map(|arg| arg.name)
+        (None, false)
     };
     let asked_for = named.and_then(files_for);
 
-    // Closed: the position knows its whole set, so an unmatched prefix means no matches rather
-    // than "ask somebody else". Offering the working directory for a mistyped choice is worse
-    // than offering nothing.
-    let closed = !candidates.is_empty() || position.help_topic;
+    // An argument that requires a separator is not fillable yet, so nothing else belongs here —
+    // not even a path, which the parser would reject exactly as it rejects a value.
+    //
+    // Only when the cursor is *at* that argument, though. A flag waiting for its value is a
+    // different position that happens to have an unfilled positional behind it, and a rule about
+    // the positional has nothing to say about the flag: `ex --from ⌶` takes a path whatever the
+    // argument after it needs.
+    let needs_separator = position.awaiting_value.is_none()
+        && position
+            .next_arg
+            .is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
+        && !position.separator_seen;
 
-    let files = if flag_like {
+    // Two questions, and the reference asks both. Was anything found — because a position that
+    // answered does not need help. And does the position *declare* its set — because then an
+    // unmatched prefix means no matches rather than "ask somebody else", which is the difference
+    // between "there is nothing else this can be" and "nothing matched what you typed".
+    // Offering the working directory for a mistyped choice answers the second as though it were
+    // the first.
+    let closed = !candidates.is_empty() || declares_choices || position.help_topic;
+
+    let files = if flag_like || needs_separator {
         None
     } else if asked_for.is_some() {
         asked_for
@@ -771,6 +793,25 @@ mod tests {
         name: "FILE",
         ..Arg::REQUIRED
     };
+    /// A path-named argument that is not fillable until a `--` is typed.
+    static PIPED: Arg = Arg {
+        key: 11,
+        name: "PATH",
+        double_dash: crate::DoubleDash::Required,
+        ..Arg::REQUIRED
+    };
+    static FROM: Flag = Flag {
+        key: 12,
+        name: "from",
+        longs: &["from"],
+        ..Flag::VALUE
+    };
+    static PIPE: Command = Command {
+        name: "pipe",
+        flags: &[&FROM],
+        args: &[&PIPED],
+        ..Command::EMPTY
+    };
     static EDIT: Command = Command {
         name: "edit",
         flags: &[&INTO],
@@ -841,6 +882,22 @@ mod tests {
             arg: &TOOL,
             help: Some("Which tool"),
             choices: &["node", "python"],
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static META_PIPE: CommandMeta = CommandMeta {
+        cmd: &PIPE,
+        about: Some("Pipe a file"),
+        flags: &[FlagMeta {
+            flag: &FROM,
+            help: Some("Read from"),
+            value_name: Some("FILE"),
+            ..FlagMeta::EMPTY
+        }],
+        args: &[ArgMeta {
+            arg: &PIPED,
+            help: Some("Where from"),
             ..ArgMeta::EMPTY
         }],
         ..CommandMeta::EMPTY
@@ -931,13 +988,16 @@ mod tests {
             &META_TASK,
             &META_WRAP,
             &META_EDIT,
+            &META_PIPE,
         ],
         ..CommandMeta::EMPTY
     };
     static ROOT_WITH_META: Command = Command {
         name: "mise",
         flags: &[&GLOBAL],
-        subcommands: &[&USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT],
+        subcommands: &[
+            &USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT, &PIPE,
+        ],
         ..Command::EMPTY
     };
     static SPEC: Spec = Spec {
@@ -1231,8 +1291,8 @@ mod tests {
             // `node` and `python` are the fallback command's, which the root offers too — see
             // `the_root_offers_what_the_command_it_falls_back_to_accepts`.
             [
-                "edit", "exec", "list", "ls", "node", "plugins", "python", "task", "u", "use",
-                "wrap",
+                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "task", "u",
+                "use", "wrap",
             ],
             "sorted, and a hidden command is offered under none of its names"
         );
@@ -1289,8 +1349,8 @@ mod tests {
         assert_eq!(
             offered("mise -- "),
             [
-                "edit", "exec", "list", "ls", "node", "plugins", "python", "task", "u", "use",
-                "wrap",
+                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "task", "u",
+                "use", "wrap",
             ]
         );
     }
@@ -1301,7 +1361,7 @@ mod tests {
         let jobs = found.iter().find(|c| c.value == "--jobs").expect("--jobs");
         assert_eq!(jobs.description, Some("How many at once"));
 
-        let found = candidates(&SPEC, &at_end("mise p"));
+        let found = candidates(&SPEC, &at_end("mise pl"));
         assert_eq!(found[0].description, Some("Manage plugins"));
     }
     #[test]
@@ -1313,7 +1373,7 @@ mod tests {
         // read about, not for a word to run.
         assert_eq!(
             offered("mise help "),
-            ["edit", "exec", "list", "ls", "plugins", "task", "u", "use", "wrap"]
+            ["edit", "exec", "list", "ls", "pipe", "plugins", "task", "u", "use", "wrap"]
         );
     }
     #[test]
@@ -1399,6 +1459,15 @@ mod tests {
         // there is otherwise no candidate to suppress the fallback.
         assert_eq!(answer("mise use --").files, None);
         assert_eq!(answer("mise -").files, None);
+        // And a prefix that matches none of a declared set: the set is still the whole answer,
+        // so "nothing matched what you typed" must not become "here is the working directory".
+        let a = answer("mise use nodx");
+        assert!(a.candidates.is_empty());
+        assert_eq!(a.files, None);
+        // A mistyped *command*, though, does fall back — nothing declared a set there, and the
+        // reference offers paths for the same reason.
+        assert_eq!(answer("mise plugni").files, Some(Files::Any));
+
         let a = answer("mise use --zzz");
         assert!(a.candidates.is_empty());
         assert_eq!(a.files, None);
@@ -1414,6 +1483,23 @@ mod tests {
         let a = answer("mise edit some-file ");
         assert!(a.candidates.is_empty(), "{:?}", a.candidates);
         assert_eq!(a.files, Some(Files::Any));
+    }
+
+    #[test]
+    fn a_path_that_needs_a_separator_is_still_not_a_path_yet() {
+        // Named `<PATH>`, so paths are what it takes — but not until the separator is typed,
+        // because until then the parser rejects a path exactly as it rejects any other value.
+        let a = answer("mise pipe ");
+        assert_eq!(a.files, None);
+        assert_eq!(a.candidates.len(), 1, "the separator, and nothing else");
+        assert_eq!(a.candidates[0].value, "--");
+
+        // Past it, they are.
+        assert_eq!(answer("mise pipe -- ").files, Some(Files::Any));
+
+        // And a flag waiting for its value is a different position that happens to have that
+        // argument behind it: `--from ⌶` takes a path whatever the positional after it needs.
+        assert_eq!(answer("mise pipe --from ").files, Some(Files::Any));
     }
 
     #[test]
