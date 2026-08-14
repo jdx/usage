@@ -152,3 +152,41 @@ fn a_shell_that_says_nothing_useful_still_gets_an_answer() {
         "install\n"
     );
 }
+
+/// A CLI that says it does not want completions, in the spelling that would once have been read
+/// as wanting them.
+#[derive(Cli)]
+#[usage(bin = "off", completion = false)]
+struct Off {
+    /// Say more
+    #[usage(long = "verbose")]
+    verbose: bool,
+}
+
+/// The same name the derive would have generated, which is how the absence is asserted.
+///
+/// Rust refuses two inherent methods with one name on one type, so if `completion = false` were
+/// read as opting in, this impl would collide with the generated one and the crate would not
+/// build. A test can assert what is *there*; making it assert what is *not* takes a collision.
+impl Off {
+    fn completion_request(_argv: &[std::ffi::OsString]) -> Option<String> {
+        Some("written by hand".to_string())
+    }
+}
+
+#[test]
+fn saying_false_is_taken_as_false() {
+    // The attribute went through a path match, so any form carrying the word opted the CLI in —
+    // `completion = false` included, which is the one spelling whose whole point is not to.
+    assert_eq!(
+        Off::completion_request(&[]).as_deref(),
+        Some("written by hand"),
+        "the derive generated a completion request for a CLI that declined one"
+    );
+
+    let parsed = Off::parse_from(&[std::ffi::OsStr::new("--verbose")]).expect("an ordinary parse");
+    assert!(parsed.verbose);
+
+    // And the CLI that does ask for it still answers.
+    assert!(Ex::completion_request(&[std::ffi::OsString::from("__complete_word__")]).is_some());
+}

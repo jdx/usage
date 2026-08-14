@@ -248,7 +248,10 @@ impl Cli {
                 match ident_of(&path).as_str() {
                     "name" => cli.name = string_value(&meta)?,
                     "bin" => cli.bin = Some(string_value(&meta)?),
-                    "completion" => cli.completion = true,
+                    // Through the same helper as `global` and `var`, so `completion = false`
+                    // means false rather than being read as the bare word with something
+                    // decorative after it.
+                    "completion" => cli.completion = flag_value(&meta)?,
                     "version" => cli.version = Some(string_value(&meta)?),
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
