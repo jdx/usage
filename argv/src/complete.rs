@@ -179,8 +179,19 @@ fn files_for(name: &str) -> Option<Files> {
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
 pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
+    let meta = crate::help::find(spec, position.cmd).map(|(_, meta)| meta);
     let token = split.prefix.as_str();
     let candidates = candidates(spec, split);
+
+    // Which argument the cursor is at — the same question `candidates` answers, asked once so
+    // that the two halves cannot disagree. Past a restart token it is the command's *first*
+    // argument, whatever the words before the token filled, and everything below follows from
+    // that: whether paths belong, whether the set is declared, whether a separator is owed.
+    let at_cursor = if restarted(meta, split) {
+        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+    } else {
+        position.next_arg
+    };
 
     // A dash-prefixed word is a flag or nothing: no path starts with one, and the reference
     // suppresses its own listing there for the same reason.
@@ -194,7 +205,7 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
             meta.is_some_and(|m| !m.choices.is_empty()),
         )
-    } else if let Some(arg) = position.next_arg {
+    } else if let Some(arg) = at_cursor {
         let meta = arg_meta(spec.root, arg);
         (Some(arg.name), meta.is_some_and(|m| !m.choices.is_empty()))
     } else {
@@ -210,9 +221,7 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     // the positional has nothing to say about the flag: `ex --from ⌶` takes a path whatever the
     // argument after it needs.
     let needs_separator = position.awaiting_value.is_none()
-        && position
-            .next_arg
-            .is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
+        && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
         && !position.separator_seen;
 
     // Two questions, and the reference asks both. Was anything found — because a position that
@@ -788,6 +797,25 @@ mod tests {
         args: &[&FIRST, &SECOND],
         ..Command::EMPTY
     };
+    /// A restarting command whose first argument takes paths and whose second does not, so that
+    /// "which argument is the cursor at" has two different answers.
+    static SCRIPT_ARG: Arg = Arg {
+        key: 13,
+        name: "FILE",
+        ..Arg::REQUIRED
+    };
+    static MODE: Arg = Arg {
+        key: 14,
+        name: "MODE",
+        ..Arg::REQUIRED
+    };
+    static SHIP: Command = Command {
+        name: "ship",
+        // The choices-bearing one first, so that "which argument is the cursor at" has two
+        // different *answers* rather than two routes to the same one.
+        args: &[&MODE, &SCRIPT_ARG],
+        ..Command::EMPTY
+    };
     static FILE: Arg = Arg {
         key: 9,
         name: "FILE",
@@ -884,6 +912,24 @@ mod tests {
             choices: &["node", "python"],
             ..ArgMeta::EMPTY
         }],
+        ..CommandMeta::EMPTY
+    };
+    static META_SHIP: CommandMeta = CommandMeta {
+        cmd: &SHIP,
+        about: Some("Ship a file"),
+        restart_token: Some(":::"),
+        args: &[
+            ArgMeta {
+                arg: &MODE,
+                choices: &["fast", "slow"],
+                ..ArgMeta::EMPTY
+            },
+            ArgMeta {
+                arg: &SCRIPT_ARG,
+                help: Some("Which file"),
+                ..ArgMeta::EMPTY
+            },
+        ],
         ..CommandMeta::EMPTY
     };
     static META_PIPE: CommandMeta = CommandMeta {
@@ -989,6 +1035,7 @@ mod tests {
             &META_WRAP,
             &META_EDIT,
             &META_PIPE,
+            &META_SHIP,
         ],
         ..CommandMeta::EMPTY
     };
@@ -996,7 +1043,7 @@ mod tests {
         name: "mise",
         flags: &[&GLOBAL],
         subcommands: &[
-            &USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT, &PIPE,
+            &USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT, &PIPE, &SHIP,
         ],
         ..Command::EMPTY
     };
@@ -1291,8 +1338,8 @@ mod tests {
             // `node` and `python` are the fallback command's, which the root offers too — see
             // `the_root_offers_what_the_command_it_falls_back_to_accepts`.
             [
-                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "task", "u",
-                "use", "wrap",
+                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "ship", "task",
+                "u", "use", "wrap",
             ],
             "sorted, and a hidden command is offered under none of its names"
         );
@@ -1349,8 +1396,8 @@ mod tests {
         assert_eq!(
             offered("mise -- "),
             [
-                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "task", "u",
-                "use", "wrap",
+                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "ship", "task",
+                "u", "use", "wrap",
             ]
         );
     }
@@ -1373,7 +1420,7 @@ mod tests {
         // read about, not for a word to run.
         assert_eq!(
             offered("mise help "),
-            ["edit", "exec", "list", "ls", "pipe", "plugins", "task", "u", "use", "wrap"]
+            ["edit", "exec", "list", "ls", "pipe", "plugins", "ship", "task", "u", "use", "wrap"]
         );
     }
     #[test]
@@ -1509,5 +1556,43 @@ mod tests {
         let a = answer("mise wrap ");
         assert_eq!(a.candidates.len(), 1);
         assert_eq!(a.files, None);
+    }
+    #[test]
+    fn a_restart_asks_about_the_first_argument_for_paths_too() {
+        // Both halves of an answer have to agree about which argument the cursor is at. `ship`
+        // takes a `MODE` and then a `FILE`, so its two arguments want different things: the first
+        // declares its whole set, the second takes any path.
+        let first = answer("mise ship ");
+        assert_eq!(first.files, None, "MODE declares its set");
+        assert_eq!(
+            first
+                .candidates
+                .iter()
+                .map(|c| c.value.as_str())
+                .collect::<Vec<_>>(),
+            ["fast", "slow"]
+        );
+        assert_eq!(
+            answer("mise ship fast ").files,
+            Some(Files::Any),
+            "FILE takes paths"
+        );
+
+        // Past the restart token the cursor is back at the first argument, whatever the words
+        // before it filled — so a prefix matching none of `MODE`'s set means no matches, not
+        // "here is the working directory".
+        let after = answer("mise ship fast ::: ");
+        assert_eq!(after.files, None, "back at MODE, which declares its set");
+        assert_eq!(
+            after
+                .candidates
+                .iter()
+                .map(|c| c.value.as_str())
+                .collect::<Vec<_>>(),
+            ["fast", "slow"]
+        );
+        let mistyped = answer("mise ship fast ::: zzz");
+        assert!(mistyped.candidates.is_empty());
+        assert_eq!(mistyped.files, None, "a mistyped choice is still a choice");
     }
 }
