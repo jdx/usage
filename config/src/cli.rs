@@ -99,10 +99,15 @@ impl CliLayer {
     /// the one worth printing: "set by `--jobs`" is actionable in a way that "set by the command
     /// line" is not. A setting whose registry declares no flag is named by its key, which is the
     /// most that can be said about a CLI that bound something it never documented.
+    ///
+    /// Asked of the declaration the CLI bound to rather than of the setting that declaration ends
+    /// up meaning, which is the same distinction a deprecation warning makes. A flag bound to a
+    /// renamed key reads the replacement's flags through `lookup`, so `--old` was reported as
+    /// `--new`: a flag nobody typed, named as the thing to stop passing.
     fn origin(&self, registry: Registry, key: &str) -> Origin {
         let named = registry
-            .lookup(key)
-            .and_then(|found| registry.get(found.id).cli.first().copied());
+            .lookup_exact(key)
+            .and_then(|id| registry.get(id).cli.first().copied());
         Origin::new(SourceKind::CLI, named.unwrap_or(key))
     }
 }
@@ -165,6 +170,12 @@ mod tests {
         },
         // No flag at all, which is most settings.
         PropMeta::new("stash", Ty::String),
+        // An old name with a flag of its own, still bound by a CLI that has not dropped it yet.
+        PropMeta {
+            cli: &["--concurrency"],
+            renamed_to: Some("jobs"),
+            ..PropMeta::new("concurrency", Ty::Uint)
+        },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
 
@@ -250,6 +261,27 @@ mod tests {
                 .origin(REGISTRY.lookup("stash").expect("declared").id)
                 .map(|o| o.describe()),
             Some("stash")
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_to_an_old_name_is_named_by_the_old_name() {
+        // `lookup` answers "which setting is this", which is what a *value* needs and what the merge
+        // does with it. A flag's name is a question about the declaration the CLI bound to: reading
+        // the replacement's flags through a rename reported `--old` as `--new`, naming a flag the
+        // user never typed as the thing to stop passing.
+        let cli = CliLayer::new([("concurrency", "8")]);
+        let resolved = resolve(REGISTRY, Layers::new().then(&cli)).expect("resolves");
+        assert_eq!(
+            resolved.get_key("jobs"),
+            Some(&Value::Int(8)),
+            "still folds"
+        );
+        assert_eq!(
+            resolved
+                .origin(REGISTRY.lookup("jobs").expect("declared").id)
+                .map(|o| o.describe()),
+            Some("--concurrency")
         );
     }
 
