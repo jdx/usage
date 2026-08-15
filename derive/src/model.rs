@@ -145,6 +145,27 @@ pub struct Field {
     pub span: Span,
 }
 
+/// How a positional argument relates to the `--` separator.
+///
+/// The spec's four modes, spelled as the spec spells them. Mirrors
+/// [`usage_argv::DoubleDash`] rather than being it, because the derive builds its model
+/// before it names the runtime — but the two must stay in step, which the round-trip test
+/// in `codegen` checks.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DoubleDash {
+    /// Values may appear on either side of a `--`. The default.
+    Optional,
+    /// Values are accepted only after a `--`.
+    Required,
+    /// A `--` is kept as a value rather than consumed as a separator.
+    Preserve,
+    /// Once the argument takes a value, the rest of the command line is values.
+    ///
+    /// What a wrapper needs: `mise run build --watch` hands `--watch` to the task without
+    /// the user typing a separator, and `mise --watch build` is still a flag mise reads.
+    Automatic,
+}
+
 /// Whether a field is a flag or a positional, and how it is addressed.
 pub enum Kind {
     Flag {
@@ -157,8 +178,8 @@ pub enum Kind {
         variadic: bool,
     },
     Arg {
-        /// A `--` is required before this argument's value.
-        double_dash_required: bool,
+        /// How this argument relates to the `--` separator.
+        double_dash: DoubleDash,
     },
     /// Holds the enum whose variants are this command's subcommands.
     ///
@@ -496,16 +517,19 @@ impl Cli {
                 // where the whole tree is visible, by the duplicate-form check in
                 // `Spec::to_kdl`.
                 Kind::Flatten { .. } => {}
-                Kind::Arg {
-                    double_dash_required,
-                } => {
+                Kind::Arg { double_dash } => {
                     // A variadic takes every remaining word, so anything after it can
                     // never be filled — with two exceptions, both of which are something
                     // that stops the variadic. An argument only fillable after a `--`,
                     // because the separator ends the collecting; and any argument at all
                     // when the variadic is *bounded*, because it hands over the words past
                     // its bound. mise relies on the first on `run`, `exec` and `git`.
-                    if let Some(first) = variadic_arg.filter(|_| !*double_dash_required) {
+                    // Only `required` stops a variadic. `automatic` stops *flags*, which is a
+                    // different thing entirely, and `preserve` changes what a `--` means without
+                    // ending anything — an argument declaring either is as unreachable behind an
+                    // unbounded variadic as a plain one.
+                    let stops_the_variadic = *double_dash == DoubleDash::Required;
+                    if let Some(first) = variadic_arg.filter(|_| !stops_the_variadic) {
                         return Err(dup(
                             field.span,
                             first,
@@ -527,7 +551,7 @@ impl Cli {
                         ));
                     }
                     if field.shape == Shape::Many && field.var_max.is_none() {
-                        if *double_dash_required {
+                        if stops_the_variadic {
                             spent_separator = Some(field.span);
                         } else {
                             variadic_arg = Some(field.span);
@@ -781,7 +805,7 @@ impl Field {
         let mut repeatable = false;
         let mut variadic = false;
         let mut count = false;
-        let mut double_dash_required = false;
+        let mut double_dash = DoubleDash::Optional;
         let mut env = None;
         let mut setting = None;
         let mut default = None;
@@ -902,13 +926,17 @@ impl Field {
                     "double_dash" => {
                         let mode = string_value(&meta)?;
                         match mode.as_str() {
-                            "required" => double_dash_required = true,
+                            "optional" => double_dash = DoubleDash::Optional,
+                            "required" => double_dash = DoubleDash::Required,
+                            "preserve" => double_dash = DoubleDash::Preserve,
+                            "automatic" => double_dash = DoubleDash::Automatic,
                             other => {
                                 return Err(syn::Error::new_spanned(
                                     path,
                                     format!(
-                                        "`double_dash = \"{other}\"` is not supported yet; \
-                                         only \"required\" is"
+                                        "`double_dash = \"{other}\"` is not a mode; \
+                                         the spec has \"optional\", \"required\", \
+                                         \"preserve\" and \"automatic\""
                                     ),
                                 ));
                             }
@@ -1278,9 +1306,7 @@ impl Field {
                      use `String`",
                 ));
             }
-            Kind::Arg {
-                double_dash_required,
-            }
+            Kind::Arg { double_dash }
         };
 
         // `required` on a collection is the only way a `Vec` can say it, and it means *always*.
@@ -2172,6 +2198,45 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn only_required_exempts_an_argument_from_the_variadic_rule() {
+        // `automatic` and `preserve` are about *flags* and about what a `--` means; neither ends
+        // a variadic, so neither buys an argument a place behind an unbounded one. Easy to get
+        // backwards now that all four modes can be written, and the cost of getting it backwards
+        // is a field that compiles and can never be filled.
+        for mode in ["automatic", "preserve"] {
+            let err = rejection(&format!(
+                r#"
+                struct Ex {{
+                    #[usage(arg)]
+                    args: Vec<String>,
+                    #[usage(arg, double_dash = "{mode}")]
+                    rest: Vec<String>,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("can never be filled"),
+                "`{mode}` should not exempt an argument: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_mode_the_spec_does_not_have_is_refused() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, double_dash = "sometimes")]
+                rest: Vec<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("is not a mode"), "unhelpful message: {err}");
+        // And the message lists them, because the four names are not guessable.
+        assert!(err.contains("preserve"), "unhelpful message: {err}");
     }
 
     #[test]

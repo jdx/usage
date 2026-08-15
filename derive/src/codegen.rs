@@ -15,7 +15,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::model::{rendered_path, Cli, Field, Kind, Shape, Subcommands, ValueEnum};
+use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum};
 
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
@@ -590,16 +590,14 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     let key = key_ident("ARG", Some(i));
     let field_name = &field.name;
     let var = field.shape == Shape::Many;
-    let Kind::Arg {
-        double_dash_required,
-    } = &field.kind
-    else {
+    let Kind::Arg { double_dash } = &field.kind else {
         unreachable!("filtered by the caller");
     };
-    let double_dash = if *double_dash_required {
-        quote!(DoubleDash::Required)
-    } else {
-        quote!(DoubleDash::Optional)
+    let double_dash = match double_dash {
+        DoubleDash::Optional => quote!(DoubleDash::Optional),
+        DoubleDash::Required => quote!(DoubleDash::Required),
+        DoubleDash::Preserve => quote!(DoubleDash::Preserve),
+        DoubleDash::Automatic => quote!(DoubleDash::Automatic),
     };
     // A bound stops the variadic while binding, so the argument after it is reachable.
     let var_max = match field.var_max.filter(|_| var) {

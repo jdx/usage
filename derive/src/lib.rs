@@ -174,7 +174,7 @@
 //! | `default = "x"` | the value when the command line does not supply one |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
-//! | `double_dash = "required"` | a positional only fillable after `--` |
+//! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `arg` | force a field to be positional |
