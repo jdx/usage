@@ -85,6 +85,8 @@ use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "complete")]
 pub mod complete;
+#[cfg(feature = "diagnostics")]
+pub mod diagnostic;
 #[cfg(feature = "complete")]
 pub mod script;
 
