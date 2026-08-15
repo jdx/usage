@@ -558,9 +558,11 @@ fn completer_tokens(
             // line reached. A global flag is declared on an ancestor, and reparsing the
             // subcommand's words against the ancestor's tables would drop everything the
             // ancestor was given before the subcommand's name.
-            let __usage_words = ctx.words_for(
-                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND,
-            );
+            let __usage_declaration =
+                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND;
+            let (__usage_command, __usage_words) = ctx
+                .command_for(__usage_declaration)
+                .unwrap_or((__usage_declaration, ctx.command_words));
             let __usage_owned: ::std::vec::Vec<::std::ffi::OsString> = __usage_words
                 .iter()
                 .map(::std::ffi::OsString::from)
@@ -569,7 +571,7 @@ fn completer_tokens(
                 __usage_owned.iter().map(|a| a.as_os_str()).collect();
             let mut partial = <super::#owner as ::usage_argv::spec::CommandArgs>::start();
             let mut parser = ::usage_argv::Parser::new(
-                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND,
+                __usage_command,
                 &__usage_argv,
             );
             // A line being completed is unfinished by definition, so an error means the grammar

@@ -529,6 +529,98 @@ fn a_global_flags_completer_reads_the_command_it_was_declared_on() {
     assert_eq!(tk_g("g outer leaf --profile "), "default\n");
 }
 
+/// A flattened group has fields of its own, but no command of its own on the active path.
+#[derive(Args)]
+struct FlattenedGlobals {
+    /// Where to work
+    #[usage(long = "workspace", value_name = "DIR", global)]
+    workspace: Option<String>,
+    /// Which profile, answered against `--workspace`
+    #[usage(
+        long = "flat-profile",
+        value_name = "PROFILE",
+        global,
+        complete = flattened_profiles
+    )]
+    profile: Option<String>,
+}
+
+#[derive(Args)]
+struct FlattenedOuter {
+    #[usage(flatten)]
+    globals: FlattenedGlobals,
+    #[usage(subcommand)]
+    command: Option<GlobalCommands>,
+}
+
+#[derive(Subcommands)]
+enum FlattenedCommands {
+    /// The command containing the flattened globals
+    Outer(Box<FlattenedOuter>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "fg", completion)]
+struct FG {
+    #[usage(subcommand)]
+    command: Option<FlattenedCommands>,
+}
+
+fn flattened_profiles(
+    partial: &<FlattenedGlobals as usage_argv::spec::CommandArgs>::Partial,
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    let workspace = partial
+        .workspace
+        .as_deref()
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
+    vec![usage_argv::complete::Candidate::new(
+        workspace.unwrap_or_else(|| "default".to_string()),
+    )]
+}
+
+#[test]
+fn a_flattened_global_completer_reads_its_parent_commands_words() {
+    // The flattened type's command key is not on the path. Its fields are in `outer`, so that
+    // command and its complete word slice are what the wrapper must reparse.
+    assert_eq!(
+        tk_fg("fg outer --workspace before leaf --flat-profile "),
+        "before\n"
+    );
+
+    // Reparse the actual parent command as well as its words: the flattened type does not know
+    // `leaf`, so reparsing only its own table would stop there and miss this later global.
+    assert_eq!(
+        tk_fg("fg outer leaf --workspace after --flat-profile "),
+        "after\n"
+    );
+
+    // The declarations used for completion are still the ones an ordinary parse fills.
+    let argv = [
+        OsStr::new("outer"),
+        OsStr::new("leaf"),
+        OsStr::new("--workspace"),
+        OsStr::new("after"),
+        OsStr::new("--flat-profile"),
+        OsStr::new("selected"),
+    ];
+    let parsed = FG::parse_from(&argv).expect("an ordinary parse");
+    let Some(FlattenedCommands::Outer(outer)) = parsed.command else {
+        panic!("expected outer")
+    };
+    assert_eq!(outer.globals.workspace.as_deref(), Some("after"));
+    assert_eq!(outer.globals.profile.as_deref(), Some("selected"));
+    assert!(matches!(outer.command, Some(GlobalCommands::Leaf(_))));
+}
+
+fn tk_fg(line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    FG::completion_request(&argv).expect("a completion request")
+}
+
 fn tk_g(line: &str) -> String {
     let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
         .iter()

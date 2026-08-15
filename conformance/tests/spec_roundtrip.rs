@@ -1033,6 +1033,8 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
             cword: words.len() - 1,
             words: &words,
             prefix: "",
+            command_words: &[],
+            command_path: &[],
         };
         let found = usage_argv::complete::for_name(&SPEC, "tool", &ctx).expect("a completer");
         assert_eq!(

@@ -140,7 +140,7 @@ pub struct CompleteCtx<'a> {
 }
 
 impl<'a> CompleteCtx<'a> {
-    /// The words `command` was given, or the deepest command's if it is not on the path.
+    /// The command in the active path that owns `declaration`, and the words it was given.
     ///
     /// Matched by key, not by address: a `Subcommands` variant builds its own table entry for
     /// the command it names — it may rename it, or give it aliases the type knows nothing about
@@ -149,13 +149,40 @@ impl<'a> CompleteCtx<'a> {
     /// tables of the same command agree on. Not the name, which a variant can change and two
     /// commands can share.
     ///
+    /// A flattened group's command is not itself on the path: its fields were spliced into the
+    /// parent's table. In that case the command containing all of the group's declarations is
+    /// the owner. Returning that actual command matters as well as returning its words, because
+    /// reparsing against the flattened table alone would stop at a parent subcommand name and
+    /// miss a global flag written after it.
+    pub fn command_for(
+        &self,
+        declaration: &crate::Command<'_>,
+    ) -> Option<(&'a crate::Command<'a>, &'a [String])> {
+        self.command_path
+            .iter()
+            .find(|(cmd, _)| cmd.key == declaration.key)
+            .or_else(|| {
+                let has_fields = !declaration.flags.is_empty() || !declaration.args.is_empty();
+                self.command_path.iter().find(|(cmd, _)| {
+                    has_fields
+                        && declaration.flags.iter().all(|field| {
+                            cmd.flags.iter().any(|candidate| candidate.key == field.key)
+                        })
+                        && declaration.args.iter().all(|field| {
+                            cmd.args.iter().any(|candidate| candidate.key == field.key)
+                        })
+                })
+            })
+            .map(|(cmd, words)| (*cmd, *words))
+    }
+
+    /// The words `command` was given, or the deepest command's if it is not on the path.
+    ///
     /// The fallback is for a completer reached by name rather than by a cursor position, where
     /// there may be no path at all.
     pub fn words_for(&self, command: &crate::Command<'_>) -> &'a [String] {
-        self.command_path
-            .iter()
-            .find(|(cmd, _)| cmd.key == command.key)
-            .map(|(_, words)| *words)
+        self.command_for(command)
+            .map(|(_, words)| words)
             .unwrap_or(self.command_words)
     }
 
