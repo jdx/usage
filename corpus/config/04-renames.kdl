@@ -78,3 +78,16 @@ vector "an-old-names-scope-is-the-new-ones" doc="A refusal is reported under the
     warning "out-of-scope"
   }
 }
+
+vector "a-chain-of-renames-resolves-to-its-end" doc="Two releases of renaming leave the first name still working: it resolves through the second to the setting that exists now." {
+  setting "jobs" type="uint" default=1
+  setting "concurrency" type="uint" renamed-to="jobs"
+  setting "threads" type="uint" renamed-to="concurrency"
+  layer "file" id="hk.toml" {
+    value "threads" "8"
+  }
+  expect {
+    value "jobs" 8
+    warning "renamed"
+  }
+}
