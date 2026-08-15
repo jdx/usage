@@ -142,8 +142,11 @@
 //! carrying the offending text and whatever the type's own conversion said about it.
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
-//! `default_subcommand`, and `completion` — which adds the hidden command a generated shell
-//! script calls, and needs usage-argv's `complete` feature enabled where it is depended on.
+//! `default_subcommand`, `completion` — which adds the hidden command a generated shell
+//! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
+//! and `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]).
+//!
+//! [Settings]: #settings-and-the-flags-that-set-them
 //!
 //! | option | meaning |
 //! | --- | --- |
@@ -188,6 +191,28 @@
 //! name: `alias = "i"` for one it should advertise, `alias_hidden = "add"` for one it
 //! should answer to quietly, each accepting several as a list. The parser matches both;
 //! the difference is only whether help and completions mention them.
+//!
+//! # Settings and the flags that set them
+//!
+//! `setting = "key"` says which setting a flag sets. `Cli::parse_from_with_settings` then
+//! returns a `usage_config::CliLayer` beside the parsed struct — the command line as the
+//! highest layer of a resolution — and `Cli::SETTINGS_BINDINGS` lists every flag it binds,
+//! which `usage_config::Registry::drift` compares against the flags the *spec* declares. A
+//! flag documented as setting something and read by nothing fails a test rather than a user.
+//!
+//! The layer is built from what the parser saw rather than from the parsed struct, because a
+//! `bool` field is `false` whether the flag was left off or negated, and the command line
+//! outranks every file on the machine. So `--no-colour` contributes `false`, and a flag that
+//! was not given contributes nothing at all.
+//!
+//! A setting can be declared wherever a flag is: on the root, in a `#[usage(flatten)]` group,
+//! or on a subcommand's struct. A group hands its parent what it was given in
+//! `usage_argv::spec::SettingGiven` — a vocabulary that says nothing about types, since the
+//! registry is what decides them — and only the root turns that into a layer, so a program
+//! with no settings never mentions `usage-config`. A root that binds nothing itself but
+//! flattens a group that does declares `#[usage(settings)]`; leaving it off is a compile error
+//! naming the attribute, because the alternative is a documented flag that quietly sets
+//! nothing.
 //!
 //! A word is held as the bytes it arrived as and converted once, where the struct is built.
 //! So a value that is not valid UTF-8 is **reported** rather than quietly replaced with

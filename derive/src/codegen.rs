@@ -84,10 +84,34 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     let partial = partial_struct(cli);
     let defaults_in_module = partial_defaults(cli, true);
-    let (settings_layer, settings_bindings) = match settings(cli) {
-        Some((layer, bindings)) => (Some(layer), Some(bindings)),
-        None => (None, None),
-    };
+    // A root resolves settings when it binds one itself, or when it says so — which is how a CLI
+    // whose bound flags all live in a flattened group asks for the entry points, since it cannot
+    // see another struct's fields. A root that does neither gets the compile-time guard instead of
+    // the layer, so a group's binding cannot go quietly uncollected.
+    let resolves = cli.fields.iter().any(|f| f.setting.is_some()) || cli.settings;
+    let parts = settings(cli);
+    // Only the layer calls it, so a root that has children and no settings of its own emits
+    // neither: the guard below is what speaks for that case.
+    let settings_given = parts.as_ref().filter(|_| resolves).map(|s| s.given.clone());
+    let settings_bindings = parts
+        .as_ref()
+        .filter(|_| resolves)
+        .map(|s| s.bindings.clone());
+    let settings_layer = resolves.then(settings_layer);
+    let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
+    // The name an adopter uses, forwarding to the module's, because the table names the flattened
+    // types and only inside the module do those paths resolve the way `in_module` wrote them.
+    let settings_binding_forward = settings_bindings.as_ref().map(|_| {
+        quote! {
+            /// Every flag this CLI reads into a setting, and the setting it sets.
+            ///
+            /// What `usage_config::Registry::drift` compares against the flags the spec
+            /// *declares*, so a documented flag nothing reads — hk has thirteen — fails a test
+            /// rather than a user.
+            pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
+                #module::SETTINGS_BINDINGS;
+        }
+    });
     // The second entry point, emitted only when something is bound: it returns what the parser saw
     // as well as the struct, which is the whole reason it exists.
     let settings_parse = settings_bindings.as_ref().map(|_| {
@@ -277,7 +301,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ::std::result::Result::Ok(partial)
             }
 
+            #settings_given
+            #settings_bindings
             #settings_layer
+            #settings_guard
 
             pub static SPEC: Spec = Spec {
                 name: #name,
@@ -310,7 +337,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 #module::SPEC.to_kdl()
             }
 
-            #settings_bindings
+            #settings_binding_forward
             #settings_parse
 
             /// Parse a command line, excluding the program name.
@@ -1082,6 +1109,292 @@ fn partial_struct(cli: &Cli) -> TokenStream {
     }
 }
 
+/// The pieces one command contributes to a settings resolution.
+///
+/// Two of them, and the split is what lets a group declare a setting at all. `given` and
+/// `bindings` name nothing outside `usage-argv`, so every command can carry them — a flattened
+/// group hands its parent what it was given, in a vocabulary the parser crate owns. Only the root
+/// turns that into a `usage_config::CliLayer`, which is why a program with no settings still never
+/// mentions the config crate.
+struct Settings {
+    given: TokenStream,
+    bindings: TokenStream,
+}
+
+/// One field's value, in usage-argv's vocabulary.
+///
+/// Text, because that is what the partial holds and what a declared type expects to read:
+/// rendering it to something typed here would be a second coercion, disagreeing with the
+/// registry's own at the first setting whose type this cannot see. Bytes that are not text are
+/// said rather than rendered — an argument can hold them and a setting cannot.
+fn given_value(field: &Field) -> TokenStream {
+    let ident = &field.ident;
+    match field.shape {
+        // The bool the parser landed on, which is `false` for a negation and `true` for the flag
+        // itself: what the user said, rather than that they said something.
+        Shape::Bool => quote! {
+            ::usage_argv::spec::SettingGiven::Bool(partial.#ident)
+        },
+        Shape::Count => quote! {
+            ::usage_argv::spec::SettingGiven::Int(
+                ::std::convert::TryFrom::try_from(partial.#ident)
+                    .unwrap_or(::std::primitive::i64::MAX),
+            )
+        },
+        Shape::Optional => quote! {
+            match ::std::str::from_utf8(partial.#ident.as_deref().unwrap_or_default()) {
+                ::std::result::Result::Ok(__usage_text) => {
+                    ::usage_argv::spec::SettingGiven::Text(
+                        ::std::string::ToString::to_string(__usage_text),
+                    )
+                }
+                ::std::result::Result::Err(_) => ::usage_argv::spec::SettingGiven::NotText,
+            }
+        },
+        Shape::Required => quote! {
+            match ::std::str::from_utf8(&partial.#ident) {
+                ::std::result::Result::Ok(__usage_text) => {
+                    ::usage_argv::spec::SettingGiven::Text(
+                        ::std::string::ToString::to_string(__usage_text),
+                    )
+                }
+                ::std::result::Result::Err(_) => ::usage_argv::spec::SettingGiven::NotText,
+            }
+        },
+        // Item by item, rather than joined and re-split: an item holding the separator would come
+        // back as two. One item that is not text costs the whole list, since contributing the
+        // others would quietly drop the one the user typed.
+        Shape::Many => quote! {
+            match partial
+                .#ident
+                .iter()
+                .map(|__usage_item| {
+                    ::std::str::from_utf8(__usage_item)
+                        .ok()
+                        .map(::std::string::ToString::to_string)
+                })
+                .collect::<::std::option::Option<::std::vec::Vec<_>>>()
+            {
+                ::std::option::Option::Some(__usage_items) => {
+                    ::usage_argv::spec::SettingGiven::List(__usage_items)
+                }
+                ::std::option::Option::None => ::usage_argv::spec::SettingGiven::NotText,
+            }
+        },
+    }
+}
+
+/// Every spelling a bound flag answers to, paired with what it sets.
+///
+/// A positional has no flag, so it contributes to the layer and not to this: there is nothing for
+/// a spec's `cli` node to have declared, and nothing for `drift` to compare.
+fn own_bindings(bound: &[&Field]) -> Vec<TokenStream> {
+    bound
+        .iter()
+        .flat_map(|field| {
+            let key = field.setting.clone().unwrap_or_default();
+            let mut spellings = Vec::new();
+            if let Kind::Flag {
+                longs,
+                shorts,
+                negate,
+                ..
+            } = &field.kind
+            {
+                spellings.extend(longs.iter().map(|long| format!("--{long}")));
+                spellings.extend(shorts.iter().map(|short| format!("-{short}")));
+                if let Some(negate) = negate {
+                    spellings.push(format!("--{negate}"));
+                }
+            }
+            spellings.into_iter().map(move |flag| quote!((#flag, #key)))
+        })
+        .collect()
+}
+
+/// The commands whose settings this one carries: each flattened group, and the subcommands.
+///
+/// As `(bindings, given)` pairs, because the two questions differ for a subcommand: its bindings
+/// are every variant's, since a table says what the CLI *can* do, and its values are the selected
+/// variant's, since those are about one invocation.
+fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
+    cli.fields
+        .iter()
+        .filter_map(|field| {
+            let ident = &field.ident;
+            match &field.kind {
+                Kind::Flatten { ty } => {
+                    let ty = in_module(ty);
+                    Some((
+                        quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
+                        quote! {
+                            <#ty as ::usage_argv::spec::CommandArgs>::settings_given(
+                                &partial.#ident,
+                            )
+                        },
+                    ))
+                }
+                Kind::Subcommand { ty, .. } => {
+                    let ty = in_module(ty);
+                    Some((
+                        quote!(<#ty as ::usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
+                        quote! {
+                            <#ty as ::usage_argv::spec::Subcommands>::settings_given(
+                                &partial.__usage_sub,
+                                partial.__usage_selected,
+                            )
+                        },
+                    ))
+                }
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// Several binding tables as one, joined at compile time.
+///
+/// The plain slice when there is nothing to join, which is every CLI that flattens nothing: the
+/// joined form costs a const block and an array, and reads worse in an expansion.
+fn joined_bindings(own: &[TokenStream], children: &[TokenStream]) -> TokenStream {
+    if children.is_empty() {
+        return quote!(&[#(#own),*]);
+    }
+    quote! {
+        {
+            const OWN: &[(&'static str, &'static str)] = &[#(#own),*];
+            const PARTS: &[&'static [(&'static str, &'static str)]] = &[OWN #(, #children)*];
+            const N: usize = OWN.len() #(+ #children.len())*;
+            const JOINED: [(&'static str, &'static str); N] =
+                ::usage_argv::spec::concat_bindings(PARTS);
+            &JOINED
+        }
+    }
+}
+
+/// What this command says about settings, or `None` when it has nothing to say.
+///
+/// A group with no bindings of its own still has something to say when it flattens one that does,
+/// which is why this is not simply "does any field declare `setting`".
+fn settings(cli: &Cli) -> Option<Settings> {
+    let bound: Vec<&Field> = cli.fields.iter().filter(|f| f.setting.is_some()).collect();
+    let children = children(cli);
+    if bound.is_empty() && children.is_empty() {
+        return None;
+    }
+
+    // Built from the *partial* rather than from the struct, and gated on `__given_`, because that
+    // is the only place the difference between "the flag was not passed" and "the flag was passed
+    // and said no" survives. Reading the struct, `--no-colour` is a `false` indistinguishable from
+    // absence — and the command line outranks every file on the machine, so guessing either way is
+    // a value the user never asked for.
+    let contributions = bound.iter().map(|field| {
+        let given = format_ident!("__given_{}", &field.ident);
+        let key = field.setting.as_deref().unwrap_or_default();
+        let value = given_value(field);
+        quote! {
+            if partial.#given {
+                __usage_given.push((#key, #value));
+            }
+        }
+    });
+    let from_children = children
+        .iter()
+        .map(|(_, given)| quote!(__usage_given.extend(#given);));
+
+    let given = quote! {
+        /// The settings this command line gave values for.
+        pub fn settings_given(
+            partial: &Partial,
+        ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+            let mut __usage_given = ::std::vec::Vec::new();
+            #(#contributions)*
+            #(#from_children)*
+            __usage_given
+        }
+    };
+
+    let child_bindings: Vec<TokenStream> = children.into_iter().map(|(b, _)| b).collect();
+    let pairs = own_bindings(&bound);
+    let table = joined_bindings(&pairs, &child_bindings);
+    let bindings = quote! {
+        /// Every flag this CLI reads into a setting, and the setting it sets.
+        ///
+        /// What `usage_config::Registry::drift` compares against the flags the spec *declares*, so
+        /// a documented flag nothing reads — hk has thirteen — fails a test rather than a user.
+        pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = #table;
+    };
+
+    Some(Settings { given, bindings })
+}
+
+/// The one place a `usage_config` type is named: the root's conversion.
+///
+/// One loop over what every command contributed, so a flattened group's value and the root's own
+/// become entries the same way. A second conversion is the thing this whole stack keeps deleting.
+fn settings_layer() -> TokenStream {
+    quote! {
+        /// This command line as a layer, for `usage_config::resolve`.
+        pub fn settings_layer(partial: &Partial) -> ::usage_config::CliLayer {
+            let mut __usage_layer = ::usage_config::CliLayer::new(
+                ::std::iter::empty::<(::std::string::String, ::std::string::String)>(),
+            );
+            for (__usage_key, __usage_given) in settings_given(partial) {
+                __usage_layer = match __usage_given {
+                    ::usage_argv::spec::SettingGiven::Bool(__usage_value) => {
+                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Bool(__usage_value))
+                    }
+                    ::usage_argv::spec::SettingGiven::Int(__usage_value) => {
+                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Int(__usage_value))
+                    }
+                    ::usage_argv::spec::SettingGiven::Text(__usage_value) => {
+                        __usage_layer
+                            .with_value(__usage_key, ::usage_config::Value::String(__usage_value))
+                    }
+                    ::usage_argv::spec::SettingGiven::List(__usage_items) => __usage_layer.with_value(
+                        __usage_key,
+                        ::usage_config::Value::List(
+                            __usage_items
+                                .into_iter()
+                                .map(::usage_config::Value::String)
+                                .collect(),
+                        ),
+                    ),
+                    ::usage_argv::spec::SettingGiven::NotText => {
+                        __usage_layer.with_unrepresentable(__usage_key)
+                    }
+                };
+            }
+            __usage_layer
+        }
+    }
+}
+
+/// The check that stands in for a root that never said it has settings.
+///
+/// A root cannot see another struct's fields, so a CLI whose only bound flags live in a flattened
+/// group would generate no settings entry points at all — the flag would parse and set nothing,
+/// which is the silence this attribute exists to prevent. Generating them for every CLI instead is
+/// not an option: that would make a program with subcommands and no settings depend on
+/// `usage-config`. So the root asks each child, at compile time, whether it binds anything it is
+/// not going to collect.
+fn settings_guard(cli: &Cli) -> Option<TokenStream> {
+    let children = children(cli);
+    if children.is_empty() {
+        return None;
+    }
+    let checks = children.into_iter().map(|(bindings, _)| {
+        quote! {
+            const _: () = assert!(
+                #bindings.len() == 0,
+                "this command flattens or nests a group that binds a setting, and does not \
+                 collect it: add `#[usage(settings)]` to the struct deriving `Cli`",
+            );
+        }
+    });
+    Some(quote!(#(#checks)*))
+}
+
 /// The defaults a partial cannot express as `Default::default()`.
 ///
 /// A declared `default` has to be in place before parsing starts, since nothing
@@ -1092,132 +1405,6 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 /// where the same path needs a `super::`. Nothing else in here cares, and getting it wrong is a
 /// compile error in the adopter's crate rather than here, so it is a parameter rather than a
 /// guess.
-/// The layer a parse produces, and the flags it binds — emitted only when something is bound.
-///
-/// A CLI with no `setting` on any field never mentions `usage-config`, so deriving `Cli` does not
-/// drag a config crate into a program that has no settings.
-fn settings(cli: &Cli) -> Option<(TokenStream, TokenStream)> {
-    let bound: Vec<&Field> = cli.fields.iter().filter(|f| f.setting.is_some()).collect();
-    if bound.is_empty() {
-        return None;
-    }
-
-    // Built from the *partial* rather than from the struct, and gated on `__given_`, because that
-    // is the only place the difference between "the flag was not passed" and "the flag was passed
-    // and said no" survives. Reading the struct, `--no-colour` is a `false` indistinguishable from
-    // absence — and the command line outranks every file on the machine, so guessing either way is
-    // a value the user never asked for.
-    let contributions = bound.iter().map(|field| {
-        let ident = &field.ident;
-        let given = format_ident!("__given_{}", ident);
-        let key = field.setting.as_deref().unwrap_or_default();
-        // `Option<Value>`, because an argument is bytes and a setting is text: on Unix a path
-        // need not be UTF-8, and the value would have been rendered lossily — setting a setting
-        // to a string nobody typed, naming a file that does not exist, while the CLI's own field
-        // still held the real bytes. `None` says so instead, and the layer reports it.
-        let value = match field.shape {
-            // The bool the parser landed on, which is `false` for a negation and `true` for the
-            // flag itself: what the user said, rather than that they said something.
-            Shape::Bool => quote! {
-                ::std::option::Option::Some(::usage_config::Value::Bool(partial.#ident))
-            },
-            Shape::Count => quote! {
-                ::std::option::Option::Some(::usage_config::Value::Int(
-                    ::std::convert::TryFrom::try_from(partial.#ident)
-                        .unwrap_or(::std::primitive::i64::MAX),
-                ))
-            },
-            // Text, because that is what the partial holds and what a declared type expects to
-            // read: rendering it to something typed here would be a second coercion, disagreeing
-            // with the registry's own at the first setting whose type this cannot see.
-            Shape::Optional => quote! {
-                ::std::str::from_utf8(partial.#ident.as_deref().unwrap_or_default())
-                    .ok()
-                    .map(|__usage_text| {
-                        ::usage_config::Value::String(::std::string::ToString::to_string(
-                            __usage_text,
-                        ))
-                    })
-            },
-            Shape::Required => quote! {
-                ::std::str::from_utf8(&partial.#ident).ok().map(|__usage_text| {
-                    ::usage_config::Value::String(::std::string::ToString::to_string(__usage_text))
-                })
-            },
-            // Item by item, rather than joined and re-split: an item holding the separator would
-            // come back as two. One item that is not text costs the whole list, since contributing
-            // the others would quietly drop the one the user typed most recently.
-            Shape::Many => quote! {
-                partial
-                    .#ident
-                    .iter()
-                    .map(|__usage_item| {
-                        ::std::str::from_utf8(__usage_item).ok().map(|__usage_text| {
-                            ::usage_config::Value::String(::std::string::ToString::to_string(
-                                __usage_text,
-                            ))
-                        })
-                    })
-                    .collect::<::std::option::Option<::std::vec::Vec<_>>>()
-                    .map(::usage_config::Value::List)
-            },
-        };
-        quote! {
-            if partial.#given {
-                __usage_layer = match #value {
-                    ::std::option::Option::Some(__usage_value) => {
-                        __usage_layer.with_value(#key, __usage_value)
-                    }
-                    ::std::option::Option::None => __usage_layer.with_unrepresentable(#key),
-                };
-            }
-        }
-    });
-
-    let layer = quote! {
-        /// The settings this command line gave values for.
-        pub fn settings_layer(partial: &Partial) -> ::usage_config::CliLayer {
-            let mut __usage_layer = ::usage_config::CliLayer::new(
-                ::std::iter::empty::<(::std::string::String, ::std::string::String)>(),
-            );
-            #(#contributions)*
-            __usage_layer
-        }
-    };
-
-    // Every spelling a bound flag answers to, paired with what it sets. A positional has no flag,
-    // so it contributes to the layer and not to this: there is nothing for a spec's `cli` node to
-    // have declared, and nothing for `drift` to compare.
-    let pairs = bound.iter().flat_map(|field| {
-        let key = field.setting.clone().unwrap_or_default();
-        let mut spellings = Vec::new();
-        if let Kind::Flag {
-            longs,
-            shorts,
-            negate,
-            ..
-        } = &field.kind
-        {
-            spellings.extend(longs.iter().map(|long| format!("--{long}")));
-            spellings.extend(shorts.iter().map(|short| format!("-{short}")));
-            if let Some(negate) = negate {
-                spellings.push(format!("--{negate}"));
-            }
-        }
-        spellings.into_iter().map(move |flag| quote!((#flag, #key)))
-    });
-
-    let bindings = quote! {
-        /// Every flag this CLI reads into a setting, and the setting it sets.
-        ///
-        /// What `usage_config::Registry::drift` compares against the flags the spec *declares*, so
-        /// a documented flag nothing reads — hk has thirteen — fails a test rather than a user.
-        pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[#(#pairs),*];
-    };
-
-    Some((layer, bindings))
-}
-
 fn partial_defaults(cli: &Cli, inside_module: bool) -> TokenStream {
     let sub_starts = subcommand_parts(cli)
         .map(|p| p.partial_starts)
@@ -1726,6 +1913,28 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let module = format_ident!("__usage_args_{}", ident.to_string().to_lowercase());
+    // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
+    // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
+    // without either of them naming the config crate. Emitted whenever it has anything to say —
+    // its own bindings, or a group of its own that has some.
+    let parts = settings(cli);
+    let settings_defs = parts.as_ref().map(|s| {
+        let given = &s.given;
+        let bindings = &s.bindings;
+        quote!(#given #bindings)
+    });
+    let settings_impl = parts.as_ref().map(|_| {
+        quote! {
+            const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
+                #module::SETTINGS_BINDINGS;
+
+            fn settings_given(
+                partial: &Self::Partial,
+            ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+                #module::settings_given(partial)
+            }
+        }
+    });
     let command_key = key_ident("COMMAND", None);
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -1864,6 +2073,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 #post
                 ::std::result::Result::Ok(())
             }
+
+            #settings_defs
         }
 
         impl ::usage_argv::spec::CommandArgs for #ident {
@@ -1889,6 +2100,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
                 #module::check(partial)
             }
+
+            #settings_impl
 
             fn build<'t, 'v>(
                 partial: Self::Partial,
@@ -2006,6 +2219,23 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             #i => <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#field),
         }
     });
+    // Every variant's bindings, because a table says what the CLI *can* do and is compared
+    // against a spec that documents all of them — but only the selected variant's values, since
+    // those are about one invocation. A command nobody ran did not give anything.
+    let binding_parts = subs.variants.iter().map(|v| {
+        let ty = &v.ty;
+        quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS)
+    });
+    let binding_lens = binding_parts.clone().map(|part| quote!(+ #part.len()));
+    let givens = subs.variants.iter().enumerate().map(|(i, v)| {
+        let field = format_ident!("v{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                <#ty as ::usage_argv::spec::CommandArgs>::settings_given(&partial.#field)
+            }
+        }
+    });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
         let variant = &v.ident;
@@ -2069,6 +2299,25 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     // Nothing selected yet, or a position that cannot be produced: the event
                     // is not one of these commands'.
                     _ => false,
+                }
+            }
+
+            const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = {
+                const PARTS: &[&'static [(&'static str, &'static str)]] = &[#(#binding_parts),*];
+                const N: usize = 0 #(#binding_lens)*;
+                const JOINED: [(&'static str, &'static str); N] =
+                    ::usage_argv::spec::concat_bindings(PARTS);
+                &JOINED
+            };
+
+            fn settings_given(
+                partial: &Self::Partial,
+                selected: ::std::option::Option<usize>,
+            ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+                match selected {
+                    #(#givens)*
+                    // No subcommand was reached, so none of them was given anything.
+                    _ => ::std::vec::Vec::new(),
                 }
             }
 
