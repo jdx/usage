@@ -95,6 +95,158 @@ impl Style {
     }
 }
 
+/// Every flag a word at this command could have named: its own, then any ancestor's globals.
+///
+/// The same set the parser would have accepted, which is what makes a suggestion one that works.
+fn flags_in_scope<'a>(
+    spec: &'a Spec<'a>,
+    cmd: &Command<'_>,
+) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> {
+    fn walk<'a>(
+        meta: &'a CommandMeta<'a>,
+        cmd: &Command<'_>,
+        seen: &mut Vec<&'a crate::spec::FlagMeta<'a>>,
+        inside: bool,
+    ) {
+        let here = inside || core::ptr::eq(meta.cmd, cmd);
+        if here {
+            seen.extend(meta.flags.iter().filter(|f| !f.hide));
+        } else {
+            // An ancestor contributes only what it declared global, which is the rule the parser
+            // follows on the way down.
+            seen.extend(meta.flags.iter().filter(|f| !f.hide && f.flag.global));
+        }
+        if core::ptr::eq(meta.cmd, cmd) {
+            return;
+        }
+        for sub in meta.subcommands {
+            walk(sub, cmd, seen, false);
+        }
+    }
+    let mut seen = Vec::new();
+    walk(spec.root, cmd, &mut seen, false);
+    seen.into_iter()
+}
+
+/// How alike two words are, from 0 (nothing in common) to 1 (the same word).
+///
+/// Jaro-Winkler, which is what clap uses to decide whether to suggest something — so a CLI that
+/// moves from clap gets the same suggestions rather than merely similar ones. It favours words
+/// that agree at the start, which is right for a mistyped flag: `--fore` is a slip in `--force`,
+/// not a different word.
+///
+/// Written out rather than depended on, because this crate takes no dependencies and the whole
+/// algorithm is thirty lines.
+fn jaro_winkler(a: &str, b: &str) -> f64 {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    if a.is_empty() && b.is_empty() {
+        return 1.0;
+    }
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+
+    // Two characters count as matching if they are the same and no further apart than this.
+    let window = (a.len().max(b.len()) / 2).saturating_sub(1);
+    let mut a_matched = vec![false; a.len()];
+    let mut b_matched = vec![false; b.len()];
+    let mut matches = 0usize;
+
+    for (i, ch) in a.iter().enumerate() {
+        let start = i.saturating_sub(window);
+        let end = (i + window + 1).min(b.len());
+        for j in start..end {
+            if !b_matched[j] && b[j] == *ch {
+                a_matched[i] = true;
+                b_matched[j] = true;
+                matches += 1;
+                break;
+            }
+        }
+    }
+    if matches == 0 {
+        return 0.0;
+    }
+
+    // Matching characters that arrive in a different order are half a transposition each.
+    let mut transpositions = 0usize;
+    let mut k = 0usize;
+    for (i, matched) in a_matched.iter().enumerate() {
+        if !matched {
+            continue;
+        }
+        while !b_matched[k] {
+            k += 1;
+        }
+        if a[i] != b[k] {
+            transpositions += 1;
+        }
+        k += 1;
+    }
+
+    let matches = matches as f64;
+    let jaro = (matches / a.len() as f64
+        + matches / b.len() as f64
+        + (matches - transpositions as f64 / 2.0) / matches)
+        / 3.0;
+
+    // Winkler's part: a shared prefix of up to four characters pulls the score up.
+    let prefix = a
+        .iter()
+        .zip(b.iter())
+        .take(4)
+        .take_while(|(x, y)| x == y)
+        .count() as f64;
+    jaro + prefix * 0.1 * (1.0 - jaro)
+}
+
+/// Everything close enough to `typed` to be worth saying, in the order clap says them.
+///
+/// The threshold is clap's — a score above 0.7 — so the two suggest in the same cases. Below it a
+/// suggestion is noise: offering `--quiet` for `--zzz` is worse than offering nothing, because a
+/// user reads it as the CLI having understood them.
+///
+/// All of them, not the best one: clap lists every candidate over the bar, and `mise config lss`
+/// really is close to both `ls` and `list`. Sorted *ascending* by score, which is what clap does —
+/// so the closest match comes last. That reads oddly, and it is preserved here because the point
+/// of this module is that an adopter's users see no change; it is a difference worth undoing on
+/// both sides rather than on one.
+fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
+    let mut scored: Vec<(f64, &str)> = candidates
+        .map(|candidate| (jaro_winkler(typed, candidate), candidate))
+        .filter(|(score, _)| *score > 0.7)
+        .collect();
+    scored.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+    scored.dedup_by(|a, b| a.1 == b.1);
+    scored.into_iter().map(|(_, candidate)| candidate).collect()
+}
+
+/// A tip naming what was probably meant, or nothing when nothing was close.
+///
+/// `noun` is the singular — clap writes "a similar argument exists" for one and "some similar
+/// arguments exist" for several, and the plural is the singular with an `s`.
+fn tip(style: Style, noun: &str, near: &[&str]) -> String {
+    match near {
+        [] => String::new(),
+        [one] => format!(
+            "\n  {} a similar {noun} exists: '{}'\n",
+            style.valid("tip:"),
+            style.valid(one)
+        ),
+        many => {
+            let listed: Vec<String> = many
+                .iter()
+                .map(|candidate| format!("'{}'", style.valid(candidate)))
+                .collect();
+            format!(
+                "\n  {} some similar {noun}s exist: {}\n",
+                style.valid("tip:"),
+                listed.join(", ")
+            )
+        }
+    }
+}
+
 /// A name as a usage line writes it: `<TOOL>`, `[TOOL]…`, `--jobs`.
 ///
 /// The error carries the spec's name for a thing; a user reads the form the help shows. Both come
@@ -205,12 +357,30 @@ pub fn render(
         // The shape of the command line: clap shows a usage block for these.
         Error::UnknownFlag { token } => {
             with_usage = true;
+            let typed = String::from_utf8_lossy(token);
             let _ = writeln!(
                 out,
                 "{} unexpected argument '{}' found",
                 style.error("error:"),
-                style.invalid(&String::from_utf8_lossy(token))
+                style.invalid(&typed)
             );
+            // Scored without the dashes, and only then written back with them. Every flag
+            // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
+            // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
+            // names for the same reason.
+            let bare = typed.trim_start_matches('-');
+            let names: Vec<&str> = flags_in_scope(spec, cmd)
+                .flat_map(|meta| meta.flag.longs.iter().copied())
+                .collect();
+            let near: Vec<String> = nearest(bare, names.into_iter())
+                .into_iter()
+                .map(|name| format!("--{name}"))
+                .collect();
+            out.push_str(&tip(
+                style,
+                "argument",
+                &near.iter().map(String::as_str).collect::<Vec<_>>(),
+            ));
         }
         Error::UnexpectedArg { token } => {
             with_usage = true;
@@ -232,6 +402,18 @@ pub fn render(
                     style.error("error:"),
                     style.invalid(&word)
                 );
+                // Every name a subcommand answers to, hidden ones included: a user who typed a
+                // near miss of an old alias should be told the name it still works under.
+                let names: Vec<&str> = cmd
+                    .subcommands
+                    .iter()
+                    .flat_map(|sub| core::iter::once(sub.name).chain(sub.aliases.iter().copied()))
+                    .collect();
+                out.push_str(&tip(
+                    style,
+                    "subcommand",
+                    &nearest(&word, names.into_iter()),
+                ));
             }
         }
         Error::MissingRequired { name } => {
@@ -306,6 +488,13 @@ pub fn render(
             }
             let listed: Vec<String> = choices.iter().map(|c| style.valid(c)).collect();
             let _ = writeln!(out, "  [possible values: {}]", listed.join(", "));
+            if let Some(typed) = value_bound_to(spec.root.cmd, argv, name, choices) {
+                out.push_str(&tip(
+                    style,
+                    "value",
+                    &nearest(&typed, choices.iter().copied()),
+                ));
+            }
         }
         Error::InvalidValue(invalid) => {
             let _ = writeln!(
@@ -417,9 +606,22 @@ mod tests {
         args: &[&TOOL, &SHELLS],
         ..Command::EMPTY
     };
+    static QUIET: Flag = Flag {
+        key: 4,
+        name: "quiet",
+        longs: &["quiet"],
+        global: true,
+        ..Flag::BOOL
+    };
+    /// A second command close to the same typo, so the plural wording is reachable.
+    static USER: Command = Command {
+        name: "user",
+        ..Command::EMPTY
+    };
     static ROOT: Command = Command {
         name: "ex",
-        subcommands: &[&USE],
+        flags: &[&QUIET],
+        subcommands: &[&USE, &USER],
         ..Command::EMPTY
     };
     static USE_META: CommandMeta = CommandMeta {
@@ -455,9 +657,19 @@ mod tests {
         ],
         ..CommandMeta::EMPTY
     };
+    static USER_META: CommandMeta = CommandMeta {
+        cmd: &USER,
+        about: Some("Manage users"),
+        ..CommandMeta::EMPTY
+    };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
-        subcommands: &[&USE_META],
+        flags: &[FlagMeta {
+            flag: &QUIET,
+            help: Some("Say less"),
+            ..FlagMeta::EMPTY
+        }],
+        subcommands: &[&USE_META, &USER_META],
         ..CommandMeta::EMPTY
     };
     static SPEC: Spec = Spec {
@@ -471,18 +683,6 @@ mod tests {
         let owned: Vec<std::ffi::OsString> = words.iter().map(std::ffi::OsString::from).collect();
         let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|o| o.as_os_str()).collect();
         render(&SPEC, &argv, &error, Style::PLAIN)
-    }
-
-    #[test]
-    fn an_unknown_flag_reads_as_clap_writes_it() {
-        assert_eq!(
-            rendered(&["use"], Error::UnknownFlag { token: b"--fore" }),
-            "error: unexpected argument '--fore' found\n\
-             \n\
-             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
-             \n\
-             For more information, try '--help'.\n"
-        );
     }
 
     #[test]
@@ -623,10 +823,103 @@ mod tests {
             },
             Style::PLAIN,
         );
-        assert!(message.contains("invalid value 'fsh'"), "{message}");
+        // The first line names the value, so assert on that line alone: the tip below it lists
+        // every choice, `zsh` among them, and a whole-message search cannot tell the two apart.
         assert!(
-            !message.contains("'zsh'\n"),
+            message.starts_with("error: invalid value 'fsh' for '[SHELLS]…'"),
             "named a value that was fine: {message}"
+        );
+    }
+
+    #[test]
+    fn a_near_miss_is_suggested_the_way_clap_suggests_one() {
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--fore" });
+        assert_eq!(
+            message,
+            "error: unexpected argument '--fore' found\n\
+             \n\
+             \x20 tip: a similar argument exists: '--force'\n\
+             \n\
+             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
+             \n\
+             For more information, try '--help'.\n"
+        );
+    }
+
+    #[test]
+    fn nothing_is_suggested_when_nothing_is_close() {
+        // Offering `--force` for `--zzz` is worse than offering nothing: a user reads a tip as
+        // the CLI having understood them. clap's threshold, so clap's silence — and the rest of
+        // the message is the same either way.
+        assert_eq!(
+            rendered(&["use"], Error::UnknownFlag { token: b"--zzz" }),
+            "error: unexpected argument '--zzz' found\n\
+             \n\
+             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
+             \n\
+             For more information, try '--help'.\n"
+        );
+    }
+
+    #[test]
+    fn the_scores_are_the_ones_clap_would_compute() {
+        // Spot values for the algorithm itself, so a rewrite cannot quietly change which words
+        // count as similar.
+        assert!((jaro_winkler("--fore", "--force") - 0.972).abs() < 0.001);
+        assert_eq!(jaro_winkler("same", "same"), 1.0);
+        assert_eq!(jaro_winkler("", ""), 1.0);
+        assert_eq!(jaro_winkler("abc", ""), 0.0);
+        // No characters in common at all.
+        assert_eq!(jaro_winkler("abc", "xyz"), 0.0);
+        // A shared prefix pulls the score up, which is what makes it right for a mistyped flag.
+        assert!(jaro_winkler("--forc", "--force") > jaro_winkler("orce--", "--force"));
+    }
+
+    #[test]
+    fn a_subcommand_and_a_value_get_the_same_treatment() {
+        // Two are close, so the plural — and in clap's order, which is ascending by score, so
+        // the *closest* comes last. That reads oddly and is what clap does.
+        let message = rendered(&[], Error::UnexpectedArg { token: b"usse" });
+        assert!(
+            message.contains("tip: some similar subcommands exist: 'user', 'use'"),
+            "{message}"
+        );
+
+        // The singular is covered by the flag and value cases in this module, which name one
+        // each — here both commands begin `us`, so anything close to one is close to both.
+
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("nod"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|o| o.as_os_str()).collect();
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::InvalidChoice {
+                name: "TOOL",
+                choices: &["node", "python"],
+            },
+            Style::PLAIN,
+        );
+        assert!(
+            message.contains("invalid value 'nod' for '<TOOL>'"),
+            "{message}"
+        );
+        assert!(
+            message.contains("tip: a similar value exists: 'node'"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn a_global_flag_is_suggested_inside_a_subcommand() {
+        // What the parser would have accepted there is what should be suggested there — the same
+        // rule the completions follow, for the same reason.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--quie" });
+        assert!(
+            message.contains("tip: a similar argument exists: '--quiet'"),
+            "{message}"
         );
     }
 }
