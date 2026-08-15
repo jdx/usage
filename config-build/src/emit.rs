@@ -131,6 +131,10 @@ fn prop_meta(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -> St
         let list: Vec<String> = envs.iter().map(|env| rust_str(env)).collect();
         let _ = writeln!(fields, "        envs: &[{}],", list.join(", "));
     }
+    if !prop.cli.is_empty() {
+        let flags: Vec<String> = prop.cli.iter().map(|flag| rust_str(flag)).collect();
+        let _ = writeln!(fields, "        cli: &[{}],", flags.join(", "));
+    }
     if !prop.bindings.is_empty() {
         let mut pairs = Vec::new();
         for (kind, keys) in &prop.bindings {
