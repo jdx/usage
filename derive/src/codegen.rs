@@ -83,7 +83,48 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
     let partial = partial_struct(cli);
-    let defaults = partial_defaults(cli, false);
+    let defaults_in_module = partial_defaults(cli, true);
+    let (settings_layer, settings_bindings) = match settings(cli) {
+        Some((layer, bindings)) => (Some(layer), Some(bindings)),
+        None => (None, None),
+    };
+    // The second entry point, emitted only when something is bound: it returns what the parser saw
+    // as well as the struct, which is the whole reason it exists.
+    let settings_parse = settings_bindings.as_ref().map(|_| {
+        let sub_build = sub_build.clone();
+        let field_finals = cli
+            .fields
+            .iter()
+            .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
+            .map(field_final);
+        quote! {
+            /// Parse a command line, and the settings it gave values for.
+            ///
+            /// The layer is built before the struct because the two read the same partial and the
+            /// struct consumes it — and because a value the struct refuses is one this never
+            /// returns, the layer going with it.
+            pub fn parse_from_with_settings<'v>(
+                argv: &'v [&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<
+                (Self, ::usage_config::CliLayer),
+                ::usage_argv::Error<'static, 'v>,
+            > {
+                // The layer from what argv left, and only then the rest: `check` fills a field
+                // from its `env` and marks it given, and a variable's value contributed here
+                // would sit in the layer that outranks every other, named after a flag nobody
+                // typed — and counted twice by a `union` setting whose CLI also has an
+                // `EnvLayer`. The environment has a layer of its own to arrive in.
+                let mut partial = #module::read_argv(Self::command(), argv)?;
+                let __usage_settings = #module::settings_layer(&partial);
+                #module::check(&mut partial)?;
+                let __usage_built = Self {
+                    #sub_build
+                    #(#field_finals),*
+                };
+                ::std::result::Result::Ok((__usage_built, __usage_settings))
+            }
+        }
+    });
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let (completion, completion_intercept) = completion_fns(cli);
@@ -180,6 +221,64 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ::std::result::Result::Ok(())
             }
 
+            /// Every token read, and nothing else decided.
+            ///
+            /// The partial as *argv* left it: before a declared default fills a field, before the
+            /// environment does, before anything is checked. In the module because two entry
+            /// points want it, and one of them wants exactly this much — a settings layer is
+            /// what the command line contributed, and `check` fills fields from the environment
+            /// and marks them given, which would hand a variable's value to the layer that
+            /// outranks every other and name it after a flag nobody typed.
+            pub fn read_argv<'v>(
+                command: &'static ::usage_argv::Command<'static>,
+                argv: &'v [&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
+                #defaults_in_module
+
+                let mut __usage_parser = ::usage_argv::Parser::new(command, argv);
+                while let ::std::option::Option::Some(__usage_event) =
+                    __usage_parser.next_event()
+                {
+                    let __usage_event = __usage_event?;
+                    // Asked *before* the event is applied, and answered with the command in
+                    // scope: `mise config --help` is a question about `config`, and the parser
+                    // is what knows how deep the words reached.
+                    if let ::usage_argv::Event::Flag { flag, .. } = &__usage_event {
+                        if flag.key == ::usage_argv::HELP_LONG_KEY
+                            || flag.key == ::usage_argv::HELP_SHORT_KEY
+                        {
+                            return ::std::result::Result::Err(::usage_argv::Error::Help {
+                                cmd: __usage_parser.command(),
+                                long: flag.key == ::usage_argv::HELP_LONG_KEY,
+                            });
+                        }
+                    }
+                    // `apply` handles this command's own fields and routes anything
+                    // else into its subcommands, which is why a nested command needs
+                    // nothing extra here.
+                    apply(&mut partial, &__usage_event);
+                }
+
+                ::std::result::Result::Ok(partial)
+            }
+
+            /// Every token read, and everything decided after the last one.
+            ///
+            /// What a caller that only wants the struct wants: a partial nothing more will be
+            /// added to. A struct cannot answer what the *parser* saw — a `bool` field is `false`
+            /// whether the flag was absent or negated — so the entry point that wants that reads
+            /// the two halves apart instead.
+            pub fn read<'v>(
+                command: &'static ::usage_argv::Command<'static>,
+                argv: &'v [&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
+                let mut partial = read_argv(command, argv)?;
+                check(&mut partial)?;
+                ::std::result::Result::Ok(partial)
+            }
+
+            #settings_layer
+
             pub static SPEC: Spec = Spec {
                 name: #name,
                 bin: #bin,
@@ -211,42 +310,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 #module::SPEC.to_kdl()
             }
 
+            #settings_bindings
+            #settings_parse
+
             /// Parse a command line, excluding the program name.
             pub fn parse_from<'v>(
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Self, ::usage_argv::Error<'static, 'v>> {
-                use ::usage_argv::Event;
-
-                use #module::Partial;
-
-                #defaults
-
-                let mut __usage_parser = ::usage_argv::Parser::new(Self::command(), argv);
-                while let ::std::option::Option::Some(__usage_event) =
-                    __usage_parser.next_event()
-                {
-                    let __usage_event = __usage_event?;
-                    // Asked *before* the event is applied, and answered with the command in
-                    // scope: `mise config --help` is a question about `config`, and the parser
-                    // is what knows how deep the words reached.
-                    if let ::usage_argv::Event::Flag { flag, .. } = &__usage_event {
-                        if flag.key == ::usage_argv::HELP_LONG_KEY
-                            || flag.key == ::usage_argv::HELP_SHORT_KEY
-                        {
-                            return ::std::result::Result::Err(::usage_argv::Error::Help {
-                                cmd: __usage_parser.command(),
-                                long: flag.key == ::usage_argv::HELP_LONG_KEY,
-                            });
-                        }
-                    }
-                    // `apply` handles this command's own fields and routes anything
-                    // else into its subcommands, which is why a nested command needs
-                    // nothing extra here.
-                    #module::apply(&mut partial, &__usage_event);
-                }
-
-                #module::check(&mut partial)?;
-
+                let partial = #module::read(Self::command(), argv)?;
                 ::std::result::Result::Ok(Self {
                     #sub_build
                     #(#field_finals),*
@@ -1021,6 +1092,132 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 /// where the same path needs a `super::`. Nothing else in here cares, and getting it wrong is a
 /// compile error in the adopter's crate rather than here, so it is a parameter rather than a
 /// guess.
+/// The layer a parse produces, and the flags it binds — emitted only when something is bound.
+///
+/// A CLI with no `setting` on any field never mentions `usage-config`, so deriving `Cli` does not
+/// drag a config crate into a program that has no settings.
+fn settings(cli: &Cli) -> Option<(TokenStream, TokenStream)> {
+    let bound: Vec<&Field> = cli.fields.iter().filter(|f| f.setting.is_some()).collect();
+    if bound.is_empty() {
+        return None;
+    }
+
+    // Built from the *partial* rather than from the struct, and gated on `__given_`, because that
+    // is the only place the difference between "the flag was not passed" and "the flag was passed
+    // and said no" survives. Reading the struct, `--no-colour` is a `false` indistinguishable from
+    // absence — and the command line outranks every file on the machine, so guessing either way is
+    // a value the user never asked for.
+    let contributions = bound.iter().map(|field| {
+        let ident = &field.ident;
+        let given = format_ident!("__given_{}", ident);
+        let key = field.setting.as_deref().unwrap_or_default();
+        // `Option<Value>`, because an argument is bytes and a setting is text: on Unix a path
+        // need not be UTF-8, and the value would have been rendered lossily — setting a setting
+        // to a string nobody typed, naming a file that does not exist, while the CLI's own field
+        // still held the real bytes. `None` says so instead, and the layer reports it.
+        let value = match field.shape {
+            // The bool the parser landed on, which is `false` for a negation and `true` for the
+            // flag itself: what the user said, rather than that they said something.
+            Shape::Bool => quote! {
+                ::std::option::Option::Some(::usage_config::Value::Bool(partial.#ident))
+            },
+            Shape::Count => quote! {
+                ::std::option::Option::Some(::usage_config::Value::Int(
+                    ::std::convert::TryFrom::try_from(partial.#ident)
+                        .unwrap_or(::std::primitive::i64::MAX),
+                ))
+            },
+            // Text, because that is what the partial holds and what a declared type expects to
+            // read: rendering it to something typed here would be a second coercion, disagreeing
+            // with the registry's own at the first setting whose type this cannot see.
+            Shape::Optional => quote! {
+                ::std::str::from_utf8(partial.#ident.as_deref().unwrap_or_default())
+                    .ok()
+                    .map(|__usage_text| {
+                        ::usage_config::Value::String(::std::string::ToString::to_string(
+                            __usage_text,
+                        ))
+                    })
+            },
+            Shape::Required => quote! {
+                ::std::str::from_utf8(&partial.#ident).ok().map(|__usage_text| {
+                    ::usage_config::Value::String(::std::string::ToString::to_string(__usage_text))
+                })
+            },
+            // Item by item, rather than joined and re-split: an item holding the separator would
+            // come back as two. One item that is not text costs the whole list, since contributing
+            // the others would quietly drop the one the user typed most recently.
+            Shape::Many => quote! {
+                partial
+                    .#ident
+                    .iter()
+                    .map(|__usage_item| {
+                        ::std::str::from_utf8(__usage_item).ok().map(|__usage_text| {
+                            ::usage_config::Value::String(::std::string::ToString::to_string(
+                                __usage_text,
+                            ))
+                        })
+                    })
+                    .collect::<::std::option::Option<::std::vec::Vec<_>>>()
+                    .map(::usage_config::Value::List)
+            },
+        };
+        quote! {
+            if partial.#given {
+                __usage_layer = match #value {
+                    ::std::option::Option::Some(__usage_value) => {
+                        __usage_layer.with_value(#key, __usage_value)
+                    }
+                    ::std::option::Option::None => __usage_layer.with_unrepresentable(#key),
+                };
+            }
+        }
+    });
+
+    let layer = quote! {
+        /// The settings this command line gave values for.
+        pub fn settings_layer(partial: &Partial) -> ::usage_config::CliLayer {
+            let mut __usage_layer = ::usage_config::CliLayer::new(
+                ::std::iter::empty::<(::std::string::String, ::std::string::String)>(),
+            );
+            #(#contributions)*
+            __usage_layer
+        }
+    };
+
+    // Every spelling a bound flag answers to, paired with what it sets. A positional has no flag,
+    // so it contributes to the layer and not to this: there is nothing for a spec's `cli` node to
+    // have declared, and nothing for `drift` to compare.
+    let pairs = bound.iter().flat_map(|field| {
+        let key = field.setting.clone().unwrap_or_default();
+        let mut spellings = Vec::new();
+        if let Kind::Flag {
+            longs,
+            shorts,
+            negate,
+            ..
+        } = &field.kind
+        {
+            spellings.extend(longs.iter().map(|long| format!("--{long}")));
+            spellings.extend(shorts.iter().map(|short| format!("-{short}")));
+            if let Some(negate) = negate {
+                spellings.push(format!("--{negate}"));
+            }
+        }
+        spellings.into_iter().map(move |flag| quote!((#flag, #key)))
+    });
+
+    let bindings = quote! {
+        /// Every flag this CLI reads into a setting, and the setting it sets.
+        ///
+        /// What `usage_config::Registry::drift` compares against the flags the spec *declares*, so
+        /// a documented flag nothing reads — hk has thirteen — fails a test rather than a user.
+        pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[#(#pairs),*];
+    };
+
+    Some((layer, bindings))
+}
+
 fn partial_defaults(cli: &Cli, inside_module: bool) -> TokenStream {
     let sub_starts = subcommand_parts(cli)
         .map(|p| p.partial_starts)
