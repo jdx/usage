@@ -262,6 +262,90 @@ impl Registry {
         (0..self.props.len()).map(|i| PropId(i as u16))
     }
 
+    /// Every way the flags a spec *declares* and the flags a CLI *binds* disagree.
+    ///
+    /// Empty means they agree. This is the check hk needed and did not have: it declares eighteen
+    /// `sources.cli` bindings and reads five, because the declaration lives in a spec and the
+    /// reading lives in a hand-written struct, and nothing has ever compared the two. A spec that
+    /// documents `--jobs` and a CLI that never puts it anywhere is a promise to a user that no test
+    /// could catch.
+    ///
+    /// `bound` is what the CLI actually does: pairs of a flag and the setting it sets. A CLI whose
+    /// flags come from `usage::Cli` can generate that list; one that binds by hand writes it out,
+    /// which is still one list rather than two behaviours.
+    ///
+    /// Both directions are reported, because they are different mistakes. A declared flag nothing
+    /// binds is documentation for something that does not happen. A bound flag the setting does not
+    /// declare happens without being documented — the user cannot discover it, and `explain` cannot
+    /// name it.
+    pub fn drift(&self, bound: &[(&str, &str)]) -> Vec<String> {
+        let mut problems = Vec::new();
+
+        for (flag, key) in bound {
+            let Some(found) = self.lookup(key) else {
+                problems.push(format!(
+                    "`{flag}` is bound to `{key}`, which is not a setting"
+                ));
+                continue;
+            };
+            if !self.declares(found.id, flag) {
+                problems.push(format!(
+                    "`{flag}` is bound to `{key}`, which does not declare it: add `cli \"{flag}\"` to the spec"
+                ));
+            }
+        }
+
+        for id in self.ids() {
+            let meta = self.get(id);
+            // Asked once, and refused when it is `None`: two keys that resolve to nothing are not
+            // two keys that mean the same setting, and comparing the answers directly made a flag
+            // on a dangling `renamed_to` look bound by any flag bound to any other broken key.
+            let means = self.means(meta.key);
+            for flag in meta.cli {
+                let Some(means) = means else {
+                    problems.push(format!(
+                        "`{}` says `{flag}` sets it, and it is not a setting anything can reach: \
+                         its `renamed_to` names nothing, or the chain it starts loops",
+                        meta.key
+                    ));
+                    continue;
+                };
+                // Compared against the *setting* the binding names rather than the flag alone: a CLI
+                // may bind `--jobs` to something, and binding it to the wrong setting is not the same
+                // as binding it.
+                let bound_here = bound
+                    .iter()
+                    .any(|(bound_flag, key)| bound_flag == flag && self.means(key) == Some(means));
+                if !bound_here {
+                    problems.push(format!(
+                        "`{}` says `{flag}` sets it, and nothing does",
+                        meta.key
+                    ));
+                }
+            }
+        }
+        problems
+    }
+
+    /// Whether any declaration of the setting `id` lists `flag`.
+    ///
+    /// Any, because a rename leaves two declarations of one setting and either may be the one
+    /// carrying the flag: a CLI that has not dropped `--concurrency` yet is bound to a key that
+    /// *means* `jobs`, and the flag is declared where the old name is. Asking only the replacement
+    /// called a live binding drift; asking only the declaration named would miss a flag added to the
+    /// new name and still bound through the old one.
+    fn declares(&self, id: PropId, flag: &str) -> bool {
+        self.ids().any(|candidate| {
+            self.means(self.get(candidate).key) == Some(id)
+                && self.get(candidate).cli.contains(&flag)
+        })
+    }
+
+    /// Which setting a key means, following renames — `None` for a key that is not one.
+    fn means(&self, key: &str) -> Option<PropId> {
+        self.lookup(key).map(|found| found.id)
+    }
+
     /// Every setting bound to `kind`, with its key in that source.
     ///
     /// The generic mechanism a custom layer is written against: a git layer asks for `"git"`
@@ -288,6 +372,7 @@ mod tests {
         PropMeta {
             key: "jobs",
             envs: &["HK_JOBS", "HK_JOB"],
+            cli: &["--jobs", "-j"],
             bindings: &[("git", "hk.jobs"), ("pkl", "jobs")],
             ..PropMeta::new("jobs", Ty::Uint)
         },
@@ -302,11 +387,152 @@ mod tests {
             ..PropMeta::new("threads", Ty::Uint)
         },
         PropMeta {
+            // Declares a flag, which is what hk's dead `sources.cli` lines look like from here.
+            cli: &["--check"],
             bindings: &[("git", "hk.check")],
             ..PropMeta::new("check", Ty::Bool)
         },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn a_cli_that_binds_what_the_spec_declares_has_no_drift() {
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "check")];
+        assert_eq!(REGISTRY.drift(&bound), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_declared_flag_nothing_binds_is_reported() {
+        // hk's thirteen dead `sources.cli` lines, and the reason they lasted: the declaration is in a
+        // spec, the reading is in a hand-written struct, and nothing compared them. A user reads
+        // `--check` in the documentation and it does nothing at all.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`check` says `--check` sets it, and nothing does"]
+        );
+
+        // Every spelling counts. `-j` is as much a promise as `--jobs` is.
+        let bound = [("--jobs", "jobs"), ("--check", "check")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`jobs` says `-j` sets it, and nothing does"]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_to_the_wrong_setting_is_not_a_flag_that_is_bound() {
+        // The failure a flag-only comparison would miss: `--check` is bound, so a check that only
+        // asked "is this flag bound anywhere" would pass — while `check` is still set by nothing and
+        // `jobs` is now set by a flag it never declared.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "jobs")];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec![
+                "`--check` is bound to `jobs`, which does not declare it: add `cli \"--check\"` to the spec",
+                "`check` says `--check` sets it, and nothing does"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_to_a_setting_that_does_not_exist_is_reported() {
+        let bound = [
+            ("--jobs", "jobs"),
+            ("-j", "jobs"),
+            ("--check", "check"),
+            ("--nonesuch", "nonesuch"),
+        ];
+        assert_eq!(
+            REGISTRY.drift(&bound),
+            vec!["`--nonesuch` is bound to `nonesuch`, which is not a setting"]
+        );
+    }
+
+    #[test]
+    fn a_flag_bound_through_an_old_name_is_bound() {
+        // A CLI written before a rename binds the name it knew. The value lands on the setting that
+        // replaced it, so the binding is real — reporting it as drift would make living through a
+        // rename impossible.
+        let bound = [("--jobs", "jobs"), ("-j", "jobs"), ("--check", "check")];
+        assert_eq!(REGISTRY.drift(&bound), Vec::<String>::new());
+        let through_old_name = [
+            ("--jobs", "concurrency"),
+            ("-j", "jobs"),
+            ("--check", "check"),
+        ];
+        assert_eq!(
+            REGISTRY.drift(&through_old_name),
+            Vec::<String>::new(),
+            "`concurrency` is `jobs`, and `jobs` declares `--jobs`"
+        );
+    }
+
+    // An old name that kept the flag it was documented with — what a rename looks like for a CLI
+    // that has not dropped the old spelling yet. Its own registry, because a declared flag is a
+    // promise: adding it to the shared one would make every other test's bindings incomplete.
+    static RENAMED_PROPS: &[PropMeta] = &[
+        PropMeta {
+            cli: &["--jobs"],
+            ..PropMeta::new("jobs", Ty::Uint)
+        },
+        PropMeta {
+            cli: &["--concurrency"],
+            renamed_to: Some("jobs"),
+            ..PropMeta::new("concurrency", Ty::Uint)
+        },
+    ];
+    const RENAMED: Registry = Registry::new(RENAMED_PROPS);
+
+    #[test]
+    fn an_old_name_that_kept_its_flag_is_not_drift() {
+        // The two questions a rename separates. `--concurrency` is declared on the old name and
+        // binds the old key, so both sides are talking about `jobs` — but one asked `lookup` and the
+        // other did not, and the disagreement was reported twice: the flag "is not declared" by the
+        // replacement, and the declaration's flag "nothing does". A CLI would have deleted a live
+        // binding to satisfy it.
+        let bound = [("--jobs", "jobs"), ("--concurrency", "concurrency")];
+        assert_eq!(RENAMED.drift(&bound), Vec::<String>::new());
+
+        // And bound through the name that replaced it, which is the same setting and the same flag.
+        let by_new_name = [("--jobs", "jobs"), ("--concurrency", "jobs")];
+        assert_eq!(RENAMED.drift(&by_new_name), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_flag_on_a_rename_that_leads_nowhere_is_not_satisfied_by_another_broken_one() {
+        // `means` is `None` for a key whose rename names nothing or loops. Compared to each other,
+        // two of those were equal — so a declared flag counted as bound because some *other* dead
+        // key happened to be bound to the same spelling, and the dead declaration went unreported.
+        // The generator refuses a registry like this, but `drift` is also what a hand-written one
+        // is held to.
+        static BROKEN_PROPS: &[PropMeta] = &[
+            PropMeta {
+                cli: &["--gone"],
+                renamed_to: Some("nowhere"),
+                ..PropMeta::new("gone", Ty::Uint)
+            },
+            PropMeta {
+                cli: &["--gone"],
+                renamed_to: Some("also-nowhere"),
+                ..PropMeta::new("other", Ty::Uint)
+            },
+        ];
+        const BROKEN: Registry = Registry::new(BROKEN_PROPS);
+
+        let bound = [("--gone", "other")];
+        let problems = BROKEN.drift(&bound);
+        assert_eq!(
+            problems,
+            vec![
+                "`--gone` is bound to `other`, which is not a setting",
+                "`gone` says `--gone` sets it, and it is not a setting anything can reach: its \
+                 `renamed_to` names nothing, or the chain it starts loops",
+                "`other` says `--gone` sets it, and it is not a setting anything can reach: its \
+                 `renamed_to` names nothing, or the chain it starts loops",
+            ]
+        );
+    }
 
     #[test]
     fn a_key_resolves_to_its_own_index() {
