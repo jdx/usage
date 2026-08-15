@@ -162,13 +162,18 @@ pub fn for_name<'a>(
         meta.subcommands.iter().find_map(|sub| find(sub, name))
     }
 
-    // The command the line reached first, and only then anywhere in the tree. Two sibling
-    // commands may take a `tool` and mean different things by it — a spec says so by writing the
-    // block inside the command rather than at the top — and answering with the first one found
-    // in tree order would be answering about a different command than the one being typed.
+    // The root's own first, then the command the line reached, then anywhere in the tree.
+    //
+    // The first two in that order because the reference resolves a `complete` block that way —
+    // `spec.complete.get(name).or(cmd.complete.get(name))` — and the root's completers are what
+    // a spec writes at the top level, which is `spec.complete`. Answering in a different order
+    // would mean this binary and the reference disagreed about a spec they both read.
+    //
+    // Tree order last, and only as a fallback: two sibling commands may take a `tool` and mean
+    // different things by it, and the one the line reached is the one being asked about.
     let reached = walk(spec.root.cmd, ctx.command_words_start());
-    let completer = crate::help::find(spec, reached.cmd)
-        .and_then(|(_, meta)| on(meta, name))
+    let completer = on(spec.root, name)
+        .or_else(|| crate::help::find(spec, reached.cmd).and_then(|(_, meta)| on(meta, name)))
         .or_else(|| find(spec.root, name))?;
     let mut found = completer(ctx);
     found.retain(|c| c.value.starts_with(ctx.prefix));

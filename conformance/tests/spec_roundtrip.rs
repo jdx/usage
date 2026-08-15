@@ -804,6 +804,12 @@ fn local_tools(
     vec![usage_argv::complete::Candidate::new("installed")]
 }
 
+fn root_tools(
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    vec![usage_argv::complete::Candidate::new("root")]
+}
+
 fn remote_tools(
     _ctx: &usage_argv::complete::CompleteCtx<'_>,
 ) -> Vec<usage_argv::complete::Candidate<'static>> {
@@ -889,6 +895,53 @@ fn two_commands_can_mean_different_things_by_one_name() {
             "{expected} should declare its own: {kdl}"
         );
     }
+
+    // A root that declares the same name wins over both, which is the order the reference
+    // resolves in — `spec.complete` before `cmd.complete` — and the root's completers are what a
+    // spec writes at the top level. Recorded here rather than assumed, because it is the one
+    // place this order is visible.
+    static ROOT_TOOL: Arg = Arg {
+        key: 93,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static ROOT_WITH_ARG: Command = Command {
+        name: "ex",
+        args: &[&ROOT_TOOL],
+        subcommands: &[&USE_CMD, &INSTALL_CMD],
+        ..Command::EMPTY
+    };
+    static ROOT_META_THREE: CommandMeta = CommandMeta {
+        cmd: &ROOT_WITH_ARG,
+        args: &[ArgMeta {
+            arg: &ROOT_TOOL,
+            complete: Some(root_tools),
+            ..ArgMeta::EMPTY
+        }],
+        subcommands: &[&USE_META, &INSTALL_META],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC_THREE: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        root: &ROOT_META_THREE,
+    };
+    let words = ["ex".to_string(), "use".to_string(), String::new()];
+    let ctx = usage_argv::complete::CompleteCtx {
+        words: &words,
+        cword: 2,
+        prefix: "",
+    };
+    let found = usage_argv::complete::for_name(&SPEC_THREE, "tool", &ctx).expect("a completer");
+    assert_eq!(
+        found.iter().map(|c| c.value.as_str()).collect::<Vec<_>>(),
+        ["root"],
+        "the root's wins, as it does in the reference"
+    );
 
     // And the binary answers about the command the line reached, not the first one in the tree.
     for (line, expected) in [("ex use ", "installed"), ("ex install ", "available")] {
