@@ -1050,14 +1050,6 @@ pub trait CommandArgs: Sized {
     /// for whoever owns it rather than mistaken for a local field.
     fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
 
-    /// Everything this command decides after the last token: required-ness,
-    /// choices, and how many values a variadic got.
-    ///
-    /// Separate from [`CommandArgs::build`] because only the command that was
-    /// actually reached is judged — a flag that `install` requires says nothing
-    /// about an invocation that ran `run`.
-    /// Defaulted, so a hand-written implementation with nothing to check is not
-    /// forced to say so — and adding a check to the derive does not break one.
     /// Every flag this command reads into a setting, and the setting it sets.
     ///
     /// Empty by default, so a command that binds nothing implements nothing and a parent can ask
@@ -1077,6 +1069,14 @@ pub trait CommandArgs: Sized {
         Vec::new()
     }
 
+    /// Everything this command decides after the last token: required-ness,
+    /// choices, and how many values a variadic got.
+    ///
+    /// Separate from [`CommandArgs::build`] because only the command that was
+    /// actually reached is judged — a flag that `install` requires says nothing
+    /// about an invocation that ran `run`.
+    /// Defaulted, so a hand-written implementation with nothing to check is not
+    /// forced to say so — and adding a check to the derive does not break one.
     fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>> {
         let _ = partial;
         Ok(())
@@ -1120,14 +1120,6 @@ pub trait Subcommands: Sized {
         event: &crate::Event<'_, '_>,
     ) -> bool;
 
-    /// Check the selected command's requirements, and nothing else's.
-    ///
-    /// A flag that `install` requires says nothing about an invocation that ran
-    /// `run`, so only the command that was actually reached is judged.
-    ///
-    /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
-    /// key: the position is found from the table's own address, so two commands whose
-    /// keys happen to collide still cannot be confused for one another.
     /// Every flag any of these commands reads into a setting, and the setting it sets.
     ///
     /// Every variant's, not the selected one's: a binding table says what the CLI *can* do, and
@@ -1146,6 +1138,14 @@ pub trait Subcommands: Sized {
         Vec::new()
     }
 
+    /// Check the selected command's requirements, and nothing else's.
+    ///
+    /// A flag that `install` requires says nothing about an invocation that ran
+    /// `run`, so only the command that was actually reached is judged.
+    ///
+    /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
+    /// key: the position is found from the table's own address, so two commands whose
+    /// keys happen to collide still cannot be confused for one another.
     fn check<'t, 'v>(
         partial: &mut Self::Partial,
         selected: usize,

@@ -90,7 +90,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // the layer, so a group's binding cannot go quietly uncollected.
     let resolves = cli.fields.iter().any(|f| f.setting.is_some()) || cli.settings;
     let parts = settings(cli);
-    let settings_given = parts.as_ref().map(|s| s.given.clone());
+    // Only the layer calls it, so a root that has children and no settings of its own emits
+    // neither: the guard below is what speaks for that case.
+    let settings_given = parts.as_ref().filter(|_| resolves).map(|s| s.given.clone());
     let settings_bindings = parts
         .as_ref()
         .filter(|_| resolves)
