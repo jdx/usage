@@ -141,6 +141,17 @@
 //! that will not convert becomes [`Error::InvalidValue`](usage_argv::Error::InvalidValue),
 //! carrying the offending text and whatever the type's own conversion said about it.
 //!
+//! A completer is written as
+//!
+//! ```ignore
+//! fn tasks(partial: &<Tasks as CommandArgs>::Partial, ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>>
+//! ```
+//!
+//! and is handed its *own command's* half-parsed struct, so `tk tasks --file other.toml <TAB>`
+//! can be answered against that file — which a `run=` shelling out to a fixed command cannot see.
+//! The emitted spec gets a `run=` naming this binary, so everything that reads a spec still has
+//! one, generated from the function rather than declared beside it.
+//!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
 //! `default_subcommand`, `completion` — which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
@@ -164,6 +175,7 @@
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
 //! | `double_dash = "required"` | a positional only fillable after `--` |
+//! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `arg` | force a field to be positional |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |

@@ -788,10 +788,13 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
     assert!(!complete.descriptions, "{run}");
 
     // The binary answers exactly that, filtered by whatever has been typed.
+    let words = ["ex".to_string(), "n".to_string()];
     let ctx = usage_argv::complete::CompleteCtx {
-        words: &["ex".to_string(), "n".to_string()],
+        words: &words,
         cword: 1,
         prefix: "n",
+        command_words: &[],
+        command_path: &[],
     };
     let found = usage_argv::complete::for_name(&SPEC, "tool", &ctx).expect("a completer");
     assert_eq!(found.len(), 1);
@@ -939,6 +942,8 @@ fn two_commands_can_mean_different_things_by_one_name() {
         words: &words,
         cword: 2,
         prefix: "",
+        command_words: &[],
+        command_path: &[],
     };
     let found = usage_argv::complete::for_name(&SPEC_THREE, "tool", &ctx).expect("a completer");
     assert_eq!(
@@ -954,6 +959,8 @@ fn two_commands_can_mean_different_things_by_one_name() {
             words: &[words.clone(), vec![String::new()]].concat(),
             cword: words.len(),
             prefix: "",
+            command_words: &[],
+            command_path: &[],
         };
         let found = usage_argv::complete::for_name(&SPEC_TWO, "tool", &ctx).expect("a completer");
         assert_eq!(
@@ -1026,6 +1033,8 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
             cword: words.len() - 1,
             words: &words,
             prefix: "",
+            command_words: &[],
+            command_path: &[],
         };
         let found = usage_argv::complete::for_name(&SPEC, "tool", &ctx).expect("a completer");
         assert_eq!(
