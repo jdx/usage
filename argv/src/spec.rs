@@ -702,7 +702,7 @@ fn write_completers(
             out,
             " run={}",
             quoted(&format!(
-                "{bin} __complete_word__ --candidates {name} --line '{{{{ words | join(sep=\" \") }}}}'"
+                "{bin} __complete_word__ --candidates {name} --line '{{{{ words | join(sep=\" \") | replace(from=\"'\", to=\"'\\\"'\\\"'\") }}}}'"
             ))
         )?;
         // No `descriptions=#true`: that tells the reference to read a description after an
