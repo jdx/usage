@@ -759,6 +759,8 @@ pub struct Parser<'t, 'v> {
     collecting: Option<&'t Flag<'t>>,
     /// Where the command in scope began, as an index into `argv`.
     cmd_start: usize,
+    /// Where each ancestor's own words began, in step with `ancestors`.
+    starts: [usize; MAX_DEPTH],
     /// How many values it has taken, so a bound can stop it.
     collected: u32,
     /// Which of `cmd.args` is next to fill.
@@ -803,6 +805,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             bundle_token: &[],
             collecting: None,
             cmd_start: 0,
+            starts: [0; MAX_DEPTH],
             collected: 0,
             arg_pos: 0,
             arg_taken: 0,
@@ -826,6 +829,24 @@ impl<'t, 'v> Parser<'t, 'v> {
     /// `preserve` argument kept as a value.
     pub fn double_dash_seen(&self) -> bool {
         self.separator_seen
+    }
+
+    /// Every command entered so far, and where each one's own words begin.
+    ///
+    /// The ancestors are already kept for flag scoping; this is the same chain with the offsets,
+    /// which is what lets a completion hand a callback the words of *its* command rather than of
+    /// the deepest one — a global flag is declared on an ancestor.
+    pub fn command_path(&self) -> Vec<(&'t Command<'t>, usize)> {
+        let mut out = Vec::with_capacity(self.depth + 1);
+        for (i, ancestor) in self.ancestors[..self.depth].iter().enumerate() {
+            if let Some(cmd) = ancestor {
+                // An ancestor's own words start where the one before it descended, and the
+                // root's start at the beginning.
+                out.push((*cmd, self.starts[i]));
+            }
+        }
+        out.push((self.cmd, self.cmd_start));
+        out
     }
 
     /// Where the command in scope began: the index in `argv` just after its name.
@@ -1204,6 +1225,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             return Err(Error::TooDeep);
         }
         self.ancestors[self.depth] = Some(self.cmd);
+        self.starts[self.depth] = self.cmd_start;
         self.depth += 1;
         self.cmd = sub;
         // Where this command's own words start, which is what lets a completion hand a callback

@@ -51,6 +51,12 @@ pub struct Position<'t> {
     pub help_topic: bool,
     /// Where the command in scope began, as an index into the words `walk` was given.
     pub command_start: usize,
+    /// Every command the words passed through, and where each one's own words begin.
+    ///
+    /// The deepest is not always the one being asked about: a global flag is declared on an
+    /// ancestor, and a completer for its value wants the words *that* command was given — the
+    /// ones before the subcommand name included.
+    pub path: Vec<(&'t Command<'t>, usize)>,
     /// The flags a word here could name: this command's own, then any ancestor's globals.
     ///
     /// Taken from the parser rather than gathered again, so what is offered is what would be
@@ -90,6 +96,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     flags_possible: false,
                     awaiting_value: None,
                     next_arg: None,
+                    path: Vec::new(),
                     separator_seen: false,
                     command_start: 0,
                     help_topic: true,
@@ -101,6 +108,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     }
 
     Position {
+        path: parser.command_path(),
         cmd: parser.command(),
         flags_possible: !parser.flags_stopped(),
         // A variadic flag still claiming words is standing in the same place a flag waiting
@@ -677,11 +685,20 @@ fn declared<'a>(
     let Some(completer) = completer else {
         return Vec::new();
     };
+    // The words each command on the path was given, so a completer declared on an ancestor —
+    // which is what a global flag is — reads its own command's rather than the deepest one's.
+    let words = split.argv();
+    let path: Vec<(&Command<'_>, &[String])> = position
+        .path
+        .iter()
+        .map(|(cmd, start)| (*cmd, words.get(*start..).unwrap_or(&[])))
+        .collect();
     let ctx = CompleteCtx {
         words: &split.words,
         cword: split.cword,
         prefix: token,
         command_words: command_words(split, position),
+        command_path: &path,
     };
     let mut found = completer(&ctx);
     found.retain(|c| c.value.starts_with(token));

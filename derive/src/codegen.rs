@@ -96,11 +96,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
     // generated code needs.
-    let field_finals = cli
+    // Collected rather than left lazy: it is used by both the inherent `build` and the trait
+    // impl beside it, and an iterator cannot be walked twice.
+    let field_finals: Vec<_> = cli
         .fields
         .iter()
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-        .map(field_final);
+        .map(field_final)
+        .collect();
 
     quote! {
         #[doc(hidden)]
@@ -391,6 +394,14 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                 let position =
                     ::usage_argv::complete::walk(Self::spec().root.cmd, split.argv());
                 let __usage_words = split.argv();
+                let __usage_path: ::std::vec::Vec<(
+                    &::usage_argv::Command<'_>,
+                    &[::std::string::String],
+                )> = position
+                    .path
+                    .iter()
+                    .map(|(cmd, start)| (*cmd, __usage_words.get(*start..).unwrap_or(&[])))
+                    .collect();
                 let ctx = ::usage_argv::complete::CompleteCtx {
                     words: &split.words,
                     cword: split.cword,
@@ -398,6 +409,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                     command_words: __usage_words
                         .get(position.command_start..)
                         .unwrap_or(&[]),
+                    command_path: &__usage_path,
                 };
                 // Nothing of that name is an empty answer rather than an error: a spec written
                 // against a newer version of this CLI is a stale script, and a stale script
@@ -542,10 +554,16 @@ fn completer_tokens(
             // The words this command was given, parsed against this command's own tables — so
             // what the callback reads is what the parser would have bound, rather than a slice
             // of the line it has to interpret itself.
-            let __usage_owned: ::std::vec::Vec<::std::ffi::OsString> = ctx
-                .command_words
+            // This command's own words, asked for by this command — not the deepest one the
+            // line reached. A global flag is declared on an ancestor, and reparsing the
+            // subcommand's words against the ancestor's tables would drop everything the
+            // ancestor was given before the subcommand's name.
+            let __usage_words = ctx.words_for(
+                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND,
+            );
+            let __usage_owned: ::std::vec::Vec<::std::ffi::OsString> = __usage_words
                 .iter()
-                .map(|w| ::std::ffi::OsString::from(w))
+                .map(::std::ffi::OsString::from)
                 .collect();
             let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                 __usage_owned.iter().map(|a| a.as_os_str()).collect();

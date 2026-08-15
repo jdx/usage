@@ -125,6 +125,12 @@ pub struct CompleteCtx<'a> {
     /// What has been typed of that word. Candidates are filtered by it afterwards, so a
     /// completer may ignore it and answer with everything it knows.
     pub prefix: &'a str,
+    /// Every command the words passed through, and the words each one was given.
+    ///
+    /// A completer is declared on some command, which is not always the deepest one the line
+    /// reached — a global flag belongs to an ancestor — so a caller that wants its own command's
+    /// words asks for them by that command.
+    pub command_path: &'a [(&'a crate::Command<'a>, &'a [String])],
     /// The words the command in scope was given: after its own name, before the cursor's word.
     ///
     /// What a callback needs to reconstruct its command's half-parsed struct — `mise task ls
@@ -134,6 +140,25 @@ pub struct CompleteCtx<'a> {
 }
 
 impl<'a> CompleteCtx<'a> {
+    /// The words `command` was given, or the deepest command's if it is not on the path.
+    ///
+    /// Matched by key, not by address: a `Subcommands` variant builds its own table entry for
+    /// the command it names — it may rename it, or give it aliases the type knows nothing about
+    /// — so the entry the parse walked is a *copy* of the one the type declares. The key is a
+    /// hash of the type it came from and survives the copying, which makes it the identity two
+    /// tables of the same command agree on. Not the name, which a variant can change and two
+    /// commands can share.
+    ///
+    /// The fallback is for a completer reached by name rather than by a cursor position, where
+    /// there may be no path at all.
+    pub fn words_for(&self, command: &crate::Command<'_>) -> &'a [String] {
+        self.command_path
+            .iter()
+            .find(|(cmd, _)| cmd.key == command.key)
+            .map(|(_, words)| *words)
+            .unwrap_or(self.command_words)
+    }
+
     /// The words a parser should walk to find the command this request is about.
     ///
     /// After the program name, before the word being completed — the same slice `walk` is given

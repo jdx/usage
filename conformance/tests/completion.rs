@@ -459,3 +459,105 @@ fn a_completer_can_be_named_however_a_path_is_written() {
     assert_eq!(both.one.as_deref(), Some("a"));
     assert_eq!(both.two.as_deref(), Some("b"));
 }
+
+/// A command that declares a global flag with a completer, completed inside its *child*.
+///
+/// The case a wrapper gets wrong if it reparses the deepest command's words: a global belongs to
+/// an ancestor, and the words that reached the child are not the words the ancestor was given.
+#[derive(Args)]
+struct Leaf {
+    /// Something of the leaf's own
+    #[usage(arg, name = "WHAT")]
+    what: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum GlobalCommands {
+    /// A subcommand
+    Leaf(Box<Leaf>),
+}
+
+#[derive(Args)]
+struct Outer {
+    /// Where to work
+    #[usage(long = "cd", value_name = "DIR", global)]
+    cd: Option<String>,
+    /// Which profile, answered against `--cd`
+    #[usage(long = "profile", value_name = "PROFILE", global, complete = profiles)]
+    profile: Option<String>,
+    #[usage(subcommand)]
+    command: Option<GlobalCommands>,
+}
+
+#[derive(Subcommands)]
+enum OuterCommands {
+    /// The command that declares the globals
+    Outer(Box<Outer>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "g", completion)]
+struct G {
+    #[usage(subcommand)]
+    command: Option<OuterCommands>,
+}
+
+/// What answers for `--profile`: `Outer`'s own partial, which is where `--cd` landed.
+fn profiles(
+    partial: &<Outer as usage_argv::spec::CommandArgs>::Partial,
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    let cd = partial
+        .cd
+        .as_deref()
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
+    match cd.as_deref() {
+        Some(dir) => vec![usage_argv::complete::Candidate::new(format!("in-{dir}"))],
+        None => vec![usage_argv::complete::Candidate::new("default")],
+    }
+}
+
+#[test]
+fn a_global_flags_completer_reads_the_command_it_was_declared_on() {
+    // `--cd here` was given to `outer`, and the cursor is inside `outer leaf` — so the words that
+    // reached the deepest command do not contain it. A wrapper reparsing those would have found
+    // nothing and answered as though the flag had never been typed.
+    assert_eq!(tk_g("g outer --cd here leaf --profile "), "in-here\n");
+
+    // And where the two coincide, the same answer.
+    assert_eq!(tk_g("g outer --cd there --profile "), "in-there\n");
+    assert_eq!(tk_g("g outer leaf --profile "), "default\n");
+}
+
+fn tk_g(line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    G::completion_request(&argv).expect("a completion request")
+}
+
+#[test]
+fn the_cli_with_globals_still_parses_them() {
+    // The fields those completers read are the fields a parse fills — one declaration, read by
+    // both, which is the whole point of the completer living on the field.
+    let argv = [
+        OsStr::new("outer"),
+        OsStr::new("--cd"),
+        OsStr::new("here"),
+        OsStr::new("leaf"),
+        OsStr::new("--profile"),
+        OsStr::new("work"),
+        OsStr::new("thing"),
+    ];
+    let parsed = G::parse_from(&argv).expect("an ordinary parse");
+    let Some(OuterCommands::Outer(outer)) = parsed.command else {
+        panic!("expected outer")
+    };
+    assert_eq!(outer.cd.as_deref(), Some("here"));
+    assert_eq!(outer.profile.as_deref(), Some("work"));
+    let Some(GlobalCommands::Leaf(leaf)) = outer.command else {
+        panic!("expected leaf")
+    };
+    assert_eq!(leaf.what.as_deref(), Some("thing"));
+}
