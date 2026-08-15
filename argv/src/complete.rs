@@ -16,6 +16,7 @@
 //! in a real invocation.
 
 use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
+pub use crate::spec::{Candidate, CompleteCtx, Completer};
 use crate::{Arg, Command, Error, Flag, Parser};
 
 /// Where the cursor is, in the grammar rather than in the line.
@@ -48,6 +49,8 @@ pub struct Position<'t> {
     /// True after `help`, where the only thing that belongs is a command name — not the
     /// arguments of whatever the root would otherwise fall back to.
     pub help_topic: bool,
+    /// Where the command in scope began, as an index into the words `walk` was given.
+    pub command_start: usize,
     /// The flags a word here could name: this command's own, then any ancestor's globals.
     ///
     /// Taken from the parser rather than gathered again, so what is offered is what would be
@@ -88,6 +91,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     awaiting_value: None,
                     next_arg: None,
                     separator_seen: false,
+                    command_start: 0,
                     help_topic: true,
                     flags: Vec::new(),
                 }
@@ -104,6 +108,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
         awaiting_value: awaiting_value.or_else(|| parser.collecting()),
         next_arg: parser.pending_arg(),
         separator_seen: parser.double_dash_seen(),
+        command_start: parser.command_start(),
         help_topic: false,
         flags: parser.flags_in_scope().collect(),
     }
@@ -223,81 +228,6 @@ pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
     out.sort();
     out.dedup();
     out
-}
-
-/// What a completion callback is told about the cursor.
-///
-/// Everything a `run=` command is given through tera — the words, which one the cursor is in —
-/// plus the prefix, which the reference makes each script filter on and this filters for the
-/// callback. A completer that wants an earlier value on the line reads it from `words`; one that
-/// wants it *typed* gets it in the next stage, where the derive can hand over the command's own
-/// half-parsed struct.
-#[derive(Debug, Clone, Copy)]
-pub struct CompleteCtx<'a> {
-    /// The words of the line, unquoted, including the one being completed.
-    pub words: &'a [String],
-    /// Which of `words` the cursor is in.
-    pub cword: usize,
-    /// What has been typed of that word. Candidates are filtered by it afterwards, so a
-    /// completer may ignore it and answer with everything it knows.
-    pub prefix: &'a str,
-}
-
-impl<'a> CompleteCtx<'a> {
-    /// The words a parser should walk to find the command this request is about.
-    ///
-    /// After the program name, before the word being completed — the same slice `walk` is given
-    /// for an ordinary request, so a `--candidates` request resolves the same command an
-    /// ordinary one would.
-    pub fn command_words_start(&self) -> &'a [String] {
-        let start = 1.min(self.cword);
-        self.words.get(start..self.cword).unwrap_or(&[])
-    }
-
-    /// The word before the one being completed, which is what mise's `{{words[PREV]}}` means.
-    pub fn previous(&self) -> Option<&'a str> {
-        self.cword
-            .checked_sub(1)
-            .and_then(|i| self.words.get(i))
-            .map(String::as_str)
-    }
-}
-
-/// A function that answers for one argument or flag value.
-///
-/// The Rust counterpart of a spec's `run=`, and the reason it is a plain `fn` rather than a
-/// closure: it lives in a `&'static` table beside the parse tables, and a table entry cannot
-/// capture anything.
-pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
-
-/// Something a shell could offer at the cursor.
-///
-/// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
-/// only the value. It is borrowed from the spec rather than built, because it is already
-/// there — the help text a page would print for the same thing.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Candidate<'a> {
-    pub value: String,
-    /// Borrowed from the spec where it is already there, owned where a callback made it.
-    pub description: Option<::std::borrow::Cow<'a, str>>,
-}
-
-impl Candidate<'_> {
-    /// A candidate with nothing to say about itself.
-    pub fn new(value: impl Into<String>) -> Self {
-        Self {
-            value: value.into(),
-            description: None,
-        }
-    }
-
-    /// A candidate and the line a shell shows beside it.
-    pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
-        Self {
-            value: value.into(),
-            description: Some(::std::borrow::Cow::Owned(description.into())),
-        }
-    }
 }
 
 /// Paths a shell should offer, on top of whatever this crate knows about.
@@ -559,7 +489,7 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
         flag_meta(spec.root, flag)
-            .map(|m| declared(m.choices, m.complete, split, token))
+            .map(|m| declared(m.choices, m.complete, split, &position, token))
             .unwrap_or_default()
     } else {
         let mut found = Vec::new();
@@ -725,7 +655,7 @@ fn positional<'a>(
         }
         return Vec::new();
     }
-    declared(meta.choices, meta.complete, split, token)
+    declared(meta.choices, meta.complete, split, position, token)
 }
 
 /// What a position declares it takes: its choices, or the completer that answers for it.
@@ -738,6 +668,7 @@ fn declared<'a>(
     choices_declared: &'a [&'a str],
     completer: Option<Completer>,
     split: &Split,
+    position: &Position<'_>,
     token: &str,
 ) -> Vec<Candidate<'a>> {
     if !choices_declared.is_empty() {
@@ -750,10 +681,21 @@ fn declared<'a>(
         words: &split.words,
         cword: split.cword,
         prefix: token,
+        command_words: command_words(split, position),
     };
     let mut found = completer(&ctx);
     found.retain(|c| c.value.starts_with(token));
     found
+}
+
+/// The words the command in scope was given, out of the whole line.
+///
+/// `walk` was handed the words after the program name and before the cursor's, and reported
+/// where the command in scope began within them — so this is the tail of that, which is what
+/// that command would have been given had the line been run.
+fn command_words<'s>(split: &'s Split, position: &Position<'_>) -> &'s [String] {
+    let words = split.argv();
+    words.get(position.command_start..).unwrap_or(&[])
 }
 
 /// The declared values of a flag or argument, filtered by what has been typed.

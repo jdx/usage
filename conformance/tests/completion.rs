@@ -230,3 +230,148 @@ fn the_script_calls_the_command_this_cli_answers() {
     .collect();
     assert_eq!(Ex::completion_request(&argv).as_deref(), Some("install\n"));
 }
+
+/// A CLI whose task list depends on a file named earlier on the same line.
+///
+/// This is the case a `run=` cannot answer: `mise tasks ls --complete` is a fixed command, so it
+/// reads whatever config the shell happens to be standing in, not the one being typed about.
+#[derive(Args)]
+struct Tasks {
+    /// Which config to read
+    #[usage(long = "file")]
+    file: Option<String>,
+    /// Only tasks in this group
+    #[usage(long = "group", value_name = "GROUP", complete = groups)]
+    group: Option<String>,
+    /// Which task
+    #[usage(arg, name = "TASK", complete = tasks_in_file)]
+    task: Option<String>,
+}
+
+/// What answers for `TASK`, given what the command has been told so far.
+fn tasks_in_file(
+    partial: &<Tasks as usage_argv::spec::CommandArgs>::Partial,
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    // The parser already decided what `--file` means; this reads the decision rather than
+    // scraping the line for it again. The partial holds the bytes as typed, since a word that is
+    // not valid UTF-8 is still a word somebody wrote.
+    let file = partial
+        .file
+        .as_deref()
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
+    match file.as_deref() {
+        Some("other.toml") => vec![usage_argv::complete::Candidate::new("other-task")],
+        Some(_) => vec![],
+        None => vec![
+            usage_argv::complete::Candidate::described("build", "Build it"),
+            usage_argv::complete::Candidate::new("test"),
+        ],
+    }
+}
+
+/// What answers for `--group`, to show a flag's value is completed the same way.
+fn groups(
+    _partial: &<Tasks as usage_argv::spec::CommandArgs>::Partial,
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    vec![
+        usage_argv::complete::Candidate::new("ci"),
+        usage_argv::complete::Candidate::new("local"),
+    ]
+}
+
+#[derive(Subcommands)]
+enum WithTasks {
+    /// List tasks
+    Tasks(Box<Tasks>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "tk", completion)]
+struct Tk {
+    #[usage(subcommand)]
+    command: Option<WithTasks>,
+}
+
+fn tk(line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    Tk::completion_request(&argv).expect("a completion request")
+}
+
+#[test]
+fn a_completer_reads_its_own_commands_half_parsed_struct() {
+    // Without a flag, the defaults.
+    assert_eq!(tk("tk tasks "), "build\ntest\n");
+    assert_eq!(tk("tk tasks bu"), "build\n");
+
+    // A flag's value is answered the same way as an argument's.
+    assert_eq!(tk("tk tasks --group "), "ci\nlocal\n");
+    assert_eq!(tk("tk tasks --group c"), "ci\n");
+
+    // And with one given earlier on the same line, the answer changes — which is the thing a
+    // fixed `run=` command cannot do, because it never sees the line it is being asked about.
+    assert_eq!(tk("tk tasks --file other.toml "), "other-task\n");
+    // A file it knows nothing about: no candidates, and the position stays open — so what comes
+    // back is the marker asking the shell for paths, not an empty answer claiming there is
+    // nothing here.
+    assert_eq!(
+        tk("tk tasks --file nothing.toml "),
+        format!("{}\n", usage_argv::complete::FILES_MARKER)
+    );
+}
+
+#[test]
+fn the_cli_that_declares_completers_still_parses() {
+    // The fields the completers describe are the fields a parse fills, which is the whole claim:
+    // one declaration, read by both.
+    let argv = [
+        OsStr::new("tasks"),
+        OsStr::new("--file"),
+        OsStr::new("other.toml"),
+        OsStr::new("--group"),
+        OsStr::new("ci"),
+        OsStr::new("build"),
+    ];
+    let parsed = Tk::parse_from(&argv).expect("an ordinary parse");
+    let Some(WithTasks::Tasks(tasks)) = parsed.command else {
+        panic!("expected tasks")
+    };
+    assert_eq!(tasks.file.as_deref(), Some("other.toml"));
+    assert_eq!(tasks.group.as_deref(), Some("ci"));
+    assert_eq!(tasks.task.as_deref(), Some("build"));
+}
+
+#[test]
+fn the_spec_names_a_completer_the_binary_answers() {
+    // What the KDL promises and what the binary does, checked against each other.
+    let kdl = Tk::to_kdl();
+    // Inside the command that declares it, and carrying the line, so that whoever runs it asks
+    // about the same thing a native request would.
+    assert!(
+        kdl.contains(r#"complete "task" run="tk __complete_word__ --candidates task --line"#),
+        "{kdl}"
+    );
+    assert!(kdl.contains(r#"complete "group""#), "{kdl}");
+
+    let argv: Vec<OsString> = [
+        "__complete_word__",
+        "--shell",
+        "bash",
+        "--candidates",
+        "task",
+        "--line",
+        "tk tasks --file other.toml ",
+    ]
+    .iter()
+    .map(OsString::from)
+    .collect();
+    assert_eq!(
+        Tk::completion_request(&argv).as_deref(),
+        Some("other-task\n"),
+        "the command the spec names has to answer, and to see the same line"
+    );
+}

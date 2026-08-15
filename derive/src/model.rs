@@ -104,6 +104,11 @@ pub struct Field {
     /// The values this may take. Checked after the parse, since a choice list is
     /// about what a value *means* rather than which token it came from.
     pub choices: Vec<String>,
+    /// A Rust function that answers for this value when a shell asks.
+    ///
+    /// The counterpart of a spec's `run=`, and the source it is generated from: declaring the
+    /// function is the only place a completer is said to exist.
+    pub complete: Option<syn::Path>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// Flags this one displaces. Applied while parsing rather than after it: the
@@ -624,6 +629,7 @@ impl Field {
             kind: Kind::Flatten {
                 ty: field.ty.clone(),
             },
+            complete: None,
             // A flattened field holds declarations, not a value, so none of what describes a
             // value applies — the same as a subcommand field.
             shape: Shape::Bool,
@@ -691,6 +697,7 @@ impl Field {
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
             kind: Kind::Subcommand { ty, optional },
+            complete: None,
             // A subcommand field holds a command, not a value, so none of what
             // describes a value applies to it.
             shape: Shape::Bool,
@@ -756,6 +763,7 @@ impl Field {
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
+        let mut complete: Option<syn::Path> = None;
         let mut value_enum = false;
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
@@ -804,6 +812,19 @@ impl Field {
                     "env" => env = Some(string_value(&meta)?),
                     // `choices("a", "b")` rather than one comma-joined string, so a
                     // value containing a comma is expressible.
+                    // A path, not a string: it names a function in the user's crate, and a
+                    // name that does not resolve should be a compile error where it is written
+                    // rather than a completion that silently answers nothing.
+                    "complete" => {
+                        let value = &meta.require_name_value()?.value;
+                        let Expr::Path(path) = value else {
+                            return Err(syn::Error::new_spanned(
+                                value,
+                                "`complete` takes a function, as in `complete = my_completer`",
+                            ));
+                        };
+                        complete = Some(path.path.clone());
+                    }
                     "choices" => {
                         let Meta::List(list) = &meta else {
                             return Err(syn::Error::new_spanned(
@@ -1323,6 +1344,7 @@ impl Field {
             value_name,
             required_collection,
             choices,
+            complete,
             value_enum,
             var_min,
             var_max,

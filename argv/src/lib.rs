@@ -757,6 +757,8 @@ pub struct Parser<'t, 'v> {
     bundle_token: &'v [u8],
     /// A variadic flag that is still collecting values.
     collecting: Option<&'t Flag<'t>>,
+    /// Where the command in scope began, as an index into `argv`.
+    cmd_start: usize,
     /// How many values it has taken, so a bound can stop it.
     collected: u32,
     /// Which of `cmd.args` is next to fill.
@@ -800,6 +802,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             bundle: &[],
             bundle_token: &[],
             collecting: None,
+            cmd_start: 0,
             collected: 0,
             arg_pos: 0,
             arg_taken: 0,
@@ -823,6 +826,14 @@ impl<'t, 'v> Parser<'t, 'v> {
     /// `preserve` argument kept as a value.
     pub fn double_dash_seen(&self) -> bool {
         self.separator_seen
+    }
+
+    /// Where the command in scope began: the index in `argv` just after its name.
+    ///
+    /// `argv[command_start()..]` is what that command was given, which is what a completion
+    /// callback needs to be handed its own command's half-parsed struct rather than the root's.
+    pub fn command_start(&self) -> usize {
+        self.cmd_start
     }
 
     /// Whether flag interpretation has stopped, for any reason.
@@ -1195,6 +1206,9 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.ancestors[self.depth] = Some(self.cmd);
         self.depth += 1;
         self.cmd = sub;
+        // Where this command's own words start, which is what lets a completion hand a callback
+        // the half-parsed struct of the command it was declared on rather than of the root.
+        self.cmd_start = self.pos;
         self.arg_pos = 0;
         self.arg_taken = 0;
         self.arg_filled = false;

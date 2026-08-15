@@ -109,6 +109,87 @@ fn unfillable_arg<'a>(cmd: &Command<'a>) -> Option<&'a str> {
     cmd.subcommands.iter().find_map(|sub| unfillable_arg(sub))
 }
 
+/// What a completion callback is told about the cursor.
+///
+/// Everything a `run=` command is given through tera — the words, which one the cursor is in —
+/// plus the prefix, which the reference makes each script filter on and this filters for the
+/// callback. A completer that wants an earlier value on the line reads it from `words`; one that
+/// wants it *typed* gets it in the next stage, where the derive can hand over the command's own
+/// half-parsed struct.
+#[derive(Debug, Clone, Copy)]
+pub struct CompleteCtx<'a> {
+    /// The words of the line, unquoted, including the one being completed.
+    pub words: &'a [String],
+    /// Which of `words` the cursor is in.
+    pub cword: usize,
+    /// What has been typed of that word. Candidates are filtered by it afterwards, so a
+    /// completer may ignore it and answer with everything it knows.
+    pub prefix: &'a str,
+    /// The words the command in scope was given: after its own name, before the cursor's word.
+    ///
+    /// What a callback needs to reconstruct its command's half-parsed struct — `mise task ls
+    /// --file other.toml ⌶` is `["--file", "other.toml"]` here, whatever the words before `ls`
+    /// were.
+    pub command_words: &'a [String],
+}
+
+impl<'a> CompleteCtx<'a> {
+    /// The words a parser should walk to find the command this request is about.
+    ///
+    /// After the program name, before the word being completed — the same slice `walk` is given
+    /// for an ordinary request, so a `--candidates` request resolves the same command an
+    /// ordinary one would.
+    pub fn command_words_start(&self) -> &'a [String] {
+        let start = 1.min(self.cword);
+        self.words.get(start..self.cword).unwrap_or(&[])
+    }
+
+    /// The word before the one being completed, which is what mise's `{{words[PREV]}}` means.
+    pub fn previous(&self) -> Option<&'a str> {
+        self.cword
+            .checked_sub(1)
+            .and_then(|i| self.words.get(i))
+            .map(String::as_str)
+    }
+}
+
+/// A function that answers for one argument or flag value.
+///
+/// The Rust counterpart of a spec's `run=`, and the reason it is a plain `fn` rather than a
+/// closure: it lives in a `&'static` table beside the parse tables, and a table entry cannot
+/// capture anything.
+pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
+
+/// Something a shell could offer at the cursor.
+///
+/// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
+/// only the value. It is borrowed from the spec rather than built, because it is already
+/// there — the help text a page would print for the same thing.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Candidate<'a> {
+    pub value: String,
+    /// Borrowed from the spec where it is already there, owned where a callback made it.
+    pub description: Option<::std::borrow::Cow<'a, str>>,
+}
+
+impl Candidate<'_> {
+    /// A candidate with nothing to say about itself.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            description: None,
+        }
+    }
+
+    /// A candidate and the line a shell shows beside it.
+    pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            description: Some(::std::borrow::Cow::Owned(description.into())),
+        }
+    }
+}
+
 /// A whole CLI: the root command plus what describes the program itself.
 #[derive(Debug, Clone, Copy)]
 pub struct Spec<'a> {
@@ -297,8 +378,7 @@ pub struct FlagMeta<'a> {
     /// The Rust counterpart of a spec's `run=`: it is written into the emitted KDL as a command
     /// that asks *this binary*, so a spec stays complete for every other consumer while the
     /// binary answers itself.
-    #[cfg(feature = "complete")]
-    pub complete: Option<crate::complete::Completer>,
+    pub complete: Option<Completer>,
     /// Whether the flag may be given more than once. Distinct from
     /// [`Flag::variadic`], which is one occurrence taking several values.
     pub repeatable: bool,
@@ -325,7 +405,6 @@ pub struct FlagMeta<'a> {
 impl FlagMeta<'_> {
     /// Metadata for a flag with nothing declared, for struct update syntax.
     pub const EMPTY: FlagMeta<'static> = FlagMeta {
-        #[cfg(feature = "complete")]
         complete: None,
         flag: &Flag::BOOL,
         help: None,
@@ -368,14 +447,12 @@ pub struct ArgMeta<'a> {
     /// Heading to list this argument under in help output.
     pub help_heading: Option<&'a str>,
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
-    #[cfg(feature = "complete")]
-    pub complete: Option<crate::complete::Completer>,
+    pub complete: Option<Completer>,
 }
 
 impl ArgMeta<'_> {
     /// Metadata for an argument with nothing declared, for struct update syntax.
     pub const EMPTY: ArgMeta<'static> = ArgMeta {
-        #[cfg(feature = "complete")]
         complete: None,
         arg: &Arg::REQUIRED,
         help: None,

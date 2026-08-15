@@ -50,8 +50,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
     let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
-    let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
-    let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
+    let flag_metas = flags
+        .iter()
+        .enumerate()
+        .map(|(i, f)| flag_meta(i, f, &cli.ident));
+    let arg_metas = args
+        .iter()
+        .enumerate()
+        .map(|(i, f)| arg_meta(i, f, &cli.ident));
 
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
@@ -379,10 +385,19 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             let cursor = cursor.unwrap_or(line.len());
             let split = ::usage_argv::complete::split(&line, cursor, shell);
             if let ::std::option::Option::Some(name) = candidates_for {
+                // Walked here as well, because a `--candidates` request names a completer and
+                // says nothing about where the cursor is — and the completer still wants the
+                // words its own command was given.
+                let position =
+                    ::usage_argv::complete::walk(Self::spec().root.cmd, split.argv());
+                let __usage_words = split.argv();
                 let ctx = ::usage_argv::complete::CompleteCtx {
                     words: &split.words,
                     cword: split.cword,
                     prefix: &split.prefix,
+                    command_words: __usage_words
+                        .get(position.command_start..)
+                        .unwrap_or(&[]),
                 };
                 // Nothing of that name is an empty answer rather than an error: a spec written
                 // against a newer version of this CLI is a stale script, and a stale script
@@ -497,7 +512,63 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     }
 }
 
-fn flag_meta(i: usize, field: &Field) -> TokenStream {
+/// The completer entry for a field, and the wrapper that gives it a typed partial.
+///
+/// A table entry has one uniform signature, and the function a CLI writes has the signature that
+/// is useful — its own command's half-parsed struct, and the context. The wrapper is what turns
+/// the first into the second: it reparses the words that command was given, which the position
+/// reports, and hands over the result. So `mise task ls --file other.toml ⌶` can be completed
+/// against that file, which is exactly what a `run=` shelling out to `mise tasks ls --complete`
+/// cannot see.
+fn completer_tokens(
+    i: usize,
+    field: &Field,
+    kind: &str,
+    owner: &syn::Ident,
+) -> (TokenStream, TokenStream) {
+    let Some(path) = &field.complete else {
+        return (TokenStream::new(), quote!(::std::option::Option::None));
+    };
+    let wrapper = format_ident!("__usage_complete_{kind}_{i}");
+    let decl = quote! {
+        fn #wrapper(
+            ctx: &::usage_argv::complete::CompleteCtx<'_>,
+        ) -> ::std::vec::Vec<::usage_argv::complete::Candidate<'static>> {
+            // The words this command was given, parsed against this command's own tables — so
+            // what the callback reads is what the parser would have bound, rather than a slice
+            // of the line it has to interpret itself.
+            let __usage_owned: ::std::vec::Vec<::std::ffi::OsString> = ctx
+                .command_words
+                .iter()
+                .map(|w| ::std::ffi::OsString::from(w))
+                .collect();
+            let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
+                __usage_owned.iter().map(|a| a.as_os_str()).collect();
+            let mut partial = <super::#owner as ::usage_argv::spec::CommandArgs>::start();
+            let mut parser = ::usage_argv::Parser::new(
+                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND,
+                &__usage_argv,
+            );
+            // A line being completed is unfinished by definition, so an error means the grammar
+            // ran out — the partial holds what was understood before that, which is the point.
+            while let ::std::option::Option::Some(event) = parser.next_event() {
+                match event {
+                    ::std::result::Result::Ok(event) => {
+                        let _ = <super::#owner as ::usage_argv::spec::CommandArgs>::apply(
+                            &mut partial,
+                            &event,
+                        );
+                    }
+                    ::std::result::Result::Err(_) => break,
+                }
+            }
+            super::#path(&partial, ctx)
+        }
+    };
+    (decl, quote!(::std::option::Option::Some(#wrapper)))
+}
+
+fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let name = format_ident!("FLAG_META_{i}");
     let table = format_ident!("FLAG_{i}");
     let help = option_str(field.help.as_deref());
@@ -527,8 +598,12 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
 
+    let (completer_decl, completer) = completer_tokens(i, field, "flag", owner);
+
     quote! {
+        #completer_decl
         pub static #name: FlagMeta = FlagMeta {
+            complete: #completer,
             flag: &#table,
             help: #help,
             long_help: #long_help,
@@ -552,7 +627,7 @@ fn flag_meta(i: usize, field: &Field) -> TokenStream {
     }
 }
 
-fn arg_meta(i: usize, field: &Field) -> TokenStream {
+fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let name = format_ident!("ARG_META_{i}");
     let table = format_ident!("ARG_{i}");
     let help = option_str(field.help.as_deref());
@@ -570,9 +645,12 @@ fn arg_meta(i: usize, field: &Field) -> TokenStream {
     let required = field.shape == Shape::Required || field.required_collection;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
+    let (completer_decl, completer) = completer_tokens(i, field, "arg", owner);
 
     quote! {
+        #completer_decl
         pub static #name: ArgMeta = ArgMeta {
+            complete: #completer,
             arg: &#table,
             help: #help,
             long_help: #long_help,
@@ -1577,8 +1655,14 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
     let arg_tables = args.iter().enumerate().map(|(i, f)| arg_table(i, f));
-    let flag_metas = flags.iter().enumerate().map(|(i, f)| flag_meta(i, f));
-    let arg_metas = args.iter().enumerate().map(|(i, f)| arg_meta(i, f));
+    let flag_metas = flags
+        .iter()
+        .enumerate()
+        .map(|(i, f)| flag_meta(i, f, &cli.ident));
+    let arg_metas = args
+        .iter()
+        .enumerate()
+        .map(|(i, f)| arg_meta(i, f, &cli.ident));
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
     let table_decls = &tables.decls;
