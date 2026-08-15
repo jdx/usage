@@ -530,6 +530,11 @@ fn completer_tokens(
         return (TokenStream::new(), quote!(::std::option::Option::None));
     };
     let wrapper = format_ident!("__usage_complete_{kind}_{i}");
+    // Through the same rewriting a field's *type* goes through: the generated module is one
+    // level below where the user wrote the path, so a bare name shifts by one — while
+    // `crate::…`, a leading `::` and `self::…` mean something already, and prefixing those
+    // produced a path that does not resolve.
+    let completer_path = path_in_module(path);
     let decl = quote! {
         fn #wrapper(
             ctx: &::usage_argv::complete::CompleteCtx<'_>,
@@ -562,7 +567,7 @@ fn completer_tokens(
                     ::std::result::Result::Err(_) => break,
                 }
             }
-            super::#path(&partial, ctx)
+            #completer_path(&partial, ctx)
         }
     };
     (decl, quote!(::std::option::Option::Some(#wrapper)))
@@ -910,15 +915,24 @@ fn in_module(ty: &syn::Type) -> TokenStream {
     let syn::Type::Path(path) = ty else {
         return quote!(#ty);
     };
-    // Already absolute, or rooted at the crate: resolves the same from anywhere.
-    if path.path.leading_colon.is_some() {
-        return quote!(#ty);
+    path_in_module(&path.path)
+}
+
+/// The same rewriting for a path that names a function rather than a type.
+///
+/// Extracted rather than repeated, because getting it wrong is not a compile error in this
+/// crate: it is one in the user's, at a line they did not write.
+fn path_in_module(path: &syn::Path) -> TokenStream {
+    // Already absolute: resolves the same from anywhere.
+    if path.leading_colon.is_some() {
+        return quote!(#path);
     }
-    let mut segments = path.path.segments.iter();
+    let mut segments = path.segments.iter();
     match segments.next().map(|s| s.ident.to_string()).as_deref() {
-        Some("crate") => quote!(#ty),
-        // `self` and `super` are relative to where the user wrote them, which is one
-        // level out from the generated module — so each shifts by one.
+        // Rooted at the crate, so it resolves the same from anywhere too.
+        Some("crate") => quote!(#path),
+        // `self` and `super` are relative to where the user wrote them, which is one level out
+        // from the generated module — so each shifts by one.
         Some("self") => {
             let rest = segments;
             quote!(super::#(#rest)::*)
@@ -928,7 +942,7 @@ fn in_module(ty: &syn::Type) -> TokenStream {
             quote!(super::super::#(#rest)::*)
         }
         // A relative path, which the generated module is one level below.
-        _ => quote!(super::#ty),
+        _ => quote!(super::#path),
     }
 }
 

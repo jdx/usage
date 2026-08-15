@@ -375,3 +375,87 @@ fn the_spec_names_a_completer_the_binary_answers() {
         "the command the spec names has to answer, and to see the same line"
     );
 }
+
+/// Completers reached by every spelling a user might write one with.
+mod completers {
+    use usage_argv::complete::{Candidate, CompleteCtx};
+
+    pub fn absolute(
+        _partial: &<super::Qualified as usage_argv::spec::CommandArgs>::Partial,
+        _ctx: &CompleteCtx<'_>,
+    ) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("from-crate")]
+    }
+
+    pub fn relative(
+        _partial: &<super::Qualified as usage_argv::spec::CommandArgs>::Partial,
+        _ctx: &CompleteCtx<'_>,
+    ) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("from-self")]
+    }
+}
+
+#[derive(Args)]
+struct Qualified {
+    /// Named by a path rooted at the crate
+    #[usage(arg, name = "ONE", complete = crate::completers::absolute)]
+    one: Option<String>,
+    /// Named by a path relative to this module
+    #[usage(long = "two", value_name = "TWO", complete = self::completers::relative)]
+    two: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum QualifiedCommands {
+    /// Take both
+    Both(Box<Qualified>),
+}
+
+#[derive(Cli)]
+#[usage(bin = "q", completion)]
+struct Q {
+    #[usage(subcommand)]
+    command: Option<QualifiedCommands>,
+}
+
+#[test]
+fn a_completer_can_be_named_however_a_path_is_written() {
+    // A path is rewritten the way a field's *type* is, because the generated module sits one
+    // level below where the user wrote it — and `crate::…` or `self::…` mean something already,
+    // so prefixing them produced a path that did not resolve. This test is mostly the fact that
+    // it compiles; the assertions are what makes it worth reading.
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", "q both "]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    assert_eq!(
+        Q::completion_request(&argv).as_deref(),
+        Some("from-crate\n")
+    );
+
+    let argv: Vec<OsString> = [
+        "__complete_word__",
+        "--shell",
+        "bash",
+        "--line",
+        "q both --two ",
+    ]
+    .iter()
+    .map(OsString::from)
+    .collect();
+    assert_eq!(Q::completion_request(&argv).as_deref(), Some("from-self\n"));
+
+    // The fields the completers describe are the fields a parse fills.
+    let argv = [
+        OsStr::new("both"),
+        OsStr::new("--two"),
+        OsStr::new("b"),
+        OsStr::new("a"),
+    ];
+    let parsed = Q::parse_from(&argv).expect("an ordinary parse");
+    let Some(QualifiedCommands::Both(both)) = parsed.command else {
+        panic!("expected both")
+    };
+    assert_eq!(both.one.as_deref(), Some("a"));
+    assert_eq!(both.two.as_deref(), Some("b"));
+}
