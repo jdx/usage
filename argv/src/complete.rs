@@ -109,6 +109,41 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     }
 }
 
+/// What a completion callback is told about the cursor.
+///
+/// Everything a `run=` command is given through tera — the words, which one the cursor is in —
+/// plus the prefix, which the reference makes each script filter on and this filters for the
+/// callback. A completer that wants an earlier value on the line reads it from `words`; one that
+/// wants it *typed* gets it in the next stage, where the derive can hand over the command's own
+/// half-parsed struct.
+#[derive(Debug, Clone, Copy)]
+pub struct CompleteCtx<'a> {
+    /// The words of the line, unquoted, including the one being completed.
+    pub words: &'a [String],
+    /// Which of `words` the cursor is in.
+    pub cword: usize,
+    /// What has been typed of that word. Candidates are filtered by it afterwards, so a
+    /// completer may ignore it and answer with everything it knows.
+    pub prefix: &'a str,
+}
+
+impl<'a> CompleteCtx<'a> {
+    /// The word before the one being completed, which is what mise's `{{words[PREV]}}` means.
+    pub fn previous(&self) -> Option<&'a str> {
+        self.cword
+            .checked_sub(1)
+            .and_then(|i| self.words.get(i))
+            .map(String::as_str)
+    }
+}
+
+/// A function that answers for one argument or flag value.
+///
+/// The Rust counterpart of a spec's `run=`, and the reason it is a plain `fn` rather than a
+/// closure: it lives in a `&'static` table beside the parse tables, and a table entry cannot
+/// capture anything.
+pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
+
 /// Something a shell could offer at the cursor.
 ///
 /// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
@@ -117,7 +152,26 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Candidate<'a> {
     pub value: String,
-    pub description: Option<&'a str>,
+    /// Borrowed from the spec where it is already there, owned where a callback made it.
+    pub description: Option<::std::borrow::Cow<'a, str>>,
+}
+
+impl Candidate<'_> {
+    /// A candidate with nothing to say about itself.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            description: None,
+        }
+    }
+
+    /// A candidate and the line a shell shows beside it.
+    pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            description: Some(::std::borrow::Cow::Owned(description.into())),
+        }
+    }
 }
 
 /// Paths a shell should offer, on top of whatever this crate knows about.
@@ -175,7 +229,7 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
     let described = answer.candidates.iter().any(|c| c.description.is_some());
 
     for candidate in &answer.candidates {
-        let description = one_line(candidate.description.unwrap_or_default());
+        let description = one_line(candidate.description.as_deref().unwrap_or_default());
         let description = description.as_str();
         match shell {
             Shell::Bash => out.push_str(&candidate.value),
@@ -375,17 +429,17 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
         // command — the cursor is at that command's *first* argument again, whatever the
         // words before the token filled.
         meta.and_then(|m| m.args.first())
-            .map(|m| positional(m, &position, token))
+            .map(|m| positional(m, &position, split, token))
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
         flag_meta(spec.root, flag)
-            .map(|m| choices(m.choices, token))
+            .map(|m| declared(m.choices, m.complete, split, token))
             .unwrap_or_default()
     } else {
         let mut found = Vec::new();
         if let Some(arg) = position.next_arg {
             if let Some(m) = arg_meta(spec.root, arg) {
-                found.extend(positional(m, &position, token));
+                found.extend(positional(m, &position, split, token));
             }
         }
         if let Some(meta) = meta {
@@ -405,7 +459,7 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
                     .iter()
                     .find(|sub| sub.cmd.name == default || sub.cmd.aliases.contains(&default));
                 if let Some(arg) = target.and_then(|sub| sub.args.first()) {
-                    found.extend(positional(arg, &position, token));
+                    found.extend(positional(arg, &position, split, token));
                 }
             }
         }
@@ -451,7 +505,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
-                    description: sub.about,
+                    description: sub.about.map(::std::borrow::Cow::Borrowed),
                 });
             }
         }
@@ -471,7 +525,10 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
         for long in flag.longs {
             let value = format!("--{long}");
             if value.starts_with(token) {
-                out.push(Candidate { value, description });
+                out.push(Candidate {
+                    value,
+                    description: description.map(::std::borrow::Cow::Borrowed),
+                });
             }
         }
         // A negation is a way to write the same flag, so it carries the same help — the
@@ -482,7 +539,10 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             // a `--` the user had typed, and a lone `-` offered a word no shell would accept.
             let value = format!("--{negate}");
             if value.starts_with(token) {
-                out.push(Candidate { value, description });
+                out.push(Candidate {
+                    value,
+                    description: description.map(::std::borrow::Cow::Borrowed),
+                });
             }
         }
     }
@@ -510,7 +570,7 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
-                    description: meta.and_then(|m| m.help),
+                    description: meta.and_then(|m| m.help).map(::std::borrow::Cow::Borrowed),
                 });
             }
         }
@@ -527,6 +587,7 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
 fn positional<'a>(
     meta: &'a ArgMeta<'a>,
     position: &Position<'_>,
+    split: &Split,
     token: &str,
 ) -> Vec<Candidate<'a>> {
     if meta.arg.double_dash == crate::DoubleDash::Required && !position.separator_seen {
@@ -538,7 +599,35 @@ fn positional<'a>(
         }
         return Vec::new();
     }
-    choices(meta.choices, token)
+    declared(meta.choices, meta.complete, split, token)
+}
+
+/// What a position declares it takes: its choices, or the completer that answers for it.
+///
+/// Choices first, and a completer only where there are none — the order the reference reads a
+/// spec in, where a `run=` is what an argument has *instead of* a fixed set rather than beside
+/// one. The answer is filtered here so a completer may return everything it knows, which is what
+/// the reference does with a `run=` command's output.
+fn declared<'a>(
+    choices_declared: &'a [&'a str],
+    completer: Option<Completer>,
+    split: &Split,
+    token: &str,
+) -> Vec<Candidate<'a>> {
+    if !choices_declared.is_empty() {
+        return choices(choices_declared, token);
+    }
+    let Some(completer) = completer else {
+        return Vec::new();
+    };
+    let ctx = CompleteCtx {
+        words: &split.words,
+        cword: split.cword,
+        prefix: token,
+    };
+    let mut found = completer(&ctx);
+    found.retain(|c| c.value.starts_with(token));
+    found
 }
 
 /// The declared values of a flag or argument, filtered by what has been typed.
@@ -1024,6 +1113,56 @@ mod tests {
         }],
         ..CommandMeta::EMPTY
     };
+    /// What answers for `mise install <TOOL>`: everything it knows, prefix and all, because the
+    /// filtering is not its job.
+    fn tools(ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        // Reads the line, which is what a `run=` gets through tera and what half of mise's
+        // completers use — `{{words[PREV]}}` is `ctx.previous()`.
+        if ctx.previous() == Some("--only") {
+            return vec![Candidate::new("node")];
+        }
+        vec![
+            Candidate::described("node", "JavaScript"),
+            Candidate::described("python", "Snakes"),
+            Candidate::new("ruby"),
+        ]
+    }
+
+    static TOOL_ARG: Arg = Arg {
+        key: 15,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static ONLY: Flag = Flag {
+        key: 16,
+        name: "only",
+        longs: &["only"],
+        ..Flag::VALUE
+    };
+    static INSTALL: Command = Command {
+        name: "install",
+        flags: &[&ONLY],
+        args: &[&TOOL_ARG],
+        ..Command::EMPTY
+    };
+    static META_INSTALL: CommandMeta = CommandMeta {
+        cmd: &INSTALL,
+        about: Some("Install a tool"),
+        flags: &[FlagMeta {
+            flag: &ONLY,
+            help: Some("Just this one"),
+            complete: Some(tools),
+            ..FlagMeta::EMPTY
+        }],
+        args: &[ArgMeta {
+            arg: &TOOL_ARG,
+            help: Some("Which tool"),
+            complete: Some(tools),
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+
     static META_SHIP: CommandMeta = CommandMeta {
         cmd: &SHIP,
         about: Some("Ship a file"),
@@ -1146,6 +1285,7 @@ mod tests {
             &META_EDIT,
             &META_PIPE,
             &META_SHIP,
+            &META_INSTALL,
         ],
         ..CommandMeta::EMPTY
     };
@@ -1153,7 +1293,7 @@ mod tests {
         name: "mise",
         flags: &[&GLOBAL],
         subcommands: &[
-            &USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT, &PIPE, &SHIP,
+            &USE, &EXEC, &PLUGINS, &SECRET, &LIST, &TASK, &WRAP, &EDIT, &PIPE, &SHIP, &INSTALL,
         ],
         ..Command::EMPTY
     };
@@ -1448,8 +1588,8 @@ mod tests {
             // `node` and `python` are the fallback command's, which the root offers too — see
             // `the_root_offers_what_the_command_it_falls_back_to_accepts`.
             [
-                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "ship", "task",
-                "u", "use", "wrap",
+                "edit", "exec", "install", "list", "ls", "node", "pipe", "plugins", "python",
+                "ship", "task", "u", "use", "wrap",
             ],
             "sorted, and a hidden command is offered under none of its names"
         );
@@ -1506,8 +1646,8 @@ mod tests {
         assert_eq!(
             offered("mise -- "),
             [
-                "edit", "exec", "list", "ls", "node", "pipe", "plugins", "python", "ship", "task",
-                "u", "use", "wrap",
+                "edit", "exec", "install", "list", "ls", "node", "pipe", "plugins", "python",
+                "ship", "task", "u", "use", "wrap",
             ]
         );
     }
@@ -1516,10 +1656,10 @@ mod tests {
     fn a_candidate_carries_the_help_a_page_would_print() {
         let found = candidates(&SPEC, &at_end("mise use --"));
         let jobs = found.iter().find(|c| c.value == "--jobs").expect("--jobs");
-        assert_eq!(jobs.description, Some("How many at once"));
+        assert_eq!(jobs.description.as_deref(), Some("How many at once"));
 
         let found = candidates(&SPEC, &at_end("mise pl"));
-        assert_eq!(found[0].description, Some("Manage plugins"));
+        assert_eq!(found[0].description.as_deref(), Some("Manage plugins"));
     }
     #[test]
     fn a_help_topic_offers_the_commands_under_it() {
@@ -1530,7 +1670,10 @@ mod tests {
         // read about, not for a word to run.
         assert_eq!(
             offered("mise help "),
-            ["edit", "exec", "list", "ls", "pipe", "plugins", "ship", "task", "u", "use", "wrap"]
+            [
+                "edit", "exec", "install", "list", "ls", "pipe", "plugins", "ship", "task", "u",
+                "use", "wrap"
+            ]
         );
     }
     #[test]
@@ -1818,5 +1961,44 @@ mod tests {
         // zsh keeps its three fields, and no more.
         let out = render(&answer, Shell::Zsh);
         assert_eq!(out.matches('\t').count(), 2, "{out:?}");
+    }
+    #[test]
+    fn a_declared_completer_answers_for_its_value() {
+        // The Rust counterpart of a spec's `run=`, and the same shape of answer: values with
+        // descriptions where it has them.
+        assert_eq!(offered("mise install "), ["node", "python", "ruby"]);
+        let found = candidates(&SPEC, &at_end("mise install n"));
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].value, "node");
+        assert_eq!(found[0].description.as_deref(), Some("JavaScript"));
+
+        // For a flag's value as well as an argument's.
+        assert_eq!(offered("mise install --only "), ["node"]);
+    }
+
+    #[test]
+    fn a_completer_is_filtered_for_rather_than_by() {
+        // The reference filters a `run=` command's output by the typed prefix rather than making
+        // every script do it, so a callback may answer with everything it knows.
+        assert_eq!(offered("mise install ru"), ["ruby"]);
+        assert!(offered("mise install zzz").is_empty());
+    }
+
+    #[test]
+    fn a_completer_can_read_the_line_it_was_called_about() {
+        // `{{words[PREV]}}` is what two of mise's nine completers use, so a callback has to be
+        // able to see at least that much: here the answer narrows after `--only`.
+        assert_eq!(offered("mise install --only "), ["node"]);
+        assert_eq!(offered("mise install "), ["node", "python", "ruby"]);
+    }
+
+    #[test]
+    fn a_completer_that_says_nothing_leaves_the_position_open() {
+        // "A script that prints nothing may simply have had nothing to say about this prefix",
+        // as the reference puts it — so paths still follow, rather than the position claiming
+        // to know its whole set.
+        let a = answer("mise install zzz");
+        assert!(a.candidates.is_empty());
+        assert_eq!(a.files, Some(Files::Any));
     }
 }
