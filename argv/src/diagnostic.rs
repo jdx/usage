@@ -102,42 +102,61 @@ fn flags_in_scope<'a>(
     spec: &'a Spec<'a>,
     cmd: &Command<'_>,
 ) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> {
-    fn walk<'a>(
+    /// The chain of commands from the root down to `cmd`, or nothing if it is not below here.
+    ///
+    /// The chain and not the tree: the first version collected globals from every branch it
+    /// walked through, so a global declared on one command was suggested under an unrelated one
+    /// — a tip naming a flag the parser would refuse, which is worse than no tip.
+    fn chain<'a>(
         meta: &'a CommandMeta<'a>,
         cmd: &Command<'_>,
-        seen: &mut Vec<&'a crate::spec::FlagMeta<'a>>,
-        inside: bool,
-    ) {
-        let here = inside || core::ptr::eq(meta.cmd, cmd);
-        if here {
-            seen.extend(meta.flags.iter().filter(|f| !f.hide));
-        } else {
-            // An ancestor contributes only what it declared global, which is the rule the parser
-            // follows on the way down.
-            seen.extend(meta.flags.iter().filter(|f| !f.hide && f.flag.global));
-        }
+        path: &mut Vec<&'a CommandMeta<'a>>,
+    ) -> bool {
+        path.push(meta);
         if core::ptr::eq(meta.cmd, cmd) {
-            return;
+            return true;
         }
         for sub in meta.subcommands {
-            walk(sub, cmd, seen, false);
+            if chain(sub, cmd, path) {
+                return true;
+            }
         }
+        path.pop();
+        false
     }
-    let mut seen = Vec::new();
-    walk(spec.root, cmd, &mut seen, false);
-    seen.into_iter()
+
+    let mut path = Vec::new();
+    if !chain(spec.root, cmd, &mut path) {
+        path.clear();
+    }
+    // The command's own flags, and from each ancestor only what it declared global — the rule
+    // the parser follows on the way down.
+    let depth = path.len();
+    path.into_iter().enumerate().flat_map(move |(i, meta)| {
+        let own = i + 1 == depth;
+        meta.flags
+            .iter()
+            .filter(move |f| !f.hide && (own || f.flag.global))
+    })
 }
 
 /// How alike two words are, from 0 (nothing in common) to 1 (the same word).
 ///
-/// Jaro-Winkler, which is what clap uses to decide whether to suggest something — so a CLI that
-/// moves from clap gets the same suggestions rather than merely similar ones. It favours words
-/// that agree at the start, which is right for a mistyped flag: `--fore` is a slip in `--force`,
-/// not a different word.
+/// Jaro, and deliberately not Jaro-Winkler. clap decides whether to suggest something with
+/// `strsim::jaro`, and says why in its own source:
 ///
-/// Written out rather than depended on, because this crate takes no dependencies and the whole
-/// algorithm is thirty lines.
-fn jaro_winkler(a: &str, b: &str) -> f64 {
+/// ```text
+/// // GH #4660: using `jaro` because `jaro_winkler` implementation in `strsim-rs` is wrong
+/// ```
+///
+/// Winkler's variant adds a bonus for a shared prefix, which sounds right for a mistyped flag and
+/// would move the bar: some words clear 0.7 with it and not without, and the ranking changes too.
+/// Since the point of this module is that an adopter's users see the same tips they saw under
+/// clap, the algorithm has to be the same one. The bonus is three lines away if it is ever wanted
+/// on both sides.
+///
+/// Written out rather than depended on, because this crate takes no dependencies.
+fn jaro(a: &str, b: &str) -> f64 {
     let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
     if a.is_empty() && b.is_empty() {
         return 1.0;
@@ -185,19 +204,10 @@ fn jaro_winkler(a: &str, b: &str) -> f64 {
     }
 
     let matches = matches as f64;
-    let jaro = (matches / a.len() as f64
+    (matches / a.len() as f64
         + matches / b.len() as f64
         + (matches - transpositions as f64 / 2.0) / matches)
-        / 3.0;
-
-    // Winkler's part: a shared prefix of up to four characters pulls the score up.
-    let prefix = a
-        .iter()
-        .zip(b.iter())
-        .take(4)
-        .take_while(|(x, y)| x == y)
-        .count() as f64;
-    jaro + prefix * 0.1 * (1.0 - jaro)
+        / 3.0
 }
 
 /// Everything close enough to `typed` to be worth saying, in the order clap says them.
@@ -213,7 +223,7 @@ fn jaro_winkler(a: &str, b: &str) -> f64 {
 /// both sides rather than on one.
 fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
     let mut scored: Vec<(f64, &str)> = candidates
-        .map(|candidate| (jaro_winkler(typed, candidate), candidate))
+        .map(|candidate| (jaro(typed, candidate), candidate))
         .filter(|(score, _)| *score > 0.7)
         .collect();
     scored.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
@@ -636,14 +646,31 @@ mod tests {
         ..Flag::BOOL
     };
     /// A second command close to the same typo, so the plural wording is reachable.
+    static LOCAL: Flag = Flag {
+        key: 5,
+        name: "local",
+        longs: &["local"],
+        global: true,
+        ..Flag::BOOL
+    };
     static USER: Command = Command {
         name: "user",
+        flags: &[&LOCAL],
         ..Command::EMPTY
+    };
+    /// Declared on the root and *not* global, so it belongs to the root alone.
+    static SETUP: Flag = Flag {
+        key: 6,
+        name: "setup",
+        longs: &["setup"],
+        ..Flag::BOOL
     };
     static ROOT: Command = Command {
         name: "ex",
-        flags: &[&QUIET],
-        subcommands: &[&USE, &USER],
+        flags: &[&QUIET, &SETUP],
+        // `user` first, so the walk to `use` passes through it: a sibling that is visited on the
+        // way is exactly what leaked into scope before.
+        subcommands: &[&USER, &USE],
         ..Command::EMPTY
     };
     static USE_META: CommandMeta = CommandMeta {
@@ -682,16 +709,28 @@ mod tests {
     static USER_META: CommandMeta = CommandMeta {
         cmd: &USER,
         about: Some("Manage users"),
+        flags: &[FlagMeta {
+            flag: &LOCAL,
+            help: Some("Only this checkout"),
+            ..FlagMeta::EMPTY
+        }],
         ..CommandMeta::EMPTY
     };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
-        flags: &[FlagMeta {
-            flag: &QUIET,
-            help: Some("Say less"),
-            ..FlagMeta::EMPTY
-        }],
-        subcommands: &[&USE_META, &USER_META],
+        flags: &[
+            FlagMeta {
+                flag: &QUIET,
+                help: Some("Say less"),
+                ..FlagMeta::EMPTY
+            },
+            FlagMeta {
+                flag: &SETUP,
+                help: Some("Set things up"),
+                ..FlagMeta::EMPTY
+            },
+        ],
+        subcommands: &[&USER_META, &USE_META],
         ..CommandMeta::EMPTY
     };
     static SPEC: Spec = Spec {
@@ -886,15 +925,24 @@ mod tests {
     #[test]
     fn the_scores_are_the_ones_clap_would_compute() {
         // Spot values for the algorithm itself, so a rewrite cannot quietly change which words
-        // count as similar.
-        assert!((jaro_winkler("--fore", "--force") - 0.972).abs() < 0.001);
-        assert_eq!(jaro_winkler("same", "same"), 1.0);
-        assert_eq!(jaro_winkler("", ""), 1.0);
-        assert_eq!(jaro_winkler("abc", ""), 0.0);
+        // count as similar. `fore` against `force` is the ordinary case: five of six characters,
+        // in order.
+        assert!(
+            (jaro("fore", "force") - 0.933).abs() < 0.001,
+            "{}",
+            jaro("fore", "force")
+        );
+        assert_eq!(jaro("same", "same"), 1.0);
+        assert_eq!(jaro("", ""), 1.0);
+        assert_eq!(jaro("abc", ""), 0.0);
         // No characters in common at all.
-        assert_eq!(jaro_winkler("abc", "xyz"), 0.0);
-        // A shared prefix pulls the score up, which is what makes it right for a mistyped flag.
-        assert!(jaro_winkler("--forc", "--force") > jaro_winkler("orce--", "--force"));
+        assert_eq!(jaro("abc", "xyz"), 0.0);
+
+        // And *no* prefix bonus, which is the whole difference from Jaro-Winkler: Jaro counts
+        // matching characters and their order, not where the agreement falls, so dropping a
+        // word's last letter and dropping its first score alike. Under Winkler the first would
+        // win, and a different set of words would clear the bar than clap's.
+        assert_eq!(jaro("forc", "force"), jaro("orce", "force"));
     }
 
     #[test]
@@ -972,6 +1020,40 @@ mod tests {
         let message = rendered(&[], Error::UnexpectedArg { token: b"-" });
         assert!(
             message.starts_with("error: unrecognized subcommand '-'"),
+            "{message}"
+        );
+    }
+    #[test]
+    fn a_siblings_global_is_not_offered_here() {
+        // `user` declares a global; it is a sibling of `use`, never an ancestor, so the parser
+        // would refuse `--local` inside `use`. A tip naming a flag that does not work is worse
+        // than no tip — and the first version of this walked the whole tree, collecting globals
+        // from every branch it passed through.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--locl" });
+        assert!(!message.contains("tip:"), "{message}");
+
+        // Inside `user` itself it is offered, which is what makes the absence above a rule
+        // rather than an oversight.
+        let message = rendered(&["user"], Error::UnknownFlag { token: b"--locl" });
+        assert!(
+            message.contains("tip: a similar argument exists: '--local'"),
+            "{message}"
+        );
+
+        // And the root's global still reaches a subcommand, which is the case globals exist for.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--quie" });
+        assert!(
+            message.contains("tip: a similar argument exists: '--quiet'"),
+            "{message}"
+        );
+
+        // An ancestor's *non*-global flag does not: the root declares `--setup` for itself, and
+        // the parser would refuse it inside `use` exactly as it refuses a sibling's.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--setu" });
+        assert!(!message.contains("tip:"), "{message}");
+        let message = rendered(&[], Error::UnknownFlag { token: b"--setu" });
+        assert!(
+            message.contains("tip: a similar argument exists: '--setup'"),
             "{message}"
         );
     }
