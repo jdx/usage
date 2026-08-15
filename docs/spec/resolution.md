@@ -168,8 +168,16 @@ binary must still work with an older one.
 
 [`corpus/config/`](https://github.com/jdx/usage/tree/main/corpus/config) pairs a set
 of settings with the layers that supply values and the resolution the two must
-produce. Every rule on this page has vectors, and a second implementation — in Go, in
-TypeScript, as a second Rust one — passes them or does not.
+produce. A second implementation — in Go, in TypeScript, as a second Rust one — passes
+them or does not.
+
+Two rules on this page have none, both for the same reason: a vector says what a
+resolution produces, and neither of these is one. `list_by_os_path_separator` splits on
+a character that depends on the machine running the test, and a corpus whose answers
+differ by platform stops being the definition of correct. `not-read` is a layer's choice
+between two of its own variables, which a vector describing what a layer _supplies_
+cannot express — [`EnvLayer`'s own tests](https://github.com/jdx/usage/blob/main/config/src/env.rs)
+hold it instead.
 
 Vectors describe a **registry** rather than a spec, because resolution is a question
 about keys and types rather than about KDL, and warnings are pinned by kind rather

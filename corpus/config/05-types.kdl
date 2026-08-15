@@ -24,21 +24,38 @@ vector "the-boolean-spellings" doc="The spellings every registry in the fleet ac
   setting "d" type="bool"
   setting "e" type="bool"
   setting "f" type="bool"
+  setting "g" type="bool"
+  setting "h" type="bool"
+  setting "i" type="bool"
+  setting "j" type="bool"
+  setting "k" type="bool"
   layer "env" {
     value "a" "true"
     value "b" "1"
     value "c" "yes"
-    value "d" "false"
-    value "e" "0"
-    value "f" "off"
+    value "d" "y"
+    value "e" "on"
+    value "f" "false"
+    value "g" "0"
+    value "h" "no"
+    value "i" "n"
+    value "j" "off"
+    value "k" ""
   }
   expect {
     value "a" #true
     value "b" #true
     value "c" #true
-    value "d" #false
-    value "e" #false
+    value "d" #true
+    value "e" #true
     value "f" #false
+    value "g" #false
+    value "h" #false
+    value "i" #false
+    value "j" #false
+    // An emptied variable is how a user turns a declared default off, so it is `false` rather
+    // than nothing at all — the same rule that makes an empty list no items instead of one.
+    value "k" #false
   }
 }
 
@@ -67,13 +84,18 @@ vector "an-empty-string-is-no-items" doc="And an empty string is no items rather
 vector "a-named-parser-splits-before-the-type-reads" doc="A declared parser turns one string into several values, so no layer has to know that a setting is comma-separated." {
   setting "exclude" type="list<string>" parse="list_by_comma"
   setting "path" type="list<path>" parse="list_by_colon"
+  // The same split, into a set: one string can name the same thing twice, and a set is the
+  // declaration that it should not hold it twice.
+  setting "tags" type="set<string>" parse="set_by_comma"
   layer "env" {
     value "exclude" "target,vendor"
     value "path" "/usr/bin:/bin"
+    value "tags" "ci,fast,ci"
   }
   expect {
     list "exclude" "target" "vendor"
     list "path" "/usr/bin" "/bin"
+    list "tags" "ci" "fast"
   }
 }
 
