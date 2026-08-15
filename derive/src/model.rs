@@ -21,6 +21,13 @@ pub struct Cli {
     pub name: String,
     pub bin: Option<String>,
     pub version: Option<String>,
+    /// Whether this CLI answers a completion request.
+    ///
+    /// Opt in rather than supplied like `--help`: it is a hidden command a binary carries and a
+    /// protocol a generated script depends on, so a CLI says when it wants both. The script
+    /// generator is emitted under the same flag, which makes a script that calls a command the
+    /// binary lacks a compile error rather than a puzzle at the prompt.
+    pub completion: bool,
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
@@ -218,6 +225,7 @@ impl Cli {
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
             bin: None,
+            completion: false,
             version: None,
             about,
             long_about,
@@ -240,6 +248,10 @@ impl Cli {
                 match ident_of(&path).as_str() {
                     "name" => cli.name = string_value(&meta)?,
                     "bin" => cli.bin = Some(string_value(&meta)?),
+                    // Through the same helper as `global` and `var`, so `completion = false`
+                    // means false rather than being read as the bare word with something
+                    // decorative after it.
+                    "completion" => cli.completion = flag_value(&meta)?,
                     "version" => cli.version = Some(string_value(&meta)?),
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
@@ -325,6 +337,16 @@ impl Cli {
     /// learn that an attribute was in the wrong place.
     pub fn check_position(&self, ident: &syn::Ident, is_root: bool) -> syn::Result<()> {
         if !is_root {
+            // The completion command answers for the whole CLI, so it is declared where the
+            // whole CLI is. Accepted silently on an `Args`, it generated nothing and said
+            // nothing, which reads as a CLI that has completions and does not.
+            if self.completion {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "`completion` belongs on the root, where `#[derive(Cli)]` is: the hidden \
+                     command it adds answers for the whole program, not for one of its commands",
+                ));
+            }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
                 return Err(syn::Error::new_spanned(

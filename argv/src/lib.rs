@@ -85,6 +85,31 @@ use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "complete")]
 pub mod complete;
+
+/// Checks that the `complete` feature is on, with an explanation when it is not.
+///
+/// `#[usage(completion)]` generates code that reaches into [`complete`], which is behind a
+/// feature the *depending* crate enables — a derive cannot turn on a feature of another crate.
+/// Without this, the failure was `unresolved module complete`, which says nothing about the
+/// attribute that caused it.
+#[cfg(feature = "complete")]
+#[macro_export]
+macro_rules! __usage_needs_complete_feature {
+    () => {};
+}
+
+/// See [`__usage_needs_complete_feature`].
+#[cfg(not(feature = "complete"))]
+#[macro_export]
+macro_rules! __usage_needs_complete_feature {
+    () => {
+        ::core::compile_error!(
+            "`#[usage(completion)]` needs usage-argv's `complete` feature. Add it where \
+             usage-argv is depended on: usage-argv = { version = \"…\", features = \
+             [\"spec\", \"complete\"] }"
+        );
+    };
+}
 #[cfg(feature = "spec")]
 pub mod help;
 #[cfg(feature = "spec")]

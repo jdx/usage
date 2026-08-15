@@ -86,6 +86,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let defaults = partial_defaults(cli, false);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
+    let (completion, completion_intercept) = completion_fns(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
     // generated code needs.
@@ -253,7 +254,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
             }
 
             /// Parse the process's own arguments.
+            #completion
+
             pub fn parse() -> ::std::result::Result<Self, ::std::string::String> {
+                #completion_intercept
                 let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                     ::std::env::args_os().skip(1).collect();
                 let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
@@ -286,6 +290,90 @@ pub fn emit(cli: &Cli) -> TokenStream {
             }
         }
     }
+}
+
+/// The completion entry points, for a CLI that asked for them.
+///
+/// Two pieces: a function that answers a request, and the line in `parse` that notices one. Both
+/// empty without the opt-in, so a binary carries neither the hidden command nor the protocol —
+/// and `completion_script` cannot be called for a CLI whose binary would not answer it.
+fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
+    if !cli.completion {
+        return (TokenStream::new(), TokenStream::new());
+    }
+    let functions = quote! {
+        // Says what is missing, where the alternative is `unresolved module complete` — which
+        // names the symptom and not the attribute that asked for it.
+        ::usage_argv::__usage_needs_complete_feature!();
+
+        /// The word a shell is completing, answered from this CLI's own tables.
+        ///
+        /// `None` when argv is an ordinary invocation. The request is recognized before the
+        /// parse rather than inside it: a completion is not a command this CLI runs, and putting
+        /// it in the tables would make it one — visible to the grammar, the help and the spec.
+        pub fn completion_request(
+            argv: &[::std::ffi::OsString],
+        ) -> ::std::option::Option<::std::string::String> {
+            let first = argv.first()?.to_str()?;
+            if first != "__complete_word__" {
+                return ::std::option::Option::None;
+            }
+            // Its own flags, read by hand: three of them, and reading them with the parser
+            // would mean putting them in the tables this is deliberately outside of.
+            let mut shell = ::usage_argv::complete::Shell::Bash;
+            let mut line = ::std::string::String::new();
+            let mut cursor = ::std::option::Option::None;
+            let mut rest = argv[1..].iter();
+            while let ::std::option::Option::Some(arg) = rest.next() {
+                match arg.to_str().unwrap_or_default() {
+                    "--shell" => {
+                        if let ::std::option::Option::Some(name) = rest.next() {
+                            if let ::std::option::Option::Some(found) =
+                                ::usage_argv::complete::Shell::from_name(
+                                    &name.to_string_lossy(),
+                                )
+                            {
+                                shell = found;
+                            }
+                        }
+                    }
+                    "--line" => {
+                        if let ::std::option::Option::Some(value) = rest.next() {
+                            line = value.to_string_lossy().into_owned();
+                        }
+                    }
+                    "--cursor" => {
+                        cursor = rest
+                            .next()
+                            .and_then(|value| value.to_str().and_then(|v| v.parse().ok()));
+                    }
+                    // Anything else is a shell passing something this version does not know
+                    // about. Ignored rather than refused: a completion that errors out is a
+                    // shell that beeps at every keystroke.
+                    _ => {}
+                }
+            }
+            // No cursor means the end of the line, which is where a shell puts it when it has
+            // no way to say — nushell, whose completer only ever sees the words.
+            let cursor = cursor.unwrap_or(line.len());
+            let split = ::usage_argv::complete::split(&line, cursor, shell);
+            let answer = ::usage_argv::complete::complete(Self::spec(), &split);
+            ::std::option::Option::Some(::usage_argv::complete::render(&answer, shell))
+        }
+    };
+    let intercept = quote! {
+        // Before anything else, including the parse: a completion request is not this CLI's
+        // grammar and must not be measured against it.
+        {
+            let __usage_args: ::std::vec::Vec<::std::ffi::OsString> =
+                ::std::env::args_os().skip(1).collect();
+            if let ::std::option::Option::Some(answer) = Self::completion_request(&__usage_args) {
+                ::std::print!("{answer}");
+                ::std::process::exit(0);
+            }
+        }
+    };
+    (functions, intercept)
 }
 
 fn flag_table(i: usize, field: &Field) -> TokenStream {
