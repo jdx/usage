@@ -104,7 +104,12 @@ pub struct Field {
     /// this is the executable one; `Registry::drift` compares them, which is what hk's eighteen
     /// declared and five read `sources.cli` lines needed and never had.
     pub setting: Option<String>,
-    pub default: Option<String>,
+    /// The values the field takes when the command line supplies none.
+    ///
+    /// A list, because the spec's is: a collecting field can be given several, each `default`
+    /// one item, in the order they are written. Every other shape holds at most one, which the
+    /// model checks — a `String` has one place to put a value.
+    pub default: Vec<String>,
     pub help_heading: Option<String>,
     /// Whether a collecting argument needs at least one value.
     ///
@@ -753,7 +758,7 @@ impl Field {
             long_help: None,
             env: None,
             setting: None,
-            default: None,
+            default: Vec::new(),
             help_heading: None,
             value_name: None,
             required_collection: false,
@@ -822,7 +827,7 @@ impl Field {
             long_help: None,
             env: None,
             setting: None,
-            default: None,
+            default: Vec::new(),
             help_heading: None,
             value_name: None,
             required_collection: false,
@@ -871,7 +876,7 @@ impl Field {
         let mut double_dash = DoubleDash::Optional;
         let mut env = None;
         let mut setting = None;
-        let mut default = None;
+        let mut default: Vec<String> = Vec::new();
         let mut help_heading = None;
         let mut value_name = None;
         let mut required_collection = false;
@@ -977,7 +982,7 @@ impl Field {
                     "value_enum" => value_enum = flag_value(&meta)?,
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
-                    "default" => default = Some(string_value(&meta)?),
+                    "default" => default.push(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
                     // Help text a doc comment cannot carry. A comment's first paragraph is
@@ -1114,7 +1119,18 @@ impl Field {
         } = ValueKind::from_type(&field.ty, count, span)?;
         // The spec records a default and the generated code applies it; anything it
         // cannot apply would be documented and then ignored.
-        if let Some(value) = &default {
+        //
+        // Several is a collection's privilege. Every other shape has one place to put a value,
+        // so a second `default` is a contradiction rather than a list — and silently keeping
+        // the last would be a declaration the author cannot see being ignored.
+        if default.len() > 1 && shape != Shape::Many {
+            return Err(syn::Error::new(
+                span,
+                "this field holds one value, so it takes one `default`; several is for a \
+                 `Vec`, which starts out holding all of them",
+            ));
+        }
+        for value in &default {
             match shape {
                 Shape::Bool if value != "true" && value != "false" => {
                     return Err(syn::Error::new(
@@ -1130,13 +1146,6 @@ impl Field {
                         span,
                         "a `count` field starts at zero, so a default has nothing to \
                          say",
-                    ));
-                }
-                Shape::Many => {
-                    return Err(syn::Error::new(
-                        span,
-                        "a default for a collecting field is not applied yet, so it \
-                         would be documented and then ignored",
                     ));
                 }
                 _ => {}
@@ -1179,8 +1188,10 @@ impl Field {
                 "`var_min` and `var_max` count values, so the field has to be a `Vec`",
             ));
         }
-        if let Some(default) = &default {
-            if !choices.is_empty() && !choices.iter().any(|c| c == default) {
+        if !choices.is_empty() {
+            // Each of them, not the first: a collection's second default is as unusable as its
+            // first if the choices do not allow it.
+            if let Some(default) = default.iter().find(|d| !choices.contains(d)) {
                 return Err(syn::Error::new(
                     span,
                     format!(
@@ -2261,6 +2272,37 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn only_a_collection_takes_more_than_one_default() {
+        // Several defaults is a `Vec`'s privilege, because a `Vec` is the only shape with
+        // somewhere to put them. Keeping the last silently would leave the others declared,
+        // emitted into the spec, and never applied.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default = "a", default = "b")]
+                out: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("one `default`"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn every_default_has_to_be_one_of_the_choices() {
+        // Each of them, not the first: a collection's second default is as unusable as its
+        // first if the choices do not allow it.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, var, choices("a", "b"), default = "a", default = "z")]
+                out: Vec<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("the default `z`"), "unhelpful message: {err}");
     }
 
     #[test]

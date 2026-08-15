@@ -5356,7 +5356,7 @@ pub struct WatchArgs {
     /// This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
     ///
     /// This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
-    #[arg(long = "fs-events", value_name = "EVENTS", value_parser = ::clap::builder::PossibleValuesParser::new(["access", "create", "remove", "rename", "modify", "metadata"]), default_value = "create,remove,rename,modify,metadata")]
+    #[arg(long = "fs-events", value_name = "EVENTS", value_parser = ::clap::builder::PossibleValuesParser::new(["access", "create", "remove", "rename", "modify", "metadata"]), default_value = "create")]
     pub fs_events: Vec<String>,
     /// Don't emit fs events for metadata changes
     ///

@@ -670,13 +670,17 @@ fn usage_flag_opts(
         if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
         }
-        // Not on a collecting field: the derive refuses a default it would write into the
-        // spec and then never apply.
         let defaults = flag_defaults(flag);
-        if flag.var || arg.var {
-            if !defaults.is_empty() {
-                skipped.note("a default on a flag that collects values");
-            }
+        let collects = flag.var || arg.var;
+        // A collecting flag starts out holding all of them, in the order written; every other
+        // shape has one place to put a value, so only its first survives.
+        for default in defaults.iter().take(if collects { usize::MAX } else { 1 }) {
+            opts.push(format!("default = {default:?}"));
+        }
+        if !collects && defaults.len() > 1 {
+            skipped.note("a flag's second and later defaults");
+        }
+        if collects {
             if flag.var {
                 opts.push("var".into());
             }
@@ -706,13 +710,6 @@ fn usage_flag_opts(
                 || (flag.var_max.is_some() && arg.var_max.is_some())
             {
                 skipped.note("a bound on both a flag and its argument");
-            }
-        } else {
-            if let Some(default) = defaults.first() {
-                opts.push(format!("default = {default:?}"));
-            }
-            if defaults.len() > 1 {
-                skipped.note("a flag's second and later defaults");
             }
         }
     }
