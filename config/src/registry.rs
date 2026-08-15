@@ -288,11 +288,9 @@ impl Registry {
                 ));
                 continue;
             };
-            let meta = self.get(found.id);
-            if !meta.cli.contains(flag) {
+            if !self.declares(found.id, flag) {
                 problems.push(format!(
-                    "`{flag}` is bound to `{}`, which does not declare it: add `cli \"{flag}\"` to the spec",
-                    meta.key
+                    "`{flag}` is bound to `{key}`, which does not declare it: add `cli \"{flag}\"` to the spec"
                 ));
             }
         }
@@ -304,7 +302,7 @@ impl Registry {
                 // may bind `--jobs` to something, and binding it to the wrong setting is not the same
                 // as binding it.
                 let bound_here = bound.iter().any(|(bound_flag, key)| {
-                    bound_flag == flag && self.lookup(key).is_some_and(|found| found.id == id)
+                    bound_flag == flag && self.means(key) == self.means(meta.key)
                 });
                 if !bound_here {
                     problems.push(format!(
@@ -315,6 +313,25 @@ impl Registry {
             }
         }
         problems
+    }
+
+    /// Whether any declaration of the setting `id` lists `flag`.
+    ///
+    /// Any, because a rename leaves two declarations of one setting and either may be the one
+    /// carrying the flag: a CLI that has not dropped `--concurrency` yet is bound to a key that
+    /// *means* `jobs`, and the flag is declared where the old name is. Asking only the replacement
+    /// called a live binding drift; asking only the declaration named would miss a flag added to the
+    /// new name and still bound through the old one.
+    fn declares(&self, id: PropId, flag: &str) -> bool {
+        self.ids().any(|candidate| {
+            self.means(self.get(candidate).key) == Some(id)
+                && self.get(candidate).cli.contains(&flag)
+        })
+    }
+
+    /// Which setting a key means, following renames — `None` for a key that is not one.
+    fn means(&self, key: &str) -> Option<PropId> {
+        self.lookup(key).map(|found| found.id)
     }
 
     /// Every setting bound to `kind`, with its key in that source.
@@ -437,6 +454,37 @@ mod tests {
             Vec::<String>::new(),
             "`concurrency` is `jobs`, and `jobs` declares `--jobs`"
         );
+    }
+
+    // An old name that kept the flag it was documented with — what a rename looks like for a CLI
+    // that has not dropped the old spelling yet. Its own registry, because a declared flag is a
+    // promise: adding it to the shared one would make every other test's bindings incomplete.
+    static RENAMED_PROPS: &[PropMeta] = &[
+        PropMeta {
+            cli: &["--jobs"],
+            ..PropMeta::new("jobs", Ty::Uint)
+        },
+        PropMeta {
+            cli: &["--concurrency"],
+            renamed_to: Some("jobs"),
+            ..PropMeta::new("concurrency", Ty::Uint)
+        },
+    ];
+    const RENAMED: Registry = Registry::new(RENAMED_PROPS);
+
+    #[test]
+    fn an_old_name_that_kept_its_flag_is_not_drift() {
+        // The two questions a rename separates. `--concurrency` is declared on the old name and
+        // binds the old key, so both sides are talking about `jobs` — but one asked `lookup` and the
+        // other did not, and the disagreement was reported twice: the flag "is not declared" by the
+        // replacement, and the declaration's flag "nothing does". A CLI would have deleted a live
+        // binding to satisfy it.
+        let bound = [("--jobs", "jobs"), ("--concurrency", "concurrency")];
+        assert_eq!(RENAMED.drift(&bound), Vec::<String>::new());
+
+        // And bound through the name that replaced it, which is the same setting and the same flag.
+        let by_new_name = [("--jobs", "jobs"), ("--concurrency", "jobs")];
+        assert_eq!(RENAMED.drift(&by_new_name), Vec::<String>::new());
     }
 
     #[test]
