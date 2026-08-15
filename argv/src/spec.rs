@@ -292,6 +292,13 @@ pub struct FlagMeta<'a> {
     pub hide: bool,
     /// Whether repetition is counted rather than collected, as in `-vvv`.
     pub count: bool,
+    /// What answers for this flag's value when a shell asks.
+    ///
+    /// The Rust counterpart of a spec's `run=`: it is written into the emitted KDL as a command
+    /// that asks *this binary*, so a spec stays complete for every other consumer while the
+    /// binary answers itself.
+    #[cfg(feature = "complete")]
+    pub complete: Option<crate::complete::Completer>,
     /// Whether the flag may be given more than once. Distinct from
     /// [`Flag::variadic`], which is one occurrence taking several values.
     pub repeatable: bool,
@@ -318,6 +325,8 @@ pub struct FlagMeta<'a> {
 impl FlagMeta<'_> {
     /// Metadata for a flag with nothing declared, for struct update syntax.
     pub const EMPTY: FlagMeta<'static> = FlagMeta {
+        #[cfg(feature = "complete")]
+        complete: None,
         flag: &Flag::BOOL,
         help: None,
         long_help: None,
@@ -358,11 +367,16 @@ pub struct ArgMeta<'a> {
     pub var_max: Option<usize>,
     /// Heading to list this argument under in help output.
     pub help_heading: Option<&'a str>,
+    /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
+    #[cfg(feature = "complete")]
+    pub complete: Option<crate::complete::Completer>,
 }
 
 impl ArgMeta<'_> {
     /// Metadata for an argument with nothing declared, for struct update syntax.
     pub const EMPTY: ArgMeta<'static> = ArgMeta {
+        #[cfg(feature = "complete")]
+        complete: None,
         arg: &Arg::REQUIRED,
         help: None,
         long_help: None,
