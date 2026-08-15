@@ -180,10 +180,6 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
             // key up and `LayerCtx` folded it, or as a raw id this loop folded just now.
             // Keyed on the fold alone, a file layer's deprecated key was folded in silence.
             let written_key = entry.renamed_from.unwrap_or(written.key);
-            let as_written = registry
-                .lookup_exact(written_key)
-                .map(|id| registry.get(id))
-                .unwrap_or(written);
             if let Some(refusal) = refuse(meta.scope, &entry.origin) {
                 // `written_key`, like the two warnings below it: after `LayerCtx` folds a
                 // rename, `written.key` is the *replacement's* name, so a refused value was
@@ -195,7 +191,11 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
                 );
                 continue;
             }
-            if let Some(why) = as_written.deprecated {
+            // Along the chain rather than off the declaration written, which is what `explain` has
+            // always done: a notice can sit on a name further along, and reading only the one the
+            // user wrote meant `config explain` told them to stop using a key that running the CLI
+            // said nothing about.
+            if let Some(why) = registry.deprecation(written_key) {
                 resolved.warnings.push(
                     Warning::at(
                         format!("{written_key} is deprecated: {why}"),
@@ -1054,6 +1054,57 @@ mod tests {
         assert!(
             messages.contains(&"renamed_jobs was read as jobs".to_string()),
             "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn a_notice_further_along_a_chain_of_renames_is_still_given() {
+        // Two releases of renaming: `threads` became `concurrency`, which became `jobs` and carries
+        // the notice. `explain` walked the chain for it and the merge read only the declaration
+        // written, so `config explain threads` told a user to stop using a key that running the CLI
+        // said nothing about — one rule, two implementations, and the quieter one was the one a CLI
+        // actually surfaces.
+        static PROPS: &[PropMeta] = &[
+            PropMeta {
+                default: Some(Const::Int(1)),
+                ..PropMeta::new("jobs", Ty::Uint)
+            },
+            PropMeta {
+                renamed_to: Some("jobs"),
+                deprecated: Some("Use jobs instead."),
+                ..PropMeta::new("concurrency", Ty::Uint)
+            },
+            PropMeta {
+                renamed_to: Some("concurrency"),
+                ..PropMeta::new("threads", Ty::Uint)
+            },
+        ];
+        const CHAINED: Registry = Registry::new(PROPS);
+
+        struct Wrote;
+        impl Layer for Wrote {
+            fn source(&self) -> SourceKind {
+                SourceKind::FILE
+            }
+            fn load(&self, ctx: &LayerCtx) -> Result<LayerOutput, LayerError> {
+                let mut out = LayerOutput::new();
+                let origin = Origin::file("hk.toml", FileScope::Project);
+                match ctx.entry_for_key("threads", "8", origin) {
+                    Ok(entry) => out.push(entry),
+                    Err(warning) => out.warn(warning),
+                }
+                Ok(out)
+            }
+        }
+        let resolved = resolve(CHAINED, Layers::new().then(&Wrote)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
+        let kinds: Vec<_> = resolved.warnings.iter().map(|w| w.kind).collect();
+        assert_eq!(kinds, vec![WarningKind::Deprecated, WarningKind::Renamed]);
+        // Named by what the user wrote, since that is the line in the file they would go and edit.
+        assert!(
+            resolved.warnings[0].message == "threads is deprecated: Use jobs instead.",
+            "{:?}",
+            resolved.warnings[0].message
         );
     }
 

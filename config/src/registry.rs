@@ -254,6 +254,28 @@ impl Registry {
             .map(|index| PropId(index as u16))
     }
 
+    /// The first deprecation notice along the rename chain that starts at `key`.
+    ///
+    /// The chain, not the declaration named: `a` renamed to `b`, and `b` the one carrying the notice
+    /// that says to use `c`. A user who wrote `a` is being told the same thing either way, and which
+    /// release the notice was attached in is not something they can see.
+    ///
+    /// Bounded by the number of settings there are, so a registry whose renames form a cycle stops
+    /// rather than following them forever — the same guard [`Registry::lookup`] uses, and for the
+    /// same reason: this is an authoring mistake, and hanging is a worse way to report one than
+    /// nothing at all. `usage-config-build` refuses such a registry outright.
+    pub fn deprecation(&self, key: &str) -> Option<&'static str> {
+        let mut current = self.lookup_exact(key)?;
+        for _ in 0..self.props.len() {
+            let meta = self.get(current);
+            if let Some(why) = meta.deprecated {
+                return Some(why);
+            }
+            current = meta.renamed_to.and_then(|next| self.lookup_exact(next))?;
+        }
+        None
+    }
+
     /// The settings an environment variable sets, and the variable that set them.
     ///
     /// Several names per setting are aliases in descending precedence, which the env layer
