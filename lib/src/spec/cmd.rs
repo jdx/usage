@@ -793,6 +793,30 @@ impl From<&clap::Command> for SpecCommand {
             after_help_long: cmd.get_after_long_help().map(|s| s.to_string()),
             ..Default::default()
         };
+        // What clap would do with a dash-word it does not recognize, said out loud.
+        //
+        // clap rejects one; this spec's default is to offer it to the positionals, because a
+        // spec also describes wrappers — a script run through `usage exec`, a task's arguments —
+        // where a dash-word is data in transit rather than a mistake. A CLI generated *from
+        // clap*, though, is not one of those: clap already decided, and saying nothing here
+        // silently loosened every command it described. mise's spec has 211 commands and not one
+        // of them said `unknown_flags`, so `mise use --globa` became a tool named `--globa`
+        // rather than the error clap gives.
+        //
+        // Which commands forward is clap's own knowledge: an argument that accepts hyphen values,
+        // or a command that takes external subcommands. In mise that is five commands — `run`,
+        // `watch`, `asdf`, `tool-stub` and the root's implicit task arguments — and the other two
+        // hundred get the stricter reading back.
+        let forwards = cmd.is_allow_external_subcommands_set()
+            || cmd
+                .get_arguments()
+                .any(|arg| arg.is_allow_hyphen_values_set() || arg.is_trailing_var_arg_set());
+        spec.unknown_flags = Some(if forwards {
+            UnknownFlags::Value
+        } else {
+            UnknownFlags::Error
+        });
+
         for alias in cmd.get_visible_aliases() {
             spec.aliases.push(alias.to_string());
         }
@@ -1124,5 +1148,59 @@ cmd "hidden" hide=#true
                 .any(|a| a.get("effect").is_some()),
             "fixture does not exercise an arg-level `effect`"
         );
+    }
+    #[cfg(feature = "clap")]
+    #[test]
+    fn a_clap_command_says_what_clap_would_do_with_an_unknown_flag() {
+        use super::{SpecCommand, UnknownFlags};
+
+        // clap rejects a dash-word it does not know; this spec's default is to offer it to the
+        // positionals. Saying nothing therefore loosened every command generated from clap —
+        // which is how `mise use --globa` became a tool named `--globa` rather than an error.
+        let plain = clap::Command::new("build")
+            .arg(clap::Arg::new("target").required(false))
+            .arg(clap::Arg::new("force").long("force").num_args(0));
+        let spec: SpecCommand = (&plain).into();
+        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Error));
+
+        // A command that forwards says so, and clap is the one that knows: an argument taking
+        // hyphen values is what a wrapper looks like.
+        let wrapper = clap::Command::new("run").arg(
+            clap::Arg::new("args")
+                .num_args(0..)
+                .allow_hyphen_values(true),
+        );
+        let spec: SpecCommand = (&wrapper).into();
+        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Value));
+
+        // As does one whose trailing argument swallows the rest.
+        let trailing = clap::Command::new("exec").arg(
+            clap::Arg::new("cmd")
+                .num_args(0..)
+                .trailing_var_arg(true)
+                .allow_hyphen_values(true),
+        );
+        let spec: SpecCommand = (&trailing).into();
+        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Value));
+
+        // And a command that takes whatever subcommand it is given, which is the other shape of
+        // the same thing.
+        let external = clap::Command::new("x").allow_external_subcommands(true);
+        let spec: SpecCommand = (&external).into();
+        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Value));
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn the_decision_survives_being_written_and_read_back() {
+        use super::SpecCommand;
+
+        // The point of setting it is what a *parser* does with the spec afterwards, so the round
+        // trip is what makes it true rather than the field.
+        let plain = clap::Command::new("build").arg(clap::Arg::new("target").required(false));
+        let spec: SpecCommand = (&plain).into();
+        let node: kdl::KdlNode = (&spec).into();
+        let kdl = node.to_string();
+        assert!(kdl.contains("unknown_flags=error"), "{kdl}");
     }
 }

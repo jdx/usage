@@ -4,10 +4,11 @@ name usage-cli
 bin usage
 version "5.1.0"
 about "CLI for working with usage-based CLIs"
+unknown_flags error
 usage "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>"
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself" required=#false
-cmd bash help="Execute a shell script using bash" {
+cmd bash help="Execute a shell script using bash" unknown_flags=value {
     long_help #"""
 Execute a shell script with the specified shell
 
@@ -21,7 +22,7 @@ to properly escape and quote values with spaces in them.
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
-cmd complete-word help="Generate shell completion candidates for a partial command line" effect=read {
+cmd complete-word help="Generate shell completion candidates for a partial command line" effect=read unknown_flags=value {
     alias cw
     long_help #"""
 Generate shell completion candidates for a partial command line
@@ -44,7 +45,7 @@ This is used internally by shell completion scripts to provide intelligent compl
     }
     arg "[WORDS]…" help="User's input from the command line" required=#false var=#true
 }
-cmd exec help="Execute a script, parsing args and exposing them as environment variables" {
+cmd exec help="Execute a script, parsing args and exposing them as environment variables" unknown_flags=value {
     alias x
     flag -h help="Show help"
     flag --help help="Show help"
@@ -52,7 +53,7 @@ cmd exec help="Execute a script, parsing args and exposing them as environment v
     arg <BIN> help="path to script to execute"
     arg "[ARGS]…" help="arguments to pass to script" required=#false var=#true
 }
-cmd fish help="Execute a shell script using fish" {
+cmd fish help="Execute a shell script using fish" unknown_flags=value {
     long_help #"""
 Execute a shell script with the specified shell
 
@@ -66,9 +67,9 @@ to properly escape and quote values with spaces in them.
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
-cmd generate subcommand_required=#true help="Generate completions, documentation, and other artifacts from usage specs" effect=read {
+cmd generate subcommand_required=#true help="Generate completions, documentation, and other artifacts from usage specs" effect=read unknown_flags=error {
     alias g
-    cmd completion help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" effect=read {
+    cmd completion help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" effect=read unknown_flags=error {
         alias c
         alias complete completions hide=#true
         flag "-f --file" help="A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin" {
@@ -100,7 +101,7 @@ You may need to set this if you have a different bin named "usage"
         }
         arg <BIN> help="The CLI which we're generating completions for"
     }
-    cmd completion-init help="Generate a shell init script that auto-completes any usage shebang script on $PATH" effect=read {
+    cmd completion-init help="Generate a shell init script that auto-completes any usage shebang script on $PATH" effect=read unknown_flags=error {
         alias ci
         alias init completions-init hide=#true
         long_help #"""
@@ -120,7 +121,7 @@ You may need to set this if you have a different bin named "usage"
             choices bash fish zsh
         }
     }
-    cmd fig help="Generate Fig completion spec for Amazon Q / Fig" effect=read {
+    cmd fig help="Generate Fig completion spec for Amazon Q / Fig" effect=read unknown_flags=error {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
@@ -131,7 +132,7 @@ You may need to set this if you have a different bin named "usage"
             arg <SPEC>
         }
     }
-    cmd json help="Outputs a usage spec in json format" effect=read {
+    cmd json help="Outputs a usage spec in json format" effect=read unknown_flags=error {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
@@ -139,7 +140,7 @@ You may need to set this if you have a different bin named "usage"
             arg <SPEC>
         }
     }
-    cmd json-schema help="Generate a JSON Schema for a CLI's config file from its usage spec" effect=read {
+    cmd json-schema help="Generate a JSON Schema for a CLI's config file from its usage spec" effect=read unknown_flags=error {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
@@ -156,7 +157,7 @@ You may need to set this if you have a different bin named "usage"
             arg <URL>
         }
     }
-    cmd manpage effect=read {
+    cmd manpage effect=read unknown_flags=error {
         alias man
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
@@ -173,7 +174,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
             arg <SECTION>
         }
     }
-    cmd markdown help="Generate markdown documentation from usage specs" effect=read {
+    cmd markdown help="Generate markdown documentation from usage specs" effect=read unknown_flags=error {
         alias md
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
@@ -191,7 +192,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
             arg <URL_PREFIX>
         }
     }
-    cmd sdk help="Generate a type-safe SDK from a usage spec" effect=write {
+    cmd sdk help="Generate a type-safe SDK from a usage spec" effect=write unknown_flags=error {
         flag "-f --file" help="A usage spec taken in as a file" {
             arg <FILE>
         }
@@ -211,7 +212,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         }
     }
 }
-cmd lint help="Lint a usage spec file for common issues" effect=read {
+cmd lint help="Lint a usage spec file for common issues" effect=read unknown_flags=error {
     flag "-f --format" help="Output format" default=text {
         arg <FORMAT> {
             choices text json
@@ -220,7 +221,7 @@ cmd lint help="Lint a usage spec file for common issues" effect=read {
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
-cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
+cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read unknown_flags=error {
     alias mcp-server
     long_help #"""
 Serve a usage spec over the Model Context Protocol
@@ -235,7 +236,7 @@ clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
         arg <SPEC>
     }
 }
-cmd powershell help="Execute a shell script using PowerShell" {
+cmd powershell help="Execute a shell script using PowerShell" unknown_flags=value {
     long_help #"""
 Execute a shell script with the specified shell
 
@@ -249,8 +250,8 @@ to properly escape and quote values with spaces in them.
     arg <SCRIPT>
     arg "[ARGS]…" help="Arguments to pass to script" required=#false var=#true
 }
-cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open source tools" effect=read
-cmd zsh help="Execute a shell script using zsh" {
+cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open source tools" effect=read unknown_flags=error
+cmd zsh help="Execute a shell script using zsh" unknown_flags=value {
     long_help #"""
 Execute a shell script with the specified shell
 

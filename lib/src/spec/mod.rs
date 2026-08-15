@@ -577,6 +577,9 @@ impl From<&clap::Command> for Spec {
             about: cmd.get_about().map(|a| a.to_string()),
             about_long: cmd.get_long_about().map(|a| a.to_string()),
             usage: cmd.clone().render_usage().to_string(),
+            // The root is a command too, and its own answer has nowhere else to go: a spec says
+            // this at the top level, which is the field a reader puts it back into.
+            unknown_flags: crate::spec::cmd::SpecCommand::from(cmd).unknown_flags,
             ..Default::default()
         }
     }
@@ -680,6 +683,7 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         assert_snapshot!(Spec::from(&cmd), @r#"
         name test
         bin test
+        unknown_flags error
         usage "Usage: test"
         "#);
     }
