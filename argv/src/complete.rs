@@ -1265,21 +1265,39 @@ mod tests {
         longs: &["only"],
         ..Flag::VALUE
     };
+    /// A flag whose completer is *not* the argument's, so which one answered is visible.
+    fn sources(_ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("upstream")]
+    }
+    static SOURCE: Flag = Flag {
+        key: 17,
+        name: "source",
+        longs: &["source"],
+        ..Flag::VALUE
+    };
     static INSTALL: Command = Command {
         name: "install",
-        flags: &[&ONLY],
+        flags: &[&ONLY, &SOURCE],
         args: &[&TOOL_ARG],
         ..Command::EMPTY
     };
     static META_INSTALL: CommandMeta = CommandMeta {
         cmd: &INSTALL,
         about: Some("Install a tool"),
-        flags: &[FlagMeta {
-            flag: &ONLY,
-            help: Some("Just this one"),
-            complete: Some(tools),
-            ..FlagMeta::EMPTY
-        }],
+        flags: &[
+            FlagMeta {
+                flag: &ONLY,
+                help: Some("Just this one"),
+                complete: Some(tools),
+                ..FlagMeta::EMPTY
+            },
+            FlagMeta {
+                flag: &SOURCE,
+                help: Some("Where from"),
+                complete: Some(sources),
+                ..FlagMeta::EMPTY
+            },
+        ],
         args: &[ArgMeta {
             arg: &TOOL_ARG,
             help: Some("Which tool"),
@@ -2126,5 +2144,19 @@ mod tests {
         let a = answer("mise install zzz");
         assert!(a.candidates.is_empty());
         assert_eq!(a.files, Some(Files::Any));
+    }
+    #[test]
+    fn an_attached_value_is_not_answered_by_the_positional() {
+        // `--source=⌶` is a dash-prefixed token, so it is a *flag* position: the flag branches
+        // come first and the positional's completer is never reached. Worth pinning, because the
+        // word being completed is excluded from the walk — so the flag is not `awaiting_value`
+        // either, and the position could look like the argument's if the order changed.
+        assert!(!offered("mise install --source=").contains(&"node".to_string()));
+        assert!(!offered("mise install --source=").contains(&"upstream".to_string()));
+        assert!(!offered("mise install -s").contains(&"node".to_string()));
+
+        // Detached, the flag's own completer answers — which is the case that works.
+        assert_eq!(offered("mise install --source "), ["upstream"]);
+        assert_eq!(offered("mise install "), ["node", "python", "ruby"]);
     }
 }
