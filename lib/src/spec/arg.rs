@@ -334,6 +334,31 @@ impl FromStr for SpecArg {
     }
 }
 
+/// A clap argument's defaults, as the spec has to record them.
+///
+/// clap splits a value by the argument's `value_delimiter` before anyone sees it, defaults
+/// included — so `default_value = "a,b,c"` with `value_delimiter = ','` is three values, not one.
+/// The spec has no delimiter of its own; it has a list, which is the same statement. Recording the
+/// joined string instead described a CLI whose default is a single value that its own `choices`
+/// forbid, which is how mise's `--fs-events` reached the spec.
+#[cfg(feature = "clap")]
+pub(crate) fn default_values(arg: &clap::Arg) -> Vec<String> {
+    let raw = arg
+        .get_default_values()
+        .iter()
+        .map(|v| v.to_string_lossy().to_string());
+    match arg.get_value_delimiter() {
+        Some(delimiter) => raw
+            .flat_map(|v| {
+                v.split(delimiter)
+                    .map(|part| part.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
+        None => raw.collect(),
+    }
+}
+
 #[cfg(feature = "clap")]
 impl From<&clap::Arg> for SpecArg {
     fn from(arg: &clap::Arg) -> Self {
@@ -376,11 +401,7 @@ impl From<&clap::Arg> for SpecArg {
             var_max: None,
             var_min: None,
             hide,
-            default: arg
-                .get_default_values()
-                .iter()
-                .map(|v| v.to_string_lossy().to_string())
-                .collect(),
+            default: default_values(arg),
             choices: None,
             effect: None,
             env: None,
