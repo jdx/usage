@@ -124,6 +124,25 @@ pub fn for_name<'a>(
     name: &str,
     ctx: &CompleteCtx<'_>,
 ) -> Option<Vec<Candidate<'static>>> {
+    fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
+        for arg in meta.args {
+            if arg.arg.name.eq_ignore_ascii_case(name) {
+                if let Some(completer) = arg.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        for flag in meta.flags {
+            let value = flag.value_name.unwrap_or(flag.flag.name);
+            if value.eq_ignore_ascii_case(name) {
+                if let Some(completer) = flag.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        None
+    }
+
     fn find(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
         for arg in meta.args {
             if arg.arg.name.eq_ignore_ascii_case(name) {
@@ -143,39 +162,40 @@ pub fn for_name<'a>(
         meta.subcommands.iter().find_map(|sub| find(sub, name))
     }
 
-    let completer = find(spec.root, name)?;
+    // The command the line reached first, and only then anywhere in the tree. Two sibling
+    // commands may take a `tool` and mean different things by it — a spec says so by writing the
+    // block inside the command rather than at the top — and answering with the first one found
+    // in tree order would be answering about a different command than the one being typed.
+    let reached = walk(spec.root.cmd, ctx.command_words_start());
+    let completer = crate::help::find(spec, reached.cmd)
+        .and_then(|(_, meta)| on(meta, name))
+        .or_else(|| find(spec.root, name))?;
     let mut found = completer(ctx);
     found.retain(|c| c.value.starts_with(ctx.prefix));
     Some(found)
 }
 
-/// Every completer a spec declares, as the names a `complete` block is written under.
+/// The completers one command declares, as the names a `complete` block is written under.
 ///
-/// Sorted and deduplicated, because two commands may take the same kind of value — mise's `tool`
-/// is an argument of six of them — and a spec declares one block for it.
+/// One command's own, not the tree's: a spec writes the block inside the command that declares
+/// it, so two siblings taking a `tool` and meaning different things by it each say so.
 #[cfg(feature = "spec")]
-pub fn declared_completers(spec: &Spec<'_>) -> Vec<String> {
-    fn walk(meta: &CommandMeta<'_>, out: &mut Vec<String>) {
-        for arg in meta.args {
-            if arg.complete.is_some() {
-                out.push(arg.arg.name.to_ascii_lowercase());
-            }
-        }
-        for flag in meta.flags {
-            if flag.complete.is_some() {
-                out.push(
-                    flag.value_name
-                        .unwrap_or(flag.flag.name)
-                        .to_ascii_lowercase(),
-                );
-            }
-        }
-        for sub in meta.subcommands {
-            walk(sub, out);
+pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
+    let mut out = Vec::new();
+    for arg in meta.args {
+        if arg.complete.is_some() {
+            out.push(arg.arg.name.to_ascii_lowercase());
         }
     }
-    let mut out = Vec::new();
-    walk(spec.root, &mut out);
+    for flag in meta.flags {
+        if flag.complete.is_some() {
+            out.push(
+                flag.value_name
+                    .unwrap_or(flag.flag.name)
+                    .to_ascii_lowercase(),
+            );
+        }
+    }
     out.sort();
     out.dedup();
     out
@@ -200,6 +220,16 @@ pub struct CompleteCtx<'a> {
 }
 
 impl<'a> CompleteCtx<'a> {
+    /// The words a parser should walk to find the command this request is about.
+    ///
+    /// After the program name, before the word being completed — the same slice `walk` is given
+    /// for an ordinary request, so a `--candidates` request resolves the same command an
+    /// ordinary one would.
+    pub fn command_words_start(&self) -> &'a [String] {
+        let start = 1.min(self.cword);
+        self.words.get(start..self.cword).unwrap_or(&[])
+    }
+
     /// The word before the one being completed, which is what mise's `{{words[PREV]}}` means.
     pub fn previous(&self) -> Option<&'a str> {
         self.cword

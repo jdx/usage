@@ -483,19 +483,6 @@ impl Spec<'_> {
         // completer is said to exist: the Rust function. Everything that reads a spec — the
         // usage CLI, another shell's generator, a doc page — gets a `run=` that works, and this
         // binary answers it without a second program in the way.
-        #[cfg(feature = "complete")]
-        for name in crate::complete::declared_completers(self) {
-            let bin = self.bin.unwrap_or(self.name);
-            write!(out, "complete {}", quoted(&name))?;
-            write!(
-                out,
-                " run={}",
-                quoted(&format!("{bin} __complete_word__ --candidates {name}"))
-            )?;
-            // The answers carry descriptions, which is what tells the reference to read one
-            // after a `:` rather than treating the whole line as a value.
-            writeln!(out, " descriptions=#true")?;
-        }
 
         // The text around the page. The root's nodes are written here rather than by
         // `write_body`, so these had to be repeated — and were not, which left a root's
@@ -538,7 +525,7 @@ impl Spec<'_> {
         for example in self.root.examples {
             write_example(out, example, 0)?;
         }
-        write_body(out, self.root, 0)
+        write_body(out, self.root, 0, self.bin.unwrap_or(self.name))
     }
 }
 
@@ -546,7 +533,12 @@ impl Spec<'_> {
 ///
 /// Separate from [`write_command`] because the root's contents sit at the top
 /// level of the document rather than inside a `cmd` node.
-fn write_body(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+fn write_body(
+    out: &mut String,
+    meta: &CommandMeta<'_>,
+    depth: usize,
+    bin: &str,
+) -> core::fmt::Result {
     let enclosing_unknown_flags = meta.cmd.unknown_flags;
     // Indexing by metadata position below cannot see a table entry with no
     // metadata, which would be silently unwritten. Check the lengths first.
@@ -587,8 +579,10 @@ fn write_body(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::f
         );
         write_arg(out, arg, depth)?;
     }
+    #[cfg(feature = "complete")]
+    write_completers(out, meta, bin, depth)?;
     for sub in meta.subcommands {
-        write_command(out, sub, depth, enclosing_unknown_flags)?;
+        write_command(out, sub, depth, enclosing_unknown_flags, bin)?;
     }
     Ok(())
 }
@@ -598,6 +592,7 @@ fn write_command(
     meta: &CommandMeta<'_>,
     depth: usize,
     inherited_unknown_flags: UnknownFlags,
+    bin: &str,
 ) -> core::fmt::Result {
     indent(out, depth)?;
     write!(out, "cmd {}", quoted(meta.cmd.name))?;
@@ -662,7 +657,7 @@ fn write_command(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner)?;
+    write_body(out, meta, inner, bin)?;
 
     indent(out, depth)?;
     out.push_str("}\n");
@@ -679,6 +674,42 @@ fn write_example(out: &mut String, example: &Example<'_>, depth: usize) -> core:
         write!(out, " help={}", quoted(help))?;
     }
     out.push('\n');
+    Ok(())
+}
+
+/// The `complete` blocks for one command, written where that command declares them.
+///
+/// Inside the `cmd` block rather than at the top level, because two sibling commands may take a
+/// `tool` and mean different things by it — the reference looks a completer up on the command
+/// first and only then on the spec, so this is what says which one a name belongs to.
+///
+/// The command line goes with the request. A caller that runs this is the *reference*, which
+/// interpolates `words` through tera before running it, so a completer reading the line sees the
+/// same line it would have seen natively — without it the answer would be computed against
+/// nothing, which for a completer that reads an earlier flag is a wrong answer rather than a
+/// missing one.
+#[cfg(feature = "complete")]
+fn write_completers(
+    out: &mut String,
+    meta: &CommandMeta<'_>,
+    bin: &str,
+    depth: usize,
+) -> core::fmt::Result {
+    for name in crate::complete::completers_on(meta) {
+        indent(out, depth)?;
+        write!(out, "complete {}", quoted(&name))?;
+        write!(
+            out,
+            " run={}",
+            quoted(&format!(
+                "{bin} __complete_word__ --candidates {name} --line '{{{{ words | join(sep=\" \") }}}}'"
+            ))
+        )?;
+        // No `descriptions=#true`: that tells the reference to read a description after an
+        // unescaped colon, and what this answers with is values. Claiming otherwise would split
+        // a value containing a colon — which mise's task names are full of.
+        writeln!(out)?;
+    }
     Ok(())
 }
 
@@ -1220,7 +1251,7 @@ mod tests {
         };
 
         let mut out = String::new();
-        write_body(&mut out, &ROOT_META, 0).unwrap();
+        write_body(&mut out, &ROOT_META, 0, "ex").unwrap();
 
         // Counted rather than checked with `contains`, which is how a duplicated
         // write survived review: `unknown_flags="value" unknown_flags="value"` contains

@@ -759,7 +759,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
 
     let kdl = SPEC.to_kdl();
     assert!(
-        kdl.contains(r#"complete "tool" run="ex __complete_word__ --candidates tool""#),
+        kdl.contains(r#"complete "tool" run="ex __complete_word__ --candidates tool --line"#),
         "{kdl}"
     );
 
@@ -767,11 +767,21 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
     // the rule both sides resolve one by.
     let lib: LibSpec = kdl.parse().expect("valid spec");
     let complete = lib.complete.get("tool").expect("a complete block");
-    assert_eq!(
-        complete.run.as_deref(),
-        Some("ex __complete_word__ --candidates tool")
+    let run = complete.run.as_deref().expect("a run command");
+    assert!(
+        run.starts_with("ex __complete_word__ --candidates tool"),
+        "{run}"
     );
-    assert!(complete.descriptions, "the answers carry descriptions");
+    // The line goes with the request, interpolated by whoever runs it — without it a completer
+    // that reads an earlier flag answers against nothing, which is a wrong answer rather than a
+    // missing one.
+    assert!(
+        run.contains("--line '{{ words | join(sep=\" \") }}'"),
+        "{run}"
+    );
+    // And no `descriptions=#true`, which would tell the reference to read a description after an
+    // unescaped colon: what this answers with is values, and mise's task names are full of colons.
+    assert!(!complete.descriptions, "{run}");
 
     // The binary answers exactly that, filtered by whatever has been typed.
     let ctx = usage_argv::complete::CompleteCtx {
@@ -786,4 +796,113 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
     // A name nothing declares is an empty answer rather than a failure: a stale script should
     // complete nothing, not print into the prompt.
     assert!(usage_argv::complete::for_name(&SPEC, "nonesuch", &ctx).is_none());
+}
+
+fn local_tools(
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    vec![usage_argv::complete::Candidate::new("installed")]
+}
+
+fn remote_tools(
+    _ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    vec![usage_argv::complete::Candidate::new("available")]
+}
+
+#[test]
+fn two_commands_can_mean_different_things_by_one_name() {
+    // `ex use <TOOL>` and `ex install <TOOL>` take the same *kind* of thing under the same name
+    // and answer differently — the installed ones against the available ones. A single top-level
+    // block could not say that, and answering with whichever came first in tree order would be
+    // answering about the wrong command.
+    static USE_TOOL: Arg = Arg {
+        key: 91,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static INSTALL_TOOL: Arg = Arg {
+        key: 92,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static USE_CMD: Command = Command {
+        name: "use",
+        args: &[&USE_TOOL],
+        ..Command::EMPTY
+    };
+    static INSTALL_CMD: Command = Command {
+        name: "install",
+        args: &[&INSTALL_TOOL],
+        ..Command::EMPTY
+    };
+    static ROOT: Command = Command {
+        name: "ex",
+        subcommands: &[&USE_CMD, &INSTALL_CMD],
+        ..Command::EMPTY
+    };
+    static USE_META: CommandMeta = CommandMeta {
+        cmd: &USE_CMD,
+        args: &[ArgMeta {
+            arg: &USE_TOOL,
+            complete: Some(local_tools),
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static INSTALL_META: CommandMeta = CommandMeta {
+        cmd: &INSTALL_CMD,
+        args: &[ArgMeta {
+            arg: &INSTALL_TOOL,
+            complete: Some(remote_tools),
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static ROOT_META_TWO: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        subcommands: &[&USE_META, &INSTALL_META],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC_TWO: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        root: &ROOT_META_TWO,
+    };
+
+    // Each block is written inside the command that declares it, which is where usage-lib looks
+    // for one first.
+    let kdl = SPEC_TWO.to_kdl();
+    let lib: LibSpec = kdl.parse().expect("valid spec");
+    assert!(
+        lib.complete.is_empty(),
+        "neither belongs at the top level: {kdl}"
+    );
+    for (name, expected) in [("use", "use"), ("install", "install")] {
+        let cmd = lib.cmd.subcommands.get(name).expect("the command");
+        assert!(
+            cmd.complete.contains_key("tool"),
+            "{expected} should declare its own: {kdl}"
+        );
+    }
+
+    // And the binary answers about the command the line reached, not the first one in the tree.
+    for (line, expected) in [("ex use ", "installed"), ("ex install ", "available")] {
+        let words: Vec<String> = line.split_whitespace().map(String::from).collect();
+        let ctx = usage_argv::complete::CompleteCtx {
+            words: &[words.clone(), vec![String::new()]].concat(),
+            cword: words.len(),
+            prefix: "",
+        };
+        let found = usage_argv::complete::for_name(&SPEC_TWO, "tool", &ctx).expect("a completer");
+        assert_eq!(
+            found.iter().map(|c| c.value.as_str()).collect::<Vec<_>>(),
+            [expected],
+            "{line}"
+        );
+    }
 }
