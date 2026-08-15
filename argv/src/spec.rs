@@ -970,6 +970,54 @@ pub trait ValueEnum: Sized {
     const CHOICES: &'static [&'static str];
 }
 
+/// One value a flag was given, in a vocabulary this crate can hold.
+///
+/// A settings layer is `usage-config`'s idea, and this crate does not know that crate exists —
+/// but a group of flags declared once and flattened into several commands is *this* crate's
+/// idea, and its values have to reach the command that owns them somehow. So a flattened group
+/// hands its parent what it was given in these terms, and the parent, which is the one place
+/// that knows what a setting is, turns them into the layer.
+///
+/// Deliberately small: what a flag can be given, and nothing about types. The registry decides
+/// what `"8"` means, and a second opinion here would be the first thing to disagree with it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SettingGiven {
+    /// A switch, `true` for the flag and `false` for its negation. Given either way.
+    Bool(bool),
+    /// A count: `-vvv` is three.
+    Int(i64),
+    /// A flag's argument, as text.
+    Text(String),
+    /// A repeated flag, item by item — joining them would lose an item holding the separator.
+    List(Vec<String>),
+    /// A value that is not text at all: bytes an argument can hold and a setting cannot. Said
+    /// rather than rendered, because rendering it lossily sets a setting to a value nobody typed.
+    NotText,
+}
+
+/// The bindings of several commands, joined into one array.
+///
+/// `const` because a binding table is a `static` a test reads without running anything, and a
+/// slice cannot be concatenated in a const initializer without somewhere to put the result. `N`
+/// is the sum of the parts' lengths, which a generated caller computes from the same consts.
+pub const fn concat_bindings<const N: usize>(
+    parts: &[&'static [(&'static str, &'static str)]],
+) -> [(&'static str, &'static str); N] {
+    let mut joined = [("", ""); N];
+    let mut at = 0;
+    let mut part = 0;
+    while part < parts.len() {
+        let mut i = 0;
+        while i < parts[part].len() {
+            joined[at] = parts[part][i];
+            at += 1;
+            i += 1;
+        }
+        part += 1;
+    }
+    joined
+}
+
 pub trait CommandArgs: Sized {
     /// Values collected so far. Partly-filled by construction, since a parse can
     /// stop early.
@@ -1010,6 +1058,25 @@ pub trait CommandArgs: Sized {
     /// about an invocation that ran `run`.
     /// Defaulted, so a hand-written implementation with nothing to check is not
     /// forced to say so — and adding a check to the derive does not break one.
+    /// Every flag this command reads into a setting, and the setting it sets.
+    ///
+    /// Empty by default, so a command that binds nothing implements nothing and a parent can ask
+    /// any command without knowing which kind it got. What a parent joins into its own table, and
+    /// what `usage_config::Registry::drift` is held against.
+    const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[];
+
+    /// The settings this command line gave values for.
+    ///
+    /// From the partial rather than from the built struct, and only for flags that were actually
+    /// given: a `bool` field is `false` whether the flag was left off or negated, and the command
+    /// line outranks every file on the machine.
+    ///
+    /// Empty by default, for the same reason as [`CommandArgs::SETTINGS_BINDINGS`].
+    fn settings_given(partial: &Self::Partial) -> Vec<(&'static str, SettingGiven)> {
+        let _ = partial;
+        Vec::new()
+    }
+
     fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>> {
         let _ = partial;
         Ok(())
@@ -1061,6 +1128,24 @@ pub trait Subcommands: Sized {
     /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
     /// key: the position is found from the table's own address, so two commands whose
     /// keys happen to collide still cannot be confused for one another.
+    /// Every flag any of these commands reads into a setting, and the setting it sets.
+    ///
+    /// Every variant's, not the selected one's: a binding table says what the CLI *can* do, and
+    /// is compared against a spec that documents all of them.
+    const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[];
+
+    /// The settings the selected command was given values for, and no other command's.
+    ///
+    /// `None` selected is nothing given, which is also what a CLI that reached no subcommand
+    /// contributed. Unlike the bindings, this is about one invocation.
+    fn settings_given(
+        partial: &Self::Partial,
+        selected: Option<usize>,
+    ) -> Vec<(&'static str, SettingGiven)> {
+        let _ = (partial, selected);
+        Vec::new()
+    }
+
     fn check<'t, 'v>(
         partial: &mut Self::Partial,
         selected: usize,

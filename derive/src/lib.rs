@@ -142,8 +142,11 @@
 //! carrying the offending text and whatever the type's own conversion said about it.
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
-//! `default_subcommand`, and `completion` — which adds the hidden command a generated shell
-//! script calls, and needs usage-argv's `complete` feature enabled where it is depended on.
+//! `default_subcommand`, `completion` — which adds the hidden command a generated shell
+//! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
+//! and `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]).
+//!
+//! [Settings]: #settings
 //!
 //! | option | meaning |
 //! | --- | --- |
