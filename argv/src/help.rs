@@ -185,7 +185,11 @@ fn demanded(meta: &ArgMeta<'_>) -> bool {
     meta.required && meta.default.is_empty()
 }
 
-fn arg_usage(meta: &ArgMeta<'_>) -> String {
+/// How a usage line writes an argument: `<TOOL>`, `[TOOL]`, `[TOOL]…`, `[-- COMMAND]…`.
+///
+/// Shared with the diagnostics, which name the same argument in an error and must not spell it
+/// differently from the page above it.
+pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     let arg = meta.arg;
     let mut out = String::new();
     let (open, close) = if demanded(meta) {
@@ -375,6 +379,23 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
 }
 
 /// A flag as the flags section lists it, which includes its negation.
+/// How a usage line writes a flag: its first long form, or its short if that is all it has.
+///
+/// Shared with the diagnostics for the same reason as [`arg_usage`].
+pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
+    meta.flag
+        .longs
+        .first()
+        .map(|long| format!("--{long}"))
+        .or_else(|| {
+            meta.flag
+                .shorts
+                .first()
+                .map(|short| format!("-{}", *short as char))
+        })
+        .unwrap_or_else(|| meta.flag.name.to_string())
+}
+
 fn display_usage(meta: &FlagMeta<'_>) -> String {
     let usage = flag_usage(meta);
     match meta.flag.negate {

@@ -95,20 +95,30 @@ impl Style {
     }
 }
 
-/// A name as a usage line writes it: `<TOOL>` when it must be filled, `[TOOL]` when it need not.
+/// A name as a usage line writes it: `<TOOL>`, `[TOOL]…`, `--jobs`.
 ///
-/// The error carries the spec's name for a thing; a user reads the form the help shows. Looked up
-/// on the command rather than guessed, and left alone when it names a flag — a flag already reads
-/// as itself.
+/// The error carries the spec's name for a thing; a user reads the form the help shows. Both come
+/// from `help` rather than being decided again here — an error and the page above it describing
+/// one argument differently is the confusing kind of inconsistency, and rewriting the rule is how
+/// that happens. A flag is spelled with its dashes, which is the whole of what `--jobs` versus
+/// `jobs` is about.
 fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     let Some(meta) = meta else {
         return name.to_string();
     };
-    match meta.args.iter().find(|a| a.arg.name == name) {
-        Some(arg) if arg.required => format!("<{name}>"),
-        Some(_) => format!("[{name}]"),
-        None => name.to_string(),
+    if let Some(arg) = meta.args.iter().find(|a| a.arg.name == name) {
+        return crate::help::arg_usage(arg);
     }
+    // A flag can be named by an error too — a missing required one, or a value that is not among
+    // its choices — and the spec's name for it has no dashes.
+    if let Some(flag) = meta
+        .flags
+        .iter()
+        .find(|f| f.flag.name == name || f.value_name == Some(name))
+    {
+        return crate::help::flag_spelling(flag);
+    }
+    name.to_string()
 }
 
 /// The word that was bound to a named argument, recovered from argv.
@@ -117,26 +127,36 @@ fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
 /// the one path this crate promises not to, so [`Error::InvalidChoice`] names the argument and
 /// stops. Recovering it here is what that promise assumes — the diagnostics are a layer that may
 /// do the work, and by the time one is being written the parse has already failed.
-fn value_bound_to(root: &Command<'_>, argv: &[&std::ffi::OsStr], name: &str) -> Option<String> {
+fn value_bound_to(
+    root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    name: &str,
+    refused: &[&str],
+) -> Option<String> {
     let mut parser = crate::Parser::new(root, argv);
-    let mut found = None;
+    let mut last = None;
     while let Some(event) = parser.next_event() {
-        match event {
-            Ok(crate::Event::Arg { arg, value }) if arg.name == name => {
-                found = Some(String::from_utf8_lossy(value).into_owned());
-            }
+        let value = match event {
+            Ok(crate::Event::Arg { arg, value }) if arg.name == name => value,
             Ok(crate::Event::Flag {
                 flag,
                 value: Some(value),
                 ..
-            }) if flag.name == name => {
-                found = Some(String::from_utf8_lossy(value).into_owned());
-            }
-            Ok(_) => {}
+            }) if flag.name == name => value,
+            Ok(_) => continue,
             Err(_) => break,
+        };
+        let value = String::from_utf8_lossy(value).into_owned();
+        // The *offending* one, not the last. A repeatable flag or a variadic argument may be
+        // given several values, and the check refuses the first that is not allowed — reporting
+        // whichever came last would name a value that is perfectly good and leave the wrong one
+        // unmentioned.
+        if !refused.is_empty() && !refused.contains(&value.as_str()) {
+            return Some(value);
         }
+        last = Some(value);
     }
-    found
+    last
 }
 
 /// The command the words reached, which is the one an error is about.
@@ -263,7 +283,7 @@ pub fn render(
         }
         Error::InvalidChoice { name, choices } => {
             let shown_name = shown(found(spec, cmd).map(|(_, meta)| meta), name);
-            match value_bound_to(spec.root.cmd, argv, name) {
+            match value_bound_to(spec.root.cmd, argv, name, choices) {
                 Some(value) => {
                     let _ = writeln!(
                         out,
@@ -293,7 +313,7 @@ pub fn render(
                 "{} invalid value '{}' for '{}': {}",
                 style.error("error:"),
                 style.invalid(&invalid.value),
-                style.literal(invalid.name),
+                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), invalid.name)),
                 invalid.reason
             );
         }
@@ -312,7 +332,7 @@ pub fn render(
                 out,
                 "{} {min} values required for '{}' but {got} were provided",
                 style.error("error:"),
-                style.literal(name)
+                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), name))
             );
         }
         Error::VarTooMany { name, max, got } => {
@@ -320,7 +340,7 @@ pub fn render(
                 out,
                 "{} {max} values allowed for '{}' but {got} were provided",
                 style.error("error:"),
-                style.literal(name)
+                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), name))
             );
         }
         Error::ArgRequiresDoubleDash { arg } => {
@@ -385,10 +405,16 @@ mod tests {
         name: "TOOL",
         ..Arg::REQUIRED
     };
+    /// Variadic and choice-bearing, so "which value was refused" has a wrong answer available.
+    static SHELLS: Arg = Arg {
+        key: 7,
+        name: "SHELLS",
+        ..Arg::VAR
+    };
     static USE: Command = Command {
         name: "use",
         flags: &[&FORCE, &JOBS],
-        args: &[&TOOL],
+        args: &[&TOOL, &SHELLS],
         ..Command::EMPTY
     };
     static ROOT: Command = Command {
@@ -412,12 +438,21 @@ mod tests {
                 ..FlagMeta::EMPTY
             },
         ],
-        args: &[ArgMeta {
-            arg: &TOOL,
-            help: Some("Which tool"),
-            required: true,
-            ..ArgMeta::EMPTY
-        }],
+        args: &[
+            ArgMeta {
+                arg: &TOOL,
+                help: Some("Which tool"),
+                required: true,
+                ..ArgMeta::EMPTY
+            },
+            ArgMeta {
+                arg: &SHELLS,
+                help: Some("Which shells"),
+                choices: &["bash", "zsh"],
+                required: false,
+                ..ArgMeta::EMPTY
+            },
+        ],
         ..CommandMeta::EMPTY
     };
     static ROOT_META: CommandMeta = CommandMeta {
@@ -444,7 +479,7 @@ mod tests {
             rendered(&["use"], Error::UnknownFlag { token: b"--fore" }),
             "error: unexpected argument '--fore' found\n\
              \n\
-             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL>\n\
+             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
              \n\
              For more information, try '--help'.\n"
         );
@@ -497,7 +532,7 @@ mod tests {
             "error: the following required arguments were not provided:\n  \
              <TOOL>\n\
              \n\
-             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL>\n\
+             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
              \n\
              For more information, try '--help'.\n"
         );
@@ -541,6 +576,57 @@ mod tests {
                 }
             ),
             ""
+        );
+    }
+    #[test]
+    fn a_name_is_spelled_the_way_the_help_spells_it() {
+        // One rule, taken from `help` rather than decided again here: an error and the page above
+        // it describing the same argument differently is the confusing kind of inconsistency.
+        let message = rendered(&["use"], Error::MissingRequired { name: "TOOL" });
+        assert!(message.contains("  <TOOL>"), "{message}");
+
+        // A variadic keeps its ellipsis, exactly as the usage line writes it.
+        let message = rendered(
+            &["use"],
+            Error::VarTooFew {
+                name: "SHELLS",
+                min: 2,
+                got: 1,
+            },
+        );
+        assert!(message.contains("'[SHELLS]…'"), "{message}");
+
+        // And a *flag* is spelled with its dashes: the spec calls it `jobs`, a user reads
+        // `--jobs`.
+        let message = rendered(&["use"], Error::MissingRequired { name: "jobs" });
+        assert!(message.contains("  --jobs"), "{message}");
+    }
+
+    #[test]
+    fn the_value_named_is_the_one_that_was_refused() {
+        // A variadic given several values: the check refuses the first that is not allowed, so
+        // naming whichever came last would name a value that is perfectly good and leave the
+        // wrong one unmentioned.
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("node"),
+            std::ffi::OsString::from("fsh"),
+            std::ffi::OsString::from("zsh"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|o| o.as_os_str()).collect();
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::InvalidChoice {
+                name: "SHELLS",
+                choices: &["bash", "zsh"],
+            },
+            Style::PLAIN,
+        );
+        assert!(message.contains("invalid value 'fsh'"), "{message}");
+        assert!(
+            !message.contains("'zsh'\n"),
+            "named a value that was fine: {message}"
         );
     }
 }
