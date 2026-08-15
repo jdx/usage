@@ -95,6 +95,26 @@ impl Style {
     }
 }
 
+/// A flag as the user named it, without a value they attached to it.
+///
+/// `--jobs=4` names `--jobs`; the parser splits on the `=` before looking the name up, so an
+/// error about the whole token is about something nobody typed. Both halves of the message
+/// depend on it: clap prints `'--fore'` for `--fore=1`, and it scores `fore` — with the value
+/// left on, `fore=1` falls under the 0.7 bar and the tip disappears exactly where a mistyped
+/// value-taking flag is most likely to be written.
+///
+/// Long flags only. A short cluster is refused whole, so `-xy` is not `-x` with something
+/// attached, and `-j=4` is a value clap keeps.
+fn flag_named(token: &str) -> &str {
+    match token.strip_prefix("--") {
+        Some(body) => match body.find('=') {
+            Some(i) => &token[..i + 2],
+            None => token,
+        },
+        None => token,
+    }
+}
+
 /// Every flag a word at this command could have named: its own, then any ancestor's globals.
 ///
 /// The same set the parser would have accepted, which is what makes a suggestion one that works.
@@ -367,12 +387,13 @@ pub fn render(
         // The shape of the command line: clap shows a usage block for these.
         Error::UnknownFlag { token } => {
             with_usage = true;
-            let typed = String::from_utf8_lossy(token);
+            let whole = String::from_utf8_lossy(token);
+            let typed = flag_named(&whole);
             let _ = writeln!(
                 out,
                 "{} unexpected argument '{}' found",
                 style.error("error:"),
-                style.invalid(&typed)
+                style.invalid(typed)
             );
             // Scored without the dashes, and only then written back with them. Every flag
             // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
@@ -401,13 +422,16 @@ pub fn render(
             // on exactly the commands where the mistake is easiest to make: the ones with
             // subcommands, where a bare word would have been one.
             if word.starts_with('-') && word != "-" {
+                // Same rule as a refused flag: a value attached with `=` is not part of the
+                // name, and the word reaches here by the same spelling mistake.
+                let named = flag_named(&word);
                 let _ = writeln!(
                     out,
                     "{} unexpected argument '{}' found",
                     style.error("error:"),
-                    style.invalid(&word)
+                    style.invalid(named)
                 );
-                let bare = word.trim_start_matches('-');
+                let bare = named.trim_start_matches('-');
                 let names: Vec<&str> = flags_in_scope(spec, cmd)
                     .flat_map(|meta| meta.flag.longs.iter().copied())
                     .collect();
@@ -904,6 +928,39 @@ mod tests {
              Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
              \n\
              For more information, try '--help'.\n"
+        );
+    }
+
+    #[test]
+    fn a_value_attached_to_a_flag_is_not_part_of_its_name() {
+        // `--fore=1`. The parser splits on the `=` before looking the name up, so the flag the
+        // user named is `--fore` and an error about `--fore=1` is about something nobody typed.
+        //
+        // Both halves matter, and clap 4 was run to check both rather than remembered:
+        //
+        //     error: unexpected argument '--fore' found
+        //       tip: a similar argument exists: '--force'
+        //
+        // The tip is the half that would have gone quietly: `fore=1` against `force` falls under
+        // the 0.7 bar, so leaving the value on loses the suggestion exactly where a mistyped
+        // value-taking flag is most likely to be written.
+        assert_eq!(
+            rendered(&["use"], Error::UnknownFlag { token: b"--fore=1" }),
+            "error: unexpected argument '--fore' found\n\
+             \n\
+             \x20 tip: a similar argument exists: '--force'\n\
+             \n\
+             Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
+             \n\
+             For more information, try '--help'.\n"
+        );
+
+        // A short cluster is refused whole — `-xy` is not `-x` with a `y` attached — and clap
+        // keeps the `=` in a short flag's value, so the rule is for long flags only.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"-j=4" });
+        assert!(
+            message.starts_with("error: unexpected argument '-j=4' found"),
+            "{message}"
         );
     }
 
