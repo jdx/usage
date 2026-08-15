@@ -22,6 +22,9 @@ spec = []
 # separate from `spec` because a CLI can want one without the other: completion needs
 # to split a line whether or not the binary can also emit its own spec.
 complete = ["spec"]
+# What a user reads when a command line does not parse. Off by default like the rest: a CLI
+# that renders its own errors should not carry these strings, and the parser stays a parser.
+diagnostics = ["spec"]
 
 [package.metadata.release]
 shared-version = true
