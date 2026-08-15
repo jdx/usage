@@ -296,10 +296,15 @@ mod tests {
         // The flag, before the variables: a user reading an explanation because they do not like the
         // answer reaches for the command line first, and listing the variables alone answered half
         // the question they asked.
-        assert!(text.contains("command line --jobs, -j"), "{text}");
-        // And where else it could come from, which is the other half of the question.
-        assert!(text.contains("environment  HK_JOBS, HK_JOB"), "{text}");
-        assert!(text.contains("also         git hk.jobs"), "{text}");
+        // And where else it could come from, which is the other half of the question. Their
+        // positions rather than their presence: an explanation that lists the same three lines in
+        // the other order is a different answer to "what do I change", and `contains` cannot tell.
+        let cli = text.find("command line --jobs, -j").expect(text.as_str());
+        let env = text
+            .find("environment  HK_JOBS, HK_JOB")
+            .expect(text.as_str());
+        let also = text.find("also         git hk.jobs").expect(text.as_str());
+        assert!(cli < env && env < also, "{text}");
     }
 
     #[test]
