@@ -183,3 +183,15 @@ fn mise_accepts_an_unknown_flag_where_clap_refuses_one() {
         .any(|f| f.flag.longs.contains(&"global"));
     assert!(has_global, "mise use declares --global");
 }
+
+#[test]
+fn a_flag_typo_on_a_command_with_subcommands_reads_as_a_flag() {
+    // `mise doctor --forc` fails on both sides, and both should call it an unexpected *argument*
+    // — `doctor` has subcommands, so the tempting answer is "unrecognized subcommand", which is
+    // an answer to a question nobody asked.
+    let words = ["doctor", "--forc"];
+    let ours = our_error(&words).expect("a failure");
+    let theirs = clap_error(&words).expect("a failure");
+    assert_eq!(first_line(&ours), first_line(&theirs), "\n{ours}\n{theirs}");
+    assert!(!ours.contains("subcommand"), "{ours}");
+}

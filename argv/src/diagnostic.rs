@@ -385,10 +385,32 @@ pub fn render(
         Error::UnexpectedArg { token } => {
             with_usage = true;
             let word = String::from_utf8_lossy(token);
-            // A word where a subcommand was expected reads better as one — which is the same
-            // distinction clap draws between an unexpected argument and an unrecognized
-            // subcommand.
-            if cmd.subcommands.is_empty() {
+            // What the word *looks like* decides, before anything about the command does. A
+            // dash-prefixed token is a flag the user got wrong — telling them `--forc` is an
+            // unrecognized subcommand is answering a question they did not ask, and it happens
+            // on exactly the commands where the mistake is easiest to make: the ones with
+            // subcommands, where a bare word would have been one.
+            if word.starts_with('-') && word != "-" {
+                let _ = writeln!(
+                    out,
+                    "{} unexpected argument '{}' found",
+                    style.error("error:"),
+                    style.invalid(&word)
+                );
+                let bare = word.trim_start_matches('-');
+                let names: Vec<&str> = flags_in_scope(spec, cmd)
+                    .flat_map(|meta| meta.flag.longs.iter().copied())
+                    .collect();
+                let near: Vec<String> = nearest(bare, names.into_iter())
+                    .into_iter()
+                    .map(|name| format!("--{name}"))
+                    .collect();
+                out.push_str(&tip(
+                    style,
+                    "argument",
+                    &near.iter().map(String::as_str).collect::<Vec<_>>(),
+                ));
+            } else if cmd.subcommands.is_empty() {
                 let _ = writeln!(
                     out,
                     "{} unexpected argument '{}' found",
@@ -919,6 +941,37 @@ mod tests {
         let message = rendered(&["use"], Error::UnknownFlag { token: b"--quie" });
         assert!(
             message.contains("tip: a similar argument exists: '--quiet'"),
+            "{message}"
+        );
+    }
+    #[test]
+    fn a_dash_prefixed_word_is_a_flag_even_where_subcommands_exist() {
+        // The root has subcommands, so a bare word there is a subcommand — but `--forc` is not a
+        // subcommand anybody could have meant, and saying "unrecognized subcommand" answers a
+        // question the user did not ask. It happens on exactly the commands where the mistake is
+        // easiest to make.
+        let message = rendered(&[], Error::UnexpectedArg { token: b"--quie" });
+        assert!(
+            message.starts_with("error: unexpected argument '--quie' found"),
+            "{message}"
+        );
+        assert!(
+            message.contains("tip: a similar argument exists: '--quiet'"),
+            "{message}"
+        );
+        assert!(!message.contains("subcommand"), "{message}");
+
+        // A bare word is still a subcommand, which is the other half of the same rule.
+        let message = rendered(&[], Error::UnexpectedArg { token: b"usse" });
+        assert!(
+            message.starts_with("error: unrecognized subcommand 'usse'"),
+            "{message}"
+        );
+
+        // A lone `-` is a word, not a flag: it is what several tools spell "standard input".
+        let message = rendered(&[], Error::UnexpectedArg { token: b"-" });
+        assert!(
+            message.starts_with("error: unrecognized subcommand '-'"),
             "{message}"
         );
     }
