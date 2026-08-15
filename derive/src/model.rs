@@ -362,6 +362,18 @@ impl Cli {
                      command it adds answers for the whole program, not for one of its commands",
                 ));
             }
+            // Only a root can be in the position this describes. A group is asked for its
+            // settings by whatever flattens it, and answers whenever it has any — so the
+            // attribute has nothing left to say here, and saying it would read as the group
+            // having asked for something.
+            if self.settings {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "`settings` belongs on the root, where `#[derive(Cli)]` is: it says that \
+                     this CLI resolves settings whose flags are declared elsewhere, and a group \
+                     is asked for its own by whoever flattens it",
+                ));
+            }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
                 return Err(syn::Error::new_spanned(
@@ -2273,6 +2285,28 @@ mod tests {
             .check_position(&ident, is_root)
             .expect_err("should have been refused")
             .to_string()
+    }
+
+    #[test]
+    fn the_settings_attribute_belongs_on_the_root() {
+        // It says "this CLI resolves settings whose flags are declared elsewhere", which only a
+        // root can mean: a group is asked for its settings by whatever flattens it, and answers
+        // whenever it has any. Accepted here it would have been parsed and never read — the
+        // silence the attribute exists to replace with a compile error.
+        let err = position_error(
+            r#"
+            #[usage(settings)]
+            struct Ex {
+                #[usage(long)]
+                jobs: Option<usize>,
+            }
+            "#,
+            false,
+        );
+        assert!(
+            err.contains("`settings` belongs on the root"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]
