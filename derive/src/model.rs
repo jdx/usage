@@ -85,6 +85,12 @@ pub struct Field {
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub env: Option<String>,
+    /// The setting this flag sets, when the CLI resolves configuration.
+    ///
+    /// `#[usage(setting = "jobs")]`. The spec's `cli "--jobs"` node is the *documented* binding and
+    /// this is the executable one; `Registry::drift` compares them, which is what hk's eighteen
+    /// declared and five read `sources.cli` lines needed and never had.
+    pub setting: Option<String>,
     pub default: Option<String>,
     pub help_heading: Option<String>,
     /// Whether a collecting argument needs at least one value.
@@ -632,6 +638,7 @@ impl Field {
             help: None,
             long_help: None,
             env: None,
+            setting: None,
             default: None,
             help_heading: None,
             value_name: None,
@@ -699,6 +706,7 @@ impl Field {
             help: None,
             long_help: None,
             env: None,
+            setting: None,
             default: None,
             help_heading: None,
             value_name: None,
@@ -747,6 +755,7 @@ impl Field {
         let mut count = false;
         let mut double_dash_required = false;
         let mut env = None;
+        let mut setting = None;
         let mut default = None;
         let mut help_heading = None;
         let mut value_name = None;
@@ -802,6 +811,10 @@ impl Field {
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
                     "env" => env = Some(string_value(&meta)?),
+                    // The *setting* this flag sets, which is a different thing from the flag's name
+                    // and from the environment variable: `--jobs`, `HK_JOBS` and `jobs` are three
+                    // spellings of one value, and only the last is what a config file calls it.
+                    "setting" => setting = Some(string_value(&meta)?),
                     // `choices("a", "b")` rather than one comma-joined string, so a
                     // value containing a comma is expressible.
                     "choices" => {
@@ -1318,6 +1331,7 @@ impl Field {
             help,
             long_help,
             env,
+            setting,
             default,
             help_heading,
             value_name,
