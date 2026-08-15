@@ -297,13 +297,25 @@ impl Registry {
 
         for id in self.ids() {
             let meta = self.get(id);
+            // Asked once, and refused when it is `None`: two keys that resolve to nothing are not
+            // two keys that mean the same setting, and comparing the answers directly made a flag
+            // on a dangling `renamed_to` look bound by any flag bound to any other broken key.
+            let means = self.means(meta.key);
             for flag in meta.cli {
+                let Some(means) = means else {
+                    problems.push(format!(
+                        "`{}` says `{flag}` sets it, and it is not a setting anything can reach: \
+                         its `renamed_to` names nothing, or the chain it starts loops",
+                        meta.key
+                    ));
+                    continue;
+                };
                 // Compared against the *setting* the binding names rather than the flag alone: a CLI
                 // may bind `--jobs` to something, and binding it to the wrong setting is not the same
                 // as binding it.
-                let bound_here = bound.iter().any(|(bound_flag, key)| {
-                    bound_flag == flag && self.means(key) == self.means(meta.key)
-                });
+                let bound_here = bound
+                    .iter()
+                    .any(|(bound_flag, key)| bound_flag == flag && self.means(key) == Some(means));
                 if !bound_here {
                     problems.push(format!(
                         "`{}` says `{flag}` sets it, and nothing does",
@@ -485,6 +497,41 @@ mod tests {
         // And bound through the name that replaced it, which is the same setting and the same flag.
         let by_new_name = [("--jobs", "jobs"), ("--concurrency", "jobs")];
         assert_eq!(RENAMED.drift(&by_new_name), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_flag_on_a_rename_that_leads_nowhere_is_not_satisfied_by_another_broken_one() {
+        // `means` is `None` for a key whose rename names nothing or loops. Compared to each other,
+        // two of those were equal — so a declared flag counted as bound because some *other* dead
+        // key happened to be bound to the same spelling, and the dead declaration went unreported.
+        // The generator refuses a registry like this, but `drift` is also what a hand-written one
+        // is held to.
+        static BROKEN_PROPS: &[PropMeta] = &[
+            PropMeta {
+                cli: &["--gone"],
+                renamed_to: Some("nowhere"),
+                ..PropMeta::new("gone", Ty::Uint)
+            },
+            PropMeta {
+                cli: &["--gone"],
+                renamed_to: Some("also-nowhere"),
+                ..PropMeta::new("other", Ty::Uint)
+            },
+        ];
+        const BROKEN: Registry = Registry::new(BROKEN_PROPS);
+
+        let bound = [("--gone", "other")];
+        let problems = BROKEN.drift(&bound);
+        assert_eq!(
+            problems,
+            vec![
+                "`--gone` is bound to `other`, which is not a setting",
+                "`gone` says `--gone` sets it, and it is not a setting anything can reach: its \
+                 `renamed_to` names nothing, or the chain it starts loops",
+                "`other` says `--gone` sets it, and it is not a setting anything can reach: its \
+                 `renamed_to` names nothing, or the chain it starts loops",
+            ]
+        );
     }
 
     #[test]
