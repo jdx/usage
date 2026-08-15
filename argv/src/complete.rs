@@ -143,23 +143,36 @@ pub fn for_name<'a>(
         None
     }
 
-    fn find(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
-        for arg in meta.args {
-            if arg.arg.name.eq_ignore_ascii_case(name) {
-                if let Some(completer) = arg.complete {
-                    return Some(completer);
-                }
-            }
-        }
-        for flag in meta.flags {
-            let value = flag.value_name.unwrap_or(flag.flag.name);
-            if value.eq_ignore_ascii_case(name) {
-                if let Some(completer) = flag.complete {
-                    return Some(completer);
-                }
-            }
+    fn find<'m, 's>(meta: &'m CommandMeta<'s>, name: &str) -> Option<&'m CommandMeta<'s>> {
+        if on(meta, name).is_some() {
+            return Some(meta);
         }
         meta.subcommands.iter().find_map(|sub| find(sub, name))
+    }
+
+    // A command can have two fields under one normalized completion name. Its emitted KDL has
+    // one name-keyed block, so the line that block passes back is what distinguishes them. Use
+    // the parser's position before falling back to declaration order for a stale or incomplete
+    // request whose line does not identify either field.
+    fn at_cursor(meta: &CommandMeta<'_>, name: &str, position: &Position<'_>) -> Option<Completer> {
+        if let Some(wanted) = position.awaiting_value {
+            let found = meta.flags.iter().find(|field| {
+                let value = field.value_name.unwrap_or(field.flag.name);
+                core::ptr::eq(field.flag, wanted) && value.eq_ignore_ascii_case(name)
+            });
+            if let Some(completer) = found.and_then(|field| field.complete) {
+                return Some(completer);
+            }
+        }
+        if let Some(wanted) = position.next_arg {
+            let found = meta.args.iter().find(|field| {
+                core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
+            });
+            if let Some(completer) = found.and_then(|field| field.complete) {
+                return Some(completer);
+            }
+        }
+        None
     }
 
     // The root's own first, then the command the line reached, then anywhere in the tree.
@@ -172,9 +185,15 @@ pub fn for_name<'a>(
     // Tree order last, and only as a fallback: two sibling commands may take a `tool` and mean
     // different things by it, and the one the line reached is the one being asked about.
     let reached = walk(spec.root.cmd, ctx.command_words_start());
-    let completer = on(spec.root, name)
-        .or_else(|| crate::help::find(spec, reached.cmd).and_then(|(_, meta)| on(meta, name)))
-        .or_else(|| find(spec.root, name))?;
+    let reached_meta = crate::help::find(spec, reached.cmd).map(|(_, meta)| meta);
+    let owner = if on(spec.root, name).is_some() {
+        spec.root
+    } else if let Some(meta) = reached_meta.filter(|meta| on(meta, name).is_some()) {
+        meta
+    } else {
+        find(spec.root, name)?
+    };
+    let completer = at_cursor(owner, name, &reached).or_else(|| on(owner, name))?;
     let mut found = completer(ctx);
     found.retain(|c| c.value.starts_with(ctx.prefix));
     Some(found)

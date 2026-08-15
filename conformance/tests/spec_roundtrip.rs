@@ -963,3 +963,74 @@ fn two_commands_can_mean_different_things_by_one_name() {
         );
     }
 }
+
+#[test]
+fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
+    // A spec has one `complete` block per normalized name, but the line sent back to the binary
+    // still says whether the cursor is in the positional or the flag. Dispatch by that position,
+    // not by whichever field happened to be declared first.
+    static TOOL: Arg = Arg {
+        key: 94,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static SOURCE: Flag = Flag {
+        key: 95,
+        name: "source",
+        longs: &["source"],
+        ..Flag::VALUE
+    };
+    static CMD: Command = Command {
+        name: "ex",
+        flags: &[&SOURCE],
+        args: &[&TOOL],
+        ..Command::EMPTY
+    };
+    static META: CommandMeta = CommandMeta {
+        cmd: &CMD,
+        flags: &[FlagMeta {
+            flag: &SOURCE,
+            value_name: Some("TOOL"),
+            complete: Some(remote_tools),
+            ..FlagMeta::EMPTY
+        }],
+        args: &[ArgMeta {
+            arg: &TOOL,
+            complete: Some(local_tools),
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        root: &META,
+        ..Spec::EMPTY
+    };
+
+    let kdl = SPEC.to_kdl();
+    assert_eq!(
+        kdl.matches("complete \"tool\"").count(),
+        1,
+        "one name-keyed block: {kdl}"
+    );
+
+    for (words, expected) in [
+        (vec!["ex".to_string(), String::new()], "installed"),
+        (
+            vec!["ex".to_string(), "--source".to_string(), String::new()],
+            "available",
+        ),
+    ] {
+        let ctx = usage_argv::complete::CompleteCtx {
+            cword: words.len() - 1,
+            words: &words,
+            prefix: "",
+        };
+        let found = usage_argv::complete::for_name(&SPEC, "tool", &ctx).expect("a completer");
+        assert_eq!(
+            found.iter().map(|c| c.value.as_str()).collect::<Vec<_>>(),
+            [expected]
+        );
+    }
+}
