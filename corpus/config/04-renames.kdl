@@ -91,3 +91,17 @@ vector "a-chain-of-renames-resolves-to-its-end" doc="Two releases of renaming le
     warning "renamed"
   }
 }
+
+vector "a-notice-anywhere-along-a-chain-is-reported" doc="A deprecation notice may sit on a name further along than the one that was written, and it is still what the user is told." {
+  setting "jobs" type="uint" default=1
+  setting "concurrency" type="uint" renamed-to="jobs" deprecated="Use jobs instead."
+  setting "threads" type="uint" renamed-to="concurrency"
+  layer "file" id="hk.toml" {
+    value "threads" "8"
+  }
+  expect {
+    value "jobs" 8
+    warning "deprecated"
+    warning "renamed"
+  }
+}

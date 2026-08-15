@@ -14,7 +14,7 @@
 
 use std::fmt::Write as _;
 
-use crate::registry::{PropId, Registry};
+use crate::registry::PropId;
 use crate::resolve::Resolved;
 use crate::source::SourceKind;
 use crate::value::{one_line, shown};
@@ -121,32 +121,12 @@ pub fn explain(resolved: &Resolved, key: &str) -> Option<String> {
     // reading it off the setting that replaced it printed nothing at all for the one case where it
     // matters — and following the renames from there, because a notice can sit anywhere along a
     // chain: `a` renamed to `b`, and `b` the one carrying the notice that says to use `c`.
-    let deprecated = deprecation_along(registry, found.renamed_from.unwrap_or(meta.key));
+    let deprecated = registry.deprecation(found.renamed_from.unwrap_or(meta.key));
     if let Some(why) = deprecated {
         let _ = writeln!(out, "\n  deprecated: {}", one_line(why));
     }
 
     Some(out)
-}
-
-/// The first deprecation notice along the rename chain that starts at `key`.
-///
-/// Bounded by the number of settings there are, so a registry whose renames form a cycle stops
-/// rather than following them forever — the same guard [`Registry::lookup`] uses, and for the same
-/// reason: this is an authoring mistake, and hanging is a worse way to report one than nothing at
-/// all. `usage-config-build` refuses such a registry outright.
-fn deprecation_along(registry: Registry, key: &str) -> Option<&'static str> {
-    let mut current = registry.lookup_exact(key)?;
-    for _ in 0..registry.props.len() {
-        let meta = registry.get(current);
-        if let Some(why) = meta.deprecated {
-            return Some(why);
-        }
-        current = meta
-            .renamed_to
-            .and_then(|next| registry.lookup_exact(next))?;
-    }
-    None
 }
 
 /// Every warning the resolution produced, as lines.
