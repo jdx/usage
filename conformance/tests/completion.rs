@@ -189,4 +189,44 @@ fn saying_false_is_taken_as_false() {
 
     // And the CLI that does ask for it still answers.
     assert!(Ex::completion_request(&[std::ffi::OsString::from("__complete_word__")]).is_some());
+    assert!(!Ex::completion_script(usage_argv::complete::Shell::Bash).is_empty());
+}
+
+#[test]
+fn the_script_calls_the_command_this_cli_answers() {
+    use usage_argv::complete::Shell;
+
+    // The pair has to agree, which is why both are emitted under one attribute: a script naming
+    // a command the binary does not answer is a silence at the prompt, and the only way to find
+    // it is for a user to press Tab.
+    for shell in [
+        Shell::Bash,
+        Shell::Zsh,
+        Shell::Fish,
+        Shell::Nu,
+        Shell::PowerShell,
+    ] {
+        let script = Ex::completion_script(shell);
+        assert!(
+            script.contains("ex __complete_word__"),
+            "{shell:?} script does not call this CLI: {script}"
+        );
+        assert!(script.contains(shell.as_str()), "{shell:?}");
+    }
+
+    // And the request that script makes is one this CLI answers, rather than one that merely
+    // looks like it — the two halves checked against each other rather than each alone.
+    let argv: Vec<OsString> = [
+        "__complete_word__",
+        "--shell",
+        "bash",
+        "--line",
+        "ex ins",
+        "--cursor",
+        "6",
+    ]
+    .iter()
+    .map(OsString::from)
+    .collect();
+    assert_eq!(Ex::completion_request(&argv).as_deref(), Some("install\n"));
 }

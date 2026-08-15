@@ -306,6 +306,18 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         // names the symptom and not the attribute that asked for it.
         ::usage_argv::__usage_needs_complete_feature!();
 
+        /// This CLI's completion script for `shell`, to be written to a file or sourced.
+        ///
+        /// Emitted under the same attribute as the command it calls, which is what makes a
+        /// script that names a command the binary does not answer a compile error instead of a
+        /// silence at the prompt.
+        pub fn completion_script(
+            shell: ::usage_argv::complete::Shell,
+        ) -> ::std::string::String {
+            let spec = Self::spec();
+            ::usage_argv::script::script(spec.bin.unwrap_or(spec.name), shell)
+        }
+
         /// The word a shell is completing, answered from this CLI's own tables.
         ///
         /// `None` when argv is an ordinary invocation. The request is recognized before the

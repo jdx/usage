@@ -85,6 +85,8 @@ use std::ffi::{OsStr, OsString};
 
 #[cfg(feature = "complete")]
 pub mod complete;
+#[cfg(feature = "complete")]
+pub mod script;
 
 /// Checks that the `complete` feature is on, with an explanation when it is not.
 ///
