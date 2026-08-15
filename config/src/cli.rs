@@ -34,7 +34,7 @@
 //! # Ok::<(), usage_config::LayerError>(())
 //! ```
 
-use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput};
+use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
 use crate::registry::Registry;
 use crate::source::{Origin, SourceKind};
 use crate::value::Value;
@@ -50,6 +50,8 @@ enum Given {
     Text(String),
     /// A value a caller has already made: a `bool` from a switch, a count, a list it collected.
     Shaped(Value),
+    /// A value that is not text at all: bytes an argument can hold and a setting cannot.
+    Unrepresentable,
 }
 
 impl CliLayer {
@@ -82,6 +84,19 @@ impl CliLayer {
     /// holding those has no reason to render them to text for this to read them back.
     pub fn with_value(mut self, key: impl Into<String>, value: Value) -> Self {
         self.given.push((key.into(), Given::Shaped(value)));
+        self
+    }
+
+    /// A setting whose flag was given a value that cannot be one.
+    ///
+    /// An argument is bytes and a setting is text — every layer below this one reads a file or a
+    /// variable that had to be UTF-8 to exist. On Unix a path need not be, so `--exclude` can be
+    /// handed something the resolution has nowhere to put. Rendering it lossily would set the
+    /// setting to a value nobody typed, and one that no longer names the file it came from, while
+    /// the CLI's own field still holds the real bytes: one flag, two answers. This says so instead,
+    /// and the setting keeps whatever the layers below it gave.
+    pub fn with_unrepresentable(mut self, key: impl Into<String>) -> Self {
+        self.given.push((key.into(), Given::Unrepresentable));
         self
     }
 
@@ -124,6 +139,20 @@ impl Layer for CliLayer {
             let entry = match given {
                 Given::Text(raw) => ctx.entry_for_key(key, raw, origin),
                 Given::Shaped(value) => ctx.entry_from_value(key, value.clone(), origin),
+                Given::Unrepresentable => {
+                    let named = origin.describe();
+                    out.warn(
+                        Warning::at(
+                            format!(
+                                "{named} was given a value that is not text, so {key} keeps the \
+                                 value it had"
+                            ),
+                            origin,
+                        )
+                        .of(WarningKind::WrongType),
+                    );
+                    continue;
+                }
             };
             match entry {
                 Ok(entry) => out.push(entry),
@@ -282,6 +311,36 @@ mod tests {
                 .origin(REGISTRY.lookup("jobs").expect("declared").id)
                 .map(|o| o.describe()),
             Some("--concurrency")
+        );
+    }
+
+    #[test]
+    fn a_value_that_is_not_text_is_said_rather_than_rendered() {
+        // An argument is bytes and a setting is text. Rendering `--exclude $'\xff'` lossily would
+        // set `exclude` to a string nobody typed, naming a file that does not exist, while the CLI's
+        // own field still held the real bytes — one flag, two answers, and the command line's answer
+        // is the one that outranks every file on the machine.
+        let cli = CliLayer::new([("jobs", "8")]).with_unrepresentable("exclude");
+        let resolved = resolve(REGISTRY, Layers::new().then(&cli)).expect("resolves");
+        assert_eq!(
+            resolved.get_key("jobs"),
+            Some(&Value::Int(8)),
+            "the rest is unaffected"
+        );
+        assert_eq!(
+            resolved.get_key("exclude"),
+            None,
+            "and this keeps what it had"
+        );
+        let kinds: Vec<_> = resolved.warnings.iter().map(|w| w.kind).collect();
+        assert_eq!(kinds, vec![crate::layer::WarningKind::WrongType]);
+        // Named by the flag, since that is what the user would retype.
+        assert!(
+            resolved.warnings[0]
+                .message
+                .starts_with("--exclude was given a value that is not text"),
+            "{:?}",
+            resolved.warnings[0].message
         );
     }
 

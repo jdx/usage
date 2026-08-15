@@ -10,8 +10,9 @@
 //! and the command line outranks every file on the machine.
 
 use std::ffi::OsStr;
+use std::path::PathBuf;
 
-use usage_config::{resolve, Const, Layers, PropMeta, Registry, Ty, Value};
+use usage_config::{resolve, Const, Layers, PropMeta, Registry, Ty, Value, WarningKind};
 use usage_derive::Cli;
 
 /// A tool with settings
@@ -33,6 +34,12 @@ struct Ex {
     #[usage(long, var, setting = "exclude")]
     exclude: Vec<String>,
 
+    /// Where the config file is
+    // A path rather than a `String`, which is the case that can hold what a setting cannot: parsing
+    // into a `String` refuses non-UTF-8 outright, and a `PathBuf` on Unix takes it.
+    #[usage(long, setting = "config.file")]
+    config: Option<PathBuf>,
+
     /// Nothing to do with settings, and it should stay that way.
     #[usage(short = 'v')]
     verbose: bool,
@@ -53,6 +60,10 @@ static PROPS: &[PropMeta] = &[
     PropMeta {
         cli: &["--exclude"],
         ..PropMeta::new("exclude", Ty::List(&Ty::String))
+    },
+    PropMeta {
+        cli: &["--config"],
+        ..PropMeta::new("config.file", Ty::Path)
     },
 ];
 const REGISTRY: Registry = Registry::new(PROPS);
@@ -154,10 +165,40 @@ fn the_bindings_are_every_spelling_of_every_bound_flag() {
         bound,
         vec![
             ("--colour", "colour"),
+            ("--config", "config.file"),
             ("--exclude", "exclude"),
             ("--jobs", "jobs"),
             ("--no-colour", "colour"),
             ("-j", "jobs"),
         ]
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_value_that_is_not_text_is_reported_rather_than_rendered() {
+    // An argument is bytes and a setting is text: every layer below this one read a file or a
+    // variable that had to be UTF-8 to exist. Rendered lossily, `--exclude $'\xff'` would set
+    // `exclude` to a string nobody typed — naming a file that does not exist — while `cli.exclude`
+    // still held the real bytes, and the command line's answer is the one that outranks every file
+    // on the machine.
+    use std::os::unix::ffi::OsStrExt;
+
+    let bytes = OsStr::from_bytes(b"/etc/co\xffnfig");
+    let argv = [OsStr::new("--config"), bytes];
+    let (cli, layer) = Ex::parse_from_with_settings(&argv).expect("should parse");
+    assert_eq!(
+        cli.config.as_deref(),
+        Some(std::path::Path::new(bytes)),
+        "the field keeps the bytes, which is what the CLI's own code needs"
+    );
+
+    let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    assert_eq!(
+        resolved.get_key("config.file"),
+        None,
+        "and the setting keeps what it had"
+    );
+    let kinds: Vec<_> = resolved.warnings.iter().map(|w| w.kind).collect();
+    assert_eq!(kinds, vec![WarningKind::WrongType]);
 }

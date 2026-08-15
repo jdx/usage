@@ -109,8 +109,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 (Self, ::usage_config::CliLayer),
                 ::usage_argv::Error<'static, 'v>,
             > {
-                let partial = #module::read(Self::command(), argv)?;
+                // The layer from what argv left, and only then the rest: `check` fills a field
+                // from its `env` and marks it given, and a variable's value contributed here
+                // would sit in the layer that outranks every other, named after a flag nobody
+                // typed — and counted twice by a `union` setting whose CLI also has an
+                // `EnvLayer`. The environment has a layer of its own to arrive in.
+                let mut partial = #module::read_argv(Self::command(), argv)?;
                 let __usage_settings = #module::settings_layer(&partial);
+                #module::check(&mut partial)?;
                 let __usage_built = Self {
                     #sub_build
                     #(#field_finals),*
@@ -215,12 +221,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ::std::result::Result::Ok(())
             }
 
-            /// Every token read, and everything decided after the last one.
+            /// Every token read, and nothing else decided.
             ///
-            /// In the module because two entry points want it: one that builds the struct, and one
-            /// that also wants what the *parser* saw. A struct cannot answer the second — a `bool`
-            /// field is `false` whether the flag was absent or negated — and the partial can.
-            pub fn read<'v>(
+            /// The partial as *argv* left it: before a declared default fills a field, before the
+            /// environment does, before anything is checked. In the module because two entry
+            /// points want it, and one of them wants exactly this much — a settings layer is
+            /// what the command line contributed, and `check` fills fields from the environment
+            /// and marks them given, which would hand a variable's value to the layer that
+            /// outranks every other and name it after a flag nobody typed.
+            pub fn read_argv<'v>(
                 command: &'static ::usage_argv::Command<'static>,
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
@@ -250,6 +259,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     apply(&mut partial, &__usage_event);
                 }
 
+                ::std::result::Result::Ok(partial)
+            }
+
+            /// Every token read, and everything decided after the last one.
+            ///
+            /// What a caller that only wants the struct wants: a partial nothing more will be
+            /// added to. A struct cannot answer what the *parser* saw — a `bool` field is `false`
+            /// whether the flag was absent or negated — so the entry point that wants that reads
+            /// the two halves apart instead.
+            pub fn read<'v>(
+                command: &'static ::usage_argv::Command<'static>,
+                argv: &'v [&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
+                let mut partial = read_argv(command, argv)?;
                 check(&mut partial)?;
                 ::std::result::Result::Ok(partial)
             }
@@ -1088,51 +1111,65 @@ fn settings(cli: &Cli) -> Option<(TokenStream, TokenStream)> {
         let ident = &field.ident;
         let given = format_ident!("__given_{}", ident);
         let key = field.setting.as_deref().unwrap_or_default();
+        // `Option<Value>`, because an argument is bytes and a setting is text: on Unix a path
+        // need not be UTF-8, and the value would have been rendered lossily — setting a setting
+        // to a string nobody typed, naming a file that does not exist, while the CLI's own field
+        // still held the real bytes. `None` says so instead, and the layer reports it.
         let value = match field.shape {
             // The bool the parser landed on, which is `false` for a negation and `true` for the
             // flag itself: what the user said, rather than that they said something.
-            Shape::Bool => quote!(::usage_config::Value::Bool(partial.#ident)),
+            Shape::Bool => quote! {
+                ::std::option::Option::Some(::usage_config::Value::Bool(partial.#ident))
+            },
             Shape::Count => quote! {
-                ::usage_config::Value::Int(
+                ::std::option::Option::Some(::usage_config::Value::Int(
                     ::std::convert::TryFrom::try_from(partial.#ident)
                         .unwrap_or(::std::primitive::i64::MAX),
-                )
+                ))
             },
             // Text, because that is what the partial holds and what a declared type expects to
             // read: rendering it to something typed here would be a second coercion, disagreeing
             // with the registry's own at the first setting whose type this cannot see.
             Shape::Optional => quote! {
-                ::usage_config::Value::String(
-                    ::std::string::String::from_utf8_lossy(
-                        partial.#ident.as_deref().unwrap_or_default(),
-                    )
-                    .into_owned(),
-                )
+                ::std::str::from_utf8(partial.#ident.as_deref().unwrap_or_default())
+                    .ok()
+                    .map(|__usage_text| {
+                        ::usage_config::Value::String(::std::string::ToString::to_string(
+                            __usage_text,
+                        ))
+                    })
             },
             Shape::Required => quote! {
-                ::usage_config::Value::String(
-                    ::std::string::String::from_utf8_lossy(&partial.#ident).into_owned(),
-                )
+                ::std::str::from_utf8(&partial.#ident).ok().map(|__usage_text| {
+                    ::usage_config::Value::String(::std::string::ToString::to_string(__usage_text))
+                })
             },
             // Item by item, rather than joined and re-split: an item holding the separator would
-            // come back as two.
+            // come back as two. One item that is not text costs the whole list, since contributing
+            // the others would quietly drop the one the user typed most recently.
             Shape::Many => quote! {
-                ::usage_config::Value::List(
-                    partial
-                        .#ident
-                        .iter()
-                        .map(|__usage_item| {
-                            ::usage_config::Value::String(
-                                ::std::string::String::from_utf8_lossy(__usage_item).into_owned(),
-                            )
+                partial
+                    .#ident
+                    .iter()
+                    .map(|__usage_item| {
+                        ::std::str::from_utf8(__usage_item).ok().map(|__usage_text| {
+                            ::usage_config::Value::String(::std::string::ToString::to_string(
+                                __usage_text,
+                            ))
                         })
-                        .collect(),
-                )
+                    })
+                    .collect::<::std::option::Option<::std::vec::Vec<_>>>()
+                    .map(::usage_config::Value::List)
             },
         };
         quote! {
             if partial.#given {
-                __usage_layer = __usage_layer.with_value(#key, #value);
+                __usage_layer = match #value {
+                    ::std::option::Option::Some(__usage_value) => {
+                        __usage_layer.with_value(#key, __usage_value)
+                    }
+                    ::std::option::Option::None => __usage_layer.with_unrepresentable(#key),
+                };
             }
         }
     });
