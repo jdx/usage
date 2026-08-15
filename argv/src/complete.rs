@@ -109,6 +109,122 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     }
 }
 
+/// Answer for the completer a spec names, wherever in the tree it was declared.
+///
+/// The other half of what `to_kdl` writes. A spec says `complete "tool" run="mise
+/// __complete_word__ --candidates tool"`, and this is what answers that command — so the KDL is
+/// complete for the usage CLI, for another shell's generator, for anything that reads a spec,
+/// while the binary still answers itself when its own script asks.
+///
+/// Found by the name a spec uses, which is the lowercased argument name — the same rule the
+/// reference resolves a `complete` block by, so the two agree about which completer a `run=`
+/// belongs to. `None` when nothing of that name declares one.
+pub fn for_name<'a>(
+    spec: &'a Spec<'a>,
+    name: &str,
+    ctx: &CompleteCtx<'_>,
+) -> Option<Vec<Candidate<'static>>> {
+    fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
+        for arg in meta.args {
+            if arg.arg.name.eq_ignore_ascii_case(name) {
+                if let Some(completer) = arg.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        for flag in meta.flags {
+            let value = flag.value_name.unwrap_or(flag.flag.name);
+            if value.eq_ignore_ascii_case(name) {
+                if let Some(completer) = flag.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        None
+    }
+
+    fn find<'m, 's>(meta: &'m CommandMeta<'s>, name: &str) -> Option<&'m CommandMeta<'s>> {
+        if on(meta, name).is_some() {
+            return Some(meta);
+        }
+        meta.subcommands.iter().find_map(|sub| find(sub, name))
+    }
+
+    // A command can have two fields under one normalized completion name. Its emitted KDL has
+    // one name-keyed block, so the line that block passes back is what distinguishes them. Use
+    // the parser's position before falling back to declaration order for a stale or incomplete
+    // request whose line does not identify either field.
+    fn at_cursor(meta: &CommandMeta<'_>, name: &str, position: &Position<'_>) -> Option<Completer> {
+        if let Some(wanted) = position.awaiting_value {
+            let found = meta.flags.iter().find(|field| {
+                let value = field.value_name.unwrap_or(field.flag.name);
+                core::ptr::eq(field.flag, wanted) && value.eq_ignore_ascii_case(name)
+            });
+            if let Some(completer) = found.and_then(|field| field.complete) {
+                return Some(completer);
+            }
+        }
+        if let Some(wanted) = position.next_arg {
+            let found = meta.args.iter().find(|field| {
+                core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
+            });
+            if let Some(completer) = found.and_then(|field| field.complete) {
+                return Some(completer);
+            }
+        }
+        None
+    }
+
+    // The root's own first, then the command the line reached, then anywhere in the tree.
+    //
+    // The first two in that order because the reference resolves a `complete` block that way —
+    // `spec.complete.get(name).or(cmd.complete.get(name))` — and the root's completers are what
+    // a spec writes at the top level, which is `spec.complete`. Answering in a different order
+    // would mean this binary and the reference disagreed about a spec they both read.
+    //
+    // Tree order last, and only as a fallback: two sibling commands may take a `tool` and mean
+    // different things by it, and the one the line reached is the one being asked about.
+    let reached = walk(spec.root.cmd, ctx.command_words_start());
+    let reached_meta = crate::help::find(spec, reached.cmd).map(|(_, meta)| meta);
+    let owner = if on(spec.root, name).is_some() {
+        spec.root
+    } else if let Some(meta) = reached_meta.filter(|meta| on(meta, name).is_some()) {
+        meta
+    } else {
+        find(spec.root, name)?
+    };
+    let completer = at_cursor(owner, name, &reached).or_else(|| on(owner, name))?;
+    let mut found = completer(ctx);
+    found.retain(|c| c.value.starts_with(ctx.prefix));
+    Some(found)
+}
+
+/// The completers one command declares, as the names a `complete` block is written under.
+///
+/// One command's own, not the tree's: a spec writes the block inside the command that declares
+/// it, so two siblings taking a `tool` and meaning different things by it each say so.
+#[cfg(feature = "spec")]
+pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
+    let mut out = Vec::new();
+    for arg in meta.args {
+        if arg.complete.is_some() {
+            out.push(arg.arg.name.to_ascii_lowercase());
+        }
+    }
+    for flag in meta.flags {
+        if flag.complete.is_some() {
+            out.push(
+                flag.value_name
+                    .unwrap_or(flag.flag.name)
+                    .to_ascii_lowercase(),
+            );
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
 /// What a completion callback is told about the cursor.
 ///
 /// Everything a `run=` command is given through tera — the words, which one the cursor is in —
@@ -128,6 +244,16 @@ pub struct CompleteCtx<'a> {
 }
 
 impl<'a> CompleteCtx<'a> {
+    /// The words a parser should walk to find the command this request is about.
+    ///
+    /// After the program name, before the word being completed — the same slice `walk` is given
+    /// for an ordinary request, so a `--candidates` request resolves the same command an
+    /// ordinary one would.
+    pub fn command_words_start(&self) -> &'a [String] {
+        let start = 1.min(self.cword);
+        self.words.get(start..self.cword).unwrap_or(&[])
+    }
+
     /// The word before the one being completed, which is what mise's `{{words[PREV]}}` means.
     pub fn previous(&self) -> Option<&'a str> {
         self.cword
@@ -1139,21 +1265,39 @@ mod tests {
         longs: &["only"],
         ..Flag::VALUE
     };
+    /// A flag whose completer is *not* the argument's, so which one answered is visible.
+    fn sources(_ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("upstream")]
+    }
+    static SOURCE: Flag = Flag {
+        key: 17,
+        name: "source",
+        longs: &["source"],
+        ..Flag::VALUE
+    };
     static INSTALL: Command = Command {
         name: "install",
-        flags: &[&ONLY],
+        flags: &[&ONLY, &SOURCE],
         args: &[&TOOL_ARG],
         ..Command::EMPTY
     };
     static META_INSTALL: CommandMeta = CommandMeta {
         cmd: &INSTALL,
         about: Some("Install a tool"),
-        flags: &[FlagMeta {
-            flag: &ONLY,
-            help: Some("Just this one"),
-            complete: Some(tools),
-            ..FlagMeta::EMPTY
-        }],
+        flags: &[
+            FlagMeta {
+                flag: &ONLY,
+                help: Some("Just this one"),
+                complete: Some(tools),
+                ..FlagMeta::EMPTY
+            },
+            FlagMeta {
+                flag: &SOURCE,
+                help: Some("Where from"),
+                complete: Some(sources),
+                ..FlagMeta::EMPTY
+            },
+        ],
         args: &[ArgMeta {
             arg: &TOOL_ARG,
             help: Some("Which tool"),
@@ -2000,5 +2144,19 @@ mod tests {
         let a = answer("mise install zzz");
         assert!(a.candidates.is_empty());
         assert_eq!(a.files, Some(Files::Any));
+    }
+    #[test]
+    fn an_attached_value_is_not_answered_by_the_positional() {
+        // `--source=⌶` is a dash-prefixed token, so it is a *flag* position: the flag branches
+        // come first and the positional's completer is never reached. Worth pinning, because the
+        // word being completed is excluded from the walk — so the flag is not `awaiting_value`
+        // either, and the position could look like the argument's if the order changed.
+        assert!(!offered("mise install --source=").contains(&"node".to_string()));
+        assert!(!offered("mise install --source=").contains(&"upstream".to_string()));
+        assert!(!offered("mise install -s").contains(&"node".to_string()));
+
+        // Detached, the flag's own completer answers — which is the case that works.
+        assert_eq!(offered("mise install --source "), ["upstream"]);
+        assert_eq!(offered("mise install "), ["node", "python", "ruby"]);
     }
 }
