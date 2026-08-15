@@ -109,6 +109,78 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     }
 }
 
+/// Answer for the completer a spec names, wherever in the tree it was declared.
+///
+/// The other half of what `to_kdl` writes. A spec says `complete "tool" run="mise
+/// __complete_word__ --candidates tool"`, and this is what answers that command — so the KDL is
+/// complete for the usage CLI, for another shell's generator, for anything that reads a spec,
+/// while the binary still answers itself when its own script asks.
+///
+/// Found by the name a spec uses, which is the lowercased argument name — the same rule the
+/// reference resolves a `complete` block by, so the two agree about which completer a `run=`
+/// belongs to. `None` when nothing of that name declares one.
+pub fn for_name<'a>(
+    spec: &'a Spec<'a>,
+    name: &str,
+    ctx: &CompleteCtx<'_>,
+) -> Option<Vec<Candidate<'static>>> {
+    fn find(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
+        for arg in meta.args {
+            if arg.arg.name.eq_ignore_ascii_case(name) {
+                if let Some(completer) = arg.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        for flag in meta.flags {
+            let value = flag.value_name.unwrap_or(flag.flag.name);
+            if value.eq_ignore_ascii_case(name) {
+                if let Some(completer) = flag.complete {
+                    return Some(completer);
+                }
+            }
+        }
+        meta.subcommands.iter().find_map(|sub| find(sub, name))
+    }
+
+    let completer = find(spec.root, name)?;
+    let mut found = completer(ctx);
+    found.retain(|c| c.value.starts_with(ctx.prefix));
+    Some(found)
+}
+
+/// Every completer a spec declares, as the names a `complete` block is written under.
+///
+/// Sorted and deduplicated, because two commands may take the same kind of value — mise's `tool`
+/// is an argument of six of them — and a spec declares one block for it.
+#[cfg(feature = "spec")]
+pub fn declared_completers(spec: &Spec<'_>) -> Vec<String> {
+    fn walk(meta: &CommandMeta<'_>, out: &mut Vec<String>) {
+        for arg in meta.args {
+            if arg.complete.is_some() {
+                out.push(arg.arg.name.to_ascii_lowercase());
+            }
+        }
+        for flag in meta.flags {
+            if flag.complete.is_some() {
+                out.push(
+                    flag.value_name
+                        .unwrap_or(flag.flag.name)
+                        .to_ascii_lowercase(),
+                );
+            }
+        }
+        for sub in meta.subcommands {
+            walk(sub, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(spec.root, &mut out);
+    out.sort();
+    out.dedup();
+    out
+}
+
 /// What a completion callback is told about the cursor.
 ///
 /// Everything a `run=` command is given through tera — the words, which one the cursor is in —

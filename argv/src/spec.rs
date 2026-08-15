@@ -478,6 +478,25 @@ impl Spec<'_> {
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
+        // A `complete` block for every completer this CLI declares, naming the command that
+        // asks the binary itself. Written rather than declared, so there is one place a
+        // completer is said to exist: the Rust function. Everything that reads a spec — the
+        // usage CLI, another shell's generator, a doc page — gets a `run=` that works, and this
+        // binary answers it without a second program in the way.
+        #[cfg(feature = "complete")]
+        for name in crate::complete::declared_completers(self) {
+            let bin = self.bin.unwrap_or(self.name);
+            write!(out, "complete {}", quoted(&name))?;
+            write!(
+                out,
+                " run={}",
+                quoted(&format!("{bin} __complete_word__ --candidates {name}"))
+            )?;
+            // The answers carry descriptions, which is what tells the reference to read one
+            // after a `:` rather than treating the whole line as a value.
+            writeln!(out, " descriptions=#true")?;
+        }
+
         // The text around the page. The root's nodes are written here rather than by
         // `write_body`, so these had to be repeated — and were not, which left a root's
         // preamble out of the spec that docs, manpages and completions read.

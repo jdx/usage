@@ -710,3 +710,80 @@ fn the_docs_pipeline_accepts_it() {
         "the manpage should name the program"
     );
 }
+
+/// What answers for a value the spec says a command runs for.
+fn tools(
+    ctx: &usage_argv::complete::CompleteCtx<'_>,
+) -> Vec<usage_argv::complete::Candidate<'static>> {
+    let _ = ctx;
+    vec![
+        usage_argv::complete::Candidate::described("node", "JavaScript"),
+        usage_argv::complete::Candidate::new("python"),
+    ]
+}
+
+#[test]
+fn a_declared_completer_becomes_a_run_the_reference_can_read() {
+    // The point of generating the `run=` rather than writing one: there is one place a completer
+    // is said to exist — the Rust function — and the spec still says something a reader can act
+    // on. What it says is a command asking *this binary*, which is the thing the binary answers.
+    static ARG: Arg = Arg {
+        key: 90,
+        name: "TOOL",
+        ..Arg::REQUIRED
+    };
+    static CMD: Command = Command {
+        name: "ex",
+        args: &[&ARG],
+        ..Command::EMPTY
+    };
+    static META: CommandMeta = CommandMeta {
+        cmd: &CMD,
+        args: &[ArgMeta {
+            arg: &ARG,
+            help: Some("Which tool"),
+            complete: Some(tools),
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static SPEC: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        version: None,
+        about: None,
+        long_about: None,
+        default_subcommand: None,
+        root: &META,
+    };
+
+    let kdl = SPEC.to_kdl();
+    assert!(
+        kdl.contains(r#"complete "tool" run="ex __complete_word__ --candidates tool""#),
+        "{kdl}"
+    );
+
+    // And usage-lib reads it as a completer for that argument — by the lowercased name, which is
+    // the rule both sides resolve one by.
+    let lib: LibSpec = kdl.parse().expect("valid spec");
+    let complete = lib.complete.get("tool").expect("a complete block");
+    assert_eq!(
+        complete.run.as_deref(),
+        Some("ex __complete_word__ --candidates tool")
+    );
+    assert!(complete.descriptions, "the answers carry descriptions");
+
+    // The binary answers exactly that, filtered by whatever has been typed.
+    let ctx = usage_argv::complete::CompleteCtx {
+        words: &["ex".to_string(), "n".to_string()],
+        cword: 1,
+        prefix: "n",
+    };
+    let found = usage_argv::complete::for_name(&SPEC, "tool", &ctx).expect("a completer");
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].value, "node");
+
+    // A name nothing declares is an empty answer rather than a failure: a stale script should
+    // complete nothing, not print into the prompt.
+    assert!(usage_argv::complete::for_name(&SPEC, "nonesuch", &ctx).is_none());
+}

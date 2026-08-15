@@ -335,6 +335,8 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             let mut shell = ::usage_argv::complete::Shell::Bash;
             let mut line = ::std::string::String::new();
             let mut cursor = ::std::option::Option::None;
+            let mut candidates_for: ::std::option::Option<::std::string::String> =
+                ::std::option::Option::None;
             let mut rest = argv[1..].iter();
             while let ::std::option::Option::Some(arg) = rest.next() {
                 match arg.to_str().unwrap_or_default() {
@@ -359,6 +361,13 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                             .next()
                             .and_then(|value| value.to_str().and_then(|v| v.parse().ok()));
                     }
+                    // What the `run=` in this CLI's own emitted spec asks for: one named
+                    // completer's answers, rather than everything the cursor could take. That is
+                    // the shape a spec's `complete` block promises, so anything reading the KDL
+                    // gets what it expects from the binary the KDL names.
+                    "--candidates" => {
+                        candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
+                    }
                     // Anything else is a shell passing something this version does not know
                     // about. Ignored rather than refused: a completion that errors out is a
                     // shell that beeps at every keystroke.
@@ -369,6 +378,23 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             // no way to say — nushell, whose completer only ever sees the words.
             let cursor = cursor.unwrap_or(line.len());
             let split = ::usage_argv::complete::split(&line, cursor, shell);
+            if let ::std::option::Option::Some(name) = candidates_for {
+                let ctx = ::usage_argv::complete::CompleteCtx {
+                    words: &split.words,
+                    cword: split.cword,
+                    prefix: &split.prefix,
+                };
+                // Nothing of that name is an empty answer rather than an error: a spec written
+                // against a newer version of this CLI is a stale script, and a stale script
+                // should complete nothing rather than print a message into the user's prompt.
+                let found =
+                    ::usage_argv::complete::for_name(Self::spec(), &name, &ctx).unwrap_or_default();
+                let answer = ::usage_argv::complete::Completions {
+                    candidates: found,
+                    files: ::std::option::Option::None,
+                };
+                return ::std::option::Option::Some(::usage_argv::complete::render(&answer, shell));
+            }
             let answer = ::usage_argv::complete::complete(Self::spec(), &split);
             ::std::option::Option::Some(::usage_argv::complete::render(&answer, shell))
         }
