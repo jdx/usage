@@ -9,3 +9,9 @@ pnpm-lock.yaml
 
 # aube-generated lockfile (not prettier-formatted)
 **/aube-lock.yaml
+
+# Machine-local Claude Code state. Nothing under here is tracked: it holds
+# per-developer settings, and with the worktree workflow it holds whole checkouts
+# of this repo, which prettier should neither walk nor rewrite. Without this,
+# `mise run lint` fails for anyone who has ever opened the project in Claude Code.
+.claude/
