@@ -6,6 +6,7 @@ use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
+use crate::spec::group::SpecGroup;
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
@@ -48,6 +49,12 @@ pub struct SpecCommand {
     pub flags: Vec<SpecFlag>,
     /// Mounted external specs
     pub mounts: Vec<SpecMount>,
+    /// Sets of flags that relate to one another as a set.
+    ///
+    /// Pairwise [`conflicts`](SpecFlag::conflicts) can say everything a plain group says
+    /// and cannot say `required`: "one of these is needed" is a statement about the set.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<SpecGroup>,
     /// Deprecation message if this command is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
@@ -147,6 +154,7 @@ impl Default for SpecCommand {
             args: vec![],
             flags: vec![],
             mounts: vec![],
+            groups: vec![],
             deprecated: None,
             effect: None,
             unknown_flags: None,
@@ -299,6 +307,7 @@ impl SpecCommand {
                 "flag" => cmd.flags.push(SpecFlag::parse(ctx, &child)?),
                 "arg" => cmd.args.push(SpecArg::parse(ctx, &child)?),
                 "mount" => cmd.mounts.push(SpecMount::parse(ctx, &child)?),
+                "group" => cmd.groups.push(SpecGroup::parse(ctx, &child)?),
                 "cmd" => {
                     let node = SpecCommand::parse(ctx, &child)?;
                     cmd.subcommands.insert(node.name.to_string(), node);
@@ -468,6 +477,7 @@ impl SpecCommand {
             args,
             flags,
             mounts,
+            groups,
             aliases,
             hidden_aliases,
             examples,
@@ -524,6 +534,12 @@ impl SpecCommand {
         }
         if !mounts.is_empty() {
             self.mounts = mounts;
+        }
+        // Replaced rather than appended, as flags are: a merged command's groups name
+        // that command's flags, and the flags have just been replaced too, so keeping
+        // both sets would leave groups pointing at flags that are no longer here.
+        if !groups.is_empty() {
+            self.groups = groups;
         }
         if !aliases.is_empty() {
             self.aliases = aliases;
@@ -650,6 +666,7 @@ impl From<&SpecCommand> for KdlNode {
             flags,
             args,
             mounts,
+            groups,
             subcommands,
             complete,
             examples,
@@ -763,6 +780,12 @@ impl From<&SpecCommand> for KdlNode {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(mount.into());
         }
+        // After the flags they name, so a reader meets the members before the rule
+        // about them.
+        for group in groups {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(group.into());
+        }
         for cmd in subcommands.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(cmd.into());
@@ -853,6 +876,41 @@ impl From<&clap::Command> for SpecCommand {
                     .collect();
                 spec.flags.push(flag)
             }
+        }
+        // Groups, which clap does expose — `get_groups`, and `get_args` on each. A group
+        // names its members by clap's internal id, so each is resolved back to the flag it
+        // points at and written as a selector, the way conflicts are just above.
+        //
+        // clap's own `--help` groups (`ArgGroup` ids it creates for its built-in flags)
+        // have no members of ours in them, so the two-member floor drops them naturally
+        // rather than needing a name check.
+        for group in cmd.get_groups() {
+            let members: Vec<String> = group
+                .get_args()
+                .filter_map(|id| cmd.get_arguments().find(|arg| arg.get_id() == id))
+                .filter_map(|arg| match (arg.get_long(), arg.get_short()) {
+                    (Some(long), _) => Some(format!("--{long}")),
+                    (None, Some(short)) => Some(format!("-{short}")),
+                    // A positional. The spec names group members the way it names every
+                    // other relationship — by flag — so there is nothing to write here,
+                    // and inventing a selector that matches nothing would read as a rule
+                    // that holds.
+                    (None, None) => None,
+                })
+                .collect();
+            // Below two members there is no rule left to enforce: whatever the group said
+            // about "at most one" or "at least one" is either vacuous or is plain
+            // required-ness on the single flag, which the flag already carries.
+            if members.len() < 2 {
+                continue;
+            }
+            let mut spec_group = SpecGroup::new(group.get_id().as_str(), members);
+            spec_group.required = group.is_required_set();
+            // `is_multiple` takes `&mut self` in clap, and a `&ArgGroup` is all a
+            // `Command` hands out — so the group is cloned to ask. Once per group at
+            // spec-generation time, which is a build step rather than a parse.
+            spec_group.multiple = group.clone().is_multiple();
+            spec.groups.push(spec_group);
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
         for subcmd in cmd.get_subcommands() {

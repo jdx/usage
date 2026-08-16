@@ -1232,6 +1232,42 @@ fn parse_partial_with_env(
         }
     }
 
+    // Groups, checked once per group rather than per flag: both questions a group asks —
+    // how many members were given, and whether that is enough — are about the set, which
+    // is the whole reason a group exists rather than a pile of pairwise conflicts.
+    //
+    // The same "given" rule as everything else here, so a member filled from the
+    // environment or a default counts.
+    // Every command in the chain, not only the selected one: a group may name global
+    // flags, which belong to an ancestor and are declared there.
+    let mut group_errors: Vec<UsageErr> = Vec::new();
+    for group in out.cmds.iter().flat_map(|cmd| &cmd.groups) {
+        let given: Vec<&str> = group
+            .members
+            .iter()
+            .filter(|selector| selector_is_explicit(selector, &out, &overridden_flags, custom_env))
+            .map(|selector| selector.as_str())
+            .collect();
+        if !group.multiple && given.len() > 1 {
+            group_errors.push(UsageErr::InvalidFlag {
+                token: given[1].to_string(),
+                reason: format!("cannot be used with {} in group {}", given[0], group.name),
+                span: (0, 0).into(),
+                input: format!("{} {}", given[0], given[1]),
+            });
+        }
+        if group.required && given.is_empty() {
+            // The members are what a user has to type, so they are in the message; the
+            // group's name is there too, since a command with several groups would
+            // otherwise report the same sentence twice with nothing to tell them apart.
+            group_errors.push(UsageErr::MissingGroup {
+                group: group.name.clone(),
+                members: group.members.join(", "),
+            });
+        }
+    }
+    out.errors.extend(group_errors);
+
     for flag in unique_flags(out.available_flags.values()) {
         if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
             continue;
@@ -2826,6 +2862,76 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn a_group_allows_one_member_and_refuses_two() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\"\nflag \"--url <u>\"\nflag \"--stdin\"\ngroup \"input\" \"--file\" \"--url\" \"--stdin\"\n"
+            .parse()
+            .unwrap();
+
+        // One is fine, and so is none: a plain group says "at most one".
+        parse(&spec, &input(&["ex", "--file", "a.txt"])).expect("one member is fine");
+        parse(&spec, &input(&["ex"])).expect("a group that is not required asks for nothing");
+
+        let err = parse(&spec, &input(&["ex", "--file", "a.txt", "--stdin"])).unwrap_err();
+        assert!(err.to_string().contains("group input"), "{err}");
+    }
+
+    #[test]
+    fn a_required_group_needs_one_of_its_members() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\" required=#true\n"
+            .parse()
+            .unwrap();
+
+        let err = parse(&spec, &input(&["ex"])).unwrap_err();
+        // The members, because that is what a user has to type; the name, because a
+        // command with several groups would otherwise report the same sentence twice.
+        assert!(err.to_string().contains("--file, --url"), "{err}");
+        assert!(err.to_string().contains("input"), "{err}");
+
+        parse(&spec, &input(&["ex", "--url", "u"])).expect("one member satisfies it");
+    }
+
+    #[test]
+    fn a_multiple_group_only_polices_requiredness() {
+        // `multiple` with `required` is "at least one of these", so two is fine and
+        // none is not.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\ngroup \"any\" \"--a\" \"--b\" required=#true multiple=#true\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--a", "--b"])).expect("multiple allows both");
+        assert!(parse(&spec, &input(&["ex"])).is_err());
+    }
+
+    #[test]
+    fn a_group_counts_what_was_given_rather_than_what_was_defaulted() {
+        // The rule `conflicts` already follows, and the flag reference already states:
+        // relationships apply to flags that were actually given, not to defaults. A
+        // default that satisfied a required group would make the group unfalsifiable —
+        // it could never report anything — and one that collided with a typed sibling
+        // would refuse a command line where the user named exactly one flag.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\" default=\"a.txt\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\" required=#true\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex"])).is_err(),
+            "a default does not stand in for a flag the user has to choose"
+        );
+        parse(&spec, &input(&["ex", "--url", "u"])).expect("the typed member is the choice");
+    }
+
+    #[test]
+    fn a_group_reads_the_environment_as_given() {
+        // The environment does count, which is the same asymmetry `conflicts` has: an
+        // env var is somebody saying something, a default is nobody saying anything.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\" env=\"EX_FILE\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\" required=#true\n"
+            .parse()
+            .unwrap();
+
+        parse_with_env(&spec, &["ex"], &[("EX_FILE", "a.txt")]).expect("the environment fills it");
     }
 
     #[test]

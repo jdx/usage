@@ -9,6 +9,7 @@ mod context;
 pub mod data_types;
 pub mod effect;
 pub mod flag;
+pub mod group;
 pub mod helpers;
 pub mod mount;
 pub mod unknown_flags;
@@ -224,6 +225,9 @@ impl Spec {
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
                 "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
+                // The root command's groups, as its flags and arguments are: a spec
+                // whose top level declares flags can group them there too.
+                "group" => schema.cmd.groups.push(crate::SpecGroup::parse(ctx, &node)?),
                 // The root is a command like any other, so it can discover its own
                 // subcommands by running something. A CLI whose top-level commands
                 // come from plugins has no other way to say so.
@@ -537,6 +541,9 @@ impl Display for Spec {
         // live at the top level of the document instead of inside a `cmd` block.
         for mount in self.cmd.mounts.iter() {
             nodes.push(mount.into());
+        }
+        for group in self.cmd.groups.iter() {
+            nodes.push(group.into());
         }
         for example in self.examples.iter() {
             nodes.push(example.into());

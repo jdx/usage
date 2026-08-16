@@ -16,6 +16,14 @@ pub enum UsageErr {
     #[error("Missing required flag: --{0} <{0}>")]
     MissingFlag(String),
 
+    /// A required group had none of its members given.
+    ///
+    /// Its own variant rather than a [`UsageErr::MissingFlag`] holding a sentence,
+    /// because there is no one flag to name: the group is the thing that was not
+    /// satisfied, and a caller that renders errors itself needs the members as members.
+    #[error("Missing one of the required flags in group {group}: {members}")]
+    MissingGroup { group: String, members: String },
+
     #[error("Invalid usage config")]
     InvalidInput(
         String,

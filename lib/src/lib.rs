@@ -10,6 +10,7 @@ pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
 pub use crate::spec::effect::SpecCommandEffect;
 pub use crate::spec::flag::SpecFlag;
+pub use crate::spec::group::SpecGroup;
 pub use crate::spec::mount::SpecMount;
 pub use crate::spec::unknown_flags::UnknownFlags;
 pub use crate::spec::Spec;

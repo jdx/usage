@@ -485,6 +485,9 @@ impl From<&crate::SpecCommand> for SpecCommand {
             mounted: _,
             flags_from_mount: _,
             subcommand_lookup: _,
+            // Presentational output does not describe relationships between flags, the
+            // way it already does not describe `conflicts`.
+            groups: _,
         } = cmd;
 
         Self {
