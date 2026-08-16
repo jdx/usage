@@ -406,7 +406,23 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                     }
                     ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
-                        match ::usage_argv::help::render(Self::spec(), cmd, long) {
+                        // By the route the words took, not by the command's address: one
+                        // `Subcommands` type mounted under two parents is one address, and a
+                        // page found by searching for it carries the first mount's path and
+                        // globals. Falls back where the route cannot be rebuilt.
+                        let __usage_page = match ::usage_argv::help::route_to(
+                            Self::command(),
+                            &__usage_argv,
+                            cmd,
+                        ) {
+                            ::std::option::Option::Some(route) => {
+                                ::usage_argv::help::render_at(Self::spec(), &route, long)
+                            }
+                            ::std::option::Option::None => {
+                                ::usage_argv::help::render(Self::spec(), cmd, long)
+                            }
+                        };
+                        match __usage_page {
                             ::std::option::Option::Some(page) => {
                                 ::std::print!("{page}");
                                 ::std::process::exit(0);

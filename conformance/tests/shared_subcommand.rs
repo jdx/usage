@@ -164,3 +164,46 @@ fn the_fields_are_bound_under_either_parent() {
     assert!(alpha.alphaglobal);
     assert!(matches!(alpha.command, Some(Both::Shared(_))));
 }
+
+#[test]
+fn a_page_follows_the_route_the_words_took() {
+    // The half the diagnostics fixed and help did not. `render` has only a `&Command` to go on
+    // and finds it by address — and both mounts *are* one address, so it returned whichever
+    // came first. `ex beta shared --help` printed `Usage: ex alpha shared`, with alpha's
+    // globals, for as long as this crate has had help.
+    //
+    // Both spellings of a help request, because they reach it differently: `--help` stops
+    // where the parse got to, and `help beta shared` asks about a command deeper than that.
+    for words in [
+        vec!["beta", "shared", "--help"],
+        vec!["help", "beta", "shared"],
+    ] {
+        let owned: Vec<&OsStr> = words.iter().map(|s| OsStr::new(*s)).collect();
+        let Err(usage_argv::Error::Help { cmd, long }) = Ex::parse_from(&owned) else {
+            panic!("{words:?} should ask for help")
+        };
+        let route = usage_argv::help::route_to(Ex::command(), &owned, cmd)
+            .unwrap_or_else(|| panic!("{words:?}: no route"));
+        let page = usage_argv::help::render_at(Ex::spec(), &route, long).expect("a page");
+
+        assert!(page.contains("Usage: ex beta shared"), "{words:?}: {page}");
+        assert!(page.contains("--betaglobal"), "{words:?}: {page}");
+        assert!(!page.contains("alphaglobal"), "{words:?}: {page}");
+    }
+}
+
+#[test]
+fn the_first_mount_is_still_its_own() {
+    // The other half: resolving by route must not make every page beta's.
+    let owned: Vec<&OsStr> = ["alpha", "shared", "--help"]
+        .iter()
+        .map(|s| OsStr::new(*s))
+        .collect();
+    let Err(usage_argv::Error::Help { cmd, long }) = Ex::parse_from(&owned) else {
+        panic!("should ask for help")
+    };
+    let route = usage_argv::help::route_to(Ex::command(), &owned, cmd).expect("a route");
+    let page = usage_argv::help::render_at(Ex::spec(), &route, long).expect("a page");
+    assert!(page.contains("Usage: ex alpha shared"), "{page}");
+    assert!(page.contains("--alphaglobal"), "{page}");
+}

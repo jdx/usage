@@ -1181,3 +1181,91 @@ pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> 
         short_help(spec, &path, &chain)
     })
 }
+
+/// The route the words took to a command, for rendering its page unambiguously.
+///
+/// Rebuilt by re-parsing, because [`Error::Help`](crate::Error::Help) carries the command and
+/// not the way there — putting a route in it would put an allocation in every parser error.
+/// The parse is deterministic, so walking the same argv reaches the same place.
+///
+/// `ex help config set` asks about a command *deeper* than the parse reached, so the route is
+/// extended by matching each remaining word among the children of where it got to — the same
+/// descent the parser made, and unambiguous at every step.
+///
+/// `None` where the command is not below this spec at all, which a caller should treat as a
+/// reason to fall back rather than a failure.
+pub fn route_to<'t>(
+    root: &'t Command<'t>,
+    argv: &[&std::ffi::OsStr],
+    cmd: &Command<'_>,
+) -> Option<Vec<&'t Command<'t>>> {
+    let mut parser = crate::Parser::new(root, argv);
+    while let Some(event) = parser.next_event() {
+        if event.is_err() {
+            break;
+        }
+    }
+    let walked = parser.command_path();
+    let from = walked.last().map(|(_, start)| *start).unwrap_or(0);
+    let mut route: Vec<&Command<'_>> = walked.into_iter().map(|(c, _)| c).collect();
+    if route.is_empty() {
+        route.push(root);
+    }
+
+    // Already there for `--help`. For the `help` word the parse stopped at the command that
+    // *saw* it, so the rest of the way is walked the way the parser walked it: by name, over
+    // the words that follow, among the children of wherever it has got to.
+    //
+    // By name and not by address, because the address is exactly what cannot be trusted here:
+    // looking for a child that *contains* the target picked whichever mount came first, which
+    // is the bug this function exists for.
+    if !core::ptr::eq(*route.last()?, cmd) {
+        for token in argv.iter().skip(from) {
+            let here = *route.last()?;
+            let word = token.as_encoded_bytes();
+            let Some(next) = here.subcommands.iter().copied().find(|sub| {
+                sub.name.as_bytes() == word || sub.aliases.iter().any(|a| a.as_bytes() == word)
+            }) else {
+                continue;
+            };
+            route.push(next);
+            if core::ptr::eq(next, cmd) {
+                break;
+            }
+        }
+    }
+    // Only if the walk actually arrived: a caller should fall back rather than be handed a
+    // page about some other command.
+    core::ptr::eq(*route.last()?, cmd).then_some(route)
+}
+
+/// The same page, for a command reached by a known route.
+///
+/// [`render`] has only a `&Command` to go on and finds it by address. That is enough until one
+/// `Subcommands` type is mounted under two parents: both splice the same `&'static [Command]`,
+/// so the two mounts *are* one address and the search returns whichever comes first. A page for
+/// the second one then carried the first one's path and the first one's globals.
+///
+/// The route tells them apart, and the parser has it — `Parser::command_path` is the sequence of
+/// commands the words actually went through. Callers holding only a command keep [`render`] and
+/// its answer; callers that parsed something should prefer this.
+pub fn render_at(spec: &Spec<'_>, route: &[&Command<'_>], long: bool) -> Option<String> {
+    let mut names = vec![spec.bin.unwrap_or(spec.name)];
+    let mut chain = vec![spec.root];
+    for cmd in route.iter().skip(1) {
+        // Matched among *this* command's children, which is unambiguous even when the child is
+        // shared: a parent's own list is its own.
+        let here = chain.last()?;
+        let next = here
+            .subcommands
+            .iter()
+            .find(|sub| core::ptr::eq(sub.cmd, *cmd))?;
+        names.push(next.cmd.name);
+        chain.push(next);
+    }
+    Some(if long {
+        long_help(spec, &names, &chain)
+    } else {
+        short_help(spec, &names, &chain)
+    })
+}
