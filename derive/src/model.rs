@@ -5,6 +5,7 @@
 //! actually interacts with — in one place.
 
 use proc_macro2::Span;
+use syn::ext::IdentExt as _;
 use syn::spanned::Spanned;
 use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 
@@ -2012,7 +2013,20 @@ pub struct Subcommands {
 /// The enum's name is in it because two enums in one module may each declare a `Sponsors`, and
 /// two structs of one name is a worse error than the one this is avoiding.
 fn unit_struct_ident(enum_ident: &syn::Ident, variant: &syn::Ident) -> syn::Ident {
-    syn::Ident::new(&format!("__Usage{enum_ident}{variant}"), variant.span())
+    // `unraw` first: a raw identifier prints as `r#type`, and `Ident::new` *panics* on the
+    // `#` — a proc-macro panic, which is the worst way for a CLI to learn it used a keyword
+    // for a command name.
+    let enum_name = enum_ident.unraw();
+    let variant_name = variant.unraw();
+    // Length-prefixed rather than separated: plain concatenation is ambiguous — `Foo::BarBaz`
+    // and `FooBar::Baz` both read as `FooBarBaz` — and an underscore between the parts would
+    // land a `non_camel_case_types` warning in the adopter's crate about a type they never
+    // wrote. A count is unambiguous and still spells a name Rust is happy with.
+    let n = enum_name.to_string().chars().count();
+    syn::Ident::new(
+        &format!("__Usage{n}{enum_name}{variant_name}"),
+        variant.span(),
+    )
 }
 
 /// One variant: a command name and the struct holding its flags and arguments.
@@ -2157,7 +2171,9 @@ impl Subcommands {
 impl Variant {
     fn from_variant(variant: &syn::Variant, enum_ident: &syn::Ident) -> syn::Result<Self> {
         let (help, long_help) = doc_comment(&variant.attrs)?;
-        let mut name = to_kebab(&variant.ident.to_string());
+        // `unraw` first: `r#type` is how a variant named after a keyword prints, and a command
+        // called `r#type` is one no user could type. `type` is what they meant.
+        let mut name = to_kebab(&variant.ident.unraw().to_string());
         let mut aliases: Vec<String> = Vec::new();
         let mut hidden_aliases: Vec<String> = Vec::new();
         let mut effect = None;
@@ -2314,7 +2330,7 @@ impl ValueEnum {
                      in it: `cfg` the whole enum instead",
                 ));
             }
-            let mut name = to_kebab(&variant.ident.to_string());
+            let mut name = to_kebab(&variant.ident.unraw().to_string());
             for attr in attrs(&variant.attrs) {
                 for meta in nested(attr)? {
                     let path = meta.path().clone();

@@ -35,6 +35,46 @@ enum Command {
     Licence,
 }
 
+/// Names that would collide if the two halves were run together
+///
+/// `Ambiguous::PairTwo` and the enum below spell `AmbiguousPairTwo` either way round, which is
+/// why the pieces are separated. And `r#type` is a keyword a CLI may well want as a command:
+/// its raw form prints as `r#type`, and `Ident::new` panics on the `#`.
+// Every Rust keyword is lower case, so a variant named after one is lower case too — there is
+// no way to write this fixture without the lint firing on the *fixture*. Nothing generated
+// needs it; that is what the length-prefixed struct name is for.
+#[allow(non_camel_case_types)]
+#[derive(Subcommands)]
+enum Ambiguous {
+    /// One
+    PairTwo,
+    /// A command named after a keyword
+    r#type,
+}
+
+/// A tool whose names are awkward
+#[derive(Cli)]
+#[usage(bin = "awkward")]
+struct AwkwardCli {
+    #[usage(subcommand)]
+    command: Option<Ambiguous>,
+}
+
+/// The other half of the collision
+#[derive(Subcommands)]
+enum AmbiguousPair {
+    /// Two
+    Two,
+}
+
+/// A tool sharing the module with it
+#[derive(Cli)]
+#[usage(bin = "pair")]
+struct PairCli {
+    #[usage(subcommand)]
+    command: Option<AmbiguousPair>,
+}
+
 /// A second set, with a bare variant spelled the same as the first's
 ///
 /// The implied structs are named after the enum as well as the variant for exactly this: two
@@ -165,4 +205,28 @@ fn a_bare_variant_can_say_what_it_does_to_the_world() {
             .effect,
         Some(usage::SpecCommandEffect::Read)
     );
+}
+
+#[test]
+fn awkward_names_do_not_collide_or_panic() {
+    // All four compile, which is the assertion. `Ambiguous::PairTwo` and
+    // `AmbiguousPair::Two` both read as `AmbiguousPairTwo` if the halves are simply run
+    // together, and `r#type` panics the macro outright if the raw prefix is not stripped —
+    // both landing in the adopter's crate, about a struct they never wrote.
+    use std::ffi::OsStr;
+    let argv = [OsStr::new("pair-two")];
+    assert!(matches!(
+        AwkwardCli::parse_from(&argv).expect("should parse").command,
+        Some(Ambiguous::PairTwo)
+    ));
+    let argv = [OsStr::new("type")];
+    assert!(matches!(
+        AwkwardCli::parse_from(&argv).expect("should parse").command,
+        Some(Ambiguous::r#type)
+    ));
+    let argv = [OsStr::new("two")];
+    assert!(matches!(
+        PairCli::parse_from(&argv).expect("should parse").command,
+        Some(AmbiguousPair::Two)
+    ));
 }
