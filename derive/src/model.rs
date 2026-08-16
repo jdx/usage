@@ -35,6 +35,11 @@ pub struct Cli {
     /// CLI with a subcommand depend on `usage-config`. A root that binds a setting of its own has
     /// already said it, and does not need this.
     pub settings: bool,
+    /// What running this command does to the world, when it says.
+    ///
+    /// Held as the tokens for an `Option<Effect>`, since the only thing it becomes is a field of
+    /// a generated `static` — a second enum here would be a copy of the spec's to keep in step.
+    pub effect: Option<proc_macro2::TokenStream>,
     /// Where `#[usage(...)]` was written on the struct, when it was.
     ///
     /// Every position rule in [`Cli::check_position`] is about an attribute in the wrong place,
@@ -111,6 +116,11 @@ pub struct Field {
     /// model checks — a `String` has one place to put a value.
     pub default: Vec<String>,
     pub help_heading: Option<String>,
+    /// What supplying this flag does to the world, when it says.
+    ///
+    /// A flag can only *raise* what its command does — `--dry-run` does not make a writing
+    /// command read-only — which is the spec's rule and not this crate's to enforce.
+    pub effect: Option<proc_macro2::TokenStream>,
     /// Whether a collecting argument needs at least one value.
     ///
     /// Required-ness is normally the type's to say: a bare `String` has nowhere to put
@@ -175,6 +185,34 @@ pub enum DoubleDash {
     /// What a wrapper needs: `mise run build --watch` hands `--watch` to the task without
     /// the user typing a separator, and `mise --watch build` is still a flag mise reads.
     Automatic,
+}
+
+/// What a command or a flag does to the world, as the spec spells it.
+///
+/// Not something clap can express, so a CLI that wants it keeps a side table keyed by command
+/// path and applies it to the generated spec afterwards — communique's `command_effects.rs` is
+/// two hundred lines of exactly that. Declared beside the command instead, where the code that
+/// does the thing is.
+fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
+    let value = string_value(meta)?;
+    let variant = match value.as_str() {
+        "read" => quote::quote!(Read),
+        "write" => quote::quote!(Write),
+        "destructive" => quote::quote!(Destructive),
+        other => {
+            return Err(syn::Error::new_spanned(
+                meta,
+                format!(
+                    "`effect = \"{other}\"` is not one the spec has; it takes \"read\" for \
+                     something that only looks, \"write\" for something that changes what can \
+                     be made again, and \"destructive\" for something that cannot be undone"
+                ),
+            ));
+        }
+    };
+    Ok(quote::quote!(::core::option::Option::Some(
+        ::usage_argv::spec::Effect::#variant
+    )))
 }
 
 /// Whether a field is a flag or a positional, and how it is addressed.
@@ -277,6 +315,7 @@ impl Cli {
             bin: None,
             completion: false,
             settings: false,
+            effect: None,
             attr_span: input
                 .attrs
                 .iter()
@@ -309,6 +348,7 @@ impl Cli {
                     // decorative after it.
                     "completion" => cli.completion = flag_value(&meta)?,
                     "settings" => cli.settings = flag_value(&meta)?,
+                    "effect" => cli.effect = Some(effect_value(&meta)?),
                     "version" => cli.version = Some(string_value(&meta)?),
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
@@ -465,6 +505,10 @@ impl Cli {
         for (present, what) in [
             (self.mount.is_some(), "mount"),
             (self.restart_token.is_some(), "restart_token"),
+            // Bare `communique` does nothing to the world; one of its commands does. The spec
+            // writer asserts the root carries none, so declaring one here would trip a
+            // `debug_assert!` in the writer rather than say anything.
+            (self.effect.is_some(), "effect"),
         ] {
             if present {
                 return Err(self.misplaced(
@@ -748,6 +792,10 @@ impl Field {
             kind: Kind::Flatten {
                 ty: field.ty.clone(),
             },
+            // Neither holds a flag of its own, so neither has an effect to declare: a
+            // flattened group's flags carry their own, and a subcommand field is a command's
+            // place rather than a command.
+            effect: None,
             complete: None,
             // A flattened field holds declarations, not a value, so none of what describes a
             // value applies — the same as a subcommand field.
@@ -783,6 +831,7 @@ impl Field {
         span: proc_macro2::Span,
     ) -> syn::Result<Option<Self>> {
         let mut is_subcommand = false;
+        let mut others: Vec<syn::Path> = Vec::new();
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
                 if ident_of(&meta.path().clone()) == "subcommand" {
@@ -794,7 +843,27 @@ impl Field {
                         ));
                     }
                     is_subcommand = true;
+                } else {
+                    others.push(meta.path().clone());
                 }
+            }
+        }
+        // Nothing else applies here, and this branch used to *ignore* whatever else was
+        // written — so `#[usage(subcommand, effect = "write")]` compiled and said nothing.
+        // Refused as a class rather than one option at a time: this field holds a set of
+        // commands, and everything the attribute can otherwise say describes a value or a
+        // flag, which a subcommand holder is neither.
+        if is_subcommand {
+            if let Some(other) = others.first() {
+                let what = ident_of(&other.clone());
+                return Err(syn::Error::new_spanned(
+                    other,
+                    format!(
+                        "`{what}` says nothing about a `subcommand` field, which holds a set \
+                         of commands rather than a value — declare it on the command it \
+                         describes, where `#[derive(Args)]` is"
+                    ),
+                ));
             }
         }
         if !is_subcommand {
@@ -817,6 +886,7 @@ impl Field {
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
             kind: Kind::Subcommand { ty, optional },
+            effect: None,
             complete: None,
             // A subcommand field holds a command, not a value, so none of what
             // describes a value applies to it.
@@ -878,6 +948,7 @@ impl Field {
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
         let mut help_heading = None;
+        let mut effect = None;
         let mut value_name = None;
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
@@ -984,6 +1055,7 @@ impl Field {
                     "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default.push(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
                     // Help text a doc comment cannot carry. A comment's first paragraph is
                     // read the way Rust reads one — line breaks inside it are spaces — so
@@ -1438,6 +1510,19 @@ impl Field {
             }
         }
 
+        // `effect` says what *supplying* something does to the world, so on a field it belongs
+        // to a flag. A positional is the thing being acted on rather than a choice to act, and
+        // `arg_meta` has nowhere to put one — so a declaration here was stored and then
+        // dropped, which reads as though it had done something.
+        if effect.is_some() && !matches!(kind, Kind::Flag { .. }) {
+            return Err(syn::Error::new(
+                span,
+                "`effect` describes what supplying a flag does to the world, and a positional \
+                 argument is what is acted on rather than a choice to act — put it on the \
+                 command, where `#[derive(Args)]` is, or on the flag that changes the answer",
+            ));
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -1476,6 +1561,7 @@ impl Field {
             setting,
             default,
             help_heading,
+            effect,
             value_name,
             required_collection,
             choices,
@@ -2513,6 +2599,79 @@ mod tests {
             .check_position(&ident, is_root)
             .expect_err("should have been refused")
             .to_string()
+    }
+
+    #[test]
+    fn an_effect_the_spec_does_not_have_is_refused() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, effect = "mostly-harmless")]
+                force: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
+        // The message lists them, because three words are not guessable from the attribute.
+        assert!(err.contains("destructive"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn an_effect_belongs_to_a_flag_or_a_command_and_not_to_an_argument() {
+        // A positional is what is acted on, not a choice to act — and `arg_meta` has nowhere to
+        // put an effect, so a declaration here was stored and then dropped, which reads as
+        // though it had done something.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, effect = "destructive")]
+                path: String,
+            }
+        "#,
+        );
+        assert!(err.contains("is what is acted on"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_subcommand_field_takes_nothing_but_subcommand() {
+        // This branch used to *ignore* whatever else was written, so `effect` on it compiled
+        // and said nothing. Refused as a class: the field holds a set of commands, and
+        // everything else the attribute can say describes a value or a flag.
+        for other in ["effect = \"write\"", "long", "default = \"x\"", "global"] {
+            let err = rejection(&format!(
+                r#"
+                struct Ex {{
+                    #[usage(subcommand, {other})]
+                    command: Option<Commands>,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("says nothing about a `subcommand` field"),
+                "`{other}` should be refused: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_root_does_nothing_to_the_world() {
+        // Bare `communique` does nothing; one of its commands does. The spec writer asserts the
+        // root carries no effect, so accepting it here would trade a message for a
+        // `debug_assert!` in the writer — which is a poor way to learn where an attribute goes.
+        let err = position_error(
+            r#"
+            #[usage(effect = "write")]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#,
+            true,
+        );
+        assert!(
+            err.contains("`effect` belongs on a command"),
+            "unhelpful: {err}"
+        );
     }
 
     #[test]
