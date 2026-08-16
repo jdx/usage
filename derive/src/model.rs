@@ -35,6 +35,12 @@ pub struct Cli {
     /// CLI with a subcommand depend on `usage-config`. A root that binds a setting of its own has
     /// already said it, and does not need this.
     pub settings: bool,
+    /// Where `#[usage(...)]` was written on the struct, when it was.
+    ///
+    /// Every position rule in [`Cli::check_position`] is about an attribute in the wrong place,
+    /// so every one of them should point at the attribute. Spanning the struct's *name* put the
+    /// underline one line below the thing that was wrong.
+    pub attr_span: Option<proc_macro2::Span>,
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
@@ -245,6 +251,11 @@ impl Cli {
             bin: None,
             completion: false,
             settings: false,
+            attr_span: input
+                .attrs
+                .iter()
+                .find(|a| a.path().is_ident("usage"))
+                .map(|a| a.path().span()),
             version: None,
             about,
             long_about,
@@ -341,6 +352,18 @@ impl Cli {
     ///
     /// A negation counts, since `--no-color` is another way to name the field `--color`
     /// declared — the two share one place to record whether they were given.
+    /// A position error, pointed at the attribute rather than at the struct's name.
+    ///
+    /// Every rule in [`check_position`](Self::check_position) is about an attribute written in
+    /// the wrong place, so the underline belongs on the attribute. Falls back to the name for a
+    /// struct that has none, which cannot reach these rules but keeps the helper total.
+    fn misplaced(&self, ident: &syn::Ident, message: impl std::fmt::Display) -> syn::Error {
+        match self.attr_span {
+            Some(span) => syn::Error::new(span, message),
+            None => syn::Error::new_spanned(ident, message),
+        }
+    }
+
     /// Check the command-level properties against where this struct sits in the tree.
     ///
     /// Both derives share this parse, so these rules cannot live inside it: the same
@@ -361,7 +384,7 @@ impl Cli {
             // whole CLI is. Accepted silently on an `Args`, it generated nothing and said
             // nothing, which reads as a CLI that has completions and does not.
             if self.completion {
-                return Err(syn::Error::new_spanned(
+                return Err(self.misplaced(
                     ident,
                     "`completion` belongs on the root, where `#[derive(Cli)]` is: the hidden \
                      command it adds answers for the whole program, not for one of its commands",
@@ -372,7 +395,7 @@ impl Cli {
             // attribute has nothing left to say here, and saying it would read as the group
             // having asked for something.
             if self.settings {
-                return Err(syn::Error::new_spanned(
+                return Err(self.misplaced(
                     ident,
                     "`settings` belongs on the root, where `#[derive(Cli)]` is: it says that \
                      this CLI resolves settings whose flags are declared elsewhere, and a group \
@@ -381,7 +404,7 @@ impl Cli {
             }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
-                return Err(syn::Error::new_spanned(
+                return Err(self.misplaced(
                     ident,
                     "`default_subcommand` belongs on the root, where `#[derive(Cli)]` is: a \
                      spec declares one for the whole program, not one per command",
@@ -402,7 +425,7 @@ impl Cli {
                     || matches!(f.kind, Kind::Flatten { .. } | Kind::Subcommand { .. })
             })
         {
-            return Err(syn::Error::new_spanned(
+            return Err(self.misplaced(
                 ident,
                 "`settings` says this CLI resolves settings whose flags are declared \
                  elsewhere, and there is no elsewhere: nothing here binds a setting, and \
@@ -418,7 +441,7 @@ impl Cli {
             (self.restart_token.is_some(), "restart_token"),
         ] {
             if present {
-                return Err(syn::Error::new_spanned(
+                return Err(self.misplaced(
                     ident,
                     format!(
                         "`{what}` belongs on a command, not on the root: the spec accepts it \
@@ -435,7 +458,7 @@ impl Cli {
                 .iter()
                 .any(|f| matches!(f.kind, Kind::Subcommand { .. }))
         {
-            return Err(syn::Error::new_spanned(
+            return Err(self.misplaced(
                 ident,
                 "`default_subcommand` names the command a bare invocation means, and this \
                  one has no subcommands to name",
