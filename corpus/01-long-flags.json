@@ -70,10 +70,7 @@
       "doc": "An attached value binds even when it looks like a flag: `=` has already settled where the value came from.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
       "argv": ["--jobs=--force"],
-      "expect": { "ok": { "flags": { "jobs": "--force" } } },
-      "reference": {
-        "diverges": "usage-lib binds `force` instead and leaves `jobs` unset, treating the attached value as a separate flag token."
-      }
+      "expect": { "ok": { "flags": { "jobs": "--force" } } }
     },
     {
       "id": "long-value-detached-empty",
@@ -108,10 +105,7 @@
       "doc": "A `--` is flag-like too, so it cannot be swallowed as a detached value: the separator belongs to the command line, not to whichever flag happens to precede it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\narg \"[file]\"\n",
       "argv": ["--jobs", "--", "x"],
-      "expect": { "error": "missing_flag_value" },
-      "reference": {
-        "diverges": "usage-lib skips the separator and gives `jobs` the word after it, so `ex --jobs -- x` silently means `ex --jobs=x` and the separator is lost."
-      }
+      "expect": { "error": "missing_flag_value" }
     },
     {
       "id": "long-value-accepts-negative-number",
@@ -174,10 +168,14 @@
       "doc": "A flag whose argument is variadic takes several values from one occurrence, which is what the trailing ellipsis in `<pattern>...` declares.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>...\"\n",
       "argv": ["--include", "a", "b"],
-      "expect": { "ok": { "flags": { "include": ["a", "b"] } } },
-      "reference": {
-        "diverges": "usage-lib reports `unexpected_arg` for the second value. The spec reference documents this form, so the gap is in the parser rather than in the declaration."
-      }
+      "expect": { "ok": { "flags": { "include": ["a", "b"] } } }
+    },
+    {
+      "id": "long-variadic-flag-arg-attached-first-value",
+      "doc": "The `=` settles where the first value came from and nothing more, so a variadic argument goes on collecting from the words after it. Stopping at the attached one would make `--include=a b` and `--include a b` mean different things for no reason a caller could see.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>...\"\n",
+      "argv": ["--include=a", "b"],
+      "expect": { "ok": { "flags": { "include": ["a", "b"] } } }
     },
     {
       "id": "long-repeatable-flag-is-not-greedy",
