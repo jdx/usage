@@ -27,6 +27,7 @@ const EFFECTS: &[(&str, SpecCommandEffect)] = &[
     ("generate completion", Read),
     ("generate completion-init", Read),
     ("generate fig", Read),
+    ("generate go", Read),
     ("generate json", Read),
     ("generate json-schema", Read),
     ("generate manpage", Read),
@@ -48,6 +49,7 @@ const EFFECTS: &[(&str, SpecCommandEffect)] = &[
 /// All of these redirect output that would otherwise go to stdout.
 const FLAG_EFFECTS: &[(&str, &str, SpecCommandEffect)] = &[
     ("generate fig", "out-file", Write),
+    ("generate go", "out-file", Write),
     ("generate json-schema", "out-file", Write),
     ("generate manpage", "out-file", Write),
     ("generate markdown", "out-dir", Write),

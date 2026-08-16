@@ -55,6 +55,9 @@ Generate a shell init script that auto\-completes any usage shebang script on $P
 \fBgenerate fig\fR
 Generate Fig completion spec for Amazon Q / Fig
 .TP
+\fBgenerate go\fR
+Generate Go parse tables from a usage spec
+.TP
 \fBgenerate json\fR
 Outputs a usage spec in json format
 .TP
@@ -262,6 +265,29 @@ A usage spec taken in as a file, use "\-" to read from stdin
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
 File path where the generated Fig spec will be saved, or "\-" for stdout
+.TP
+\fB\-\-spec\fR \fI<SPEC>\fR
+Raw string spec input
+.SH "USAGE GENERATE GO"
+Generate Go parse tables from a usage spec
+
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
+
+//go:generate usage generate go \-f mycli.usage.kdl \-o tables.go
+.PP
+\fBUsage:\fR usage generate go [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-f, \-\-file\fR \fI<FILE>\fR
+A usage spec taken in as a file, use "\-" to read from stdin
+.TP
+\fB\-o, \-\-out\-file\fR \fI<OUT_FILE>\fR
+File path where the generated Go source will be saved, or "\-" for stdout
+.TP
+\fB\-p, \-\-package\fR \fI<PACKAGE>\fR
+Go package clause for the generated file (defaults to the spec's bin name)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
