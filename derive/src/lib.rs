@@ -193,6 +193,7 @@
 //! | `arg` | force a field to be positional |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
+//! | `requires = "--other"` | a flag that must also be given when this one is |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!

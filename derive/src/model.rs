@@ -159,6 +159,14 @@ pub struct Field {
     /// Flags this one cannot be given with. Checked after the parse: whether a flag
     /// is unwelcome depends on the whole command line, not on the token itself.
     pub conflicts: Vec<String>,
+    /// Flags that must also be given when this one is. Checked after the parse for the
+    /// same reason `conflicts` is: the flag that satisfies the requirement may still be
+    /// ahead of the one that imposes it.
+    ///
+    /// The same rule `required_if` states from the other end, and worth having both: this
+    /// one lives on the flag the rule is about, which is where clap puts it and where a
+    /// reader looks for it.
+    pub requires: Vec<String>,
     /// Flags whose presence makes this one necessary.
     pub required_if: Vec<String>,
     /// Flags whose presence makes this one unnecessary.
@@ -712,6 +720,7 @@ impl Cli {
             for (option, selectors) in [
                 ("overrides", &field.overrides),
                 ("conflicts", &field.conflicts),
+                ("requires", &field.requires),
                 ("required_if", &field.required_if),
                 ("required_unless", &field.required_unless),
             ] {
@@ -834,6 +843,7 @@ impl Field {
             var_max: None,
             overrides: Vec::new(),
             conflicts: Vec::new(),
+            requires: Vec::new(),
             required_if: Vec::new(),
             required_unless: Vec::new(),
             hide: false,
@@ -925,6 +935,7 @@ impl Field {
             var_max: None,
             overrides: Vec::new(),
             conflicts: Vec::new(),
+            requires: Vec::new(),
             required_if: Vec::new(),
             required_unless: Vec::new(),
             hide: false,
@@ -980,6 +991,7 @@ impl Field {
         let mut var_max: Option<usize> = None;
         let mut overrides: Vec<String> = Vec::new();
         let mut conflicts: Vec<String> = Vec::new();
+        let mut requires: Vec<String> = Vec::new();
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1066,6 +1078,7 @@ impl Field {
                     // there is nothing to lose by accepting the shorter form.
                     "overrides" => overrides = selectors(&meta)?,
                     "conflicts" => conflicts = selectors(&meta)?,
+                    "requires" => requires = selectors(&meta)?,
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
                     "value_enum" => value_enum = flag_value(&meta)?,
@@ -1108,7 +1121,7 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `overrides`, \
-                                 `conflicts`, `required_if`, \
+                                 `conflicts`, `requires`, `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `required`, and `double_dash`"
                             ),
@@ -1334,6 +1347,7 @@ impl Field {
         for (option, selectors) in [
             ("overrides", &overrides),
             ("conflicts", &conflicts),
+            ("requires", &requires),
             ("required_if", &required_if),
             ("required_unless", &required_unless),
         ] {
@@ -1614,6 +1628,7 @@ impl Field {
             var_max,
             overrides,
             conflicts,
+            requires,
             required_if,
             required_unless,
             hide,

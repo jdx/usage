@@ -102,6 +102,20 @@ pub struct SpecFlag {
     /// generated from a clap command was losing it.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// Flags that must also be given when this one is.
+    ///
+    /// The positive form of [`SpecFlag::conflicts`], and not the same statement as
+    /// [`SpecFlag::required_if`] read backwards: `required_if` lives on the flag that
+    /// becomes required, so declaring `--out` needs `--format` means editing `--format`,
+    /// away from the flag the rule is about. `requires` lives on the flag that imposes
+    /// the rule, which is where clap puts it and where a reader looks for it.
+    ///
+    /// Nothing generated from a clap command can carry this: clap 4.6 has `Arg::requires`
+    /// and its variants as setters with no getter, so a `Command` cannot be asked what it
+    /// requires. A CLI that declares it here gains a constraint its generated spec never
+    /// had.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,6 +176,7 @@ impl SpecFlag {
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
                 "overrides" => flag.overrides = vec![v.ensure_string()?],
                 "conflicts" => flag.conflicts = vec![v.ensure_string()?],
+                "requires" => flag.requires = vec![v.ensure_string()?],
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -264,6 +279,13 @@ impl SpecFlag {
                 }
                 "overrides" => {
                     flag.overrides = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
+                }
+                "requires" => {
+                    flag.requires = child
                         .ensure_arg_len(1..)?
                         .args()
                         .map(|arg| arg.ensure_string())
@@ -415,6 +437,16 @@ impl From<&SpecFlag> for KdlNode {
                 conflicts.push(string_entry(None, target));
             }
             children.nodes_mut().push(conflicts);
+        }
+        if flag.requires.len() == 1 {
+            node.push(string_entry(Some("requires"), &flag.requires[0]));
+        } else if !flag.requires.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut requires = KdlNode::new("requires");
+            for target in &flag.requires {
+                requires.push(string_entry(None, target));
+            }
+            children.nodes_mut().push(requires);
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
@@ -577,6 +609,11 @@ impl From<&clap::Arg> for SpecFlag {
             required_if: vec![],
             required_unless: vec![],
             conflicts: vec![],
+            // clap 4.6 has `Arg::requires` and its variants as setters with no getter, so
+            // there is nothing to read here however the `Arg` was built. Left empty rather
+            // than guessed at, and counted by `gen-shadow` as a thing the clap dialect
+            // cannot carry.
+            requires: vec![],
             help,
             help_long,
             help_md: None,
@@ -714,6 +751,43 @@ mod tests {
 
         let reparsed: Spec = spec.to_string().parse().unwrap();
         assert_eq!(reparsed.cmd.flags[1].conflicts.len(), 2, "{spec}");
+    }
+
+    #[test]
+    fn requires_round_trips_in_both_spellings() {
+        // The same two spellings `conflicts` has, because it is the same shape of
+        // statement: a property for one selector, a child node for several.
+        let spec: Spec = "flag \"--out <p>\" requires=\"--format\"\nflag \"--sign\" {\n  requires \"--key\" \"--identity\"\n}\nflag \"--format <f>\"\nflag \"--key <k>\"\nflag \"--identity <i>\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].requires, vec!["--format".to_string()]);
+        assert_eq!(
+            spec.cmd.flags[1].requires,
+            vec!["--key".to_string(), "--identity".to_string()]
+        );
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].requires, vec!["--format".to_string()]);
+        assert_eq!(reparsed.cmd.flags[1].requires.len(), 2, "{spec}");
+    }
+
+    #[test]
+    fn requires_cannot_come_across_from_clap() {
+        // Not an oversight to be fixed later: clap 4 has `Arg::requires` as a setter
+        // with no getter and keeps the field private, so there is nothing here to read.
+        // Asserted rather than left implied, because an empty vector otherwise looks
+        // like a bug in the bridge — and because a future clap that *does* expose it
+        // should fail this test rather than pass silently.
+        let cmd = clap::Command::new("ex")
+            .arg(clap::Arg::new("out").long("out").requires("format"))
+            .arg(clap::Arg::new("format").long("format"));
+        let spec = Spec::from(&cmd);
+        let out = spec.cmd.flags.iter().find(|f| f.name == "out").unwrap();
+        assert!(
+            out.requires.is_empty(),
+            "clap exposes no getter for `requires`; if this now fails, the bridge can \
+             carry it and `SpecFlag::requires` should say so"
+        );
     }
 
     #[cfg(feature = "clap")]

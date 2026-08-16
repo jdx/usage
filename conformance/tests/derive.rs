@@ -730,6 +730,15 @@ struct Related {
     /// Where to write
     #[usage(long, required_if = "--stdin")]
     out: Option<String>,
+    /// Sign the output
+    #[usage(long, requires("--key", "--identity"))]
+    sign: bool,
+    /// The signing key
+    #[usage(long)]
+    key: Option<String>,
+    /// Who is signing
+    #[usage(long)]
+    identity: Option<String>,
 }
 
 #[test]
@@ -749,6 +758,13 @@ fn flag_relationships_reach_the_spec() {
         vec!["--file".to_string(), "--url".to_string()]
     );
     assert_eq!(flag("out").required_if, vec!["--stdin".to_string()]);
+    // Two selectors, so the emitted KDL takes the child-node spelling rather than the
+    // property one — the same pair of shapes `conflicts` has, and both have to survive
+    // being parsed back by usage-lib.
+    assert_eq!(
+        flag("sign").requires,
+        vec!["--key".to_string(), "--identity".to_string()]
+    );
     assert_eq!(flag("color").overrides, vec!["--plain".to_string()]);
     assert_eq!(
         flag("file").required_unless,
@@ -762,12 +778,21 @@ fn flag_relationships_reach_the_spec() {
         "{}",
         Related::to_kdl()
     );
+    assert!(
+        Related::to_kdl().contains(r#"requires "--key" "--identity""#),
+        "{}",
+        Related::to_kdl()
+    );
 
     // And the same declaration still parses: a satisfied set of relationships is
     // invisible, which is the point.
     let a = argv(["--stdin", "--out", "o"]);
     let rel = Related::parse_from(&a).expect("should parse");
     assert!(rel.stdin);
+    // `--sign` was not given, so what it requires is not asked for.
+    assert!(!rel.sign);
+    assert!(rel.key.is_none());
+    assert!(rel.identity.is_none());
     assert!(rel.color && !rel.plain);
     assert_eq!(rel.out.as_deref(), Some("o"));
     assert!(rel.file.is_none());
