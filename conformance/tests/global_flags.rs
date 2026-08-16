@@ -357,19 +357,24 @@ fn a_negation_is_a_spelling_like_any_other() {
 }
 
 #[test]
-fn a_negation_claims_a_spelling_for_its_own_command() {
-    // The other direction, and the one that needs a flag's *negation* counted among the
-    // spellings it claims: `narrow` declares `--cache` with a `--no-cache` negation, and the
-    // root has a plain global `--no-cache`. The nearer negation binds, so the root's must not
-    // be advertised here.
+fn a_long_beats_a_negation_however_far_away_it_is() {
+    // `narrow` declares `--cache` with a `--no-cache` negation; the root has a plain global
+    // long `--no-cache`. Which one binds is not about distance: `long_flag` asks `find_long`
+    // over the whole scope *before* it asks `find_negation`, so the root's long wins even
+    // though the negation is nearer. Measured rather than reasoned about:
+    //
+    //     $ ex narrow --no-cache   →   the root's `no_cache` is set
+    //
+    // So the root's flag is still offered here. Reading the two as one set of claims said the
+    // negation had taken the spelling, and the page hid a flag that works.
     for long in [false, true] {
         let page = page_of(&["narrow"], long);
         let (_, global) = page
             .split_once("Global flags:")
             .unwrap_or_else(|| panic!("long={long}: {page}"));
         assert!(
-            !global.contains("--no-cache"),
-            "long={long}: the subcommand's negation owns that spelling: {page}"
+            global.contains("--no-cache"),
+            "long={long}: a long beats a negation, so this still binds here: {page}"
         );
     }
 }

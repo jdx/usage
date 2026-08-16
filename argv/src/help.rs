@@ -138,8 +138,24 @@ impl<'a> Shown<'a> {
         }
     }
 
-    /// What is left of a flag once `taken` has had its pick.
-    fn surviving(meta: &'a FlagMeta<'a>, taken: &[String]) -> Self {
+    /// What is left of a flag once everything nearer has had its pick.
+    ///
+    /// `taken` is the longs and shorts already claimed; `taken_negations` the negations;
+    /// `every_form` every long and short in scope at any distance, because the parser resolves
+    /// a word against all of those before it looks at a negation at all.
+    fn surviving(
+        meta: &'a FlagMeta<'a>,
+        taken: &[String],
+        taken_negations: &[String],
+        every_form: &[String],
+    ) -> Self {
+        let mine: Vec<String> = meta
+            .flag
+            .longs
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(meta.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
+            .collect();
         Shown {
             long: meta
                 .flag
@@ -153,10 +169,12 @@ impl<'a> Shown<'a> {
                 .iter()
                 .copied()
                 .find(|s| !taken.contains(&format!("-{}", *s as char))),
-            negate: meta
-                .flag
-                .negate
-                .is_some_and(|n| !taken.contains(&format!("--{n}"))),
+            negate: meta.flag.negate.is_some_and(|n| {
+                let spelling = format!("--{n}");
+                // A long anywhere in scope wins over this, this flag's own excepted.
+                !taken_negations.contains(&spelling)
+                    && (!every_form.contains(&spelling) || mine.contains(&spelling))
+            }),
         }
     }
 
@@ -949,23 +967,45 @@ fn own_and_global<'a>(
     // **Negations**, which are spellings like any other and can be claimed. And **every** long
     // and short a flag answers to rather than only its first: a descendant taking `--jobs`
     // leaves an inherited `--workers` working, and it should still be findable.
-    fn claims<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
+    // Two sets, because the parser has two passes. `long_flag` asks `find_long` over the whole
+    // scope before it asks `find_negation`, so *any* long beats *any* negation — a nearer
+    // command's `--cache` negation does not take the spelling from a farther command's `--cache`
+    // long, and reading them as one set said it did.
+    fn forms<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
         f.flag
             .longs
             .iter()
             .map(|l| format!("--{l}"))
             .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
-            .chain(f.flag.negate.map(|n| format!("--{n}")))
+    }
+    fn negation(f: &FlagMeta<'_>) -> Option<String> {
+        f.flag.negate.map(|n| format!("--{n}"))
     }
 
-    let mut taken: Vec<String> = here.flags.iter().flat_map(claims).collect();
+    // Every long and short anything in scope answers to, near or far: one of these always
+    // beats a negation, so a negation survives only where none of them is the same word.
+    let every_form: Vec<String> = here
+        .flags
+        .iter()
+        .chain(
+            ancestors
+                .iter()
+                .flat_map(|m| m.flags.iter())
+                .filter(|f| f.flag.global),
+        )
+        .flat_map(forms)
+        .collect();
+
+    let mut taken: Vec<String> = here.flags.iter().flat_map(forms).collect();
+    let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
     let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
     for meta in ancestors.iter().rev() {
         for f in meta.flags.iter().filter(|f| f.flag.global) {
-            let show = Shown::surviving(f, &taken);
+            let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
             // Reserved whether or not it is shown: a hidden one still binds, and so does one
             // whose every spelling something nearer already took.
-            taken.extend(claims(f));
+            taken.extend(forms(f));
+            taken_negations.extend(negation(f));
             if f.hide || show.nothing() {
                 continue;
             }

@@ -107,22 +107,36 @@ fn inherited_flags(
     // are looked up before its ancestors', so `mise use --raw` is *use's* and never the root's.
     // Listing both would print two descriptions for one spelling, one of which can never apply.
     // Nearest ancestor first for the decision, then emitted root-first.
-    // Which spellings are already spoken for, and by whom. The parser's rule: a command's own
-    // flags are looked up before its ancestors', nearest first, and the first match binds — so
-    // a page offers a spelling only where the flag it describes is the one that would take it.
+    // Two sets, because the parser has two passes: it resolves a word against every long and
+    // short in scope before it looks at a negation at all, so *any* long beats *any* negation
+    // however far away it is. Reading them as one said a nearer negation had taken a spelling
+    // that a farther long actually wins.
     //
-    // Counts hidden flags (they bind, they just are not shown), negations (a spelling like any
-    // other), and every long and short rather than only the first. The twin of `own_and_global`
-    // in `usage-argv`'s `help` module; the gate over mise's spec is what says the two agree.
-    let claims = |f: &crate::SpecFlag| -> Vec<String> {
+    // usage-lib stores a negation *with* its dashes — `negate="--no-colour"` reaches the model
+    // as `--no-colour` — where usage-argv stores it without. Prefixing here produced
+    // `----no-colour`, which matched nothing, so negations were counted in name only.
+    let forms = |f: &crate::SpecFlag| -> Vec<String> {
         f.long
             .iter()
             .map(|l| format!("--{l}"))
             .chain(f.short.iter().map(|s| format!("-{s}")))
-            .chain(f.negate.iter().map(|n| format!("--{n}")))
             .collect()
     };
-    let mut taken: Vec<String> = cmd.flags.iter().flat_map(&claims).collect();
+    let every_form: Vec<String> = cmd
+        .flags
+        .iter()
+        .chain(
+            ancestors
+                .iter()
+                .flat_map(|a| a.flags.iter())
+                .filter(|f| f.global),
+        )
+        .flat_map(&forms)
+        .collect();
+
+    let mut taken: Vec<String> = cmd.flags.iter().flat_map(&forms).collect();
+    let mut taken_negations: Vec<String> =
+        cmd.flags.iter().filter_map(|f| f.negate.clone()).collect();
     let mut keep: Vec<(&crate::SpecFlag, Option<String>, Option<char>, bool)> = Vec::new();
     for ancestor in ancestors.iter().rev() {
         for f in ancestor.flags.iter().filter(|f| f.global) {
@@ -136,13 +150,14 @@ fn inherited_flags(
                 .iter()
                 .find(|s| !taken.contains(&format!("-{s}")))
                 .copied();
-            let negate = f
-                .negate
-                .as_ref()
-                .is_some_and(|n| !taken.contains(&format!("--{n}")));
+            let mine = forms(f);
+            let negate = f.negate.as_ref().is_some_and(|n| {
+                !taken_negations.contains(n) && (!every_form.contains(n) || mine.contains(n))
+            });
             // Reserved whether or not it is shown: a hidden one still binds, and so does one
             // whose every spelling something nearer already took.
-            taken.extend(claims(f));
+            taken.extend(forms(f));
+            taken_negations.extend(f.negate.clone());
             if f.hide || (long.is_none() && short.is_none() && !negate) {
                 continue;
             }
@@ -232,6 +247,45 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn a_long_beats_a_negation_however_far_away_it_is() {
+        // A negation is stored *with* its dashes here and without them in usage-argv, so the
+        // spelling was being looked up as `----no-cache` and matched nothing — negations were
+        // counted in name only. And which one binds is not about distance: a word is resolved
+        // against every long in scope before any negation is considered, so the root's plain
+        // `--no-cache` wins over the subcommand's negation and belongs on its page.
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--no-cache" global=#true help="the root's plain long"
+flag "--colour" negate="--no-colour" global=#true help="the root's, with a negation"
+cmd narrow help="a command" {
+    flag "--cache" negate="--no-cache" help="its own, with a negation"
+    flag "--tint" negate="--no-colour" help="claims the root's negation"
+}
+        "# }
+        .unwrap();
+
+        let narrow = spec.cmd.subcommands.get("narrow").expect("narrow");
+        for long in [false, true] {
+            let page = super::render_help(&spec, narrow, long);
+            assert!(
+                page.contains("--no-cache"),
+                "long={long}: a long beats a negation, so this still binds here:\n{page}"
+            );
+            // And a negation *is* claimed by a nearer negation — which is what the dashes
+            // matter for. `--colour` stays; the negation it used to carry does not.
+            assert!(page.contains("--colour"), "long={long}:\n{page}");
+            let global = page
+                .split_once("Global flags:")
+                .expect("a global section")
+                .1;
+            assert!(
+                !global.contains("--colour / --no-colour"),
+                "long={long}: the nearer negation owns that spelling:\n{page}"
+            );
+        }
+    }
 
     #[test]
     fn a_description_of_only_spaces_is_no_description() {
