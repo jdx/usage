@@ -38,6 +38,13 @@
       "expect": { "ok": { "flags": { "set": "a=b" } } }
     },
     {
+      "id": "long-value-attached-leading-equals",
+      "doc": "Only the first `=` separates, seen from the other side: `--set==a` is a value of `=a` rather than an empty value followed by junk.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--set <kv>\"\n",
+      "argv": ["--set==a"],
+      "expect": { "ok": { "flags": { "set": "=a" } } }
+    },
+    {
       "id": "long-value-attached-empty",
       "doc": "`--flag=` binds the empty string. Present-but-empty is a different state from absent, and only the attached form can express it.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
@@ -52,6 +59,13 @@
       "expect": { "ok": { "flags": { "force": true } } }
     },
     {
+      "id": "long-boolean-with-attached-value",
+      "doc": "`--force=yes` on a flag that holds no value sets the flag and drops the value. Handing the leftover to the positionals would re-split one token into two, filling an argument the caller never typed a word for; clap rejects the token outright, which a spec parsing a command line it does not own cannot do.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"[file]\"\n",
+      "argv": ["--force=yes"],
+      "expect": { "ok": { "flags": { "force": true } } }
+    },
+    {
       "id": "long-value-attached-flaglike",
       "doc": "An attached value binds even when it looks like a flag: `=` has already settled where the value came from.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
@@ -60,6 +74,20 @@
       "reference": {
         "diverges": "usage-lib binds `force` instead and leaves `jobs` unset, treating the attached value as a separate flag token."
       }
+    },
+    {
+      "id": "long-value-detached-empty",
+      "doc": "An empty token is not flag-like, so `--jobs \"\"` binds the empty string. The attached form is the only way to write an empty value in one token, not the only way to pass one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs", ""],
+      "expect": { "ok": { "flags": { "jobs": "" } } }
+    },
+    {
+      "id": "long-value-is-one-token",
+      "doc": "A value is the token the shell produced, never re-split: `--include a,b` is one pattern containing a comma. Parsers that split on a delimiter make `,` unpassable, which is why clap stopped doing it by default in 4.0 and specs generated from clap assume it is off.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true\n",
+      "argv": ["--include", "a,b"],
+      "expect": { "ok": { "flags": { "include": ["a,b"] } } }
     },
     {
       "id": "long-value-missing",
@@ -74,6 +102,16 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--force\"\n",
       "argv": ["--jobs", "--force"],
       "expect": { "error": "missing_flag_value" }
+    },
+    {
+      "id": "long-value-rejects-the-separator",
+      "doc": "A `--` is flag-like too, so it cannot be swallowed as a detached value: the separator belongs to the command line, not to whichever flag happens to precede it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\narg \"[file]\"\n",
+      "argv": ["--jobs", "--", "x"],
+      "expect": { "error": "missing_flag_value" },
+      "reference": {
+        "diverges": "usage-lib skips the separator and gives `jobs` the word after it, so `ex --jobs -- x` silently means `ex --jobs=x` and the separator is lost."
+      }
     },
     {
       "id": "long-value-accepts-negative-number",
@@ -95,6 +133,34 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
       "argv": ["--for"],
       "expect": { "error": "unexpected_arg" }
+    },
+    {
+      "id": "long-many-dashes-names-nothing",
+      "doc": "A run of dashes is read as a long flag whose name happens to be dashes, matches nothing, and so becomes a word like any other unrecognized flag. There is no separate rule for `---`, and only a bare `--` is the separator.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
+      "argv": ["-----"],
+      "expect": { "ok": { "args": { "file": "-----" } } }
+    },
+    {
+      "id": "long-alias-binds-the-flag-name",
+      "doc": "A flag may declare several long names; the extra ones are aliases, and every one of them binds under the flag's name. Renaming a flag is done by adding a name, not by breaking the old one.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force --overwrite\"\n",
+      "argv": ["--overwrite"],
+      "expect": { "ok": { "flags": { "force": true } } }
+    },
+    {
+      "id": "long-repeated-keeps-the-last",
+      "doc": "A flag that is neither `var` nor `count` may still be given twice, and the later occurrence wins. A repeat is a correction — typically a wrapper appending to a command line it did not write — so the last word on the subject is the one that counts.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n",
+      "argv": ["--jobs", "1", "--jobs", "2"],
+      "expect": { "ok": { "flags": { "jobs": "2" } } }
+    },
+    {
+      "id": "long-boolean-repeated",
+      "doc": "The same for a flag holding no value: giving `--force` twice is not an error and not a count, just true.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\n",
+      "argv": ["--force", "--force"],
+      "expect": { "ok": { "flags": { "force": true } } }
     },
     {
       "id": "long-repeated-var",
@@ -127,6 +193,13 @@
       "doc": "A flag with `negate` binds false when the negating form is used.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
       "argv": ["--no-color"],
+      "expect": { "ok": { "flags": { "color": false } } }
+    },
+    {
+      "id": "long-negation-with-attached-value",
+      "doc": "Dropping a value the flag cannot hold does not drop which form was typed: `--no-color=yes` still binds false. The two rules meet here, and reading the whole token to decide the form would make the negation depend on whether a value happened to be attached.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
+      "argv": ["--no-color=yes"],
       "expect": { "ok": { "flags": { "color": false } } }
     },
     {

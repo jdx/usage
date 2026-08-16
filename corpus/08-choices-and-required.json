@@ -49,6 +49,31 @@
       }
     },
     {
+      "id": "choice-checked-for-every-value-of-a-variadic",
+      "doc": "Each value a variadic collects is checked, not only the first. A list that is valid up to its last element is not a valid list.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<shell>...\" {\n  choices \"bash\" \"zsh\"\n}\n",
+      "argv": ["bash", "tcsh"],
+      "expect": { "error": "invalid_choice" },
+      "layer": "post-binding"
+    },
+    {
+      "id": "choice-checked-for-every-occurrence-of-a-flag",
+      "doc": "The same for a repeatable flag: every occurrence carries a value, and every value is checked.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" var=#true {\n  choices \"bash\" \"zsh\"\n}\n",
+      "argv": ["--shell", "bash", "--shell", "tcsh"],
+      "expect": { "error": "invalid_choice" },
+      "layer": "post-binding"
+    },
+    {
+      "id": "choice-checked-on-a-value-from-the-environment",
+      "doc": "Choices constrain the value, not the command line, so a value arriving from `env` is checked like any other. Otherwise the environment would be a way around the declaration.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--shell <shell>\" env=\"EX_SHELL\" {\n  choices \"bash\" \"zsh\"\n}\n",
+      "argv": [],
+      "env": { "EX_SHELL": "tcsh" },
+      "expect": { "error": "invalid_choice" },
+      "layer": "post-binding"
+    },
+    {
       "id": "required-flag-present",
       "doc": "A required flag that is given parses normally.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" required=#true\n",

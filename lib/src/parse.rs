@@ -231,9 +231,10 @@ fn get_flag_key(word: &str) -> &str {
     if word.starts_with("--") {
         // Long flag: strip =value if present
         word.split_once('=').map(|(k, _)| k).unwrap_or(word)
-    } else if word.len() >= 2 {
-        // Short flag: first two chars (-X)
-        &word[0..2]
+    } else if let Some((end, _)) = word.char_indices().nth(2) {
+        // Short flag: the dash and one letter, which is one character and not
+        // necessarily one byte.
+        &word[0..end]
     } else {
         word
     }
@@ -935,12 +936,13 @@ fn parse_partial_with_env(
                 // Only push the embedded value back when the flag is known so that
                 // unknown --flag=value tokens fall through intact to positional arg
                 // handling without also injecting a stray "value" positional.
-                // An empty value only means something to a flag that takes one:
-                // `--jobs=` is an empty string, while `--force=` has nothing to give
-                // a flag that holds no value, and queueing it would leave a stray
-                // empty word to be read as a positional. A non-empty value on such a
-                // flag is left as it was, which is its own question.
-                if (split.is_some() && f.arg.is_some()) || !val.is_empty() {
+                // An attached value only means something to a flag that takes one:
+                // `--jobs=` is an empty string, while `--force=yes` has nothing to
+                // give a flag that holds no value. Queueing it there would re-split
+                // one token into two, and the leftover would be read as a positional
+                // — so `ex --force=yes` would fill an argument the caller never
+                // typed a word for.
+                if split.is_some() && f.arg.is_some() {
                     input.push_front(val.to_string());
                     prefix_bindings.push_front(None);
                 }
@@ -956,8 +958,12 @@ fn parse_partial_with_env(
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
+                    // Which form was typed is a question about the name, so it is
+                    // asked of `word` rather than the whole token: the attached value
+                    // is dropped just above, and comparing `--no-color=yes` against
+                    // `--no-color` would take the negation down with it.
                     out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(w != negate));
+                        .insert(Arc::clone(f), ParseValue::Bool(word != negate));
                 }
                 continue;
             }
@@ -1002,8 +1008,9 @@ fn parse_partial_with_env(
                     &mut out.flag_awaiting_value,
                     &mut overridden_flags,
                 );
-                if w.len() > 2 {
-                    input.push_front(format!("-{}", &w[2..]));
+                let rest = &w[1 + short.len_utf8()..];
+                if !rest.is_empty() {
+                    input.push_front(format!("-{rest}"));
                     prefix_bindings.push_front(None);
                     grouped_flag = true;
                 }
@@ -2194,6 +2201,28 @@ flag "--file <file>" required_unless="--stdin"
             parse(&spec, &input(&["test", "--stdin", "--dir", "src"])),
             "Missing required flag: --file <file>",
         );
+    }
+
+    #[test]
+    fn short_flag_is_one_character_not_one_byte() {
+        // A short is declared and read by character. Counting bytes instead either
+        // refuses the declaration or slices the token inside the character, and clap
+        // — which many specs are generated from — accepts shorts like this one.
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .short('磨')
+                .long("polish")
+                .arg(SpecArg::builder().name("opt").build())
+                .build(),
+        );
+        let attached = Parser::new(&spec)
+            .parse(&input(&["test", "-磨VALUE"]))
+            .unwrap();
+        assert_eq!(flag_string_value(&attached, "polish"), "VALUE");
+        let detached = Parser::new(&spec)
+            .parse(&input(&["test", "-磨", "V"]))
+            .unwrap();
+        assert_eq!(flag_string_value(&detached, "polish"), "V");
     }
 
     #[test]

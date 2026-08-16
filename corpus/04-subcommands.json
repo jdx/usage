@@ -52,6 +52,13 @@
       "expect": { "ok": { "args": { "target": "other" } } }
     },
     {
+      "id": "cmd-no-abbreviation",
+      "doc": "A unique prefix of a subcommand name does not select it, for the same reason `--for` does not match `--force`: adding a command would otherwise change what an existing command line means. The word falls through to the positionals instead.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[target]\"\ncmd \"install\"\n",
+      "argv": ["inst"],
+      "expect": { "ok": { "args": { "target": "inst" } } }
+    },
+    {
       "id": "cmd-name-wins-over-arg",
       "doc": "When a word could be either a subcommand or a positional value, the subcommand wins. A CLI that declares both cannot be given a positional whose text equals a subcommand name \u2014 mise documents exactly this hazard for tasks that share a name with a command.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[target]\"\ncmd \"install\"\n",

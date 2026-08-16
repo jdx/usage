@@ -77,14 +77,27 @@ For a flag that takes a value, the value comes from one of two forms:
 | `--jobs 8` | the following token                                   |
 
 `--jobs=` binds the empty string. Present-but-empty is a distinct state from
-absent, and the attached form is the only way to express it.
+absent, and the attached form is the only way to express it in one token.
+
+A value attached to a flag that takes none is dropped: `--force=yes` sets `force`
+and nothing else. Handing the leftover to the positionals would re-split one
+token into two and fill an argument the caller never typed a word for.
 
 A detached value **must not be flag-like**. `--jobs --force` is a missing value,
 not a `jobs` of `"--force"`, because the overwhelmingly likely reading is that
 the value was forgotten. To pass a value that begins with a dash, attach it:
-`--jobs=--force`. The negative-number exception means `--offset -1` still works.
+`--jobs=--force`. The negative-number exception means `--offset -1` still works,
+and a lone `-` is a value too, so `--file -` reaches the flag. A `--` is
+flag-like, so it stays the separator rather than becoming the value of whatever
+flag precedes it.
 
 A flag needing a value that ends the command line is an error.
+
+A flag may declare **several long names**; the extra ones are aliases, and every
+one of them binds under the flag's name. A flag given **more than once** keeps
+the last value, unless it is `var` or `count`, which is what those declare
+instead. A repeat is a correction — usually a wrapper appending to a command line
+it did not write — so the last word on the subject is the one that counts.
 
 ### Flags that take several values
 
@@ -249,6 +262,16 @@ short: **command line, then environment, then default.**
 An environment variable set to the empty string is set. Treating empty as unset
 would make `EX_JOBS=` mean something no other empty value in the grammar means.
 
+A variable's value is one value, however much whitespace or however many commas
+it contains. It is not a command line, and is never split into several.
+
+For a flag that holds no value there is nothing to bind, so the variable's text
+is read as a boolean: `1`, `true`, `True`, and `TRUE` set it, and anything else —
+`0` and `false` included — leaves it false. Presence cannot be the test, since a
+parent process that exports `EX_VERBOSE=false` is saying no. Note that this is
+narrower than clap's falsey parser, where any value that is not falsey is true,
+so `yes` sets the flag there and not here.
+
 None of this changes which token binds where. It only fills what the command line
 left empty, which is why it is described last: an implementation can do all of it
 after the single pass is over.
@@ -328,23 +351,23 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-Today usage-lib diverges on 11 of 87 vectors, from three causes:
+Today usage-lib diverges on 5 of 152 vectors:
 
-**Unrecognized flags fall through to positionals.** `ex --wat` binds `--wat` to
-an argument if one is free, and reports `unexpected_arg` if not. This accounts
-for most of the divergences, including the ones where the grammar and usage-lib
-agree a flag is out of scope but disagree about which error to report.
+**An attached value that looks like a flag is read as one.** `--jobs=--force`
+binds `force` and leaves `jobs` unset, although the `=` has already settled where
+the value came from.
 
-**Repeated `--` is eaten.** A second separator is dropped rather than kept as a
-value, so a forwarded command line containing `--` is altered in transit. Note
-that `double_dash="preserve"` exists precisely to keep separators, which makes
-this arguably a deliberate design choice rather than a bug — see
-[Open questions](#open-questions).
+**A flag with a variadic argument takes only one value.** `--include a b` gives
+`include` just `a`, and reports `unexpected_arg` for the second, even though the
+[flag reference](/spec/reference/flag) documents `--include <pattern>...` as the
+form that collects. Bounding such a flag with `var_max` diverges for the same
+reason.
 
-Three smaller gaps: `--jobs=` binds nothing rather than the empty string; a flag
-with a variadic argument (`--include <pattern>...`, which the
-[flag reference](/spec/reference/flag) documents) rejects its second value; and
-`double_dash="automatic"` is not enforced, which the
+**A separator can be eaten as a flag's value.** `ex --jobs -- x` gives `jobs` the
+word after the separator, so the command line silently means `ex --jobs=x` and
+the `--` is lost.
+
+**`double_dash="automatic"` is not enforced**, which the
 [arg reference](/spec/reference/arg) already says outright.
 
 Where the grammar and usage-lib disagree, the grammar is the intent and the

@@ -46,6 +46,58 @@
       "layer": "post-binding"
     },
     {
+      "id": "env-value-is-one-token",
+      "doc": "An environment value is one value, whatever whitespace or commas it contains. It is not a command line and is never split into several.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" env=\"EX_INCLUDE\"\n",
+      "argv": [],
+      "env": { "EX_INCLUDE": "a b,c" },
+      "expect": { "ok": { "flags": { "include": "a b,c" } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "env-does-not-add-to-a-flag-the-command-line-gave",
+      "doc": "The environment fills what argv left empty; it does not contribute another occurrence to a repeatable flag that was given. A wrapper exporting a default must not silently append it to what the caller typed.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>\" var=#true env=\"EX_INCLUDE\"\n",
+      "argv": ["--include", "a", "--include", "b"],
+      "env": { "EX_INCLUDE": "z" },
+      "expect": { "ok": { "flags": { "include": ["a", "b"] } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "env-sets-a-flag-that-holds-no-value",
+      "doc": "A flag with no argument is set by its env var when the value reads as true.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" env=\"EX_VERBOSE\"\n",
+      "argv": [],
+      "env": { "EX_VERBOSE": "1" },
+      "expect": { "ok": { "flags": { "verbose": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "env-false-does-not-set-a-flag",
+      "doc": "`EX_VERBOSE=false` leaves the flag false rather than setting it because the variable exists. Presence cannot be the test: a variable exported as `false` by a parent process is the caller saying no.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" env=\"EX_VERBOSE\"\n",
+      "argv": [],
+      "env": { "EX_VERBOSE": "false" },
+      "expect": { "ok": { "flags": { "verbose": false } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "env-zero-does-not-set-a-flag",
+      "doc": "`0` is false as well, matching `1` being true. The pair is what a shell script writes.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" env=\"EX_VERBOSE\"\n",
+      "argv": [],
+      "env": { "EX_VERBOSE": "0" },
+      "expect": { "ok": { "flags": { "verbose": false } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-does-not-supply-a-missing-flag-value",
+      "doc": "A default fills a flag that was never given, not one that was given without its value. `ex --jobs` is still a missing value, since the two states differ and only the first is what a default is for.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" default=\"4\"\n",
+      "argv": ["--jobs"],
+      "expect": { "error": "missing_flag_value" }
+    },
+    {
       "id": "default-fills-absent-arg",
       "doc": "Defaults work the same way for positionals.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\" default=\"out.txt\"\n",

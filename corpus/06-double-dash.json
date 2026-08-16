@@ -32,6 +32,13 @@
       }
     },
     {
+      "id": "dd-subcommand-word-is-a-value",
+      "doc": "After the separator a word no longer routes, so `ex -- install` passes the string `install` to the argument instead of running the command. Stopping flag interpretation stops command selection with it: both are ways a token can mean something other than data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\ncmd \"install\"\n",
+      "argv": ["--", "install"],
+      "expect": { "ok": { "args": { "file": "install" } } }
+    },
+    {
       "id": "dd-consumed-not-a-value",
       "doc": "The separator itself is consumed rather than bound to an argument.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<a>\"\narg \"[b]\"\n",
