@@ -535,11 +535,7 @@ impl From<&clap::Arg> for SpecFlag {
             c.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         );
-        let default: Vec<String> = c
-            .get_default_values()
-            .iter()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
+        let default: Vec<String> = crate::spec::arg::default_values(c);
         let short = c.get_short_and_visible_aliases().unwrap_or_default();
         let long = c
             .get_long_and_visible_aliases()

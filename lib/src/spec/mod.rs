@@ -688,6 +688,37 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         "#);
     }
 
+    #[test]
+    #[cfg(feature = "clap")]
+    fn a_delimited_default_becomes_the_values_clap_would_split_it_into() {
+        // clap splits by the delimiter before anyone sees a value, defaults included, so the
+        // joined string is not something the CLI ever holds. The spec has no delimiter — it has
+        // a list, which says the same thing.
+        //
+        // mise's `--fs-events` is why: `default_value = "create,remove,rename,modify,metadata"`
+        // beside `value_parser` listing those as its choices, so the recorded default was a
+        // single value its own spec forbade.
+        let cmd = clap::Command::new("test").arg(
+            clap::Arg::new("events")
+                .long("events")
+                .value_delimiter(',')
+                .action(clap::ArgAction::Append)
+                .value_parser(["a", "b", "c"])
+                .default_value("a,b"),
+        );
+        let spec = Spec::from(&cmd);
+        let flag = spec.cmd.flags.iter().find(|f| f.name == "events").unwrap();
+        assert_eq!(flag.default, ["a", "b"]);
+
+        // And without a delimiter the value is whatever was written, commas and all: a path list
+        // is not every CLI's idea of a separator, so splitting on speculation would be worse.
+        let cmd = clap::Command::new("test")
+            .arg(clap::Arg::new("events").long("events").default_value("a,b"));
+        let spec = Spec::from(&cmd);
+        let flag = spec.cmd.flags.iter().find(|f| f.name == "events").unwrap();
+        assert_eq!(flag.default, ["a,b"]);
+    }
+
     macro_rules! extract_usage_tests {
         ($($name:ident: $input:expr, $expected:expr,)*) => {
         $(
