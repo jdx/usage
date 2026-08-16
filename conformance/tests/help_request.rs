@@ -307,8 +307,10 @@ fn the_page_advertises_exactly_where_the_word_works() {
 
     let config = spec.root.subcommands[0];
     let set = config.subcommands[0];
+    // The whole chain, `config` included. A gap in it is a gap in what the page can see: the
+    // globals `config` declares would go unlisted, and an ancestry regression would pass.
     let leaf_page =
-        usage_argv::help::short_help(spec, &["deep", "config", "set"], &[spec.root, set]);
+        usage_argv::help::short_help(spec, &["deep", "config", "set"], &[spec.root, config, set]);
     assert!(
         !leaf_page.contains("help  Print this message"),
         "a leaf promises nothing: {leaf_page}"

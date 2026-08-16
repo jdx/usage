@@ -112,7 +112,57 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
 
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
 fn flag_usage(meta: &FlagMeta<'_>) -> String {
-    flag_usage_masked(meta, false, false)
+    flag_usage_masked(meta, &Shown::all(meta))
+}
+
+/// The spellings of one flag that a page should offer.
+///
+/// Not "hide the long" and "hide the short": a flag may answer to several of each, and a
+/// descendant claiming `--jobs` leaves an inherited `--workers` working. What is shown is the
+/// first of each kind that nothing nearer has taken.
+struct Shown<'a> {
+    long: Option<&'a str>,
+    short: Option<u8>,
+    /// Whether the negation is still this flag's to offer. `--no-color` is a spelling like any
+    /// other and something nearer can claim it.
+    negate: bool,
+}
+
+impl<'a> Shown<'a> {
+    /// Everything the flag has, for a command's own flags — nothing above them to claim any.
+    fn all(meta: &'a FlagMeta<'a>) -> Self {
+        Shown {
+            long: meta.flag.longs.first().copied(),
+            short: meta.flag.shorts.first().copied(),
+            negate: meta.flag.negate.is_some(),
+        }
+    }
+
+    /// What is left of a flag once `taken` has had its pick.
+    fn surviving(meta: &'a FlagMeta<'a>, taken: &[String]) -> Self {
+        Shown {
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|l| !taken.contains(&format!("--{l}"))),
+            short: meta
+                .flag
+                .shorts
+                .iter()
+                .copied()
+                .find(|s| !taken.contains(&format!("-{}", *s as char))),
+            negate: meta
+                .flag
+                .negate
+                .is_some_and(|n| !taken.contains(&format!("--{n}"))),
+        }
+    }
+
+    fn nothing(&self) -> bool {
+        self.long.is_none() && self.short.is_none() && !self.negate
+    }
 }
 
 /// The same, with a spelling left out because something nearer claimed it.
@@ -120,7 +170,7 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
 /// A descendant may take one of an ancestor's two spellings — its own `-v` beside the root's
 /// `-v, --verbose` — and the parser still accepts the other, so the page has to offer the other
 /// and not the one that now means something else.
-fn flag_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
+fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     let flag = meta.flag;
     let mut out = String::new();
 
@@ -131,8 +181,8 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> 
     // Judged on the forms this page is *showing*. mise's root has a global `-E --env`; a
     // descendant that claims `--env` leaves `-E` inherited, and `-E… <ENV>` alone gives a
     // reader nothing to connect it to the `--env` they saw elsewhere. `env: -E… <ENV>` does.
-    let long = flag.longs.first().copied().filter(|_| !hide_long);
-    let short = flag.shorts.first().filter(|_| !hide_short);
+    let long = show.long;
+    let short = show.short.as_ref();
     let implied = long.or_else(|| short.map(|_| ""));
     let implied_matches = match (implied, short) {
         (Some(long), _) if !long.is_empty() => long == flag.name,
@@ -454,9 +504,9 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
-fn display_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
-    let usage = flag_usage_masked(meta, hide_long, hide_short);
-    match meta.flag.negate {
+fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
+    let usage = flag_usage_masked(meta, show);
+    match meta.flag.negate.filter(|_| show.negate) {
         Some(negate) => format!("{usage} / --{negate}"),
         None => usage,
     }
@@ -484,12 +534,12 @@ const SHORT_COL: usize = 4;
 /// what clap does. And a flag with neither — usage can name one the forms do not imply,
 /// `verbose: -v`, which clap has no equivalent for — takes the same path as short-only.
 fn column_usage(meta: &FlagMeta<'_>) -> String {
-    column_usage_masked(meta, false, false)
+    column_usage_masked(meta, &Shown::all(meta))
 }
 
-fn column_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
-    let rest = display_usage_masked(meta, hide_long, hide_short);
-    let Some(long) = meta.flag.longs.first().filter(|_| !hide_long) else {
+fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
+    let rest = display_usage_masked(meta, show);
+    let Some(long) = show.long else {
         return rest;
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
@@ -887,59 +937,51 @@ fn own_and_global<'a>(
     };
     let own: Vec<&FlagMeta<'_>> = here.flags.iter().filter(|f| !f.hide).collect();
 
-    // Shadowing, which the parser does and the page has to agree with: `in_scope` chains a
-    // command's own flags before its ancestors' and takes the first match, so `mise use --raw`
-    // is *use's* `--raw` and never the root's. Listing both would print two descriptions for
-    // one spelling, one of which can never apply.
+    // Which spellings are already spoken for at this command, and by whom.
     //
-    // Nearest ancestor first for the same reason, then emitted root-first, which is the order
-    // a reader meets them walking down.
+    // The parser's rule, exactly: `in_scope` chains a command's own flags before its
+    // ancestors' — nearest first — and takes the first match. So a page offers a spelling only
+    // where the flag it is describing is the one that would bind it.
+    //
+    // Three things this counts that an earlier version did not. **Hidden flags**, which `hide`
+    // keeps off the page while the parser still binds them — on the command *and* on an
+    // ancestor, or a farther global gets advertised while a nearer hidden one answers.
+    // **Negations**, which are spellings like any other and can be claimed. And **every** long
+    // and short a flag answers to rather than only its first: a descendant taking `--jobs`
+    // leaves an inherited `--workers` working, and it should still be findable.
     fn claims<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
         f.flag
             .longs
             .iter()
             .map(|l| format!("--{l}"))
             .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
+            .chain(f.flag.negate.map(|n| format!("--{n}")))
     }
-    // Every own flag, hidden ones included. `hide` keeps a flag out of the *page*; the parser
-    // still binds it, so it still shadows — and usage-lib counted them, which made the two
-    // renderers disagree wherever a hidden local shared a spelling with an ancestor's global.
-    let mut taken: Vec<String> = here.flags.iter().flat_map(|f| claims(f)).collect();
-    // Per spelling, not per flag. A descendant that claims only `-v` leaves the ancestor's
-    // `--verbose` working — the parser still binds it — so dropping the whole entry made a
-    // usable name undiscoverable. What survives is offered; what was claimed is not.
-    let mut keep: Vec<(*const FlagMeta<'_>, bool, bool)> = Vec::new();
+
+    let mut taken: Vec<String> = here.flags.iter().flat_map(claims).collect();
+    let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
     for meta in ancestors.iter().rev() {
-        for f in meta.flags.iter().filter(|f| !f.hide && f.flag.global) {
-            let hide_long = f
-                .flag
-                .longs
-                .first()
-                .is_some_and(|l| taken.contains(&format!("--{l}")));
-            let hide_short = f
-                .flag
-                .shorts
-                .first()
-                .is_some_and(|s| taken.contains(&format!("-{}", *s as char)));
-            // Nothing left to offer: every spelling it has is spoken for.
-            let nothing_left =
-                (hide_long || f.flag.longs.is_empty()) && (hide_short || f.flag.shorts.is_empty());
-            if nothing_left {
+        for f in meta.flags.iter().filter(|f| f.flag.global) {
+            let show = Shown::surviving(f, &taken);
+            // Reserved whether or not it is shown: a hidden one still binds, and so does one
+            // whose every spelling something nearer already took.
+            taken.extend(claims(f));
+            if f.hide || show.nothing() {
                 continue;
             }
-            taken.extend(claims(f));
-            keep.push((f as *const _, hide_long, hide_short));
+            keep.push((f as *const _, show));
         }
     }
-    let inherited = ancestors
+    let inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
         .iter()
         .flat_map(|meta| meta.flags.iter())
         .filter_map(|f| {
             keep.iter()
-                .find(|(p, _, _)| core::ptr::eq(*p, f as *const _))
-                .map(|(_, hl, hs)| (f, column_usage_masked(f, *hl, *hs)))
+                .find(|(p, _)| core::ptr::eq(*p, f as *const _))
+                .map(|(_, show)| (f, column_usage_masked(f, show)))
         })
         .collect();
+
     (own, inherited)
 }
 

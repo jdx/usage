@@ -107,36 +107,46 @@ fn inherited_flags(
     // are looked up before its ancestors', so `mise use --raw` is *use's* and never the root's.
     // Listing both would print two descriptions for one spelling, one of which can never apply.
     // Nearest ancestor first for the decision, then emitted root-first.
+    // Which spellings are already spoken for, and by whom. The parser's rule: a command's own
+    // flags are looked up before its ancestors', nearest first, and the first match binds — so
+    // a page offers a spelling only where the flag it describes is the one that would take it.
+    //
+    // Counts hidden flags (they bind, they just are not shown), negations (a spelling like any
+    // other), and every long and short rather than only the first. The twin of `own_and_global`
+    // in `usage-argv`'s `help` module; the gate over mise's spec is what says the two agree.
     let claims = |f: &crate::SpecFlag| -> Vec<String> {
         f.long
             .iter()
             .map(|l| format!("--{l}"))
             .chain(f.short.iter().map(|s| format!("-{s}")))
+            .chain(f.negate.iter().map(|n| format!("--{n}")))
             .collect()
     };
     let mut taken: Vec<String> = cmd.flags.iter().flat_map(&claims).collect();
-
-    // Per spelling, not per flag. A descendant that claims only `-v` leaves the ancestor's
-    // `--verbose` working — the parser still binds it — so dropping the whole entry made a
-    // usable name undiscoverable. What survives is offered; what was claimed is not.
-    let mut keep: Vec<(&crate::SpecFlag, bool, bool)> = Vec::new();
+    let mut keep: Vec<(&crate::SpecFlag, Option<String>, Option<char>, bool)> = Vec::new();
     for ancestor in ancestors.iter().rev() {
-        for f in ancestor.flags.iter().filter(|f| f.global && !f.hide) {
-            let hide_long = f
+        for f in ancestor.flags.iter().filter(|f| f.global) {
+            let long = f
                 .long
-                .first()
-                .is_some_and(|l| taken.contains(&format!("--{l}")));
-            let hide_short = f
+                .iter()
+                .find(|l| !taken.contains(&format!("--{l}")))
+                .cloned();
+            let short = f
                 .short
-                .first()
-                .is_some_and(|s| taken.contains(&format!("-{s}")));
-            let nothing_left =
-                (hide_long || f.long.is_empty()) && (hide_short || f.short.is_empty());
-            if nothing_left {
+                .iter()
+                .find(|s| !taken.contains(&format!("-{s}")))
+                .copied();
+            let negate = f
+                .negate
+                .as_ref()
+                .is_some_and(|n| !taken.contains(&format!("--{n}")));
+            // Reserved whether or not it is shown: a hidden one still binds, and so does one
+            // whose every spelling something nearer already took.
+            taken.extend(claims(f));
+            if f.hide || (long.is_none() && short.is_none() && !negate) {
                 continue;
             }
-            taken.extend(claims(f));
-            keep.push((f, hide_long, hide_short));
+            keep.push((f, long, short, negate));
         }
     }
     ancestors
@@ -144,18 +154,17 @@ fn inherited_flags(
         .flat_map(|a| a.flags.iter())
         .filter_map(|f| {
             keep.iter()
-                .find(|(k, _, _)| std::ptr::eq(*k, f))
-                .map(|(_, hl, hs)| (f, *hl, *hs))
+                .find(|(k, _, _, _)| std::ptr::eq(*k, f))
+                .map(|(_, l, s, n)| (f, l.clone(), *s, *n))
         })
-        .map(|(f, hide_long, hide_short)| {
-            // A claimed spelling is dropped from the flag before it is rendered, so the entry
-            // offers what the parser would actually accept here.
+        .map(|(f, long, short, negate)| {
+            // Only the spellings that survived, so the entry offers what the parser would
+            // actually accept here.
             let mut shown = f.clone();
-            if hide_long {
-                shown.long.clear();
-            }
-            if hide_short {
-                shown.short.clear();
+            shown.long = long.into_iter().collect();
+            shown.short = short.into_iter().collect();
+            if !negate {
+                shown.negate = None;
             }
             shown.usage = shown.usage();
             crate::docs::models::SpecFlag::from(&shown)
