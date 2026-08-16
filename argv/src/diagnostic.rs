@@ -115,6 +115,16 @@ fn flag_named(token: &str) -> &str {
     }
 }
 
+/// Every long spelling a flag answers to, its negation included.
+///
+/// The parser takes `--no-color` through `find_negation`, and the completions offer it, so a
+/// suggestion that leaves it out is the odd one — a near miss of a name that works gets silence.
+/// clap has no separate notion of a negation, so the two forms are two arguments there and it
+/// suggests either; matching that is the point.
+fn long_spellings<'a>(meta: &'a crate::spec::FlagMeta<'a>) -> impl Iterator<Item = &'a str> {
+    meta.flag.longs.iter().copied().chain(meta.flag.negate)
+}
+
 /// Every flag a word at this command could have named: its own, then any ancestor's globals.
 ///
 /// The same set the parser would have accepted, which is what makes a suggestion one that works.
@@ -410,9 +420,7 @@ pub fn render(
             // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
             // names for the same reason.
             let bare = typed.trim_start_matches('-');
-            let names: Vec<&str> = flags_in_scope(chain)
-                .flat_map(|meta| meta.flag.longs.iter().copied())
-                .collect();
+            let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
             let near: Vec<String> = nearest(bare, names.into_iter())
                 .into_iter()
                 .map(|name| format!("--{name}"))
@@ -442,9 +450,7 @@ pub fn render(
                     style.invalid(named)
                 );
                 let bare = named.trim_start_matches('-');
-                let names: Vec<&str> = flags_in_scope(chain)
-                    .flat_map(|meta| meta.flag.longs.iter().copied())
-                    .collect();
+                let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
                 let near: Vec<String> = nearest(bare, names.into_iter())
                     .into_iter()
                     .map(|name| format!("--{name}"))
@@ -645,6 +651,9 @@ mod tests {
         name: "force",
         longs: &["force"],
         shorts: b"f",
+        // A negation, because a flag's spellings are not only its `longs` and the parser takes
+        // this one — so a suggestion that cannot offer it is offering less than the CLI accepts.
+        negate: Some("no-force"),
         ..Flag::BOOL
     };
     static JOBS: Flag = Flag {
@@ -991,6 +1000,34 @@ mod tests {
         let message = rendered(&["use"], Error::UnknownFlag { token: b"-j=4" });
         assert!(
             message.starts_with("error: unexpected argument '-j=4' found"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn a_negation_is_suggested_like_any_other_spelling() {
+        // `--no-force` is a name the parser accepts, through `find_negation`, and one the
+        // completions already offer. Scoring only `longs` left it out, so a near miss of a name
+        // that works got silence — and clap, which has no separate notion of a negation and
+        // sees two arguments, suggests it. Measured:
+        //
+        //     error: unexpected argument '--no-colr' found
+        //       tip: a similar argument exists: '--no-color'
+        let message = rendered(
+            &["use"],
+            Error::UnknownFlag {
+                token: b"--no-forc",
+            },
+        );
+        assert!(
+            message.contains("tip: a similar argument exists: '--no-force'"),
+            "{message}"
+        );
+
+        // And the plain form is still found, which is the half that already worked.
+        let message = rendered(&["use"], Error::UnknownFlag { token: b"--fore" });
+        assert!(
+            message.contains("tip: a similar argument exists: '--force'"),
             "{message}"
         );
     }
