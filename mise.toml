@@ -19,6 +19,7 @@ gh = "latest"
 "aqua:orhun/git-cliff" = "latest"
 "npm:prettier" = "latest"
 shellcheck = "latest"
+go = "1.26"
 node = "24"
 python = "latest"
 "npm:tsc" = "latest"
@@ -62,6 +63,10 @@ run = 'aube install && aube run docs:dev'
 alias = 't'
 run = 'cargo test --all --all-features'
 
+[tasks."test:go"]
+dir = 'go'
+run = 'go test ./...'
+
 [tasks.lint]
 depends = ['lint:*']
 [tasks."lint:actionlint"]
@@ -74,16 +79,25 @@ run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
 run = 'cargo semver-checks check-release -p usage-lib'
+[tasks."lint:go"]
+dir = 'go'
+# `gofmt -l` prints what it would change and exits 0 either way, so the output is
+# the failure condition.
+run = [
+    'test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
+    'go vet ./...',
+]
 
 [tasks.lint-fix]
 run = [
     'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
     'cargo fmt --all',
+    'gofmt -w go',
     'prettier -w .',
 ]
 
 [tasks.ci]
-depends = ['test', 'lint']
+depends = ['test', 'test:go', 'lint']
 
 [tasks.pre-commit]
 depends = ['render', 'snapshots']
