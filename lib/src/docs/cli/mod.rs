@@ -85,6 +85,38 @@ mod tests {
     use insta::assert_snapshot;
 
     #[test]
+    fn a_description_of_only_spaces_is_no_description() {
+        // `usage-argv` filters a blank description wherever it reads one, and this template
+        // asked only whether the string was there — so `help="   "` bought a column of padding
+        // and a line of trailing spaces here and nothing there. Two renderings of one spec.
+        //
+        // Asserted on the trailing whitespace rather than by comparing the two renderers, so
+        // the test says what is wrong with the line rather than only that they disagree.
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--blank" help="   "
+flag "--plain" help="plain"
+        "# }
+        .unwrap();
+
+        for long in [false, true] {
+            let page = super::render_help(&spec, &spec.cmd, long);
+            // In the flags section, not the usage line — `Usage: ex [--blank] [--plain]`
+            // also contains the name and has no padding to get wrong.
+            let listing = page.split_once("\nFlags:").expect("a flags section").1;
+            let line = listing
+                .lines()
+                .find(|l| l.contains("--blank"))
+                .unwrap_or_else(|| panic!("long={long}: {page}"));
+            assert_eq!(
+                line,
+                line.trim_end(),
+                "long={long}: trailing space on {line:?}"
+            );
+        }
+    }
+
+    #[test]
     fn test_render_help_omits_hidden_entries() {
         let spec = crate::spec! { r#"
 bin "ex"
