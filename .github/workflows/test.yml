@@ -93,15 +93,39 @@ jobs:
           persist-credentials: false
       - name: the matrix and the manifests agree
         run: |
-          # Or the job checks a version nobody promised. A crate that raises its floor without
-          # touching this file would otherwise be tested at the old one and pass.
+          # Both directions, because one of them alone is how a false floor survives.
+          #
+          # Every crate this row checks declares this row's version. Or the job checks a version
+          # nobody promised: a crate that raises its floor without touching this file would
+          # otherwise be tested at the old one and pass.
           for crate in ${{ matrix.crates }}; do
-            dir="$(grep -rl "^name = \"$crate\"" ./*/Cargo.toml | head -1)"
-            declared="$(grep '^rust-version' "$dir" | sed 's/.*"\(.*\)".*/\1/')"
+            manifest="$(git ls-files '*Cargo.toml' | xargs grep -l "^name = \"$crate\"$" | head -1)"
+            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
             if [ "$declared" != "${{ matrix.version }}" ]; then
               echo "::error::$crate declares $declared, checked here at ${{ matrix.version }}"
               exit 1
             fi
+          done
+          # And every published crate declaring this row's version is in this row. Without this
+          # half, a new crate — or one that was simply never listed — makes a floor promise that
+          # no toolchain ever tries. `usage-conformance` and `xtask` promised 1.91 for as long as
+          # this job existed while depending on a crate that needs 1.95; nothing noticed, because
+          # nothing looked from the manifests back to the matrix.
+          #
+          # Published only: a floor is a promise to whoever depends on the crate, so a
+          # `publish = false` member has nobody to make one to and should not declare one.
+          for manifest in $(git ls-files '*Cargo.toml'); do
+            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
+            [ "$declared" = "${{ matrix.version }}" ] || continue
+            grep -q '^publish *= *false' "$manifest" && continue
+            name="$(sed -n 's/^name *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
+            case " ${{ matrix.crates }} " in
+              *" $name "*) ;;
+              *)
+                echo "::error::$name declares $declared and is published, but no row checks it"
+                exit 1
+                ;;
+            esac
           done
       # `rustup` rather than an action: it is already on the runner, and this needs one
       # toolchain and no other behaviour — a pinned third-party action would be one more
