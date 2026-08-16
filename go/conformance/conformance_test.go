@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -281,6 +282,15 @@ func load(t *testing.T) []Vector {
 			t.Fatalf("decoding %s: %v\n"+
 				"If the corpus has grown a field, teach Vector about it rather than "+
 				"relaxing this check.", p, err)
+		}
+		// A Decoder stops at the end of the first value, where json.Unmarshal
+		// refuses trailing content — so reaching for one to get
+		// DisallowUnknownFields gave up a check that was already there. A second
+		// value in the file would otherwise be dropped silently, which for a corpus
+		// file means vectors that never run and a suite that passes for it.
+		if err := dec.Decode(new(json.RawMessage)); err != io.EOF {
+			t.Fatalf("%s: content after the top-level object; the whole file should "+
+				"be one JSON object, and anything past it would not be run", p)
 		}
 		out = append(out, f.Vectors...)
 	}
