@@ -102,7 +102,7 @@ cmd sneaky hide=#true help="a hidden command"
         // `SpecCommand::usage` — so before this, `ex --help` listed a `--secret` the line
         // above it did not mention. A heading whose every entry is hidden produces no
         // section, which is the rule markdown rendering already followed.
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: ex [--visible] [SHOWN] <SUBCOMMAND>
 
         Commands:
@@ -113,7 +113,7 @@ cmd sneaky hide=#true help="a hidden command"
           [SHOWN]  an arg
 
         Flags:
-          --visible  shown
+              --visible  shown
         ");
     }
 
@@ -132,7 +132,7 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
 
         // Unheaded entries keep the default title and come first; each heading
         // then gets its own section, in the order the headings first appear.
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [FLAGS] <file> <mode>
 
         Arguments:
@@ -142,14 +142,14 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
           <mode>  How to run
 
         Flags:
-          --verbose  Verbose output
+              --verbose            Verbose output
 
         Filtering:
-          --filter <pattern>  Only matching
-          --exclude <pattern>  Skip matching
+              --filter <pattern>   Only matching
+              --exclude <pattern>  Skip matching
 
         Performance:
-          --jobs <n>  How many at once
+              --jobs <n>           How many at once
         ");
     }
 
@@ -163,11 +163,11 @@ flag "--filter <pattern>" help="Only matching" help_heading="Filtering"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--filter <pattern>]
 
         Filtering:
-          --filter <pattern>  Only matching
+              --filter <pattern>  Only matching
         ");
     }
 
@@ -181,24 +181,24 @@ flag "--debug" help="Debug mode"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [FLAGS]
 
         Flags:
-          --color  Enable color output [env: MYCLI_COLOR]
-          --verbose  Verbose output [env: MYCLI_VERBOSE]
-          --debug  Debug mode
+              --color    Enable color output [env: MYCLI_COLOR]
+              --verbose  Verbose output [env: MYCLI_VERBOSE]
+              --debug    Debug mode
         ");
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         Usage: testcli [FLAGS]
 
         Flags:
-          --color    Enable color output
+              --color    Enable color output
             [env: MYCLI_COLOR]
-          --verbose  Verbose output
+              --verbose  Verbose output
             [env: MYCLI_VERBOSE]
-          --debug    Debug mode
+              --debug    Debug mode
         ");
     }
 
@@ -213,13 +213,13 @@ arg "[default]" help="Arg with default value" default="default value"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli <ARGS>…
 
         Arguments:
-          <input>  Input file [env: MY_INPUT]
-          <output>  Output file [env: MY_OUTPUT]
-          <extra>  Extra arg without env
+          <input>    Input file [env: MY_INPUT]
+          <output>   Output file [env: MY_OUTPUT]
+          <extra>    Extra arg without env
           [default]  Arg with default value (default: default value)
         ");
 
@@ -246,20 +246,20 @@ flag "--verbose" help="Verbose output"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--compress] [--verbose]
 
         Flags:
-          --compress / --no-compress  Compress output
-          --verbose  Verbose output
+              --compress / --no-compress  Compress output
+              --verbose                   Verbose output
         ");
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         Usage: testcli [--compress] [--verbose]
 
         Flags:
-          --compress / --no-compress  Compress output
-          --verbose                   Verbose output
+              --compress / --no-compress  Compress output
+              --verbose                   Verbose output
         ");
     }
 
@@ -273,13 +273,13 @@ flag "--verbose" help="Enable verbose output"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         This text appears before the help
 
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         This text appears after the help
         ");
@@ -297,24 +297,24 @@ flag "--verbose" help="Enable verbose output"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         short before
 
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         short after
         ");
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         This is the long version of before help
 
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         This is the long version of after help
         ");
@@ -330,11 +330,11 @@ example "testcli" header="Run normally" help="Just runs the tool"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         Examples:
           Run with verbose output:
@@ -343,11 +343,11 @@ example "testcli" header="Run normally" help="Just runs the tool"
             $ testcli
         ");
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         Examples:
           Run with verbose output:
@@ -368,12 +368,12 @@ flag "--verbose" help="Enable verbose output"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         TestCLI 1.2.3
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
         ");
     }
 
@@ -388,19 +388,19 @@ flag "--verbose" help="Enable verbose output"
         .unwrap();
 
         // Short help should not show author/license
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
         ");
 
         // Long help should show author/license at the bottom
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         Usage: testcli [--verbose]
 
         Flags:
-          --verbose  Enable verbose output
+              --verbose  Enable verbose output
 
         Author: Test Author
         License: MIT

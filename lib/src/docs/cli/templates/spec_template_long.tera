@@ -82,7 +82,7 @@ Commands:
 
 {%- endif %}
 {%- else %}
-  {{ flag.display_usage | trim }}
+  {{ flag.display_usage }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}

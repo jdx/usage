@@ -139,7 +139,7 @@ flag_choices_help_short:
     expected=r#"Usage: [--shell <shell>]
 
 Flags:
-  --shell <shell>  shorthelp [bash, fish, zsh]
+      --shell <shell>  shorthelp [bash, fish, zsh]
 "#,
 
 flag_choices_help_long:
@@ -150,7 +150,7 @@ flag_choices_help_long:
     expected=r#"Usage: [--shell <shell>]
 
 Flags:
-  --shell <shell>
+      --shell <shell>
     help
     fooo
     bar

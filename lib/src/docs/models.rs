@@ -521,16 +521,59 @@ impl From<&crate::SpecCommand> for SpecCommand {
     }
 }
 
+/// The width of the short column: `-x, `, or the blank that stands in for it.
+///
+/// Fixed, because a short form is one character. clap's, measured.
+const SHORT_COL: usize = 4;
+
+/// A flag as the *flags section* lists it, with its long form in a column of its own.
+///
+/// Separate from `SpecFlag::usage`, which feeds the usage line and the markdown and manpage
+/// renderers — `Usage: ex [-f --force]` must not be padded, and this must be. clap's shape,
+/// measured from clap 4:
+///
+/// ```text
+///       --github-release
+///   -n, --dry-run
+///   -o, --output <OUTPUT>
+///   -j <JOBS>
+/// ```
+///
+/// The short column is only spent where there is a long form to line up *with*: a flag with no
+/// long one writes `-j <JOBS>` and does not pad, which is what clap does. A flag whose declared
+/// name the forms do not imply — `verbose: -v`, which clap has no equivalent for — takes the
+/// same path.
+///
+/// The twin of `column_usage` in `usage-argv`'s `help` module; the two must agree, and the gate
+/// over mise's spec is what says they do.
+fn column_usage(flag: &crate::SpecFlag) -> String {
+    let rest = flag.negate.as_ref().map_or_else(
+        || flag.usage.trim().to_string(),
+        |negate| format!("{} / {}", flag.usage.trim(), negate.trim()),
+    );
+    let Some(long) = flag.long.first() else {
+        return rest;
+    };
+    // The dashes matter: `long` is stored bare, and searching for `cd` finds the `cd` inside
+    // `--cd` — which split `-C --cd` into `-C --` and `cd`, and rendered `-C --,cd`.
+    let Some(at) = rest.find(&format!("--{long}")) else {
+        return rest;
+    };
+    let (before, after) = rest.split_at(at);
+    let short = match before.trim() {
+        "" => String::new(),
+        s => format!("{s},"),
+    };
+    format!("{short:<SHORT_COL$}{after}")
+}
+
 impl From<&crate::SpecFlag> for SpecFlag {
     fn from(flag: &crate::SpecFlag) -> Self {
         Self {
             name: flag.name.clone(),
             effect: flag.effect,
             usage: flag.usage.clone(),
-            display_usage: flag.negate.as_ref().map_or_else(
-                || flag.usage.trim().to_string(),
-                |negate| format!("{} / {}", flag.usage.trim(), negate.trim()),
-            ),
+            display_usage: column_usage(flag),
             help: flag.help.clone(),
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),

@@ -252,28 +252,55 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
     // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
     // than the child's own name.
     commands_section(&mut out, &path[1.min(path.len())..], meta);
+
+    // The short page lines its columns up too. It did not: every description began directly
+    // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
+    // the form most people type. One column per section over its visible entries, which is
+    // the rule the long page already follows.
+    let args: Vec<&ArgMeta<'_>> = meta.args.iter().filter(|a| !a.hide).collect();
+    let arg_col = args
+        .iter()
+        .map(|a| arg_usage(a).chars().count())
+        .max()
+        .unwrap_or(0);
     groups_section(
         &mut out,
         "Arguments",
-        meta.args.iter().filter(|a| !a.hide),
+        args.iter().copied(),
         |a| a.help_heading,
         |out, a| {
-            let _ = write!(out, "  {}", arg_usage(a));
-            if let Some(help) = a.help {
-                let _ = write!(out, "  {help}");
+            let usage = arg_usage(a);
+            match a.help.filter(|h| !h.trim().is_empty()) {
+                Some(help) => {
+                    let _ = write!(out, "  {usage:<arg_col$}  {help}");
+                }
+                None => {
+                    let _ = write!(out, "  {usage}");
+                }
             }
             annotations(out, a.choices, a.env, a.default);
         },
     );
+    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
+    let flag_col = flags
+        .iter()
+        .map(|f| column_usage(f).chars().count())
+        .max()
+        .unwrap_or(0);
     groups_section(
         &mut out,
         "Flags",
-        meta.flags.iter().filter(|f| !f.hide),
+        flags.iter().copied(),
         |f| f.help_heading,
         |out, f| {
-            let _ = write!(out, "  {}", display_usage(f));
-            if let Some(help) = f.help {
-                let _ = write!(out, "  {help}");
+            let usage = column_usage(f);
+            match f.help.filter(|h| !h.trim().is_empty()) {
+                Some(help) => {
+                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
+                }
+                None => {
+                    let _ = write!(out, "  {usage}");
+                }
             }
             annotations(out, f.choices, f.env, &[]);
         },
@@ -410,6 +437,45 @@ fn display_usage(meta: &FlagMeta<'_>) -> String {
     }
 }
 
+/// The width of the short column: `-x, `, or the blank that stands in for it.
+///
+/// Fixed, because a short form is one character. clap's, measured.
+const SHORT_COL: usize = 4;
+
+/// A flag as the *flags section* lists it, with its long form in a column of its own.
+///
+/// Separate from [`flag_usage`], which feeds the usage line — `Usage: ex [-f --force]` must
+/// not be padded, and this must be. clap's shape, measured from clap 4:
+///
+/// ```text
+///       --github-release
+///   -n, --dry-run
+///   -o, --output <OUTPUT>
+///   -j <JOBS>
+/// ```
+///
+/// Two rules in there worth stating. The short column is only spent where there is a long form
+/// to line up *with*: a flag with no long one writes `-j <JOBS>` and does not pad, which is
+/// what clap does. And a flag with neither — usage can name one the forms do not imply,
+/// `verbose: -v`, which clap has no equivalent for — takes the same path as short-only.
+fn column_usage(meta: &FlagMeta<'_>) -> String {
+    let rest = display_usage(meta);
+    let Some(long) = meta.flag.longs.first() else {
+        return rest;
+    };
+    // Only when the text actually begins with the long form. The `name:` prefix case does not,
+    // and splitting it would put `verbose:` in a column meant for `-v, `.
+    let Some(at) = rest.find(&format!("--{long}")) else {
+        return rest;
+    };
+    let (before, after) = rest.split_at(at);
+    let short = match before.trim() {
+        "" => String::new(),
+        s => format!("{s},"),
+    };
+    format!("{short:<SHORT_COL$}{after}")
+}
+
 fn examples_section(out: &mut String, spec: &Spec<'_>, meta: &CommandMeta<'_>) {
     let examples = page_examples(spec, meta);
     if examples.is_empty() {
@@ -520,7 +586,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
     let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
     let flag_col = flags
         .iter()
-        .map(|f| display_usage(f).chars().count())
+        .map(|f| column_usage(f).chars().count())
         .max()
         .unwrap_or(0);
     groups_section(
@@ -530,7 +596,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
         |f| f.help_heading,
         |out, f| {
             let text = f.long_help.or(f.help);
-            entry(out, &display_usage(f), text, flag_col, width);
+            entry(out, &column_usage(f), text, flag_col, width);
             long_annotations(out, f.choices, f.env, &[]);
         },
     );
