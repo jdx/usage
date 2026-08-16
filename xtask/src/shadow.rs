@@ -886,9 +886,7 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
             opts.push(format!("var_max = {max}"));
         }
     }
-    double_dash(arg, skipped, |mode| {
-        opts.push(format!("double_dash = {mode:?}"))
-    });
+    double_dash(arg, |mode| opts.push(format!("double_dash = {mode:?}")));
     opts
 }
 
@@ -926,23 +924,37 @@ fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
             None => opts.push(format!("num_args = {least}..")),
         }
     }
-    // clap calls it `last`: the argument after the `--`.
-    double_dash(arg, skipped, |_| opts.push("last = true".into()));
+    // clap calls it `last`: the argument after the `--`. It has no name for the other three.
+    clap_double_dash(arg, skipped, || opts.push("last = true".into()));
     opts
 }
 
-/// The one `double_dash` mode both dialects can express, and notes for the rest.
-fn double_dash(arg: &SpecArg, skipped: &mut Skipped, mut required: impl FnMut(&str)) {
+/// A `double_dash` mode, in whichever of the two dialects can express it.
+///
+/// The usage dialect has all four. clap has one — `last`, which is `required` — so the other
+/// three are reported against the clap shadow rather than emitted. That asymmetry is the point of
+/// measuring the two side by side: it is a thing mise's spec says that clap cannot hear, which is
+/// why mise says it by patching the generated spec instead.
+fn double_dash(arg: &SpecArg, mut mode: impl FnMut(&str)) {
     match arg.double_dash {
         // The default: a `--` is allowed and changes nothing about where words land.
         usage::SpecDoubleDashChoices::Optional => {}
-        usage::SpecDoubleDashChoices::Required => required("required"),
-        usage::SpecDoubleDashChoices::Automatic => {
-            skipped.note("`double_dash = \"automatic\"` on an argument")
-        }
-        usage::SpecDoubleDashChoices::Preserve => {
-            skipped.note("`double_dash = \"preserve\"` on an argument")
-        }
+        usage::SpecDoubleDashChoices::Required => mode("required"),
+        usage::SpecDoubleDashChoices::Automatic => mode("automatic"),
+        usage::SpecDoubleDashChoices::Preserve => mode("preserve"),
+    }
+}
+
+/// The one mode clap can express, and a note for the rest.
+fn clap_double_dash(arg: &SpecArg, skipped: &mut Skipped, mut last: impl FnMut()) {
+    let mut unsayable = None;
+    double_dash(arg, |mode| match mode {
+        "required" => last(),
+        "automatic" => unsayable = Some("`double_dash = \"automatic\"` on an argument"),
+        _ => unsayable = Some("`double_dash = \"preserve\"` on an argument"),
+    });
+    if let Some(what) = unsayable {
+        skipped.note(what);
     }
 }
 

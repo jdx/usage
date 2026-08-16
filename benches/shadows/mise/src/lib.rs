@@ -160,7 +160,7 @@ pub enum ToolAliasCommands {
 #[derive(Args)]
 pub struct AsdfArgs {
     /// all arguments
-    #[usage(arg, name = "ARGS")]
+    #[usage(arg, name = "ARGS", double_dash = "automatic")]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -5106,7 +5106,7 @@ pub struct ToolStubArgs {
     /// Arguments to pass to the tool
     ///
     /// All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
-    #[usage(arg, name = "ARGS")]
+    #[usage(arg, name = "ARGS", double_dash = "automatic")]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -5972,7 +5972,7 @@ pub struct WatchArgs {
     )]
     pub task: ::std::option::Option<::std::string::String>,
     /// Task and arguments to run
-    #[usage(arg, name = "ARGS")]
+    #[usage(arg, name = "ARGS", double_dash = "automatic")]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
