@@ -174,10 +174,16 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       an unbounded variadic on one side of a flatten and a later positional on the other — and the
       flag-form collision. Both are invisible to either expansion and visible where the tables are
       joined.
-- [ ] **`usage-derive` v1** — everything mise needs: constraints
-      (`requires`/`conflicts`/`overrides`/`required_unless`), `var`, `count`,
-      `env`, defaults, delimiters, the `double_dash` modes, global flags, flatten,
-      boxed subcommand variants, headings, `cfg`-gated variants.
+- [ ] **`usage-derive` v1** — everything mise needs. `conflicts`, `overrides`,
+      `required_if`, `required_unless`, `var`, `count`, `env`, defaults, the four
+      `double_dash` modes, global flags, flatten, boxed subcommand variants,
+      headings and `cfg`-gated variants have all landed since this was written.
+      What is left of the original list is **`requires`** — with `requires_if` and
+      `requires_ifs`, the conditional forms, which are their own work rather than
+      a detail of the first — none of which any part of this repository can
+      express: not the derive, not the spec, not the clap bridge. And
+      **delimiters**, where a value's `,` is split at parse time rather than only
+      in a clap default. Both are in the clap-parity list below.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
       `var_min`, `conflicts`, `required_if`, `required_unless`, and `overrides` —
       `var_max` moved to the binder, see the decision below. All of them need a value's type, so they belong with the derive
@@ -270,19 +276,144 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       flags so a CLI that declares its own keeps it, and a request comes back as `Error::Help`
       carrying the command it was asked about. `parse()` renders and exits; `parse_from` returns
       it, so a library embedding this decides for itself. Costs 111 instructions, since the check
-      is only reached by a flag that matched nothing. What is left is the `help` _subcommand_,
-      which every CLI with subcommands should have. Holding the rendering to parity found ten
-      things a spec could say that the derive could not, and two bugs in usage-lib's own renderer.
-- [ ] **Completions, self-contained** — `<bin> completion <shell>` emits the
-      script; a hidden `<bin> complete-word` serves requests from the binary's own
-      embedded spec. Same dispatch shape usage-cli uses today, without requiring
-      `usage` on the end user's machine. bash, zsh, fish first.
+      is only reached by a flag that matched nothing. The `help` _subcommand_ landed with it:
+      asked after the subcommand lookup, so a CLI declaring its own `help` keeps it, and the
+      words after it name a command rather than being descended into. Holding the rendering to
+      parity found ten things a spec could say that the derive could not, and two bugs in
+      usage-lib's own renderer.
+- [x] **Completions, self-contained** — `<bin> completion <shell>` emits the
+      script; a hidden `__complete_word__` serves requests from the binary's own
+      tables. Same dispatch shape usage-cli uses today, without requiring `usage`
+      on the end user's machine. bash, zsh, fish and PowerShell, behind the
+      `complete` feature and asked for with `#[usage(completion)]`.
 - [ ] **Docs and manpages** — no new code: confirm the emitted KDL feeds
       `usage g markdown|manpage` exactly as a clap-derived spec does today, so an
       adopter's docs pipeline does not change.
-- [ ] **Diagnostics** — rich errors behind a feature. The hot path returns a
+- [x] **Diagnostics** — rich errors behind the `diagnostics` feature. The hot path returns a
       compact code; rendering re-examines the command line only once it has
-      already failed.
+      already failed, and says what clap would have said, colour included, down to
+      suggesting what was probably meant. `parse()` renders and exits the way a
+      program does; `parse_from` hands the error back.
+
+### What clap can say that we cannot
+
+An audit of clap's surface against `derive/src/model.rs`, `argv/src/` and the
+spec model in `lib/src/spec/`, done once the framework list above was mostly
+ticked. This is the list that decides whether an adopter can move without losing
+behaviour, so a gap here is worth more than another point of speed.
+
+Some of these are dropped by **`clap_usage` too**, which means every spec in the
+fleet generated from a clap command is already lossy in exactly this way — the
+same shape as the `conflicts` hole above, found the same way. Those are marked
+_(bridge too)_ and are the reason this list is ordered as it is.
+
+One of them the bridge will never carry. clap 4.6 gives `Arg::requires`,
+`requires_if`, `requires_ifs` and `requires_all` as **setters with no getter**,
+and keeps the field `pub(crate)`, so a `Command` cannot be asked what it
+requires. It does appear in `Debug for Arg`, so scraping the debug format would
+technically recover it — declined, because that format carries no compatibility
+promise and would break by producing a wrong spec rather than a failed build.
+The consequence is worth stating plainly: `requires` reaches a spec **only** by
+being declared in usage, and a CLI that keeps its declaration in clap does not
+have this constraint in its spec at all.
+
+Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
+`Arg::is_exclusive_set` are all public, so the bridge gains those for free.
+
+**Changes what a CLI does**
+
+- [ ] **`requires` / `requires_if` / `requires_ifs`** — "this flag needs that
+      one". The spec has `conflicts`, `overrides`, `required_if` and
+      `required_unless`, and no way to say the positive form. Nothing in
+      `lib/src/spec/flag.rs` parses it and the derive has no attribute. The one
+      true blocker in the original v1 list. The bridge will not carry it, per the
+      note above, so this is a reason to declare in usage rather than a bridge
+      bug: a CLI that moves its declaration here gains a constraint its generated
+      spec never had.
+- [ ] **`ArgGroup`, and `exclusive`** _(bridge too)_ — "exactly one of these
+      three", "at least one of these". Only pairwise `conflicts` exists, which is
+      O(n²) declarations for what clap says once, and cannot express requiredness
+      across a set at all. Readable from a clap `Command`, so the bridge gains
+      these once the spec can hold them.
+- [ ] **`value_delimiter`** — `--tags a,b,c` as three values. `lib/src/spec/arg.rs`
+      splits a clap _default_ by it and says the spec has a list rather than a
+      delimiter, which is true of a default and not of a command line: nothing
+      splits a value at parse time.
+- [ ] **`default_missing_value`, and optional-value flags** — `--color` versus
+      `--color=always`, which is `Option<Option<T>>` in clap. `Shape` has no
+      variant for it.
+- [ ] **`default_value_if` / `default_value_ifs`** — a default that depends on
+      another flag. Ours are unconditional.
+- [ ] **`value_parser`** — clap takes an arbitrary parser function and range
+      validators (`value_parser!(u16).range(1..=65535)`). We are `T: FromStr` and
+      nothing else, so there is no per-field validation and no bounded numeric.
+- [ ] **`allow_hyphen_values` on the derive path** — the spec says it and
+      usage-lib honours it (`lib/src/parse.rs`), but there is no derive attribute
+      and no mention in `argv/src/`. A spec-versus-derive asymmetry rather than a
+      plain absence, which makes it cheaper than the rest of this group.
+- [ ] **`require_equals`** — accept `--flag=value` and refuse `--flag value`.
+- [ ] **`#[arg(skip)]`** — a field that is not an argument at all, filled from
+      `Default`. Every field is currently a flag or a positional.
+
+**Changes what a CLI accepts, less sharply**
+
+- [ ] **`ignore_case` on values, and `#[value(alias = …)]`** — subcommand variants
+      take aliases; enumerated _values_ take neither an alias nor a case-insensitive
+      match.
+- [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
+      suggest what was probably meant but do not accept it.
+- [ ] **`external_subcommand`** — the bridge reads clap's flag to compute
+      `forwards` in `lib/src/spec/cmd.rs`, and the derive cannot declare one.
+- [ ] **`multicall` and `no_binary_name`** — busybox-style applets, and parsing an
+      argv that has no `argv[0]`.
+- [ ] **`arg_required_else_help`, `args_conflicts_with_subcommands`,
+      `subcommand_negates_reqs`, `allow_missing_positional`.**
+
+**Help output**
+
+- [ ] **Colour.** Errors are styled (`argv/src/diagnostic.rs`); help is not. clap
+      colours headings and flag names by default and exposes `Command::styles`.
+- [ ] **`term_width` / `max_term_width`** — we wrap to `COLUMNS` and take no
+      instruction about it.
+- [ ] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
+      `hide_possible_values`, `hide_short_help`, `hide_long_help`. We have
+      whole-entry `hide` and nothing finer.
+- [ ] **`help_template`, `next_line_help`, `flatten_help`,
+      `subcommand_help_heading`, `subcommand_value_name`.**
+- [ ] **`verbatim_doc_comment`, `rename_all`, `rename_all_env`** — casing is kebab
+      via `to_kebab`, with no opt-out.
+
+**API surface**
+
+- [ ] **`update_from` / `try_update_from`** — merge a parse into an existing struct.
+- [ ] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
+      `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
+      deliberate: usage-lib interprets a spec at run time and covers the dynamic
+      case from the other side. Worth writing down as a decision rather than
+      leaving it to be discovered as an absence.
+
+**What is _not_ a gap**, checked rather than assumed, because two of these were
+recorded as gaps here and had quietly been closed: flag aliases (several `long`
+and `short` per field), subcommand aliases and hidden aliases, `--help`/`-h`, the
+`help` subcommand, `--version`/`-V` with per-command propagation, self-contained
+completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
+(clap's `SetFalse`), `value_enum`, `num_args` via `var_min`/`var_max`, clap's
+`last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
+order, and non-UTF-8 `OsString`/`PathBuf` values.
+
+And the other direction: `mount`, `restart_token`, `default_subcommand` and
+`effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
+them.
+
+`double_dash` is the one to state carefully, because two different claims about
+it have been made in this file. The **bridge** carries three of the four modes:
+`lib/src/spec/arg.rs` reads clap's `last` as `required` and `trailing_var_arg` as
+`automatic`, and the default as `optional`. Only `preserve` — where the `--` is
+itself a value — has no clap spelling. What drops the other two is **`gen-shadow`
+writing a clap shadow**, whose `clap_double_dash` emits only `last`; that is a
+gap in the shadow generator rather than in clap, since clap's derive does have
+`trailing_var_arg`, and it is worth closing so the shadow stops overstating the
+distance.
 
 ### The gate
 
