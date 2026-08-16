@@ -376,23 +376,19 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// Parse the process's own arguments.
             #completion
 
-            pub fn parse() -> ::std::result::Result<Self, ::std::string::String> {
+            pub fn parse() -> Self {
                 #completion_intercept
                 let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                     ::std::env::args_os().skip(1).collect();
                 let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                     __usage_raw.iter().map(|a| a.as_os_str()).collect();
-                // The error borrows argv, so it cannot outlive this function;
-                // rendering it here is what makes the signature usable. Better
-                // diagnostics are a separate piece of work.
+                // This is the entry point that *is* the process — it already exits for a help
+                // request — so it answers a failure the way a command-line program does:
+                // the message on stderr, and a non-zero status. `parse_from` hands the error
+                // back instead, for a library embedding this that wants to decide.
                 match Self::parse_from(&__usage_argv) {
-                    ::std::result::Result::Ok(parsed) => ::std::result::Result::Ok(parsed),
-                    // A help request is not a failure, and this is the one place that knows
-                    // the process is the caller: print the page and leave successfully, which
-                    // is what a user typing `--help` asked for. `parse_from` returns it
-                    // instead, so a library embedding this decides for itself.
-                    // A question, not a failure — the same shape as help, and the one place
-                    // that knows the process is the caller.
+                    ::std::result::Result::Ok(parsed) => parsed,
+                    // Not failures: someone asked a question, and the answer goes to stdout.
                     ::std::result::Result::Err(::usage_argv::Error::Version) => {
                         match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
                             (bin, ::std::option::Option::Some(version)) => {
@@ -401,9 +397,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             }
                             // Unreachable: the flag is only in the table when a version was
                             // declared, and the same declaration fills this in.
-                            (_, ::std::option::Option::None) => ::std::result::Result::Err(
-                                "this program declares no version".into(),
-                            ),
+                            (_, ::std::option::Option::None) => {
+                                ::std::process::exit(0);
+                            }
                         }
                     }
                     ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
@@ -413,13 +409,16 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 ::std::process::exit(0);
                             }
                             // Only reachable if the command came from another CLI's tables.
-                            ::std::option::Option::None => ::std::result::Result::Err(
-                                "help was asked for a command this program does not have".into(),
-                            ),
+                            ::std::option::Option::None => ::std::process::exit(0),
                         }
                     }
                     ::std::result::Result::Err(e) => {
-                        ::std::result::Result::Err(::std::format!("{e:?}"))
+                        ::std::eprint!(
+                            "{}",
+                            ::usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
+                        );
+                        // clap's, so a script that checks for it keeps working.
+                        ::std::process::exit(2);
                     }
                 }
             }

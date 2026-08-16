@@ -665,6 +665,33 @@ fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> 
         .find(|c| c.name.as_bytes() == name || c.aliases.iter().any(|a| a.as_bytes() == name))
 }
 
+/// What a caller should print for a parse failure, and what to exit with.
+///
+/// The one entry point a generated `parse()` reaches for, and the reason it exists here rather
+/// than in the derive: whether the good rendering is available is a *feature of this crate* in
+/// the adopter's dependency graph, and a `#[cfg]` written into generated code is evaluated in
+/// the adopter's crate, where the feature is not theirs to see. That is how a metadata field
+/// once got silently dropped; the answer is that the cfg lives beside the thing it gates.
+///
+/// With `diagnostics` on, this is the clap-shaped message. Without it, the error's `Debug`
+/// form — which is still better than nothing and is what a parser-only build asked for.
+///
+/// [`Error::Help`] and [`Error::Version`] are not failures and must be handled before this.
+#[cfg(feature = "diagnostics")]
+pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
+    diagnostic::render(spec, argv, error, diagnostic::Style::auto())
+}
+
+/// What a caller should print for a parse failure, without the renderer that makes it readable.
+///
+/// See the other half. A caller that wants the clap-shaped message turns on `diagnostics`;
+/// this is what a parser-only build asked for, and it still says which error it was.
+#[cfg(all(feature = "spec", not(feature = "diagnostics")))]
+pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
+    let _ = (spec, argv);
+    ::std::format!("error: {error:?}\n")
+}
+
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
 pub fn is_help_flag(flag: &Flag<'_>) -> bool {
     flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY

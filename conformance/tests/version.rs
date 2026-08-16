@@ -204,3 +204,24 @@ fn the_fields_are_bound() {
     };
     let Other {} = *other;
 }
+
+#[test]
+fn a_failure_renders_the_way_a_user_should_read_it() {
+    // What `parse()` prints. It exits the process, so this checks the function it calls —
+    // which is the point of that function existing: whether the good rendering is available is
+    // a feature of usage-argv in the *adopter's* graph, and a `#[cfg]` in generated code is
+    // evaluated in the adopter's crate, where the feature is not theirs to see.
+    let a = argv(&["--nope"]);
+    let Err(err) = Unversioned::parse_from(&a) else {
+        panic!("no such flag")
+    };
+    let message = usage_argv::render_failure(Unversioned::spec(), &a, &err);
+    assert!(
+        message.starts_with("error: unexpected argument '--nope' found"),
+        "{message}"
+    );
+    assert!(
+        message.contains("For more information, try '--help'."),
+        "{message}"
+    );
+}
