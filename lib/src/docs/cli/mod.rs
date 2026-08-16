@@ -115,21 +115,51 @@ fn inherited_flags(
             .collect()
     };
     let mut taken: Vec<String> = cmd.flags.iter().flat_map(&claims).collect();
-    let mut keep: Vec<&crate::SpecFlag> = Vec::new();
+
+    // Per spelling, not per flag. A descendant that claims only `-v` leaves the ancestor's
+    // `--verbose` working — the parser still binds it — so dropping the whole entry made a
+    // usable name undiscoverable. What survives is offered; what was claimed is not.
+    let mut keep: Vec<(&crate::SpecFlag, bool, bool)> = Vec::new();
     for ancestor in ancestors.iter().rev() {
         for f in ancestor.flags.iter().filter(|f| f.global && !f.hide) {
-            if claims(f).iter().any(|c| taken.contains(c)) {
+            let hide_long = f
+                .long
+                .first()
+                .is_some_and(|l| taken.contains(&format!("--{l}")));
+            let hide_short = f
+                .short
+                .first()
+                .is_some_and(|s| taken.contains(&format!("-{s}")));
+            let nothing_left =
+                (hide_long || f.long.is_empty()) && (hide_short || f.short.is_empty());
+            if nothing_left {
                 continue;
             }
             taken.extend(claims(f));
-            keep.push(f);
+            keep.push((f, hide_long, hide_short));
         }
     }
     ancestors
         .iter()
         .flat_map(|a| a.flags.iter())
-        .filter(|f| keep.iter().any(|k| std::ptr::eq(*k, *f)))
-        .map(crate::docs::models::SpecFlag::from)
+        .filter_map(|f| {
+            keep.iter()
+                .find(|(k, _, _)| std::ptr::eq(*k, f))
+                .map(|(_, hl, hs)| (f, *hl, *hs))
+        })
+        .map(|(f, hide_long, hide_short)| {
+            // A claimed spelling is dropped from the flag before it is rendered, so the entry
+            // offers what the parser would actually accept here.
+            let mut shown = f.clone();
+            if hide_long {
+                shown.long.clear();
+            }
+            if hide_short {
+                shown.short.clear();
+            }
+            shown.usage = shown.usage();
+            crate::docs::models::SpecFlag::from(&shown)
+        })
         .collect()
 }
 

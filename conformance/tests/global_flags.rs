@@ -42,6 +42,26 @@ enum Inner {
 enum Command {
     /// Settings, which nest
     Config(Box<Config>),
+    /// Claims one of the root's two spellings
+    Claimer(Box<Claimer>),
+    /// Claims a spelling with a flag nobody can see
+    Quiet(Box<Quiet>),
+}
+
+/// Claims a spelling with a flag nobody can see
+#[derive(Args)]
+struct Quiet {
+    /// Hidden, and still binds — which is what makes it shadow
+    #[usage(long = "raw", hide)]
+    raw: bool,
+}
+
+/// Claims one of the root's two spellings for itself
+#[derive(Args)]
+struct Claimer {
+    /// A `-v` of its own, which is not the root's
+    #[usage(short = 'v')]
+    level: Option<String>,
 }
 
 /// A tool with flags at every level
@@ -190,4 +210,72 @@ fn the_fields_are_bound() {
         get.plain && get.raw,
         "the command's own `--raw` is the one that binds"
     );
+}
+
+#[test]
+fn claiming_one_spelling_leaves_the_other_on_offer() {
+    // `partial` declares its own `-v`; the root's global is `-v, --verbose`. The parser still
+    // binds `--verbose` there, so dropping the whole inherited entry made a working name
+    // undiscoverable. What survives is offered, and what was claimed is not.
+    for long in [false, true] {
+        let page = page_of(&["claimer"], long);
+        let (own, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: {page}"));
+        assert!(own.contains("-v <LEVEL>"), "long={long}: {page}");
+        assert!(global.contains("--verbose"), "long={long}: {page}");
+        assert!(
+            !global.contains("-v, --verbose"),
+            "long={long}: `-v` is the subcommand's here: {page}"
+        );
+    }
+
+    // And the parser agrees, which is the whole point of matching it.
+    use std::ffi::OsStr;
+    let argv = ["claimer", "--verbose"].map(OsStr::new);
+    assert!(
+        Ex::parse_from(&argv).is_ok(),
+        "the root's long form still binds"
+    );
+}
+
+#[test]
+fn a_hidden_flag_still_shadows() {
+    // `hide` keeps a flag off the page; the parser still binds it. usage-lib counted hidden
+    // own flags when deciding what an ancestor could still offer and this did not, so the two
+    // renderers disagreed wherever a hidden local shared a spelling with an inherited global.
+    // Read the *visible* own flags only, while usage-lib read all of them — so the two
+    // renderers disagreed wherever a hidden local shared a spelling with an inherited global,
+    // and the page offered a `--raw` that binds something the reader cannot see.
+    for long in [false, true] {
+        let page = page_of(&["quiet"], long);
+        assert!(
+            !page.contains("--raw"),
+            "long={long}: a hidden local claims this spelling: {page}"
+        );
+        // The other inherited globals are unaffected — this is about one spelling.
+        assert!(page.contains("--verbose"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn the_claimer_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["claimer", "-v", "3"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Claimer(p)) = ex.command else {
+        panic!("expected claimer")
+    };
+    assert_eq!(p.level.as_deref(), Some("3"));
+}
+
+#[test]
+fn the_quiet_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["quiet", "--raw"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Quiet(q)) = ex.command else {
+        panic!("expected quiet")
+    };
+    assert!(q.raw, "a hidden flag still binds, which is why it shadows");
 }

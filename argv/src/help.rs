@@ -112,18 +112,29 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
 
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
 fn flag_usage(meta: &FlagMeta<'_>) -> String {
+    flag_usage_masked(meta, false, false)
+}
+
+/// The same, with a spelling left out because something nearer claimed it.
+///
+/// A descendant may take one of an ancestor's two spellings — its own `-v` beside the root's
+/// `-v, --verbose` — and the parser still accepts the other, so the page has to offer the other
+/// and not the one that now means something else.
+fn flag_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
     let flag = meta.flag;
     let mut out = String::new();
 
     // The declared name, when it is not the one the forms would imply. A flag called
     // `verbose` reachable only as `-v` has to say so, or help would name something the
     // spec does not.
-    let implied = flag
-        .longs
-        .first()
-        .copied()
-        .or_else(|| flag.shorts.first().map(|_| ""));
-    let implied_matches = match (implied, flag.shorts.first()) {
+    //
+    // Judged on the forms this page is *showing*. mise's root has a global `-E --env`; a
+    // descendant that claims `--env` leaves `-E` inherited, and `-E… <ENV>` alone gives a
+    // reader nothing to connect it to the `--env` they saw elsewhere. `env: -E… <ENV>` does.
+    let long = flag.longs.first().copied().filter(|_| !hide_long);
+    let short = flag.shorts.first().filter(|_| !hide_short);
+    let implied = long.or_else(|| short.map(|_| ""));
+    let implied_matches = match (implied, short) {
         (Some(long), _) if !long.is_empty() => long == flag.name,
         (Some(_), Some(short)) => {
             let mut buf = [0u8; 4];
@@ -134,13 +145,13 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
     if !implied_matches {
         let _ = write!(out, "{}:", flag.name);
     }
-    if let Some(short) = flag.shorts.first() {
+    if let Some(short) = short {
         if !out.is_empty() {
             out.push(' ');
         }
         let _ = write!(out, "-{}", *short as char);
     }
-    if let Some(long) = flag.longs.first() {
+    if let Some(long) = long {
         if !out.is_empty() {
             out.push(' ');
         }
@@ -287,12 +298,11 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     // it rather than two tables that happen to be adjacent.
     let flag_col = own
         .iter()
-        .chain(inherited.iter())
         .map(|f| column_usage(f).chars().count())
+        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
         .unwrap_or(0);
-    let short_entry = |out: &mut String, f: &FlagMeta<'_>| {
-        let usage = column_usage(f);
+    let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
         match f.help.filter(|h| !h.trim().is_empty()) {
             Some(help) => {
                 let _ = write!(out, "  {usage:<flag_col$}  {help}");
@@ -308,16 +318,17 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         "Flags",
         own.iter().copied(),
         |f| f.help_heading,
-        |out, f| short_entry(out, f),
+        |out, f| short_entry(out, f, column_usage(f)),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
+    // The text is precomputed, since a spelling a descendant claimed is left out of it.
     groups_section(
         &mut out,
         "Global flags",
-        inherited.iter().copied(),
+        inherited.iter(),
         |_| None,
-        |out, f| short_entry(out, f),
+        |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
     examples_section(&mut out, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
@@ -443,8 +454,8 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
-fn display_usage(meta: &FlagMeta<'_>) -> String {
-    let usage = flag_usage(meta);
+fn display_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
+    let usage = flag_usage_masked(meta, hide_long, hide_short);
     match meta.flag.negate {
         Some(negate) => format!("{usage} / --{negate}"),
         None => usage,
@@ -473,8 +484,12 @@ const SHORT_COL: usize = 4;
 /// what clap does. And a flag with neither — usage can name one the forms do not imply,
 /// `verbose: -v`, which clap has no equivalent for — takes the same path as short-only.
 fn column_usage(meta: &FlagMeta<'_>) -> String {
-    let rest = display_usage(meta);
-    let Some(long) = meta.flag.longs.first() else {
+    column_usage_masked(meta, false, false)
+}
+
+fn column_usage_masked(meta: &FlagMeta<'_>, hide_long: bool, hide_short: bool) -> String {
+    let rest = display_usage_masked(meta, hide_long, hide_short);
+    let Some(long) = meta.flag.longs.first().filter(|_| !hide_long) else {
         return rest;
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
@@ -613,8 +628,8 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
     // it rather than two tables that happen to be adjacent.
     let flag_col = own
         .iter()
-        .chain(inherited.iter())
         .map(|f| column_usage(f).chars().count())
+        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
         .unwrap_or(0);
     groups_section(
@@ -635,11 +650,11 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
     groups_section(
         &mut out,
         "Global flags",
-        inherited.iter().copied(),
+        inherited.iter(),
         |_| None,
-        |out, f| {
+        |out, (f, usage)| {
             let text = f.long_help.or(f.help);
-            entry(out, &column_usage(f), text, flag_col, width);
+            entry(out, usage, text, flag_col, width);
             long_annotations(out, f.choices, f.env, &[]);
         },
     );
@@ -866,7 +881,7 @@ pub fn find<'a>(
 /// and cannot discover, which is the worst way for help to be wrong.
 fn own_and_global<'a>(
     chain: &[&'a CommandMeta<'a>],
-) -> (Vec<&'a FlagMeta<'a>>, Vec<&'a FlagMeta<'a>>) {
+) -> (Vec<&'a FlagMeta<'a>>, Vec<(&'a FlagMeta<'a>, String)>) {
     let Some((here, ancestors)) = chain.split_last() else {
         return (Vec::new(), Vec::new());
     };
@@ -886,21 +901,44 @@ fn own_and_global<'a>(
             .map(|l| format!("--{l}"))
             .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
     }
-    let mut taken: Vec<String> = own.iter().flat_map(|f| claims(f)).collect();
-    let mut keep: Vec<*const FlagMeta<'_>> = Vec::new();
+    // Every own flag, hidden ones included. `hide` keeps a flag out of the *page*; the parser
+    // still binds it, so it still shadows — and usage-lib counted them, which made the two
+    // renderers disagree wherever a hidden local shared a spelling with an ancestor's global.
+    let mut taken: Vec<String> = here.flags.iter().flat_map(|f| claims(f)).collect();
+    // Per spelling, not per flag. A descendant that claims only `-v` leaves the ancestor's
+    // `--verbose` working — the parser still binds it — so dropping the whole entry made a
+    // usable name undiscoverable. What survives is offered; what was claimed is not.
+    let mut keep: Vec<(*const FlagMeta<'_>, bool, bool)> = Vec::new();
     for meta in ancestors.iter().rev() {
         for f in meta.flags.iter().filter(|f| !f.hide && f.flag.global) {
-            if claims(f).any(|c| taken.contains(&c)) {
+            let hide_long = f
+                .flag
+                .longs
+                .first()
+                .is_some_and(|l| taken.contains(&format!("--{l}")));
+            let hide_short = f
+                .flag
+                .shorts
+                .first()
+                .is_some_and(|s| taken.contains(&format!("-{}", *s as char)));
+            // Nothing left to offer: every spelling it has is spoken for.
+            let nothing_left =
+                (hide_long || f.flag.longs.is_empty()) && (hide_short || f.flag.shorts.is_empty());
+            if nothing_left {
                 continue;
             }
             taken.extend(claims(f));
-            keep.push(f as *const _);
+            keep.push((f as *const _, hide_long, hide_short));
         }
     }
     let inherited = ancestors
         .iter()
         .flat_map(|meta| meta.flags.iter())
-        .filter(|f| keep.contains(&(*f as *const _)))
+        .filter_map(|f| {
+            keep.iter()
+                .find(|(p, _, _)| core::ptr::eq(*p, f as *const _))
+                .map(|(_, hl, hs)| (f, column_usage_masked(f, *hl, *hs)))
+        })
         .collect();
     (own, inherited)
 }
