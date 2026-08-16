@@ -40,6 +40,7 @@ jobs:
           fi
       - run: mise r build
       - run: mise r test
+      - run: mise r test:go
       # `os_string_from_bytes` has a `cfg` branch per platform, and every test of it is
       # `#[cfg(unix)]` — so the Windows one is not compiled anywhere else in this pipeline.
       # A compile check is not coverage, but it is what keeps that branch from rotting
