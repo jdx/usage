@@ -348,7 +348,7 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-Today usage-lib diverges on 5 of 151 vectors:
+Today usage-lib diverges on 5 of 152 vectors:
 
 **An attached value that looks like a flag is read as one.** `--jobs=--force`
 binds `force` and leaves `jobs` unset, although the `=` has already settled where

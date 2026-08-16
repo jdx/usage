@@ -196,6 +196,13 @@
       "expect": { "ok": { "flags": { "color": false } } }
     },
     {
+      "id": "long-negation-with-attached-value",
+      "doc": "Dropping a value the flag cannot hold does not drop which form was typed: `--no-color=yes` still binds false. The two rules meet here, and reading the whole token to decide the form would make the negation depend on whether a value happened to be attached.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",
+      "argv": ["--no-color=yes"],
+      "expect": { "ok": { "flags": { "color": false } } }
+    },
+    {
       "id": "long-negation-default",
       "doc": "With neither form given, a negatable flag takes its declared default.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" default=#true\n",

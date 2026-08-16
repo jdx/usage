@@ -958,8 +958,12 @@ fn parse_partial_with_env(
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
+                    // Which form was typed is a question about the name, so it is
+                    // asked of `word` rather than the whole token: the attached value
+                    // is dropped just above, and comparing `--no-color=yes` against
+                    // `--no-color` would take the negation down with it.
                     out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(w != negate));
+                        .insert(Arc::clone(f), ParseValue::Bool(word != negate));
                 }
                 continue;
             }
