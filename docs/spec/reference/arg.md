@@ -55,7 +55,7 @@ arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
 arg "<file>" double_dash="required" // arg only accepts values after a double dash; `mycli file.txt` is an error, `mycli -- file.txt` is not
 arg "<-- file>"                     // shorthand for double_dash="required" (also `arg "[-- file]"`, `arg "<-- files>..."`)
 arg "<file>" double_dash="optional" // arg may be passed after a double dash (e.g. mycli -- file.txt or mycli file.txt) — the default
-arg "<file>..." double_dash="automatic" // once arg is passed, behave as if a double dash was passed (e.g. mycli file.txt --filewithdash) — not yet enforced by the parser
+arg "<file>..." double_dash="automatic" // once arg is passed, behave as if a double dash was passed (e.g. mycli file.txt --filewithdash)
 arg "<args>..." double_dash="preserve" // preserve double dashes as args (e.g. mycli arg1 -- arg2 -- arg3)
 ```
 

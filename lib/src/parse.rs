@@ -924,7 +924,7 @@ fn parse_partial_with_env(
             // an empty value while `--jobs` supplies none. Collapsing the two lost
             // the flag entirely.
             let split = w.split_once('=');
-            let (word, val) = split.unwrap_or((&w, ""));
+            let word = split.map(|(word, _)| word).unwrap_or(&w);
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
                 apply_flag_overrides(
                     f,
@@ -933,21 +933,54 @@ fn parse_partial_with_env(
                     &mut out.flag_awaiting_value,
                     &mut overridden_flags,
                 );
-                // Only push the embedded value back when the flag is known so that
-                // unknown --flag=value tokens fall through intact to positional arg
-                // handling without also injecting a stray "value" positional.
                 // An attached value only means something to a flag that takes one:
                 // `--jobs=` is an empty string, while `--force=yes` has nothing to
-                // give a flag that holds no value. Queueing it there would re-split
-                // one token into two, and the leftover would be read as a positional
-                // — so `ex --force=yes` would fill an argument the caller never
-                // typed a word for.
-                if split.is_some() && f.arg.is_some() {
-                    input.push_front(val.to_string());
-                    prefix_bindings.push_front(None);
-                }
+                // give a flag that holds no value. Handing that leftover to the
+                // positionals would re-split one token into two, so `ex --force=yes`
+                // would fill an argument the caller never typed a word for.
                 if f.arg.is_some() {
-                    out.flag_awaiting_value.push(Arc::clone(f));
+                    let f = Arc::clone(f);
+                    out.flag_awaiting_value.push(Arc::clone(&f));
+                    // The `=` has already settled that this text is the value, so it
+                    // binds here rather than going back on the queue to be read as a
+                    // token again — where `--jobs=--force` looked like a flag of its
+                    // own and bound `force`, leaving `jobs` unset.
+                    if let Some((_, val)) = split {
+                        let mut val = val.to_string();
+                        let should_return = drain_pending_flag_values(
+                            spec,
+                            &out.cmd,
+                            &mut out.errors,
+                            &mut out.flags,
+                            &mut out.flag_awaiting_value,
+                            &mut val,
+                            custom_env,
+                        )?;
+                        if should_return {
+                            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                            return Ok((out, overridden_flags));
+                        }
+                        // The `=` settles where the *first* value came from, nothing
+                        // more, so a variadic argument goes on collecting from the
+                        // words after it exactly as the detached form does.
+                        if f.arg.as_ref().is_some_and(|arg| arg.var) {
+                            let should_return = collect_variadic_flag_values(
+                                spec,
+                                &out.cmd,
+                                &mut out.errors,
+                                &mut out.flags,
+                                &mut out.flag_awaiting_value,
+                                &f,
+                                &mut input,
+                                &mut prefix_bindings,
+                                custom_env,
+                            )?;
+                            if should_return {
+                                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                                return Ok((out, overridden_flags));
+                            }
+                        }
+                    }
                 } else if f.count {
                     let arr = out
                         .flags
@@ -1050,7 +1083,19 @@ fn parse_partial_with_env(
             }
         }
 
-        if !out.flag_awaiting_value.is_empty() {
+        // Only while flags are still being read. A flag still waiting when the separator
+        // was consumed is starved: its value would have to come from after the `--`,
+        // where every token is data. Draining there gave `ex --jobs -- x` the word after
+        // the separator, so the command line quietly meant `ex --jobs=x` and the `--`
+        // was gone. Left waiting, it is reported as the missing value it is.
+        if enable_flags && !out.flag_awaiting_value.is_empty() {
+            // Held before the drain pops it: a flag whose argument is variadic keeps
+            // taking values after this first one.
+            let collecting = out
+                .flag_awaiting_value
+                .last()
+                .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
+                .cloned();
             let should_return = drain_pending_flag_values(
                 spec,
                 &out.cmd,
@@ -1063,6 +1108,23 @@ fn parse_partial_with_env(
             if should_return {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
+            }
+            if let Some(flag) = collecting {
+                let should_return = collect_variadic_flag_values(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    &mut out.flags,
+                    &mut out.flag_awaiting_value,
+                    &flag,
+                    &mut input,
+                    &mut prefix_bindings,
+                    custom_env,
+                )?;
+                if should_return {
+                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    return Ok((out, overridden_flags));
+                }
             }
             continue;
         }
@@ -1089,6 +1151,13 @@ fn parse_partial_with_env(
             )? {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
+            }
+            // `double_dash="automatic"` means the first value this arg takes is the last
+            // token read as anything but data: a wrapper declaring it can forward flags
+            // without its caller typing a `--`. Set before the value is stored, so the
+            // rest of the command line is already past flag parsing.
+            if arg.double_dash == SpecDoubleDashChoices::Automatic {
+                enable_flags = false;
             }
             if arg.var {
                 let arr = out
@@ -1520,6 +1589,67 @@ fn is_number(rest: &str) -> bool {
     }
 }
 
+/// Keep feeding a flag whose argument is variadic from the words that follow it.
+///
+/// `--include <pattern>...` collects from a single occurrence, so it takes tokens until
+/// one is flag-like, a `--` arrives, its `var_max` is reached, or the command line ends.
+/// This is greedy by design — a command declaring both such a flag and positionals will
+/// find the flag eating them, and `--` or a `var_max` is how the run is stopped.
+///
+/// Each value goes through the same drain as the first, so choices are checked and the
+/// value lands in the same list rather than by a second route that could disagree.
+#[allow(clippy::too_many_arguments)]
+fn collect_variadic_flag_values(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    flag: &Arc<SpecFlag>,
+    input: &mut VecDeque<String>,
+    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    let max = flag
+        .arg
+        .as_ref()
+        .and_then(|arg| arg.var_max)
+        .unwrap_or(usize::MAX);
+    while flags.get(flag).map(value_count).unwrap_or(0) < max {
+        let Some(next) = input.front() else { break };
+        // The separator is left where it is: stopping here hands it to the arm that
+        // knows what it means, rather than reading it as one more value.
+        if next == "--" || is_flag_like(next) {
+            break;
+        }
+        let mut word = input.pop_front().unwrap();
+        // The two queues are read in step, so a word taken here takes its binding with it.
+        prefix_bindings.pop_front();
+        flag_awaiting_value.push(Arc::clone(flag));
+        if drain_pending_flag_values(
+            spec,
+            cmd,
+            errors,
+            flags,
+            flag_awaiting_value,
+            &mut word,
+            custom_env,
+        )? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// How many values a flag is holding, for a bound that counts them.
+fn value_count(value: &ParseValue) -> usize {
+    match value {
+        ParseValue::MultiString(values) => values.len(),
+        ParseValue::MultiBool(values) => values.len(),
+        _ => 1,
+    }
+}
+
 fn drain_pending_flag_values(
     spec: &Spec,
     cmd: &SpecCommand,
@@ -1543,7 +1673,9 @@ fn drain_pending_flag_values(
             return Ok(true);
         }
         let value = std::mem::take(word);
-        if flag.var {
+        // Two ways to hold several values, and both record a list: a `var` flag
+        // collects one per occurrence, a variadic argument collects several from one.
+        if flag.var || arg.var {
             let arr = flags
                 .entry(flag)
                 .or_insert_with(|| ParseValue::MultiString(vec![]))

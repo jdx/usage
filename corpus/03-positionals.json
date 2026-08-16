@@ -206,9 +206,6 @@
             "out": "c"
           }
         }
-      },
-      "reference": {
-        "diverges": "usage-lib does not collect for a variadic flag at all \u2014 it takes one value, so `b` fills [out] and `c` is unexpected. The same gap as `long-variadic-flag-arg`, which the spec reference documents; bounding what usage-argv collects is consistent with it collecting in the first place."
       }
     }
   ]
