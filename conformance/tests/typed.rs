@@ -164,7 +164,7 @@ fn the_spec_is_unchanged_by_a_fields_type() {
     let kdl = Typed::to_kdl();
     // The writer puts a flag's argument in a child block rather than in the placeholder.
     assert!(kdl.contains(r#"flag "-j --jobs""#), "{kdl}");
-    assert!(kdl.contains(r#"arg "<jobs>""#), "{kdl}");
+    assert!(kdl.contains(r#"arg "<JOBS>""#), "{kdl}");
     assert!(!kdl.contains("usize"), "{kdl}");
     assert!(!kdl.contains("PathBuf"), "{kdl}");
 }

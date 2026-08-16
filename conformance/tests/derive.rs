@@ -175,7 +175,7 @@ fn a_required_collection_is_required_at_parse_time_too() {
     let no_files = argv(["--tag", "t"]);
     let err = MustHaveSome::parse_from(&no_files).expect_err("no files given");
     assert!(
-        format!("{err:?}").contains("files"),
+        format!("{err:?}").contains("FILES"),
         "should name the missing collection: {err:?}"
     );
     let no_tags = argv(["f"]);
@@ -365,10 +365,11 @@ fn the_spec_is_valid_and_says_what_was_declared() {
     let secret = spec.cmd.flags.iter().find(|f| f.name == "secret").unwrap();
     assert!(secret.hide);
 
-    // A `String` positional must be filled; a `Vec<String>` need not be.
-    assert_eq!(spec.cmd.args[0].name, "file");
+    // A `String` positional must be filled; a `Vec<String>` need not be. Shouted, which is
+    // what clap prints — `<FILE> [REST]…` — and a positional's name is its placeholder.
+    assert_eq!(spec.cmd.args[0].name, "FILE");
     assert!(spec.cmd.args[0].required);
-    assert_eq!(spec.cmd.args[1].name, "rest");
+    assert_eq!(spec.cmd.args[1].name, "REST");
     assert!(spec.cmd.args[1].var);
     assert!(!spec.cmd.args[1].required);
 }
@@ -415,7 +416,7 @@ struct ManyDefaulted {
 fn a_defaulted_argument_reads_as_optional_in_both_renderers() {
     // The two sides have to agree, and this is the case where they did not. usage-lib clears
     // `required` while *parsing* a spec that declares a default, then renders from `required`
-    // alone — so it writes `[dir]`. usage-argv kept the two separate and read `required` on its
+    // alone — so it writes `[DIR]`. usage-argv kept the two separate and read `required` on its
     // own, writing `<dir>` for an argument the parser is perfectly happy to omit.
     //
     // mise's own spec does not catch this: every defaulted positional in it is written
@@ -427,7 +428,7 @@ fn a_defaulted_argument_reads_as_optional_in_both_renderers() {
     let ours = usage_argv::help::usage_line(&["ex"], Defaulted::spec().root);
     assert_eq!(ours, theirs, "the two renderers disagree");
     assert!(
-        ours.contains("[dir]"),
+        ours.contains("[DIR]"),
         "a defaulted argument is optional: {ours}"
     );
     // A flag says it the same way, and had the same bug: usage-lib clears `required` on a flag
@@ -445,7 +446,7 @@ fn a_defaulted_argument_reads_as_optional_in_both_renderers() {
         plain_line,
         format!("ex {}", plain.cmd.usage()).trim().to_string()
     );
-    assert!(plain_line.contains("<file>"), "{plain_line}");
+    assert!(plain_line.contains("<FILE>"), "{plain_line}");
 
     // Past the point where the line collapses them into one placeholder, the same signal
     // decides whether it reads `<ARGS>…` or `[ARGS]…` — and all of these are omittable.

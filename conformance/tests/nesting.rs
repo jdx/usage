@@ -131,7 +131,7 @@ fn a_deep_commands_requirements_are_its_own() {
     let a = argv(["settings", "set", "jobs"]);
     assert!(matches!(
         Ex::parse_from(&a),
-        Err(Error::MissingRequired { name: "value" })
+        Err(Error::MissingRequired { name: "VALUE" })
     ));
 
     let a = argv(["settings", "ls"]);

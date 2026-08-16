@@ -35,6 +35,13 @@ pub struct Cli {
     /// CLI with a subcommand depend on `usage-config`. A root that binds a setting of its own has
     /// already said it, and does not need this.
     pub settings: bool,
+    /// The oldest `usage` that can read the emitted spec, when the CLI says.
+    ///
+    /// Declared rather than computed. Working it out would mean a table from every property to
+    /// the version that introduced it, kept in step by hand — and a table that silently rots
+    /// produces a spec claiming to be readable by a `usage` that chokes on it, which is worse
+    /// than saying nothing. The CLI knows which consumers it has to keep working.
+    pub min_usage_version: Option<String>,
     /// What running this command does to the world, when it says.
     ///
     /// Held as the tokens for an `Option<Effect>`, since the only thing it becomes is a field of
@@ -315,6 +322,7 @@ impl Cli {
             bin: None,
             completion: false,
             settings: false,
+            min_usage_version: None,
             effect: None,
             attr_span: input
                 .attrs
@@ -349,6 +357,7 @@ impl Cli {
                     "completion" => cli.completion = flag_value(&meta)?,
                     "settings" => cli.settings = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
+                    "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "version" => cli.version = Some(string_value(&meta)?),
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
@@ -1547,6 +1556,28 @@ impl Field {
             }
         }
 
+        // A positional is named by the same rule, and its name *is* its placeholder: clap
+        // prints `<TAG> [PREV_TAG]` for `tag: String, prev_tag: Option<String>`, so a spec
+        // saying `<tag> [prev-tag]` is a CLI whose help reads differently for no reason.
+        // Only when the field did not name itself — `name = "…"` means exactly this.
+        if matches!(kind, Kind::Arg { .. }) && !name_given {
+            name = shout(&name);
+        }
+
+        // Undeclared, a flag's value is named after the flag, shouted — `--max-tokens
+        // <MAX_TOKENS>`. clap's default, and the reason to match it is the same as everywhere
+        // else here: an adopter's users read the placeholder in `--help`, and `<max-tokens>` is
+        // a visible change for a CLI that changed nothing.
+        //
+        // Set here rather than left to the renderers, so the metadata says what help prints —
+        // two fallbacks would be two answers, and the spec is what docs and completions read.
+        if value_name.is_none()
+            && matches!(kind, Kind::Flag { .. })
+            && !matches!(shape, Shape::Bool | Shape::Count)
+        {
+            value_name = Some(shout(&name));
+        }
+
         Ok(Field {
             ident,
             ty: field.ty.clone(),
@@ -1892,6 +1923,23 @@ fn doc_comment(attrs: &[Attribute]) -> syn::Result<(Option<String>, Option<Strin
 }
 
 /// `my_flag` and `MyCli` both become `my-cli`-shaped names.
+/// A flag's name as its value placeholder: `max-tokens` becomes `MAX_TOKENS`.
+///
+/// Taken from the *form* rather than the field, so `#[usage(long = "type")] type_` renders
+/// `--type <TYPE>` and not `<TYPE_>`, and shouted with underscores because that is what clap
+/// prints. All three measured from clap 4 rather than assumed:
+///
+/// ```text
+///       --type <TYPE>
+///       --max-tokens <MAX_TOKENS>
+///   -c, --config <CONFIG>
+/// ```
+///
+/// One flag written two ways on purpose: kebab to type, shouted snake to read.
+fn shout(form: &str) -> String {
+    form.to_uppercase().replace('-', "_")
+}
+
 fn to_kebab(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     for (i, ch) in s.chars().enumerate() {

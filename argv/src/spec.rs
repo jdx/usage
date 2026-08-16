@@ -261,6 +261,12 @@ pub struct Spec<'a> {
     /// The binary as invoked, when it differs from `name`.
     pub bin: Option<&'a str>,
     pub version: Option<&'a str>,
+    /// The oldest `usage` that can read this spec, when the CLI says.
+    ///
+    /// Written first, before anything a `usage` too old to understand would choke on — which is
+    /// the whole point of it, and why it is declared rather than worked out here: it is the
+    /// CLI's claim about which consumers it means to keep working.
+    pub min_usage_version: Option<&'a str>,
     pub about: Option<&'a str>,
     pub long_about: Option<&'a str>,
     /// Which command the root falls back to when a word matches no subcommand.
@@ -284,6 +290,7 @@ impl Spec<'_> {
         name: "",
         bin: None,
         version: None,
+        min_usage_version: None,
         about: None,
         long_about: None,
         default_subcommand: None,
@@ -598,6 +605,10 @@ impl Spec<'_> {
     }
 
     fn write_kdl(&self, out: &mut String) -> core::fmt::Result {
+        // First, so a `usage` too old to read the rest sees it before whatever it would choke on.
+        if let Some(min) = self.min_usage_version {
+            prop(out, "min_usage_version", min)?;
+        }
         prop(out, "name", self.name)?;
         prop(out, "bin", self.bin.unwrap_or(self.name))?;
         if let Some(version) = self.version {
