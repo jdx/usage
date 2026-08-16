@@ -1159,7 +1159,14 @@ fn own_and_global<'a>(
     // negations, and a `--help` the page offers while something else binds it is exactly the
     // lie this whole model exists to prevent.
     let mut own = own;
-    own.extend(supplied_entries(here.cmd, &taken));
+    // Forms *and* negations: `long_flag` asks `find_negation` before it offers `--version`,
+    // so a declared negation beats a supplied flag even though it loses to a long.
+    let claimed: Vec<String> = taken
+        .iter()
+        .cloned()
+        .chain(taken_negations.iter().cloned())
+        .collect();
+    own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)
 }
 

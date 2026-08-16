@@ -20,7 +20,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     //
     // Listed nowhere before this: `communique generate` accepts `--config` from its root and
     // its page mentioned none of it — a flag a user can type and cannot discover.
-    let mut inherited = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
+    let (mut inherited, ancestors_taken) = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
 
     // One column over both lists, so the two sections read as one table with a rule through it
     // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
@@ -30,7 +30,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // `help_heading`, so a CLI that groups its flags gets them at the end of the ungrouped
     // list rather than inside somebody's section.
     {
-        let supplied = supplied_flags(spec, cmd, docs_cmd.full_cmd.is_empty(), &inherited);
+        let supplied = supplied_flags(spec, cmd, &ancestors_taken, docs_cmd.full_cmd.is_empty());
         if !supplied.is_empty() {
             match docs_cmd
                 .flag_groups
@@ -95,22 +95,19 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
 fn supplied_flags(
     spec: &Spec,
     cmd: &SpecCommand,
+    ancestors_taken: &[String],
     is_root: bool,
-    inherited: &[crate::docs::models::SpecFlag],
 ) -> Vec<crate::docs::models::SpecFlag> {
-    // Against every spelling anything in scope answers to — hidden declarations and negations
-    // included, since both bind. `without_hidden` has already been applied to the docs model,
-    // so the command's own flags are read from the real one.
-    let mut taken: Vec<String> = Vec::new();
+    // The command's own spellings plus everything in scope above it — the set the inherited
+    // walk built, which counts hidden globals and negations. Rebuilding it from the *visible*
+    // inherited list lost both: a hidden ancestor that binds `--help` would have had the page
+    // offer it anyway.
+    let mut taken: Vec<String> = ancestors_taken.to_vec();
     for f in &cmd.flags {
         taken.extend(f.long.iter().map(|l| format!("--{l}")));
         taken.extend(f.short.iter().map(|s| format!("-{s}")));
-        taken.extend(f.negate.iter().map(|n| format!("--{n}")));
-    }
-    for f in inherited {
-        taken.extend(f.long.iter().map(|l| format!("--{l}")));
-        taken.extend(f.short.iter().map(|s| format!("-{s}")));
-        taken.extend(f.negate.iter().map(|n| format!("--{n}")));
+        // Stored with its dashes here, unlike in usage-argv.
+        taken.extend(f.negate.clone());
     }
 
     let build = |name: &str, long: &str, short: char, help: &str| {
@@ -181,14 +178,14 @@ fn inherited_flags(
     spec: &Spec,
     cmd: &SpecCommand,
     full_cmd: &[String],
-) -> Vec<crate::docs::models::SpecFlag> {
+) -> (Vec<crate::docs::models::SpecFlag>, Vec<String>) {
     // Every ancestor, root first, which is the order a reader meets them walking down.
     let mut ancestors: Vec<&SpecCommand> = Vec::new();
     let mut at = &spec.cmd;
     for name in full_cmd.iter().take(full_cmd.len().saturating_sub(1)) {
         ancestors.push(at);
         let Some(next) = at.subcommands.get(name) else {
-            return Vec::new();
+            return (Vec::new(), Vec::new());
         };
         at = next;
     }
@@ -257,7 +254,7 @@ fn inherited_flags(
             keep.push((f, long, short, negate));
         }
     }
-    ancestors
+    let shown: Vec<crate::docs::models::SpecFlag> = ancestors
         .iter()
         .flat_map(|a| a.flags.iter())
         .filter_map(|f| {
@@ -277,7 +274,12 @@ fn inherited_flags(
             shown.usage = shown.usage();
             crate::docs::models::SpecFlag::from(&shown)
         })
-        .collect()
+        .collect();
+    // The claim set travels with the result, forms and negations together: the supplied
+    // `--help` and `--version` entries lose to both, since `find_negation` runs before either
+    // is offered — even though a negation loses to a long.
+    taken.extend(taken_negations);
+    (shown, taken)
 }
 
 /// The command without anything marked `hide`.
@@ -340,6 +342,33 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn a_hidden_ancestor_claim_keeps_help_off_the_page() {
+        // `--help` is supplied by the parser, and a hidden global that declares it still binds
+        // first — `hide` keeps a flag off the page, not out of the parse. Deciding the supplied
+        // entries from the *visible* inherited list lost exactly that, and the page offered a
+        // `--help` that does something else.
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--help" global=#true hide=#true help="the CLI's own, and invisible"
+cmd inner help="a command" {
+    flag "--plain" help="its own"
+}
+        "# }
+        .unwrap();
+
+        let inner = spec.cmd.subcommands.get("inner").expect("inner");
+        for long in [false, true] {
+            let page = super::render_help(&spec, inner, long);
+            assert!(
+                !page.contains("--help"),
+                "long={long}: a hidden ancestor binds this:\n{page}"
+            );
+            // The short form is untouched, since nothing claimed it.
+            assert!(page.contains("-h"), "long={long}:\n{page}");
+        }
+    }
 
     #[test]
     fn a_long_beats_a_negation_however_far_away_it_is() {
