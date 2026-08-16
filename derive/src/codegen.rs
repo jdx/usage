@@ -1703,10 +1703,11 @@ fn field_final(field: &Field) -> TokenStream {
                 }};
                 if field.optional_collection {
                     let given = format_ident!("__given_{}", ident);
+                    let defaulted = !field.default.is_empty();
                     // Same as below: whether anything arrived is what tells "never given"
                     // from "given nothing", which the `Vec` itself cannot.
                     quote! {
-                        #ident: if partial.#given {
+                        #ident: if partial.#given || #defaulted {
                             ::std::option::Option::Some(#collected)
                         } else {
                             ::std::option::Option::None
@@ -1796,10 +1797,14 @@ fn field_final(field: &Field) -> TokenStream {
             }};
             if field.optional_collection {
                 let given = format_ident!("__given_{}", ident);
+                // A declared default is a value, so a field that has one is never `None`. It
+                // does not set `__given_*` — the environment still has to be able to replace it
+                // — so the answer has to come from the declaration rather than from the partial.
+                let defaulted = !field.default.is_empty();
                 // `Option<Vec<T>>` distinguishes "never given" from "given nothing", which
                 // no `Vec` can — so the answer comes from whether anything arrived.
                 quote! {
-                    #ident: if partial.#given {
+                    #ident: if partial.#given || #defaulted {
                         ::std::option::Option::Some(#collected)
                     } else {
                         ::std::option::Option::None
@@ -2568,7 +2573,15 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 partial.#ident = ::std::option::Option::Some(value.into_bytes());
             },
             Shape::Required => quote!(partial.#ident = value.into_bytes();),
-            Shape::Many => quote!(partial.#ident.push(value.into_bytes());),
+            // Cleared first, so the environment *replaces* a declared default instead of
+            // adding to it — which is what every other shape does by assigning, and what the
+            // order here means: a default says what the value is when nobody said anything,
+            // and the environment is somebody saying something. Nothing else can be in the
+            // collection at this point: argv sets `__given_*`, which this is guarded on.
+            Shape::Many => quote! {
+                partial.#ident.clear();
+                partial.#ident.push(value.into_bytes());
+            },
             // A switch reads as on for anything but the spellings of "off", which is
             // what every tool that takes a boolean from the environment settles on.
             Shape::Bool => quote! {

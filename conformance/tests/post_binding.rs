@@ -448,6 +448,15 @@ struct Defaulted {
     /// One value, and it may be given once
     #[usage(long, default = "4")]
     jobs: Option<String>,
+    /// Read from the environment when nobody says otherwise
+    #[usage(long, var, default = "one", default = "two", env = "EX_FROM_ENV")]
+    from_env: Vec<String>,
+    /// Never `None`, because it always has something
+    #[usage(long, var, default = "x", default = "y")]
+    maybe: Option<Vec<String>>,
+    /// `None` until it is given, because it declares nothing
+    #[usage(long, var)]
+    plain: Option<Vec<String>>,
 }
 
 #[test]
@@ -501,4 +510,45 @@ fn a_displaced_collecting_flag_goes_back_to_its_defaults() {
         ["create", "remove", "modify"],
         "back to its declared defaults, and only those"
     );
+}
+
+#[test]
+fn the_environment_replaces_a_collections_defaults() {
+    // Every other shape assigns, so the environment overrides a default. A collection pushed,
+    // so it ended up holding both — three events when the variable named one, and the extra two
+    // are the ones the user's variable was chosen instead of.
+    //
+    // Serialized against the other environment test by reading a variable of its own.
+    unsafe { std::env::set_var("EX_FROM_ENV", "three") };
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.from_env, ["three"]);
+    unsafe { std::env::remove_var("EX_FROM_ENV") };
+
+    // And with the variable unset the defaults stand, which is the other half of "replaces".
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.from_env, ["one", "two"]);
+}
+
+#[test]
+fn an_optional_collection_with_defaults_is_never_none() {
+    // `Option<Vec<T>>` says `None` for "never given", and a default is a value — so a field that
+    // declares one always has something to hold. Seeding it left `__given_*` alone (the
+    // environment still has to be able to replace it), so `None` came back and every declared
+    // default was discarded on the way out of the partial.
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(
+        d.maybe.as_deref(),
+        Some(&["x".to_string(), "y".to_string()][..])
+    );
+
+    // Given, it is what was given.
+    let a = argv(["--maybe", "z"]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.maybe.as_deref(), Some(&["z".to_string()][..]));
+
+    // And one that declares no default still tells "never given" from "given nothing".
+    assert_eq!(d.plain, None);
 }
