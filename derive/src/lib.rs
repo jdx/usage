@@ -153,7 +153,8 @@
 //! one, generated from the function rather than declared beside it.
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
-//! `default_subcommand`, `completion` — which adds the hidden command a generated shell
+//! `default_subcommand`, `effect` — what running this command does to the world, on an `Args`
+//! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
 //! and `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]).
 //!
@@ -174,6 +175,7 @@
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
+//! | `effect = "write"` | what supplying this flag does to the world: `read`, `write` or `destructive` |
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |

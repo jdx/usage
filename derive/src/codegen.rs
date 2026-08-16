@@ -719,9 +719,16 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
 
     let (completer_decl, completer) = completer_tokens(i, field, "flag", owner);
 
+    // `None` unless declared, and only on a flag: an argument is not something a user
+    // supplies to change what happens, it is the thing being acted on.
+    let effect = field
+        .effect
+        .clone()
+        .unwrap_or_else(|| quote!(::core::option::Option::None));
     quote! {
         #completer_decl
         pub static #name: FlagMeta = FlagMeta {
+            effect: #effect,
             complete: #completer,
             flag: &#table,
             help: #help,
@@ -2143,6 +2150,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(field_final);
 
+    // The root cannot carry one — the spec writer asserts it — so this is the non-root
+    // path's alone, which is also the only path a command's own declaration reaches.
+    let effect = cli
+        .effect
+        .clone()
+        .unwrap_or_else(|| quote!(::core::option::Option::None));
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -2178,6 +2191,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             pub static COMMAND_META: CommandMeta = CommandMeta {
                 cmd: &COMMAND,
+                effect: #effect,
                 about: #about,
                 long_about: #long_about,
                 restart_token: #restart_token,
