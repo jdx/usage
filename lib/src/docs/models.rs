@@ -521,6 +521,16 @@ impl From<&crate::SpecCommand> for SpecCommand {
     }
 }
 
+/// Help text, with whitespace-only treated as none.
+///
+/// `usage-argv` filters a blank description out everywhere it reads one, so a spec written with
+/// `help="   "` produced a padded column and a line of trailing spaces here and nothing there —
+/// two renderings of the same metadata. Normalised once, where the model is built, so every
+/// renderer downstream sees the same answer.
+fn said(help: &Option<String>) -> Option<String> {
+    help.as_ref().filter(|h| !h.trim().is_empty()).cloned()
+}
+
 /// The width of the short column: `-x, `, or the blank that stands in for it.
 ///
 /// Fixed, because a short form is one character. clap's, measured.
@@ -560,7 +570,16 @@ fn column_usage(flag: &crate::SpecFlag) -> String {
         return rest;
     };
     let (before, after) = rest.split_at(at);
-    let short = match before.trim() {
+    let short = before.trim();
+    // Only a bare short form belongs in the short column — see the twin in `usage-argv`. A
+    // declared name the forms do not imply (`jobs: -j --parallel`) is not one, and gluing a
+    // comma to it lost the space before the long form.
+    let bare_short = short.is_empty()
+        || (short.starts_with('-') && !short.starts_with("--") && short.chars().count() == 2);
+    if !bare_short {
+        return rest;
+    }
+    let short = match short {
         "" => String::new(),
         s => format!("{s},"),
     };
@@ -574,7 +593,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             effect: flag.effect,
             usage: flag.usage.clone(),
             display_usage: column_usage(flag),
-            help: flag.help.clone(),
+            help: said(&flag.help),
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),
             help_first_line: flag.help_first_line.clone(),
@@ -618,7 +637,7 @@ impl From<&crate::SpecArg> for SpecArg {
         Self {
             name: arg.name.clone(),
             usage: arg.usage.clone(),
-            help: arg.help.clone(),
+            help: said(&arg.help),
             help_long: arg.help_long.clone(),
             help_md: arg.help_md.clone(),
             help_first_line: arg.help_first_line.clone(),

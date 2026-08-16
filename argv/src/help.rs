@@ -469,7 +469,17 @@ fn column_usage(meta: &FlagMeta<'_>) -> String {
         return rest;
     };
     let (before, after) = rest.split_at(at);
-    let short = match before.trim() {
+    let short = before.trim();
+    // Only a bare short form belongs in the short column. A flag may carry a declared name the
+    // forms do not imply — `jobs: -j --parallel` — and that prefix is not something to line up
+    // with a comma after: it rendered `jobs: -j,--parallel`, losing the space entirely, because
+    // the glued string is already wider than the column.
+    let bare_short = short.is_empty()
+        || (short.starts_with('-') && !short.starts_with("--") && short.chars().count() == 2);
+    if !bare_short {
+        return rest;
+    }
+    let short = match short {
         "" => String::new(),
         s => format!("{s},"),
     };

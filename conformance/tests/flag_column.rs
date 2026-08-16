@@ -131,3 +131,47 @@ fn the_fields_are_bound() {
     assert!(ex.github_release && ex.dry_run && ex.describe);
     assert_eq!(ex.output.as_deref(), Some("o"));
 }
+
+/// A flag whose declared name the forms do not imply, and one whose help says nothing
+#[derive(Cli)]
+#[usage(bin = "odd")]
+struct Odd {
+    /// How many at once
+    #[usage(name = "jobs", long = "parallel", short = 'j')]
+    parallel: Option<String>,
+    /// A description made only of spaces is no description
+    #[usage(long, help = "   ")]
+    blank: bool,
+}
+
+#[test]
+fn a_declared_name_is_not_mistaken_for_a_short_form() {
+    // `jobs: -j --parallel` — the prefix is the flag's *name*, not something to line a comma up
+    // after. Gluing one on lost the space entirely and rendered `jobs: -j,--parallel`, because
+    // the joined string is already wider than the column it was being padded to.
+    let page = usage_argv::help::render(Odd::spec(), Odd::spec().root.cmd, false).expect("a page");
+    assert!(page.contains("jobs: -j --parallel"), "{page}");
+    assert!(!page.contains("-j,--parallel"), "{page}");
+}
+
+#[test]
+fn a_description_of_only_spaces_is_no_description() {
+    // Filtered wherever a description is read, so it does not buy a column of padding and a
+    // line of trailing spaces. usage-lib normalises it in the docs model for the same reason —
+    // one blank spec, two renderings, was a parity break waiting to be found.
+    let page = usage_argv::help::render(Odd::spec(), Odd::spec().root.cmd, false).expect("a page");
+    let line = page
+        .lines()
+        .find(|l| l.contains("--blank"))
+        .unwrap_or_else(|| panic!("{page}"));
+    assert_eq!(line, line.trim_end(), "trailing space on {line:?}");
+}
+
+#[test]
+fn the_odd_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["-j", "4", "--blank"].map(OsStr::new);
+    let odd = Odd::parse_from(&argv).expect("should parse");
+    assert_eq!(odd.parallel.as_deref(), Some("4"));
+    assert!(odd.blank);
+}
