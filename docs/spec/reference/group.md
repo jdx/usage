@@ -53,15 +53,20 @@ individual flag is the one that must be given.
 
 ## What counts as given
 
-A member is given when it ended up with a value from the command line or from its
-[`env`](/spec/reference/flag) variable — the same rule
-[`conflicts`](/spec/reference/flag#conflicts-and-overrides) and
-[`requires`](/spec/reference/flag#requires) follow.
+The two halves of a group are two kinds of rule, and they read a
+[`default`](/spec/reference/flag) differently.
 
-A [`default`](/spec/reference/flag) does not count. A default that satisfied a required
-group would make the group unfalsifiable — it could never report anything — and one that
-collided with a typed sibling would refuse a command line where the user named exactly
-one flag.
+**Exclusivity** counts what was supplied — from the command line or from a member's
+[`env`](/spec/reference/flag) variable — and not what was defaulted. This is the rule
+[`conflicts`](/spec/reference/flag#conflicts-and-overrides) follows, and it has to be:
+a defaulted member counted as supplied would collide with the sibling the user actually
+typed, and refuse a correct command line.
+
+**Requiredness** asks whether a member ended up with a value, and a default is a value.
+This is the rule [`requires`](/spec/reference/flag#requires) and plain
+[`required`](/spec/reference/flag) follow. A required group whose member has a default is
+therefore always satisfied — which is worth noticing when you write one, since it means
+the group enforces nothing.
 
 ## Members
 
@@ -74,3 +79,15 @@ Only flags can be members. clap allows a positional in a group; a spec generated
 such a command keeps the flags and drops the positional, since the spec has no way to
 name one in a relationship and a selector matching nothing would read as a rule that
 holds.
+
+Members are counted by the flag they name, not by the selector, so a group listing both
+`-f` and `--file` holds one member and not two. Listing both is redundant rather than
+wrong, and a flag is never in conflict with itself.
+
+## Coming from clap
+
+`ArgGroup` carries across, with `required` and `multiple` read the same way. A group that
+is `multiple` without being `required` states no rule at all, so it is dropped rather
+than written out — which matters more than it sounds, because clap's _derive_ creates
+exactly such a group for every `#[derive(Args)]` struct, named after the struct, to make
+`flatten` work. Those are clap's bookkeeping, not a rule anyone declared.

@@ -1242,12 +1242,24 @@ fn parse_partial_with_env(
     // flags, which belong to an ancestor and are declared there.
     let mut group_errors: Vec<UsageErr> = Vec::new();
     for group in out.cmds.iter().flat_map(|cmd| &cmd.groups) {
-        let given: Vec<&str> = group
-            .members
-            .iter()
-            .filter(|selector| selector_is_explicit(selector, &out, &overridden_flags, custom_env))
-            .map(|selector| selector.as_str())
-            .collect();
+        // Counted by the *flag* a selector resolves to, not by the selector. `-f` and
+        // `--file` are two spellings of one flag, and a group naming both — or naming one
+        // flag twice — would otherwise report that flag as conflicting with itself the
+        // moment it was given. Deduplicated rather than refused where the group is
+        // written, because listing both spellings is redundant, not wrong.
+        let mut given: Vec<&str> = Vec::new();
+        let mut seen: Vec<String> = Vec::new();
+        for selector in &group.members {
+            if !selector_is_explicit(selector, &out, &overridden_flags, custom_env) {
+                continue;
+            }
+            let name = selector_flag_name(selector, &out).unwrap_or_else(|| selector.clone());
+            if seen.contains(&name) {
+                continue;
+            }
+            seen.push(name);
+            given.push(selector.as_str());
+        }
         if !group.multiple && given.len() > 1 {
             group_errors.push(UsageErr::InvalidFlag {
                 token: given[1].to_string(),
@@ -1256,7 +1268,15 @@ fn parse_partial_with_env(
                 input: format!("{} {}", given[0], given[1]),
             });
         }
-        if group.required && given.is_empty() {
+        // Requiredness is a *positive* rule, so it reads a default as filling a member —
+        // the rule `requires` follows. That is also why it cannot reuse `given` above:
+        // exclusivity must count only what was supplied, or a defaulted member would
+        // collide with the sibling the user actually typed.
+        let satisfied = group
+            .members
+            .iter()
+            .any(|selector| selector_is_satisfied(selector, &out, &overridden_flags, custom_env));
+        if group.required && !satisfied {
             // The members are what a user has to type, so they are in the message; the
             // group's name is there too, since a command with several groups would
             // otherwise report the same sentence twice with nothing to tell them apart.
@@ -2906,21 +2926,35 @@ flag "--file <file>" required_unless="--stdin"
     }
 
     #[test]
-    fn a_group_counts_what_was_given_rather_than_what_was_defaulted() {
-        // The rule `conflicts` already follows, and the flag reference already states:
-        // relationships apply to flags that were actually given, not to defaults. A
-        // default that satisfied a required group would make the group unfalsifiable —
-        // it could never report anything — and one that collided with a typed sibling
-        // would refuse a command line where the user named exactly one flag.
+    fn a_group_reads_a_default_for_requiredness_and_not_for_exclusivity() {
+        // The two halves of a group are two kinds of rule, and they read a default
+        // differently on purpose. Requiredness asks whether a member has a value, and a
+        // default is a value — the rule `requires` follows. Exclusivity asks what the
+        // user supplied, because a defaulted member counted as supplied would collide
+        // with the sibling they actually typed and refuse a correct command line.
         let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <f>\" default=\"a.txt\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\" required=#true\n"
             .parse()
             .unwrap();
 
-        assert!(
-            parse(&spec, &input(&["ex"])).is_err(),
-            "a default does not stand in for a flag the user has to choose"
-        );
-        parse(&spec, &input(&["ex", "--url", "u"])).expect("the typed member is the choice");
+        parse(&spec, &input(&["ex"])).expect("the default fills the group");
+        parse(&spec, &input(&["ex", "--url", "u"]))
+            .expect("the default must not conflict with the flag the user typed");
+    }
+
+    #[test]
+    fn a_group_naming_two_spellings_of_one_flag_is_not_a_conflict() {
+        // `-f` and `--file` are one flag. Counted by selector, giving it once would
+        // report it as conflicting with itself.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-f --file <f>\"\nflag \"--url <u>\"\ngroup \"input\" \"-f\" \"--file\" \"--url\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--file", "a.txt"])).expect("one flag is one member");
+        parse(&spec, &input(&["ex", "-f", "a.txt"])).expect("either spelling, still one member");
+
+        // A genuine collision is still one.
+        let err = parse(&spec, &input(&["ex", "--file", "a.txt", "--url", "u"])).unwrap_err();
+        assert!(err.to_string().contains("group input"), "{err}");
     }
 
     #[test]

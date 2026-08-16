@@ -225,6 +225,45 @@ mod tests {
     }
 
     #[test]
+    fn the_group_clap_derive_invents_for_every_struct_is_not_carried() {
+        // `clap_derive` builds `ArgGroup::new(<struct name>).multiple(true)` for every
+        // `#[derive(Args)]` type, holding all of its fields, so that `flatten` works.
+        // It states no rule — any number of members, none of them needed — and carrying
+        // it would put a `group Lint …` in the spec of every clap-derived CLI, this
+        // repository's own included, describing bookkeeping rather than a declaration.
+        //
+        // The test is written against the *shape* rather than against the derive, since
+        // it is the shape that means nothing: `multiple` without `required`.
+        let cmd = clap::Command::new("ex")
+            .arg(clap::Arg::new("file").long("file"))
+            .arg(clap::Arg::new("url").long("url"))
+            .group(
+                clap::ArgGroup::new("Ex")
+                    .args(["file", "url"])
+                    .multiple(true),
+            );
+        assert!(
+            Spec::from(&cmd).cmd.groups.is_empty(),
+            "a group that enforces nothing should not reach the spec"
+        );
+
+        // `multiple` *with* `required` does say something — at least one of these — so
+        // that one is carried.
+        let cmd = clap::Command::new("ex")
+            .arg(clap::Arg::new("file").long("file"))
+            .arg(clap::Arg::new("url").long("url"))
+            .group(
+                clap::ArgGroup::new("input")
+                    .args(["file", "url"])
+                    .multiple(true)
+                    .required(true),
+            );
+        let spec = Spec::from(&cmd);
+        assert_eq!(spec.cmd.groups.len(), 1);
+        assert!(spec.cmd.groups[0].multiple && spec.cmd.groups[0].required);
+    }
+
+    #[test]
     fn a_clap_group_naming_a_positional_keeps_the_flags_it_can_name() {
         // The spec names group members the way it names every other relationship, by
         // flag, so a positional member has no spelling here. Dropping it silently would

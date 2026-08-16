@@ -904,12 +904,26 @@ impl From<&clap::Command> for SpecCommand {
             if members.len() < 2 {
                 continue;
             }
-            let mut spec_group = SpecGroup::new(group.get_id().as_str(), members);
-            spec_group.required = group.is_required_set();
+            // `multiple` without `required` enforces nothing at all — any number of
+            // members, none of them needed — so there is nothing to carry across.
+            //
+            // This is not a corner case. clap's *derive* emits exactly that group for
+            // every `#[derive(Args)]` struct, named after the struct and holding all its
+            // fields, to make `flatten` work: `clap_derive`'s `args.rs` builds
+            // `ArgGroup::new(id).multiple(true)`. Carrying them would put a `group Lint
+            // …` in the spec of every clap-derived CLI, including this repository's own,
+            // describing bookkeeping rather than a rule anyone declared.
+            let required = group.is_required_set();
             // `is_multiple` takes `&mut self` in clap, and a `&ArgGroup` is all a
             // `Command` hands out — so the group is cloned to ask. Once per group at
             // spec-generation time, which is a build step rather than a parse.
-            spec_group.multiple = group.clone().is_multiple();
+            let multiple = group.clone().is_multiple();
+            if multiple && !required {
+                continue;
+            }
+            let mut spec_group = SpecGroup::new(group.get_id().as_str(), members);
+            spec_group.required = required;
+            spec_group.multiple = multiple;
             spec.groups.push(spec_group);
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
