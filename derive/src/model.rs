@@ -477,6 +477,15 @@ impl Cli {
                      is asked for its own by whoever flattens it",
                 ));
             }
+            // One spec, one claim about which `usage` can read it — and only the root writes a
+            // spec at all, so a command declaring it was storing a value with nowhere to go.
+            if self.min_usage_version.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`min_usage_version` belongs on the root, where `#[derive(Cli)]` is: it is \
+                     one claim about the whole emitted spec, and only the root emits one",
+                ));
+            }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
                 return Err(self.misplaced(
@@ -1360,7 +1369,10 @@ impl Field {
                 && shape != Shape::Bool
                 && shape != Shape::Count
             {
-                value_name = Some(name.clone());
+                // Shouted here too: this runs before the default below, so leaving it
+                // unshouted meant `-j <jobs>` beside `--jobs <JOBS>` — one CLI printing a
+                // placeholder two ways. clap prints `-j <JOBS>`.
+                value_name = Some(shout(&name));
             }
             if let Some(long) = longs.first() {
                 name = long.clone();
@@ -2662,6 +2674,26 @@ mod tests {
         assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
         // The message lists them, because three words are not guessable from the attribute.
         assert!(err.contains("destructive"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn one_spec_makes_one_claim_about_which_usage_can_read_it() {
+        // Only the root emits a spec, so only the root can say this. Accepted on an `Args` it
+        // was parsed, stored, and dropped.
+        let err = position_error(
+            r#"
+            #[usage(min_usage_version = "4.0")]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#,
+            false,
+        );
+        assert!(
+            err.contains("`min_usage_version` belongs on the root"),
+            "unhelpful: {err}"
+        );
     }
 
     #[test]

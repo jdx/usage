@@ -26,6 +26,9 @@ fn a_short_only_flag_keeps_a_descriptive_placeholder() {
     // A flag is named after the form it answers to, and for a short-only flag that form is one
     // character — right for the flag's name and useless as the name of its *value*, since help
     // and the KDL both fall back to it. `-j <j>` for a field called `jobs`.
+    //
+    // Shouted like every other placeholder, so one CLI does not print `-j <jobs>` beside
+    // `--jobs <JOBS>`. clap prints `-j <JOBS>`.
     let spec: LibSpec = ShortOnly::to_kdl().parse().expect("valid spec");
     let flag = &spec.cmd.flags[0];
     assert_eq!(
@@ -34,7 +37,7 @@ fn a_short_only_flag_keeps_a_descriptive_placeholder() {
     );
     assert_eq!(
         flag.arg.as_ref().expect("takes a value").name,
-        "jobs",
+        "JOBS",
         "but its value keeps the descriptive name"
     );
 
