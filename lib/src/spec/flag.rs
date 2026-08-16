@@ -486,7 +486,7 @@ impl FromStr for SpecFlag {
             } else if let Some(long) = part.strip_prefix("--") {
                 flag.long.push(long.to_string());
             } else if let Some(short) = part.strip_prefix('-') {
-                if short.len() != 1 {
+                if short.chars().count() != 1 {
                     return Err(InvalidFlag {
                         token: format!("-{short}"),
                         reason: "short flags must be a single character (use -- for long flags)"
