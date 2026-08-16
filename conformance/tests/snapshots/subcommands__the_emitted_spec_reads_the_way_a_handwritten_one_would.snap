@@ -10,10 +10,10 @@ flag "-v --verbose" help="Say more" global=#true
 cmd "install" help="Install a tool" {
     flag "-f --force" help="Overwrite an existing install"
     flag "-j --jobs" help="How many at once" default="4" {
-        arg "<jobs>"
+        arg "<JOBS>"
     }
-    arg "[tools]..." help="What to install"
+    arg "[TOOLS]..." help="What to install"
 }
 cmd "run" help="Run a task" {
-    arg "<task>" help="The task to run"
+    arg "<TASK>" help="The task to run"
 }

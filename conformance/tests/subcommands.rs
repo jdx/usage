@@ -202,7 +202,7 @@ fn the_spec_carries_the_commands() {
 
     let run = &spec.cmd.subcommands["run"];
     assert_eq!(run.help.as_deref(), Some("Run a task"));
-    assert_eq!(run.args[0].name, "task");
+    assert_eq!(run.args[0].name, "TASK");
 }
 
 #[test]

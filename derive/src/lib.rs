@@ -153,7 +153,8 @@
 //! one, generated from the function rather than declared beside it.
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
-//! `default_subcommand`, `effect` — what running this command does to the world, on an `Args`
+//! `default_subcommand`, `min_usage_version` — the oldest `usage` that can read the emitted
+//! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
 //! and `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]).

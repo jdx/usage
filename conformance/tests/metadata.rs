@@ -26,6 +26,9 @@ fn a_short_only_flag_keeps_a_descriptive_placeholder() {
     // A flag is named after the form it answers to, and for a short-only flag that form is one
     // character — right for the flag's name and useless as the name of its *value*, since help
     // and the KDL both fall back to it. `-j <j>` for a field called `jobs`.
+    //
+    // Shouted like every other placeholder, so one CLI does not print `-j <jobs>` beside
+    // `--jobs <JOBS>`. clap prints `-j <JOBS>`.
     let spec: LibSpec = ShortOnly::to_kdl().parse().expect("valid spec");
     let flag = &spec.cmd.flags[0];
     assert_eq!(
@@ -34,7 +37,7 @@ fn a_short_only_flag_keeps_a_descriptive_placeholder() {
     );
     assert_eq!(
         flag.arg.as_ref().expect("takes a value").name,
-        "jobs",
+        "JOBS",
         "but its value keeps the descriptive name"
     );
 
@@ -57,12 +60,16 @@ struct Renamed {
 #[test]
 fn a_renamed_flag_takes_its_placeholder_from_the_form_not_the_field() {
     // The value name falls back to the flag's name, and the flag is named after its long form —
-    // so a field called `type_` must not drag its kebab-cased ident into the placeholder and
-    // render `--type <type->`.
+    // so a field called `type_` must not drag its ident into the placeholder and render
+    // `--type <TYPE_>`. Shouted, which is what clap prints for all three shapes:
+    //
+    //       --type <TYPE>
+    //       --max-tokens <MAX_TOKENS>
+    //   -c, --config <CONFIG>
     let spec: LibSpec = Renamed::to_kdl().parse().expect("valid spec");
     let flag = &spec.cmd.flags[0];
     assert_eq!(flag.name, "type");
-    assert_eq!(flag.arg.as_ref().expect("takes a value").name, "type");
+    assert_eq!(flag.arg.as_ref().expect("takes a value").name, "TYPE");
 
     use std::ffi::OsStr;
     let argv = [OsStr::new("--type"), OsStr::new("toml")];

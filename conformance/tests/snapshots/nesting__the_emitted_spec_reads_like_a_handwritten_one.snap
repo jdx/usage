@@ -8,16 +8,16 @@ about "A tool with commands inside commands"
 flag "-v --verbose" help="Say more" global=#true
 cmd "settings" help="Manage settings" {
     flag "--file" help="Which settings file" {
-        arg "<file>"
+        arg "<FILE>"
     }
     cmd "set" help="Set a value" {
-        arg "<key>" help="Which setting"
-        arg "<value>" help="The value"
+        arg "<KEY>" help="Which setting"
+        arg "<VALUE>" help="The value"
     }
     cmd "ls" help="Show every value" {
         flag "--json" help="As JSON"
     }
 }
 cmd "install" help="Install a tool" {
-    arg "<tool>" help="What to install"
+    arg "<TOOL>" help="What to install"
 }

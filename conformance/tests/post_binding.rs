@@ -37,7 +37,7 @@ fn a_required_argument_has_to_be_given() {
     let a = argv([]);
     assert!(matches!(
         Ex::parse_from(&a),
-        Err(Error::MissingRequired { name: "target" })
+        Err(Error::MissingRequired { name: "TARGET" })
     ));
 
     let a = argv(["x"]);
@@ -161,7 +161,7 @@ fn only_the_command_that_ran_is_judged() {
     let a = argv(["install"]);
     assert!(matches!(
         Req::parse_from(&a),
-        Err(Error::MissingRequired { name: "tool" })
+        Err(Error::MissingRequired { name: "TOOL" })
     ));
 }
 
@@ -197,7 +197,7 @@ fn the_checks_reach_the_spec_too() {
     assert_eq!(include.var_min, Some(1));
     assert_eq!(include.var_max, Some(2));
 
-    let target = spec.cmd.args.iter().find(|a| a.name == "target").unwrap();
+    let target = spec.cmd.args.iter().find(|a| a.name == "TARGET").unwrap();
     assert!(target.required);
 }
 

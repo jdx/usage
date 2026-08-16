@@ -170,6 +170,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .map(field_final)
         .collect();
 
+    let min_usage_version = option_str(cli.min_usage_version.as_deref());
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -319,6 +320,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 name: #name,
                 bin: #bin,
                 version: #version,
+                min_usage_version: #min_usage_version,
                 about: #about,
                 long_about: #long_about,
                 default_subcommand: #default_subcommand,
