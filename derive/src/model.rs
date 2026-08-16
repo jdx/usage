@@ -390,6 +390,27 @@ impl Cli {
             return Ok(());
         }
 
+        // `settings` says "this CLI resolves settings whose flags are declared elsewhere", so
+        // there has to be an elsewhere: a field that binds one, a flattened group, or a
+        // subcommand. With none of the three the attribute describes nothing, and the generated
+        // layer called a `settings_given` that was never emitted — so an adopter's build failed
+        // with `cannot find function settings_given` pointing at `#[derive(Cli)]`, which names
+        // neither the attribute nor the mistake.
+        if self.settings
+            && !self.fields.iter().any(|f| {
+                f.setting.is_some()
+                    || matches!(f.kind, Kind::Flatten { .. } | Kind::Subcommand { .. })
+            })
+        {
+            return Err(syn::Error::new_spanned(
+                ident,
+                "`settings` says this CLI resolves settings whose flags are declared \
+                 elsewhere, and there is no elsewhere: nothing here binds a setting, and \
+                 there is no flattened group or subcommand that could. Add `setting = \"…\"` \
+                 to the flag that sets one, or drop the attribute",
+            ));
+        }
+
         // `mount` and `restart_token` are written on a `cmd` node, and the root is not one.
         // Verified against usage-lib, which rejects a spec that puts either at the top.
         for (present, what) in [
@@ -2307,6 +2328,46 @@ mod tests {
             .check_position(&ident, is_root)
             .expect_err("should have been refused")
             .to_string()
+    }
+
+    #[test]
+    fn settings_needs_something_to_collect() {
+        // The attribute says the flags are declared *elsewhere*, so there has to be an
+        // elsewhere. With none, the generated layer called a `settings_given` that nothing
+        // emitted, and an adopter's build failed with `cannot find function settings_given`
+        // pointing at `#[derive(Cli)]` — naming neither the attribute nor the mistake.
+        let input = syn::parse_str::<syn::DeriveInput>(
+            r#"
+            #[usage(settings)]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#,
+        )
+        .expect("valid Rust");
+        let cli = Cli::from_input(&input).expect("parses");
+        let err = cli
+            .check_position(&input.ident, true)
+            .expect_err("should not have compiled")
+            .to_string();
+        assert!(err.contains("no elsewhere"), "unhelpful message: {err}");
+
+        // Any of the three is enough, and each is a different way for a flag to be somewhere
+        // this struct does not declare it.
+        for body in [
+            r#"struct Ex { #[usage(long, setting = "jobs")] jobs: Option<String> }"#,
+            r#"struct Ex { #[usage(flatten)] group: Group }"#,
+            r#"struct Ex { #[usage(subcommand)] command: Option<Commands> }"#,
+        ] {
+            let body = format!("#[usage(settings)]\n{body}");
+            let input = syn::parse_str::<syn::DeriveInput>(&body).expect("valid Rust");
+            let cli = Cli::from_input(&input).expect("parses");
+            assert!(
+                cli.check_position(&input.ident, true).is_ok(),
+                "should have been accepted: {body}"
+            );
+        }
     }
 
     #[test]
