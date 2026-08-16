@@ -477,6 +477,7 @@ impl Cli {
         // A variadic that only takes what follows a `--`, which is the end of the line in
         // both senses: it holds the remaining words and the separator cannot come twice.
         let mut spent_separator: Option<Span> = None;
+        let mut separator_eating_variadic: Option<Span> = None;
         let mut subcommand_field: Option<Span> = None;
 
         for field in &self.fields {
@@ -529,6 +530,21 @@ impl Cli {
                     // ending anything — an argument declaring either is as unreachable behind an
                     // unbounded variadic as a plain one.
                     let stops_the_variadic = *double_dash == DoubleDash::Required;
+                    // Unless the variadic in front eats the separator. `preserve` takes the `--`
+                    // as one of its own values rather than letting it end anything, so the
+                    // argument that was going to be unlocked by one never is — and the exemption
+                    // that makes `run`'s layout legal would make this layout compile and be
+                    // unfillable, which is the exact thing the check exists to prevent.
+                    if let Some(first) = separator_eating_variadic {
+                        return Err(dup(
+                            field.span,
+                            first,
+                            "nothing can follow an unbounded variadic that keeps the `--` as a \
+                             value: `double_dash = \"preserve\"` means the separator never ends \
+                             anything, so not even an argument that waits for one can be filled \
+                             — give the variadic a `var_max`",
+                        ));
+                    }
                     if let Some(first) = variadic_arg.filter(|_| !stops_the_variadic) {
                         return Err(dup(
                             field.span,
@@ -555,6 +571,9 @@ impl Cli {
                             spent_separator = Some(field.span);
                         } else {
                             variadic_arg = Some(field.span);
+                            if *double_dash == DoubleDash::Preserve {
+                                separator_eating_variadic = Some(field.span);
+                            }
                         }
                     }
                 }
@@ -2222,6 +2241,42 @@ mod tests {
                 "`{mode}` should not exempt an argument: {err}"
             );
         }
+    }
+
+    #[test]
+    fn nothing_follows_a_variadic_that_keeps_the_separator() {
+        // The one exemption from the can-never-be-filled rule is an argument that waits for a
+        // `--`, on the grounds that the separator ends the variadic in front of it. A `preserve`
+        // variadic takes the `--` as a value instead, so it ends nothing and the exemption is
+        // false — the declaration compiled and the field could never hold anything.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, double_dash = "preserve")]
+                rest: Vec<String>,
+                #[usage(arg, double_dash = "required")]
+                after: Vec<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("keeps the `--` as a value"),
+            "unhelpful message: {err}"
+        );
+
+        // A bound puts it back: the variadic hands over once it is full, separator or not.
+        assert!(
+            cli(r#"
+            struct Ex {
+                #[usage(arg, double_dash = "preserve", var_max = 2)]
+                rest: Vec<String>,
+                #[usage(arg, double_dash = "required")]
+                after: Vec<String>,
+            }
+        "#)
+            .is_ok(),
+            "a bounded variadic hands over, so what follows is reachable"
+        );
     }
 
     #[test]
