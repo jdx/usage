@@ -175,7 +175,7 @@
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
-//! | `effect = "write"` | what supplying this flag does to the world: `read`, `write` or `destructive` |
+//! | `effect = "write"` | what supplying this flag does to the world: `read`, `write` or `destructive`. Also goes on an `Args`, where it says what *running* the command does |
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |

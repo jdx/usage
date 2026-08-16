@@ -831,6 +831,7 @@ impl Field {
         span: proc_macro2::Span,
     ) -> syn::Result<Option<Self>> {
         let mut is_subcommand = false;
+        let mut others: Vec<syn::Path> = Vec::new();
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
                 if ident_of(&meta.path().clone()) == "subcommand" {
@@ -842,7 +843,27 @@ impl Field {
                         ));
                     }
                     is_subcommand = true;
+                } else {
+                    others.push(meta.path().clone());
                 }
+            }
+        }
+        // Nothing else applies here, and this branch used to *ignore* whatever else was
+        // written — so `#[usage(subcommand, effect = "write")]` compiled and said nothing.
+        // Refused as a class rather than one option at a time: this field holds a set of
+        // commands, and everything the attribute can otherwise say describes a value or a
+        // flag, which a subcommand holder is neither.
+        if is_subcommand {
+            if let Some(other) = others.first() {
+                let what = ident_of(&other.clone());
+                return Err(syn::Error::new_spanned(
+                    other,
+                    format!(
+                        "`{what}` says nothing about a `subcommand` field, which holds a set \
+                         of commands rather than a value — declare it on the command it \
+                         describes, where `#[derive(Args)]` is"
+                    ),
+                ));
             }
         }
         if !is_subcommand {
@@ -1487,6 +1508,19 @@ impl Field {
                     ),
                 ));
             }
+        }
+
+        // `effect` says what *supplying* something does to the world, so on a field it belongs
+        // to a flag. A positional is the thing being acted on rather than a choice to act, and
+        // `arg_meta` has nowhere to put one — so a declaration here was stored and then
+        // dropped, which reads as though it had done something.
+        if effect.is_some() && !matches!(kind, Kind::Flag { .. }) {
+            return Err(syn::Error::new(
+                span,
+                "`effect` describes what supplying a flag does to the world, and a positional \
+                 argument is what is acted on rather than a choice to act — put it on the \
+                 command, where `#[derive(Args)]` is, or on the flag that changes the answer",
+            ));
         }
 
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
@@ -2580,6 +2614,43 @@ mod tests {
         assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
         // The message lists them, because three words are not guessable from the attribute.
         assert!(err.contains("destructive"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn an_effect_belongs_to_a_flag_or_a_command_and_not_to_an_argument() {
+        // A positional is what is acted on, not a choice to act — and `arg_meta` has nowhere to
+        // put an effect, so a declaration here was stored and then dropped, which reads as
+        // though it had done something.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, effect = "destructive")]
+                path: String,
+            }
+        "#,
+        );
+        assert!(err.contains("is what is acted on"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_subcommand_field_takes_nothing_but_subcommand() {
+        // This branch used to *ignore* whatever else was written, so `effect` on it compiled
+        // and said nothing. Refused as a class: the field holds a set of commands, and
+        // everything else the attribute can say describes a value or a flag.
+        for other in ["effect = \"write\"", "long", "default = \"x\"", "global"] {
+            let err = rejection(&format!(
+                r#"
+                struct Ex {{
+                    #[usage(subcommand, {other})]
+                    command: Option<Commands>,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("says nothing about a `subcommand` field"),
+                "`{other}` should be refused: {err}"
+            );
+        }
     }
 
     #[test]
