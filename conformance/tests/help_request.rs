@@ -313,3 +313,81 @@ fn the_page_advertises_exactly_where_the_word_works() {
         "a leaf promises nothing: {leaf_page}"
     );
 }
+
+/// A command whose page should be about *it*
+#[derive(usage_derive::Args)]
+struct Deploy {
+    /// Which environment
+    #[usage(long)]
+    env: Option<String>,
+}
+
+#[derive(usage_derive::Subcommands)]
+enum Which {
+    /// Ship the current build somewhere
+    Deploy(Box<Deploy>),
+}
+
+/// A tool that does several things
+#[derive(usage_derive::Cli)]
+#[usage(name = "tool", bin = "tool", version = "2.0")]
+struct Described {
+    #[usage(subcommand)]
+    command: Option<Which>,
+}
+
+#[test]
+fn a_commands_page_says_what_that_command_does() {
+    // The question `tool deploy --help` asks is "what does deploy do", and the answer used to
+    // be the program's own description — every page carried the root's banner and about, so a
+    // subcommand page never once said what the subcommand was for. clap prints the command's
+    // own description here.
+    let root = Described::spec().root.cmd;
+    let deploy = root
+        .subcommands
+        .iter()
+        .find(|c| c.name == "deploy")
+        .expect("deploy");
+
+    for long in [false, true] {
+        let page = usage_argv::help::render(Described::spec(), deploy, long).expect("a page");
+        assert!(
+            page.starts_with("Ship the current build somewhere\n"),
+            "long={long}: {page}"
+        );
+        // And not the program's banner, which belongs to the program's page.
+        assert!(!page.contains("tool 2.0"), "long={long}: {page}");
+        assert!(
+            !page.contains("A tool that does several things"),
+            "long={long}: {page}"
+        );
+    }
+}
+
+#[test]
+fn the_programs_own_page_still_introduces_the_program() {
+    // The other half: the root has no command of its own to describe, so it keeps the banner
+    // and the program's description.
+    for long in [false, true] {
+        let page = usage_argv::help::render(Described::spec(), Described::spec().root.cmd, long)
+            .expect("a page");
+        // `name`, not `bin` — usage-lib's rule, which is why the fixture declares one: a
+        // struct called `Described` would otherwise banner itself as `described`.
+        assert!(page.starts_with("tool 2.0\n"), "long={long}: {page}");
+        assert!(
+            page.contains("A tool that does several things"),
+            "long={long}: {page}"
+        );
+    }
+}
+
+#[test]
+fn the_described_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["deploy", "--env", "prod"].map(OsStr::new);
+    let parsed = Described::parse_from(&argv).expect("should parse");
+    let Some(Which::Deploy(d)) = parsed.command else {
+        panic!("expected deploy")
+    };
+    assert_eq!(d.env.as_deref(), Some("prod"));
+}

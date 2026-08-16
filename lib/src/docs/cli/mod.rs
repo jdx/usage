@@ -11,6 +11,10 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     ctx.insert("spec", &docs_spec);
     ctx.insert("cmd", &docs_cmd);
     ctx.insert("long", &long);
+    // Which page this is. The banner and the program's own description belong to the
+    // program's page; a subcommand's page describes the subcommand, which is the question
+    // that was asked. `full_cmd` is the path a user would type, so the root's is empty.
+    ctx.insert("root", &docs_cmd.full_cmd.is_empty());
     let template = if long {
         "spec_template_long.tera"
     } else {

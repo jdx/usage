@@ -7,6 +7,7 @@
 {% elif spec.before_help %}{{ spec.before_help }}
 
 {% endif -%}
+{%- if root %}
 {%- if spec.name and spec.version %}{{ spec.name }} {{ spec.version }}
 {% elif spec.version %}{{ spec.bin }} {{ spec.version }}
 {% endif -%}
@@ -15,6 +16,13 @@
 {% elif spec.about %}{{ spec.about }}
 
 {% endif -%}
+{%- else -%}
+{%- if cmd.help_long %}{{ cmd.help_long }}
+
+{% elif cmd.help %}{{ cmd.help }}
+
+{% endif -%}
+{%- endif -%}
 Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {%- if cmd.subcommands %}
