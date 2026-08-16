@@ -118,41 +118,16 @@ fn flag_named(token: &str) -> &str {
 /// Every flag a word at this command could have named: its own, then any ancestor's globals.
 ///
 /// The same set the parser would have accepted, which is what makes a suggestion one that works.
-fn flags_in_scope<'a>(
-    spec: &'a Spec<'a>,
-    cmd: &Command<'_>,
-) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> {
-    /// The chain of commands from the root down to `cmd`, or nothing if it is not below here.
-    ///
-    /// The chain and not the tree: the first version collected globals from every branch it
-    /// walked through, so a global declared on one command was suggested under an unrelated one
-    /// — a tip naming a flag the parser would refuse, which is worse than no tip.
-    fn chain<'a>(
-        meta: &'a CommandMeta<'a>,
-        cmd: &Command<'_>,
-        path: &mut Vec<&'a CommandMeta<'a>>,
-    ) -> bool {
-        path.push(meta);
-        if core::ptr::eq(meta.cmd, cmd) {
-            return true;
-        }
-        for sub in meta.subcommands {
-            if chain(sub, cmd, path) {
-                return true;
-            }
-        }
-        path.pop();
-        false
-    }
-
-    let mut path = Vec::new();
-    if !chain(spec.root, cmd, &mut path) {
-        path.clear();
-    }
+fn flags_in_scope<'a, 'c>(
+    chain: &'c [&'a CommandMeta<'a>],
+) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> + use<'a, 'c> {
     // The command's own flags, and from each ancestor only what it declared global — the rule
-    // the parser follows on the way down.
-    let depth = path.len();
-    path.into_iter().enumerate().flat_map(move |(i, meta)| {
+    // the parser follows on the way down. The chain and not the tree: an earlier version
+    // collected globals from every branch it walked through, so a global declared on one command
+    // was suggested under an unrelated one — a tip naming a flag the parser would refuse, which
+    // is worse than no tip.
+    let depth = chain.len();
+    chain.iter().enumerate().flat_map(move |(i, meta)| {
         let own = i + 1 == depth;
         meta.flags
             .iter()
@@ -341,24 +316,53 @@ fn value_bound_to(
     last
 }
 
-/// The command the words reached, which is the one an error is about.
+/// The commands the words went through, root first, ending at the one an error is about.
 ///
 /// Walked rather than carried on the error: only some variants know their command, and a caller
 /// that has just been handed an error has the argv it came from. The walk stops where the parse
 /// stopped, which is the command whose usage line belongs in the message.
-fn command_reached<'t>(root: &'t Command<'t>, argv: &[&std::ffi::OsStr]) -> &'t Command<'t> {
+///
+/// The whole path and not just its end, because the end does not identify itself. One
+/// `Subcommands` type mounted under two parents is one `Command` in both — the same address —
+/// so a search of the metadata tree for that address finds whichever mount comes first. That is
+/// how `ex beta shared --betaglobl` came back describing `ex alpha shared`, suggesting alpha's
+/// globals and not beta's. The route is the only thing that tells the two apart, so the route is
+/// what gets carried.
+fn path_taken<'t>(root: &'t Command<'t>, argv: &[&std::ffi::OsStr]) -> Vec<&'t Command<'t>> {
+    let mut path = vec![root];
     let mut parser = crate::Parser::new(root, argv);
     while let Some(event) = parser.next_event() {
-        if event.is_err() {
-            break;
+        match event {
+            Ok(crate::Event::Command(cmd)) => path.push(cmd),
+            Ok(_) => {}
+            Err(_) => break,
         }
     }
-    parser.command()
+    path
 }
 
-/// The path to a command, as a user would type it, and its metadata.
-fn found<'a>(spec: &'a Spec<'a>, cmd: &Command<'_>) -> Option<(Vec<&'a str>, &'a CommandMeta<'a>)> {
-    crate::help::find(spec, cmd)
+/// The metadata for each command along a path, and the path as a user would type it.
+///
+/// Each step is matched among *that command's* children, which is what makes it unambiguous:
+/// two mounts of one `Subcommands` type share an address, but a parent's own child list is its
+/// own. Returns nothing if the path leaves this spec, which cannot happen for a path this module
+/// produced and is not worth a panic if it ever does.
+fn resolve<'a>(
+    spec: &'a Spec<'a>,
+    path: &[&Command<'_>],
+) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
+    let mut names = vec![spec.bin.unwrap_or(spec.name)];
+    let mut chain = vec![spec.root];
+    for cmd in path.iter().skip(1) {
+        let here = chain.last()?;
+        let next = here
+            .subcommands
+            .iter()
+            .find(|sub| core::ptr::eq(sub.cmd, *cmd))?;
+        names.push(next.cmd.name);
+        chain.push(next);
+    }
+    Some((names, chain))
 }
 
 /// Render `error` the way a user should read it.
@@ -372,13 +376,19 @@ pub fn render(
     error: &Error<'_, '_>,
     style: Style,
 ) -> String {
-    let cmd = command_reached(spec.root.cmd, argv);
-    let path = found(spec, cmd)
-        .map(|(path, _)| path.join(" "))
+    let taken = path_taken(spec.root.cmd, argv);
+    let cmd = *taken.last().expect("the root is always on the path");
+    let resolved = resolve(spec, &taken);
+    let chain: &[&CommandMeta<'_>] = resolved.as_ref().map(|(_, c)| &c[..]).unwrap_or(&[]);
+    let here = chain.last().copied();
+    let path = resolved
+        .as_ref()
+        .map(|(names, _)| names.join(" "))
         .unwrap_or_else(|| spec.bin.unwrap_or(spec.name).to_string());
-    let usage = found(spec, cmd)
-        .map(|(path, meta)| crate::help::usage_line(&path, meta))
-        .unwrap_or_else(|| path.clone());
+    let usage = match (&resolved, here) {
+        (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
+        _ => path.clone(),
+    };
 
     let mut out = String::new();
     let mut with_usage = false;
@@ -400,7 +410,7 @@ pub fn render(
             // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
             // names for the same reason.
             let bare = typed.trim_start_matches('-');
-            let names: Vec<&str> = flags_in_scope(spec, cmd)
+            let names: Vec<&str> = flags_in_scope(chain)
                 .flat_map(|meta| meta.flag.longs.iter().copied())
                 .collect();
             let near: Vec<String> = nearest(bare, names.into_iter())
@@ -432,7 +442,7 @@ pub fn render(
                     style.invalid(named)
                 );
                 let bare = named.trim_start_matches('-');
-                let names: Vec<&str> = flags_in_scope(spec, cmd)
+                let names: Vec<&str> = flags_in_scope(chain)
                     .flat_map(|meta| meta.flag.longs.iter().copied())
                     .collect();
                 let near: Vec<String> = nearest(bare, names.into_iter())
@@ -479,11 +489,7 @@ pub fn render(
                 "{} the following required arguments were not provided:",
                 style.error("error:")
             );
-            let _ = writeln!(
-                out,
-                "  {}",
-                style.valid(&shown(found(spec, cmd).map(|(_, meta)| meta), name))
-            );
+            let _ = writeln!(out, "  {}", style.valid(&shown(here, name)));
         }
         Error::MissingSubcommand => {
             with_usage = true;
@@ -503,8 +509,8 @@ pub fn render(
                 .map(|l| format!("--{l}"))
                 .or_else(|| flag.shorts.first().map(|s| format!("-{}", *s as char)))
                 .unwrap_or_else(|| flag.name.to_string());
-            let value = found(spec, cmd)
-                .and_then(|(_, meta)| {
+            let value = here
+                .and_then(|meta| {
                     meta.flags
                         .iter()
                         .find(|m| core::ptr::eq(m.flag, *flag))
@@ -520,7 +526,7 @@ pub fn render(
             );
         }
         Error::InvalidChoice { name, choices } => {
-            let shown_name = shown(found(spec, cmd).map(|(_, meta)| meta), name);
+            let shown_name = shown(here, name);
             match value_bound_to(spec.root.cmd, argv, name, choices) {
                 Some(value) => {
                     let _ = writeln!(
@@ -558,7 +564,7 @@ pub fn render(
                 "{} invalid value '{}' for '{}': {}",
                 style.error("error:"),
                 style.invalid(&invalid.value),
-                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), invalid.name)),
+                style.literal(&shown(here, invalid.name)),
                 invalid.reason
             );
         }
@@ -577,7 +583,7 @@ pub fn render(
                 out,
                 "{} {min} values required for '{}' but {got} were provided",
                 style.error("error:"),
-                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), name))
+                style.literal(&shown(here, name))
             );
         }
         Error::VarTooMany { name, max, got } => {
@@ -585,7 +591,7 @@ pub fn render(
                 out,
                 "{} {max} values allowed for '{}' but {got} were provided",
                 style.error("error:"),
-                style.literal(&shown(found(spec, cmd).map(|(_, m)| m), name))
+                style.literal(&shown(here, name))
             );
         }
         Error::ArgRequiresDoubleDash { arg } => {
