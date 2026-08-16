@@ -378,7 +378,8 @@ fn resolve<'a>(
 /// Render `error` the way a user should read it.
 ///
 /// `argv` is what was being parsed, which is how the message finds the command to show a usage
-/// line for. A [`Error::Help`] renders as nothing: it is not a failure, and a caller that has not
+/// line for. [`Error::Help`] and [`Error::Version`] render as nothing: neither is a failure, and a
+/// caller that has not
 /// handled it before reaching here has a bug this cannot paper over.
 pub fn render(
     spec: &Spec<'_>,
@@ -621,7 +622,9 @@ pub fn render(
         }
         // Not a failure. A caller reaching here with one has skipped handling it, and inventing a
         // message would hide that rather than help.
-        Error::Help { .. } => return String::new(),
+        // Neither is a failure, and a caller that has not handled them before reaching here
+        // has a bug this cannot paper over.
+        Error::Help { .. } | Error::Version => return String::new(),
     }
 
     if with_usage {
