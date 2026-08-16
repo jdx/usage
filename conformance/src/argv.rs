@@ -314,6 +314,9 @@ fn build(
         // Filled in by the caller for the root, which is the only place a spec declares one.
         default_subcommand: None,
         unknown_flags,
+        // The corpus describes argv parsing; `--version` is a question the *caller* answers,
+        // so no vector turns on it and the harness leaves it off.
+        version: false,
         key: 0,
     }))
 }

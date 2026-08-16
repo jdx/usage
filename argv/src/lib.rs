@@ -156,6 +156,13 @@ pub struct Command<'a> {
     /// What an unrecognized flag-like token means here. Already resolved — see
     /// [`UnknownFlags`].
     pub unknown_flags: UnknownFlags,
+    /// Whether this command answers to `--version` and `-V`.
+    ///
+    /// Set on the root, and only when the CLI declares a version: clap adds the flag exactly
+    /// then, and a `--version` that answers with nothing is worse than one that is not there.
+    /// A field rather than a rule about depth, so a CLI that wants it on a subcommand — clap's
+    /// `propagate_version` — has somewhere to say so.
+    pub version: bool,
     /// Caller-assigned identifier, echoed back in [`Event::Command`].
     ///
     /// Wide enough for a derive to make these unique without coordination: two
@@ -177,6 +184,7 @@ impl Command<'_> {
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         unknown_flags: UnknownFlags::Value,
+        version: false,
         key: 0,
     };
 }
@@ -428,6 +436,11 @@ pub enum Error<'t, 'v> {
     /// clap has them. The caller renders — this crate does not print, because a library that
     /// writes to stdout on its own is one an adopter cannot embed.
     Help { cmd: &'t Command<'t>, long: bool },
+    /// `--version` was asked for. Not a failure either — the caller prints and leaves.
+    ///
+    /// Carries nothing: the version string lives in the spec rather than the parse tables,
+    /// and the caller that answers this has it.
+    Version,
 }
 
 /// The high half of every key one declaration's items get.
@@ -609,6 +622,30 @@ pub static HELP_LONG: Flag<'static> = Flag {
     ..Flag::BOOL
 };
 
+/// See [`HELP_LONG_KEY`].
+pub const VERSION_LONG_KEY: u64 = u64::MAX - 2;
+/// See [`HELP_LONG_KEY`].
+pub const VERSION_SHORT_KEY: u64 = u64::MAX - 3;
+
+/// `--version`, where the CLI declared one.
+///
+/// In the parse table and not in the metadata, exactly as `--help` is: a spec does not declare
+/// `--version`, so listing one would make the rendered page disagree with the spec it came from.
+pub static VERSION_LONG: Flag<'static> = Flag {
+    key: VERSION_LONG_KEY,
+    name: "version",
+    longs: &["version"],
+    ..Flag::BOOL
+};
+
+/// `-V`, which clap also supplies.
+pub static VERSION_SHORT: Flag<'static> = Flag {
+    key: VERSION_SHORT_KEY,
+    name: "version",
+    shorts: b"V",
+    ..Flag::BOOL
+};
+
 /// `-h`, which prints the shorter form.
 pub static HELP_SHORT: Flag<'static> = Flag {
     key: HELP_SHORT_KEY,
@@ -631,6 +668,11 @@ fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> 
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
 pub fn is_help_flag(flag: &Flag<'_>) -> bool {
     flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY
+}
+
+/// Whether a flag is one of the two the parser supplies for `--version`.
+pub fn is_version_flag(flag: &Flag<'_>) -> bool {
+    flag.key == VERSION_LONG_KEY || flag.key == VERSION_SHORT_KEY
 }
 
 /// Resolve a subcommand by name or alias, at compile time.
@@ -1043,6 +1085,16 @@ impl<'t, 'v> Parser<'t, 'v> {
             });
         }
 
+        // Where the CLI declared a version, `--version` answers with it — asked after the
+        // command's own flags, so a CLI declaring its own keeps it.
+        if name == b"version" && self.cmd.version {
+            return Ok(Event::Flag {
+                flag: &VERSION_LONG,
+                value: None,
+                negated: false,
+            });
+        }
+
         // Every CLI answers to `--help`, and none of them declares it. Asked *after* the
         // command's own flags, so a CLI that declares its own `--help` keeps it.
         if name == b"help" {
@@ -1295,6 +1347,8 @@ impl<'t, 'v> Parser<'t, 'v> {
             // declared a `-h` of its own.
             .or(if byte == b'h' {
                 Some(&HELP_SHORT)
+            } else if byte == b'V' && self.cmd.version {
+                Some(&VERSION_SHORT)
             } else {
                 None
             })

@@ -171,6 +171,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .collect();
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
+    let has_version = cli.version.is_some();
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -192,6 +193,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #table_decls
 
             pub static ROOT: Command = Command {
+                // Only where a version was declared, which is when clap adds the flag: a
+                // `--version` that answers with nothing is worse than one that is not there.
+                version: #has_version,
                 unknown_flags: #unknown_flags,
                 name: #name,
                 key: #root_key,
@@ -285,6 +289,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 cmd: __usage_parser.command(),
                                 long: flag.key == ::usage_argv::HELP_LONG_KEY,
                             });
+                        }
+                        // Same shape, and for the same reason: a question rather than a
+                        // failure, answered by whoever knows the version string.
+                        if ::usage_argv::is_version_flag(flag) {
+                            return ::std::result::Result::Err(
+                                ::usage_argv::Error::Version,
+                            );
                         }
                     }
                     // `apply` handles this command's own fields and routes anything
@@ -380,6 +391,21 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // the process is the caller: print the page and leave successfully, which
                     // is what a user typing `--help` asked for. `parse_from` returns it
                     // instead, so a library embedding this decides for itself.
+                    // A question, not a failure — the same shape as help, and the one place
+                    // that knows the process is the caller.
+                    ::std::result::Result::Err(::usage_argv::Error::Version) => {
+                        match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
+                            (bin, ::std::option::Option::Some(version)) => {
+                                ::std::println!("{bin} {version}");
+                                ::std::process::exit(0);
+                            }
+                            // Unreachable: the flag is only in the table when a version was
+                            // declared, and the same declaration fills this in.
+                            (_, ::std::option::Option::None) => ::std::result::Result::Err(
+                                "this program declares no version".into(),
+                            ),
+                        }
+                    }
                     ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
                         match ::usage_argv::help::render(Self::spec(), cmd, long) {
                             ::std::option::Option::Some(page) => {

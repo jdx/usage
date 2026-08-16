@@ -152,6 +152,11 @@
 //! The emitted spec gets a `run=` naming this binary, so everything that reads a spec still has
 //! one, generated from the function rather than declared beside it.
 //!
+//! Declaring a `version` also gives the CLI `--version` and `-V`, as clap does — supplied by
+//! the parser rather than listed in the spec, exactly as `--help` is, and yielding to either
+//! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
+//! here the declaration simply wins and the other spelling still answers.
+//!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
 //! `default_subcommand`, `min_usage_version` — the oldest `usage` that can read the emitted
 //! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
