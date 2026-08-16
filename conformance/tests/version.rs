@@ -84,6 +84,27 @@ struct OwnLong {
     wanted: Option<String>,
 }
 
+/// The text of a rendered message, without whatever the terminal asked for.
+///
+/// A tiny CSI stripper rather than a dependency: every escape this crate emits is `\x1b[`…`m`,
+/// and a test that reads words should not care which of them arrived.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('\u{1b}') {
+        out.push_str(&rest[..i]);
+        match rest[i..].find('m') {
+            Some(end) => rest = &rest[i + end + 1..],
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 fn argv<'a>(words: &'a [&'a str]) -> Vec<&'a OsStr> {
     words.iter().map(|w| OsStr::new(*w)).collect()
 }
@@ -215,7 +236,11 @@ fn a_failure_renders_the_way_a_user_should_read_it() {
     let Err(err) = Unversioned::parse_from(&a) else {
         panic!("no such flag")
     };
-    let message = usage_argv::render_failure(Unversioned::spec(), &a, &err);
+    // Stripped of colour before reading, because `render_failure` styles for the terminal it
+    // finds itself in — under `CLICOLOR_FORCE=1`, or a TTY, the same words arrive wrapped in
+    // escapes and a plain `starts_with` fails on a message that is perfectly correct. What is
+    // asserted here is the wording; the colouring has its own tests.
+    let message = strip_ansi(&usage_argv::render_failure(Unversioned::spec(), &a, &err));
     assert!(
         message.starts_with("error: unexpected argument '--nope' found"),
         "{message}"
