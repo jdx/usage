@@ -38,6 +38,34 @@
       "expect": { "ok": { "flags": { "jobs": "8" } } }
     },
     {
+      "id": "short-value-equals-leading-equals",
+      "doc": "Only one `=` is a separator, so `-j==8` binds `=8`. A value that begins with `=` is reachable, rather than being eaten by a second round of separator-stripping.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j==8"],
+      "expect": { "ok": { "flags": { "jobs": "=8" } } }
+    },
+    {
+      "id": "short-value-equals-empty",
+      "doc": "`-j=` binds the empty string, matching `--jobs=`. Both attached forms can express present-but-empty.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j="],
+      "expect": { "ok": { "flags": { "jobs": "" } } }
+    },
+    {
+      "id": "short-value-detached-empty",
+      "doc": "An empty token is not flag-like, so it is an ordinary detached value here too.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
+      "argv": ["-j", ""],
+      "expect": { "ok": { "flags": { "jobs": "" } } }
+    },
+    {
+      "id": "short-value-detached-bare-dash",
+      "doc": "`-f -` binds `-`, the conventional name for stdin. A lone dash is not flag-like, so the rule refusing flag-like detached values does not reach it — without that, `sort -o -` could not be written.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --file <file>\"\n",
+      "argv": ["-f", "-"],
+      "expect": { "ok": { "flags": { "file": "-" } } }
+    },
+    {
       "id": "short-value-missing",
       "doc": "A value-taking short at the end of the command line is an error.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-j --jobs <n>\"\n",
@@ -73,6 +101,13 @@
       "expect": { "ok": { "args": { "file": "-az" } } }
     },
     {
+      "id": "short-boolean-with-attached-value-is-not-a-bundle",
+      "doc": "`=` is a separator only for a short that takes a value. After one that does not, it is just an unrecognized letter, so `-f=yes` is not a bundle and `-f` is not set — the whole token becomes a word, as `-az` does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"[file]\"\n",
+      "argv": ["-f=yes"],
+      "expect": { "ok": { "args": { "file": "-f=yes" } } }
+    },
+    {
       "id": "short-count",
       "doc": "A `count` flag records how many times it appeared, so `-vvv` is three.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" count=#true\n",
@@ -85,6 +120,13 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" count=#true\n",
       "argv": ["-v", "-v"],
       "expect": { "ok": { "flags": { "verbose": [true, true] } } }
+    },
+    {
+      "id": "short-bundle-with-count",
+      "doc": "A counting short keeps counting inside a bundle, so `-avv` is `-a` once and `-v` twice.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\nflag \"-v --verbose\" count=#true\n",
+      "argv": ["-avv"],
+      "expect": { "ok": { "flags": { "all": true, "verbose": [true, true] } } }
     },
     {
       "id": "bare-dash-is-positional",

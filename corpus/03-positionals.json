@@ -130,6 +130,20 @@
       }
     },
     {
+      "id": "arg-empty-word",
+      "doc": "An empty token is a word, so it fills an argument rather than being skipped. A shell that produced `\"\"` meant to pass something, and dropping it would shift every argument after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[file]\"\n",
+      "argv": [""],
+      "expect": { "ok": { "args": { "file": "" } } }
+    },
+    {
+      "id": "arg-value-is-one-token",
+      "doc": "A variadic collects tokens, not fields: `a,b` is one value however many commas it holds. Splitting is the caller's business, as it is for a flag's value.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<files>...\"\n",
+      "argv": ["a,b", "c"],
+      "expect": { "ok": { "args": { "files": ["a,b", "c"] } } }
+    },
+    {
       "id": "arg-value-looks-like-negative-number",
       "doc": "A negative number is a value, not an unknown flag. A leading `-` followed by a digit cannot begin a flag name, so the token is offered to the next argument.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<offset>\"\n",
