@@ -100,13 +100,15 @@ fn asking_for_help_does_not_stop_the_cli_working() {
 }
 
 #[test]
-fn a_help_flag_is_not_in_the_spec_it_renders() {
-    // The two are supplied by the parser and belong to no command's metadata, so they cannot
-    // appear in help output or in the emitted spec. A page advertising a `--help` that the spec
-    // it came from does not declare is a page that disagrees with its own CLI.
+fn a_help_flag_is_listed_but_still_not_declared() {
+    // The split that replaced "a page lists exactly what its spec declares". The page names
+    // `-h, --help`, because help is written for people and someone looking for how to ask for
+    // help should find it there. The *spec* still does not declare it: the parser supplies it,
+    // and a spec claiming otherwise would have every reader inventing a flag its CLI never
+    // declared.
     let (_, page) = ask(&["--help"]);
-    assert!(!page.contains("--help"), "{page}");
-    assert!(!page.contains("-h "), "{page}");
+    assert!(page.contains("-h, --help"), "{page}");
+    assert!(page.contains("Print help"), "{page}");
 
     let kdl = Ex::to_kdl();
     assert!(!kdl.contains("help\""), "{kdl}");
