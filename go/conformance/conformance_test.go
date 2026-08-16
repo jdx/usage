@@ -11,6 +11,7 @@
 package conformance
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,8 +25,14 @@ import (
 	"github.com/jdx/usage/go/internal/spec"
 )
 
-// Vector is one corpus case. Fields the Go parser does not consult — doc,
-// reference — are read anyway so that an unknown field can be spotted.
+// Vector is one corpus case.
+//
+// Every field the corpus can carry is declared here, including the ones binding
+// never consults, because the loader refuses unknown fields — see [load]. A
+// vector's meaning can be changed by a field this harness has not heard of:
+// `layer` is exactly that, and a Go suite that ignored it would answer
+// post-binding vectors it is not equipped for and report the wrong result with
+// confidence.
 type Vector struct {
 	ID     string            `json:"id"`
 	Doc    string            `json:"doc"`
@@ -260,9 +267,20 @@ func load(t *testing.T) []Vector {
 		if err != nil {
 			t.Fatalf("reading %s: %v", p, err)
 		}
+		// Unknown fields are an error rather than something to skip past. The
+		// corpus is shared, it grows, and a field added for everyone's benefit is
+		// no use to an implementation that silently drops it: `layer` decides
+		// whether a vector is this parser's to answer at all, so a suite that had
+		// ignored it when it arrived would have answered 22 vectors it cannot
+		// answer and called the results a pass. Failing to decode is how this
+		// harness finds out the corpus has moved.
+		dec := json.NewDecoder(bytes.NewReader(b))
+		dec.DisallowUnknownFields()
 		var f file
-		if err := json.Unmarshal(b, &f); err != nil {
-			t.Fatalf("decoding %s: %v", p, err)
+		if err := dec.Decode(&f); err != nil {
+			t.Fatalf("decoding %s: %v\n"+
+				"If the corpus has grown a field, teach Vector about it rather than "+
+				"relaxing this check.", p, err)
 		}
 		out = append(out, f.Vectors...)
 	}
@@ -271,17 +289,28 @@ func load(t *testing.T) []Vector {
 
 // findUsage locates the CLI that lowers a spec.
 //
-// Not skipped when it is missing. A conformance suite that quietly passes because
-// it could not find its oracle is worse than one that fails: the whole point of
-// the corpus is that agreement is measured rather than assumed.
+// Debug before release, which is the opposite of what looks natural. `mise run
+// test:go` depends on `build`, and `build` refreshes the *debug* binary — so on
+// any machine that has ever run `cargo build --release`, preferring release means
+// lowering every vector with a binary this run did not build and may be many
+// commits old. A stale oracle is the one failure mode a conformance suite cannot
+// afford, because it reports agreement with something nobody is shipping.
+//
+// PATH comes last for the same reason in reverse: an installed `usage` is the
+// least likely to match the working tree, so it is the fallback for running these
+// tests from outside the repo layout rather than the first choice.
+//
+// Not skipped when nothing is found. A conformance suite that quietly passes
+// because it could not find its oracle is worse than one that fails: the whole
+// point of the corpus is that agreement is measured rather than assumed.
 func findUsage(t *testing.T) string {
 	t.Helper()
 	if bin := os.Getenv("USAGE_BIN"); bin != "" {
 		return bin
 	}
 	for _, p := range []string{
-		filepath.Join("..", "..", "target", "release", "usage"),
 		filepath.Join("..", "..", "target", "debug", "usage"),
+		filepath.Join("..", "..", "target", "release", "usage"),
 	} {
 		if _, err := os.Stat(p); err == nil {
 			abs, err := filepath.Abs(p)
@@ -294,6 +323,7 @@ func findUsage(t *testing.T) string {
 		return p
 	}
 	t.Fatal("the `usage` CLI is needed to lower each vector's spec, and was not found.\n" +
-		"Build it with `cargo build --release -p usage-cli`, or point USAGE_BIN at one.")
+		"Run `mise run test:go`, which builds it first, or `cargo build -p usage-cli`,\n" +
+		"or point USAGE_BIN at one.")
 	return ""
 }
