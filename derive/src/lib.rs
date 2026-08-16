@@ -81,6 +81,22 @@
 //! [`usage_argv::spec::Subcommands`], whose associated consts a parent splices into
 //! its own `static` tables. Nothing is assembled at run time.
 //!
+//! A variant that holds nothing is a command with no flags and no arguments of its own:
+//!
+//! ```ignore
+//! #[derive(Subcommands)]
+//! enum Commands {
+//!     /// Install a tool
+//!     Install(Install),
+//!     /// Show who pays for this
+//!     #[usage(effect = "read")]
+//!     Sponsors,
+//! }
+//! ```
+//!
+//! `effect` goes on the variant there because there is no struct to put it on; everywhere else
+//! it belongs to the `Args`, and declaring it in both places is refused.
+//!
 //! A command inside a command is not a special case: an `Args` struct carries a
 //! `subcommand` field exactly as the root does, to any depth, and generates the same
 //! code for it. mise reaches four levels, so one was never going to be enough.

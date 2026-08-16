@@ -2317,6 +2317,32 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
     let module = format_ident!("__usage_subs_{}", ident.to_string().to_lowercase());
 
+    // The structs the bare variants imply, written here so everything downstream keeps
+    // speaking to a struct. `Args` is derived on them rather than the impl being written out:
+    // one description of what an empty command is, and it is the one adopters already use.
+    let unit_structs = subs
+        .variants
+        .iter()
+        .filter(|v| v.unit)
+        .map(|v| {
+            let name = &v.ty;
+            // Whatever the variant said about the command, written where the command's
+            // metadata is actually built — and read there by the same code that reads it on
+            // any other `Args`.
+            let effect = v
+                .effect
+                .as_ref()
+                .map(|word| quote!(#[usage(effect = #word)]));
+            quote! {
+                #[doc(hidden)]
+                #[derive(::usage_derive::Args)]
+                #effect
+                pub struct #name {}
+            }
+        })
+        .collect::<Vec<_>>();
+    let unit_structs = unit_structs.into_iter();
+
     // One partial per variant, since a parse can only fill one but does not know
     // which until the word arrives.
     let partial_fields = subs.variants.iter().enumerate().map(|(i, v)| {
@@ -2444,14 +2470,26 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         } else {
             built
         };
+        // A bare variant has nowhere to put what was built, and nothing was declared to go in
+        // it — but the build still runs, because that is where the command's own checks live.
+        let made = if v.unit {
+            quote! {{
+                let _ = #built;
+                #ident::#variant
+            }}
+        } else {
+            quote!(#ident::#variant(#built))
+        };
         quote! {
-            #i => ::std::result::Result::Ok(::std::option::Option::Some(
-                #ident::#variant(#built),
-            )),
+            #i => ::std::result::Result::Ok(::std::option::Option::Some(#made)),
         }
     });
 
     quote! {
+        // Beside the enum rather than inside the generated module: the variants name these
+        // types, and a type a variant cannot see is no use to it.
+        #(#unit_structs)*
+
         #[doc(hidden)]
         #[allow(
             non_upper_case_globals,

@@ -2007,6 +2007,14 @@ pub struct Subcommands {
     pub variants: Vec<Variant>,
 }
 
+/// The name of the struct a bare variant implies.
+///
+/// The enum's name is in it because two enums in one module may each declare a `Sponsors`, and
+/// two structs of one name is a worse error than the one this is avoiding.
+fn unit_struct_ident(enum_ident: &syn::Ident, variant: &syn::Ident) -> syn::Ident {
+    syn::Ident::new(&format!("__Usage{enum_ident}{variant}"), variant.span())
+}
+
 /// One variant: a command name and the struct holding its flags and arguments.
 pub struct Variant {
     pub ident: syn::Ident,
@@ -2019,6 +2027,20 @@ pub struct Variant {
     /// The command name, which is the variant name in kebab-case unless `name`
     /// says otherwise.
     pub name: String,
+    /// What running this command does to the world, for a variant that holds nothing.
+    ///
+    /// `effect` is otherwise an `Args` attribute, because that is where a command declares
+    /// itself. A bare variant has no `Args` to put it on, and the variant *is* the whole
+    /// declaration — so it says it here and the generated struct carries it.
+    /// Kept as the word rather than as tokens: it is written straight back out as an
+    /// attribute on the struct this variant implies, and parsed there by the same code that
+    /// reads every other one — so there is one definition of what the word may be.
+    pub effect: Option<String>,
+    /// Whether the variant holds nothing and had its struct written for it.
+    ///
+    /// Only the *construction* differs — `Command::Sponsors` rather than
+    /// `Command::Sponsors(x)`. Everything else goes through the struct as usual.
+    pub unit: bool,
     /// The struct the variant wraps, with any `Box` taken off.
     ///
     /// Everything generated speaks to the struct — its tables, its partial, its `build` —
@@ -2061,8 +2083,18 @@ impl Subcommands {
         let variants = data
             .variants
             .iter()
-            .map(Variant::from_variant)
+            .map(|v| Variant::from_variant(v, &input.ident))
             .collect::<syn::Result<Vec<_>>>()?;
+        for v in &variants {
+            if v.effect.is_some() && !v.unit {
+                return Err(syn::Error::new_spanned(
+                    &v.ident,
+                    "`effect` belongs on the struct this variant wraps, where the command's \
+                     other properties are declared — a variant may carry one only when it \
+                     holds nothing, because then there is no struct to put it on",
+                ));
+            }
+        }
 
         // Every name a command answers to, its aliases included: the parser takes the
         // first table entry that matches, so a name claimed twice means one of the two
@@ -2123,11 +2155,12 @@ impl Subcommands {
 }
 
 impl Variant {
-    fn from_variant(variant: &syn::Variant) -> syn::Result<Self> {
+    fn from_variant(variant: &syn::Variant, enum_ident: &syn::Ident) -> syn::Result<Self> {
         let (help, long_help) = doc_comment(&variant.attrs)?;
         let mut name = to_kebab(&variant.ident.to_string());
         let mut aliases: Vec<String> = Vec::new();
         let mut hidden_aliases: Vec<String> = Vec::new();
+        let mut effect = None;
         let mut hide = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
@@ -2141,6 +2174,13 @@ impl Variant {
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
+                    "effect" => {
+                        // Checked where it is written, and checked again by the struct's own
+                        // derive, which is where it is read — one definition of the word.
+                        let word = string_value(&meta)?;
+                        effect_value(&meta)?;
+                        effect = Some(word);
+                    }
                     // As on a field: a comment's paragraph is flowed, so text whose line
                     // breaks matter is declared instead.
                     "help" => help_attr = Some(string_value(&meta)?),
@@ -2177,14 +2217,23 @@ impl Variant {
         // and arguments. A variant with no fields would have nothing to parse into,
         // and named fields would make the variant itself the struct — which is a
         // second way to say the same thing.
+        // A bare variant is a command with nothing of its own — `Sponsors`, which clap also
+        // allows. The struct it implies is written for it, so everything downstream keeps
+        // speaking to a struct and only the construction differs.
+        let mut unit = false;
         let held = match &variant.fields {
             Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => unnamed.unnamed[0].ty.clone(),
+            Fields::Unit => {
+                unit = true;
+                let ident = unit_struct_ident(enum_ident, &variant.ident);
+                syn::parse_quote!(#ident)
+            }
             other => {
                 return Err(syn::Error::new_spanned(
                     other,
-                    "a subcommand variant wraps exactly one struct, as in \
-                     `Install(Install)` or `Install(Box<Install>)`: that struct is where \
-                     its flags and arguments are declared",
+                    "a subcommand variant wraps one struct, as in `Install(Install)` or \
+                     `Install(Box<Install>)` — that struct is where its flags and arguments \
+                     are declared — or holds nothing at all, for a command that has none",
                 ));
             }
         };
@@ -2205,6 +2254,8 @@ impl Variant {
             ident: variant.ident.clone(),
             hide,
             name,
+            effect,
+            unit,
             ty,
             boxed,
             aliases,
@@ -2722,6 +2773,26 @@ mod tests {
             err.contains("`min_usage_version` belongs on the root"),
             "unhelpful: {err}"
         );
+    }
+
+    #[test]
+    fn only_a_bare_variant_declares_its_own_effect() {
+        // A variant that wraps a struct has somewhere to put it, and two places to say one
+        // thing is two answers waiting to disagree.
+        let input = syn::parse_str::<syn::DeriveInput>(
+            r#"
+            enum Commands {
+                #[usage(effect = "write")]
+                Install(Install),
+            }
+        "#,
+        )
+        .expect("valid Rust");
+        let Err(err) = Subcommands::from_input(&input) else {
+            panic!("should not have compiled")
+        };
+        let err = err.to_string();
+        assert!(err.contains("belongs on the struct"), "unhelpful: {err}");
     }
 
     #[test]
