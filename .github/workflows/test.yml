@@ -103,14 +103,16 @@ jobs:
               exit 1
             fi
           done
-      - uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb00c93b4c1006f9da8436 # stable
-        with:
-          toolchain: ${{ matrix.version }}
+      # `rustup` rather than an action: it is already on the runner, and this needs one
+      # toolchain and no other behaviour — a pinned third-party action would be one more
+      # thing to keep current for no gain.
+      - name: install the toolchain under test
+        run: rustup toolchain install ${{ matrix.version }} --profile minimal
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: msrv-${{ matrix.version }}
       - name: they build at the version they claim
         run: |
           for crate in ${{ matrix.crates }}; do
-            cargo check --locked -p "$crate" --all-features
+            cargo +${{ matrix.version }} check --locked -p "$crate" --all-features
           done
