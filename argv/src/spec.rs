@@ -85,6 +85,10 @@ fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
 /// because the separator ends the collecting, and a `var_max`, because a bounded variadic hands
 /// over the words past its bound. mise relies on the first on `run`, `exec` and `git`.
 ///
+/// The separator is good for one argument and only where it is still a separator. A variadic
+/// that already claimed it has spent it, and one declaring `preserve` takes it as a *value* —
+/// so in either case the argument waiting for a `--` waits forever.
+///
 /// `#[derive(Args)]` applies that rule to one struct's own arguments. It cannot apply it across
 /// a `#[usage(flatten)]`: the variadic may be on one side of the boundary and the argument that
 /// follows it on the other, and neither expansion can see the other's fields. Checked here for
@@ -98,7 +102,14 @@ fn unfillable_arg<'a>(cmd: &Command<'a>) -> Option<&'a str> {
         // one separator exists, so nothing can follow *that*.
         let stopped_by_separator = arg.double_dash == DoubleDash::Required;
         if let Some(before) = variadic {
-            if !stopped_by_separator || before.double_dash == DoubleDash::Required {
+            let separator_is_gone = matches!(
+                before.double_dash,
+                // Spent on the variadic itself.
+                DoubleDash::Required
+                // Or never a separator at all, because the variadic keeps it as a value.
+                    | DoubleDash::Preserve
+            );
+            if !stopped_by_separator || separator_is_gone {
                 return Some(arg.name);
             }
         }
@@ -573,8 +584,10 @@ impl Spec<'_> {
             "no word could ever reach the argument {:?}, because an unbounded variadic before \
              it takes every remaining one. With `flatten` this is the arrangement neither \
              expansion can see: the variadic and the argument after it were declared in \
-             different structs. Give the variadic a `var_max`, or make the later argument \
-             fillable only after a `--`.",
+             different structs. Give the variadic a `var_max` — or, if the variadic leaves the \
+             `--` alone, make the later argument fillable only after one. A variadic that \
+             already requires a separator has spent it, and one declaring `preserve` takes it \
+             as a value, so neither can be stopped that way.",
             unfillable_arg(self.root.cmd)
         );
         let mut out = String::new();
@@ -1419,6 +1432,37 @@ mod tests {
             ..Command::EMPTY
         };
         assert_eq!(unfillable_arg(&AFTER_THE_SEPARATOR), Some("after"));
+
+        // Nor a variadic that keeps the separator as one of its values: `preserve` means the
+        // `--` never ends anything, so the argument waiting for one waits forever. The derive
+        // refuses this within one struct; here is where the same layout is caught when the two
+        // halves are on either side of a `#[usage(flatten)]` and neither expansion can see it.
+        static KEEPS_SEPARATOR: Arg = Arg {
+            name: "kept",
+            double_dash: DoubleDash::Preserve,
+            ..Arg::VAR
+        };
+        static SEPARATOR_KEPT: Command = Command {
+            name: "ex",
+            args: &[&KEEPS_SEPARATOR, &PAST_SEPARATOR],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&SEPARATOR_KEPT), Some("args_last"));
+
+        // And a bound puts it back, `preserve` or not: the variadic hands over once it is full,
+        // so what follows is reachable without needing a separator at all.
+        static KEEPS_SEPARATOR_BOUNDED: Arg = Arg {
+            name: "kept",
+            double_dash: DoubleDash::Preserve,
+            var_max: Some(2),
+            ..Arg::VAR
+        };
+        static BOUNDED_KEEPER: Command = Command {
+            name: "ex",
+            args: &[&KEEPS_SEPARATOR_BOUNDED, &PAST_SEPARATOR],
+            ..Command::EMPTY
+        };
+        assert_eq!(unfillable_arg(&BOUNDED_KEEPER), None);
 
         // Found at any depth, since a flattened struct can be used by a nested command.
         static NESTED: Command = Command {
