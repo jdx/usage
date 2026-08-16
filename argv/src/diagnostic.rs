@@ -120,7 +120,7 @@ fn flag_named(token: &str) -> &str {
 /// The same set the parser would have accepted, which is what makes a suggestion one that works.
 fn flags_in_scope<'a, 'c>(
     chain: &'c [&'a CommandMeta<'a>],
-) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> + use<'a, 'c> {
+) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> + 'c {
     // The command's own flags, and from each ancestor only what it declared global — the rule
     // the parser follows on the way down. The chain and not the tree: an earlier version
     // collected globals from every branch it walked through, so a global declared on one command
@@ -569,12 +569,14 @@ pub fn render(
             );
         }
         Error::ConflictingFlags { name, other } => {
+            // Spelled by `help`, like every other name in this module — and like clap, which
+            // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.
             let _ = writeln!(
                 out,
                 "{} the argument '{}' cannot be used with '{}'",
                 style.error("error:"),
-                style.invalid(name),
-                style.invalid(other)
+                style.invalid(&shown(here, name)),
+                style.invalid(&shown(here, other))
             );
             with_usage = true;
         }
@@ -600,7 +602,7 @@ pub fn render(
                 out,
                 "{} '{}' can only be given after '{}'",
                 style.error("error:"),
-                style.literal(arg.name),
+                style.literal(&shown(here, arg.name)),
                 style.literal("--")
             );
         }
@@ -891,6 +893,29 @@ mod tests {
         // `--jobs`.
         let message = rendered(&["use"], Error::MissingRequired { name: "jobs" });
         assert!(message.contains("  --jobs"), "{message}");
+
+        // Every variant, not most of them. These two printed the spec's name while the ones
+        // directly above and below them did not, so one argument could appear two ways in two
+        // messages from the same command — and clap writes the dashes here too:
+        //
+        //     error: the argument '--force' cannot be used with '--jobs <JOBS>'
+        let message = rendered(
+            &["use"],
+            Error::ConflictingFlags {
+                name: "force",
+                other: "jobs",
+            },
+        );
+        assert!(
+            message.contains("the argument '--force' cannot be used with '--jobs'"),
+            "{message}"
+        );
+
+        let message = rendered(&["use"], Error::ArgRequiresDoubleDash { arg: &SHELLS });
+        assert!(
+            message.contains("'[SHELLS]…' can only be given"),
+            "{message}"
+        );
     }
 
     #[test]

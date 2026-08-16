@@ -378,10 +378,11 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
     out.push('\n');
 }
 
-/// A flag as the flags section lists it, which includes its negation.
 /// How a usage line writes a flag: its first long form, or its short if that is all it has.
 ///
-/// Shared with the diagnostics for the same reason as [`arg_usage`].
+/// Shared with the diagnostics for the same reason as [`arg_usage`], and gated with them: under
+/// `spec` alone nothing calls it, and a `dead_code` warning is an error in this workspace.
+#[cfg(feature = "diagnostics")]
 pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
     meta.flag
         .longs

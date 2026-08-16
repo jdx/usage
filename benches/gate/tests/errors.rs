@@ -117,8 +117,9 @@ fn the_usage_line_is_the_one_the_help_prints() {
 
 #[test]
 fn the_suggestion_is_the_one_clap_would_make() {
-    // Jaro-Winkler above 0.7, which is clap's rule — so the two suggest in the same cases and
-    // suggest the same thing. Checked against mise's real flags rather than a fixture, because
+    // Jaro above 0.7, which is clap's rule — plain Jaro, because clap says in its own source
+    // that `strsim`'s `jaro_winkler` is wrong (GH #4660). So the two suggest in the same cases
+    // and suggest the same thing. Checked against mise's real flags rather than a fixture, because
     // what makes a suggestion good is the size of the set it was chosen from.
     let cases = [
         (vec!["activate", "zsx"], "a similar value exists: 'zsh'"),
