@@ -178,10 +178,12 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       `required_if`, `required_unless`, `var`, `count`, `env`, defaults, the four
       `double_dash` modes, global flags, flatten, boxed subcommand variants,
       headings and `cfg`-gated variants have all landed since this was written.
-      What is left of the original list is **`requires`**, which no part of this
-      repository can express — not the derive, not the spec, not the clap bridge —
-      and **delimiters**, where a value's `,` is split at parse time rather than
-      only in a clap default. Both are in the clap-parity list below.
+      What is left of the original list is **`requires`** — with `requires_if` and
+      `requires_ifs`, the conditional forms, which are their own work rather than
+      a detail of the first — none of which any part of this repository can
+      express: not the derive, not the spec, not the clap bridge. And
+      **delimiters**, where a value's `,` is split at parse time rather than only
+      in a clap default. Both are in the clap-parity list below.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
       `var_min`, `conflicts`, `required_if`, `required_unless`, and `overrides` —
       `var_max` moved to the binder, see the decision below. All of them need a value's type, so they belong with the derive
@@ -399,9 +401,19 @@ completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
 `last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
 order, and non-UTF-8 `OsString`/`PathBuf` values.
 
-And the other direction, which `gen-shadow` already counts: `mount`,
-`restart_token`, `default_subcommand`, `effect`, and three of the four
-`double_dash` modes are things a spec says that clap cannot hear.
+And the other direction: `mount`, `restart_token`, `default_subcommand` and
+`effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
+them.
+
+`double_dash` is the one to state carefully, because two different claims about
+it have been made in this file. The **bridge** carries three of the four modes:
+`lib/src/spec/arg.rs` reads clap's `last` as `required` and `trailing_var_arg` as
+`automatic`, and the default as `optional`. Only `preserve` — where the `--` is
+itself a value — has no clap spelling. What drops the other two is **`gen-shadow`
+writing a clap shadow**, whose `clap_double_dash` emits only `last`; that is a
+gap in the shadow generator rather than in clap, since clap's derive does have
+`trailing_var_arg`, and it is worth closing so the shadow stops overstating the
+distance.
 
 ### The gate
 
