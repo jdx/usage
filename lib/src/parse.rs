@@ -1171,7 +1171,7 @@ fn parse_partial_with_env(
         // argument that was not provided. Named by its own name, resolved through the
         // same matcher, so a `requires="-f"` reports `--force` rather than the selector.
         for other in &flag.requires {
-            if !selector_is_explicit(other, &out, &overridden_flags, custom_env) {
+            if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
                 let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
                 out.errors.push(UsageErr::MissingFlag(name));
             }
@@ -1322,6 +1322,34 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
         .chain(out.flags.keys())
         .find(|flag| flag_matches_selector(flag, selector))
         .map(|flag| flag.name.clone())
+}
+
+/// Whether a selector's flag ended up with a value, however it got one.
+///
+/// The rule for a *positive* relationship, and the difference from
+/// [`selector_is_explicit`] is deliberate. A negative rule — `conflicts`, or a group's
+/// exclusivity — has to count only what was given, or a flag with a default would
+/// conflict with everything and no command line would parse. A positive one asks whether
+/// the flag it names has a value, and a default is a value: that is already how plain
+/// `required`, `required_if` and `required_unless` read a default, and `requires` saying
+/// otherwise would have made the same flag missing here and present ten lines below.
+fn selector_is_satisfied(
+    selector: &str,
+    out: &ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    if selector_is_explicit(selector, out, overridden_flags, custom_env) {
+        return true;
+    }
+    out.available_flags
+        .values()
+        .chain(out.flags.keys())
+        .filter(|flag| flag_matches_selector(flag, selector))
+        .any(|flag| {
+            !overridden_flags.contains(&flag.name)
+                && (!flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty()))
+        })
 }
 
 fn apply_flag_overrides(
@@ -2619,6 +2647,30 @@ flag "--file <file>" required_unless="--stdin"
         // Nothing happens when the flag that imposes the rule is absent: a requirement
         // is a consequence of using the flag, not a rule about the command line.
         parse(&spec, &input(&["ex"])).expect("a bare invocation requires nothing");
+    }
+
+    #[test]
+    fn a_default_satisfies_a_requirement() {
+        // The flag it names has a value, which is the question a requirement asks. Read
+        // any other way, `--format` would be missing here and present ten lines further
+        // down, where plain required-ness reads the same default as filling it.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <p>\" requires=\"--format\"\nflag \"--format <f>\" default=\"json\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--out", "a.txt"]))
+            .expect("a defaulted flag is not a missing one");
+    }
+
+    #[test]
+    fn an_environment_value_satisfies_a_requirement() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <p>\" requires=\"--format\"\nflag \"--format <f>\" env=\"EX_FORMAT\"\n"
+            .parse()
+            .unwrap();
+
+        assert!(parse(&spec, &input(&["ex", "--out", "a.txt"])).is_err());
+        parse_with_env(&spec, &["ex", "--out", "a.txt"], &[("EX_FORMAT", "json")])
+            .expect("the environment supplies it");
     }
 
     #[test]

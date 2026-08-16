@@ -227,6 +227,9 @@ struct Rel {
     /// Sign the output
     #[usage(long, requires("--key"))]
     sign: bool,
+    /// Tag the output, which needs a job count — and one is always there
+    #[usage(long, requires("--jobs"))]
+    tag: bool,
     /// The key to sign with
     #[usage(long)]
     key: Option<String>,
@@ -288,6 +291,17 @@ fn a_requirement_names_the_flag_that_was_not_given() {
     let rel = Rel::parse_from(&a).expect("should parse");
     assert!(!rel.sign);
     assert!(rel.key.is_none());
+}
+
+#[test]
+fn a_default_on_the_required_flag_satisfies_the_requirement() {
+    // The check is not emitted at all when the flag a requirement names has a default,
+    // because such a flag can never be missing — the same rule plain required-ness
+    // follows, and usage-lib agrees.
+    let a = argv(["--file", "f", "--tag"]);
+    let rel = Rel::parse_from(&a).expect("the defaulted flag is not missing");
+    assert!(rel.tag);
+    assert_eq!(rel.jobs.as_deref(), Some("4"));
 }
 
 #[test]

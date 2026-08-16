@@ -791,6 +791,8 @@ fn flag_relationships_reach_the_spec() {
     assert!(rel.stdin);
     // `--sign` was not given, so what it requires is not asked for.
     assert!(!rel.sign);
+    assert!(rel.key.is_none());
+    assert!(rel.identity.is_none());
     assert!(rel.color && !rel.plain);
     assert_eq!(rel.out.as_deref(), Some("o"));
     assert!(rel.file.is_none());

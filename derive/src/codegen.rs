@@ -2829,11 +2829,20 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // one that named it, which is what clap says: an unmet `requires` is a required
     // argument that was not provided. That also means no new `Error` variant — the hot
     // path's `Result` does not grow to carry a check that only ever fires on the cold one.
+    //
+    // A target with a default is skipped outright, since it can never be missing.
     let requirement_checks = cli.fields.iter().flat_map(move |f| {
         let given = format_ident!("__given_{}", f.ident);
         f.requires.iter().filter_map(move |selector| {
             // Resolved in the model, which rejects a selector naming nothing.
             let other = cli.field_for_selector(selector)?;
+            // A flag with a default always has a value, so the requirement it satisfies
+            // can never fail — the same reason plain required-ness skips such a field.
+            // Decided at compile time, so the check is not merely always-true at run
+            // time, it is not there.
+            if !other.default.is_empty() {
+                return None;
+            }
             let other_given = format_ident!("__given_{}", other.ident);
             let other_name = &other.name;
             Some(quote! {
