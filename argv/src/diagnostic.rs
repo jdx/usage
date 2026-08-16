@@ -591,6 +591,20 @@ pub fn render(
                 invalid.reason
             );
         }
+        Error::MissingGroup { group, members } => {
+            with_usage = true;
+            // clap's own shape for a required group, which is the required-arguments
+            // message with the members listed under it. The group's name goes on the
+            // first line rather than into the list, since it is not something to type.
+            let _ = writeln!(
+                out,
+                "{} one of the following required arguments was not provided ({group}):",
+                style.error("error:")
+            );
+            for member in *members {
+                let _ = writeln!(out, "  {}", style.valid(&shown(here, member)));
+            }
+        }
         Error::ConflictingFlags { name, other } => {
             // Spelled by `help`, like every other name in this module — and like clap, which
             // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.

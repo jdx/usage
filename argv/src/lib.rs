@@ -454,6 +454,18 @@ pub enum Error<'t, 'v> {
     /// does not grow. A value that will not convert has already failed, and a message
     /// worth reading is worth one allocation.
     InvalidValue(::std::boxed::Box<InvalidValue<'t>>),
+    /// A required group had none of its members given.
+    ///
+    /// Carries the members as members rather than as a rendered sentence: the caller
+    /// decides how to say it, and a completion asking what would satisfy this needs the
+    /// list rather than the prose.
+    MissingGroup {
+        /// The group's declared name, which appears in the message so a command with
+        /// several groups does not report the same sentence twice.
+        group: &'t str,
+        /// The flags that would satisfy it, as the declaration spells them.
+        members: &'t [&'t str],
+    },
     /// A subcommand was required, and none was given.
     MissingSubcommand,
     /// `--help` or `-h` was given, and `cmd` is what it was asked about.

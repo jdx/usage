@@ -390,6 +390,25 @@ pub const fn concat_aliases<const N: usize>(groups: &[&[&'static str]]) -> [&'st
     out
 }
 
+/// A set of one command's flags that relate to one another as a set.
+///
+/// Pairwise `conflicts` can say "at most one of these", once per pair; what it cannot
+/// say is that one of them is *needed*, which is a statement about the set.
+#[derive(Debug, Clone, Copy)]
+pub struct GroupMeta<'a> {
+    /// What the group is called. It appears in the message a failed check produces, and
+    /// it is how a reader tells two groups on one command apart.
+    pub name: &'a str,
+    /// The flags in the group, as selectors — `--long` or `-s`, the way every other
+    /// relationship names a flag.
+    pub members: &'a [&'a str],
+    /// Whether at least one member has to be given.
+    pub required: bool,
+    /// Whether more than one member may be given. False is what makes a bare group
+    /// mutual exclusion, as it does in clap.
+    pub multiple: bool,
+}
+
 /// What a command knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {
@@ -441,6 +460,11 @@ pub struct CommandMeta<'a> {
     pub args: &'a [ArgMeta<'a>],
     /// Metadata for `cmd.subcommands`, in the same order.
     pub subcommands: &'a [&'a CommandMeta<'a>],
+    /// Sets of this command's flags that relate to one another as a set.
+    ///
+    /// Cold like everything else here: a group is checked once the last token has been
+    /// read, by code the derive generates, and a successful parse never reads this.
+    pub groups: &'a [GroupMeta<'a>],
 }
 
 impl CommandMeta<'_> {
@@ -460,6 +484,7 @@ impl CommandMeta<'_> {
         after_help: None,
         after_long_help: None,
         examples: &[],
+        groups: &[],
         flags: &[],
         args: &[],
         subcommands: &[],
@@ -807,6 +832,11 @@ fn write_body(
         write_arg(out, arg, depth)?;
     }
     write_completion_types(out, meta, depth)?;
+    // After the flags and arguments they name, so a reader meets the members before the
+    // rule about them — the order usage-lib writes, so a round trip reads the same way.
+    for group in meta.groups {
+        write_group(out, group, depth)?;
+    }
     #[cfg(feature = "complete")]
     write_completers(out, meta, bin, depth)?;
     for sub in meta.subcommands {
@@ -925,6 +955,22 @@ fn write_command(
 
     indent(out, depth)?;
     out.push_str("}\n");
+    Ok(())
+}
+
+fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::fmt::Result {
+    indent(out, depth)?;
+    write!(out, "group {}", quoted(group.name))?;
+    for member in group.members {
+        write!(out, " {}", quoted(member))?;
+    }
+    if group.required {
+        out.push_str(" required=#true");
+    }
+    if group.multiple {
+        out.push_str(" multiple=#true");
+    }
+    out.push('\n');
     Ok(())
 }
 
