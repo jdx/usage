@@ -228,17 +228,22 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
         let _ = writeln!(out, "{before}\n");
     }
 
-    // The program, then what it is for. usage-lib prints the name when the spec gives one and
-    // the binary otherwise, and only when there is a version to put beside it.
-    if let Some(version) = spec.version {
-        let name = if spec.name.is_empty() {
-            spec.bin.unwrap_or_default()
-        } else {
-            spec.name
-        };
-        let _ = writeln!(out, "{name} {version}");
+    // The program, then what it is for — on the program's own page. A subcommand's page says
+    // what the subcommand does; see the long form for why. usage-lib prints the name when the
+    // spec gives one and the binary otherwise, and only when there is a version beside it.
+    let root = path.len() <= 1;
+    if root {
+        if let Some(version) = spec.version {
+            let name = if spec.name.is_empty() {
+                spec.bin.unwrap_or_default()
+            } else {
+                spec.name
+            };
+            let _ = writeln!(out, "{name} {version}");
+        }
     }
-    if let Some(about) = spec.about {
+    let about = if root { spec.about } else { meta.about };
+    if let Some(about) = about {
         let _ = writeln!(out, "{about}\n");
     }
     let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
@@ -465,15 +470,27 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
         let _ = writeln!(out, "{before}\n");
     }
 
-    if let Some(version) = spec.version {
-        let name = if spec.name.is_empty() {
-            spec.bin.unwrap_or_default()
-        } else {
-            spec.name
-        };
-        let _ = writeln!(out, "{name} {version}");
+    // The banner and the program's own description belong to the program's page. A
+    // subcommand's page describes the subcommand: `communique generate --help` said
+    // "Editorialized release notes powered by AI" and never once said what `generate` does,
+    // which is the question that was asked. clap prints the command's own description here.
+    let root = path.len() <= 1;
+    if root {
+        if let Some(version) = spec.version {
+            let name = if spec.name.is_empty() {
+                spec.bin.unwrap_or_default()
+            } else {
+                spec.name
+            };
+            let _ = writeln!(out, "{name} {version}");
+        }
     }
-    if let Some(about) = spec.long_about.or(spec.about) {
+    let about = if root {
+        spec.long_about.or(spec.about)
+    } else {
+        meta.long_about.or(meta.about)
+    };
+    if let Some(about) = about {
         let _ = writeln!(out, "{about}\n");
     }
     let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
