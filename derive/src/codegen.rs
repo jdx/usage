@@ -70,7 +70,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     let name = &cli.name;
     let bin = option_str(cli.bin.as_deref());
-    let version = option_str(cli.version.as_deref());
+    let version = match &cli.version {
+        Some(tokens) => quote!(::core::option::Option::Some(#tokens)),
+        None => quote!(::core::option::Option::None),
+    };
     let about = option_str(cli.about.as_deref());
     let long_about = option_str(cli.long_about.as_deref());
 
