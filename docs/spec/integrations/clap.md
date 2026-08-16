@@ -53,6 +53,18 @@ mycli --usage-spec | usage generate md --out-file docs.md
 mycli --usage-spec | usage generate manpage --out-file mycli.1
 ```
 
+## What a generated spec cannot carry
+
+The spec is produced by reading a `clap::Command` back, so it can only carry what clap
+exposes a getter for. [`requires`](/spec/reference/flag#requires) is the notable one it
+does not: `Arg::requires`, `requires_if`, `requires_ifs` and `requires_all` are setters
+with no reader, so a flag declared with them arrives in the spec with no requirement on
+it, and everything downstream — help, docs, completions — describes a CLI without that
+constraint.
+
+Declaring it in the spec is the way to have it. A CLI that keeps its source of truth in
+clap can add the node to a hand-written overlay spec merged with the generated one.
+
 ## Links
 
 - [crate on crates.io](https://crates.io/crates/clap_usage)

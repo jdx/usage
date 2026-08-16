@@ -1160,6 +1160,22 @@ fn parse_partial_with_env(
                 });
             }
         }
+        // The positive form, checked in the same pass and under the same rule: a value
+        // from the environment satisfies a requirement, because the question is whether
+        // the other flag has a value rather than how it got one. A flag that was
+        // overridden away has not been given, so it cannot satisfy anything either —
+        // which is what `selector_is_explicit` already accounts for.
+        //
+        // Reported as the missing flag rather than as something wrong with the flag that
+        // named it, which is what clap says too: an unmet `requires` is a required
+        // argument that was not provided. Named by its own name, resolved through the
+        // same matcher, so a `requires="-f"` reports `--force` rather than the selector.
+        for other in &flag.requires {
+            if !selector_is_explicit(other, &out, &overridden_flags, custom_env) {
+                let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
+                out.errors.push(UsageErr::MissingFlag(name));
+            }
+        }
     }
 
     for flag in unique_flags(out.available_flags.values()) {
@@ -1293,6 +1309,19 @@ fn selector_is_explicit(
                 && !overridden_flags.contains(&flag.name)
                 && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
         })
+}
+
+/// The name of the flag a selector points at, for an error that has to name it.
+///
+/// `selector_is_explicit` only answers yes or no, which is all a check needs; a message
+/// about a flag that is *missing* has to say which one, and the selector may be a short
+/// form or an alias rather than the name.
+fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
+    out.available_flags
+        .values()
+        .chain(out.flags.keys())
+        .find(|flag| flag_matches_selector(flag, selector))
+        .map(|flag| flag.name.clone())
 }
 
 fn apply_flag_overrides(
@@ -2563,6 +2592,49 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn a_requirement_names_the_flag_that_is_missing() {
+        // Reported as the missing flag rather than as something wrong with `--out`,
+        // which is what clap says for an unmet `requires` and what a user can act on.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <p>\" requires=\"--format\"\nflag \"--format <f>\"\n"
+            .parse()
+            .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "--out", "a.txt"])).unwrap_err();
+        assert!(
+            err.to_string().contains("format"),
+            "the missing flag should be named: {err}"
+        );
+
+        // Satisfied, in either order.
+        for words in [
+            &["ex", "--out", "a.txt", "--format", "json"][..],
+            &["ex", "--format", "json", "--out", "a.txt"][..],
+        ] {
+            parse(&spec, &input(words)).unwrap_or_else(|e| panic!("{words:?}: {e}"));
+        }
+
+        // Nothing happens when the flag that imposes the rule is absent: a requirement
+        // is a consequence of using the flag, not a rule about the command line.
+        parse(&spec, &input(&["ex"])).expect("a bare invocation requires nothing");
+    }
+
+    #[test]
+    fn a_requirement_is_satisfied_by_a_short_form() {
+        // The selector may spell the other flag any way it answers to, so the check
+        // resolves it the way every other selector is resolved rather than matching
+        // text. The error names the flag, not the selector.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--sign\" requires=\"-k\"\nflag \"-k --key <k>\"\n"
+                .parse()
+                .unwrap();
+
+        parse(&spec, &input(&["ex", "--sign", "--key", "x"])).expect("--key satisfies -k");
+
+        let err = parse(&spec, &input(&["ex", "--sign"])).unwrap_err();
+        assert!(err.to_string().contains("key"), "{err}");
     }
 
     #[test]

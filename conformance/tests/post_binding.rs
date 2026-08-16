@@ -224,6 +224,12 @@ struct Rel {
     /// How many at once
     #[usage(long, default = "4", required_if = "--stdin")]
     jobs: Option<String>,
+    /// Sign the output
+    #[usage(long, requires("--key"))]
+    sign: bool,
+    /// The key to sign with
+    #[usage(long)]
+    key: Option<String>,
 }
 
 #[test]
@@ -256,6 +262,32 @@ fn conflicting_flags_cannot_both_be_given() {
         Rel::parse_from(&a).expect("should parse").file.as_deref(),
         Some("f")
     );
+}
+
+#[test]
+fn a_requirement_names_the_flag_that_was_not_given() {
+    // Reported as the *other* flag missing rather than as something wrong with
+    // `--sign`, which is what clap says for an unmet `requires` and the thing a user
+    // can act on: the fix is to type `--key`, not to delete `--sign`.
+    let a = argv(["--file", "f", "--sign"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::MissingRequired { name: "key" })
+    ));
+
+    // Satisfied.
+    let a = argv(["--file", "f", "--sign", "--key", "k"]);
+    let rel = Rel::parse_from(&a).expect("should parse");
+    assert!(rel.sign);
+    assert_eq!(rel.key.as_deref(), Some("k"));
+
+    // Nothing is imposed when the flag that declares the requirement is absent, which
+    // is what makes this different from plain required-ness: `--key` is optional until
+    // `--sign` asks for it.
+    let a = argv(["--file", "f"]);
+    let rel = Rel::parse_from(&a).expect("should parse");
+    assert!(!rel.sign);
+    assert!(rel.key.is_none());
 }
 
 #[test]

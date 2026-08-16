@@ -741,6 +741,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // the struct says.
     let overrides = &field.overrides;
     let conflicts = &field.conflicts;
+    let requires = &field.requires;
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
 
@@ -773,6 +774,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             var_max: #var_max,
             overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
+            requires: &[#(#requires),*],
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
             ..FlagMeta::EMPTY
@@ -2819,6 +2821,31 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // The positive form, and the same `__given_*` reading for the same reasons: a `bool`
+    // given as `false` is still a flag the user asked for, and env fallback has already
+    // run, so a requirement satisfied from the environment is satisfied.
+    //
+    // Reported as the *other* flag being missing rather than as something wrong with the
+    // one that named it, which is what clap says: an unmet `requires` is a required
+    // argument that was not provided. That also means no new `Error` variant — the hot
+    // path's `Result` does not grow to carry a check that only ever fires on the cold one.
+    let requirement_checks = cli.fields.iter().flat_map(move |f| {
+        let given = format_ident!("__given_{}", f.ident);
+        f.requires.iter().filter_map(move |selector| {
+            // Resolved in the model, which rejects a selector naming nothing.
+            let other = cli.field_for_selector(selector)?;
+            let other_given = format_ident!("__given_{}", other.ident);
+            let other_name = &other.name;
+            Some(quote! {
+                if partial.#given && !partial.#other_given {
+                    return ::std::result::Result::Err(
+                        ::usage_argv::Error::MissingRequired { name: #other_name },
+                    );
+                }
+            })
+        })
+    });
+
     // `required_if` and `required_unless` are the same question asked two ways: which
     // other flags decide whether this one had to be given. Neither needs to know the
     // order they arrived in — only whether they arrived — so both are answered here,
@@ -2883,6 +2910,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#requirement_checks)*
         #(#flattened_checks)*
         #(#required_checks)*
         #(#relationship_required_checks)*

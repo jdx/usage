@@ -31,9 +31,14 @@ flag "--file <file>" required_if="--dir"     // if --dir is set, --file must als
 flag "--file <file>" required_unless="--dir" // either --file or --dir must be present
 flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
 flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
+flag "--out <path>" requires="--format"  // giving --out means --format must be given too
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
+}
+
+flag "--sign" {
+  requires "--key" "--identity" // several, and all of them are needed
 }
 
 flag "--shell <shell>" {
@@ -68,6 +73,28 @@ mistake, and silently honouring one of them hides it.
 
 A conflict holds in either direction, so declaring it once is enough; it applies to flags
 that were actually given, not to defaults.
+
+## `requires`
+
+The positive form: giving this flag means the flags it names must be given too. Every
+selector has to be satisfied, so `requires "--key" "--identity"` means both. Nothing
+happens when the declaring flag is absent — a requirement is a consequence of using the
+flag, not a rule about the command line as a whole.
+
+`required_if` says the same thing from the other end, and both exist because they are
+written in different places. `--out` needing `--format` is `requires="--format"` on
+`--out`, or `required_if="--out"` on `--format`; the first keeps the rule on the flag it
+is about, which is usually where a reader looks for it.
+
+A value from the environment or a default satisfies a requirement, on the same principle
+`conflicts` follows: the question is whether the other flag ended up with a value, not
+how it got one.
+
+::: warning
+A spec generated from a clap command never carries this. clap has `Arg::requires` as a
+setter with no getter, so [the clap integration](/spec/integrations/clap) cannot read it
+back out — a CLI that wants the constraint in its spec has to declare it here.
+:::
 
 ## `global`
 

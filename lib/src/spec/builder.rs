@@ -247,6 +247,24 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Add a flag that must also be given when this one is
+    pub fn require(mut self, flag: impl Into<String>) -> Self {
+        self.inner.requires.push(flag.into());
+        self
+    }
+
+    /// Add flags that must also be given when this one is
+    pub fn requires<I, S>(mut self, flags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .requires
+            .extend(flags.into_iter().map(Into::into));
+        self
+    }
+
     /// Set environment variable name
     /// Heading to list this under in help output.
     pub fn help_heading(mut self, help_heading: impl Into<String>) -> Self {

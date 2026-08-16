@@ -650,6 +650,9 @@ fn usage_flag_opts(
     if !flag.conflicts.is_empty() {
         opts.push(selector_list("conflicts", &flag.conflicts));
     }
+    if !flag.requires.is_empty() {
+        opts.push(selector_list("requires", &flag.requires));
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -776,6 +779,14 @@ fn clap_flag_opts(
     }
     // A relationship names the field it points at, so a selector the struct does not
     // declare is dropped rather than guessed at.
+    // `requires` is the one asymmetric entry: clap has the setter, so the shadow can write
+    // it, and clap exposes no getter, so a spec regenerated from that command comes back
+    // without it. Counted rather than emitted, because the shadow's job is to say what the
+    // clap dialect can carry *round trip* — writing it and silently losing it on the way
+    // back would make the clap side look more faithful than it is.
+    if !flag.requires.is_empty() {
+        skipped.note("`requires` on a flag");
+    }
     for (option, selectors) in [
         ("overrides_with", &flag.overrides),
         ("conflicts_with", &flag.conflicts),
