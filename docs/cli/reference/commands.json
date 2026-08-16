@@ -989,7 +989,7 @@
       },
       "lint": {
         "full_cmd": ["lint"],
-        "usage": "lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>",
+        "usage": "lint [FLAGS] <FILE>",
         "subcommands": {},
         "args": [
           {
@@ -1031,6 +1031,17 @@
             "help_first_line": "Treat warnings as errors",
             "short": ["W"],
             "long": ["warnings-as-errors"],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "sorted",
+            "usage": "--sorted",
+            "help": "Also check that subcommands and flags are declared in sorted order",
+            "help_long": "Also check that subcommands and flags are declared in sorted order\n\nOff by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.",
+            "help_first_line": "Also check that subcommands and flags are declared in sorted order",
+            "short": [],
+            "long": ["sorted"],
             "hide": false,
             "global": false
           }

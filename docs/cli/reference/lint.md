@@ -2,7 +2,7 @@
 
 # `usage lint`
 
-- **Usage**: `usage lint [-f --format <FORMAT>] [-W --warnings-as-errors] <FILE>`
+- **Usage**: `usage lint [FLAGS] <FILE>`
 - **Effect**: read-only
 - **Source code**: [`cli/src/cli/lint.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/lint.rs)
 
@@ -30,3 +30,9 @@ Output format
 ### `-W --warnings-as-errors`
 
 Treat warnings as errors
+
+### `--sorted`
+
+Also check that subcommands and flags are declared in sorted order
+
+Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.
