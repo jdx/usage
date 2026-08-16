@@ -569,7 +569,7 @@ impl FromStr for Spec {
 #[cfg(feature = "clap")]
 impl From<&clap::Command> for Spec {
     fn from(cmd: &clap::Command) -> Self {
-        Spec {
+        let mut spec = Spec {
             name: cmd.get_name().to_string(),
             bin: cmd.get_bin_name().unwrap_or(cmd.get_name()).to_string(),
             cmd: cmd.into(),
@@ -581,7 +581,13 @@ impl From<&clap::Command> for Spec {
             // this at the top level, which is the field a reader puts it back into.
             unknown_flags: crate::spec::cmd::SpecCommand::from(cmd).unknown_flags,
             ..Default::default()
-        }
+        };
+        // The same pass the KDL parser makes, and for the same reason: a command has to know
+        // where it sits. Without it every subcommand of a clap-derived spec had `full_cmd`
+        // empty — and `SpecCommand::usage()` joins `full_cmd`, so their usage lines came out
+        // blank. Now they say what a user would type.
+        set_subcommand_ancestors(&mut spec.cmd, &[]);
+        spec
     }
 }
 
@@ -686,6 +692,32 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         unknown_flags error
         usage "Usage: test"
         "#);
+    }
+
+    #[test]
+    #[cfg(feature = "clap")]
+    fn a_clap_subcommand_knows_where_it_sits() {
+        // The KDL parser makes this pass; the clap conversion did not, so every subcommand of
+        // a clap-derived spec had an empty `full_cmd`. Two things read it: `usage()`, which
+        // joins it and so produced a usage line with no command in it, and help rendering,
+        // which uses it to tell a subcommand's page from the program's.
+        let cmd = clap::Command::new("ex").subcommand(
+            clap::Command::new("go")
+                .about("Go somewhere")
+                .subcommand(clap::Command::new("fast").about("Quickly")),
+        );
+        let spec = Spec::from(&cmd);
+
+        let go = spec.cmd.subcommands.get("go").expect("go");
+        assert_eq!(go.full_cmd, ["go"]);
+        // `usage()` names the command and then what it takes — `go` has a subcommand, so it
+        // says so. The point is that the command's own name is in there at all.
+        assert_eq!(go.usage, "go <SUBCOMMAND>");
+
+        // And all the way down, which is what makes it a walk rather than one level.
+        let fast = go.subcommands.get("fast").expect("fast");
+        assert_eq!(fast.full_cmd, ["go", "fast"]);
+        assert_eq!(fast.usage, "go fast");
     }
 
     #[test]
