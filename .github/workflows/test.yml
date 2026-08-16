@@ -40,6 +40,8 @@ jobs:
           fi
       - run: mise r build
       - run: mise r test
+      # Run here rather than in a job of its own: the corpus vectors carry KDL
+      # specs, and lowering them needs the `usage` CLI this job has already built.
       - run: mise r test:go
       # `os_string_from_bytes` has a `cfg` branch per platform, and every test of it is
       # `#[cfg(unix)]` — so the Windows one is not compiled anywhere else in this pipeline.

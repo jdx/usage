@@ -63,8 +63,12 @@ run = 'aube install && aube run docs:dev'
 alias = 't'
 run = 'cargo test --all --all-features'
 
+# The Go parser answers the same corpus the Rust one does, so its suite needs the
+# `usage` CLI: a vector's spec is KDL, and lowering it is the CLI's job rather than
+# something the Go module carries a parser for. `build` puts one on PATH.
 [tasks."test:go"]
 dir = 'go'
+depends = ['build']
 run = 'go test ./...'
 
 [tasks.lint]

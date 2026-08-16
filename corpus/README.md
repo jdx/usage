@@ -12,6 +12,10 @@ without reimplementing a test format. If you are writing a usage parser — for 
 for JavaScript, for Python, or as a second Rust implementation — this directory is
 the definition of correct, and passing it is what "compatible" means.
 
+[usage-go](../go/README.md) is the first parser to take that offer up: it answers
+the binding vectors from a Go test runner rather than a Rust one, which is the
+claim this format exists to make checkable.
+
 ## Format
 
 One file per area of the grammar. Each has a `section`, an `about` explaining what

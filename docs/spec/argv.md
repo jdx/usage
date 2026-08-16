@@ -303,7 +303,10 @@ process environment, so no vector's result can depend on the machine running it.
 
 Any implementation in any language can run these. In this repository,
 `cargo test -p usage-conformance` runs them against both usage-lib and
-[usage-argv](https://github.com/jdx/usage/tree/main/argv).
+[usage-argv](https://github.com/jdx/usage/tree/main/argv), and `mise run test:go`
+runs them against [usage-go](https://github.com/jdx/usage/tree/main/go), which is a
+second implementation of this page in another language — the thing the corpus was
+made to make possible.
 
 Each vector says which layer of a parser it is a question for. Most are
 `binding` — which token becomes which flag or argument — and a parser that reads
