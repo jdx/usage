@@ -1,6 +1,7 @@
 [package]
 name = "clap_usage"
 edition = "2021"
+rust-version = "1.95"
 version = "5.0.0"
 include = [
     "/Cargo.toml",

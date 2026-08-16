@@ -3,7 +3,7 @@ name = "usage-config"
 description = "Layered configuration resolution for usage specs, with provenance"
 version = "5.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }
 repository = { workspace = true }

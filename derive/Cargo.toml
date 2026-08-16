@@ -3,7 +3,7 @@ name = "usage-derive"
 description = "Derive macro that compiles a CLI definition into parse tables and a usage spec"
 version = "5.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }
 repository = { workspace = true }
