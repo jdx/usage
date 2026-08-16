@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
@@ -17,6 +18,21 @@ pub struct Lint {
     /// Treat warnings as errors
     #[clap(long, short = 'W')]
     warnings_as_errors: bool,
+
+    /// Also check that subcommands and flags are declared in sorted order
+    ///
+    /// Off by default: declaration order is a house convention rather than a
+    /// correctness question, so a spec that keeps a different order is not wrong.
+    /// Pair it with --warnings-as-errors to hold the order in CI.
+    #[clap(long)]
+    sorted: bool,
+}
+
+/// The rules that only run when asked for.
+#[derive(Clone, Copy, Default)]
+pub struct LintOptions {
+    /// Check that subcommands and flags are declared in sorted order.
+    pub sorted: bool,
 }
 
 #[derive(Clone, Copy, Default, clap::ValueEnum)]
@@ -70,7 +86,12 @@ impl std::fmt::Display for LintIssue {
 impl Lint {
     pub fn run(&self) -> miette::Result<()> {
         let spec = parse_file_or_stdin(&self.file)?;
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(
+            &spec,
+            LintOptions {
+                sorted: self.sorted,
+            },
+        );
 
         match self.format {
             OutputFormat::Text => self.print_text(&issues),
@@ -125,7 +146,7 @@ impl Lint {
     }
 }
 
-pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
+pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
     let mut issues = Vec::new();
 
     // Check default_subcommand reference
@@ -150,7 +171,7 @@ pub fn lint_spec(spec: &Spec) -> Vec<LintIssue> {
     }
 
     // Lint the root command
-    lint_command(&spec.cmd, &[], spec.about.is_some(), &mut issues);
+    lint_command(&spec.cmd, &[], spec.about.is_some(), opts, &mut issues);
 
     issues
 }
@@ -159,6 +180,7 @@ fn lint_command(
     cmd: &SpecCommand,
     path: &[&str],
     has_root_about: bool,
+    opts: LintOptions,
     issues: &mut Vec<LintIssue>,
 ) {
     let cmd_path = if path.is_empty() {
@@ -280,6 +302,10 @@ fn lint_command(
         }
     }
 
+    if opts.sorted {
+        lint_sorted(cmd, &cmd_path, issues);
+    }
+
     // Recursively lint subcommands
     let new_path: Vec<&str> = path
         .iter()
@@ -287,8 +313,108 @@ fn lint_command(
         .chain(std::iter::once(cmd.name.as_str()))
         .collect();
     for subcmd in cmd.subcommands.values() {
-        lint_command(subcmd, &new_path, false, issues);
+        lint_command(subcmd, &new_path, false, opts, issues);
     }
+}
+
+/// Checks that a command declares its subcommands and flags in sorted order.
+///
+/// Three groups are ordered independently, and only within themselves:
+///
+/// 1. subcommands, alphabetically by name;
+/// 2. flags that have a short option, by that short option;
+/// 3. flags that have only a long option, by that long option.
+///
+/// Positional arguments are left alone — their declaration order is what the parser
+/// matches them by, so it is not free to change. The order *between* the two flag
+/// groups is not checked either: a spec that interleaves short-bearing and long-only
+/// flags is still readable, and `include` and `flatten` both merge flags in from
+/// elsewhere, so the interleaving is often not the author's to fix.
+fn lint_sorted(cmd: &SpecCommand, cmd_path: &str, issues: &mut Vec<LintIssue>) {
+    // Subcommands merged in by a `mount` describe another program's CLI, so their
+    // order is not this spec's to keep.
+    let subcommands: Vec<&str> = cmd
+        .subcommands
+        .values()
+        .filter(|c| !c.mounted)
+        .map(|c| c.name.as_str())
+        .collect();
+    if let Some((out_of_place, predecessor)) = first_unsorted(&subcommands, |a, b| a.cmp(b)) {
+        issues.push(LintIssue {
+            severity: Severity::Warning,
+            code: "unsorted-subcommands".to_string(),
+            message: format!(
+                "Subcommand '{}' is declared after '{}'",
+                out_of_place, predecessor
+            ),
+            location: Some(format!("cmd {}", cmd_path)),
+        });
+    }
+
+    // Likewise for flags a mount folded onto this command: every flag here is the
+    // mounted program's, listed in the order that program gave them.
+    if cmd.flags_from_mount {
+        return;
+    }
+
+    let with_short: Vec<&SpecFlag> = cmd.flags.iter().filter(|f| !f.short.is_empty()).collect();
+    if let Some((out_of_place, predecessor)) =
+        first_unsorted(&with_short, |a, b| short_cmp(a.short[0], b.short[0]))
+    {
+        issues.push(LintIssue {
+            severity: Severity::Warning,
+            code: "unsorted-flags".to_string(),
+            message: format!(
+                "Flag '-{}' is declared after '-{}'",
+                out_of_place.short[0], predecessor.short[0]
+            ),
+            location: Some(format!("cmd {}", cmd_path)),
+        });
+    }
+
+    // A flag with neither a short nor a long is already reported as `flag-no-option`;
+    // there is no name here to sort it by, so it takes no part in the ordering.
+    let long_only: Vec<&SpecFlag> = cmd
+        .flags
+        .iter()
+        .filter(|f| f.short.is_empty() && !f.long.is_empty())
+        .collect();
+    if let Some((out_of_place, predecessor)) =
+        first_unsorted(&long_only, |a, b| a.long[0].cmp(&b.long[0]))
+    {
+        issues.push(LintIssue {
+            severity: Severity::Warning,
+            code: "unsorted-flags".to_string(),
+            message: format!(
+                "Flag '--{}' is declared after '--{}'",
+                out_of_place.long[0], predecessor.long[0]
+            ),
+            location: Some(format!("cmd {}", cmd_path)),
+        });
+    }
+}
+
+/// The first item that sorts before the one declared ahead of it, with that
+/// predecessor — the pair a reader would have to swap to start fixing the order.
+///
+/// One pair rather than the whole expected ordering: a command with fifty
+/// subcommands one of which slipped should say which one, not reprint the list.
+fn first_unsorted<T: Copy>(items: &[T], cmp: impl Fn(T, T) -> Ordering) -> Option<(T, T)> {
+    items
+        .windows(2)
+        .find(|w| cmp(w[1], w[0]) == Ordering::Less)
+        .map(|w| (w[1], w[0]))
+}
+
+/// Orders short options by letter, then lowercase ahead of uppercase.
+///
+/// Plain `char` ordering puts every uppercase letter ahead of every lowercase one,
+/// which would ask for `-V -f -v`. A CLI reads better with `-f -v -V`: the pairing of
+/// a letter with its capital is the thing worth keeping adjacent.
+fn short_cmp(a: char, b: char) -> Ordering {
+    a.to_ascii_lowercase()
+        .cmp(&b.to_ascii_lowercase())
+        .then_with(|| a.is_uppercase().cmp(&b.is_uppercase()))
 }
 
 fn lint_flag(flag: &SpecFlag, cmd_path: &str, issues: &mut Vec<LintIssue>) {
@@ -384,7 +510,7 @@ arg "<input>"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "missing-flag-help"));
         assert!(issues.iter().any(|i| i.code == "missing-arg-help"));
     }
@@ -393,7 +519,7 @@ arg "<input>"
     fn test_lint_allows_missing_name_and_bin() {
         let spec: Spec = r#"arg "<file>" help="The file to process""#.parse().unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.is_empty());
     }
 
@@ -407,7 +533,7 @@ flag "-v --very" help="very"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "duplicate-flag"));
     }
 
@@ -420,7 +546,7 @@ flag "myflag:" help="a flag with only a name"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "flag-no-option"));
     }
 
@@ -434,7 +560,7 @@ cmd "real" help="a real command"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues
             .iter()
             .any(|i| i.code == "invalid-default-subcommand"));
@@ -450,7 +576,7 @@ arg "<required>" help="required arg"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "required-after-optional"));
     }
 
@@ -469,7 +595,7 @@ cmd "sub" help="A subcommand" {
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.is_empty());
     }
 
@@ -484,7 +610,7 @@ cmd "undocumented"
         .parse()
         .unwrap();
 
-        let missing_help: Vec<_> = lint_spec(&spec)
+        let missing_help: Vec<_> = lint_spec(&spec, LintOptions::default())
             .into_iter()
             .filter(|issue| issue.code == "missing-cmd-help")
             .collect();
@@ -504,7 +630,7 @@ cmd "sub" subcommand_required=#true help="a subcommand with no subcommands"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues
             .iter()
             .any(|i| i.code == "subcommand-required-no-subcommands"));
@@ -520,7 +646,7 @@ arg "<output>" help="output"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "variadic-arg-not-last"));
     }
 
@@ -535,8 +661,187 @@ flag "-v --verbose" count=#true {
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "count-flag-with-arg"));
+    }
+
+    fn sorted_issues(spec: &str) -> Vec<LintIssue> {
+        let spec: Spec = spec.parse().unwrap();
+        lint_spec(&spec, LintOptions { sorted: true })
+            .into_iter()
+            .filter(|i| i.code.starts_with("unsorted-"))
+            .collect()
+    }
+
+    #[test]
+    fn test_lint_sorted_is_off_by_default() {
+        let spec: Spec = r#"
+name "test"
+cmd "list" help="list"
+cmd "add" help="add"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(!issues.iter().any(|i| i.code.starts_with("unsorted-")));
+    }
+
+    #[test]
+    fn test_lint_unsorted_subcommands() {
+        let issues = sorted_issues(
+            r#"
+name "test"
+cmd "list" help="list"
+cmd "add" help="add"
+cmd "delete" help="delete"
+        "#,
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "unsorted-subcommands");
+        assert_eq!(
+            issues[0].message,
+            "Subcommand 'add' is declared after 'list'"
+        );
+        assert_eq!(issues[0].location.as_deref(), Some("cmd test"));
+    }
+
+    #[test]
+    fn test_lint_sorted_accepts_a_sorted_spec() {
+        let issues = sorted_issues(
+            r#"
+name "test"
+flag "-d --debug" help="debug"
+flag "-o --output" help="output"
+flag "--config" help="config"
+flag "--no-color" help="no color"
+arg "<second>" help="second"
+arg "<first>" help="first"
+cmd "add" help="add"
+cmd "delete" help="delete"
+cmd "list" help="list"
+        "#,
+        );
+        assert!(issues.is_empty(), "{:?}", issues);
+    }
+
+    #[test]
+    fn test_lint_unsorted_short_flags() {
+        let issues = sorted_issues(
+            r#"
+name "test"
+flag "-v --verbose" help="verbose"
+flag "-d --debug" help="debug"
+        "#,
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "unsorted-flags");
+        assert_eq!(issues[0].message, "Flag '-d' is declared after '-v'");
+    }
+
+    #[test]
+    fn test_lint_unsorted_long_only_flags() {
+        let issues = sorted_issues(
+            r#"
+name "test"
+flag "--zebra" help="zebra"
+flag "--alpha" help="alpha"
+        "#,
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "unsorted-flags");
+        assert_eq!(
+            issues[0].message,
+            "Flag '--alpha' is declared after '--zebra'"
+        );
+    }
+
+    #[test]
+    fn test_lint_sorted_keeps_the_two_flag_groups_apart() {
+        // `--alpha` sorts before `--output`'s long name and is declared after it, but
+        // one group is long-only and the other is not, so the two never compare against
+        // each other — each group only has to be sorted within itself.
+        let issues = sorted_issues(
+            r#"
+name "test"
+flag "-o --output" help="output"
+flag "--alpha" help="alpha"
+flag "-v --verbose" help="verbose"
+flag "--config" help="config"
+        "#,
+        );
+        assert!(issues.is_empty(), "{:?}", issues);
+    }
+
+    #[test]
+    fn test_lint_sorted_puts_lowercase_before_its_capital() {
+        let ok = sorted_issues(
+            r#"
+name "test"
+flag "-i --inject" help="inject"
+flag "-I --index" help="index"
+        "#,
+        );
+        assert!(ok.is_empty(), "{:?}", ok);
+
+        let flipped = sorted_issues(
+            r#"
+name "test"
+flag "-I --index" help="index"
+flag "-i --inject" help="inject"
+        "#,
+        );
+        assert_eq!(flipped.len(), 1);
+        assert_eq!(flipped[0].message, "Flag '-i' is declared after '-I'");
+    }
+
+    #[test]
+    fn test_lint_sorted_reaches_into_subcommands() {
+        let issues = sorted_issues(
+            r#"
+name "test"
+cmd "sub" help="sub" {
+    flag "-o --output" help="output"
+    flag "-d --debug" help="debug"
+}
+        "#,
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].location.as_deref(), Some("cmd test sub"));
+        assert_eq!(issues[0].message, "Flag '-d' is declared after '-o'");
+    }
+
+    #[test]
+    fn test_lint_sorted_reports_one_pair_per_group() {
+        // Three subcommands out of place, one issue naming the first pair to swap.
+        let issues = sorted_issues(
+            r#"
+name "test"
+cmd "zebra" help="zebra"
+cmd "yak" help="yak"
+cmd "xerus" help="xerus"
+cmd "walrus" help="walrus"
+        "#,
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(
+            issues[0].message,
+            "Subcommand 'yak' is declared after 'zebra'"
+        );
+    }
+
+    #[test]
+    fn test_lint_sorted_ignores_a_flag_with_no_option() {
+        // `flag-no-option` already reports it; it has no name to sort by.
+        let issues = sorted_issues(
+            r#"
+name "test"
+flag "--alpha" help="alpha"
+flag "nameless:" help="a flag with only a name"
+flag "--beta" help="beta"
+        "#,
+        );
+        assert!(issues.is_empty(), "{:?}", issues);
     }
 
     #[test]
@@ -550,7 +855,7 @@ cmd "update" help="update"
         .parse()
         .unwrap();
 
-        let issues = lint_spec(&spec);
+        let issues = lint_spec(&spec, LintOptions::default());
         let issue = issues
             .iter()
             .find(|i| i.code == "invalid-default-subcommand")

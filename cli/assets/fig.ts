@@ -575,6 +575,12 @@ const completionSpec: Fig.Spec = {
           description: "Treat warnings as errors",
           isRepeatable: false,
         },
+        {
+          name: "--sorted",
+          description:
+            "Also check that subcommands and flags are declared in sorted order",
+          isRepeatable: false,
+        },
       ],
       args: {
         name: "file",

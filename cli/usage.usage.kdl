@@ -219,6 +219,13 @@ cmd lint help="Lint a usage spec file for common issues" effect=read unknown_fla
         }
     }
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
+    flag --sorted help="Also check that subcommands and flags are declared in sorted order" {
+        long_help #"""
+Also check that subcommands and flags are declared in sorted order
+
+Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.
+"""#
+    }
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
 cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read unknown_flags=error {
