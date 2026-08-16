@@ -697,10 +697,8 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
     let value_name = option_str(field.value_name.as_deref());
-    let default = match field.default.as_deref() {
-        Some(d) => quote!(&[#d]),
-        None => quote!(&[]),
-    };
+    let defaults = &field.default;
+    let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
     let count = field.shape == Shape::Count;
     let repeatable = field.repeatable;
@@ -755,10 +753,8 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
-    let default = match field.default.as_deref() {
-        Some(d) => quote!(&[#d]),
-        None => quote!(&[]),
-    };
+    let defaults = &field.default;
+    let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
     // `String` must be filled; `Option` and `Vec` need not be.
     // A collecting field's type cannot say whether one value is needed, so `required` may
@@ -1707,10 +1703,11 @@ fn field_final(field: &Field) -> TokenStream {
                 }};
                 if field.optional_collection {
                     let given = format_ident!("__given_{}", ident);
+                    let defaulted = !field.default.is_empty();
                     // Same as below: whether anything arrived is what tells "never given"
                     // from "given nothing", which the `Vec` itself cannot.
                     quote! {
-                        #ident: if partial.#given {
+                        #ident: if partial.#given || #defaulted {
                             ::std::option::Option::Some(#collected)
                         } else {
                             ::std::option::Option::None
@@ -1800,10 +1797,14 @@ fn field_final(field: &Field) -> TokenStream {
             }};
             if field.optional_collection {
                 let given = format_ident!("__given_{}", ident);
+                // A declared default is a value, so a field that has one is never `None`. It
+                // does not set `__given_*` — the environment still has to be able to replace it
+                // — so the answer has to come from the declaration rather than from the partial.
+                let defaulted = !field.default.is_empty();
                 // `Option<Vec<T>>` distinguishes "never given" from "given nothing", which
                 // no `Vec` can — so the answer comes from whether anything arrived.
                 quote! {
-                    #ident: if partial.#given {
+                    #ident: if partial.#given || #defaulted {
                         ::std::option::Option::Some(#collected)
                     } else {
                         ::std::option::Option::None
@@ -1824,27 +1825,36 @@ fn field_final(field: &Field) -> TokenStream {
 /// not as absent.
 fn reset_to_default(field: &Field) -> TokenStream {
     let ident = &field.ident;
-    let Some(default) = field.default.as_deref() else {
-        return match field.shape {
-            // A collection is cleared rather than replaced, so the field keeps whatever
-            // capacity it already allocated.
-            Shape::Many => quote!(partial.#ident.clear();),
-            _ => quote!(partial.#ident = ::std::default::Default::default();),
-        };
+    // A collection is cleared rather than replaced, so the field keeps whatever capacity it
+    // already allocated — and clearing is also the first half of seeding it, since a default
+    // means *these values and no others* however many were bound before.
+    let cleared = match field.shape {
+        Shape::Many => quote!(partial.#ident.clear();),
+        _ => quote!(partial.#ident = ::std::default::Default::default();),
     };
+    if field.default.is_empty() {
+        return cleared;
+    }
+    // Every shape but a collection was checked in the model to have at most one.
+    let first = &field.default[0];
     match field.shape {
         Shape::Bool => {
-            let on = default == "true";
+            let on = first == "true";
             quote!(partial.#ident = #on;)
         }
         Shape::Optional => quote! {
-            partial.#ident = ::std::option::Option::Some(#default.as_bytes().to_vec());
+            partial.#ident = ::std::option::Option::Some(#first.as_bytes().to_vec());
         },
-        Shape::Required => quote!(partial.#ident = #default.as_bytes().to_vec();),
-        // Rejected in the model: a count starts at zero, and a default for a collecting
-        // field is not applied yet.
-        Shape::Count => quote!(partial.#ident = ::std::default::Default::default();),
-        Shape::Many => quote!(partial.#ident.clear();),
+        Shape::Required => quote!(partial.#ident = #first.as_bytes().to_vec();),
+        // Rejected in the model: a count starts at zero, so a default has nothing to say.
+        Shape::Count => cleared,
+        Shape::Many => {
+            let defaults = &field.default;
+            quote! {
+                #cleared
+                #(partial.#ident.push(#defaults.as_bytes().to_vec());)*
+            }
+        }
     }
 }
 
@@ -2540,7 +2550,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // Guarded on `__given_*`, which is what makes this safe to move: a negation that set a
     // defaulted `bool` to false during the parse must not be undone here.
     let declared_defaults = cli.fields.iter().filter_map(|f| {
-        if f.default.is_none() || matches!(f.kind, Kind::Subcommand { .. }) {
+        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. }) {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -2563,7 +2573,15 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 partial.#ident = ::std::option::Option::Some(value.into_bytes());
             },
             Shape::Required => quote!(partial.#ident = value.into_bytes();),
-            Shape::Many => quote!(partial.#ident.push(value.into_bytes());),
+            // Cleared first, so the environment *replaces* a declared default instead of
+            // adding to it — which is what every other shape does by assigning, and what the
+            // order here means: a default says what the value is when nobody said anything,
+            // and the environment is somebody saying something. Nothing else can be in the
+            // collection at this point: argv sets `__given_*`, which this is guarded on.
+            Shape::Many => quote! {
+                partial.#ident.clear();
+                partial.#ident.push(value.into_bytes());
+            },
             // A switch reads as on for anything but the spellings of "off", which is
             // what every tool that takes a boolean from the environment settles on.
             Shape::Bool => quote! {
@@ -2609,7 +2627,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
         // manpage and the completions, and accepted zero values from the CLI that actually ran.
         // One expression cannot disagree with itself.
-        if !(f.shape == Shape::Required || f.required_collection) || f.default.is_some() {
+        if !(f.shape == Shape::Required || f.required_collection) || !f.default.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -2770,7 +2788,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         }
         // A field with a default is already filled, so no condition can make it
         // missing. Plain required-ness skips these too, and so does usage-lib.
-        if f.default.is_some() {
+        if !f.default.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);

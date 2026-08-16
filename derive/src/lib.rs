@@ -171,7 +171,7 @@
 //! | `var_max = n` | how many values a variadic takes before the next field gets the rest |
 //! | `global` | subcommands inherit the flag |
 //! | `env = "X"` | an environment variable that can supply the value |
-//! | `default = "x"` | the value when the command line does not supply one |
+//! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `hide` | keep it out of help and completions |
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |

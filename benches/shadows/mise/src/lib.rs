@@ -5945,6 +5945,11 @@ pub struct WatchArgs {
         long = "fs-events",
         value_name = "EVENTS",
         choices("access", "create", "remove", "rename", "modify", "metadata"),
+        default = "create",
+        default = "remove",
+        default = "rename",
+        default = "modify",
+        default = "metadata",
         var
     )]
     pub fs_events: ::std::vec::Vec<::std::string::String>,

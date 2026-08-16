@@ -430,3 +430,125 @@ fn each_occurrence_of_a_bounded_flag_counts_for_itself() {
     assert_eq!(bounded.include, ["a", "b"]);
     assert_eq!(bounded.out.as_deref(), Some("c"));
 }
+
+/// A watcher whose filter starts out set
+///
+/// mise's `mise watch --fs-events`, which is where this came from: a `Vec` flag that already
+/// holds something when nobody gives it one. Its spec said so and the derive could not, so it
+/// was the last thing mise's 211-command spec could express that the derive could not.
+#[derive(Cli)]
+#[usage(bin = "ex")]
+struct Defaulted {
+    /// Filesystem events to filter to
+    #[usage(long, var, default = "create", default = "remove", default = "modify")]
+    fs_events: Vec<String>,
+    /// Watch everything again
+    #[usage(long, overrides = "--fs-events")]
+    all_events: bool,
+    /// One value, and it may be given once
+    #[usage(long, default = "4")]
+    jobs: Option<String>,
+    /// Read from the environment when nobody says otherwise
+    #[usage(long, var, default = "one", default = "two", env = "EX_FROM_ENV")]
+    from_env: Vec<String>,
+    /// Never `None`, because it always has something
+    #[usage(long, var, default = "x", default = "y")]
+    maybe: Option<Vec<String>>,
+    /// `None` until it is given, because it declares nothing
+    #[usage(long, var)]
+    plain: Option<Vec<String>>,
+}
+
+#[test]
+fn a_collecting_flag_starts_out_holding_its_defaults() {
+    // Absent: all of them, in the order written. A `Vec` is the one shape that can hold
+    // several, so it is the one shape that may be given several.
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.fs_events, ["create", "remove", "modify"]);
+    assert_eq!(d.jobs.as_deref(), Some("4"));
+
+    // Given: *replaced*, not added to. A default says what the flag means when nobody said
+    // anything, so appending would make `--fs-events access` mean four events, three of which
+    // the user asked to filter out.
+    let a = argv(["--fs-events", "access"]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.fs_events, ["access"]);
+}
+
+#[test]
+fn the_defaults_reach_the_spec_in_order() {
+    // The spec is the interface: a default the parser applies and the spec omits is a CLI whose
+    // help, completions and manpage describe different behaviour from the binary.
+    let spec: usage::Spec = Defaulted::to_kdl().parse().expect("valid spec");
+    let flag = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|f| f.name == "fs-events")
+        .expect("the flag");
+    let defaults = if flag.default.is_empty() {
+        &flag.arg.as_ref().expect("takes a value").default
+    } else {
+        &flag.default
+    };
+    assert_eq!(defaults, &["create", "remove", "modify"]);
+}
+
+#[test]
+fn a_displaced_collecting_flag_goes_back_to_its_defaults() {
+    // The other half of "replaced, not added to", and the half the guard on `__given_*` hides:
+    // when the flag *was* given, the defaults are never reached — except here. `--all-events`
+    // displaces `--fs-events`, and what a displaced flag reads as is its declared default, so
+    // the values the user gave have to go. Appending would leave `access` standing beside the
+    // three it was meant to replace, in a flag the user asked to be overridden.
+    let a = argv(["--fs-events", "access", "--all-events"]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert!(d.all_events);
+    assert_eq!(
+        d.fs_events,
+        ["create", "remove", "modify"],
+        "back to its declared defaults, and only those"
+    );
+}
+
+#[test]
+fn the_environment_replaces_a_collections_defaults() {
+    // Every other shape assigns, so the environment overrides a default. A collection pushed,
+    // so it ended up holding both — three events when the variable named one, and the extra two
+    // are the ones the user's variable was chosen instead of.
+    //
+    // Serialized against the other environment test by reading a variable of its own.
+    unsafe { std::env::set_var("EX_FROM_ENV", "three") };
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.from_env, ["three"]);
+    unsafe { std::env::remove_var("EX_FROM_ENV") };
+
+    // And with the variable unset the defaults stand, which is the other half of "replaces".
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.from_env, ["one", "two"]);
+}
+
+#[test]
+fn an_optional_collection_with_defaults_is_never_none() {
+    // `Option<Vec<T>>` says `None` for "never given", and a default is a value — so a field that
+    // declares one always has something to hold. Seeding it left `__given_*` alone (the
+    // environment still has to be able to replace it), so `None` came back and every declared
+    // default was discarded on the way out of the partial.
+    let a = argv([]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(
+        d.maybe.as_deref(),
+        Some(&["x".to_string(), "y".to_string()][..])
+    );
+
+    // Given, it is what was given.
+    let a = argv(["--maybe", "z"]);
+    let d = Defaulted::parse_from(&a).expect("should parse");
+    assert_eq!(d.maybe.as_deref(), Some(&["z".to_string()][..]));
+
+    // And one that declares no default still tells "never given" from "given nothing".
+    assert_eq!(d.plain, None);
+}

@@ -5386,7 +5386,7 @@ This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
 """#
         arg <PATH>
     }
-    flag --fs-events help="Filesystem events to filter to" var=#true default=create,remove,rename,modify,metadata {
+    flag --fs-events help="Filesystem events to filter to" var=#true {
         long_help #"""
 Filesystem events to filter to
 
@@ -5394,6 +5394,13 @@ This is a quick filter to only emit events for the given types of filesystem cha
 
 This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
 """#
+        default {
+            create
+            remove
+            rename
+            modify
+            metadata
+        }
         arg <EVENTS> {
             choices access create remove rename modify metadata
         }
