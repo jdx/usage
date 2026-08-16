@@ -1,0 +1,293 @@
+// Package spec reads a usage spec that has been lowered to JSON and builds the
+// static tables [argv] binds against.
+//
+// The spec's own format is KDL, and nothing here parses KDL: the `usage` CLI does
+// that, and `usage generate json` is the lowering. That division is deliberate.
+// A generated table is produced once, at build time, by a maintainer who already
+// has the usage CLI; a program that ships to end users carries the tables and
+// never sees a spec at all. Putting a KDL parser in this module would add a
+// dependency to every adopter's binary to solve a problem none of them have.
+//
+// So this package is used by two callers, both of them build-time: the code
+// generator, and the conformance suite, which builds tables per vector rather
+// than generating a package per vector.
+package spec
+
+import (
+	"sort"
+	"strings"
+
+	"github.com/jdx/usage/go/argv"
+)
+
+// Spec is a usage spec as `usage generate json` writes it.
+//
+// Only the fields binding needs are described. The lowering carries much more —
+// help text, examples, completers, config — and leaving those out here is the
+// same split the hot path makes: this struct is the parse tables' source, and
+// help is a cold table generated separately.
+type Spec struct {
+	Name string `json:"name"`
+	Bin  string `json:"bin"`
+	Cmd  Cmd    `json:"cmd"`
+	// UnknownFlags is the CLI-wide default, which a command may override and
+	// which is otherwise inherited all the way down.
+	UnknownFlags string `json:"unknown_flags"`
+	// DefaultSubcommand is declared once, at the top, and names a subcommand of
+	// the root.
+	DefaultSubcommand string `json:"default_subcommand"`
+	Version           string `json:"version"`
+}
+
+// Cmd is one command in the lowered spec.
+type Cmd struct {
+	Name          string         `json:"name"`
+	Aliases       []string       `json:"aliases"`
+	HiddenAliases []string       `json:"hidden_aliases"`
+	Subcommands   map[string]Cmd `json:"subcommands"`
+	Args          []Arg          `json:"args"`
+	Flags         []Flag         `json:"flags"`
+	UnknownFlags  *string        `json:"unknown_flags"`
+}
+
+// Flag is one flag in the lowered spec.
+type Flag struct {
+	Name  string   `json:"name"`
+	Long  []string `json:"long"`
+	Short []string `json:"short"`
+	// Negate arrives with its dashes, as usage-lib stores it. The table wants the
+	// bare name.
+	Negate string `json:"negate"`
+	Global bool   `json:"global"`
+	// Var means the flag may be repeated, taking one value each time. It is not
+	// the same as a variadic argument, and the parser needs nothing for it: every
+	// occurrence is reported separately either way.
+	Var bool `json:"var"`
+	// Count means each occurrence is tallied rather than replacing the last.
+	Count bool `json:"count"`
+	// VarMax here bounds occurrences, which is a post-binding check. The bound
+	// binding cares about is the one on Arg.
+	VarMax int  `json:"var_max"`
+	Arg    *Arg `json:"arg"`
+}
+
+// Arg is one positional argument, or a flag's value, in the lowered spec.
+type Arg struct {
+	Name       string `json:"name"`
+	Required   bool   `json:"required"`
+	Var        bool   `json:"var"`
+	VarMax     int    `json:"var_max"`
+	VarMin     int    `json:"var_min"`
+	DoubleDash string `json:"double_dash"`
+}
+
+// Multi is how a flag accumulates when it is given more than once.
+type Multi uint8
+
+const (
+	// MultiNone means a later occurrence replaces an earlier one.
+	MultiNone Multi = iota
+	// MultiCount means occurrences are tallied.
+	MultiCount
+	// MultiVar means values are collected into a list.
+	MultiVar
+)
+
+// Tables builds the parse tables for a spec.
+//
+// Inheritance is resolved here rather than in the parser: each command's entry
+// holds the effective value, which is what a generated table would carry.
+func (s *Spec) Tables() *argv.Command {
+	b := &builder{}
+	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
+
+	// default_subcommand is a property of the spec rather than of a command, so it
+	// is resolved once, here, against the root's own subcommands. A name that
+	// answers to nothing is left unset: the spec is what it is, and a vector or a
+	// build that expects routing should fail loudly rather than have this guess.
+	if s.DefaultSubcommand != "" {
+		for _, sub := range root.Subcommands {
+			if sub.Name == s.DefaultSubcommand || contains(sub.Aliases, s.DefaultSubcommand) {
+				root.DefaultSubcommand = sub
+				break
+			}
+		}
+	}
+	return root
+}
+
+// MultiFlags reports which flags accumulate rather than replace, keyed by the
+// name the spec gives them.
+//
+// The parser deliberately does not know this: it reports each occurrence and lets
+// the caller decide what to do with it, because whether a second --tag replaces
+// the first or joins it is a question about the target type. Generated code
+// answers it by assigning to a field or appending to a slice; a harness with no
+// target type asks here.
+func (s *Spec) MultiFlags() map[string]Multi {
+	out := map[string]Multi{}
+	collectMulti(&s.Cmd, out)
+	return out
+}
+
+func collectMulti(c *Cmd, out map[string]Multi) {
+	for i := range c.Flags {
+		f := &c.Flags[i]
+		switch {
+		case f.Count:
+			out[f.Name] = MultiCount
+		case f.Var || (f.Arg != nil && f.Arg.Var):
+			out[f.Name] = MultiVar
+		}
+	}
+	for _, name := range sortedKeys(c.Subcommands) {
+		sub := c.Subcommands[name]
+		collectMulti(&sub, out)
+	}
+}
+
+type builder struct {
+	// key hands out identifiers. A Go generator sees the whole spec at once, so it
+	// can simply count where the Rust derive has to hash: two macro expansions
+	// cannot see each other, and two `go generate` runs over one spec can.
+	key uint64
+}
+
+func (b *builder) next() uint64 {
+	b.key++
+	return b.key
+}
+
+func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
+	unknown := inherited
+	if c.UnknownFlags != nil {
+		unknown = unknownFlags(*c.UnknownFlags, inherited)
+	}
+
+	out := &argv.Command{
+		Name:         c.Name,
+		UnknownFlags: unknown,
+		Key:          b.next(),
+	}
+
+	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
+		out.Aliases = make([]string, 0, n)
+		out.Aliases = append(out.Aliases, c.Aliases...)
+		// A hidden alias selects a command just as a visible one does; hiding is
+		// about help output, which binding never reads.
+		out.Aliases = append(out.Aliases, c.HiddenAliases...)
+	}
+
+	for i := range c.Flags {
+		out.Flags = append(out.Flags, b.flag(&c.Flags[i]))
+	}
+	for i := range c.Args {
+		out.Args = append(out.Args, b.arg(&c.Args[i]))
+	}
+	for _, name := range sortedKeys(c.Subcommands) {
+		sub := c.Subcommands[name]
+		out.Subcommands = append(out.Subcommands, b.command(&sub, unknown))
+	}
+	return out
+}
+
+func (b *builder) flag(f *Flag) *argv.Flag {
+	out := &argv.Flag{
+		Key:        b.next(),
+		Name:       f.Name,
+		Longs:      f.Long,
+		Negate:     strings.TrimLeft(f.Negate, "-"),
+		TakesValue: f.Arg != nil,
+		Global:     f.Global,
+	}
+	for _, s := range f.Short {
+		if s != "" {
+			// One byte: a cluster is walked a byte at a time, so a multi-byte short
+			// could never be matched anyway.
+			out.Shorts = append(out.Shorts, s[0])
+		}
+	}
+	if f.Arg != nil && f.Arg.Var {
+		// Only a variadic argument is greedy. A var flag with a single-value argument
+		// is repeatable instead: one value per occurrence, which the parser gets by
+		// not collecting.
+		out.Variadic = true
+		// The bound on one occurrence's values, which is the argument's. A repeatable
+		// flag's own var_max counts occurrences and is checked after the parse, so it
+		// does not belong in this table.
+		out.VarMax = clampVarMax(f.Arg.VarMax)
+	}
+	return out
+}
+
+func (b *builder) arg(a *Arg) *argv.Arg {
+	out := &argv.Arg{
+		Key:        b.next(),
+		Name:       a.Name,
+		Var:        a.Var,
+		DoubleDash: doubleDash(a.DoubleDash),
+	}
+	if a.Var {
+		out.VarMax = clampVarMax(a.VarMax)
+	}
+	return out
+}
+
+// clampVarMax turns the spec's bound into the table's.
+//
+// Zero means unbounded in the table, which is also what an absent var_max lowers
+// to, so the two agree. A bound larger than a uint32 saturates rather than
+// wrapping: truncating four billion and one to one would read as "stop at once"
+// rather than "no real limit".
+func clampVarMax(n int) uint32 {
+	switch {
+	case n <= 0:
+		return 0
+	case n > int(^uint32(0)):
+		return ^uint32(0)
+	}
+	return uint32(n)
+}
+
+func unknownFlags(s string, fallback argv.UnknownFlags) argv.UnknownFlags {
+	switch strings.ToLower(s) {
+	case "error":
+		return argv.UnknownFlagsError
+	case "value":
+		return argv.UnknownFlagsValue
+	}
+	return fallback
+}
+
+func doubleDash(s string) argv.DoubleDash {
+	switch strings.ToLower(s) {
+	case "required":
+		return argv.DoubleDashRequired
+	case "preserve":
+		return argv.DoubleDashPreserve
+	case "automatic":
+		return argv.DoubleDashAutomatic
+	}
+	return argv.DoubleDashOptional
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// sortedKeys keeps table order stable. Go randomizes map iteration, and a
+// generator whose output reordered itself between runs would produce a diff on
+// every regeneration.
+func sortedKeys(m map[string]Cmd) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
