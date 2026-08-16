@@ -152,6 +152,11 @@
 //! The emitted spec gets a `run=` naming this binary, so everything that reads a spec still has
 //! one, generated from the function rather than declared beside it.
 //!
+//! `Cli::parse()` is the entry point that *is* the process: it prints a help page or a version
+//! and leaves, and on a failure it prints the message to stderr and exits 2 — clap's status, so a
+//! script checking for it keeps working. `Cli::parse_from(argv)` hands the error back instead,
+//! for a library embedding a CLI that wants to decide for itself.
+//!
 //! Declaring a `version` also gives the CLI `--version` and `-V`, as clap does — supplied by
 //! the parser rather than listed in the spec, exactly as `--help` is, and yielding to either
 //! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
