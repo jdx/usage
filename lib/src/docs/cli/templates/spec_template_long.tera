@@ -101,6 +101,35 @@ Commands:
 {%- endfor %}
 {%- endfor %}
 
+{%- if global_flags %}
+
+Global flags:
+{%- for flag in global_flags %}
+{%- if flag.help_rendered %}
+  {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
+{%- if flag.help_is_multiline %}
+
+{%- endif %}
+{%- else %}
+  {{ flag.display_usage }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
+{%- if help %}
+    {{ help | indent(width=4) }}
+{%- endif %}
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.choices %}
+    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %}
+    [choices env: {{ flag.arg.choices.env }}]
+{%- endif %}
+{%- if flag.env %}
+    [env: {{ flag.env }}]
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
 {%- if cmd.examples %}
 
 Examples:

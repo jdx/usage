@@ -52,6 +52,17 @@ Commands:
 {%- endfor %}
 {%- endfor %}
 
+{%- if global_flags %}
+
+Global flags:
+{%- for flag in global_flags %}
+  {% if flag.help %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
+{%- if flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
+{%- if flag.env %} [env: {{ flag.env }}]{%- endif %}
+{%- endfor %}
+{%- endif %}
+
 {%- if cmd.examples %}
 
 Examples:

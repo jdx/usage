@@ -23,15 +23,20 @@ fn mise_spec() -> LibSpec {
 /// Every command in the tree, as (path, metadata) — the path being what a user types.
 fn walk<'a>(
     path: Vec<&'a str>,
+    chain: Vec<&'a CommandMeta<'a>>,
     meta: &'a CommandMeta<'a>,
-    out: &mut Vec<(Vec<&'a str>, &'a CommandMeta<'a>)>,
+    out: &mut Vec<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)>,
 ) {
-    out.push((path.clone(), meta));
+    // The chain and not just the command: a page lists what it inherits, which only the
+    // ancestors know.
+    let mut chain = chain;
+    chain.push(meta);
+    out.push((path.clone(), chain.clone()));
     for sub in meta.subcommands {
         // Aliases live in the parse table beside the canonical name; help names the command.
         let mut child = path.clone();
         child.push(sub.cmd.name);
-        walk(child, sub, out);
+        walk(child, chain.clone(), sub, out);
     }
 }
 
@@ -50,7 +55,7 @@ fn every_usage_line_matches_the_reference() {
     let root = shadow_mise::Cli::spec().root;
 
     let mut commands = Vec::new();
-    walk(vec!["mise"], root, &mut commands);
+    walk(vec!["mise"], Vec::new(), root, &mut commands);
     assert!(
         commands.len() > 200,
         "the shadow should cover mise's whole tree, found {}",
@@ -58,7 +63,9 @@ fn every_usage_line_matches_the_reference() {
     );
 
     let mut differences = Vec::new();
-    for (path, meta) in &commands {
+    for (path, chain) in &commands {
+        // The usage line is about the command itself; the chain is for what it inherits.
+        let meta = chain.last().expect("a command");
         let ours = usage_line(path, meta);
         // usage-lib's `usage()` omits the binary and starts at the command path, so the
         // comparison puts it back — the same string the template writes after `Usage: `.
@@ -129,7 +136,7 @@ fn every_short_help_matches_the_reference() {
     let root = shadow_mise::Cli::spec();
 
     let mut commands = Vec::new();
-    walk(vec!["mise"], root.root, &mut commands);
+    walk(vec!["mise"], Vec::new(), root.root, &mut commands);
 
     let mut differences = Vec::new();
     for (path, meta) in &commands {
@@ -173,7 +180,7 @@ fn every_long_help_matches_the_reference() {
     let root = shadow_mise::Cli::spec();
 
     let mut commands = Vec::new();
-    walk(vec!["mise"], root.root, &mut commands);
+    walk(vec!["mise"], Vec::new(), root.root, &mut commands);
 
     let mut differences = Vec::new();
     for (path, meta) in &commands {
@@ -276,12 +283,12 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
     };
 
     assert_eq!(
-        short_help(&SPEC, &["ex", "go"], &GO_META),
+        short_help(&SPEC, &["ex", "go"], &[&GO_META]),
         usage::docs::cli::render_help(&spec, go, false),
         "short form"
     );
     assert_eq!(
-        long_help(&SPEC, &["ex", "go"], &GO_META),
+        long_help(&SPEC, &["ex", "go"], &[&GO_META]),
         usage::docs::cli::render_help(&spec, go, true),
         "long form"
     );
@@ -330,9 +337,9 @@ fn a_spec_can_surround_every_page_at_once() {
 
     for long in [false, true] {
         let ours = if long {
-            long_help(&SPEC, &["ex", "go"], &GO_META)
+            long_help(&SPEC, &["ex", "go"], &[&GO_META])
         } else {
-            short_help(&SPEC, &["ex", "go"], &GO_META)
+            short_help(&SPEC, &["ex", "go"], &[&GO_META])
         };
         assert_eq!(
             ours,
@@ -442,9 +449,9 @@ fn a_specs_examples_reach_a_page_that_has_none() {
         let cmd = spec.cmd.subcommands.get(name).expect("in the spec");
         for long in [false, true] {
             let ours = if long {
-                long_help(&SPEC, &["ex", name], meta)
+                long_help(&SPEC, &["ex", name], &[meta])
             } else {
-                short_help(&SPEC, &["ex", name], meta)
+                short_help(&SPEC, &["ex", name], &[meta])
             };
             assert_eq!(
                 ours,

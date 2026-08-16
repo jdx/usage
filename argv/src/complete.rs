@@ -198,7 +198,8 @@ pub fn for_name<'a>(
     // Tree order last, and only as a fallback: two sibling commands may take a `tool` and mean
     // different things by it, and the one the line reached is the one being asked about.
     let reached = walk(spec.root.cmd, ctx.command_words_start());
-    let reached_meta = crate::help::find(spec, reached.cmd).map(|(_, meta)| meta);
+    let reached_meta =
+        crate::help::find(spec, reached.cmd).and_then(|(_, chain)| chain.last().copied());
     let owner = if on(spec.root, name).is_some() {
         spec.root
     } else if let Some(meta) = reached_meta.filter(|meta| on(meta, name).is_some()) {
@@ -407,7 +408,7 @@ fn files_for(name: &str) -> Option<Files> {
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
 pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).map(|(_, meta)| meta);
+    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
     let token = split.prefix.as_str();
     let candidates = candidates(spec, split);
 
@@ -476,7 +477,7 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
 /// Just the candidates this CLI knows about, without the question of paths.
 pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).map(|(_, meta)| meta);
+    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
     let token = split.prefix.as_str();
 
     let mut out = if position.flags_possible && token == "-" {

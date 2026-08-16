@@ -219,7 +219,9 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
 /// and in which help text they prefer, not in what they cover.
 ///
 /// `path` is the command as invoked, as for [`usage_line`].
-pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    let meta = *chain.last().expect("a page is always about some command");
+    let (own, inherited) = own_and_global(chain);
     let mut out = String::new();
 
     // Text the command puts above everything else, and below it. The short form has only the
@@ -281,29 +283,41 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
             annotations(out, a.choices, a.env, a.default);
         },
     );
-    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
-    let flag_col = flags
+    // One column over *both* lists, so the two sections read as one table with a rule through
+    // it rather than two tables that happen to be adjacent.
+    let flag_col = own
         .iter()
+        .chain(inherited.iter())
         .map(|f| column_usage(f).chars().count())
         .max()
         .unwrap_or(0);
+    let short_entry = |out: &mut String, f: &FlagMeta<'_>| {
+        let usage = column_usage(f);
+        match f.help.filter(|h| !h.trim().is_empty()) {
+            Some(help) => {
+                let _ = write!(out, "  {usage:<flag_col$}  {help}");
+            }
+            None => {
+                let _ = write!(out, "  {usage}");
+            }
+        }
+        annotations(out, f.choices, f.env, &[]);
+    };
     groups_section(
         &mut out,
         "Flags",
-        flags.iter().copied(),
+        own.iter().copied(),
         |f| f.help_heading,
-        |out, f| {
-            let usage = column_usage(f);
-            match f.help.filter(|h| !h.trim().is_empty()) {
-                Some(help) => {
-                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
-                }
-                None => {
-                    let _ = write!(out, "  {usage}");
-                }
-            }
-            annotations(out, f.choices, f.env, &[]);
-        },
+        |out, f| short_entry(out, f),
+    );
+    // After the command's own, and under a heading that says where they came from: `--config`
+    // belongs to the program, not to this command, and a reader should be able to see that.
+    groups_section(
+        &mut out,
+        "Global flags",
+        inherited.iter().copied(),
+        |_| None,
+        |out, f| short_entry(out, f),
     );
     examples_section(&mut out, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
@@ -533,7 +547,9 @@ fn terminal_width() -> usize {
 /// An entry whose help contains a line break is laid out as a block instead, its text indented
 /// under the usage rather than beside it, because there is no column that keeps a line the
 /// author already broke readable.
-pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    let meta = *chain.last().expect("a page is always about some command");
+    let (own, inherited) = own_and_global(chain);
     let width = terminal_width();
     let mut out = String::new();
 
@@ -593,17 +609,34 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
         },
     );
 
-    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
-    let flag_col = flags
+    // One column over *both* lists, so the two sections read as one table with a rule through
+    // it rather than two tables that happen to be adjacent.
+    let flag_col = own
         .iter()
+        .chain(inherited.iter())
         .map(|f| column_usage(f).chars().count())
         .max()
         .unwrap_or(0);
     groups_section(
         &mut out,
         "Flags",
-        flags.iter().copied(),
+        own.iter().copied(),
         |f| f.help_heading,
+        |out, f| {
+            let text = f.long_help.or(f.help);
+            entry(out, &column_usage(f), text, flag_col, width);
+            long_annotations(out, f.choices, f.env, &[]);
+        },
+    );
+    // After the command's own, and under a heading that says where they came from: `--config`
+    // belongs to the program, not to this command, and a reader should be able to see that.
+    // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
+    // borrowing them here would put a section title on flags that are only visiting.
+    groups_section(
+        &mut out,
+        "Global flags",
+        inherited.iter().copied(),
+        |_| None,
         |out, f| {
             let text = f.long_help.or(f.help);
             entry(out, &column_usage(f), text, flag_col, width);
@@ -796,37 +829,90 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
 pub fn find<'a>(
     spec: &'a Spec<'a>,
     cmd: &Command<'_>,
-) -> Option<(Vec<&'a str>, &'a CommandMeta<'a>)> {
+) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
     fn walk<'a>(
         path: &mut Vec<&'a str>,
+        chain: &mut Vec<&'a CommandMeta<'a>>,
         meta: &'a CommandMeta<'a>,
         cmd: &Command<'_>,
-    ) -> Option<&'a CommandMeta<'a>> {
+    ) -> bool {
+        chain.push(meta);
         if core::ptr::eq(meta.cmd, cmd) {
-            return Some(meta);
+            return true;
         }
         for sub in meta.subcommands {
             path.push(sub.cmd.name);
-            if let Some(found) = walk(path, sub, cmd) {
-                return Some(found);
+            if walk(path, chain, sub, cmd) {
+                return true;
             }
             path.pop();
         }
-        None
+        chain.pop();
+        false
     }
 
     let mut path = vec![spec.bin.unwrap_or(spec.name)];
-    walk(&mut path, spec.root, cmd).map(|meta| (path, meta))
+    let mut chain = Vec::new();
+    walk(&mut path, &mut chain, spec.root, cmd).then_some((path, chain))
+}
+
+/// Every flag a page should list, split into the command's own and the ones it inherits.
+///
+/// The rule the parser follows on the way down, and the same one the diagnostics suggest
+/// from: a command's own flags, and from each ancestor only what it declared `global`.
+///
+/// Inherited flags were listed nowhere. `communique generate` accepts `--config`, `--verbose`
+/// and `--quiet` from its root, and its page mentioned none of them — a flag a user can type
+/// and cannot discover, which is the worst way for help to be wrong.
+fn own_and_global<'a>(
+    chain: &[&'a CommandMeta<'a>],
+) -> (Vec<&'a FlagMeta<'a>>, Vec<&'a FlagMeta<'a>>) {
+    let Some((here, ancestors)) = chain.split_last() else {
+        return (Vec::new(), Vec::new());
+    };
+    let own: Vec<&FlagMeta<'_>> = here.flags.iter().filter(|f| !f.hide).collect();
+
+    // Shadowing, which the parser does and the page has to agree with: `in_scope` chains a
+    // command's own flags before its ancestors' and takes the first match, so `mise use --raw`
+    // is *use's* `--raw` and never the root's. Listing both would print two descriptions for
+    // one spelling, one of which can never apply.
+    //
+    // Nearest ancestor first for the same reason, then emitted root-first, which is the order
+    // a reader meets them walking down.
+    fn claims<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
+        f.flag
+            .longs
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
+    }
+    let mut taken: Vec<String> = own.iter().flat_map(|f| claims(f)).collect();
+    let mut keep: Vec<*const FlagMeta<'_>> = Vec::new();
+    for meta in ancestors.iter().rev() {
+        for f in meta.flags.iter().filter(|f| !f.hide && f.flag.global) {
+            if claims(f).any(|c| taken.contains(&c)) {
+                continue;
+            }
+            taken.extend(claims(f));
+            keep.push(f as *const _);
+        }
+    }
+    let inherited = ancestors
+        .iter()
+        .flat_map(|meta| meta.flags.iter())
+        .filter(|f| keep.contains(&(*f as *const _)))
+        .collect();
+    (own, inherited)
 }
 
 /// The page a help request asks for, ready to print.
 ///
 /// The two forms differ as clap has them: `-h` is the short one and `--help` the long one.
 pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> {
-    let (path, meta) = find(spec, cmd)?;
+    let (path, chain) = find(spec, cmd)?;
     Some(if long {
-        long_help(spec, &path, meta)
+        long_help(spec, &path, &chain)
     } else {
-        short_help(spec, &path, meta)
+        short_help(spec, &path, &chain)
     })
 }

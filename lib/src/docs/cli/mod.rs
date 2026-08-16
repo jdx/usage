@@ -5,22 +5,132 @@ use tera::Tera;
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec.clone());
-    let docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
+    let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
 
     let mut ctx = tera::Context::new();
     ctx.insert("spec", &docs_spec);
-    ctx.insert("cmd", &docs_cmd);
     ctx.insert("long", &long);
     // Which page this is. The banner and the program's own description belong to the
     // program's page; a subcommand's page describes the subcommand, which is the question
     // that was asked. `full_cmd` is the path a user would type, so the root's is empty.
     ctx.insert("root", &docs_cmd.full_cmd.is_empty());
+    // Everything this command inherits: from each ancestor, only what it declared `global` —
+    // the rule the parser follows on the way down. `full_cmd` is the typed path, so walking it
+    // from the root gives the exact ancestry with none of the ambiguity a search would have.
+    //
+    // Listed nowhere before this: `communique generate` accepts `--config` from its root and
+    // its page mentioned none of it — a flag a user can type and cannot discover.
+    let mut inherited = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
+
+    // One column over both lists, so the two sections read as one table with a rule through it
+    // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
+    // padding — a continuation line is indented to sit under the description — so both lists
+    // are laid out again once the width is known.
+    let width = crate::docs::layout::get_terminal_width();
+    let col = crate::docs::layout::max_usage_width(
+        docs_cmd
+            .flag_groups
+            .iter()
+            .flat_map(|g| g.items.iter())
+            .chain(inherited.iter())
+            .map(|f| f.display_usage.as_str()),
+    );
+    for group in &mut docs_cmd.flag_groups {
+        lay_out(&mut group.items, width, col);
+    }
+    lay_out(&mut inherited, width, col);
+
+    // Inserted after the layout, not before: the template reads the widths, and a `cmd` put
+    // into the context first would carry the ones computed before the two lists were joined.
+    ctx.insert("cmd", &docs_cmd);
+    ctx.insert("global_flags", &inherited);
     let template = if long {
         "spec_template_long.tera"
     } else {
         "spec_template_short.tera"
     };
     TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
+}
+
+/// Fit a list of flags to a column: how wide their names are, and where their help wraps.
+///
+/// The same pass `SpecCommand::from` makes, run again once the width is known over *both* the
+/// command's own flags and the ones it inherits. The width is not only padding — a wrapped
+/// description is indented to sit under itself — so it cannot be decided per section and then
+/// shared.
+fn lay_out(flags: &mut [crate::docs::models::SpecFlag], terminal_width: usize, col: usize) {
+    for flag in flags {
+        flag.usage_col_width = col;
+        flag.help_rendered = None;
+        flag.help_is_multiline = false;
+        let help = flag.help_long.as_deref().or(flag.help.as_deref());
+        if let Some(help) = help {
+            let (rendered, is_multiline) =
+                crate::docs::layout::render_help_text(help, terminal_width, col);
+            // An empty rendering is how this says "use the block layout instead".
+            if !rendered.is_empty() {
+                flag.help_rendered = Some(rendered);
+                flag.help_is_multiline = is_multiline;
+            }
+        }
+    }
+}
+
+/// The flags a command inherits, as its page should list them.
+///
+/// Walked down `full_cmd` from the root, which is the path a user would type — so the chain is
+/// exact. Each ancestor contributes only what it declared `global`, and hidden ones are left
+/// out here as they are everywhere else.
+///
+/// The twin of `own_and_global` in `usage-argv`'s `help` module; the two must agree, and the
+/// gate over mise's spec is what says they do.
+fn inherited_flags(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    full_cmd: &[String],
+) -> Vec<crate::docs::models::SpecFlag> {
+    // Every ancestor, root first, which is the order a reader meets them walking down.
+    let mut ancestors: Vec<&SpecCommand> = Vec::new();
+    let mut at = &spec.cmd;
+    for name in full_cmd.iter().take(full_cmd.len().saturating_sub(1)) {
+        ancestors.push(at);
+        let Some(next) = at.subcommands.get(name) else {
+            return Vec::new();
+        };
+        at = next;
+    }
+    if !full_cmd.is_empty() {
+        ancestors.push(at);
+    }
+
+    // Shadowing, which the parser does and the page has to agree with: a command's own flags
+    // are looked up before its ancestors', so `mise use --raw` is *use's* and never the root's.
+    // Listing both would print two descriptions for one spelling, one of which can never apply.
+    // Nearest ancestor first for the decision, then emitted root-first.
+    let claims = |f: &crate::SpecFlag| -> Vec<String> {
+        f.long
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(f.short.iter().map(|s| format!("-{s}")))
+            .collect()
+    };
+    let mut taken: Vec<String> = cmd.flags.iter().flat_map(&claims).collect();
+    let mut keep: Vec<&crate::SpecFlag> = Vec::new();
+    for ancestor in ancestors.iter().rev() {
+        for f in ancestor.flags.iter().filter(|f| f.global && !f.hide) {
+            if claims(f).iter().any(|c| taken.contains(c)) {
+                continue;
+            }
+            taken.extend(claims(f));
+            keep.push(f);
+        }
+    }
+    ancestors
+        .iter()
+        .flat_map(|a| a.flags.iter())
+        .filter(|f| keep.iter().any(|k| std::ptr::eq(*k, *f)))
+        .map(crate::docs::models::SpecFlag::from)
+        .collect()
 }
 
 /// The command without anything marked `hide`.
