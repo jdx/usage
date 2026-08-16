@@ -55,10 +55,13 @@ jobs:
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
       # vocabulary that would alter it has to be committed rather than discovered later.
       - run: mise r gen-shadow
-      - name: assert render and gen-shadow produce no diff
+      # And the Go tables, for the same reason: they are checked in, so a change to
+      # the emitter that nobody meant has to show up as a diff here.
+      - run: mise r gen-go
+      - name: assert render, gen-shadow and gen-go produce no diff
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::'mise run render' or 'mise run gen-shadow' produced changes. Run them locally and commit."
+            echo "::error::'mise run render', 'mise run gen-shadow' or 'mise run gen-go' produced changes. Run them locally and commit."
             git status
             git diff
             exit 1
