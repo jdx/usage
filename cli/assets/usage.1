@@ -16,7 +16,7 @@ Outputs a `usage.kdl` spec for this CLI itself
 .SH COMMANDS
 .TP
 \fBbash\fR
-Execute a shell script using bash
+Execute a shell script with the specified shell
 .TP
 \fBcomplete\-word\fR
 Generate shell completion candidates for a partial command line
@@ -31,7 +31,7 @@ Execute a script, parsing args and exposing them as environment variables
 .RE
 .TP
 \fBfish\fR
-Execute a shell script using fish
+Execute a shell script with the specified shell
 .TP
 \fBgenerate\fR
 Generate completions, documentation, and other artifacts from usage specs
@@ -88,20 +88,20 @@ Serve a usage spec over the Model Context Protocol
 .RE
 .TP
 \fBpowershell\fR
-Execute a shell script using PowerShell
+Execute a shell script with the specified shell
 .TP
 \fBsponsors\fR
 Show the companies sponsoring usage and the jdx.dev open source tools
 .TP
 \fBzsh\fR
-Execute a shell script using zsh
+Execute a shell script with the specified shell
 .SH "USAGE BASH"
-Execute a shell script using bash
+Execute a shell script with the specified shell
 
 Typically, this will be called by a script's shebang.
 
-If using `var=#true` on args/flags, they will be joined with spaces using
-`shell_words::join()` to properly escape and quote values with spaces in them.
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
 .PP
 \fBUsage:\fR usage bash [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -175,12 +175,12 @@ path to script to execute
 \fB<ARGS>\fR
 arguments to pass to script
 .SH "USAGE FISH"
-Execute a shell script using fish
+Execute a shell script with the specified shell
 
 Typically, this will be called by a script's shebang.
 
-If using `var=#true` on args/flags, they will be joined with spaces using
-`shell_words::join()` to properly escape and quote values with spaces in them.
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
 .PP
 \fBUsage:\fR usage fish [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -463,12 +463,12 @@ Usage spec file (not "\-": stdin is the MCP transport)
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
 .SH "USAGE POWERSHELL"
-Execute a shell script using PowerShell
+Execute a shell script with the specified shell
 
 Typically, this will be called by a script's shebang.
 
-If using `var=#true` on args/flags, they will be joined with spaces using
-`shell_words::join()` to properly escape and quote values with spaces in them.
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
 .PP
 \fBUsage:\fR usage powershell [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -489,12 +489,12 @@ Arguments to pass to script
 Anything `usage` does not recognise is a value rather than a mistake, which is what
 lets a shebang script take flags of its own.
 .SH "USAGE ZSH"
-Execute a shell script using zsh
+Execute a shell script with the specified shell
 
 Typically, this will be called by a script's shebang.
 
-If using `var=#true` on args/flags, they will be joined with spaces using
-`shell_words::join()` to properly escape and quote values with spaces in them.
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
 .PP
 \fBUsage:\fR usage zsh [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP

@@ -5,12 +5,12 @@
 - **Usage**: `usage bash [-h] [--help] <SCRIPT> [ARGS]…`
 - **Source code**: [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
 
-Execute a shell script using bash
+Execute a shell script with the specified shell
 
 Typically, this will be called by a script's shebang.
 
-If using `var=#true` on args/flags, they will be joined with spaces using
-`shell_words::join()` to properly escape and quote values with spaces in them.
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
 
 ## Arguments
 
