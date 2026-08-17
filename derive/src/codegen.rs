@@ -785,10 +785,10 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
 /// Validated to one byte where the attribute is read, so a `char` that does not fit is
 /// already impossible here rather than silently truncated.
 fn table_delimiter(field: &Field) -> TokenStream {
-    match field
-        .delimiter
-        .and_then(|d| u8::try_from(u32::from(d)).ok())
-    {
+    // ASCII, matching the rule the attribute enforces: splitting is by byte, and a
+    // separator that is one byte as a scalar but two as UTF-8 would match the continuation
+    // bytes inside unrelated characters.
+    match field.delimiter.filter(char::is_ascii).map(|d| d as u8) {
         Some(byte) => quote!(::std::option::Option::Some(#byte)),
         None => quote!(::std::option::Option::None),
     }

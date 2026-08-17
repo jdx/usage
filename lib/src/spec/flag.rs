@@ -332,6 +332,17 @@ impl SpecFlag {
                     "a delimiter is one character, and {raw:?} is not"
                 );
             };
+            // And one *byte*, for the reason given where an argument reads the same
+            // property: splitting is by byte below this, and a non-ASCII separator would
+            // match the continuation bytes inside unrelated characters.
+            if !delimiter.is_ascii() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a delimiter is one byte, and {delimiter:?} is more than one; use an \
+                     ASCII separator"
+                );
+            }
             let Some(arg) = flag.arg.as_mut() else {
                 bail_parse!(
                     ctx,
@@ -665,7 +676,14 @@ impl From<&clap::Arg> for SpecFlag {
             // not.
             if let Some(delimiter) = c.get_value_delimiter() {
                 arg.var = true;
-                arg.delimiter = Some(delimiter);
+                // Only if it is one byte. Splitting is by byte everywhere below the spec,
+                // and a spec carrying a wider separator could not be written back out —
+                // `to_kdl` would emit what parsing then refuses. clap still splits on it,
+                // so `var` stays: the values arrive, and only the spec's account of how
+                // they were separated is lost.
+                if delimiter.is_ascii() {
+                    arg.delimiter = Some(delimiter);
+                }
             } else if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
                 arg.var = true;
             }

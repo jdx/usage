@@ -124,7 +124,18 @@ impl SpecArg {
                     let raw = v.ensure_string()?;
                     let mut chars = raw.chars();
                     match (chars.next(), chars.next()) {
-                        (Some(c), None) => arg.delimiter = Some(c),
+                        // ASCII, not merely one character. Splitting is by byte everywhere
+                        // below this — the derive says so where it reads the same property —
+                        // and a non-ASCII separator has no single byte to be. Worse than
+                        // having none: its bytes are continuation bytes, which appear inside
+                        // unrelated characters, so it would split words nobody separated.
+                        (Some(c), None) if c.is_ascii() => arg.delimiter = Some(c),
+                        (Some(c), None) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "a delimiter is one byte, and {c:?} is more than one; use an \
+                             ASCII separator"
+                        ),
                         _ => bail_parse!(
                             ctx,
                             v.entry.span(),
@@ -390,7 +401,11 @@ impl From<&clap::Arg> for SpecArg {
         let help_long = arg.get_long_help().map(|s| s.to_string());
         let help_first_line = help.as_ref().map(|s| string::first_line(s));
         let hide = arg.is_hide_set();
+        // One byte only, for the reason given on the flag: a wider separator cannot be
+        // written back out. `var` below still reads the original, since clap splits on it
+        // either way and the field does collect several values.
         let delimiter = arg.get_value_delimiter();
+        let recorded_delimiter = delimiter.filter(char::is_ascii);
         let var = matches!(
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
@@ -426,7 +441,7 @@ impl From<&clap::Arg> for SpecArg {
             var_min: None,
             // clap answers for this one, and the same getter `default_values` already
             // uses just above: a default is split by it, and so is a typed value.
-            delimiter,
+            delimiter: recorded_delimiter,
             hide,
             default: default_values(arg),
             choices: None,
@@ -465,6 +480,41 @@ impl Hash for SpecArg {
 #[cfg(test)]
 mod delimiter_tests {
     use crate::Spec;
+
+    #[test]
+    fn a_delimiter_has_to_be_one_byte() {
+        // Splitting is by byte below the spec. A separator that is one *character* but
+        // several bytes has no byte to be, and picking its low one would match the
+        // continuation bytes inside unrelated characters — `§` would split `aЧb`. Refused
+        // where it is written, which is the derive's rule too.
+        for spec in [
+            "flag \"--tags <tag>\" var=#true delimiter=\"§\"\n",
+            "arg \"[tags]...\" var=#true delimiter=\"、\"\n",
+        ] {
+            let err = spec.parse::<Spec>().unwrap_err();
+            assert!(format!("{err:?}").contains("one byte"), "{err:?}");
+        }
+
+        // A clap command may still declare one; clap splits on it by character. The spec
+        // cannot say so, and drops it rather than recording a separator it could not write
+        // back out — the values still arrive, since `var` is set either way.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .value_delimiter('、')
+                .action(clap::ArgAction::Set),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(
+            arg.delimiter, None,
+            "a separator it cannot write is not recorded"
+        );
+        assert!(arg.var, "clap still splits, so the values still arrive");
+        spec.to_string()
+            .parse::<Spec>()
+            .expect("what the bridge produces has to parse back");
+    }
 
     #[test]
     fn a_delimiter_round_trips_and_comes_across_from_clap() {
