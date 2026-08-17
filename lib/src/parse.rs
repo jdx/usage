@@ -613,6 +613,11 @@ fn parse_partial_with_env(
     // Keep this internal so adding relationship support remains semver-compatible. The full
     // parser uses it to prevent defaults and environment values from restoring overridden flags.
     let mut overridden_flags = HashSet::new();
+    // Which spelling supplied each parsed flag. A child may re-declare one long form of an
+    // inherited global while the merge keeps the ancestor's other aliases on the same `Arc`.
+    // The declaration object alone then cannot answer whether `--clean` belonged to the child
+    // or an inherited `-c` belonged to the ancestor.
+    let mut parsed_flag_spellings: HashMap<usize, HashSet<String>> = HashMap::new();
 
     // Phase 1: Scan for subcommands and collect global flags
     //
@@ -939,6 +944,10 @@ fn parse_partial_with_env(
             let split = w.split_once('=');
             let word = split.map(|(word, _)| word).unwrap_or(&w);
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
+                parsed_flag_spellings
+                    .entry(Arc::as_ptr(f) as usize)
+                    .or_default()
+                    .insert(word.to_string());
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
@@ -1032,6 +1041,10 @@ fn parse_partial_with_env(
                 .as_ref()
                 .or_else(|| out.available_flags.get(&format!("-{short}")))
             {
+                parsed_flag_spellings
+                    .entry(Arc::as_ptr(f) as usize)
+                    .or_default()
+                    .insert(format!("-{short}"));
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
@@ -1296,16 +1309,36 @@ fn parse_partial_with_env(
         // dropped on descent. Compare the spellings as well as the canonical name when a
         // child re-declares an inherited global: the child can replace only one alias while
         // an invocation through another alias still points at the ancestor declaration.
+        let was_parsed = flag_was_parsed(&out, flag);
         let belongs_to_selected_command = out
             .available_flags
             .values()
             .any(|available| Arc::ptr_eq(available, flag))
-            && out.cmd.flags.iter().any(|declared| {
-                declared.name == flag.name
-                    && declared.short == flag.short
-                    && declared.long == flag.long
-                    && declared.negate == flag.negate
-            });
+            && if was_parsed {
+                // Ask about the form that was actually typed. The merged flag may be a
+                // superset of the child's declaration because it also carries an orphan
+                // ancestor alias, so comparing the complete alias sets misattributes both
+                // `--clean` and `-c`.
+                parsed_flag_spellings
+                    .get(&(Arc::as_ptr(flag) as usize))
+                    .is_some_and(|spellings| {
+                        out.cmd.flags.iter().any(|declared| {
+                            declared.name == flag.name
+                                && flag_keys(declared)
+                                    .iter()
+                                    .any(|spelling| spellings.contains(spelling))
+                        })
+                    })
+            } else {
+                // An environment value has no typed spelling. Preserve the declaration
+                // identity check for that path.
+                out.cmd.flags.iter().any(|declared| {
+                    declared.name == flag.name
+                        && declared.short == flag.short
+                        && declared.long == flag.long
+                        && declared.negate == flag.negate
+                })
+            };
         let selected_subcommand =
             (out.cmds.len() > 1 && !belongs_to_selected_command).then(|| out.cmd.name.clone());
         let other = other_flag
@@ -3055,6 +3088,20 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
             "the ancestor spelling still conflicts with selecting the child"
+        );
+    }
+
+    #[test]
+    fn an_orphan_parent_alias_does_not_disown_a_child_local_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the typed long form belongs to the child declaration");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the inherited short form still belongs to the ancestor"
         );
     }
 
