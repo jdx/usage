@@ -212,6 +212,11 @@ struct Verbatim {
     command: Option<Commands>,
 }
 
+#[doc = " Ordinary first line\n    indented continuation"]
+#[derive(Cli)]
+#[usage(bin = "ordinary-comments")]
+struct OrdinaryComments {}
+
 /// First root line
 /// second root line
 ///
@@ -276,6 +281,19 @@ fn doc_comments_can_preserve_their_layout() {
     let parsed = VerbatimComments::parse_from(&argv).expect("the metadata still parses");
     assert!(parsed.layout);
     assert!(matches!(parsed.command, Some(VerbatimCommands::Paint(_))));
+}
+
+#[test]
+fn ordinary_multiline_doc_attributes_keep_their_indentation() {
+    let spec: LibSpec = OrdinaryComments::to_kdl().parse().expect("valid spec");
+    assert_eq!(
+        spec.about.as_deref(),
+        Some("Ordinary first line     indented continuation")
+    );
+    assert_eq!(
+        spec.about_long.as_deref(),
+        Some("Ordinary first line\n    indented continuation")
+    );
 }
 
 #[test]

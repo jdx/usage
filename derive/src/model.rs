@@ -1996,14 +1996,17 @@ fn doc_comment(
                 // mise's help is full of them, since an indented block is how a spec shows a
                 // command to type.
                 let raw = s.value();
-                lines.extend(raw.split('\n').map(|line| {
-                    let line = line.strip_prefix(' ').unwrap_or(line);
-                    if verbatim {
-                        line.to_string()
-                    } else {
-                        line.trim_end().to_string()
-                    }
-                }));
+                if verbatim {
+                    lines.extend(
+                        raw.split('\n')
+                            .map(|line| line.strip_prefix(' ').unwrap_or(line).to_string()),
+                    );
+                } else {
+                    // Preserve the pre-verbatim behaviour for an explicitly written,
+                    // multiline `#[doc = "..."]`: only `///` contributes one leading
+                    // space per attribute. A newline inside one attribute does not.
+                    lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
+                }
             }
         }
     }
