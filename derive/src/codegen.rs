@@ -912,6 +912,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let overrides = &field.overrides;
     let conflicts = &field.conflicts;
     let requires = &field.requires;
+    let exclusive = field.exclusive;
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
 
@@ -947,6 +948,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
+            exclusive: #exclusive,
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
             ..usage_argv::spec::FlagMeta::EMPTY
@@ -1430,6 +1432,103 @@ fn option_str(value: Option<&str>) -> TokenStream {
     match value {
         Some(v) => quote!(::std::option::Option::Some(#v)),
         None => quote!(::std::option::Option::None),
+    }
+}
+
+/// The presence summaries a parent needs to enforce exclusivity across a flattened
+/// `CommandArgs` boundary.
+fn presence_methods(cli: &Cli) -> TokenStream {
+    let direct_given = cli.fields.iter().filter_map(|field| {
+        if matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }) {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        let name = &field.name;
+        Some(quote! {
+            if partial.#given {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let flattened_given = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
+    let selected = cli.fields.iter().find_map(|field| {
+        if !matches!(field.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let name = &field.name;
+        Some(quote! {
+            if partial.__usage_selected.is_some() {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let direct_exclusive = cli.fields.iter().filter_map(|field| {
+        if !field.exclusive {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        let name = &field.name;
+        Some(quote! {
+            if partial.#given {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let flattened_exclusive = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
+    let selected_exclusive = cli.fields.iter().find_map(|field| {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as usage_argv::spec::Subcommands>::exclusive_given(
+                    &partial.__usage_sub,
+                    partial.__usage_selected,
+                )
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
+
+    quote! {
+        fn any_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
+            #(#direct_given)*
+            #(#flattened_given)*
+            #selected
+            ::std::option::Option::None
+        }
+
+        fn exclusive_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
+            #(#direct_exclusive)*
+            #(#flattened_exclusive)*
+            #selected_exclusive
+            ::std::option::Option::None
+        }
     }
 }
 
@@ -2333,6 +2432,9 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let presence = presence_methods(cli);
+    let apply_defaults = declared_defaults(cli);
+    let apply_env = env_fallbacks(cli);
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -2557,6 +2659,16 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     check(partial)
                 }
 
+                #presence
+
+                fn apply_defaults(partial: &mut Self::Partial) {
+                    #apply_defaults
+                }
+
+                fn apply_env(partial: &mut Self::Partial) {
+                    #apply_env
+                }
+
                 #settings_impl
 
                 fn build<'t, 'v>(
@@ -2769,6 +2881,45 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    // The partial holds only the selected subcommand's own, so every one of these asks the
+    // variant rather than a field: an unselected arm has nothing to have been given.
+    let any_givens = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_p)
+                } else {
+                    ::std::option::Option::None
+                }
+            }
+        }
+    });
+    let exclusive_givens = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::exclusive_given(__usage_p)
+                } else {
+                    ::std::option::Option::None
+                }
+            }
+        }
+    });
+    let apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::apply_env(__usage_p);
+                }
+            }
+        }
+    });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let held = format_ident!("V{i}");
         let variant = &v.ident;
@@ -2883,6 +3034,36 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         #(#givens)*
                         // No subcommand was reached, so none of them was given anything.
                         _ => ::std::vec::Vec::new(),
+                    }
+                }
+
+                fn any_given(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) -> ::std::option::Option<&'static str> {
+                    match selected {
+                        #(#any_givens)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn exclusive_given(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) -> ::std::option::Option<&'static str> {
+                    match selected {
+                        #(#exclusive_givens)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn apply_env(
+                    partial: &mut Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) {
+                    match selected {
+                        #(#apply_envs)*
+                        _ => {}
                     }
                 }
 
@@ -3056,53 +3237,13 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     )
 }
 
-/// Everything decided once the last token has been read.
+/// Apply declared defaults to this command and every argument group flattened into it.
 ///
-/// Ordered deliberately. The environment fills what argv left out, so it runs
-/// before required-ness — a flag with `env` set is not missing. Choices and bounds
-/// come last, because they judge a value however it arrived, including one that came
-/// from the environment or a default.
-fn post_binding(cli: &Cli) -> TokenStream {
-    let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
-    // A flattened struct declares its own required-ness and choices, and only it knows them.
-    //
-    // Run before this command's own required-ness, on the same principle that puts conflicts
-    // first: what the user typed wrong is more useful to hear about than what they left out.
-    // `config --format yaml` should say `yaml` is not one of the choices, even if `--file` is
-    // also missing.
-    //
-    // No finer promise than that. These checks are grouped by kind rather than by field, so
-    // there is no "in declaration order" to offer — a flattened group's errors interleave with
-    // this command's by kind, not by where the field was written.
-    let flattened_checks = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
-            return None;
-        };
-        let ident = &f.ident;
-        Some(quote! {
-            <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
-        })
-    });
-    let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
-        let duplicated = format_ident!("__duplicated_{}", f.ident);
-        let name = &f.name;
-        quote! {
-            if partial.#duplicated {
-                return ::std::result::Result::Err(
-                    usage_argv::Error::DuplicateFlag { name: #name },
-                );
-            }
-        }
-    });
-    // Applied here rather than in `start`, and this is not a detail: `start` builds the
-    // partial for *every* command in the CLI, selected or not, so a declared default was
-    // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
-    // which is the CLI's size leaking into the invocation. `check` runs for the selected
-    // command only.
-    //
-    // Guarded on `__given_*`, which is what makes this safe to move: a negation that set a
-    // defaulted `bool` to false during the parse must not be undone here.
-    let declared_defaults = cli.fields.iter().filter_map(|f| {
+/// Separate from the rest of `check` because exclusivity suppresses requiredness, not values a
+/// CLI promised to provide by default. A parent can therefore prepare an opaque flattened partial
+/// without also asking it to report a missing sibling.
+fn declared_defaults(cli: &Cli) -> TokenStream {
+    let own = cli.fields.iter().filter_map(|f| {
         if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. }) {
             return None;
         }
@@ -3114,8 +3255,27 @@ fn post_binding(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let flattened = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        Some(quote! {
+            <#ty as usage_argv::spec::CommandArgs>::apply_defaults(&mut partial.#ident);
+        })
+    });
+    quote! {
+        #(#own)*
+        #(#flattened)*
+    }
+}
 
-    let env_fallbacks = cli.fields.iter().filter_map(|f| {
+/// Environment fallbacks for this command and every argument group flattened into it.
+///
+/// Kept separate from the rest of post-binding validation because a parent must apply these
+/// before it can enforce a relationship whose other side lives across a flatten boundary.
+fn env_fallbacks(cli: &Cli) -> TokenStream {
+    let own = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
         let var = f.env.as_deref()?;
@@ -3127,25 +3287,18 @@ fn post_binding(cli: &Cli) -> TokenStream {
             },
             Shape::Required => quote!(partial.#ident = value.into_bytes();),
             // Cleared first, so the environment *replaces* a declared default instead of
-            // adding to it — which is what every other shape does by assigning, and what the
-            // order here means: a default says what the value is when nobody said anything,
-            // and the environment is somebody saying something. Nothing else can be in the
-            // collection at this point: argv sets `__given_*`, which this is guarded on.
+            // adding to it — which is what every other shape does by assigning.
             Shape::Many => quote! {
                 partial.#ident.clear();
                 partial.#ident.push(value.into_bytes());
             },
-            // A switch reads as on for anything but the spellings of "off", which is
-            // what every tool that takes a boolean from the environment settles on.
             Shape::Bool => quote! {
                 partial.#ident = !matches!(
                     value.as_str(),
                     "" | "0" | "false" | "no" | "off"
                 );
             },
-            // A number, since the environment cannot repeat a flag: `EX_VERBOSE=3`
-            // is how you say `-vvv`. An unparseable value leaves the field alone
-            // rather than being counted as given.
+            // An unparseable count leaves the field alone rather than counting as given.
             Shape::Count => {
                 let ty = &f.ty;
                 quote! {
@@ -3171,6 +3324,118 @@ fn post_binding(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let flattened = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        Some(quote! {
+            <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
+        })
+    });
+    let selected = cli.fields.iter().find_map(|f| {
+        let Kind::Subcommand { ty, .. } = &f.kind else {
+            return None;
+        };
+        Some(quote! {
+            <#ty as usage_argv::spec::Subcommands>::apply_env(
+                &mut partial.__usage_sub,
+                partial.__usage_selected,
+            );
+        })
+    });
+    quote! {
+        #(#own)*
+        #(#flattened)*
+        #selected
+    }
+}
+
+/// Everything decided once the last token has been read.
+///
+/// Ordered deliberately. The environment fills what argv left out, so it runs
+/// before required-ness — a flag with `env` set is not missing. Choices and bounds
+/// come last, because they judge a value however it arrived, including one that came
+/// from the environment or a default.
+fn post_binding(cli: &Cli) -> TokenStream {
+    let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
+    let direct_exclusive_present = cli.fields.iter().filter_map(|field| {
+        if !field.exclusive {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        Some(quote!(partial.#given))
+    });
+    let flattened_exclusive_present = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident).is_some()
+        })
+    });
+    let selected_exclusive_present = cli.fields.iter().filter_map(|field| {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            <#ty as usage_argv::spec::Subcommands>::exclusive_given(
+                &partial.__usage_sub,
+                partial.__usage_selected,
+            ).is_some()
+        })
+    });
+    let exclusive_present = quote! {
+        false
+            #(|| #direct_exclusive_present)*
+            #(|| #flattened_exclusive_present)*
+            #(|| #selected_exclusive_present)*
+    };
+    // A flattened struct declares its own required-ness and choices, and only it knows them.
+    //
+    // Run before this command's own required-ness, on the same principle that puts conflicts
+    // first: what the user typed wrong is more useful to hear about than what they left out.
+    // `config --format yaml` should say `yaml` is not one of the choices, even if `--file` is
+    // also missing.
+    //
+    // No finer promise than that. These checks are grouped by kind rather than by field, so
+    // there is no "in declaration order" to offer — a flattened group's errors interleave with
+    // this command's by kind, not by where the field was written.
+    let flattened_checks = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        Some(quote! {
+            if !__usage_exclusive_present
+                || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
+                    .is_some()
+            {
+                <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+            }
+        })
+    });
+    let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
+        let duplicated = format_ident!("__duplicated_{}", f.ident);
+        let name = &f.name;
+        quote! {
+            if partial.#duplicated {
+                return ::std::result::Result::Err(
+                    usage_argv::Error::DuplicateFlag { name: #name },
+                );
+            }
+        }
+    });
+    // Applied here rather than in `start`, and this is not a detail: `start` builds the
+    // partial for *every* command in the CLI, selected or not, so a declared default was
+    // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
+    // which is the CLI's size leaking into the invocation. `check` runs for the selected
+    // command only. The helper also prepares flattened defaults before an exclusive flag can
+    // suppress those groups' requiredness checks.
+    let declared_defaults = declared_defaults(cli);
+
+    let env_fallbacks = env_fallbacks(cli);
 
     let required_checks = cli.fields.iter().filter_map(|f| {
         // A `String` has nowhere to put "absent", so the type is the declaration; a collection
@@ -3364,6 +3629,130 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // An exclusive flag is a conflict with the whole command rather than with a named
+    // flag, so it is written as one check per *other* declaration — positionals included,
+    // which is what makes it more than being in a group with every other flag.
+    //
+    // Only what was given counts, as `conflicts` reads it: a defaulted field standing
+    // beside an exclusive flag is nobody saying anything, and counting it would make the
+    // flag unusable on any command that has a default.
+    let exclusive_checks = cli
+        .fields
+        .iter()
+        .filter(|f| f.exclusive)
+        .flat_map(move |f| {
+            let given = format_ident!("__given_{}", f.ident);
+            let name = &f.name;
+            cli.fields
+                .iter()
+                .filter(move |other| other.ident != f.ident)
+                .filter(|other| {
+                    !matches!(other.kind, Kind::Subcommand { .. } | Kind::Flatten { .. })
+                })
+                .map(move |other| {
+                    let other_given = format_ident!("__given_{}", other.ident);
+                    let other_name = &other.name;
+                    quote! {
+                        if partial.#given && partial.#other_given {
+                            return ::std::result::Result::Err(
+                                usage_argv::Error::ConflictingFlags {
+                                    name: #other_name,
+                                    other: #name,
+                                },
+                            );
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+        });
+
+    // A flattened partial is intentionally opaque to its parent. Ask through
+    // `CommandArgs` whether either side of an exclusive relationship was given, so the
+    // relationship does not disappear merely because the declarations live in reusable
+    // `Args`. A selected subcommand is itself another declaration in this command; its
+    // contents remain in the child command's own scope.
+    let direct_given = cli
+        .fields
+        .iter()
+        .filter(|field| !matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }))
+        .rev()
+        .fold(quote!(::std::option::Option::None), |rest, field| {
+            let given = format_ident!("__given_{}", field.ident);
+            let name = &field.name;
+            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+        });
+    let direct_exclusive = cli
+        .fields
+        .iter()
+        .filter(|field| field.exclusive)
+        .rev()
+        .fold(quote!(::std::option::Option::None), |rest, field| {
+            let given = format_ident!("__given_{}", field.ident);
+            let name = &field.name;
+            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+        });
+    let has_flatten = cli
+        .fields
+        .iter()
+        .any(|field| matches!(field.kind, Kind::Flatten { .. }));
+    let flattened_segments = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            (
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident),
+                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident),
+            ),
+        })
+    });
+    let subcommand_segment = cli.fields.iter().find_map(|field| {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
+            return None;
+        };
+        let name = &field.name;
+        Some(quote! {
+            (
+                partial.__usage_selected.map(|_| #name),
+                <#ty as usage_argv::spec::Subcommands>::exclusive_given(
+                    &partial.__usage_sub,
+                    partial.__usage_selected,
+                ),
+            ),
+        })
+    });
+    let exclusive_cross_checks = (has_flatten || subcommand_segment.is_some()).then(|| {
+        quote! {
+            let __usage_exclusive_segments = [
+                (#direct_given, #direct_exclusive),
+                #(#flattened_segments)*
+                #subcommand_segment
+            ];
+            for __usage_i in 0..__usage_exclusive_segments.len() {
+                if let ::std::option::Option::Some(exclusive) =
+                    __usage_exclusive_segments[__usage_i].1
+                {
+                    for __usage_j in 0..__usage_exclusive_segments.len() {
+                        if __usage_i == __usage_j {
+                            continue;
+                        }
+                        if let ::std::option::Option::Some(other) =
+                            __usage_exclusive_segments[__usage_j].0
+                        {
+                            return ::std::result::Result::Err(
+                                usage_argv::Error::ConflictingFlags {
+                                    name: other,
+                                    other: exclusive,
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     // Groups, checked once per group rather than per member: both questions a group asks
     // — how many members were given, and whether that is enough — are about the set.
     //
@@ -3500,19 +3889,27 @@ fn post_binding(cli: &Cli) -> TokenStream {
     quote! {
         // Before the environment, which overrides a default when the flag was not given —
         // the order `start` used to give them.
-        #(#declared_defaults)*
-        #(#env_fallbacks)*
+        #declared_defaults
+        #env_fallbacks
+        let __usage_exclusive_present = #exclusive_present;
         #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#exclusive_checks)*
+        #exclusive_cross_checks
         #(#group_exclusivity_checks)*
-        #(#requirement_checks)*
         #(#flattened_checks)*
-        #(#required_checks)*
-        #(#group_required_checks)*
-        #(#relationship_required_checks)*
+        // An exclusive occurrence is the command's escape from requiredness, just as in clap:
+        // `--version` remains usable on a command that otherwise requires an input. Conflicts
+        // and other validation still ran above; only errors about absent siblings are skipped.
+        if !__usage_exclusive_present {
+            #(#requirement_checks)*
+            #(#required_checks)*
+            #(#group_required_checks)*
+            #(#relationship_required_checks)*
+        }
         #(#choice_checks)*
         #(#bound_checks)*
         #sub_check

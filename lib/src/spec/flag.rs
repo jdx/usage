@@ -116,6 +116,14 @@ pub struct SpecFlag {
     /// had.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<String>,
+    /// Whether this flag must be given on its own.
+    ///
+    /// The whole-command form of [`SpecFlag::conflicts`]: `--version` and `--help` are
+    /// the shape — asking for one means the rest of the command line has nothing to act
+    /// on. Everything the command declares counts, positionals included, which is what
+    /// makes this different from being in a group with every other flag.
+    #[serde(skip_serializing_if = "is_false")]
+    pub exclusive: bool,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,6 +185,7 @@ impl SpecFlag {
                 "overrides" => flag.overrides = vec![v.ensure_string()?],
                 "conflicts" => flag.conflicts = vec![v.ensure_string()?],
                 "requires" => flag.requires = vec![v.ensure_string()?],
+                "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -284,6 +293,7 @@ impl SpecFlag {
                         .map(|arg| arg.ensure_string())
                         .collect::<Result<Vec<_>>>()?;
                 }
+                "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
                 "requires" => {
                     flag.requires = child
                         .ensure_arg_len(1..)?
@@ -447,6 +457,9 @@ impl From<&SpecFlag> for KdlNode {
                 requires.push(string_entry(None, target));
             }
             children.nodes_mut().push(requires);
+        }
+        if flag.exclusive {
+            node.push(KdlEntry::new_prop("exclusive", true));
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
@@ -614,6 +627,8 @@ impl From<&clap::Arg> for SpecFlag {
             // than guessed at, and counted by `gen-shadow` as a thing the clap dialect
             // cannot carry.
             requires: vec![],
+            // This one clap does expose, unlike `requires` just above.
+            exclusive: c.is_exclusive_set(),
             help,
             help_long,
             help_md: None,
@@ -769,6 +784,29 @@ mod tests {
         let reparsed: Spec = spec.to_string().parse().unwrap();
         assert_eq!(reparsed.cmd.flags[0].requires, vec!["--format".to_string()]);
         assert_eq!(reparsed.cmd.flags[1].requires.len(), 2, "{spec}");
+    }
+
+    #[test]
+    fn exclusive_round_trips_and_comes_across_from_clap() {
+        let spec: Spec = "flag \"--dump\" exclusive=#true\nflag \"--verbose\"\n"
+            .parse()
+            .unwrap();
+        assert!(spec.cmd.flags[0].exclusive);
+        assert!(!spec.cmd.flags[1].exclusive);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert!(reparsed.cmd.flags[0].exclusive, "{spec}");
+
+        // Unlike `requires`, clap answers for this one — `Arg::is_exclusive_set` — so a
+        // spec generated from a clap command carries it.
+        let cmd = clap::Command::new("ex")
+            .arg(clap::Arg::new("dump").long("dump").exclusive(true))
+            .arg(clap::Arg::new("verbose").long("verbose"));
+        let spec = Spec::from(&cmd);
+        let dump = spec.cmd.flags.iter().find(|f| f.name == "dump").unwrap();
+        assert!(dump.exclusive);
+        let verbose = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
+        assert!(!verbose.exclusive);
     }
 
     #[test]

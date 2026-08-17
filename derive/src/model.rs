@@ -205,6 +205,8 @@ pub struct Field {
     /// one lives on the flag the rule is about, which is where clap puts it and where a
     /// reader looks for it.
     pub requires: Vec<String>,
+    /// Whether this flag must be given on its own — clap's `exclusive`.
+    pub exclusive: bool,
     /// The group this flag belongs to, if any. Properties live on the group's own
     /// declaration; membership lives here, because a field is where a reader looks to
     /// see what a flag is part of.
@@ -1053,6 +1055,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            exclusive: false,
             group: None,
             required_if: Vec::new(),
             required_unless: Vec::new(),
@@ -1148,6 +1151,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            exclusive: false,
             group: None,
             required_if: Vec::new(),
             required_unless: Vec::new(),
@@ -1207,6 +1211,7 @@ impl Field {
         let mut conflicts: Vec<String> = Vec::new();
         let mut requires: Vec<String> = Vec::new();
         let mut group: Option<String> = None;
+        let mut exclusive = false;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1300,6 +1305,7 @@ impl Field {
                     "conflicts" => conflicts = selectors(&meta)?,
                     "requires" => requires = selectors(&meta)?,
                     "group" => group = Some(string_value(&meta)?),
+                    "exclusive" => exclusive = flag_value(&meta)?,
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
                     "value_enum" => value_enum = flag_value(&meta)?,
@@ -1343,7 +1349,8 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
-                                 `conflicts`, `requires`, `group`, `required_if`, \
+                                 `conflicts`, `requires`, `group`, `exclusive`, \
+                                 `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
                                  `required`, and `double_dash`"
@@ -1817,6 +1824,17 @@ impl Field {
             ));
         }
 
+        // `exclusive` is represented by flag metadata and enforced for a flag occurrence.
+        // Accepting it on a positional would make the derive enforce a rule that its emitted
+        // spec and documentation silently omit.
+        if exclusive && !matches!(kind, Kind::Flag { .. }) {
+            return Err(syn::Error::new(
+                span,
+                "`exclusive` describes a flag that has to be given on its own; a positional \
+                 argument cannot carry it — add `long` or `short` to make this field a flag",
+            ));
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -1890,6 +1908,7 @@ impl Field {
             overrides,
             conflicts,
             requires,
+            exclusive,
             group,
             required_if,
             required_unless,
@@ -2895,6 +2914,30 @@ mod tests {
             Some("FILE"),
             "a value-taking flag keeps it"
         );
+    }
+
+    #[test]
+    fn exclusive_is_refused_on_a_positional() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(exclusive)]
+                target: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("`exclusive` describes a flag"),
+            "unhelpful message: {err}"
+        );
+
+        cli(r#"
+            struct Ex {
+                #[usage(long, exclusive)]
+                dump: bool,
+            }
+        "#)
+        .expect("exclusive remains valid on a flag");
     }
 
     #[test]

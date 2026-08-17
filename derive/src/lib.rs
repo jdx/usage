@@ -214,6 +214,7 @@
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
 //! | `group = "input"` | the group this flag is one of; see below |
+//! | `exclusive` | this flag has to be given on its own, positionals included |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!

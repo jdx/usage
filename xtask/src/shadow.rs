@@ -842,6 +842,9 @@ fn usage_flag_opts(
     if !flag.requires.is_empty() {
         opts.push(selector_list("requires", &flag.requires));
     }
+    if flag.exclusive {
+        opts.push("exclusive = true".into());
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -956,6 +959,9 @@ fn clap_flag_opts(
     // property of this one, so it is out of reach of a field-by-field translation.
     if flag.negate.is_some() {
         skipped.note("a negated flag");
+    }
+    if flag.exclusive {
+        opts.push("exclusive = true".into());
     }
     if flag.global {
         opts.push("global = true".into());

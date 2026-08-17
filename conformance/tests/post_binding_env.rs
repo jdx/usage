@@ -9,7 +9,8 @@
 
 use std::ffi::OsStr;
 
-use usage_derive::Cli;
+use usage_argv::Error;
+use usage_derive::{Args, Cli, Subcommands};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
@@ -94,6 +95,137 @@ struct Ovr {
     /// Say nothing
     #[usage(long)]
     quiet: bool,
+}
+
+/// An exclusive flag beside a value supplied by the environment.
+#[derive(Cli)]
+#[usage(bin = "exclusive-env")]
+struct ExclusiveEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    /// Where to write
+    #[usage(long, env = "EXCLUSIVE_ENV_OUT")]
+    out: Option<String>,
+}
+
+#[test]
+fn an_environment_value_counts_for_exclusivity() {
+    unsafe { std::env::set_var("EXCLUSIVE_ENV_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(ExclusiveEnv::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("EXCLUSIVE_ENV_OUT") };
+
+    let parsed = ExclusiveEnv::parse_from(&a).expect("without the environment it is alone");
+    assert!(parsed.dump);
+    assert!(parsed.out.is_none());
+}
+
+#[derive(Args)]
+struct FlattenedEnvOutput {
+    /// Where to write
+    #[usage(long, env = "FLAT_EXCLUSIVE_ENV_OUT")]
+    out: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-exclusive-env")]
+struct ExclusiveAcrossFlattenEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: FlattenedEnvOutput,
+}
+
+#[derive(Args)]
+struct FlattenedExclusiveEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-exclusive-env-reverse")]
+struct EnvAcrossFlattenExclusive {
+    /// Where to write
+    #[usage(long, env = "FLAT_EXCLUSIVE_ENV_REVERSE_OUT")]
+    out: Option<String>,
+    #[usage(flatten)]
+    extra: FlattenedExclusiveEnv,
+}
+
+#[test]
+fn flattened_environment_values_are_visible_to_cross_boundary_exclusivity() {
+    unsafe { std::env::set_var("FLAT_EXCLUSIVE_ENV_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(ExclusiveAcrossFlattenEnv::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("FLAT_EXCLUSIVE_ENV_OUT") };
+
+    unsafe { std::env::set_var("FLAT_EXCLUSIVE_ENV_REVERSE_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(EnvAcrossFlattenExclusive::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("FLAT_EXCLUSIVE_ENV_REVERSE_OUT") };
+
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveAcrossFlattenEnv::parse_from(&a).expect("alone after cleanup");
+    assert!(parsed.dump);
+    assert!(parsed.extra.out.is_none());
+    let parsed = EnvAcrossFlattenExclusive::parse_from(&a).expect("alone after cleanup");
+    assert!(parsed.out.is_none());
+    assert!(parsed.extra.dump);
+}
+
+#[derive(Args)]
+struct ChildEnvExclusive {
+    /// Dump and leave
+    #[usage(long, exclusive, env = "CHILD_EXCLUSIVE_ENV_DUMP")]
+    dump: bool,
+}
+
+#[derive(Subcommands)]
+enum ChildEnvExclusiveCommands {
+    Run(ChildEnvExclusive),
+}
+
+#[derive(Cli)]
+#[usage(bin = "child-exclusive-env")]
+struct ParentOfChildEnvExclusive {
+    /// Print more
+    #[usage(long)]
+    verbose: bool,
+    /// Required unless an exclusive flag ends the invocation
+    #[usage(long)]
+    out: String,
+    #[usage(subcommand)]
+    command: Option<ChildEnvExclusiveCommands>,
+}
+
+#[test]
+fn a_selected_child_environment_value_is_visible_to_parent_exclusivity() {
+    unsafe { std::env::set_var("CHILD_EXCLUSIVE_ENV_DUMP", "1") };
+
+    let a = argv(["run"]);
+    let parsed = ParentOfChildEnvExclusive::parse_from(&a)
+        .expect("the child exclusive environment value bypasses parent requiredness");
+    assert!(!parsed.verbose);
+    assert!(parsed.out.is_empty());
+    let Some(ChildEnvExclusiveCommands::Run(child)) = parsed.command else {
+        panic!("the selected child should be built");
+    };
+    assert!(
+        child.dump,
+        "the environment value should reach the child field"
+    );
+
+    let a = argv(["--verbose", "run"]);
+    assert!(matches!(
+        ParentOfChildEnvExclusive::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+            | Err(Error::ConflictingFlags { name: "dump", .. })
+    ));
+
+    unsafe { std::env::remove_var("CHILD_EXCLUSIVE_ENV_DUMP") };
 }
 
 #[test]

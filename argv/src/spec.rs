@@ -611,6 +611,11 @@ pub struct FlagMeta<'a> {
     /// flag win, this reports it: the combination has no meaning, so honouring one
     /// side silently would hide a mistake.
     pub conflicts: &'a [&'a str],
+    /// Whether this flag must be given on its own.
+    ///
+    /// The whole-command form of [`conflicts`](Self::conflicts): everything the command
+    /// declares counts, positionals included.
+    pub exclusive: bool,
     /// Flags that must also be given when this one is.
     ///
     /// The positive form of [`conflicts`](Self::conflicts), and the mirror image of
@@ -648,6 +653,7 @@ impl FlagMeta<'_> {
         var_max: None,
         overrides: &[],
         conflicts: &[],
+        exclusive: false,
         requires: &[],
         required_if: &[],
         required_unless: &[],
@@ -1151,6 +1157,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_default(out, meta.default)?;
     write_single_list(out, "overrides", meta.overrides)?;
     write_single_list(out, "conflicts", meta.conflicts)?;
+    if meta.exclusive {
+        out.push_str(" exclusive=#true");
+    }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;
@@ -1535,6 +1544,43 @@ pub trait CommandArgs: Sized {
         Vec::new()
     }
 
+    /// One declaration in this command that ended up being given, if any.
+    ///
+    /// Used to enforce relationships across a flattened `CommandArgs` boundary, where the
+    /// parent can see the nested partial only through this trait.
+    fn any_given(partial: &Self::Partial) -> Option<&'static str> {
+        let _ = partial;
+        None
+    }
+
+    /// One exclusive flag in this command that was given, if any.
+    ///
+    /// Like [`CommandArgs::any_given`], this is the composition point for flattened argument
+    /// groups and selected subcommands. Parents need the latter to apply whole-invocation
+    /// exclusivity and its requiredness escape across a command boundary.
+    fn exclusive_given(partial: &Self::Partial) -> Option<&'static str> {
+        let _ = partial;
+        None
+    }
+
+    /// Fill fields in this command from their declared defaults.
+    ///
+    /// Kept separate from [`CommandArgs::check`] so a parent can preserve defaults in a
+    /// flattened argument group while an unrelated exclusive flag suppresses only that
+    /// group's missing-value checks.
+    fn apply_defaults(partial: &mut Self::Partial) {
+        let _ = partial;
+    }
+
+    /// Fill fields in this command from their declared environment variables.
+    ///
+    /// A parent calls this before relationships that cross a flattened `CommandArgs`
+    /// boundary, so those relationships see the same values as the nested command's own
+    /// checks. Empty by default for hand-written implementations.
+    fn apply_env(partial: &mut Self::Partial) {
+        let _ = partial;
+    }
+
     /// Everything this command decides after the last token: required-ness,
     /// choices, and how many values a variadic got.
     ///
@@ -1619,6 +1665,29 @@ pub trait Subcommands: Sized {
     ) -> Vec<(&'static str, SettingGiven)> {
         let _ = (partial, selected);
         Vec::new()
+    }
+
+    /// One declaration in the selected command that was given, if any.
+    fn any_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
+        let _ = (partial, selected);
+        None
+    }
+
+    /// One exclusive flag in the selected command that was given, if any.
+    ///
+    /// This lets the parent compare its own fields with the selected child's without
+    /// exposing the child's generated partial type.
+    fn exclusive_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
+        let _ = (partial, selected);
+        None
+    }
+
+    /// Fill fields in the selected command from their declared environment variables.
+    ///
+    /// A parent calls this before relationships that cross the subcommand boundary, just as
+    /// [`CommandArgs::apply_env`] prepares a flattened argument group.
+    fn apply_env(partial: &mut Self::Partial, selected: Option<usize>) {
+        let _ = (partial, selected);
     }
 
     /// Check the selected command's requirements, and nothing else's.

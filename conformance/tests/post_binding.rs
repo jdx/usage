@@ -796,3 +796,320 @@ fn a_conflict_answers_before_an_unsatisfied_group_does() {
     assert_eq!(two.file.as_deref(), Some("f"));
     assert!(two.url.is_none() && two.yaml && !two.json);
 }
+
+/// A CLI with a flag that has to be alone.
+#[derive(Cli)]
+#[usage(bin = "ex2")]
+struct Exclusively {
+    /// Dump the spec and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    /// Print more
+    #[usage(short = 'v', long)]
+    verbose: bool,
+    /// What to act on
+    target: Option<String>,
+}
+
+#[test]
+fn an_exclusive_flag_has_to_be_alone() {
+    let a = argv(["--dump"]);
+    let ex = Exclusively::parse_from(&a).expect("alone is the point");
+    assert!(ex.dump && !ex.verbose && ex.target.is_none());
+
+    // Another flag.
+    let a = argv(["--dump", "-v"]);
+    assert!(matches!(
+        Exclusively::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    // And a positional, which is what makes this more than a conflict with every other
+    // flag: `conflicts` has nowhere to name an argument.
+    let a = argv(["--dump", "t"]);
+    assert!(matches!(
+        Exclusively::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    // Without it, nothing changes.
+    let a = argv(["-v", "t"]);
+    let ex = Exclusively::parse_from(&a).expect("the rest of the CLI is unaffected");
+    assert!(ex.verbose);
+    assert_eq!(ex.target.as_deref(), Some("t"));
+}
+
+#[derive(Cli)]
+#[usage(bin = "required-ex")]
+struct ExclusiveWithRequiredSiblings {
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(long)]
+    output: String,
+    target: String,
+}
+
+#[test]
+fn an_exclusive_flag_bypasses_required_siblings() {
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveWithRequiredSiblings::parse_from(&a)
+        .expect("exclusive is the command's requiredness escape");
+    assert!(parsed.dump);
+    assert!(parsed.output.is_empty());
+    assert!(parsed.target.is_empty());
+}
+
+#[test]
+fn exclusive_reaches_the_spec() {
+    let kdl = Exclusively::to_kdl();
+    assert!(kdl.contains("exclusive=#true"), "{kdl}");
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let dump = spec.cmd.flags.iter().find(|f| f.name == "dump").unwrap();
+    assert!(dump.exclusive);
+}
+
+#[derive(Args)]
+struct ExtraOutput {
+    /// Write somewhere
+    #[usage(long)]
+    output: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-ex")]
+struct ExclusiveBesideFlatten {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: ExtraOutput,
+}
+
+#[derive(Args)]
+struct FlattenedDefault {
+    /// How many jobs to run
+    #[usage(long, default = "4")]
+    jobs: u8,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-default-ex")]
+struct ExclusiveBesideFlattenedDefault {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: FlattenedDefault,
+}
+
+#[derive(Args)]
+struct FlattenedExclusive {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-ex-reverse")]
+struct FlattenBesideOther {
+    /// Print more
+    #[usage(long)]
+    verbose: bool,
+    #[usage(flatten)]
+    extra: FlattenedExclusive,
+}
+
+#[test]
+fn flattening_does_not_hide_either_side_of_exclusivity() {
+    let a = argv(["--dump", "--output", "somewhere"]);
+    assert!(matches!(
+        ExclusiveBesideFlatten::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    let a = argv(["--dump", "--verbose"]);
+    assert!(matches!(
+        FlattenBesideOther::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    let a = argv(["--output", "somewhere"]);
+    let parsed = ExclusiveBesideFlatten::parse_from(&a).expect("without --dump");
+    assert!(!parsed.dump);
+    assert_eq!(parsed.extra.output.as_deref(), Some("somewhere"));
+
+    let a = argv(["--dump"]);
+    let parsed = FlattenBesideOther::parse_from(&a).expect("the flattened flag is alone");
+    assert!(!parsed.verbose);
+    assert!(parsed.extra.dump);
+}
+
+#[test]
+fn an_exclusive_flag_does_not_skip_flattened_defaults() {
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveBesideFlattenedDefault::parse_from(&a)
+        .expect("exclusive suppresses requiredness, not declared defaults");
+    assert!(parsed.dump);
+    assert_eq!(parsed.extra.jobs, 4);
+}
+
+#[derive(Cli)]
+#[usage(bin = "sub-ex")]
+struct ExclusiveBesideSubcommand {
+    /// Print the version and leave
+    #[usage(long, global, exclusive)]
+    version: bool,
+    #[usage(subcommand)]
+    command: Option<ExclusiveCommands>,
+}
+
+#[derive(Subcommands)]
+enum ExclusiveCommands {
+    /// Run something
+    Run,
+}
+
+#[test]
+fn selecting_a_subcommand_counts_as_company_for_a_parent_exclusive_flag() {
+    let a = argv(["--version"]);
+    let parsed = ExclusiveBesideSubcommand::parse_from(&a).expect("alone is allowed");
+    assert!(parsed.version);
+    assert!(parsed.command.is_none());
+
+    let a = argv(["--version", "run"]);
+    assert!(matches!(
+        ExclusiveBesideSubcommand::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            other: "version",
+            ..
+        })
+    ));
+}
+#[allow(dead_code)]
+#[derive(Args)]
+struct ChildExclusive {
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum ChildExclusiveCommands {
+    Run(ChildExclusive),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "child-ex")]
+struct ParentBesideChildExclusive {
+    #[usage(long)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Option<ChildExclusiveCommands>,
+}
+
+#[test]
+fn a_child_exclusive_flag_counts_parent_flags_as_company() {
+    let a = argv(["run", "--dump"]);
+    ParentBesideChildExclusive::parse_from(&a).expect("the child flag is alone");
+
+    let a = argv(["--verbose", "run", "--dump"]);
+    assert!(matches!(
+        ParentBesideChildExclusive::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+            | Err(Error::ConflictingFlags { name: "dump", .. })
+    ));
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct RedeclaredClean {
+    /// Clean, as this command means it
+    #[usage(long = "clean")]
+    clean: bool,
+    /// Say more
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RedeclaredCleanCommands {
+    Run(RedeclaredClean),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "orphan-alias-ex")]
+struct OrphanAliasExclusive {
+    /// Clean everything and leave
+    #[usage(short = 'c', long, global, exclusive)]
+    clean: bool,
+    #[usage(subcommand)]
+    command: Option<RedeclaredCleanCommands>,
+}
+
+/// A child that re-declares only the long form of an inherited global leaves the short alias
+/// with the ancestor — and the ancestor's `exclusive` goes with it. The derive keeps the two
+/// declarations as separate fields, so it never had to reconcile them; this holds usage-lib,
+/// which merges them into one flag, to the same answer.
+#[test]
+fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_child_redeclaration() {
+    let a = argv(["run", "-c"]);
+    assert!(
+        matches!(
+            OrphanAliasExclusive::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the ancestor's own spelling is still its exclusive flag"
+    );
+
+    let a = argv(["run", "--clean", "--verbose"]);
+    OrphanAliasExclusive::parse_from(&a)
+        .expect("the child's spelling drops the exclusivity the child did not restate");
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct ExclusiveRedeclaredClean {
+    /// Clean, and nothing else
+    #[usage(long = "clean", exclusive)]
+    clean: bool,
+    /// Say more
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum ExclusiveRedeclaredCleanCommands {
+    Run(ExclusiveRedeclaredClean),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "mixed-alias-ex")]
+struct MixedAliasExclusive {
+    /// Clean everything
+    #[usage(short = 'c', long, global)]
+    clean: bool,
+    #[usage(subcommand)]
+    command: Option<ExclusiveRedeclaredCleanCommands>,
+}
+
+/// The other direction, and both aliases at once: the child's spelling is exclusive whatever it
+/// was typed beside, so an ancestor-only alias in the same invocation cannot excuse a companion.
+#[test]
+fn a_child_spelling_stays_exclusive_beside_an_ancestor_spelling() {
+    let a = argv(["run", "-c", "--clean", "--verbose"]);
+    assert!(
+        matches!(
+            MixedAliasExclusive::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the child's exclusive spelling was given, so --verbose is company"
+    );
+
+    let a = argv(["run", "-c", "--verbose"]);
+    MixedAliasExclusive::parse_from(&a).expect("the ancestor's own spelling was never exclusive");
+}

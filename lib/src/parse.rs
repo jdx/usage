@@ -109,6 +109,13 @@ fn merge_subcommand_flags(
                 Some(merged) => merged.clone(),
                 None => {
                     let mut merged = (*global_flag).clone();
+                    // `exclusive` is deliberately *not* reconciled here, in either direction.
+                    // One object now answers to two alias sets that may disagree: the child
+                    // owns the spellings it declared, the ancestor keeps the ones only it
+                    // declared. A single bool cannot hold both, so the merged flag carries the
+                    // ancestor's and validation resolves the occurrence by the spelling that
+                    // was typed — the ledger it already consults to decide whether selecting
+                    // the child is company.
                     for s in &flag.short {
                         if !merged.short.contains(s) {
                             merged.short.push(*s);
@@ -613,6 +620,11 @@ fn parse_partial_with_env(
     // Keep this internal so adding relationship support remains semver-compatible. The full
     // parser uses it to prevent defaults and environment values from restoring overridden flags.
     let mut overridden_flags = HashSet::new();
+    // Which spelling supplied each parsed flag. A child may re-declare one long form of an
+    // inherited global while the merge keeps the ancestor's other aliases on the same `Arc`.
+    // The declaration object alone then cannot answer whether `--clean` belonged to the child
+    // or an inherited `-c` belonged to the ancestor.
+    let mut parsed_flag_spellings: HashMap<usize, HashSet<String>> = HashMap::new();
 
     // Phase 1: Scan for subcommands and collect global flags
     //
@@ -939,6 +951,10 @@ fn parse_partial_with_env(
             let split = w.split_once('=');
             let word = split.map(|(word, _)| word).unwrap_or(&w);
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
+                parsed_flag_spellings
+                    .entry(Arc::as_ptr(f) as usize)
+                    .or_default()
+                    .insert(word.to_string());
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
@@ -1032,6 +1048,10 @@ fn parse_partial_with_env(
                 .as_ref()
                 .or_else(|| out.available_flags.get(&format!("-{short}")))
             {
+                parsed_flag_spellings
+                    .entry(Arc::as_ptr(f) as usize)
+                    .or_default()
+                    .insert(format!("-{short}"));
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
@@ -1166,6 +1186,92 @@ fn parse_partial_with_env(
 
     record_cursor(&mut out, next_arg_idx, seen_double_dash);
 
+    // `out.flags` is keyed by `SpecFlag`, whose equality is intentionally name-only. Two
+    // declarations with the same canonical name therefore share one public value entry even
+    // when both were typed. The spelling ledger is keyed by declaration identity and retains
+    // both, which is what exclusivity needs.
+    let flag_was_parsed =
+        |flag: &Arc<SpecFlag>| parsed_flag_spellings.contains_key(&(Arc::as_ptr(flag) as usize));
+
+    // The spellings the selected command's own declaration speaks for, on this object.
+    //
+    // Empty unless that declaration really is this object's: a parent and child may each
+    // declare `--clean` without merging, leaving two flags that share a name, and the
+    // ancestor's must not be read as the child's. The test is whether every spelling the child
+    // declared resolves back here — true of a merged flag, and of a plain local one, but not of
+    // an ancestor whose long form the child took over.
+    let child_spellings = |flag: &Arc<SpecFlag>| -> HashSet<String> {
+        let declared: HashSet<String> = out
+            .cmd
+            .flags
+            .iter()
+            .filter(|declared| declared.name == flag.name)
+            .flat_map(flag_keys)
+            .collect();
+        // *Any* of them, not all. All was too strong: a child may declare a spelling that
+        // some other inherited global already owns — `-c --clean` beside an inherited
+        // `-c --config` — and that collision is resolved in the other global's favor, so the
+        // child's `-c` resolves elsewhere. Requiring every spelling to land here let one
+        // unrelated collision disown the child from the `--clean` it plainly does own.
+        //
+        // Still enough to tell the two-object case apart, which is what this guards: when a
+        // child re-declares a global as global, the child's own spellings resolve to the
+        // child's separate flag, so none of them lands on the ancestor's.
+        let speaks_for_this_flag = declared.iter().any(|spelling| {
+            out.available_flags
+                .get(spelling)
+                .is_some_and(|available| Arc::ptr_eq(available, flag))
+        });
+        if speaks_for_this_flag {
+            declared
+        } else {
+            HashSet::new()
+        }
+    };
+
+    // Whose `exclusive` an occurrence activates, as `(the child's, an ancestor's)`.
+    //
+    // A child that re-declares an inherited global merges into one object answering to two
+    // alias sets whose declarations may disagree, so there is no single owner to name: the
+    // child owns the spellings it declared and the ancestor keeps the ones only it declared.
+    // Both sides can be in play at once — `run -c --clean` is the ancestor's alias and the
+    // child's in one invocation — and each carries its own declaration's answer.
+    let exclusivity_in_play = |flag: &Arc<SpecFlag>| -> (bool, bool) {
+        let child = child_spellings(flag);
+        let child_exclusive = !child.is_empty()
+            && out
+                .cmd
+                .flags
+                .iter()
+                .any(|declared| declared.name == flag.name && declared.exclusive);
+        match parsed_flag_spellings.get(&(Arc::as_ptr(flag) as usize)) {
+            Some(spellings) => (
+                child_exclusive && spellings.iter().any(|s| child.contains(s)),
+                flag.exclusive && spellings.iter().any(|s| !child.contains(s)),
+            ),
+            // An environment value has no spelling to attribute it by. The declaration the
+            // selected command has in scope is the one that answers — which is the child's
+            // when it re-declared the flag, and the ancestor's when it did not.
+            None => (child_exclusive, flag.exclusive && child.is_empty()),
+        }
+    };
+
+    let exclusive_occurrence = |flag: &Arc<SpecFlag>| {
+        let (child, ancestor) = exclusivity_in_play(flag);
+        child || ancestor
+    };
+
+    // clap's `exclusive` is also an escape from requiredness: `--version` has to work on a
+    // command that otherwise needs an input. Companions are still diagnosed below, but an
+    // exclusive occurrence suppresses the missing-value checks that would make it unusable
+    // whether it was alone or not.
+    let exclusive_present =
+        unique_flags(out.available_flags.values().chain(out.flags.keys())).any(|flag| {
+            exclusive_occurrence(flag)
+                && !overridden_flags.contains(&flag.name)
+                && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
+        });
+
     // A command that says it needs a subcommand, given none. Checked on `out.cmd` and nowhere
     // else, because `out.cmd` *is* the command the words reached: had a subcommand been taken,
     // the child would be here instead. The spec has carried `subcommand_required` since it was
@@ -1190,22 +1296,24 @@ fn parse_partial_with_env(
 
     // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
     // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
-    for arg in out.cmd.args.iter() {
-        if out.args.contains_key(arg) {
-            continue;
-        }
-        // Already reported as needing a `--`; one mistake should not yield two messages.
-        if double_dash_violations.contains(&arg.name) {
-            continue;
-        }
-        if arg.required && arg.default.is_empty() {
-            // Check if there's an env var available (custom env map takes precedence)
-            let has_env = arg
-                .env
-                .as_ref()
-                .is_some_and(|env_var| env_contains(custom_env, env_var));
-            if !has_env {
-                out.errors.push(UsageErr::MissingArg(arg.name.clone()));
+    if !exclusive_present {
+        for arg in out.cmd.args.iter() {
+            if out.args.contains_key(arg) {
+                continue;
+            }
+            // Already reported as needing a `--`; one mistake should not yield two messages.
+            if double_dash_violations.contains(&arg.name) {
+                continue;
+            }
+            if arg.required && arg.default.is_empty() {
+                // Check if there's an env var available (custom env map takes precedence)
+                let has_env = arg
+                    .env
+                    .as_ref()
+                    .is_some_and(|env_var| env_contains(custom_env, env_var));
+                if !has_env {
+                    out.errors.push(UsageErr::MissingArg(arg.name.clone()));
+                }
             }
         }
     }
@@ -1246,11 +1354,66 @@ fn parse_partial_with_env(
         // named it, which is what clap says too: an unmet `requires` is a required
         // argument that was not provided. Named by its own name, resolved through the
         // same matcher, so a `requires="-f"` reports `--force` rather than the selector.
-        for other in &flag.requires {
-            if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
-                let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
-                out.errors.push(UsageErr::MissingFlag(name));
+        if !exclusive_present {
+            for other in &flag.requires {
+                if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
+                    let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
+                    out.errors.push(UsageErr::MissingFlag(name));
+                }
             }
+        }
+    }
+
+    // An exclusive flag is the whole-command form of a conflict: `--version` means the
+    // rest of the line has nothing to act on. Everything the invocation supplied counts,
+    // positionals included, which is what distinguishes it from being in a group with
+    // every other flag.
+    //
+    // Only what was *given*, as `conflicts` reads it: a defaulted flag standing beside an
+    // exclusive one is nobody saying anything, and counting it would make the exclusive
+    // flag unusable on any command that has a default. Environment values do count, also as
+    // `conflicts` reads them, so the spec parser and the derive agree.
+    for flag in unique_flags(out.available_flags.values().chain(out.flags.keys())) {
+        // `SpecFlag` equality is intentionally name-only for the public parsed-value map,
+        // but re-declared aliases can leave distinct declarations with that same name in
+        // scope. Exclusivity is about the declaration the typed spelling resolved to, so
+        // compare the parser's `Arc`s by identity here.
+        let given = flag_was_parsed(flag) || flag_has_env(flag, custom_env);
+        if !exclusive_occurrence(flag) || !given || overridden_flags.contains(&flag.name) {
+            continue;
+        }
+        let other_flag = unique_flags(out.available_flags.values().chain(out.flags.keys()))
+            .find(|other| {
+                !Arc::ptr_eq(other, flag)
+                    && !overridden_flags.contains(&other.name)
+                    && (flag_was_parsed(other) || flag_has_env(other, custom_env))
+            })
+            .map(|other| format!("--{}", other.name));
+        let other_arg = out.cmd.args.iter().find(|arg| {
+            out.args.keys().any(|given| given.name == arg.name)
+                || arg
+                    .env
+                    .as_ref()
+                    .is_some_and(|env| env_contains(custom_env, env))
+        });
+        // Selecting a child is company for an exclusive flag declared by an ancestor. An
+        // exclusive flag belonging to the child itself does not conflict with the command word
+        // needed to reach that child — so the question is not who owns the flag but whose
+        // exclusivity is the one being enforced, which is what `exclusivity_in_play` already
+        // separated.
+        let (_, ancestor_exclusivity) = exclusivity_in_play(flag);
+        let selected_subcommand =
+            (out.cmds.len() > 1 && ancestor_exclusivity).then(|| out.cmd.name.clone());
+        let other = other_flag
+            .or_else(|| other_arg.map(|arg| format!("<{}>", arg.name)))
+            .or(selected_subcommand);
+        if let Some(other) = other {
+            out.errors.push(UsageErr::InvalidFlag {
+                token: format!("--{}", flag.name),
+                reason: format!("must be given on its own, and {other} was given too"),
+                span: (0, 0).into(),
+                input: format!("--{} {other}", flag.name),
+            });
         }
     }
 
@@ -1298,7 +1461,7 @@ fn parse_partial_with_env(
             .members
             .iter()
             .any(|selector| selector_is_satisfied(selector, &out, &overridden_flags, custom_env));
-        if group.required && !satisfied {
+        if group.required && !satisfied && !exclusive_present {
             // The members are what a user has to type, so they are in the message; the
             // group's name is there too, since a command with several groups would
             // otherwise report the same sentence twice with nothing to tell them apart.
@@ -1310,23 +1473,24 @@ fn parse_partial_with_env(
     }
     out.errors.extend(group_errors);
 
-    for flag in unique_flags(out.available_flags.values()) {
-        if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
-            continue;
-        }
-        let has_default =
-            !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
-        let has_env = flag_has_env(flag, custom_env);
-        let required_if = flag
-            .required_if
-            .iter()
-            .any(|selector| selector_is_explicit(selector, &out, &overridden_flags, custom_env));
-        let required_unless = !flag.required_unless.is_empty()
-            && !flag.required_unless.iter().any(|selector| {
+    if !exclusive_present {
+        for flag in unique_flags(out.available_flags.values()) {
+            if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
+                continue;
+            }
+            let has_default =
+                !flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty());
+            let has_env = flag_has_env(flag, custom_env);
+            let required_if = flag.required_if.iter().any(|selector| {
                 selector_is_explicit(selector, &out, &overridden_flags, custom_env)
             });
-        if (flag.required || required_if || required_unless) && !has_default && !has_env {
-            out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
+            let required_unless = !flag.required_unless.is_empty()
+                && !flag.required_unless.iter().any(|selector| {
+                    selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+                });
+            if (flag.required || required_if || required_unless) && !has_default && !has_env {
+                out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
+            }
         }
     }
 
@@ -2904,6 +3068,284 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn an_exclusive_flag_has_to_be_alone() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--verbose\"\narg \"[target]\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--dump"])).expect("alone is the point");
+
+        // Any other flag.
+        let err = parse(&spec, &input(&["ex", "--dump", "--verbose"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
+
+        // And a positional, which is what makes this more than a conflict with every
+        // other flag.
+        let err = parse(&spec, &input(&["ex", "--dump", "t"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
+
+        // Not given, so it imposes nothing.
+        parse(&spec, &input(&["ex", "--verbose", "t"])).expect("without it, nothing changes");
+    }
+
+    #[test]
+    fn an_exclusive_flag_is_not_disturbed_by_a_default() {
+        // Only what was supplied counts, as `conflicts` reads it. A default counting as
+        // company would make an exclusive flag unusable on any command that has one.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--jobs <n>\" default=\"4\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--dump"])).expect("a default is nobody saying anything");
+        assert!(parse(&spec, &input(&["ex", "--dump", "--jobs", "8"])).is_err());
+    }
+
+    #[test]
+    fn an_exclusive_flag_bypasses_required_siblings() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--out <path>\" required=#true\narg \"<target>\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--dump"]))
+            .expect("exclusive is the command's requiredness escape");
+        assert!(parse(
+            &spec,
+            &input(&["ex", "--dump", "--out", "somewhere", "target"])
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn an_environment_value_counts_for_an_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--out <path>\" env=\"EX_OUT\"\n"
+            .parse()
+            .unwrap();
+
+        assert!(parse_with_env(&spec, &["ex", "--dump"], &[("EX_OUT", "somewhere")]).is_err());
+        parse_with_env(&spec, &["ex", "--dump"], &[]).expect("without the value it is alone");
+    }
+
+    #[test]
+    fn a_selected_subcommand_counts_for_an_ancestor_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--version\" global=#true exclusive=#true\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--version"])).expect("alone is allowed");
+        assert!(parse(&spec, &input(&["ex", "--version", "run"])).is_err());
+    }
+
+    #[test]
+    fn a_child_exclusive_flag_is_not_mistaken_for_a_same_named_parent_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child flag is alone within the child command");
+        assert!(
+            parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
+            "the parent flag still conflicts with selecting the child"
+        );
+    }
+
+    #[test]
+    fn a_child_local_exclusive_redeclaration_belongs_to_the_child() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child-local exclusive flag is alone inside the child command");
+        assert!(
+            parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
+            "the ancestor spelling still conflicts with selecting the child"
+        );
+    }
+
+    #[test]
+    fn a_same_named_parent_flag_is_company_for_a_child_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" global=#true exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"])).expect("the child exclusive flag is alone");
+        assert!(
+            parse(&spec, &input(&["ex", "--clean", "run", "--clean"])).is_err(),
+            "the distinct parent declaration is still company despite sharing a name"
+        );
+    }
+
+    #[test]
+    fn a_local_child_redeclaration_keeps_its_exclusivity_when_merged() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child exclusive flag is valid alone");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "merging with the inherited global must not discard child exclusivity"
+        );
+    }
+
+    #[test]
+    fn an_orphan_parent_alias_does_not_disown_a_child_local_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the typed long form belongs to the child declaration");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the inherited short form still belongs to the ancestor"
+        );
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c", "--clean"])).is_err(),
+            "a child spelling cannot mask the ancestor-exclusive occurrence on the same merged flag"
+        );
+    }
+
+    #[test]
+    fn an_inherited_alias_keeps_its_ancestor_exclusivity() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" global=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child's spelling does not activate the orphan ancestor alias");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the inherited short alias still belongs to the ancestor exclusive flag"
+        );
+    }
+
+    #[test]
+    fn an_inherited_negated_alias_keeps_its_ancestor_exclusivity() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" negate=\"--no-clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"-c --clean\" global=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--no-clean"])).is_err(),
+            "the inherited negated alias still belongs to the ancestor exclusive flag"
+        );
+    }
+
+    #[test]
+    fn a_colliding_alias_does_not_disown_the_child_from_the_rest() {
+        // The child re-declares the inherited `--clean` as exclusive and gives it a `-c` that
+        // an unrelated inherited global already owns. That collision is resolved in the other
+        // global's favor, so the child's `-c` resolves elsewhere — but the child plainly owns
+        // the `--clean` it declared, and its exclusivity holds.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\nflag \"-c --config <f>\" global=#true\ncmd \"run\" {\n  flag \"-c --clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"])).expect("alone is allowed");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "one unrelated alias collision cannot disown the child from its own flag"
+        );
+    }
+
+    #[test]
+    fn a_local_child_declaration_is_not_in_scope_before_the_subcommand() {
+        // A child's *local* re-declaration describes the flag at the child. Typed ahead of the
+        // subcommand word the flag can only be the ancestor's, because that is the only one in
+        // scope there — so the ancestor's exclusivity is the one that answers, whichever way it
+        // is set. The pair below differ in nothing else, which is what makes this one rule
+        // rather than two behaviors.
+        let quiet: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+        parse(&quiet, &input(&["ex", "--clean", "run", "--verbose"]))
+            .expect("the ancestor owns this occurrence, and it is not exclusive");
+        assert!(
+            parse(&quiet, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "after the subcommand word the child's declaration is in scope, and it is exclusive"
+        );
+
+        let loud: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+        assert!(
+            parse(&loud, &input(&["ex", "--clean", "run"])).is_err(),
+            "the same rule, with an exclusive ancestor: selecting the child is company for it"
+        );
+    }
+
+    #[test]
+    fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_plain_child_redeclaration() {
+        // The mirror of `a_local_child_redeclaration_keeps_its_exclusivity_when_merged`: the
+        // child owns `--clean` and says nothing about exclusivity, but `-c` is a spelling only
+        // the ancestor ever declared, so the ancestor's answer still governs it.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\"\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the orphan ancestor alias is still the ancestor's exclusive flag"
+        );
+        parse(&spec, &input(&["ex", "run", "--clean", "--verbose"]))
+            .expect("the child's own spelling drops the exclusivity the child did not restate");
+    }
+
+    #[test]
+    fn a_child_spelling_carries_its_exclusivity_even_beside_an_ancestor_spelling() {
+        // Both spellings of one merged flag, typed together. The child's `--clean` is exclusive
+        // whatever else was typed alongside it, so `--verbose` is company; attributing the whole
+        // occurrence to the ancestor because `-c` appeared in it lost that.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c", "--clean", "--verbose"])).is_err(),
+            "the child spelling is exclusive whatever it was typed beside"
+        );
+        parse(&spec, &input(&["ex", "run", "-c", "--verbose"]))
+            .expect("the ancestor's own spelling was never exclusive");
+    }
+
+    #[test]
+    fn an_environment_value_takes_the_exclusivity_of_the_declaration_in_scope() {
+        // An environment value has no spelling to attribute, so the declaration the selected
+        // command has in scope answers — in both directions. Comparing whole alias sets asked
+        // the ancestor instead, because the merged flag also carries its orphan `-c`.
+        let added: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true env=\"EX_CLEAN\"\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse_with_env(&added, &["ex", "run", "--verbose"], &[("EX_CLEAN", "1")]).is_err(),
+            "the child added exclusivity the environment value has to honor"
+        );
+
+        let dropped: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true env=\"EX_CLEAN\"\ncmd \"run\" {\n  flag \"--clean\"\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse_with_env(&dropped, &["ex", "run", "--verbose"], &[("EX_CLEAN", "1")])
+            .expect("the child dropped the exclusivity, and the environment value follows it");
+    }
+
+    #[test]
+    fn a_merged_child_exclusive_flag_still_escapes_requiredness() {
+        // Exclusivity suppresses missing-value checks, and that has to survive the merge for
+        // the same reason the companion check does.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--out <path>\" required=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("a merged child exclusive flag is still the command's requiredness escape");
     }
 
     #[test]
