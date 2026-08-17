@@ -866,6 +866,9 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required = field.shape == Shape::Required || field.required_collection;
+    // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
+    // nothing about whether its value is.
+    let value_optional = field.value_optional;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
@@ -901,6 +904,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             count: #count,
             repeatable: #repeatable,
             required: #required,
+            value_optional: #value_optional,
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,

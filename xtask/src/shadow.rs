@@ -699,6 +699,12 @@ fn usage_flag_opts(
         if arg.name != flag.name {
             opts.push(format!("value_name = {:?}", arg.name));
         }
+        // `arg "[BUMP]" required=#false`: the value may be left off. Dropping it rendered
+        // pitchfork's `--bump` as `<BUMP>` where its own spec says `[BUMP]`, and said nothing
+        // about having dropped anything.
+        if !arg.required {
+            opts.push("value_optional".into());
+        }
         if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
         }

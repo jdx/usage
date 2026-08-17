@@ -480,6 +480,13 @@ pub struct FlagMeta<'a> {
     pub default: &'a [&'a str],
     pub choices: &'a [&'a str],
     pub required: bool,
+    /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
+    ///
+    /// Help only, and deliberately: usage-lib's parser refuses a bare `--bump` exactly as it
+    /// refuses a bare `--port`, so this changes no binding — it changes the brackets, `[BUMP]`
+    /// rather than `<BUMP>`, which is what a spec's `arg "[BUMP]" required=#false` says. In
+    /// [`FlagMeta`] and not in [`Flag`] for that reason: a parse never reads it.
+    pub value_optional: bool,
     pub hide: bool,
     /// Whether repetition is counted rather than collected, as in `-vvv`.
     pub count: bool,
@@ -533,6 +540,7 @@ impl FlagMeta<'_> {
         default: &[],
         choices: &[],
         required: false,
+        value_optional: false,
         hide: false,
         count: false,
         repeatable: false,
@@ -1050,8 +1058,13 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         write!(
             out,
             "arg {}",
-            quoted(&placeholder(name, meta.flag.variadic))
+            quoted(&placeholder(name, meta.flag.variadic, meta.value_optional))
         )?;
+        // Square brackets alone would round-trip as required, since usage-lib reads the
+        // brackets *and* the attribute: `[BUMP]` without it comes back `required=#true`.
+        if meta.value_optional {
+            out.push_str(" required=#false");
+        }
         if meta.choices.is_empty() {
             out.push('\n');
         } else {
@@ -1221,9 +1234,10 @@ fn flag_forms(flag: &Flag<'_>) -> String {
 }
 
 /// `<name>` or `<name>...`, the spec's way of writing a value placeholder.
-fn placeholder(name: &str, variadic: bool) -> String {
+fn placeholder(name: &str, variadic: bool, optional: bool) -> String {
     let ellipsis = if variadic { "..." } else { "" };
-    format!("<{name}>{ellipsis}")
+    let (open, close) = if optional { ('[', ']') } else { ('<', '>') };
+    format!("{open}{name}{close}{ellipsis}")
 }
 
 /// A positional's placeholder: angle brackets when required, square when not.
@@ -1699,7 +1713,8 @@ mod tests {
         };
         assert_eq!(arg_placeholder("file", &required), "<file>");
         assert_eq!(arg_placeholder("rest", &optional_var), "[rest]...");
-        assert_eq!(placeholder("n", false), "<n>");
-        assert_eq!(placeholder("pattern", true), "<pattern>...");
+        assert_eq!(placeholder("n", false, false), "<n>");
+        assert_eq!(placeholder("pattern", true, false), "<pattern>...");
+        assert_eq!(placeholder("BUMP", false, true), "[BUMP]");
     }
 }

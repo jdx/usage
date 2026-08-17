@@ -150,6 +150,13 @@ pub struct Field {
     /// way of saying "one or more" — could not be declared at all, and came back as
     /// `[TARGET]…`. This is the one place it has to be stated rather than inferred.
     pub required_collection: bool,
+    /// Whether the flag's value may be left off: `[BUMP]` rather than `<BUMP>`.
+    ///
+    /// Help and the emitted spec only. usage-lib's parser refuses a bare `--bump` exactly as it
+    /// refuses a bare `--port`, so this binds nothing differently — which is why it is stated
+    /// here and not inferred from the type, where `Option<String>` already means the *flag* is
+    /// optional and says nothing about its value.
+    pub value_optional: bool,
     /// The placeholder for a flag's value in help and in the emitted spec: `n` in
     /// `--jobs <n>`.
     ///
@@ -914,6 +921,7 @@ impl Field {
             ident: ident.clone(),
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
+            value_optional: false,
             kind: Kind::Flatten {
                 ty: field.ty.clone(),
             },
@@ -1012,6 +1020,7 @@ impl Field {
             ident: ident.clone(),
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
+            value_optional: false,
             kind: Kind::Subcommand { ty, optional },
             effect: None,
             complete: None,
@@ -1070,6 +1079,7 @@ impl Field {
         let mut repeatable = false;
         let mut variadic = false;
         let mut count = false;
+        let mut value_optional = false;
         let mut double_dash = DoubleDash::Optional;
         let mut env = None;
         let mut setting = None;
@@ -1130,6 +1140,10 @@ impl Field {
                     "var" => repeatable = flag_value(&meta)?,
                     "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
+                    // Help only: the parser refuses a bare `--bump` either way. What this
+                    // changes is the brackets, which is the whole of what a spec's
+                    // `arg "[BUMP]" required=#false` says.
+                    "value_optional" => value_optional = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
                     "env" => env = Some(string_value(&meta)?),
@@ -1371,6 +1385,13 @@ impl Field {
             return Err(syn::Error::new(
                 span,
                 "`value_enum` describes what a value may be, and this field takes no value",
+            ));
+        }
+        if value_optional && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "`value_optional` describes a value that may be left off, and this field \
+                 takes no value",
             ));
         }
         if !choices.is_empty() && matches!(shape, Shape::Bool | Shape::Count) {
@@ -1725,6 +1746,7 @@ impl Field {
             ident,
             ty: field.ty.clone(),
             name,
+            value_optional,
             kind,
             shape,
             value_ty,
