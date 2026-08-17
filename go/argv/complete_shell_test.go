@@ -129,6 +129,23 @@ func TestAValueThatCannotTravelIsNotOffered(t *testing.T) {
 	}
 }
 
+// The description column is decided over the rows that survive.
+//
+// A description on a candidate that gets dropped would otherwise turn the column
+// on for everyone else, leaving an empty field on every row — the all-or-nothing
+// rule broken by the answer it was deciding for.
+func TestADroppedRowDoesNotTurnOnTheDescriptionColumn(t *testing.T) {
+	a := Answer{Candidates: []Candidate{
+		{Value: "bad\tvalue", Describe: "the only description"},
+		{Value: "plain"},
+	}}
+	for _, shell := range []Shell{Fish, Nu, PowerShell} {
+		if got := RenderAnswer(a, shell); got != "plain\n" {
+			t.Errorf("%v: no column where nothing written has a description: %q", shell, got)
+		}
+	}
+}
+
 // A description is prose, and prose collapses: nothing is typed from it, and a
 // two-line help still says both halves on one line.
 func TestADescriptionIsCollapsedRatherThanDropped(t *testing.T) {

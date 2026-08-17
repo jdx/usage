@@ -62,9 +62,14 @@ func RenderAnswer(a Answer, shell Shell) string {
 	// Descriptions are all-or-nothing per answer: a column that appears on some
 	// rows and not others reads as missing data rather than as an absent
 	// description.
+	//
+	// Over the rows that will actually be written, not over every candidate. A
+	// description sitting on a row that gets dropped below would otherwise put an
+	// empty column on all the survivors — the rule broken by the answer it was
+	// deciding for.
 	described := false
 	for _, c := range a.Candidates {
-		if c.Describe != "" {
+		if c.Describe != "" && travels(c.Value) {
 			described = true
 			break
 		}
