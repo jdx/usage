@@ -19,7 +19,6 @@ use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcomman
 
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
-    let module = format_ident!("__usage_{}", ident.to_string().to_lowercase());
 
     let flags: Vec<&Field> = cli
         .fields
@@ -92,7 +91,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
     let partial = partial_struct(cli);
-    let defaults_in_module = partial_defaults(cli, true);
+    let defaults = partial_defaults(cli);
     // A root resolves settings when it binds one itself, or when it says so — which is how a CLI
     // whose bound flags all live in a flattened group asks for the entry points, since it cannot
     // see another struct's fields. A root that does neither gets the compile-time guard instead of
@@ -108,8 +107,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .map(|s| s.bindings.clone());
     let settings_layer = resolves.then(settings_layer);
     let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
-    // The name an adopter uses, forwarding to the module's, because the table names the flattened
-    // types and only inside the module do those paths resolve the way `in_module` wrote them.
+    // The name an adopter uses, forwarding to the one inside the const block, which is where
+    // the table that reads it lives.
     let settings_binding_forward = settings_bindings.as_ref().map(|_| {
         quote! {
             /// Every flag this CLI reads into a setting, and the setting it sets.
@@ -118,7 +117,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// *declares*, so a documented flag nothing reads — hk has thirteen — fails a test
             /// rather than a user.
             pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
-                #module::SETTINGS_BINDINGS;
+                SETTINGS_BINDINGS;
         }
     });
     // The second entry point, emitted only when something is bound: it returns what the parser saw
@@ -147,9 +146,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // would sit in the layer that outranks every other, named after a flag nobody
                 // typed — and counted twice by a `union` setting whose CLI also has an
                 // `EnvLayer`. The environment has a layer of its own to arrive in.
-                let mut partial = #module::read_argv(Self::command(), argv)?;
-                let __usage_settings = #module::settings_layer(&partial);
-                #module::check(&mut partial)?;
+                let mut partial = read_argv(Self::command(), argv)?;
+                let __usage_settings = settings_layer(&partial);
+                check(&mut partial)?;
                 let __usage_built = Self {
                     #sub_build
                     #(#field_finals),*
@@ -186,16 +185,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
             // without breaking every crate that derives.
             clippy::needless_update
         )]
-        mod #module {
-            use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
-            use ::usage_argv::{Arg, Command, DoubleDash, Flag};
-
+        const _: () = {
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
             #table_decls
 
-            pub static ROOT: Command = Command {
+            pub static ROOT: ::usage_argv::Command = ::usage_argv::Command {
                 // Only where a version was declared, which is when clap adds the flag: a
                 // `--version` that answers with nothing is worse than one that is not there.
                 version: #has_version,
@@ -206,14 +202,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 args: #arg_table_ref,
                 #sub_commands
                 #sub_default
-                ..Command::EMPTY
+                ..::usage_argv::Command::EMPTY
             };
 
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
 
-            pub static ROOT_META: CommandMeta = CommandMeta {
+            pub static ROOT_META: ::usage_argv::spec::CommandMeta = ::usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
                 about: #about,
                 long_about: #long_about,
@@ -226,7 +222,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas
-                ..CommandMeta::EMPTY
+                ..::usage_argv::spec::CommandMeta::EMPTY
             };
 
             // Values arrive as the bytes that were on the command line. This version
@@ -274,7 +270,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 command: &'static ::usage_argv::Command<'static>,
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
-                #defaults_in_module
+                #defaults
 
                 let mut __usage_parser = ::usage_argv::Parser::new(command, argv);
                 while let ::std::option::Option::Some(__usage_event) =
@@ -330,7 +326,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #settings_layer
             #settings_guard
 
-            pub static SPEC: Spec = Spec {
+            pub static SPEC: ::usage_argv::spec::Spec = ::usage_argv::spec::Spec {
                 name: #name,
                 bin: #bin,
                 version: #version,
@@ -340,108 +336,108 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 default_subcommand: #default_subcommand,
                 root: &ROOT_META,
             };
-        }
 
-        impl #ident {
-            /// The parse tables for this CLI.
-            ///
-            /// `static`, so reaching them costs nothing: there is no command tree
-            /// to build before a parse can start.
-            pub fn command() -> &'static ::usage_argv::Command<'static> {
-                &#module::ROOT
-            }
+            impl #ident {
+                /// The parse tables for this CLI.
+                ///
+                /// `static`, so reaching them costs nothing: there is no command tree
+                /// to build before a parse can start.
+                pub fn command() -> &'static ::usage_argv::Command<'static> {
+                    &ROOT
+                }
 
-            /// This CLI's spec, for emitting, documenting, or completing.
-            pub fn spec() -> &'static ::usage_argv::spec::Spec<'static> {
-                &#module::SPEC
-            }
+                /// This CLI's spec, for emitting, documenting, or completing.
+                pub fn spec() -> &'static ::usage_argv::spec::Spec<'static> {
+                    &SPEC
+                }
 
-            /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
-            /// and the completion generators read.
-            pub fn to_kdl() -> ::std::string::String {
-                #module::SPEC.to_kdl()
-            }
+                /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
+                /// and the completion generators read.
+                pub fn to_kdl() -> ::std::string::String {
+                    SPEC.to_kdl()
+                }
 
-            #settings_binding_forward
-            #settings_parse
+                #settings_binding_forward
+                #settings_parse
 
-            /// Parse a command line, excluding the program name.
-            pub fn parse_from<'v>(
-                argv: &'v [&'v ::std::ffi::OsStr],
-            ) -> ::std::result::Result<Self, ::usage_argv::Error<'static, 'v>> {
-                let partial = #module::read(Self::command(), argv)?;
-                ::std::result::Result::Ok(Self {
-                    #sub_build
-                    #(#field_finals),*
-                })
-            }
+                /// Parse a command line, excluding the program name.
+                pub fn parse_from<'v>(
+                    argv: &'v [&'v ::std::ffi::OsStr],
+                ) -> ::std::result::Result<Self, ::usage_argv::Error<'static, 'v>> {
+                    let partial = read(Self::command(), argv)?;
+                    ::std::result::Result::Ok(Self {
+                        #sub_build
+                        #(#field_finals),*
+                    })
+                }
 
-            /// Parse the process's own arguments.
-            #completion
+                /// Parse the process's own arguments.
+                #completion
 
-            pub fn parse() -> Self {
-                #completion_intercept
-                let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
-                    ::std::env::args_os().skip(1).collect();
-                let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    __usage_raw.iter().map(|a| a.as_os_str()).collect();
-                // This is the entry point that *is* the process — it already exits for a help
-                // request — so it answers a failure the way a command-line program does:
-                // the message on stderr, and a non-zero status. `parse_from` hands the error
-                // back instead, for a library embedding this that wants to decide.
-                match Self::parse_from(&__usage_argv) {
-                    ::std::result::Result::Ok(parsed) => parsed,
-                    // Not failures: someone asked a question, and the answer goes to stdout.
-                    ::std::result::Result::Err(::usage_argv::Error::Version) => {
-                        match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
-                            (bin, ::std::option::Option::Some(version)) => {
-                                ::std::println!("{bin} {version}");
-                                ::std::process::exit(0);
-                            }
-                            // Unreachable: the flag is only in the table when a version was
-                            // declared, and the same declaration fills this in.
-                            (_, ::std::option::Option::None) => {
-                                ::std::process::exit(0);
+                pub fn parse() -> Self {
+                    #completion_intercept
+                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
+                        ::std::env::args_os().skip(1).collect();
+                    let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        __usage_raw.iter().map(|a| a.as_os_str()).collect();
+                    // This is the entry point that *is* the process — it already exits for a help
+                    // request — so it answers a failure the way a command-line program does:
+                    // the message on stderr, and a non-zero status. `parse_from` hands the error
+                    // back instead, for a library embedding this that wants to decide.
+                    match Self::parse_from(&__usage_argv) {
+                        ::std::result::Result::Ok(parsed) => parsed,
+                        // Not failures: someone asked a question, and the answer goes to stdout.
+                        ::std::result::Result::Err(::usage_argv::Error::Version) => {
+                            match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
+                                (bin, ::std::option::Option::Some(version)) => {
+                                    ::std::println!("{bin} {version}");
+                                    ::std::process::exit(0);
+                                }
+                                // Unreachable: the flag is only in the table when a version was
+                                // declared, and the same declaration fills this in.
+                                (_, ::std::option::Option::None) => {
+                                    ::std::process::exit(0);
+                                }
                             }
                         }
-                    }
-                    ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
-                        // By the route the words took, not by the command's address: one
-                        // `Subcommands` type mounted under two parents is one address, and a
-                        // page found by searching for it carries the first mount's path and
-                        // globals. Falls back where the route cannot be rebuilt.
-                        let __usage_page = match ::usage_argv::help::route_to(
-                            Self::command(),
-                            &__usage_argv,
-                            cmd,
-                        ) {
-                            ::std::option::Option::Some(route) => {
-                                ::usage_argv::help::render_at(Self::spec(), &route, long)
+                        ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
+                            // By the route the words took, not by the command's address: one
+                            // `Subcommands` type mounted under two parents is one address, and a
+                            // page found by searching for it carries the first mount's path and
+                            // globals. Falls back where the route cannot be rebuilt.
+                            let __usage_page = match ::usage_argv::help::route_to(
+                                Self::command(),
+                                &__usage_argv,
+                                cmd,
+                            ) {
+                                ::std::option::Option::Some(route) => {
+                                    ::usage_argv::help::render_at(Self::spec(), &route, long)
+                                }
+                                ::std::option::Option::None => {
+                                    ::usage_argv::help::render(Self::spec(), cmd, long)
+                                }
+                            };
+                            match __usage_page {
+                                ::std::option::Option::Some(page) => {
+                                    ::std::print!("{page}");
+                                    ::std::process::exit(0);
+                                }
+                                // Only reachable if the command came from another CLI's tables.
+                                ::std::option::Option::None => ::std::process::exit(0),
                             }
-                            ::std::option::Option::None => {
-                                ::usage_argv::help::render(Self::spec(), cmd, long)
-                            }
-                        };
-                        match __usage_page {
-                            ::std::option::Option::Some(page) => {
-                                ::std::print!("{page}");
-                                ::std::process::exit(0);
-                            }
-                            // Only reachable if the command came from another CLI's tables.
-                            ::std::option::Option::None => ::std::process::exit(0),
                         }
-                    }
-                    ::std::result::Result::Err(e) => {
-                        ::std::eprint!(
-                            "{}",
-                            ::usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
-                        );
-                        // clap's, so a script that checks for it keeps working.
-                        ::std::process::exit(2);
+                        ::std::result::Result::Err(e) => {
+                            ::std::eprint!(
+                                "{}",
+                                ::usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
+                            );
+                            // clap's, so a script that checks for it keeps working.
+                            ::std::process::exit(2);
+                        }
                     }
                 }
             }
-        }
+        };
     }
 }
 
@@ -617,7 +613,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     };
 
     quote! {
-        pub static #name: Flag = Flag {
+        pub static #name: ::usage_argv::Flag = ::usage_argv::Flag {
             key: #key,
             name: #field_name,
             longs: &[#(#longs),*],
@@ -640,10 +636,10 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
         unreachable!("filtered by the caller");
     };
     let double_dash = match double_dash {
-        DoubleDash::Optional => quote!(DoubleDash::Optional),
-        DoubleDash::Required => quote!(DoubleDash::Required),
-        DoubleDash::Preserve => quote!(DoubleDash::Preserve),
-        DoubleDash::Automatic => quote!(DoubleDash::Automatic),
+        DoubleDash::Optional => quote!(::usage_argv::DoubleDash::Optional),
+        DoubleDash::Required => quote!(::usage_argv::DoubleDash::Required),
+        DoubleDash::Preserve => quote!(::usage_argv::DoubleDash::Preserve),
+        DoubleDash::Automatic => quote!(::usage_argv::DoubleDash::Automatic),
     };
     // A bound stops the variadic while binding, so the argument after it is reachable.
     let var_max = match field.var_max.filter(|_| var) {
@@ -656,7 +652,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     };
 
     quote! {
-        pub static #name: Arg = Arg {
+        pub static #name: ::usage_argv::Arg = ::usage_argv::Arg {
             key: #key,
             name: #field_name,
             var: #var,
@@ -688,7 +684,7 @@ fn completer_tokens(
     // level below where the user wrote the path, so a bare name shifts by one — while
     // `crate::…`, a leading `::` and `self::…` mean something already, and prefixing those
     // produced a path that does not resolve.
-    let completer_path = path_in_module(path);
+    let completer_path = path;
     let decl = quote! {
         fn #wrapper(
             ctx: &::usage_argv::complete::CompleteCtx<'_>,
@@ -701,7 +697,7 @@ fn completer_tokens(
             // subcommand's words against the ancestor's tables would drop everything the
             // ancestor was given before the subcommand's name.
             let __usage_declaration =
-                <super::#owner as ::usage_argv::spec::CommandArgs>::COMMAND;
+                <#owner as ::usage_argv::spec::CommandArgs>::COMMAND;
             let (__usage_command, __usage_words) = ctx
                 .command_for(__usage_declaration)
                 .unwrap_or((__usage_declaration, ctx.command_words));
@@ -711,7 +707,7 @@ fn completer_tokens(
                 .collect();
             let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                 __usage_owned.iter().map(|a| a.as_os_str()).collect();
-            let mut partial = <super::#owner as ::usage_argv::spec::CommandArgs>::start();
+            let mut partial = <#owner as ::usage_argv::spec::CommandArgs>::start();
             let mut parser = ::usage_argv::Parser::new(
                 __usage_command,
                 &__usage_argv,
@@ -721,7 +717,7 @@ fn completer_tokens(
             while let ::std::option::Option::Some(event) = parser.next_event() {
                 match event {
                     ::std::result::Result::Ok(event) => {
-                        let _ = <super::#owner as ::usage_argv::spec::CommandArgs>::apply(
+                        let _ = <#owner as ::usage_argv::spec::CommandArgs>::apply(
                             &mut partial,
                             &event,
                         );
@@ -774,7 +770,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
         .unwrap_or_else(|| quote!(::core::option::Option::None));
     quote! {
         #completer_decl
-        pub static #name: FlagMeta = FlagMeta {
+        pub static #name: ::usage_argv::spec::FlagMeta = ::usage_argv::spec::FlagMeta {
             effect: #effect,
             complete: #completer,
             flag: &#table,
@@ -796,7 +792,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             requires: &[#(#requires),*],
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
-            ..FlagMeta::EMPTY
+            ..::usage_argv::spec::FlagMeta::EMPTY
         };
     }
 }
@@ -821,7 +817,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
 
     quote! {
         #completer_decl
-        pub static #name: ArgMeta = ArgMeta {
+        pub static #name: ::usage_argv::spec::ArgMeta = ::usage_argv::spec::ArgMeta {
             complete: #completer,
             arg: &#table,
             help: #help,
@@ -834,7 +830,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
-            ..ArgMeta::EMPTY
+            ..::usage_argv::spec::ArgMeta::EMPTY
         };
     }
 }
@@ -844,7 +840,6 @@ fn choices_tokens(field: &Field) -> TokenStream {
     // From the type when the field says `value_enum`, so the spec, the help and the check
     // all read the list the type declares rather than a copy of it.
     if let (true, Some(ty)) = (field.value_enum, field.value_ty.as_ref()) {
-        let ty = in_module(ty);
         return quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES);
     }
     let choices = &field.choices;
@@ -924,12 +919,6 @@ fn key_ident(kind: &str, index: Option<usize>) -> proc_macro2::Ident {
     }
 }
 
-/// A user's type, named from inside a generated module.
-///
-/// The generated `mod` is a child of wherever the derive was written, and a name
-/// from the parent scope is not in scope inside it — so a reference to the user's own
-/// type has to say `super::`. An absolute path already resolves from anywhere and is
-/// left alone.
 /// The table expressions for one command, and whatever has to be declared to build them.
 ///
 /// Without a `flatten` these are the plain slices the derive has always emitted, so nothing
@@ -1015,7 +1004,6 @@ fn tables(cli: &Cli) -> Tables {
                 flattened = true;
                 flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
                 flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
-                let ty = in_module(ty);
                 flag_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.flags));
                 arg_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.args));
                 flag_meta_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.flags));
@@ -1075,41 +1063,6 @@ fn tables(cli: &Cli) -> Tables {
         args: quote!(&ARGS),
         flag_metas: quote!(&FLAG_METAS),
         arg_metas: quote!(&ARG_METAS),
-    }
-}
-
-fn in_module(ty: &syn::Type) -> TokenStream {
-    let syn::Type::Path(path) = ty else {
-        return quote!(#ty);
-    };
-    path_in_module(&path.path)
-}
-
-/// The same rewriting for a path that names a function rather than a type.
-///
-/// Extracted rather than repeated, because getting it wrong is not a compile error in this
-/// crate: it is one in the user's, at a line they did not write.
-fn path_in_module(path: &syn::Path) -> TokenStream {
-    // Already absolute: resolves the same from anywhere.
-    if path.leading_colon.is_some() {
-        return quote!(#path);
-    }
-    let mut segments = path.segments.iter();
-    match segments.next().map(|s| s.ident.to_string()).as_deref() {
-        // Rooted at the crate, so it resolves the same from anywhere too.
-        Some("crate") => quote!(#path),
-        // `self` and `super` are relative to where the user wrote them, which is one level out
-        // from the generated module — so each shifts by one.
-        Some("self") => {
-            let rest = segments;
-            quote!(super::#(#rest)::*)
-        }
-        Some("super") => {
-            let rest = segments;
-            quote!(super::super::#(#rest)::*)
-        }
-        // A relative path, which the generated module is one level below.
-        _ => quote!(super::#path),
     }
 }
 
@@ -1252,7 +1205,6 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         // knows — reached through the trait, like everything else about it.
         if let Kind::Flatten { ty } = &f.kind {
             let ident = &f.ident;
-            let ty = in_module(ty);
             return Some(quote! {
                 pub #ident: <#ty as ::usage_argv::spec::CommandArgs>::Partial,
             });
@@ -1410,29 +1362,23 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
         .filter_map(|field| {
             let ident = &field.ident;
             match &field.kind {
-                Kind::Flatten { ty } => {
-                    let ty = in_module(ty);
-                    Some((
-                        quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
-                        quote! {
-                            <#ty as ::usage_argv::spec::CommandArgs>::settings_given(
-                                &partial.#ident,
-                            )
-                        },
-                    ))
-                }
-                Kind::Subcommand { ty, .. } => {
-                    let ty = in_module(ty);
-                    Some((
-                        quote!(<#ty as ::usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
-                        quote! {
-                            <#ty as ::usage_argv::spec::Subcommands>::settings_given(
-                                &partial.__usage_sub,
-                                partial.__usage_selected,
-                            )
-                        },
-                    ))
-                }
+                Kind::Flatten { ty } => Some((
+                    quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
+                    quote! {
+                        <#ty as ::usage_argv::spec::CommandArgs>::settings_given(
+                            &partial.#ident,
+                        )
+                    },
+                )),
+                Kind::Subcommand { ty, .. } => Some((
+                    quote!(<#ty as ::usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
+                    quote! {
+                        <#ty as ::usage_argv::spec::Subcommands>::settings_given(
+                            &partial.__usage_sub,
+                            partial.__usage_selected,
+                        )
+                    },
+                )),
                 _ => None,
             }
         })
@@ -1586,13 +1532,7 @@ fn settings_guard(cli: &Cli) -> Option<TokenStream> {
 ///
 /// A declared `default` has to be in place before parsing starts, since nothing
 /// later distinguishes "the default" from "what the user typed".
-/// `inside_module` says where this will be spliced, which changes how a flattened struct's
-/// type has to be named: the root's defaults are built in `parse_from`, in the impl beside the
-/// user's struct, while a nested command's are built by `start()` inside the generated module —
-/// where the same path needs a `super::`. Nothing else in here cares, and getting it wrong is a
-/// compile error in the adopter's crate rather than here, so it is a parameter rather than a
-/// guess.
-fn partial_defaults(cli: &Cli, inside_module: bool) -> TokenStream {
+fn partial_defaults(cli: &Cli) -> TokenStream {
     let sub_starts = subcommand_parts(cli)
         .map(|p| p.partial_starts)
         .unwrap_or_default();
@@ -1604,11 +1544,6 @@ fn partial_defaults(cli: &Cli, inside_module: bool) -> TokenStream {
         // place before parsing — the same reason this function exists at all.
         if let Kind::Flatten { ty } = &f.kind {
             let ident = &f.ident;
-            let ty = if inside_module {
-                in_module(ty)
-            } else {
-                quote!(#ty)
-            };
             return Some(quote! {
                 #ident: <#ty as ::usage_argv::spec::CommandArgs>::start(),
             });
@@ -1649,9 +1584,6 @@ fn field_final(field: &Field) -> TokenStream {
         // Built by its own derive, which is also what makes a nested flatten work: this is
         // the same call at every level.
         //
-        // Named directly rather than through `in_module`: `build` is emitted in the impl
-        // beside the user's struct, not inside the generated module, so a `super::` here
-        // would climb one level too far.
         return quote! {
             #ident: <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#ident)?
         };
@@ -1924,7 +1856,6 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
-        let ty = in_module(ty);
         Some(quote! {
             if <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
                 return true;
@@ -2012,7 +1943,6 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     })?;
     let ident = &field.ident;
     let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
-    let in_mod = in_module(ty);
 
     let selected = quote! {
         match partial.__usage_selected {
@@ -2041,7 +1971,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     };
 
     Some(SubcommandParts {
-        commands: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS,),
+        commands: quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::COMMANDS,),
         // Resolved from the name at compile time. The variants are another expansion, so the
         // name is all there is to go on here — but `find_subcommand` searches the list during
         // const evaluation, which means a name no subcommand answers to fails to compile
@@ -2050,16 +1980,16 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             ::std::option::Option::Some(name) => quote! {
                 default_subcommand: ::std::option::Option::Some(
                     ::usage_argv::find_subcommand(
-                        <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS,
+                        <#ty as ::usage_argv::spec::Subcommands>::COMMANDS,
                         #name,
                     ),
                 ),
             },
             ::std::option::Option::None => TokenStream::new(),
         },
-        metas: quote!(subcommands: <#in_mod as ::usage_argv::spec::Subcommands>::METAS,),
+        metas: quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::METAS,),
         partial_fields: quote! {
-            pub __usage_sub: <#in_mod as ::usage_argv::spec::Subcommands>::Partial,
+            pub __usage_sub: <#ty as ::usage_argv::spec::Subcommands>::Partial,
             /// Which of this command's subcommands was reached, as a position in
             /// `COMMANDS`. Found from the table's own address, so it cannot be
             /// confused by a key collision.
@@ -2069,9 +1999,6 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             __usage_sub: ::std::default::Default::default(),
             __usage_selected: ::std::option::Option::None,
         },
-        // `route` and `check` are emitted inside the generated module, so they name
-        // the user's enum through `super::`; `build` sits in the impl beside it and
-        // names it directly.
         route: quote! {
             // A command word only counts as *this* command's if one of its own
             // subcommands answers to it: a deeper descent belongs to whoever owns
@@ -2079,7 +2006,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // selected.
             if let ::usage_argv::Event::Command(__usage_cmd) = event {
                 if let ::std::option::Option::Some(__usage_at) =
-                    <#in_mod as ::usage_argv::spec::Subcommands>::COMMANDS
+                    <#ty as ::usage_argv::spec::Subcommands>::COMMANDS
                         .iter()
                         .position(|candidate| ::core::ptr::eq(*candidate, *__usage_cmd))
                 {
@@ -2089,7 +2016,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
             // set just above, so a command word reaches the command it named on the same
             // event that selected it.
-            if <#in_mod as ::usage_argv::spec::Subcommands>::apply(
+            if <#ty as ::usage_argv::spec::Subcommands>::apply(
                 &mut partial.__usage_sub,
                 partial.__usage_selected,
                 event,
@@ -2099,7 +2026,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         },
         check: quote! {
             if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
-                <#in_mod as ::usage_argv::spec::Subcommands>::check(
+                <#ty as ::usage_argv::spec::Subcommands>::check(
                     &mut partial.__usage_sub,
                     __usage_at,
                 )?;
@@ -2113,7 +2040,6 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 /// parent reach them.
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
-    let module = format_ident!("__usage_args_{}", ident.to_string().to_lowercase());
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -2127,12 +2053,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let settings_impl = parts.as_ref().map(|_| {
         quote! {
             const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
-                #module::SETTINGS_BINDINGS;
+                SETTINGS_BINDINGS;
 
             fn settings_given(
                 partial: &Self::Partial,
             ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
-                #module::settings_given(partial)
+                settings_given(partial)
             }
         }
     });
@@ -2179,7 +2105,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let about = option_str(cli.about.as_deref());
     let long_about = option_str(cli.long_about.as_deref());
     let partial = partial_struct(cli);
-    let defaults = partial_defaults(cli, true);
+    let defaults = partial_defaults(cli);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let parts = subcommand_parts(cli);
@@ -2215,29 +2141,26 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             // without breaking every crate that derives.
             clippy::needless_update
         )]
-        mod #module {
-            use ::usage_argv::spec::{ArgMeta, CommandMeta, FlagMeta};
-            use ::usage_argv::{Arg, Command, DoubleDash, Flag};
-
+        const _: () = {
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
             #table_decls
 
-            pub static COMMAND: Command = Command {
+            pub static COMMAND: ::usage_argv::Command = ::usage_argv::Command {
                 name: #name,
                 key: #command_key,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands
-                ..Command::EMPTY
+                ..::usage_argv::Command::EMPTY
             };
 
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
 
-            pub static COMMAND_META: CommandMeta = CommandMeta {
+            pub static COMMAND_META: ::usage_argv::spec::CommandMeta = ::usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
                 effect: #effect,
                 about: #about,
@@ -2251,7 +2174,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas
-                ..CommandMeta::EMPTY
+                ..::usage_argv::spec::CommandMeta::EMPTY
             };
 
             pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
@@ -2289,43 +2212,43 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             }
 
             #settings_defs
-        }
 
-        impl ::usage_argv::spec::CommandArgs for #ident {
-            type Partial = #module::Partial;
+            impl ::usage_argv::spec::CommandArgs for #ident {
+                type Partial = Partial;
 
-            const COMMAND: &'static ::usage_argv::Command<'static> = &#module::COMMAND;
-            const META: &'static ::usage_argv::spec::CommandMeta<'static> =
-                &#module::COMMAND_META;
+                const COMMAND: &'static ::usage_argv::Command<'static> = &COMMAND;
+                const META: &'static ::usage_argv::spec::CommandMeta<'static> =
+                    &COMMAND_META;
 
-            fn start() -> Self::Partial {
-                #module::start()
+                fn start() -> Self::Partial {
+                    start()
+                }
+
+                fn apply(
+                    partial: &mut Self::Partial,
+                    event: &::usage_argv::Event<'_, '_>,
+                ) -> bool {
+                    apply(partial, event)
+                }
+
+                fn check<'t, 'v>(
+                    partial: &mut Self::Partial,
+                ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                    check(partial)
+                }
+
+                #settings_impl
+
+                fn build<'t, 'v>(
+                    partial: Self::Partial,
+                ) -> ::std::result::Result<Self, ::usage_argv::Error<'t, 'v>> {
+                    ::std::result::Result::Ok(Self {
+                        #sub_build
+                        #(#field_finals),*
+                    })
+                }
             }
-
-            fn apply(
-                partial: &mut Self::Partial,
-                event: &::usage_argv::Event<'_, '_>,
-            ) -> bool {
-                #module::apply(partial, event)
-            }
-
-            fn check<'t, 'v>(
-                partial: &mut Self::Partial,
-            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
-                #module::check(partial)
-            }
-
-            #settings_impl
-
-            fn build<'t, 'v>(
-                partial: Self::Partial,
-            ) -> ::std::result::Result<Self, ::usage_argv::Error<'t, 'v>> {
-                ::std::result::Result::Ok(Self {
-                    #sub_build
-                    #(#field_finals),*
-                })
-            }
-        }
+        };
     }
 }
 
@@ -2333,7 +2256,6 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 /// parent uses to route events into them.
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
-    let module = format_ident!("__usage_subs_{}", ident.to_string().to_lowercase());
 
     // The structs the bare variants imply, written here so everything downstream keeps
     // speaking to a struct. `Args` is derived on them rather than the impl being written out:
@@ -2365,12 +2287,12 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // which until the word arrives.
     let partial_fields = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
-        let ty = in_module(&v.ty);
+        let ty = &v.ty;
         quote!(pub #field: <#ty as ::usage_argv::spec::CommandArgs>::Partial,)
     });
     let partial_starts = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
-        let ty = in_module(&v.ty);
+        let ty = &v.ty;
         quote!(#field: <#ty as ::usage_argv::spec::CommandArgs>::start(),)
     });
     let applies = subs.variants.iter().enumerate().map(|(i, v)| {
@@ -2388,7 +2310,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // only looks right when the two happen to match.
     let command_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
         let name = format_ident!("COMMAND_{i}");
-        let ty = in_module(&v.ty);
+        let ty = &v.ty;
         let cmd_name = &v.name;
         // Both kinds of alias go in the table, because the parser matches both; which of
         // them help and completions mention is the metadata's business, below.
@@ -2403,7 +2325,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     });
     let commands = (0..subs.variants.len()).map(|i| {
         let name = format_ident!("COMMAND_{i}");
-        quote!(&#module::#name)
+        quote!(&#name)
     });
     // A doc comment on the variant wins over the struct's, since that is where a
     // reader of the enum expects to describe the command — and ignoring it would lose
@@ -2412,7 +2334,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let meta_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
         let name = format_ident!("META_{i}");
         let cmd = format_ident!("COMMAND_{i}");
-        let ty = in_module(&v.ty);
+        let ty = &v.ty;
         // A doc comment on the variant wins over the struct's, since that is where a
         // reader of the enum expects to describe the command. Absent one, the
         // struct's own description carries through.
@@ -2448,7 +2370,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     });
     let metas = (0..subs.variants.len()).map(|i| {
         let name = format_ident!("META_{i}");
-        quote!(&#module::#name)
+        quote!(&#name)
     });
     // Matched on the command's key rather than its name, so selecting a variant is
     // an integer comparison and cannot be confused by an alias.
@@ -2518,7 +2440,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // without breaking every crate that derives.
             clippy::needless_update
         )]
-        mod #module {
+        const _: () = {
             pub struct Partial {
                 #(#partial_fields)*
             }
@@ -2531,73 +2453,73 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 
             #(#command_overrides)*
             #(#meta_overrides)*
-        }
 
-        impl ::usage_argv::spec::Subcommands for #ident {
-            type Partial = #module::Partial;
+            impl ::usage_argv::spec::Subcommands for #ident {
+                type Partial = Partial;
 
-            const COMMANDS: &'static [&'static ::usage_argv::Command<'static>] =
-                &[#(#commands),*];
-            const METAS: &'static [&'static ::usage_argv::spec::CommandMeta<'static>] =
-                &[#(#metas),*];
+                const COMMANDS: &'static [&'static ::usage_argv::Command<'static>] =
+                    &[#(#commands),*];
+                const METAS: &'static [&'static ::usage_argv::spec::CommandMeta<'static>] =
+                    &[#(#metas),*];
 
-            fn apply(
-                partial: &mut Self::Partial,
-                selected: ::std::option::Option<usize>,
-                event: &::usage_argv::Event<'_, '_>,
-            ) -> bool {
-                match selected {
-                    #(#applies)*
-                    // Nothing selected yet, or a position that cannot be produced: the event
-                    // is not one of these commands'.
-                    _ => false,
+                fn apply(
+                    partial: &mut Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                    event: &::usage_argv::Event<'_, '_>,
+                ) -> bool {
+                    match selected {
+                        #(#applies)*
+                        // Nothing selected yet, or a position that cannot be produced: the event
+                        // is not one of these commands'.
+                        _ => false,
+                    }
+                }
+
+                const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = {
+                    const PARTS: &[&'static [(&'static str, &'static str)]] = &[#(#binding_parts),*];
+                    const N: usize = 0 #(#binding_lens)*;
+                    const JOINED: [(&'static str, &'static str); N] =
+                        ::usage_argv::spec::concat_bindings(PARTS);
+                    &JOINED
+                };
+
+                fn settings_given(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+                    match selected {
+                        #(#givens)*
+                        // No subcommand was reached, so none of them was given anything.
+                        _ => ::std::vec::Vec::new(),
+                    }
+                }
+
+                fn check<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    selected: usize,
+                ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                    match selected {
+                        #(#checks)*
+                        // A position that is not one of these cannot be produced: it comes
+                        // from finding a table's own address in COMMANDS.
+                        _ => ::std::result::Result::Ok(()),
+                    }
+                }
+
+                fn select<'t, 'v>(
+                    partial: Self::Partial,
+                    selected: usize,
+                ) -> ::std::result::Result<
+                    ::std::option::Option<Self>,
+                    ::usage_argv::Error<'t, 'v>,
+                > {
+                    match selected {
+                        #(#selects)*
+                        _ => ::std::result::Result::Ok(::std::option::Option::None),
+                    }
                 }
             }
-
-            const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = {
-                const PARTS: &[&'static [(&'static str, &'static str)]] = &[#(#binding_parts),*];
-                const N: usize = 0 #(#binding_lens)*;
-                const JOINED: [(&'static str, &'static str); N] =
-                    ::usage_argv::spec::concat_bindings(PARTS);
-                &JOINED
-            };
-
-            fn settings_given(
-                partial: &Self::Partial,
-                selected: ::std::option::Option<usize>,
-            ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
-                match selected {
-                    #(#givens)*
-                    // No subcommand was reached, so none of them was given anything.
-                    _ => ::std::vec::Vec::new(),
-                }
-            }
-
-            fn check<'t, 'v>(
-                partial: &mut Self::Partial,
-                selected: usize,
-            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
-                match selected {
-                    #(#checks)*
-                    // A position that is not one of these cannot be produced: it comes
-                    // from finding a table's own address in COMMANDS.
-                    _ => ::std::result::Result::Ok(()),
-                }
-            }
-
-            fn select<'t, 'v>(
-                partial: Self::Partial,
-                selected: usize,
-            ) -> ::std::result::Result<
-                ::std::option::Option<Self>,
-                ::usage_argv::Error<'t, 'v>,
-            > {
-                match selected {
-                    #(#selects)*
-                    _ => ::std::result::Result::Ok(::std::option::Option::None),
-                }
-            }
-        }
+        };
     }
 }
 
@@ -2636,7 +2558,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
-        let ty = in_module(ty);
         Some(quote! {
             <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
         })
@@ -2755,7 +2676,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // lists what was expected, instead of a message about a type the user did not name.
         let choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
             (true, Some(ty)) => {
-                let ty = in_module(ty);
                 quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES)
             }
             _ => {
@@ -3027,26 +2947,5 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod in_module_tests {
-    use super::in_module;
-
-    fn rendered(ty: &str) -> String {
-        in_module(&syn::parse_str::<syn::Type>(ty).unwrap())
-            .to_string()
-            .replace(' ', "")
-    }
-
-    #[test]
-    fn a_path_is_qualified_for_the_generated_module() {
-        assert_eq!(rendered("Commands"), "super::Commands");
-        assert_eq!(rendered("cmds::Commands"), "super::cmds::Commands");
-        assert_eq!(rendered("crate::cmds::Commands"), "crate::cmds::Commands");
-        assert_eq!(rendered("::other::Commands"), "::other::Commands");
-        assert_eq!(rendered("self::Commands"), "super::Commands");
-        assert_eq!(rendered("super::Commands"), "super::super::Commands");
     }
 }
