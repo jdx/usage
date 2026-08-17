@@ -685,7 +685,13 @@
     0 0 20px var(--vw-cyan-glow);
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  /* Named properties rather than `all`: the component reads the tip's width back to
+     decide whether it has to cap it, and a width the browser is busy animating
+     reports the value it is animating from. */
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease,
+    transform 0.2s ease;
   pointer-events: none;
   z-index: 100;
   /* The metric line is uppercase mono; a tooltip inside it is prose. */

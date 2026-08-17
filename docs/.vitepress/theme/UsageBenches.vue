@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from "vue";
+
 // Rust wall clock from `time-sweep.rs`, which warms each parser and keeps the
 // fastest of many short rounds — steady-state and in-process, because a
 // whole-process measurement cannot resolve a 200ns parse. Values in nanoseconds,
@@ -46,30 +48,55 @@ function width(value: number, max: number): string {
 // is what lets the tip stay under its own phrase at every width.
 const GUTTER = 8;
 
-function clamp(event: Event) {
-  const hint = event.currentTarget as HTMLElement;
+function place(hint: HTMLElement) {
   const tip = hint.querySelector(".usage-bench-tip") as HTMLElement | null;
   const card = hint.closest(".usage-bench-card") as HTMLElement | null;
   if (!tip || !card) return;
 
-  // Where the tip sits with no nudge: centred on the phrase, per the CSS. Derived
-  // from layout rather than read off the tip's own rect, which reports wherever the
-  // last nudge is mid-transition to and would clamp against the wrong position.
   const h = hint.getBoundingClientRect();
   const c = card.getBoundingClientRect();
-  const left = h.left + h.width / 2 - tip.offsetWidth / 2;
-  const right = left + tip.offsetWidth;
 
   // Inside the card, and inside the window: at 320px the card is itself wider than
   // the screen, so the card alone is not the bound that matters there.
   const min = Math.max(c.left, 0) + GUTTER;
   const max = Math.min(c.right, window.innerWidth) - GUTTER;
+  const room = max - min;
+
+  // A tip too wide for that interval cannot be nudged into it — moving it to clear
+  // one edge only pushes it past the other — so cap the width to the room there is
+  // and let it wrap. This is why the width lives here and not only in the CSS, where
+  // it would have to guess the same interval a second time.
+  tip.style.maxWidth = "";
+  if (tip.offsetWidth > room) tip.style.maxWidth = `${Math.floor(room)}px`;
+
+  // Where the tip sits with no nudge: centred on the phrase, per the CSS. Derived
+  // from layout rather than read off the tip's own rect, which reports wherever the
+  // last nudge is mid-transition to and would clamp against the wrong position.
+  const left = h.left + h.width / 2 - tip.offsetWidth / 2;
+  const right = left + tip.offsetWidth;
 
   let shift = 0;
   if (left < min) shift = min - left;
   else if (right > max) shift = max - right;
   tip.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
 }
+
+function clamp(event: Event) {
+  place(event.currentTarget as HTMLElement);
+}
+
+// A tip open across a resize, a zoom, a rotation or the 860px reflow was measured
+// against a layout that no longer exists. Whichever hint is still under the pointer
+// or holding focus is the one showing a tip, so that is the one to measure again.
+function replace() {
+  const open = document.querySelector(
+    ".usage-bench-hint:hover, .usage-bench-hint:focus",
+  ) as HTMLElement | null;
+  if (open) place(open);
+}
+
+onMounted(() => window.addEventListener("resize", replace, { passive: true }));
+onBeforeUnmount(() => window.removeEventListener("resize", replace));
 </script>
 
 <template>
