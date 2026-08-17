@@ -113,3 +113,39 @@ func min(a, b int) int {
 }
 
 var _ = spec.Spec{}
+
+func TestEveryLongPageMatchesTheReference(t *testing.T) {
+	usageBin := findUsage(t)
+	lowered := lowerFile(t, usageBin, filepath.Join("..", "..", "benches", "mise.usage.kdl"))
+	root, _, help := lowered.BuildAll()
+	reference := referencePages(t)
+	spec := lowered.HelpSpec()
+
+	var checked int
+	var differences []string
+	var walk func(chain []*argv.Command, path []string)
+	walk = func(chain []*argv.Command, path []string) {
+		key := strings.Join(path[1:], " ")
+		if want, ok := reference[key]; ok {
+			if got := argv.LongHelp(spec, path, chain, help); got != want.Long {
+				differences = append(differences, key+"\n"+firstDiff(got, want.Long))
+			}
+			checked++
+		}
+		for _, sub := range chain[len(chain)-1].Subcommands {
+			walk(append(append([]*argv.Command{}, chain...), sub),
+				append(append([]string{}, path...), sub.Name))
+		}
+	}
+	walk([]*argv.Command{root}, []string{"mise"})
+
+	if len(differences) > 0 {
+		shown := differences
+		if len(shown) > 2 {
+			shown = shown[:2]
+		}
+		t.Fatalf("%d of %d long pages differ from usage-lib:\n%s",
+			len(differences), checked, strings.Join(shown, "\n"))
+	}
+	t.Logf("%d long pages match usage-lib exactly", checked)
+}

@@ -66,9 +66,11 @@ type Help struct {
 	Env     string
 	Default []string
 	// BeforeHelp and AfterHelp bracket this command's page, overriding the
-	// spec-wide text.
-	BeforeHelp string
-	AfterHelp  string
+	// spec-wide text. The long variants are preferred by `--help`.
+	BeforeHelp     string
+	AfterHelp      string
+	BeforeLongHelp string
+	AfterLongHelp  string
 	// Examples are worked invocations, printed last.
 	Examples []Example
 }

@@ -26,15 +26,26 @@ type HelpSpec struct {
 	// About is the root's description, which the root's page uses in place of the
 	// command's own.
 	About string
-	// BeforeHelp and AfterHelp bracket every page that does not override them.
-	BeforeHelp string
-	AfterHelp  string
+	// LongAbout is what `--help` prefers over About.
+	LongAbout string
+	// Usage replaces the computed usage line on the root's long page, where a CLI
+	// writes its own.
+	Usage string
+	// BeforeHelp and AfterHelp bracket every page that does not override them,
+	// and the long variants are what `--help` prefers.
+	BeforeHelp     string
+	AfterHelp      string
+	BeforeLongHelp string
+	AfterLongHelp  string
 }
 
 // Example is one worked invocation, as a page prints it.
 type Example struct {
 	Header string
 	Code   string
+	// Help introduces the line on the long page, printed above the command
+	// rather than beside it.
+	Help string
 }
 
 // shortCol is the width the short-flag column is padded to, so that `-J, --json`
@@ -201,7 +212,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 	out.WriteString("\nCommands:\n")
 
 	// Sorted by the rendered usage rather than by name, as usage-lib sorts them.
-	sort.SliceStable(lines, func(i, j int) bool { return lines[i].usage < lines[j].usage })
+	sortLines(lines, func(i int) string { return lines[i].usage })
 
 	for _, l := range lines {
 		out.WriteString("  " + l.usage)
@@ -324,6 +335,13 @@ func pad(s string, col int) string {
 }
 
 func width(s string) int { return len([]rune(s)) }
+
+// sortLines orders a section's entries by their rendered usage, which is how
+// usage-lib orders them — for a command with no flags or arguments that agrees
+// with sorting by name, and where it differs this is what a reader sees.
+func sortLines[T any](lines []T, key func(int) string) {
+	sort.SliceStable(lines, func(i, j int) bool { return key(i) < key(j) })
+}
 
 func min(a, b int) int {
 	if a < b {
