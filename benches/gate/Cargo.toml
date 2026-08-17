@@ -32,4 +32,5 @@ shadow-communique = { path = "../shadows/communique" }
 # The oracle for completions, for the same reason: the reference's candidate list is what
 # "the same candidates" is measured against.
 usage-cli = { path = "../../cli" }
+proptest = "1.11.0"
 
