@@ -80,15 +80,11 @@ pub(crate) fn version() -> String {
 #[derive(Subcommands)]
 enum Command {
     Bash(Box<shell::Bash>),
-    #[usage(alias = "cw")]
     CompleteWord(Box<complete_word::CompleteWord>),
-    #[usage(alias = "x")]
     Exec(Box<exec::Exec>),
     Fish(Box<shell::Fish>),
-    #[usage(alias = "g")]
     Generate(Box<generate::Generate>),
     Lint(Box<lint::Lint>),
-    #[usage(alias = "mcp-server")]
     Mcp(Box<mcp::Mcp>),
     #[usage(name = "powershell")]
     PowerShell(Box<shell::PowerShell>),

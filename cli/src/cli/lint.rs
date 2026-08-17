@@ -12,7 +12,7 @@ pub struct Lint {
     file: PathBuf,
 
     /// Output format
-    #[usage(long, short = 'f', default = "text", value_enum)]
+    #[usage(long, short, default = "text", value_enum)]
     format: OutputFormat,
 
     /// Treat warnings as errors

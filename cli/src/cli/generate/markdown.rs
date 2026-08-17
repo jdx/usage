@@ -6,29 +6,24 @@ use usage_derive::Args;
 
 /// Generate markdown documentation from usage specs
 #[derive(Args)]
-#[usage(effect = "read")]
+#[usage(alias = "md", effect = "read")]
 pub struct Markdown {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: PathBuf,
     // /// Pass a usage spec in an argument instead of a file
-    // #[usage(short = 's', long, required_unless = "--file", overrides = "--file")]
+    // #[usage(short, long, required_unless = "--file", overrides = "--file")]
     // spec: Option<String>,
     /// Render each subcommand as a separate markdown file
-    #[usage(short = 'm', long, conflicts = "--out-file")]
+    #[usage(short, long, conflicts = "--out-file")]
     multi: bool,
 
     /// Escape HTML in markdown
     #[usage(long)]
     html_encode: bool,
 
-    // clap said this both ways: `--multi requires --out-dir` and `--out-dir requires
-    // --multi`. `required_if` says the first, which is the direction that matters — a
-    // multi-file render with nowhere to write. The second is a positive requirement on a
-    // `bool`, which nothing in the spec can state; jdx/usage#925 adds `requires`, and it
-    // belongs here when it lands.
     /// Output markdown files to this directory (required when using --multi)
-    #[usage(long, required_if = "--multi", effect = "write")]
+    #[usage(long, requires = "--multi", required_if = "--multi", effect = "write")]
     out_dir: Option<PathBuf>,
 
     /// Output file path for single-file markdown generation, or "-" for stdout (default)
@@ -46,13 +41,6 @@ pub struct Markdown {
 
 impl Markdown {
     pub fn run(&self) -> miette::Result<()> {
-        // The half of the `--multi`/`--out-dir` pair the spec cannot state. Checked here
-        // rather than left out: without it, `--out-dir docs` with no `--multi` writes a
-        // single file somewhere else entirely and says nothing, where clap refused the
-        // command line. Belongs in the spec once jdx/usage#925's `requires` lands.
-        if self.out_dir.is_some() && !self.multi {
-            miette::bail!("--out-dir is only used with --multi");
-        }
         // The banner belongs to every generated document, so build it in one place rather
         // than once per output path.
         let render = |md: &str| {
