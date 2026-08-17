@@ -207,7 +207,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // would sit in the layer that outranks every other, named after a flag nobody
                 // typed — and counted twice by a `union` setting whose CLI also has an
                 // `EnvLayer`. The environment has a layer of its own to arrive in.
-                let mut partial = read_argv(Self::command(), argv)?;
+                #defaults
+                read_argv_into(Self::command(), argv, &mut partial)?;
                 let __usage_settings = settings_layer(&partial);
                 check(&mut partial)?;
                 let __usage_built = Self {
@@ -336,7 +337,24 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
                 #defaults
+                read_argv_into(command, argv, &mut partial)?;
+                ::std::result::Result::Ok(partial)
+            }
 
+            /// `read_argv`, filling a partial the caller already owns.
+            ///
+            /// The entry points call this rather than `read_argv`, because a `Partial` is
+            /// the whole CLI's worth of accumulator — every command's fields, inlined —
+            /// and returning one by value is a memcpy of all of it. At mise's scale that is
+            /// 11KB a move, and returning it up the chain from here to `parse_from` made
+            /// four: 87% of a parse was spent copying a struct of which all but one
+            /// command's worth goes untouched. Threading `&mut` puts the partial in the
+            /// frame that will consume it, leaving only the one copy that builds it.
+            pub fn read_argv_into<'v>(
+                command: &'static usage_argv::Command<'static>,
+                argv: &'v [&'v ::std::ffi::OsStr],
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
                 let mut __usage_parser = usage_argv::Parser::new(command, argv);
                 while let ::std::option::Option::Some(__usage_event) =
                     __usage_parser.next_event()
@@ -365,10 +383,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // `apply` handles this command's own fields and routes anything
                     // else into its subcommands, which is why a nested command needs
                     // nothing extra here.
-                    apply(&mut partial, &__usage_event);
+                    apply(partial, &__usage_event);
                 }
 
-                ::std::result::Result::Ok(partial)
+                ::std::result::Result::Ok(())
             }
 
             /// Every token read, and everything decided after the last one.
@@ -381,9 +399,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 command: &'static usage_argv::Command<'static>,
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
-                let mut partial = read_argv(command, argv)?;
-                check(&mut partial)?;
+                #defaults
+                read_into(command, argv, &mut partial)?;
                 ::std::result::Result::Ok(partial)
+            }
+
+            /// `read`, filling a partial the caller already owns. See `read_argv_into`.
+            pub fn read_into<'v>(
+                command: &'static usage_argv::Command<'static>,
+                argv: &'v [&'v ::std::ffi::OsStr],
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                read_argv_into(command, argv, partial)?;
+                check(partial)?;
+                ::std::result::Result::Ok(())
             }
 
             #settings_given
@@ -430,7 +459,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn parse_from<'v>(
                     argv: &'v [&'v ::std::ffi::OsStr],
                 ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
-                    let partial = read(Self::command(), argv)?;
+                    // The partial is built here and filled through `&mut`, rather than
+                    // returned up the chain: see `read_argv_into`.
+                    #defaults
+                    read_into(Self::command(), argv, &mut partial)?;
                     ::std::result::Result::Ok(Self {
                         #sub_build
                         #(#field_finals),*
