@@ -5,22 +5,186 @@ use tera::Tera;
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec.clone());
-    let docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
+    let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
 
     let mut ctx = tera::Context::new();
     ctx.insert("spec", &docs_spec);
-    ctx.insert("cmd", &docs_cmd);
     ctx.insert("long", &long);
     // Which page this is. The banner and the program's own description belong to the
     // program's page; a subcommand's page describes the subcommand, which is the question
     // that was asked. `full_cmd` is the path a user would type, so the root's is empty.
     ctx.insert("root", &docs_cmd.full_cmd.is_empty());
+    // Everything this command inherits: from each ancestor, only what it declared `global` —
+    // the rule the parser follows on the way down. `full_cmd` is the typed path, so walking it
+    // from the root gives the exact ancestry with none of the ambiguity a search would have.
+    //
+    // Listed nowhere before this: `communique generate` accepts `--config` from its root and
+    // its page mentioned none of it — a flag a user can type and cannot discover.
+    let mut inherited = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
+
+    // One column over both lists, so the two sections read as one table with a rule through it
+    // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
+    // padding — a continuation line is indented to sit under the description — so both lists
+    // are laid out again once the width is known.
+    let width = crate::docs::layout::get_terminal_width();
+    let col = crate::docs::layout::max_usage_width(
+        docs_cmd
+            .flag_groups
+            .iter()
+            .flat_map(|g| g.items.iter())
+            .chain(inherited.iter())
+            .map(|f| f.display_usage.as_str()),
+    );
+    for group in &mut docs_cmd.flag_groups {
+        lay_out(&mut group.items, width, col);
+    }
+    lay_out(&mut inherited, width, col);
+
+    // Inserted after the layout, not before: the template reads the widths, and a `cmd` put
+    // into the context first would carry the ones computed before the two lists were joined.
+    ctx.insert("cmd", &docs_cmd);
+    ctx.insert("global_flags", &inherited);
     let template = if long {
         "spec_template_long.tera"
     } else {
         "spec_template_short.tera"
     };
     TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
+}
+
+/// Fit a list of flags to a column: how wide their names are, and where their help wraps.
+///
+/// The same pass `SpecCommand::from` makes, run again once the width is known over *both* the
+/// command's own flags and the ones it inherits. The width is not only padding — a wrapped
+/// description is indented to sit under itself — so it cannot be decided per section and then
+/// shared.
+fn lay_out(flags: &mut [crate::docs::models::SpecFlag], terminal_width: usize, col: usize) {
+    for flag in flags {
+        flag.usage_col_width = col;
+        flag.help_rendered = None;
+        flag.help_is_multiline = false;
+        let help = flag.help_long.as_deref().or(flag.help.as_deref());
+        if let Some(help) = help {
+            let (rendered, is_multiline) =
+                crate::docs::layout::render_help_text(help, terminal_width, col);
+            // An empty rendering is how this says "use the block layout instead".
+            if !rendered.is_empty() {
+                flag.help_rendered = Some(rendered);
+                flag.help_is_multiline = is_multiline;
+            }
+        }
+    }
+}
+
+/// The flags a command inherits, as its page should list them.
+///
+/// Walked down `full_cmd` from the root, which is the path a user would type — so the chain is
+/// exact. Each ancestor contributes only what it declared `global`, and hidden ones are left
+/// out here as they are everywhere else.
+///
+/// The twin of `own_and_global` in `usage-argv`'s `help` module; the two must agree, and the
+/// gate over mise's spec is what says they do.
+fn inherited_flags(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    full_cmd: &[String],
+) -> Vec<crate::docs::models::SpecFlag> {
+    // Every ancestor, root first, which is the order a reader meets them walking down.
+    let mut ancestors: Vec<&SpecCommand> = Vec::new();
+    let mut at = &spec.cmd;
+    for name in full_cmd.iter().take(full_cmd.len().saturating_sub(1)) {
+        ancestors.push(at);
+        let Some(next) = at.subcommands.get(name) else {
+            return Vec::new();
+        };
+        at = next;
+    }
+    if !full_cmd.is_empty() {
+        ancestors.push(at);
+    }
+
+    // Shadowing, which the parser does and the page has to agree with: a command's own flags
+    // are looked up before its ancestors', so `mise use --raw` is *use's* and never the root's.
+    // Listing both would print two descriptions for one spelling, one of which can never apply.
+    // Nearest ancestor first for the decision, then emitted root-first.
+    // Two sets, because the parser has two passes: it resolves a word against every long and
+    // short in scope before it looks at a negation at all, so *any* long beats *any* negation
+    // however far away it is. Reading them as one said a nearer negation had taken a spelling
+    // that a farther long actually wins.
+    //
+    // usage-lib stores a negation *with* its dashes — `negate="--no-colour"` reaches the model
+    // as `--no-colour` — where usage-argv stores it without. Prefixing here produced
+    // `----no-colour`, which matched nothing, so negations were counted in name only.
+    let forms = |f: &crate::SpecFlag| -> Vec<String> {
+        f.long
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(f.short.iter().map(|s| format!("-{s}")))
+            .collect()
+    };
+    let every_form: Vec<String> = cmd
+        .flags
+        .iter()
+        .chain(
+            ancestors
+                .iter()
+                .flat_map(|a| a.flags.iter())
+                .filter(|f| f.global),
+        )
+        .flat_map(&forms)
+        .collect();
+
+    let mut taken: Vec<String> = cmd.flags.iter().flat_map(&forms).collect();
+    let mut taken_negations: Vec<String> =
+        cmd.flags.iter().filter_map(|f| f.negate.clone()).collect();
+    let mut keep: Vec<(&crate::SpecFlag, Option<String>, Option<char>, bool)> = Vec::new();
+    for ancestor in ancestors.iter().rev() {
+        for f in ancestor.flags.iter().filter(|f| f.global) {
+            let long = f
+                .long
+                .iter()
+                .find(|l| !taken.contains(&format!("--{l}")))
+                .cloned();
+            let short = f
+                .short
+                .iter()
+                .find(|s| !taken.contains(&format!("-{s}")))
+                .copied();
+            let mine = forms(f);
+            let negate = f.negate.as_ref().is_some_and(|n| {
+                !taken_negations.contains(n) && (!every_form.contains(n) || mine.contains(n))
+            });
+            // Reserved whether or not it is shown: a hidden one still binds, and so does one
+            // whose every spelling something nearer already took.
+            taken.extend(forms(f));
+            taken_negations.extend(f.negate.clone());
+            if f.hide || (long.is_none() && short.is_none() && !negate) {
+                continue;
+            }
+            keep.push((f, long, short, negate));
+        }
+    }
+    ancestors
+        .iter()
+        .flat_map(|a| a.flags.iter())
+        .filter_map(|f| {
+            keep.iter()
+                .find(|(k, _, _, _)| std::ptr::eq(*k, f))
+                .map(|(_, l, s, n)| (f, l.clone(), *s, *n))
+        })
+        .map(|(f, long, short, negate)| {
+            // Only the spellings that survived, so the entry offers what the parser would
+            // actually accept here.
+            let mut shown = f.clone();
+            shown.long = long.into_iter().collect();
+            shown.short = short.into_iter().collect();
+            if !negate {
+                shown.negate = None;
+            }
+            shown.usage = shown.usage();
+            crate::docs::models::SpecFlag::from(&shown)
+        })
+        .collect()
 }
 
 /// The command without anything marked `hide`.
@@ -83,6 +247,45 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn a_long_beats_a_negation_however_far_away_it_is() {
+        // A negation is stored *with* its dashes here and without them in usage-argv, so the
+        // spelling was being looked up as `----no-cache` and matched nothing — negations were
+        // counted in name only. And which one binds is not about distance: a word is resolved
+        // against every long in scope before any negation is considered, so the root's plain
+        // `--no-cache` wins over the subcommand's negation and belongs on its page.
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--no-cache" global=#true help="the root's plain long"
+flag "--colour" negate="--no-colour" global=#true help="the root's, with a negation"
+cmd narrow help="a command" {
+    flag "--cache" negate="--no-cache" help="its own, with a negation"
+    flag "--tint" negate="--no-colour" help="claims the root's negation"
+}
+        "# }
+        .unwrap();
+
+        let narrow = spec.cmd.subcommands.get("narrow").expect("narrow");
+        for long in [false, true] {
+            let page = super::render_help(&spec, narrow, long);
+            assert!(
+                page.contains("--no-cache"),
+                "long={long}: a long beats a negation, so this still binds here:\n{page}"
+            );
+            // And a negation *is* claimed by a nearer negation — which is what the dashes
+            // matter for. `--colour` stays; the negation it used to carry does not.
+            assert!(page.contains("--colour"), "long={long}:\n{page}");
+            let global = page
+                .split_once("Global flags:")
+                .expect("a global section")
+                .1;
+            assert!(
+                !global.contains("--colour / --no-colour"),
+                "long={long}: the nearer negation owns that spelling:\n{page}"
+            );
+        }
+    }
 
     #[test]
     fn a_description_of_only_spaces_is_no_description() {

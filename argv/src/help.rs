@@ -112,18 +112,97 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
 
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
 fn flag_usage(meta: &FlagMeta<'_>) -> String {
+    flag_usage_masked(meta, &Shown::all(meta))
+}
+
+/// The spellings of one flag that a page should offer.
+///
+/// Not "hide the long" and "hide the short": a flag may answer to several of each, and a
+/// descendant claiming `--jobs` leaves an inherited `--workers` working. What is shown is the
+/// first of each kind that nothing nearer has taken.
+struct Shown<'a> {
+    long: Option<&'a str>,
+    short: Option<u8>,
+    /// Whether the negation is still this flag's to offer. `--no-color` is a spelling like any
+    /// other and something nearer can claim it.
+    negate: bool,
+}
+
+impl<'a> Shown<'a> {
+    /// Everything the flag has, for a command's own flags — nothing above them to claim any.
+    fn all(meta: &'a FlagMeta<'a>) -> Self {
+        Shown {
+            long: meta.flag.longs.first().copied(),
+            short: meta.flag.shorts.first().copied(),
+            negate: meta.flag.negate.is_some(),
+        }
+    }
+
+    /// What is left of a flag once everything nearer has had its pick.
+    ///
+    /// `taken` is the longs and shorts already claimed; `taken_negations` the negations;
+    /// `every_form` every long and short in scope at any distance, because the parser resolves
+    /// a word against all of those before it looks at a negation at all.
+    fn surviving(
+        meta: &'a FlagMeta<'a>,
+        taken: &[String],
+        taken_negations: &[String],
+        every_form: &[String],
+    ) -> Self {
+        let mine: Vec<String> = meta
+            .flag
+            .longs
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(meta.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
+            .collect();
+        Shown {
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|l| !taken.contains(&format!("--{l}"))),
+            short: meta
+                .flag
+                .shorts
+                .iter()
+                .copied()
+                .find(|s| !taken.contains(&format!("-{}", *s as char))),
+            negate: meta.flag.negate.is_some_and(|n| {
+                let spelling = format!("--{n}");
+                // A long anywhere in scope wins over this, this flag's own excepted.
+                !taken_negations.contains(&spelling)
+                    && (!every_form.contains(&spelling) || mine.contains(&spelling))
+            }),
+        }
+    }
+
+    fn nothing(&self) -> bool {
+        self.long.is_none() && self.short.is_none() && !self.negate
+    }
+}
+
+/// The same, with a spelling left out because something nearer claimed it.
+///
+/// A descendant may take one of an ancestor's two spellings — its own `-v` beside the root's
+/// `-v, --verbose` — and the parser still accepts the other, so the page has to offer the other
+/// and not the one that now means something else.
+fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     let flag = meta.flag;
     let mut out = String::new();
 
     // The declared name, when it is not the one the forms would imply. A flag called
     // `verbose` reachable only as `-v` has to say so, or help would name something the
     // spec does not.
-    let implied = flag
-        .longs
-        .first()
-        .copied()
-        .or_else(|| flag.shorts.first().map(|_| ""));
-    let implied_matches = match (implied, flag.shorts.first()) {
+    //
+    // Judged on the forms this page is *showing*. mise's root has a global `-E --env`; a
+    // descendant that claims `--env` leaves `-E` inherited, and `-E… <ENV>` alone gives a
+    // reader nothing to connect it to the `--env` they saw elsewhere. `env: -E… <ENV>` does.
+    let long = show.long;
+    let short = show.short.as_ref();
+    let implied = long.or_else(|| short.map(|_| ""));
+    let implied_matches = match (implied, short) {
         (Some(long), _) if !long.is_empty() => long == flag.name,
         (Some(_), Some(short)) => {
             let mut buf = [0u8; 4];
@@ -134,13 +213,13 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
     if !implied_matches {
         let _ = write!(out, "{}:", flag.name);
     }
-    if let Some(short) = flag.shorts.first() {
+    if let Some(short) = short {
         if !out.is_empty() {
             out.push(' ');
         }
         let _ = write!(out, "-{}", *short as char);
     }
-    if let Some(long) = flag.longs.first() {
+    if let Some(long) = long {
         if !out.is_empty() {
             out.push(' ');
         }
@@ -219,7 +298,9 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
 /// and in which help text they prefer, not in what they cover.
 ///
 /// `path` is the command as invoked, as for [`usage_line`].
-pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    let meta = *chain.last().expect("a page is always about some command");
+    let (own, inherited) = own_and_global(chain);
     let mut out = String::new();
 
     // Text the command puts above everything else, and below it. The short form has only the
@@ -281,29 +362,41 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Str
             annotations(out, a.choices, a.env, a.default);
         },
     );
-    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
-    let flag_col = flags
+    // One column over *both* lists, so the two sections read as one table with a rule through
+    // it rather than two tables that happen to be adjacent.
+    let flag_col = own
         .iter()
         .map(|f| column_usage(f).chars().count())
+        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
         .unwrap_or(0);
+    let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
+        match f.help.filter(|h| !h.trim().is_empty()) {
+            Some(help) => {
+                let _ = write!(out, "  {usage:<flag_col$}  {help}");
+            }
+            None => {
+                let _ = write!(out, "  {usage}");
+            }
+        }
+        annotations(out, f.choices, f.env, &[]);
+    };
     groups_section(
         &mut out,
         "Flags",
-        flags.iter().copied(),
+        own.iter().copied(),
         |f| f.help_heading,
-        |out, f| {
-            let usage = column_usage(f);
-            match f.help.filter(|h| !h.trim().is_empty()) {
-                Some(help) => {
-                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
-                }
-                None => {
-                    let _ = write!(out, "  {usage}");
-                }
-            }
-            annotations(out, f.choices, f.env, &[]);
-        },
+        |out, f| short_entry(out, f, column_usage(f)),
+    );
+    // After the command's own, and under a heading that says where they came from: `--config`
+    // belongs to the program, not to this command, and a reader should be able to see that.
+    // The text is precomputed, since a spelling a descendant claimed is left out of it.
+    groups_section(
+        &mut out,
+        "Global flags",
+        inherited.iter(),
+        |_| None,
+        |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
     examples_section(&mut out, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
@@ -429,9 +522,9 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
-fn display_usage(meta: &FlagMeta<'_>) -> String {
-    let usage = flag_usage(meta);
-    match meta.flag.negate {
+fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
+    let usage = flag_usage_masked(meta, show);
+    match meta.flag.negate.filter(|_| show.negate) {
         Some(negate) => format!("{usage} / --{negate}"),
         None => usage,
     }
@@ -459,8 +552,12 @@ const SHORT_COL: usize = 4;
 /// what clap does. And a flag with neither — usage can name one the forms do not imply,
 /// `verbose: -v`, which clap has no equivalent for — takes the same path as short-only.
 fn column_usage(meta: &FlagMeta<'_>) -> String {
-    let rest = display_usage(meta);
-    let Some(long) = meta.flag.longs.first() else {
+    column_usage_masked(meta, &Shown::all(meta))
+}
+
+fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
+    let rest = display_usage_masked(meta, show);
+    let Some(long) = show.long else {
         return rest;
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
@@ -533,7 +630,9 @@ fn terminal_width() -> usize {
 /// An entry whose help contains a line break is laid out as a block instead, its text indented
 /// under the usage rather than beside it, because there is no column that keeps a line the
 /// author already broke readable.
-pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> String {
+pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    let meta = *chain.last().expect("a page is always about some command");
+    let (own, inherited) = own_and_global(chain);
     let width = terminal_width();
     let mut out = String::new();
 
@@ -593,20 +692,37 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> Stri
         },
     );
 
-    let flags: Vec<&FlagMeta<'_>> = meta.flags.iter().filter(|f| !f.hide).collect();
-    let flag_col = flags
+    // One column over *both* lists, so the two sections read as one table with a rule through
+    // it rather than two tables that happen to be adjacent.
+    let flag_col = own
         .iter()
         .map(|f| column_usage(f).chars().count())
+        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
         .unwrap_or(0);
     groups_section(
         &mut out,
         "Flags",
-        flags.iter().copied(),
+        own.iter().copied(),
         |f| f.help_heading,
         |out, f| {
             let text = f.long_help.or(f.help);
             entry(out, &column_usage(f), text, flag_col, width);
+            long_annotations(out, f.choices, f.env, &[]);
+        },
+    );
+    // After the command's own, and under a heading that says where they came from: `--config`
+    // belongs to the program, not to this command, and a reader should be able to see that.
+    // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
+    // borrowing them here would put a section title on flags that are only visiting.
+    groups_section(
+        &mut out,
+        "Global flags",
+        inherited.iter(),
+        |_| None,
+        |out, (f, usage)| {
+            let text = f.long_help.or(f.help);
+            entry(out, usage, text, flag_col, width);
             long_annotations(out, f.choices, f.env, &[]);
         },
     );
@@ -796,37 +912,127 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
 pub fn find<'a>(
     spec: &'a Spec<'a>,
     cmd: &Command<'_>,
-) -> Option<(Vec<&'a str>, &'a CommandMeta<'a>)> {
+) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
     fn walk<'a>(
         path: &mut Vec<&'a str>,
+        chain: &mut Vec<&'a CommandMeta<'a>>,
         meta: &'a CommandMeta<'a>,
         cmd: &Command<'_>,
-    ) -> Option<&'a CommandMeta<'a>> {
+    ) -> bool {
+        chain.push(meta);
         if core::ptr::eq(meta.cmd, cmd) {
-            return Some(meta);
+            return true;
         }
         for sub in meta.subcommands {
             path.push(sub.cmd.name);
-            if let Some(found) = walk(path, sub, cmd) {
-                return Some(found);
+            if walk(path, chain, sub, cmd) {
+                return true;
             }
             path.pop();
         }
-        None
+        chain.pop();
+        false
     }
 
     let mut path = vec![spec.bin.unwrap_or(spec.name)];
-    walk(&mut path, spec.root, cmd).map(|meta| (path, meta))
+    let mut chain = Vec::new();
+    walk(&mut path, &mut chain, spec.root, cmd).then_some((path, chain))
+}
+
+/// Every flag a page should list, split into the command's own and the ones it inherits.
+///
+/// The rule the parser follows on the way down, and the same one the diagnostics suggest
+/// from: a command's own flags, and from each ancestor only what it declared `global`.
+///
+/// Inherited flags were listed nowhere. `communique generate` accepts `--config`, `--verbose`
+/// and `--quiet` from its root, and its page mentioned none of them — a flag a user can type
+/// and cannot discover, which is the worst way for help to be wrong.
+fn own_and_global<'a>(
+    chain: &[&'a CommandMeta<'a>],
+) -> (Vec<&'a FlagMeta<'a>>, Vec<(&'a FlagMeta<'a>, String)>) {
+    let Some((here, ancestors)) = chain.split_last() else {
+        return (Vec::new(), Vec::new());
+    };
+    let own: Vec<&FlagMeta<'_>> = here.flags.iter().filter(|f| !f.hide).collect();
+
+    // Which spellings are already spoken for at this command, and by whom.
+    //
+    // The parser's rule, exactly: `in_scope` chains a command's own flags before its
+    // ancestors' — nearest first — and takes the first match. So a page offers a spelling only
+    // where the flag it is describing is the one that would bind it.
+    //
+    // Three things this counts that an earlier version did not. **Hidden flags**, which `hide`
+    // keeps off the page while the parser still binds them — on the command *and* on an
+    // ancestor, or a farther global gets advertised while a nearer hidden one answers.
+    // **Negations**, which are spellings like any other and can be claimed. And **every** long
+    // and short a flag answers to rather than only its first: a descendant taking `--jobs`
+    // leaves an inherited `--workers` working, and it should still be findable.
+    // Two sets, because the parser has two passes. `long_flag` asks `find_long` over the whole
+    // scope before it asks `find_negation`, so *any* long beats *any* negation — a nearer
+    // command's `--cache` negation does not take the spelling from a farther command's `--cache`
+    // long, and reading them as one set said it did.
+    fn forms<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
+        f.flag
+            .longs
+            .iter()
+            .map(|l| format!("--{l}"))
+            .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
+    }
+    fn negation(f: &FlagMeta<'_>) -> Option<String> {
+        f.flag.negate.map(|n| format!("--{n}"))
+    }
+
+    // Every long and short anything in scope answers to, near or far: one of these always
+    // beats a negation, so a negation survives only where none of them is the same word.
+    let every_form: Vec<String> = here
+        .flags
+        .iter()
+        .chain(
+            ancestors
+                .iter()
+                .flat_map(|m| m.flags.iter())
+                .filter(|f| f.flag.global),
+        )
+        .flat_map(forms)
+        .collect();
+
+    let mut taken: Vec<String> = here.flags.iter().flat_map(forms).collect();
+    let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
+    let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
+    for meta in ancestors.iter().rev() {
+        for f in meta.flags.iter().filter(|f| f.flag.global) {
+            let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
+            // Reserved whether or not it is shown: a hidden one still binds, and so does one
+            // whose every spelling something nearer already took.
+            taken.extend(forms(f));
+            taken_negations.extend(negation(f));
+            if f.hide || show.nothing() {
+                continue;
+            }
+            keep.push((f as *const _, show));
+        }
+    }
+    let inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
+        .iter()
+        .flat_map(|meta| meta.flags.iter())
+        .filter_map(|f| {
+            keep.iter()
+                .find(|(p, _)| core::ptr::eq(*p, f as *const _))
+                .map(|(_, show)| (f, column_usage_masked(f, show)))
+        })
+        .collect();
+
+    (own, inherited)
 }
 
 /// The page a help request asks for, ready to print.
 ///
 /// The two forms differ as clap has them: `-h` is the short one and `--help` the long one.
 pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> {
-    let (path, meta) = find(spec, cmd)?;
+    let (path, chain) = find(spec, cmd)?;
     Some(if long {
-        long_help(spec, &path, meta)
+        long_help(spec, &path, &chain)
     } else {
-        short_help(spec, &path, meta)
+        short_help(spec, &path, &chain)
     })
 }

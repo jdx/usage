@@ -393,7 +393,7 @@ fn the_roots_surrounding_text_reaches_every_page() {
     assert_eq!(spec.root.after_help, Some("And this after."));
 
     let go = spec.root.subcommands[0];
-    let page = usage_argv::help::short_help(spec, &["surrounded", "go"], go);
+    let page = usage_argv::help::short_help(spec, &["surrounded", "go"], &[spec.root, go]);
     assert!(page.starts_with("Read this first.\n"), "{page}");
     assert!(page.trim_end().ends_with("And this after."), "{page}");
 

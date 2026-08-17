@@ -1,0 +1,430 @@
+//! Flags a command inherits, listed where they can be used.
+//!
+//! `communique generate` accepts `--config`, `--verbose` and `--quiet` from its root, and its
+//! page mentioned none of them — a flag a user can type and cannot discover, which is the worst
+//! way for help to be wrong.
+//!
+//! Under a heading of their own rather than mixed in, which is where this differs from clap on
+//! purpose: `--config` belongs to the program and not to `generate`, and a reader should be
+//! able to see which is which.
+
+use usage_argv::help;
+use usage_derive::{Args, Cli, Subcommands};
+
+/// Read something back
+#[derive(Args)]
+struct Get {
+    /// Only this command has one
+    #[usage(long)]
+    plain: bool,
+    /// Declared here as well as on the root, which the parser resolves in this one's favour
+    #[usage(long)]
+    raw: bool,
+}
+
+/// Settings, which nest
+#[derive(Args)]
+struct Config {
+    /// A global of its own, one level down
+    #[usage(long, global)]
+    file: Option<String>,
+    /// Hidden, global, and nearer than the root's `--trace` — so this is the one that binds
+    #[usage(long = "trace", global, hide)]
+    trace: bool,
+    #[usage(subcommand)]
+    command: Option<Inner>,
+}
+
+#[derive(Subcommands)]
+enum Inner {
+    /// Read something back
+    Get(Box<Get>),
+}
+
+/// Claims the first of several spellings the root offers
+#[derive(Args)]
+struct Narrow {
+    /// Takes `--jobs`, leaving `--workers` to the root
+    #[usage(long = "jobs")]
+    jobs: Option<String>,
+    /// Takes the root's negation, leaving its positive form
+    #[usage(long = "no-colour")]
+    plain: bool,
+    /// Its *negation* is the root's plain long form, which still counts as claiming it
+    #[usage(long = "cache", negate = "--no-cache")]
+    cache: bool,
+}
+
+#[derive(Subcommands)]
+enum Command {
+    /// Settings, which nest
+    Config(Box<Config>),
+    /// Claims one of the root's two spellings
+    Claimer(Box<Claimer>),
+    /// Claims a spelling with a flag nobody can see
+    Quiet(Box<Quiet>),
+    /// Claims the first of several spellings the root offers
+    Narrow(Box<Narrow>),
+}
+
+/// Claims a spelling with a flag nobody can see
+#[derive(Args)]
+struct Quiet {
+    /// Hidden, and still binds — which is what makes it shadow
+    #[usage(long = "raw", hide)]
+    raw: bool,
+}
+
+/// Claims one of the root's two spellings for itself
+#[derive(Args)]
+struct Claimer {
+    /// A `-v` of its own, which is not the root's
+    #[usage(short = 'v')]
+    level: Option<String>,
+}
+
+/// A tool with flags at every level
+#[derive(Cli)]
+#[usage(bin = "ex")]
+struct Ex {
+    /// Say more
+    #[usage(long, short = 'v', global)]
+    verbose: bool,
+    /// Read and write directly
+    #[usage(long, global)]
+    raw: bool,
+    /// A plain long that a descendant claims with its negation
+    #[usage(long = "no-cache", global)]
+    no_cache: bool,
+    /// Shadowed further down by a hidden global, which still binds
+    #[usage(long, global)]
+    trace: bool,
+    /// Two long forms, so claiming one leaves the other
+    #[usage(long = "jobs", long = "workers", global)]
+    jobs: Option<String>,
+    /// A flag with a negation, which is a spelling like any other
+    #[usage(long = "colour", negate = "--no-colour", global)]
+    colour: bool,
+    /// Not global, so it belongs to the root alone
+    #[usage(long)]
+    root_only: bool,
+    #[usage(subcommand)]
+    command: Option<Command>,
+}
+
+/// The listing part of a page: everything from the first `Flags:` heading on.
+///
+/// The usage line names flags too — `Usage: ex config get [--plain] [--raw]` — and an assertion
+/// about what is *listed* must not count it.
+fn listing(page: &str) -> &str {
+    page.split_once("\nFlags:")
+        .map(|(_, rest)| rest)
+        .unwrap_or(page)
+}
+
+fn page_of(names: &[&str], long: bool) -> String {
+    let mut cmd = Ex::spec().root.cmd;
+    for name in names {
+        cmd = cmd
+            .subcommands
+            .iter()
+            .find(|c| c.name == *name)
+            .unwrap_or_else(|| panic!("no {name}"));
+    }
+    help::render(Ex::spec(), cmd, long).expect("a page")
+}
+
+#[test]
+fn a_page_lists_what_it_inherits_under_its_own_heading() {
+    for long in [false, true] {
+        let page = page_of(&["config", "get"], long);
+        let (own, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: no global section:\n{page}"));
+
+        // The command's own, above the rule.
+        assert!(own.contains("--plain"), "long={long}: {page}");
+
+        // What it inherits, below it — from both ancestors, not just the nearest.
+        assert!(global.contains("--verbose"), "long={long}: {page}");
+        assert!(global.contains("--file"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn a_flag_the_command_declares_itself_is_not_listed_twice() {
+    // The parser looks a command's own flags up before its ancestors' and takes the first
+    // match, so `ex config get --raw` is *get's* `--raw` and never the root's. Listing both
+    // would print two descriptions for one spelling, one of which can never apply.
+    for long in [false, true] {
+        let page = page_of(&["config", "get"], long);
+        assert_eq!(
+            listing(&page).matches("--raw").count(),
+            1,
+            "long={long}: `--raw` should appear once:\n{page}"
+        );
+        assert!(
+            // A short phrase on purpose: the long page wraps this description, so anything
+            // longer would be split across lines and fail for the wrong reason.
+            page.contains("Declared here as well"),
+            "long={long}: and it should be the command's own: {page}"
+        );
+    }
+}
+
+#[test]
+fn a_flag_that_is_not_global_stays_where_it_was_declared() {
+    // `--root-only` is the root's and is not inherited, so a descendant must not offer it —
+    // the parser would refuse it there.
+    for long in [false, true] {
+        let page = page_of(&["config", "get"], long);
+        assert!(!page.contains("--root-only"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn the_programs_own_page_has_no_global_section() {
+    // The root's flags are the root's, `global` or not: the heading is about provenance
+    // relative to *this* page, and there is nowhere above the root to inherit from.
+    for long in [false, true] {
+        let page = page_of(&[], long);
+        assert!(!page.contains("Global flags:"), "long={long}: {page}");
+        assert!(page.contains("--verbose"), "long={long}: {page}");
+        assert!(page.contains("--root-only"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn both_sections_share_one_column() {
+    // So the page reads as one table with a rule through it rather than two that happen to be
+    // adjacent. The width also drives where a wrapped description resumes, so it cannot be
+    // decided per section.
+    let page = page_of(&["config", "get"], true);
+    let column = |needle: &str, help: &str| {
+        let line = listing(&page)
+            .lines()
+            .find(|l| l.contains(needle))
+            .unwrap_or_else(|| panic!("no line for {needle}:\n{page}"));
+        line.find(help)
+            .unwrap_or_else(|| panic!("no help on {line:?}"))
+    };
+    assert_eq!(
+        column("--plain", "Only this command"),
+        column("--verbose", "Say more"),
+        "own and inherited should start in one column:\n{page}"
+    );
+}
+
+#[test]
+fn the_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = [
+        "--verbose",
+        "config",
+        "--file",
+        "f",
+        "get",
+        "--plain",
+        "--raw",
+    ]
+    .map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    assert!(ex.verbose && !ex.raw && !ex.root_only);
+    let Some(Command::Config(config)) = ex.command else {
+        panic!("expected config")
+    };
+    assert_eq!(config.file.as_deref(), Some("f"));
+    assert!(!config.trace, "not given, and it is the nearer of the two");
+    let Some(Inner::Get(get)) = config.command else {
+        panic!("expected get")
+    };
+    assert!(
+        get.plain && get.raw,
+        "the command's own `--raw` is the one that binds"
+    );
+}
+
+#[test]
+fn claiming_one_spelling_leaves_the_other_on_offer() {
+    // `partial` declares its own `-v`; the root's global is `-v, --verbose`. The parser still
+    // binds `--verbose` there, so dropping the whole inherited entry made a working name
+    // undiscoverable. What survives is offered, and what was claimed is not.
+    for long in [false, true] {
+        let page = page_of(&["claimer"], long);
+        let (own, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: {page}"));
+        assert!(own.contains("-v <LEVEL>"), "long={long}: {page}");
+        assert!(global.contains("--verbose"), "long={long}: {page}");
+        assert!(
+            !global.contains("-v, --verbose"),
+            "long={long}: `-v` is the subcommand's here: {page}"
+        );
+    }
+
+    // And the parser agrees, which is the whole point of matching it.
+    use std::ffi::OsStr;
+    let argv = ["claimer", "--verbose"].map(OsStr::new);
+    assert!(
+        Ex::parse_from(&argv).is_ok(),
+        "the root's long form still binds"
+    );
+}
+
+#[test]
+fn a_hidden_flag_still_shadows() {
+    // `hide` keeps a flag off the page; the parser still binds it. usage-lib counted hidden
+    // own flags when deciding what an ancestor could still offer and this did not, so the two
+    // renderers disagreed wherever a hidden local shared a spelling with an inherited global.
+    // Read the *visible* own flags only, while usage-lib read all of them — so the two
+    // renderers disagreed wherever a hidden local shared a spelling with an inherited global,
+    // and the page offered a `--raw` that binds something the reader cannot see.
+    for long in [false, true] {
+        let page = page_of(&["quiet"], long);
+        assert!(
+            !page.contains("--raw"),
+            "long={long}: a hidden local claims this spelling: {page}"
+        );
+        // The other inherited globals are unaffected — this is about one spelling.
+        assert!(page.contains("--verbose"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn the_claimer_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["claimer", "-v", "3"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Claimer(p)) = ex.command else {
+        panic!("expected claimer")
+    };
+    assert_eq!(p.level.as_deref(), Some("3"));
+}
+
+#[test]
+fn the_quiet_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["quiet", "--raw"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Quiet(q)) = ex.command else {
+        panic!("expected quiet")
+    };
+    assert!(q.raw, "a hidden flag still binds, which is why it shadows");
+}
+
+#[test]
+fn claiming_one_of_several_longs_leaves_the_rest() {
+    // The root's global answers to `--jobs` and `--workers`. A descendant taking `--jobs`
+    // leaves `--workers` bound, and masking by *category* — the whole long form — made it
+    // undiscoverable. What is offered is the first spelling nothing nearer has taken.
+    for long in [false, true] {
+        let page = page_of(&["narrow"], long);
+        let (_, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: {page}"));
+        assert!(global.contains("--workers"), "long={long}: {page}");
+        assert!(
+            !global.contains("--jobs"),
+            "long={long}: `--jobs` is the subcommand's here: {page}"
+        );
+    }
+
+    // And the parser agrees, which is the only reason any of this is right.
+    use std::ffi::OsStr;
+    let argv = ["narrow", "--workers", "4"].map(OsStr::new);
+    assert!(
+        Ex::parse_from(&argv).is_ok(),
+        "the other long form still binds"
+    );
+}
+
+#[test]
+fn a_negation_is_a_spelling_like_any_other() {
+    // `--no-colour` taken by the subcommand leaves the root's `--colour` working, and the
+    // entry must not go on advertising a negation that now means something else. Negations
+    // were not counted at all, so one flag claimed it and another offered it.
+    for long in [false, true] {
+        let page = page_of(&["narrow"], long);
+        let (_, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: {page}"));
+        assert!(global.contains("--colour"), "long={long}: {page}");
+        assert!(
+            !global.contains("--no-colour"),
+            "long={long}: the subcommand owns that spelling: {page}"
+        );
+    }
+}
+
+#[test]
+fn a_long_beats_a_negation_however_far_away_it_is() {
+    // `narrow` declares `--cache` with a `--no-cache` negation; the root has a plain global
+    // long `--no-cache`. Which one binds is not about distance: `long_flag` asks `find_long`
+    // over the whole scope *before* it asks `find_negation`, so the root's long wins even
+    // though the negation is nearer. Measured rather than reasoned about:
+    //
+    //     $ ex narrow --no-cache   →   the root's `no_cache` is set
+    //
+    // So the root's flag is still offered here. Reading the two as one set of claims said the
+    // negation had taken the spelling, and the page hid a flag that works.
+    for long in [false, true] {
+        let page = page_of(&["narrow"], long);
+        let (_, global) = page
+            .split_once("Global flags:")
+            .unwrap_or_else(|| panic!("long={long}: {page}"));
+        assert!(
+            global.contains("--no-cache"),
+            "long={long}: a long beats a negation, so this still binds here: {page}"
+        );
+    }
+}
+
+#[test]
+fn the_narrow_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["narrow", "--jobs", "2", "--no-colour"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Narrow(n)) = ex.command else {
+        panic!("expected narrow")
+    };
+    assert_eq!(n.jobs.as_deref(), Some("2"));
+    assert!(n.plain);
+
+    let argv = ["narrow", "--cache"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    let Some(Command::Narrow(n)) = ex.command else {
+        panic!("expected narrow")
+    };
+    assert!(n.cache);
+}
+
+#[test]
+fn a_nearer_hidden_global_keeps_a_farther_one_off_the_page() {
+    // The root declares `--trace`; `config` declares a hidden `--trace` of its own, also
+    // global. Under `config get` the nearer one binds, so advertising the root's would
+    // describe an action that typing it does not perform. A hidden flag reserves its spelling
+    // even though it is never shown — on an ancestor exactly as on the command itself.
+    for long in [false, true] {
+        let page = page_of(&["config", "get"], long);
+        assert!(
+            !page.contains("--trace"),
+            "long={long}: a nearer hidden global owns that spelling: {page}"
+        );
+        assert!(page.contains("--verbose"), "long={long}: {page}");
+    }
+}
+
+#[test]
+fn the_roots_own_multi_spelling_flags_are_bound() {
+    // Keeps every declared field read, and checks the spellings the tests above rely on.
+    use std::ffi::OsStr;
+    let argv = ["--jobs", "8", "--colour", "--trace"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("should parse");
+    assert_eq!(ex.jobs.as_deref(), Some("8"));
+    assert!(ex.colour && ex.trace && !ex.no_cache);
+
+    let argv = ["--workers", "8", "--no-colour"].map(OsStr::new);
+    let ex = Ex::parse_from(&argv).expect("the other spellings bind the same fields");
+    assert_eq!(ex.jobs.as_deref(), Some("8"));
+    assert!(!ex.colour);
+}

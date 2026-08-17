@@ -299,7 +299,7 @@ fn the_page_advertises_exactly_where_the_word_works() {
     // word has to work wherever that line appears and nowhere else — a page promising a
     // command that does nothing, or a command no page mentions, are the same defect twice.
     let spec = Deep::spec();
-    let root_page = usage_argv::help::short_help(spec, &["deep"], spec.root);
+    let root_page = usage_argv::help::short_help(spec, &["deep"], &[spec.root]);
     assert!(
         root_page.contains("\n  help  Print this message"),
         "{root_page}"
@@ -307,7 +307,10 @@ fn the_page_advertises_exactly_where_the_word_works() {
 
     let config = spec.root.subcommands[0];
     let set = config.subcommands[0];
-    let leaf_page = usage_argv::help::short_help(spec, &["deep", "config", "set"], set);
+    // The whole chain, `config` included. A gap in it is a gap in what the page can see: the
+    // globals `config` declares would go unlisted, and an ancestry regression would pass.
+    let leaf_page =
+        usage_argv::help::short_help(spec, &["deep", "config", "set"], &[spec.root, config, set]);
     assert!(
         !leaf_page.contains("help  Print this message"),
         "a leaf promises nothing: {leaf_page}"
