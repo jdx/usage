@@ -241,7 +241,7 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
         }
     };
     Ok(quote::quote!(::core::option::Option::Some(
-        ::usage_argv::spec::Effect::#variant
+        usage_argv::spec::Effect::#variant
     )))
 }
 
@@ -252,7 +252,7 @@ fn value_hint(meta: &Meta) -> syn::Result<String> {
         return Err(syn::Error::new_spanned(
             value,
             "`value_hint` takes a usage ValueHint variant, as in \
-             `value_hint = usage_argv::ValueHint::FilePath`",
+             `value_hint = usage::ValueHint::FilePath`",
         ));
     };
     let Some(variant) = path.path.segments.last() else {

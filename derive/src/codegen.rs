@@ -13,12 +13,60 @@
 //! do not collide with anything, and so `cargo expand` shows them together.
 
 use proc_macro2::TokenStream;
+use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 
 use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum};
 
+/// The runtime as the adopter depended on it.
+///
+/// A direct `usage-argv` dependency wins when both forms are present: a low-level adopter may
+/// deliberately enable a different feature set there. Otherwise the `usage-rs` facade provides
+/// the runtime as `usage::argv`, keeping derives, tables, and their versions behind one
+/// dependency.
+fn runtime_path() -> TokenStream {
+    match crate_name("usage-argv") {
+        Ok(FoundCrate::Name(name)) => {
+            let runtime = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#runtime)
+        }
+        _ => match crate_name("usage-rs") {
+            Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
+            Ok(FoundCrate::Name(name)) => {
+                let facade = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#facade::argv)
+            }
+            // Preserve the old useful compiler error when neither dependency was declared.
+            _ => quote!(::usage_argv),
+        },
+    }
+}
+
+/// The derive package as the adopter depended on it.
+///
+/// Most emitted code only needs the runtime path. Unit subcommands synthesize an empty `Args`
+/// struct, though, so that derive must come through the facade too when it is the application's
+/// only dependency.
+fn derive_path() -> TokenStream {
+    match crate_name("usage-derive") {
+        Ok(FoundCrate::Name(name)) => {
+            let derive = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#derive)
+        }
+        _ => match crate_name("usage-rs") {
+            Ok(FoundCrate::Itself) => quote!(::usage_rs),
+            Ok(FoundCrate::Name(name)) => {
+                let facade = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#facade)
+            }
+            _ => quote!(::usage_derive),
+        },
+    }
+}
+
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
+    let runtime = runtime_path();
 
     let flags: Vec<&Field> = cli
         .fields
@@ -151,7 +199,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 argv: &'v [&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<
                 (Self, ::usage_config::CliLayer),
-                ::usage_argv::Error<'static, 'v>,
+                usage_argv::Error<'static, 'v>,
             > {
                 // The layer from what argv left, and only then the rest: `check` fills a field
                 // from its `env` and marks it given, and a variable's value contributed here
@@ -198,13 +246,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
             clippy::needless_update
         )]
         const _: () = {
+            use #runtime as usage_argv;
+
             #flatten_checks
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
             #table_decls
 
-            pub static ROOT: ::usage_argv::Command = ::usage_argv::Command {
+            pub static ROOT: usage_argv::Command = usage_argv::Command {
                 // Only where a version was declared, which is when clap adds the flag: a
                 // `--version` that answers with nothing is worse than one that is not there.
                 version: #has_version,
@@ -215,14 +265,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 args: #arg_table_ref,
                 #sub_commands
                 #sub_default
-                ..::usage_argv::Command::EMPTY
+                ..usage_argv::Command::EMPTY
             };
 
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
 
-            pub static ROOT_META: ::usage_argv::spec::CommandMeta = ::usage_argv::spec::CommandMeta {
+            pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
                 about: #about,
                 long_about: #long_about,
@@ -236,7 +286,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas
-                ..::usage_argv::spec::CommandMeta::EMPTY
+                ..usage_argv::spec::CommandMeta::EMPTY
             };
 
             // Values arrive as the bytes that were on the command line. This version
@@ -263,7 +313,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// nested command generate the same code here.
             pub fn check<'t, 'v>(
                 partial: &mut Partial,
-            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                 // Read unconditionally: a command that declares nothing to check would
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
@@ -281,12 +331,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// and marks them given, which would hand a variable's value to the layer that
             /// outranks every other and name it after a flag nobody typed.
             pub fn read_argv<'v>(
-                command: &'static ::usage_argv::Command<'static>,
+                command: &'static usage_argv::Command<'static>,
                 argv: &'v [&'v ::std::ffi::OsStr],
-            ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
+            ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
                 #defaults
 
-                let mut __usage_parser = ::usage_argv::Parser::new(command, argv);
+                let mut __usage_parser = usage_argv::Parser::new(command, argv);
                 while let ::std::option::Option::Some(__usage_event) =
                     __usage_parser.next_event()
                 {
@@ -294,20 +344,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // Asked *before* the event is applied, and answered with the command in
                     // scope: `mise config --help` is a question about `config`, and the parser
                     // is what knows how deep the words reached.
-                    if let ::usage_argv::Event::Flag { flag, .. } = &__usage_event {
-                        if flag.key == ::usage_argv::HELP_LONG_KEY
-                            || flag.key == ::usage_argv::HELP_SHORT_KEY
+                    if let usage_argv::Event::Flag { flag, .. } = &__usage_event {
+                        if flag.key == usage_argv::HELP_LONG_KEY
+                            || flag.key == usage_argv::HELP_SHORT_KEY
                         {
-                            return ::std::result::Result::Err(::usage_argv::Error::Help {
+                            return ::std::result::Result::Err(usage_argv::Error::Help {
                                 cmd: __usage_parser.command(),
-                                long: flag.key == ::usage_argv::HELP_LONG_KEY,
+                                long: flag.key == usage_argv::HELP_LONG_KEY,
                             });
                         }
                         // Same shape, and for the same reason: a question rather than a
                         // failure, answered by whoever knows the version string.
-                        if ::usage_argv::is_version_flag(flag) {
+                        if usage_argv::is_version_flag(flag) {
                             return ::std::result::Result::Err(
-                                ::usage_argv::Error::Version,
+                                usage_argv::Error::Version,
                             );
                         }
                     }
@@ -327,9 +377,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// whether the flag was absent or negated — so the entry point that wants that reads
             /// the two halves apart instead.
             pub fn read<'v>(
-                command: &'static ::usage_argv::Command<'static>,
+                command: &'static usage_argv::Command<'static>,
                 argv: &'v [&'v ::std::ffi::OsStr],
-            ) -> ::std::result::Result<Partial, ::usage_argv::Error<'static, 'v>> {
+            ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
                 let mut partial = read_argv(command, argv)?;
                 check(&mut partial)?;
                 ::std::result::Result::Ok(partial)
@@ -340,7 +390,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #settings_layer
             #settings_guard
 
-            pub static SPEC: ::usage_argv::spec::Spec = ::usage_argv::spec::Spec {
+            pub static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
                 name: #name,
                 bin: #bin,
                 version: #version,
@@ -356,12 +406,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ///
                 /// `static`, so reaching them costs nothing: there is no command tree
                 /// to build before a parse can start.
-                pub fn command() -> &'static ::usage_argv::Command<'static> {
+                pub fn command() -> &'static usage_argv::Command<'static> {
                     &ROOT
                 }
 
                 /// This CLI's spec, for emitting, documenting, or completing.
-                pub fn spec() -> &'static ::usage_argv::spec::Spec<'static> {
+                pub fn spec() -> &'static usage_argv::spec::Spec<'static> {
                     &SPEC
                 }
 
@@ -377,7 +427,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// Parse a command line, excluding the program name.
                 pub fn parse_from<'v>(
                     argv: &'v [&'v ::std::ffi::OsStr],
-                ) -> ::std::result::Result<Self, ::usage_argv::Error<'static, 'v>> {
+                ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
                     let partial = read(Self::command(), argv)?;
                     ::std::result::Result::Ok(Self {
                         #sub_build
@@ -401,7 +451,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     match Self::parse_from(&__usage_argv) {
                         ::std::result::Result::Ok(parsed) => parsed,
                         // Not failures: someone asked a question, and the answer goes to stdout.
-                        ::std::result::Result::Err(::usage_argv::Error::Version) => {
+                        ::std::result::Result::Err(usage_argv::Error::Version) => {
                             match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
                                 (bin, ::std::option::Option::Some(version)) => {
                                     ::std::println!("{bin} {version}");
@@ -414,21 +464,21 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 }
                             }
                         }
-                        ::std::result::Result::Err(::usage_argv::Error::Help { cmd, long }) => {
+                        ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
                             // By the route the words took, not by the command's address: one
                             // `Subcommands` type mounted under two parents is one address, and a
                             // page found by searching for it carries the first mount's path and
                             // globals. Falls back where the route cannot be rebuilt.
-                            let __usage_page = match ::usage_argv::help::route_to(
+                            let __usage_page = match usage_argv::help::route_to(
                                 Self::command(),
                                 &__usage_argv,
                                 cmd,
                             ) {
                                 ::std::option::Option::Some(route) => {
-                                    ::usage_argv::help::render_at(Self::spec(), &route, long)
+                                    usage_argv::help::render_at(Self::spec(), &route, long)
                                 }
                                 ::std::option::Option::None => {
-                                    ::usage_argv::help::render(Self::spec(), cmd, long)
+                                    usage_argv::help::render(Self::spec(), cmd, long)
                                 }
                             };
                             match __usage_page {
@@ -443,7 +493,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         ::std::result::Result::Err(e) => {
                             ::std::eprint!(
                                 "{}",
-                                ::usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
+                                usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
                             );
                             // clap's, so a script that checks for it keeps working.
                             ::std::process::exit(2);
@@ -476,7 +526,7 @@ fn flatten_checks(cli: &Cli) -> TokenStream {
         };
         Some(quote! {
             const _: () = ::core::assert!(
-                <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.subcommands.is_empty(),
+                <#ty as usage_argv::spec::CommandArgs>::COMMAND.subcommands.is_empty(),
                 "a flattened group cannot declare subcommands: flatten joins flags and \
                  arguments into the parent's tables and leaves subcommands behind, so the \
                  command would require one that no word could select. Declare the \
@@ -495,10 +545,10 @@ fn flatten_checks(cli: &Cli) -> TokenStream {
 fn unknown_flags_tokens(cli: &Cli) -> TokenStream {
     match cli.unknown_flags.as_deref() {
         Some("error") => quote!(::core::option::Option::Some(
-            ::usage_argv::UnknownFlags::Error
+            usage_argv::UnknownFlags::Error
         )),
         Some(_) => quote!(::core::option::Option::Some(
-            ::usage_argv::UnknownFlags::Value
+            usage_argv::UnknownFlags::Value
         )),
         None => quote!(::core::option::Option::None),
     }
@@ -516,7 +566,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
     let functions = quote! {
         // Says what is missing, where the alternative is `unresolved module complete` — which
         // names the symptom and not the attribute that asked for it.
-        ::usage_argv::__usage_needs_complete_feature!();
+        usage_argv::__usage_needs_complete_feature!();
 
         /// This CLI's completion script for `shell`, to be written to a file or sourced.
         ///
@@ -524,10 +574,10 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         /// script that names a command the binary does not answer a compile error instead of a
         /// silence at the prompt.
         pub fn completion_script(
-            shell: ::usage_argv::complete::Shell,
+            shell: usage_argv::complete::Shell,
         ) -> ::std::string::String {
             let spec = Self::spec();
-            ::usage_argv::script::script(spec.bin.unwrap_or(spec.name), shell)
+            usage_argv::script::script(spec.bin.unwrap_or(spec.name), shell)
         }
 
         /// The word a shell is completing, answered from this CLI's own tables.
@@ -544,7 +594,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             }
             // Its own flags, read by hand: three of them, and reading them with the parser
             // would mean putting them in the tables this is deliberately outside of.
-            let mut shell = ::usage_argv::complete::Shell::Bash;
+            let mut shell = usage_argv::complete::Shell::Bash;
             let mut line = ::std::string::String::new();
             let mut cursor = ::std::option::Option::None;
             let mut candidates_for: ::std::option::Option<::std::string::String> =
@@ -555,7 +605,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                     "--shell" => {
                         if let ::std::option::Option::Some(name) = rest.next() {
                             if let ::std::option::Option::Some(found) =
-                                ::usage_argv::complete::Shell::from_name(
+                                usage_argv::complete::Shell::from_name(
                                     &name.to_string_lossy(),
                                 )
                             {
@@ -589,23 +639,23 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             // No cursor means the end of the line, which is where a shell puts it when it has
             // no way to say — nushell, whose completer only ever sees the words.
             let cursor = cursor.unwrap_or(line.len());
-            let split = ::usage_argv::complete::split(&line, cursor, shell);
+            let split = usage_argv::complete::split(&line, cursor, shell);
             if let ::std::option::Option::Some(name) = candidates_for {
                 // Walked here as well, because a `--candidates` request names a completer and
                 // says nothing about where the cursor is — and the completer still wants the
                 // words its own command was given.
                 let position =
-                    ::usage_argv::complete::walk(Self::spec().root.cmd, split.argv());
+                    usage_argv::complete::walk(Self::spec().root.cmd, split.argv());
                 let __usage_words = split.argv();
                 let __usage_path: ::std::vec::Vec<(
-                    &::usage_argv::Command<'_>,
+                    &usage_argv::Command<'_>,
                     &[::std::string::String],
                 )> = position
                     .path
                     .iter()
                     .map(|(cmd, start)| (*cmd, __usage_words.get(*start..).unwrap_or(&[])))
                     .collect();
-                let ctx = ::usage_argv::complete::CompleteCtx {
+                let ctx = usage_argv::complete::CompleteCtx {
                     words: &split.words,
                     cword: split.cword,
                     prefix: &split.prefix,
@@ -618,15 +668,15 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                 // against a newer version of this CLI is a stale script, and a stale script
                 // should complete nothing rather than print a message into the user's prompt.
                 let found =
-                    ::usage_argv::complete::for_name(Self::spec(), &name, &ctx).unwrap_or_default();
-                let answer = ::usage_argv::complete::Completions {
+                    usage_argv::complete::for_name(Self::spec(), &name, &ctx).unwrap_or_default();
+                let answer = usage_argv::complete::Completions {
                     candidates: found,
                     files: ::std::option::Option::None,
                 };
-                return ::std::option::Option::Some(::usage_argv::complete::render(&answer, shell));
+                return ::std::option::Option::Some(usage_argv::complete::render(&answer, shell));
             }
-            let answer = ::usage_argv::complete::complete(Self::spec(), &split);
-            ::std::option::Option::Some(::usage_argv::complete::render(&answer, shell))
+            let answer = usage_argv::complete::complete(Self::spec(), &split);
+            ::std::option::Option::Some(usage_argv::complete::render(&answer, shell))
         }
     };
     let intercept = quote! {
@@ -676,7 +726,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     };
 
     quote! {
-        pub static #name: ::usage_argv::Flag = ::usage_argv::Flag {
+        pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
             name: #field_name,
             longs: &[#(#longs),*],
@@ -699,10 +749,10 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
         unreachable!("filtered by the caller");
     };
     let double_dash = match double_dash {
-        DoubleDash::Optional => quote!(::usage_argv::DoubleDash::Optional),
-        DoubleDash::Required => quote!(::usage_argv::DoubleDash::Required),
-        DoubleDash::Preserve => quote!(::usage_argv::DoubleDash::Preserve),
-        DoubleDash::Automatic => quote!(::usage_argv::DoubleDash::Automatic),
+        DoubleDash::Optional => quote!(usage_argv::DoubleDash::Optional),
+        DoubleDash::Required => quote!(usage_argv::DoubleDash::Required),
+        DoubleDash::Preserve => quote!(usage_argv::DoubleDash::Preserve),
+        DoubleDash::Automatic => quote!(usage_argv::DoubleDash::Automatic),
     };
     // A bound stops the variadic while binding, so the argument after it is reachable.
     let var_max = match field.var_max.filter(|_| var) {
@@ -715,7 +765,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     };
 
     quote! {
-        pub static #name: ::usage_argv::Arg = ::usage_argv::Arg {
+        pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
             name: #field_name,
             var: #var,
@@ -750,8 +800,8 @@ fn completer_tokens(
     let completer_path = path;
     let decl = quote! {
         fn #wrapper(
-            ctx: &::usage_argv::complete::CompleteCtx<'_>,
-        ) -> ::std::vec::Vec<::usage_argv::complete::Candidate<'static>> {
+            ctx: &usage_argv::complete::CompleteCtx<'_>,
+        ) -> ::std::vec::Vec<usage_argv::complete::Candidate<'static>> {
             // The words this command was given, parsed against this command's own tables — so
             // what the callback reads is what the parser would have bound, rather than a slice
             // of the line it has to interpret itself.
@@ -760,7 +810,7 @@ fn completer_tokens(
             // subcommand's words against the ancestor's tables would drop everything the
             // ancestor was given before the subcommand's name.
             let __usage_declaration =
-                <#owner as ::usage_argv::spec::CommandArgs>::COMMAND;
+                <#owner as usage_argv::spec::CommandArgs>::COMMAND;
             let (__usage_command, __usage_words) = ctx
                 .command_for(__usage_declaration)
                 .unwrap_or((__usage_declaration, ctx.command_words));
@@ -770,8 +820,8 @@ fn completer_tokens(
                 .collect();
             let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                 __usage_owned.iter().map(|a| a.as_os_str()).collect();
-            let mut partial = <#owner as ::usage_argv::spec::CommandArgs>::start();
-            let mut parser = ::usage_argv::Parser::new(
+            let mut partial = <#owner as usage_argv::spec::CommandArgs>::start();
+            let mut parser = usage_argv::Parser::new(
                 __usage_command,
                 &__usage_argv,
             );
@@ -780,7 +830,7 @@ fn completer_tokens(
             while let ::std::option::Option::Some(event) = parser.next_event() {
                 match event {
                     ::std::result::Result::Ok(event) => {
-                        let _ = <#owner as ::usage_argv::spec::CommandArgs>::apply(
+                        let _ = <#owner as usage_argv::spec::CommandArgs>::apply(
                             &mut partial,
                             &event,
                         );
@@ -834,7 +884,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
         .unwrap_or_else(|| quote!(::core::option::Option::None));
     quote! {
         #completer_decl
-        pub static #name: ::usage_argv::spec::FlagMeta = ::usage_argv::spec::FlagMeta {
+        pub static #name: usage_argv::spec::FlagMeta = usage_argv::spec::FlagMeta {
             effect: #effect,
             complete: #completer,
             complete_type: #complete_type,
@@ -857,7 +907,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             requires: &[#(#requires),*],
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
-            ..::usage_argv::spec::FlagMeta::EMPTY
+            ..usage_argv::spec::FlagMeta::EMPTY
         };
     }
 }
@@ -883,7 +933,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
 
     quote! {
         #completer_decl
-        pub static #name: ::usage_argv::spec::ArgMeta = ::usage_argv::spec::ArgMeta {
+        pub static #name: usage_argv::spec::ArgMeta = usage_argv::spec::ArgMeta {
             complete: #completer,
             complete_type: #complete_type,
             arg: &#table,
@@ -897,7 +947,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
-            ..::usage_argv::spec::ArgMeta::EMPTY
+            ..usage_argv::spec::ArgMeta::EMPTY
         };
     }
 }
@@ -907,7 +957,7 @@ fn choices_tokens(field: &Field) -> TokenStream {
     // From the type when the field says `value_enum`, so the spec, the help and the check
     // all read the list the type declares rather than a copy of it.
     if let (true, Some(ty)) = (field.value_enum, field.value_ty.as_ref()) {
-        return quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES);
+        return quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES);
     }
     let choices = &field.choices;
     quote!(&[#(#choices),*])
@@ -971,7 +1021,7 @@ fn key_consts(fingerprint: &str, flags: usize, args: usize) -> TokenStream {
     });
     quote! {
         const __USAGE_KEY_BASE: u64 =
-            ::usage_argv::key_base(::core::module_path!(), #declaration);
+            usage_argv::key_base(::core::module_path!(), #declaration);
         const #command: u64 = __USAGE_KEY_BASE | #KIND_COMMAND;
         #(#flag_keys)*
         #(#arg_keys)*
@@ -1071,10 +1121,10 @@ fn tables(cli: &Cli) -> Tables {
                 flattened = true;
                 flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
                 flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
-                flag_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.flags));
-                arg_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::COMMAND.args));
-                flag_meta_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.flags));
-                arg_meta_groups.push(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.args));
+                flag_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags));
+                arg_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.args));
+                flag_meta_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.flags));
+                arg_meta_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.args));
             }
             Kind::Subcommand { .. } => {}
         }
@@ -1106,25 +1156,25 @@ fn tables(cli: &Cli) -> Tables {
 
     Tables {
         decls: quote! {
-            const FLAG_GROUPS: &[&[&::usage_argv::Flag<'static>]] = &[#(#flag_groups),*];
-            const ARG_GROUPS: &[&[&::usage_argv::Arg<'static>]] = &[#(#arg_groups),*];
-            static FLAGS: [&::usage_argv::Flag<'static>;
-                ::usage_argv::table_len(FLAG_GROUPS)] =
-                ::usage_argv::concat_flags(FLAG_GROUPS);
-            static ARGS: [&::usage_argv::Arg<'static>; ::usage_argv::table_len(ARG_GROUPS)] =
-                ::usage_argv::concat_args(ARG_GROUPS);
+            const FLAG_GROUPS: &[&[&usage_argv::Flag<'static>]] = &[#(#flag_groups),*];
+            const ARG_GROUPS: &[&[&usage_argv::Arg<'static>]] = &[#(#arg_groups),*];
+            static FLAGS: [&usage_argv::Flag<'static>;
+                usage_argv::table_len(FLAG_GROUPS)] =
+                usage_argv::concat_flags(FLAG_GROUPS);
+            static ARGS: [&usage_argv::Arg<'static>; usage_argv::table_len(ARG_GROUPS)] =
+                usage_argv::concat_args(ARG_GROUPS);
         },
         meta_decls: quote! {
-            const FLAG_META_GROUPS: &[&[::usage_argv::spec::FlagMeta<'static>]] =
+            const FLAG_META_GROUPS: &[&[usage_argv::spec::FlagMeta<'static>]] =
                 &[#(#flag_meta_groups),*];
-            const ARG_META_GROUPS: &[&[::usage_argv::spec::ArgMeta<'static>]] =
+            const ARG_META_GROUPS: &[&[usage_argv::spec::ArgMeta<'static>]] =
                 &[#(#arg_meta_groups),*];
-            static FLAG_METAS: [::usage_argv::spec::FlagMeta<'static>;
-                ::usage_argv::table_len(FLAG_META_GROUPS)] =
-                ::usage_argv::spec::concat_flag_metas(FLAG_META_GROUPS);
-            static ARG_METAS: [::usage_argv::spec::ArgMeta<'static>;
-                ::usage_argv::table_len(ARG_META_GROUPS)] =
-                ::usage_argv::spec::concat_arg_metas(ARG_META_GROUPS);
+            static FLAG_METAS: [usage_argv::spec::FlagMeta<'static>;
+                usage_argv::table_len(FLAG_META_GROUPS)] =
+                usage_argv::spec::concat_flag_metas(FLAG_META_GROUPS);
+            static ARG_METAS: [usage_argv::spec::ArgMeta<'static>;
+                usage_argv::table_len(ARG_META_GROUPS)] =
+                usage_argv::spec::concat_arg_metas(ARG_META_GROUPS);
         },
         flags: quote!(&FLAGS),
         args: quote!(&ARGS),
@@ -1321,7 +1371,7 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         if let Kind::Flatten { ty } = &f.kind {
             let ident = &f.ident;
             return Some(quote! {
-                pub #ident: <#ty as ::usage_argv::spec::CommandArgs>::Partial,
+                pub #ident: <#ty as usage_argv::spec::CommandArgs>::Partial,
             });
         }
         let ident = &f.ident;
@@ -1395,10 +1445,10 @@ fn given_value(field: &Field) -> TokenStream {
         // The bool the parser landed on, which is `false` for a negation and `true` for the flag
         // itself: what the user said, rather than that they said something.
         Shape::Bool => quote! {
-            ::usage_argv::spec::SettingGiven::Bool(partial.#ident)
+            usage_argv::spec::SettingGiven::Bool(partial.#ident)
         },
         Shape::Count => quote! {
-            ::usage_argv::spec::SettingGiven::Int(
+            usage_argv::spec::SettingGiven::Int(
                 ::std::convert::TryFrom::try_from(partial.#ident)
                     .unwrap_or(::std::primitive::i64::MAX),
             )
@@ -1406,21 +1456,21 @@ fn given_value(field: &Field) -> TokenStream {
         Shape::Optional => quote! {
             match ::std::str::from_utf8(partial.#ident.as_deref().unwrap_or_default()) {
                 ::std::result::Result::Ok(__usage_text) => {
-                    ::usage_argv::spec::SettingGiven::Text(
+                    usage_argv::spec::SettingGiven::Text(
                         ::std::string::ToString::to_string(__usage_text),
                     )
                 }
-                ::std::result::Result::Err(_) => ::usage_argv::spec::SettingGiven::NotText,
+                ::std::result::Result::Err(_) => usage_argv::spec::SettingGiven::NotText,
             }
         },
         Shape::Required => quote! {
             match ::std::str::from_utf8(&partial.#ident) {
                 ::std::result::Result::Ok(__usage_text) => {
-                    ::usage_argv::spec::SettingGiven::Text(
+                    usage_argv::spec::SettingGiven::Text(
                         ::std::string::ToString::to_string(__usage_text),
                     )
                 }
-                ::std::result::Result::Err(_) => ::usage_argv::spec::SettingGiven::NotText,
+                ::std::result::Result::Err(_) => usage_argv::spec::SettingGiven::NotText,
             }
         },
         // Item by item, rather than joined and re-split: an item holding the separator would come
@@ -1438,9 +1488,9 @@ fn given_value(field: &Field) -> TokenStream {
                 .collect::<::std::option::Option<::std::vec::Vec<_>>>()
             {
                 ::std::option::Option::Some(__usage_items) => {
-                    ::usage_argv::spec::SettingGiven::List(__usage_items)
+                    usage_argv::spec::SettingGiven::List(__usage_items)
                 }
-                ::std::option::Option::None => ::usage_argv::spec::SettingGiven::NotText,
+                ::std::option::Option::None => usage_argv::spec::SettingGiven::NotText,
             }
         },
     }
@@ -1486,17 +1536,17 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
             let ident = &field.ident;
             match &field.kind {
                 Kind::Flatten { ty } => Some((
-                    quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
+                    quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
                     quote! {
-                        <#ty as ::usage_argv::spec::CommandArgs>::settings_given(
+                        <#ty as usage_argv::spec::CommandArgs>::settings_given(
                             &partial.#ident,
                         )
                     },
                 )),
                 Kind::Subcommand { ty, .. } => Some((
-                    quote!(<#ty as ::usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
+                    quote!(<#ty as usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
                     quote! {
-                        <#ty as ::usage_argv::spec::Subcommands>::settings_given(
+                        <#ty as usage_argv::spec::Subcommands>::settings_given(
                             &partial.__usage_sub,
                             partial.__usage_selected,
                         )
@@ -1522,7 +1572,7 @@ fn joined_bindings(own: &[TokenStream], children: &[TokenStream]) -> TokenStream
             const PARTS: &[&'static [(&'static str, &'static str)]] = &[OWN #(, #children)*];
             const N: usize = OWN.len() #(+ #children.len())*;
             const JOINED: [(&'static str, &'static str); N] =
-                ::usage_argv::spec::concat_bindings(PARTS);
+                usage_argv::spec::concat_bindings(PARTS);
             &JOINED
         }
     }
@@ -1562,7 +1612,7 @@ fn settings(cli: &Cli) -> Option<Settings> {
         /// The settings this command line gave values for.
         pub fn settings_given(
             partial: &Partial,
-        ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+        ) -> ::std::vec::Vec<(&'static str, usage_argv::spec::SettingGiven)> {
             let mut __usage_given = ::std::vec::Vec::new();
             #(#contributions)*
             #(#from_children)*
@@ -1597,17 +1647,17 @@ fn settings_layer() -> TokenStream {
             );
             for (__usage_key, __usage_given) in settings_given(partial) {
                 __usage_layer = match __usage_given {
-                    ::usage_argv::spec::SettingGiven::Bool(__usage_value) => {
+                    usage_argv::spec::SettingGiven::Bool(__usage_value) => {
                         __usage_layer.with_value(__usage_key, ::usage_config::Value::Bool(__usage_value))
                     }
-                    ::usage_argv::spec::SettingGiven::Int(__usage_value) => {
+                    usage_argv::spec::SettingGiven::Int(__usage_value) => {
                         __usage_layer.with_value(__usage_key, ::usage_config::Value::Int(__usage_value))
                     }
-                    ::usage_argv::spec::SettingGiven::Text(__usage_value) => {
+                    usage_argv::spec::SettingGiven::Text(__usage_value) => {
                         __usage_layer
                             .with_value(__usage_key, ::usage_config::Value::String(__usage_value))
                     }
-                    ::usage_argv::spec::SettingGiven::List(__usage_items) => __usage_layer.with_value(
+                    usage_argv::spec::SettingGiven::List(__usage_items) => __usage_layer.with_value(
                         __usage_key,
                         ::usage_config::Value::List(
                             __usage_items
@@ -1616,7 +1666,7 @@ fn settings_layer() -> TokenStream {
                                 .collect(),
                         ),
                     ),
-                    ::usage_argv::spec::SettingGiven::NotText => {
+                    usage_argv::spec::SettingGiven::NotText => {
                         __usage_layer.with_unrepresentable(__usage_key)
                     }
                 };
@@ -1668,7 +1718,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
         if let Kind::Flatten { ty } = &f.kind {
             let ident = &f.ident;
             return Some(quote! {
-                #ident: <#ty as ::usage_argv::spec::CommandArgs>::start(),
+                #ident: <#ty as usage_argv::spec::CommandArgs>::start(),
             });
         }
         let ident = &f.ident;
@@ -1718,7 +1768,7 @@ fn field_final(field: &Field) -> TokenStream {
         // the same call at every level.
         //
         return quote! {
-            #ident: <#ty as ::usage_argv::spec::CommandArgs>::build(partial.#ident)?
+            #ident: <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
         };
     }
     let Some(ty) = field.value_ty.as_ref() else {
@@ -1767,12 +1817,12 @@ fn field_final(field: &Field) -> TokenStream {
         // replaced by a different filename.
         let one = |value: TokenStream| {
             quote! {
-                match ::usage_argv::os_string_from_bytes(#value) {
+                match usage_argv::os_string_from_bytes(#value) {
                     ::std::result::Result::Ok(__usage_os) => #build(__usage_os),
                     ::std::result::Result::Err(__usage_bytes) => {
                         return ::std::result::Result::Err(
-                            ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                ::usage_argv::InvalidValue {
+                            usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                usage_argv::InvalidValue {
                                     name: #name,
                                     value: ::std::string::String::from_utf8_lossy(
                                         &__usage_bytes,
@@ -1846,8 +1896,8 @@ fn field_final(field: &Field) -> TokenStream {
                 ::std::result::Result::Ok(text) => text,
                 ::std::result::Result::Err(bad) => {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                            ::usage_argv::InvalidValue {
+                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                            usage_argv::InvalidValue {
                                 name: #name,
                                 value: ::std::string::String::from_utf8_lossy(
                                     bad.as_bytes(),
@@ -1869,8 +1919,8 @@ fn field_final(field: &Field) -> TokenStream {
                 ::std::result::Result::Ok(parsed) => parsed,
                 ::std::result::Result::Err(reason) => {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                            ::usage_argv::InvalidValue {
+                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                            usage_argv::InvalidValue {
                                 name: #name,
                                 value: __usage_text,
                                 reason: ::std::string::ToString::to_string(&reason),
@@ -1990,7 +2040,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
         };
         let ident = &f.ident;
         Some(quote! {
-            if <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
+            if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
                 return true;
             }
         })
@@ -2011,9 +2061,9 @@ fn apply_fn(cli: &Cli) -> TokenStream {
     quote! {
         pub fn apply(
             partial: &mut Partial,
-            event: &::usage_argv::Event<'_, '_>,
+            event: &usage_argv::Event<'_, '_>,
         ) -> bool {
-            use ::usage_argv::Event;
+            use usage_argv::Event;
             #route
             #(#flattened)*
             // Each arm evaluates to whether it claimed the event, rather than
@@ -2080,7 +2130,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     let selected = quote! {
         match partial.__usage_selected {
             ::std::option::Option::Some(__usage_at) => {
-                <#ty as ::usage_argv::spec::Subcommands>::select(
+                <#ty as usage_argv::spec::Subcommands>::select(
                     partial.__usage_sub,
                     __usage_at,
                 )?
@@ -2096,7 +2146,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                 ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
                 ::std::option::Option::None => {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::MissingSubcommand,
+                        usage_argv::Error::MissingSubcommand,
                     );
                 }
             },
@@ -2104,7 +2154,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     };
 
     Some(SubcommandParts {
-        commands: quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::COMMANDS,),
+        commands: quote!(subcommands: <#ty as usage_argv::spec::Subcommands>::COMMANDS,),
         // Resolved from the name at compile time. The variants are another expansion, so the
         // name is all there is to go on here — but `find_subcommand` searches the list during
         // const evaluation, which means a name no subcommand answers to fails to compile
@@ -2112,17 +2162,17 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         default: match cli.default_subcommand.as_deref() {
             ::std::option::Option::Some(name) => quote! {
                 default_subcommand: ::std::option::Option::Some(
-                    ::usage_argv::find_subcommand(
-                        <#ty as ::usage_argv::spec::Subcommands>::COMMANDS,
+                    usage_argv::find_subcommand(
+                        <#ty as usage_argv::spec::Subcommands>::COMMANDS,
                         #name,
                     ),
                 ),
             },
             ::std::option::Option::None => TokenStream::new(),
         },
-        metas: quote!(subcommands: <#ty as ::usage_argv::spec::Subcommands>::METAS,),
+        metas: quote!(subcommands: <#ty as usage_argv::spec::Subcommands>::METAS,),
         partial_fields: quote! {
-            pub __usage_sub: <#ty as ::usage_argv::spec::Subcommands>::Partial,
+            pub __usage_sub: <#ty as usage_argv::spec::Subcommands>::Partial,
             /// Which of this command's subcommands was reached, as a position in
             /// `COMMANDS`. Found from the table's own address, so it cannot be
             /// confused by a key collision.
@@ -2137,9 +2187,9 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // subcommands answers to it: a deeper descent belongs to whoever owns
             // that command, and recording it here would make the wrong variant look
             // selected.
-            if let ::usage_argv::Event::Command(__usage_cmd) = event {
+            if let usage_argv::Event::Command(__usage_cmd) = event {
                 if let ::std::option::Option::Some(__usage_at) =
-                    <#ty as ::usage_argv::spec::Subcommands>::COMMANDS
+                    <#ty as usage_argv::spec::Subcommands>::COMMANDS
                         .iter()
                         .position(|candidate| ::core::ptr::eq(*candidate, *__usage_cmd))
                 {
@@ -2149,7 +2199,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
             // set just above, so a command word reaches the command it named on the same
             // event that selected it.
-            if <#ty as ::usage_argv::spec::Subcommands>::apply(
+            if <#ty as usage_argv::spec::Subcommands>::apply(
                 &mut partial.__usage_sub,
                 partial.__usage_selected,
                 event,
@@ -2159,7 +2209,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         },
         check: quote! {
             if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
-                <#ty as ::usage_argv::spec::Subcommands>::check(
+                <#ty as usage_argv::spec::Subcommands>::check(
                     &mut partial.__usage_sub,
                     __usage_at,
                 )?;
@@ -2173,6 +2223,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 /// parent reach them.
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
+    let runtime = runtime_path();
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -2190,7 +2241,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             fn settings_given(
                 partial: &Self::Partial,
-            ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+            ) -> ::std::vec::Vec<(&'static str, usage_argv::spec::SettingGiven)> {
                 settings_given(partial)
             }
         }
@@ -2291,13 +2342,15 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             clippy::needless_update
         )]
         const _: () = {
+            use #runtime as usage_argv;
+
             #flatten_checks
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
             #table_decls
 
-            pub static COMMAND: ::usage_argv::Command = ::usage_argv::Command {
+            pub static COMMAND: usage_argv::Command = usage_argv::Command {
                 name: #name,
                 aliases: &[#(#aliases),*],
                 key: #command_key,
@@ -2305,14 +2358,14 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands
-                ..::usage_argv::Command::EMPTY
+                ..usage_argv::Command::EMPTY
             };
 
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
 
-            pub static COMMAND_META: ::usage_argv::spec::CommandMeta = ::usage_argv::spec::CommandMeta {
+            pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
                 effect: #effect,
                 about: #about,
@@ -2328,7 +2381,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 #sub_metas
-                ..::usage_argv::spec::CommandMeta::EMPTY
+                ..usage_argv::spec::CommandMeta::EMPTY
             };
 
             pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
@@ -2356,7 +2409,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             /// an invocation that ran `run`.
             pub fn check<'t, 'v>(
                 partial: &mut Partial,
-            ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                 // Read unconditionally: a command that declares nothing to check would
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
@@ -2367,11 +2420,11 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             #settings_defs
 
-            impl ::usage_argv::spec::CommandArgs for #ident {
+            impl usage_argv::spec::CommandArgs for #ident {
                 type Partial = Partial;
 
-                const COMMAND: &'static ::usage_argv::Command<'static> = &COMMAND;
-                const META: &'static ::usage_argv::spec::CommandMeta<'static> =
+                const COMMAND: &'static usage_argv::Command<'static> = &COMMAND;
+                const META: &'static usage_argv::spec::CommandMeta<'static> =
                     &COMMAND_META;
 
                 fn start() -> Self::Partial {
@@ -2380,14 +2433,14 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
                 fn apply(
                     partial: &mut Self::Partial,
-                    event: &::usage_argv::Event<'_, '_>,
+                    event: &usage_argv::Event<'_, '_>,
                 ) -> bool {
                     apply(partial, event)
                 }
 
                 fn check<'t, 'v>(
                     partial: &mut Self::Partial,
-                ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                     check(partial)
                 }
 
@@ -2395,7 +2448,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
                 fn build<'t, 'v>(
                     partial: Self::Partial,
-                ) -> ::std::result::Result<Self, ::usage_argv::Error<'t, 'v>> {
+                ) -> ::std::result::Result<Self, usage_argv::Error<'t, 'v>> {
                     ::std::result::Result::Ok(Self {
                         #sub_build
                         #(#field_finals),*
@@ -2410,6 +2463,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 /// parent uses to route events into them.
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
+    let runtime = runtime_path();
+    let derive = derive_path();
 
     // The structs the bare variants imply, written here so everything downstream keeps
     // speaking to a struct. `Args` is derived on them rather than the impl being written out:
@@ -2429,7 +2484,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .map(|word| quote!(#[usage(effect = #word)]));
             quote! {
                 #[doc(hidden)]
-                #[derive(::usage_derive::Args)]
+                #[derive(#derive::Args)]
                 #effect
                 pub struct #name {}
             }
@@ -2442,19 +2497,19 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let partial_fields = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
-        quote!(pub #field: <#ty as ::usage_argv::spec::CommandArgs>::Partial,)
+        quote!(pub #field: <#ty as usage_argv::spec::CommandArgs>::Partial,)
     });
     let partial_starts = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
-        quote!(#field: <#ty as ::usage_argv::spec::CommandArgs>::start(),)
+        quote!(#field: <#ty as usage_argv::spec::CommandArgs>::start(),)
     });
     let applies = subs.variants.iter().enumerate().map(|(i, v)| {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as ::usage_argv::spec::CommandArgs>::apply(&mut partial.#field, event)
+                <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#field, event)
             }
         }
     });
@@ -2473,15 +2528,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let aliases = v.aliases.iter().chain(&v.hidden_aliases);
         quote! {
             const #alias_groups: &[&[&str]] = &[
-                <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.aliases,
+                <#ty as usage_argv::spec::CommandArgs>::COMMAND.aliases,
                 &[#(#aliases),*],
             ];
-            static #aliases_name: [&str; ::usage_argv::table_len(#alias_groups)] =
-                ::usage_argv::spec::concat_aliases(#alias_groups);
-            pub static #name: ::usage_argv::Command = ::usage_argv::Command {
+            static #aliases_name: [&str; usage_argv::table_len(#alias_groups)] =
+                usage_argv::spec::concat_aliases(#alias_groups);
+            pub static #name: usage_argv::Command = usage_argv::Command {
                 name: #cmd_name,
                 aliases: &#aliases_name,
-                ..*<#ty as ::usage_argv::spec::CommandArgs>::COMMAND
+                ..*<#ty as usage_argv::spec::CommandArgs>::COMMAND
             };
         }
     });
@@ -2512,11 +2567,11 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         // long form went missing from help for every command written that way.
         let about = match v.help.as_deref() {
             Some(help) => option_str(Some(help)),
-            None => quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.about),
+            None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.about),
         };
         let long_about = match v.long_help.as_deref() {
             Some(long) => option_str(Some(long)),
-            None => quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.long_about),
+            None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.long_about),
         };
         // Which of the table's aliases are hidden. The visible ones are not listed
         // anywhere: `cmd.aliases` minus these is what help and completions show.
@@ -2526,19 +2581,19 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let hide = v.hide;
         quote! {
             const #hidden_groups: &[&[&str]] = &[
-                <#ty as ::usage_argv::spec::CommandArgs>::META.hidden_aliases,
+                <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
                 &[#(#hidden),*],
             ];
-            static #hidden_name: [&str; ::usage_argv::table_len(#hidden_groups)] =
-                ::usage_argv::spec::concat_aliases(#hidden_groups);
-            pub static #name: ::usage_argv::spec::CommandMeta =
-                ::usage_argv::spec::CommandMeta {
+            static #hidden_name: [&str; usage_argv::table_len(#hidden_groups)] =
+                usage_argv::spec::concat_aliases(#hidden_groups);
+            pub static #name: usage_argv::spec::CommandMeta =
+                usage_argv::spec::CommandMeta {
                     cmd: &#cmd,
                     about: #about,
                     long_about: #long_about,
                     hide: #hide,
                     hidden_aliases: &#hidden_name,
-                    ..*<#ty as ::usage_argv::spec::CommandArgs>::META
+                    ..*<#ty as usage_argv::spec::CommandArgs>::META
                 };
         }
     });
@@ -2552,7 +2607,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let field = format_ident!("v{i}");
         let ty = &v.ty;
         quote! {
-            #i => <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#field),
+            #i => <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#field),
         }
     });
     // Every variant's bindings, because a table says what the CLI *can* do and is compared
@@ -2560,7 +2615,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // those are about one invocation. A command nobody ran did not give anything.
     let binding_parts = subs.variants.iter().map(|v| {
         let ty = &v.ty;
-        quote!(<#ty as ::usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS)
+        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS)
     });
     let binding_lens = binding_parts.clone().map(|part| quote!(+ #part.len()));
     let givens = subs.variants.iter().enumerate().map(|(i, v)| {
@@ -2568,7 +2623,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as ::usage_argv::spec::CommandArgs>::settings_given(&partial.#field)
+                <#ty as usage_argv::spec::CommandArgs>::settings_given(&partial.#field)
             }
         }
     });
@@ -2578,7 +2633,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         // The one place the box matters: everything else — tables, partial, `build` —
         // speaks to the struct itself.
-        let built = quote!(<#ty as ::usage_argv::spec::CommandArgs>::build(partial.#field)?);
+        let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(partial.#field)?);
         let built = if v.boxed {
             quote!(::std::boxed::Box::new(#built))
         } else {
@@ -2615,6 +2670,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             clippy::needless_update
         )]
         const _: () = {
+            use #runtime as usage_argv;
+
             pub struct Partial {
                 #(#partial_fields)*
             }
@@ -2628,20 +2685,20 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             #(#command_overrides)*
             #(#meta_overrides)*
 
-            const _: () = ::usage_argv::assert_unique_subcommand_names(&[#(#unique_commands),*]);
+            const _: () = usage_argv::assert_unique_subcommand_names(&[#(#unique_commands),*]);
 
-            impl ::usage_argv::spec::Subcommands for #ident {
+            impl usage_argv::spec::Subcommands for #ident {
                 type Partial = Partial;
 
-                const COMMANDS: &'static [&'static ::usage_argv::Command<'static>] =
+                const COMMANDS: &'static [&'static usage_argv::Command<'static>] =
                     &[#(#commands),*];
-                const METAS: &'static [&'static ::usage_argv::spec::CommandMeta<'static>] =
+                const METAS: &'static [&'static usage_argv::spec::CommandMeta<'static>] =
                     &[#(#metas),*];
 
                 fn apply(
                     partial: &mut Self::Partial,
                     selected: ::std::option::Option<usize>,
-                    event: &::usage_argv::Event<'_, '_>,
+                    event: &usage_argv::Event<'_, '_>,
                 ) -> bool {
                     match selected {
                         #(#applies)*
@@ -2655,14 +2712,14 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     const PARTS: &[&'static [(&'static str, &'static str)]] = &[#(#binding_parts),*];
                     const N: usize = 0 #(#binding_lens)*;
                     const JOINED: [(&'static str, &'static str); N] =
-                        ::usage_argv::spec::concat_bindings(PARTS);
+                        usage_argv::spec::concat_bindings(PARTS);
                     &JOINED
                 };
 
                 fn settings_given(
                     partial: &Self::Partial,
                     selected: ::std::option::Option<usize>,
-                ) -> ::std::vec::Vec<(&'static str, ::usage_argv::spec::SettingGiven)> {
+                ) -> ::std::vec::Vec<(&'static str, usage_argv::spec::SettingGiven)> {
                     match selected {
                         #(#givens)*
                         // No subcommand was reached, so none of them was given anything.
@@ -2673,7 +2730,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 fn check<'t, 'v>(
                     partial: &mut Self::Partial,
                     selected: usize,
-                ) -> ::std::result::Result<(), ::usage_argv::Error<'t, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                     match selected {
                         #(#checks)*
                         // A position that is not one of these cannot be produced: it comes
@@ -2687,7 +2744,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     selected: usize,
                 ) -> ::std::result::Result<
                     ::std::option::Option<Self>,
-                    ::usage_argv::Error<'t, 'v>,
+                    usage_argv::Error<'t, 'v>,
                 > {
                     match selected {
                         #(#selects)*
@@ -2735,7 +2792,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         let ident = &f.ident;
         Some(quote! {
-            <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+            <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
         })
     });
     let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
@@ -2744,7 +2801,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         quote! {
             if partial.#duplicated {
                 return ::std::result::Result::Err(
-                    ::usage_argv::Error::DuplicateFlag { name: #name },
+                    usage_argv::Error::DuplicateFlag { name: #name },
                 );
             }
         }
@@ -2846,7 +2903,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         Some(quote! {
             if !partial.#given #standing {
                 return ::std::result::Result::Err(
-                    ::usage_argv::Error::MissingRequired { name: #name },
+                    usage_argv::Error::MissingRequired { name: #name },
                 );
             }
         })
@@ -2863,7 +2920,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // lists what was expected, instead of a message about a type the user did not name.
         let choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
             (true, Some(ty)) => {
-                quote!(<#ty as ::usage_argv::spec::ValueEnum>::CHOICES)
+                quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES)
             }
             _ => {
                 let list = &f.choices;
@@ -2893,7 +2950,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 };
                 if !#choices.contains(&__usage_text) {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::InvalidChoice {
+                        usage_argv::Error::InvalidChoice {
                             name: #name,
                             choices: #choices,
                         },
@@ -2913,7 +2970,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Some(min) => quote! {
                 if got < #min {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::VarTooFew { name: #name, min: #min, got },
+                        usage_argv::Error::VarTooFew { name: #name, min: #min, got },
                     );
                 }
             },
@@ -2938,7 +2995,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Some(max) => quote! {
                 if got > #max {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::VarTooMany { name: #name, max: #max, got },
+                        usage_argv::Error::VarTooMany { name: #name, max: #max, got },
                     );
                 }
             },
@@ -2975,7 +3032,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Some(quote! {
                 if partial.#given && partial.#other_given {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::ConflictingFlags {
+                        usage_argv::Error::ConflictingFlags {
                             name: #name,
                             other: #other_name,
                         },
@@ -3012,7 +3069,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Some(quote! {
                 if partial.#given && !partial.#other_given {
                     return ::std::result::Result::Err(
-                        ::usage_argv::Error::MissingRequired { name: #other_name },
+                        usage_argv::Error::MissingRequired { name: #other_name },
                     );
                 }
             })
@@ -3049,7 +3106,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // variable has already filled the field and set `__given_*`.
         let missing = quote! {
             return ::std::result::Result::Err(
-                ::usage_argv::Error::MissingRequired { name: #name },
+                usage_argv::Error::MissingRequired { name: #name },
             );
         };
         let required_if = (!if_given.is_empty()).then(|| {
@@ -3103,6 +3160,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
 /// hand-written list.
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
+    let runtime = runtime_path();
     let words: Vec<&String> = value_enum.variants.iter().map(|(_, name)| name).collect();
     let arms = value_enum
         .variants
@@ -3118,22 +3176,27 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
         .join(", ");
 
     quote! {
-        impl ::usage_argv::spec::ValueEnum for #ident {
-            const CHOICES: &'static [&'static str] = &[#(#words),*];
-        }
+        #[doc(hidden)]
+        const _: () = {
+            use #runtime as usage_argv;
 
-        impl ::std::str::FromStr for #ident {
-            type Err = ::std::string::String;
+            impl usage_argv::spec::ValueEnum for #ident {
+                const CHOICES: &'static [&'static str] = &[#(#words),*];
+            }
 
-            fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
-                match value {
-                    #(#arms)*
-                    other => ::std::result::Result::Err(::std::format!(
-                        "`{other}` is not one of: {}",
-                        #expected
-                    )),
+            impl ::std::str::FromStr for #ident {
+                type Err = ::std::string::String;
+
+                fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
+                    match value {
+                        #(#arms)*
+                        other => ::std::result::Result::Err(::std::format!(
+                            "`{other}` is not one of: {}",
+                            #expected
+                        )),
+                    }
                 }
             }
-        }
+        };
     }
 }

@@ -89,7 +89,7 @@ jobs:
       matrix:
         include:
           - version: "1.91"
-            crates: usage-argv usage-derive usage-config
+            crates: usage-argv usage-derive usage-config usage-rs
           - version: "1.95"
             crates: usage-lib usage-config-build clap_usage usage-cli
     steps:
