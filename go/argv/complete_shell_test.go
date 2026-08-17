@@ -105,3 +105,30 @@ func TestFilesAreAskedForOnTheirOwnLine(t *testing.T) {
 		t.Errorf("no marker where paths do not belong: %q", got)
 	}
 }
+
+// A candidate carrying a tab or a newline would be read as more fields or more
+// rows. Values normally come from a spec and contain neither, but a `complete`
+// script can produce anything, and rearranging the protocol is a worse failure
+// than a missing candidate.
+func TestACandidateCannotRearrangeTheProtocol(t *testing.T) {
+	a := Answer{Candidates: []Candidate{
+		{Value: "one\ttwo\nthree", Describe: "a\tb"},
+	}}
+	for _, shell := range []Shell{Bash, Zsh, Fish, Nu, PowerShell} {
+		got := RenderAnswer(a, shell)
+		if strings.Count(got, "\n") != 1 {
+			t.Errorf("%v: one candidate is one row, got %q", shell, got)
+		}
+		fields := strings.Count(strings.TrimRight(got, "\n"), "\t")
+		want := 0
+		switch shell {
+		case Zsh:
+			want = 2
+		case Fish, Nu, PowerShell:
+			want = 1
+		}
+		if fields != want {
+			t.Errorf("%v: want %d tabs, got %d in %q", shell, want, fields, got)
+		}
+	}
+}

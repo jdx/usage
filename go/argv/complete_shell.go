@@ -71,16 +71,22 @@ func RenderAnswer(a Answer, shell Shell) string {
 	}
 
 	for _, c := range a.Candidates {
+		// The protocols are lines with tab-separated fields, so a value carrying
+		// either would be read as more rows or more fields. A candidate normally
+		// comes from a spec and contains neither, but a `complete` script can
+		// produce anything, and a completion that rearranges the protocol is a
+		// worse failure than a missing candidate.
+		value := oneLine(c.Value)
 		description := oneLine(c.Describe)
 		switch shell {
 		case Bash:
-			out.WriteString(c.Value)
+			out.WriteString(value)
 		case Zsh:
 			// Display, then description, then what to type: a candidate containing
 			// a space or a quote has to reach the command line intact.
-			out.WriteString(c.Value + "\t" + description + "\t" + zshQuote(c.Value))
+			out.WriteString(value + "\t" + description + "\t" + zshQuote(value))
 		default:
-			out.WriteString(c.Value)
+			out.WriteString(value)
 			if described {
 				out.WriteString("\t" + description)
 			}
@@ -97,8 +103,9 @@ func RenderAnswer(a Answer, shell Shell) string {
 	return out.String()
 }
 
-// oneLine collapses a description onto one line, because the protocols are
-// line-based: a break inside a description would look like another candidate.
+// oneLine collapses text onto one line, because the protocols are line-based
+// with tab-separated fields: a break or a tab inside either field would be read
+// as another row or another column.
 //
 // Collapsed rather than truncated, so a two-line description still says both
 // halves. A run of breaks becomes one space, and never a leading or trailing one.
