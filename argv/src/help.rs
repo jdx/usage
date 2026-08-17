@@ -346,7 +346,9 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     }
     let about = if root { spec.about } else { meta.about };
     if let Some(about) = about {
-        let _ = writeln!(out, "{about}\n");
+        // Trimmed for the same reason the entries below are: the blank line after the
+        // description is written here, so one already in the text doubles it.
+        let _ = writeln!(out, "{}\n", about.trim_end());
     }
     usage_section(&mut out, spec, path, meta);
 
@@ -687,7 +689,9 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         meta.long_about.or(meta.about)
     };
     if let Some(about) = about {
-        let _ = writeln!(out, "{about}\n");
+        // Trimmed for the same reason the entries below are: the blank line after the
+        // description is written here, so one already in the text doubles it.
+        let _ = writeln!(out, "{}\n", about.trim_end());
     }
     usage_section(&mut out, spec, path, meta);
 
@@ -910,7 +914,11 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
         }
         out.push('\n');
         if let Some(about) = sub.long_about.or(sub.about) {
-            write_indented(out, about, 4);
+            // Trailing whitespace trimmed: the blank line after each entry is written below, and
+            // a description that happens to end in a newline — which clap's `long_about` often
+            // does, reaching the spec verbatim — added a second one and left a stray blank in
+            // the middle of the list.
+            write_indented(out, about.trim_end(), 4);
         }
         // A blank line between entries, which the wider layout can afford and which keeps a
         // multi-line description from running into the next command's name.
