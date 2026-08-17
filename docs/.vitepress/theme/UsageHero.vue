@@ -18,9 +18,7 @@ const javascriptPath =
       <div class="usage-hero-text">
         <h1 class="usage-hero-title"><span class="accent">--</span>usage</h1>
 
-        <p class="usage-hero-tagline">
-          Fastest frameworks. Most features. One spec.<span class="cursor"></span>
-        </p>
+        <p class="usage-hero-tagline">Define your CLI once.<span class="cursor"></span></p>
 
         <p class="usage-hero-desc">
           Usage is a toolkit for building command-line tools. Define your CLI's commands,
