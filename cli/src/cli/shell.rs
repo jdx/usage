@@ -41,17 +41,21 @@ pub struct Shell {
 /// `concat!` in a `long_about` would not do: the attribute takes a literal, and by the time
 /// the derive reads it a macro call is not one.
 macro_rules! shell_command {
-    ($ty:ident, $program:literal, $about:literal) => {
-        #[doc = $about]
+    ($ty:ident, $program:literal, $about:tt) => {
+        #[doc = "Execute a shell script with the specified shell"]
         #[doc = ""]
         #[doc = "Typically, this will be called by a script's shebang."]
         #[doc = ""]
-        #[doc = "If using `var=#true` on args/flags, they will be joined with spaces using"]
-        #[doc = "`shell_words::join()` to properly escape and quote values with spaces in them."]
+        #[doc = "If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`"]
+        #[doc = "to properly escape and quote values with spaces in them."]
         #[derive(Debug, Args)]
         // The words after the script are the script's, so a flag `usage` does not know is a
         // value to forward rather than a mistake to report — the root's `error` stops here.
-        #[usage(unknown_flags = "value", verbatim_doc_comment)]
+        #[usage(
+            about = $about,
+            unknown_flags = "value",
+            verbatim_doc_comment
+        )]
         pub struct $ty {
             #[usage(flatten)]
             pub shell: Shell,

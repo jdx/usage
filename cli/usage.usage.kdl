@@ -10,7 +10,7 @@ flag "--completions" help="Outputs completions for the specified shell for compl
 }
 flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
 cmd "bash" help="Execute a shell script using bash" unknown_flags="value" {
-    long_help "Execute a shell script using bash\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag "-h" help="Show help"
     flag "--help" help="Show help"
     arg "<SCRIPT>"
@@ -46,7 +46,7 @@ cmd "exec" help="Execute a script, parsing args and exposing them as environment
     arg "[ARGS]..." help="arguments to pass to script"
 }
 cmd "fish" help="Execute a shell script using fish" unknown_flags="value" {
-    long_help "Execute a shell script using fish\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag "-h" help="Show help"
     flag "--help" help="Show help"
     arg "<SCRIPT>"
@@ -210,7 +210,7 @@ cmd "mcp" help="Serve a usage spec over the Model Context Protocol" effect="read
     }
 }
 cmd "powershell" help="Execute a shell script using PowerShell" unknown_flags="value" {
-    long_help "Execute a shell script using PowerShell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag "-h" help="Show help"
     flag "--help" help="Show help"
     arg "<SCRIPT>"
@@ -221,7 +221,7 @@ cmd "powershell" help="Execute a shell script using PowerShell" unknown_flags="v
 cmd "sponsors" help="Show the companies sponsoring usage and the jdx.dev open source tools" effect="read" {
 }
 cmd "zsh" help="Execute a shell script using zsh" unknown_flags="value" {
-    long_help "Execute a shell script using zsh\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
+    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag "-h" help="Show help"
     flag "--help" help="Show help"
     arg "<SCRIPT>"
