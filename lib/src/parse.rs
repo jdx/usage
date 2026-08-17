@@ -1264,7 +1264,11 @@ fn parse_partial_with_env(
     // flag unusable on any command that has a default. Environment values do count, also as
     // `conflicts` reads them, so the spec parser and the derive agree.
     for flag in unique_flags(out.available_flags.values().chain(out.flags.keys())) {
-        let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
+        // `SpecFlag` equality is intentionally name-only for the public parsed-value map,
+        // but re-declared aliases can leave distinct declarations with that same name in
+        // scope. Exclusivity is about the declaration the typed spelling resolved to, so
+        // compare the parser's `Arc`s by identity here.
+        let given = flag_was_parsed(&out, flag) || flag_has_env(flag, custom_env);
         if !flag.exclusive || !given || overridden_flags.contains(&flag.name) {
             continue;
         }
@@ -1272,7 +1276,7 @@ fn parse_partial_with_env(
             .find(|other| {
                 other.name != flag.name
                     && !overridden_flags.contains(&other.name)
-                    && (out.flags.contains_key(*other) || flag_has_env(other, custom_env))
+                    && (flag_was_parsed(&out, other) || flag_has_env(other, custom_env))
             })
             .map(|other| format!("--{}", other.name));
         let other_arg = out.cmd.args.iter().find(|arg| {
@@ -1301,6 +1305,7 @@ fn parse_partial_with_env(
                     && declared.global == flag.global
                     && declared.short == flag.short
                     && declared.long == flag.long
+                    && declared.negate == flag.negate
             });
         let selected_subcommand =
             (out.cmds.len() > 1 && !belongs_to_selected_command).then(|| out.cmd.name.clone());
@@ -1488,6 +1493,10 @@ fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -
     flag.env
         .as_ref()
         .is_some_and(|env_var| env_contains(custom_env, env_var))
+}
+
+fn flag_was_parsed(out: &ParseOutput, flag: &Arc<SpecFlag>) -> bool {
+    out.flags.keys().any(|parsed| Arc::ptr_eq(parsed, flag))
 }
 
 fn selector_is_explicit(
@@ -3042,9 +3051,23 @@ flag "--file <file>" required_unless="--stdin"
             .parse()
             .unwrap();
 
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child's spelling does not activate the orphan ancestor alias");
         assert!(
             parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
             "the inherited short alias still belongs to the ancestor exclusive flag"
+        );
+    }
+
+    #[test]
+    fn an_inherited_negated_alias_keeps_its_ancestor_exclusivity() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" negate=\"--no-clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"-c --clean\" global=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--no-clean"])).is_err(),
+            "the inherited negated alias still belongs to the ancestor exclusive flag"
         );
     }
 
