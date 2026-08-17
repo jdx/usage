@@ -1,24 +1,21 @@
 <script setup lang="ts">
-// Rust figures from the `perf-pr` workflow's pinned runner, which runs
-// `tasks/perf-shadow.sh`.
+// Rust wall clock from `time-sweep.rs`, which warms each parser and keeps the
+// fastest of many short rounds — steady-state and in-process, because a
+// whole-process measurement cannot resolve a 200ns parse. Values in nanoseconds,
+// quoted to two significant figures: across twenty-two runs on two machines the
+// minima moved a few percent and their ratios by 10% — clap read 2,226x, 2,502x
+// and 2,419x on three occasions — so the ratios carry a `~`.
 //
-// The bars are instruction counts, because that is the measure that holds still:
-// deterministic for a given binary, and a developer machine and the runner agreed
-// on them to within 0.15%. They are also genuinely one *cold* parse — `parse-n` is differenced
-// against the same binary parsing nothing, so the figure is a single parse in a
-// fresh process.
-//
-// Wall clock lives in the footnote instead, and is deliberately vaguer. It comes
-// from `time-sweep.rs`, which warms each parser and keeps the fastest of many
-// short rounds, so it is steady-state rather than cold. Across twenty-two runs on
-// two machines the minima moved a few percent and their ratios by 10% — clap read
-// 2,226x, 2,502x and 2,419x on three occasions — which is a range worth quoting
-// loosely and not a number worth putting on a bar.
+// The instruction counts in the tooltip are the firm measure, from the `perf-pr`
+// workflow's pinned runner running `tasks/perf-shadow.sh`: deterministic for a
+// given binary, agreeing to within 0.15% between a developer machine and the
+// runner, and genuinely one *cold* parse — `parse-n` is differenced against the
+// same binary parsing nothing.
 const rustRows = [
-  { name: "usage-rs", value: 4155, label: "4,155", us: true },
-  { name: "argh", value: 6295, label: "6,295", note: "1.5× more", us: false },
-  { name: "clap", value: 5894561, label: "5.89M", note: "1,418× more", us: false },
-  { name: "bpaf", value: 21917918, label: "21.9M", note: "5,275× more", us: false },
+  { name: "usage-rs", value: 194, label: "190 ns", us: true },
+  { name: "argh", value: 268, label: "270 ns", note: "1.4× more", us: false },
+  { name: "clap", value: 479605, label: "480 µs", note: "~2,500× more", us: false },
+  { name: "bpaf", value: 1597028, label: "1.6 ms", note: "~8,200× more", us: false },
 ];
 
 // Go figures from go/README.md are whole-process wall time and subtract the
@@ -52,7 +49,23 @@ function width(value: number, max: number): string {
     <div class="usage-bench-cards">
       <div class="usage-bench-card">
         <h3>usage-rs <span>vs clap, argh, bpaf</span></h3>
-        <p class="usage-bench-metric">instructions, one cold parse</p>
+        <p class="usage-bench-metric">
+          wall time,
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-warmed"
+            >one warmed parse
+            <span class="usage-bench-tip" id="bench-tip-warmed" role="tooltip">
+              <strong>How this is measured</strong>
+              <span>
+                In-process and warmed — the fastest of many short rounds, since a fresh
+                process cannot resolve a 200ns parse. Minima and their ratios drift a few
+                percent between runs and machines, hence the <code>~</code>. Instructions
+                for one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
+                agreeing across two machines to 0.15%. For scale, starting a process costs
+                ~1ms, so the first two bars are under anything a user feels.
+              </span>
+            </span>
+          </span>
+        </p>
         <div class="usage-bench-rows">
           <div v-for="row in rustRows" :key="row.name" class="usage-bench-row">
             <span class="usage-bench-name">{{ row.name }}</span>
@@ -71,25 +84,49 @@ function width(value: number, max: number): string {
           </div>
         </div>
         <p class="usage-bench-foot">
-          usage-rs and argh are the two bars you cannot see, and neither is a number anyone
-          could feel — a process costs ~1ms to start. The gap that matters is to the two
-          that build a parser before they can use one: most of clap's is constructing and
-          validating its command tree, and bpaf's is larger because it assembles a
-          combinator tree per run, which reusing the parser across parses only halves.
-          Instructions rather than time because they hold still: deterministic per binary,
-          agreeing to within 0.15% across two machines, and genuinely one parse in a fresh
-          process. In time, warmed and on one machine, the same four are roughly
-          <strong>0.2µs</strong> · 0.3µs · 480µs · 1.6ms — loosely, since those minima and
-          their ratios move several percent between runs and between machines. Heap allocations for a
-          bare parse: <strong>zero</strong> vs clap's 6,280. What argh and bpaf cannot
-          express — aliases, hidden commands, global flags, a positional beside a
-          subcommand — is counted by the generator and printed when it runs.
+          clap and bpaf
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-build"
+            >build a parser before they can use one
+            <span class="usage-bench-tip" id="bench-tip-build" role="tooltip">
+              <strong>Where their time goes</strong>
+              <span>
+                Most of clap's is constructing and validating its command tree. bpaf's is
+                larger because it assembles a combinator tree per run as well, which
+                reusing the parser across parses only halves.
+              </span>
+            </span></span
+          >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
+          argh and bpaf also
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-express"
+            >express less
+            <span class="usage-bench-tip" id="bench-tip-express" role="tooltip">
+              <strong>Missing from the argh and bpaf shadows</strong>
+              <span>
+                Aliases, hidden commands, global flags, and a positional beside a
+                subcommand — the generator drops them, counts them, and prints the count
+                when it runs.
+              </span>
+            </span></span
+          >.
         </p>
       </div>
 
       <div class="usage-bench-card">
         <h3>usage-go <span>vs cobra, urfave/cli, kong</span></h3>
-        <p class="usage-bench-metric">wall time, one cold parse</p>
+        <p class="usage-bench-metric">
+          wall time,
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-cold"
+            >one cold parse
+            <span class="usage-bench-tip" id="bench-tip-cold" role="tooltip">
+              <strong>How this is measured</strong>
+              <span>
+                Whole-process, with the ~0.95ms of Go runtime startup a do-nothing process
+                costs subtracted — approximate, and the reason the Rust card is timed
+                in-process instead.
+              </span>
+            </span>
+          </span>
+        </p>
         <div class="usage-bench-rows">
           <div v-for="row in goRows" :key="row.name" class="usage-bench-row">
             <span class="usage-bench-name">{{ row.name }}</span>
@@ -108,9 +145,8 @@ function width(value: number, max: number): string {
           </div>
         </div>
         <p class="usage-bench-foot">
-          A do-nothing Go process costs ~0.95ms of runtime startup no parser can
-          touch; these subtract it. Instructions: <strong>~2.7k</strong> vs cobra's
-          2.0M, urfave/cli's 5.6M, kong's 57.9M.
+          Instructions for the same parse: <strong>~2.7k</strong> vs cobra's 2.0M,
+          urfave/cli's 5.6M, kong's 57.9M.
         </p>
       </div>
     </div>

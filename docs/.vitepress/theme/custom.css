@@ -541,6 +541,7 @@
 }
 
 .usage-bench-card {
+  position: relative;
   background: rgba(21, 8, 54, 0.7);
   border: 1px solid var(--vw-purple-soft);
   border-radius: 12px;
@@ -646,6 +647,101 @@
   font-size: 0.75rem;
   color: rgba(245, 240, 255, 0.45);
   margin: 1.75rem 0 0;
+}
+
+/* The caveats a bar chart cannot carry: how a figure was measured, and what the
+   comparison leaves out. Hover or focus, so a keyboard reaches them too. */
+.usage-bench-hint {
+  position: relative;
+  display: inline-block;
+  color: rgba(245, 240, 255, 0.8);
+  border-bottom: 1px dotted rgba(1, 205, 254, 0.7);
+  cursor: help;
+}
+
+.usage-bench-tip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  width: max-content;
+  /* 280 rather than 300: at the widths where a card is ~650px, a wider tip
+     centred on the first footnote phrase hangs off the card's left edge. */
+  max-width: 280px;
+  margin-top: 0.5rem;
+  padding: 0.8rem 1rem;
+  background: rgba(13, 2, 33, 0.97);
+  border: 1px solid var(--vw-cyan);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 20px var(--vw-cyan-glow);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+  /* The metric line is uppercase mono; a tooltip inside it is prose. */
+  font-family: var(--vp-font-family-base);
+  font-size: 0.78rem;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+}
+
+.usage-bench-hint:hover .usage-bench-tip,
+/* :focus as well as :focus-visible, so a tap on a touch screen opens the tip. */
+.usage-bench-hint:focus .usage-bench-tip,
+.usage-bench-hint:focus-visible .usage-bench-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.usage-bench-tip strong {
+  display: block;
+  color: var(--vw-cyan);
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+.usage-bench-tip code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.9em;
+  color: var(--vw-mint);
+}
+
+/* A span rather than a p: the tips live inside paragraphs, and a nested p would
+   be closed early by the browser parsing the server-rendered HTML. */
+.usage-bench-tip span {
+  display: block;
+  color: rgba(245, 240, 255, 0.75);
+  line-height: 1.55;
+}
+
+/* Narrow enough that a 300px tip centred on a phrase would hang off the card, and
+   which side it hangs off depends on where the line wrapped. Pin it to the card
+   instead: the hint stops being the positioning context, so the tip lands under the
+   card at its full width and cannot be clipped wherever the phrase ended up. */
+@media (max-width: 620px) {
+  .usage-bench-hint {
+    position: static;
+  }
+
+  .usage-bench-tip {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: none;
+    transform: translateY(6px);
+  }
+
+  .usage-bench-hint:hover .usage-bench-tip,
+  .usage-bench-hint:focus .usage-bench-tip,
+  .usage-bench-hint:focus-visible .usage-bench-tip {
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 860px) {
