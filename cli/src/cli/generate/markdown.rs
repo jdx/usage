@@ -46,6 +46,13 @@ pub struct Markdown {
 
 impl Markdown {
     pub fn run(&self) -> miette::Result<()> {
+        // The half of the `--multi`/`--out-dir` pair the spec cannot state. Checked here
+        // rather than left out: without it, `--out-dir docs` with no `--multi` writes a
+        // single file somewhere else entirely and says nothing, where clap refused the
+        // command line. Belongs in the spec once jdx/usage#925's `requires` lands.
+        if self.out_dir.is_some() && !self.multi {
+            miette::bail!("--out-dir is only used with --multi");
+        }
         // The banner belongs to every generated document, so build it in one place rather
         // than once per output path.
         let render = |md: &str| {

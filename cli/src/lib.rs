@@ -34,7 +34,9 @@ pub fn run(args: &[String]) -> Result<()> {
     // } else if let Some(script) = args.get(1) {
     if let Some(script) = args.get(1) {
         if script.to_lowercase() == "-v" {
-            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            // The same line `--version` prints, from the same place. These used to be two
+            // copies of the crate name, which is not what this binary is called.
+            println!("{}", cli::version());
             return Ok(());
         } else if script == "--usage-spec" {
             return usage_spec::generate();
