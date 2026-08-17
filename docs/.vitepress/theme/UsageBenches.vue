@@ -1,24 +1,27 @@
 <script setup lang="ts">
 // Measured numbers, not marketing: Rust figures from PLAN.md's gated perf
-// report; Go figures from go/README.md. Both are cachegrind instruction
-// counts for a cold parse against a shadow of mise's spec.
+// report; Go figures from go/README.md. Wall time is parser overhead — what
+// the framework adds on top of a process that parses nothing. The Go values
+// subtract the ~0.95ms a do-nothing Go process costs, so they are
+// deliberately approximate.
 const rustRows = [
-  { name: "usage", value: 50_900, label: "50.9k", note: "117× fewer", us: true },
-  { name: "clap", value: 5_960_000, label: "5.96M", us: false },
+  { name: "usage", value: 2.1, label: "2.1µs", note: "~230× less", us: true },
+  { name: "clap", value: 490, label: "490µs", us: false },
 ];
 
 const goRows = [
-  { name: "usage-go", value: 2_700, label: "~2.7k", note: "~740× fewer", us: true },
-  { name: "cobra", value: 2_008_880, label: "2.0M", us: false },
-  { name: "urfave/cli v3", value: 5_591_321, label: "5.6M", us: false },
-  { name: "kong", value: 57_889_084, label: "57.9M", us: false },
+  { name: "usage-go", value: 0.15, label: "~0.15ms", note: "~6× less", us: true },
+  { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", us: false },
+  { name: "cobra", value: 0.85, label: "~0.85ms", us: false },
+  { name: "kong", value: 5.2, label: "~5.2ms", us: false },
 ];
 
 const rustMax = Math.max(...rustRows.map((r) => r.value));
 const goMax = Math.max(...goRows.map((r) => r.value));
 
 function width(value: number, max: number): string {
-  return `${Math.max((value / max) * 100, 0.4)}%`;
+  // cap at 82% so the longest bar's value label still fits inside the card
+  return `${Math.max((value / max) * 82, 0.4)}%`;
 }
 </script>
 
@@ -27,9 +30,9 @@ function width(value: number, max: number): string {
     <p class="usage-hero-label">Benchmarks</p>
     <h2 class="usage-bench-title">Measured, not claimed.</h2>
     <p class="usage-bench-sub">
-      Instructions to parse <code>mise use -g node@20</code> against a shadow of
-      <a href="https://mise.jdx.dev">mise</a>'s CLI — 211 commands, 711 flags.
-      Cachegrind, cold process, same method in both languages.
+      Parser overhead — wall time the framework adds on top of a process that parses
+      nothing — for <code>mise use -g node@20</code> against a shadow of
+      <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags, cold.
     </p>
 
     <div class="usage-bench-cards">
@@ -51,8 +54,9 @@ function width(value: number, max: number): string {
           </div>
         </div>
         <p class="usage-bench-foot">
-          Wall clock, argv to parsed struct: <strong>2.1µs</strong> vs clap's 490µs.
-          Heap allocations for a bare parse: <strong>zero</strong> vs 6,560.
+          Most of clap's 490µs is building and validating its command tree before it
+          can parse. Instructions: <strong>50.9k</strong> vs 5.96M. Heap allocations
+          for a bare parse: <strong>zero</strong> vs 6,560.
         </p>
       </div>
 
@@ -74,8 +78,9 @@ function width(value: number, max: number): string {
           </div>
         </div>
         <p class="usage-bench-foot">
-          Whole-process wall clock: <strong>1.1ms</strong> vs cobra's 1.8ms — of which
-          0.95ms is Go runtime startup no parser can touch.
+          A do-nothing Go process costs ~0.95ms of runtime startup no parser can
+          touch; these subtract it. Instructions: <strong>~2.7k</strong> vs cobra's
+          2.0M, urfave/cli's 5.6M, kong's 57.9M.
         </p>
       </div>
     </div>
