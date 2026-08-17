@@ -1,0 +1,220 @@
+{
+  "section": "sections",
+  "about": "The body of a page: which sections appear, what goes in each, and how an entry is written down beside its help. These vectors pin whole pages rather than one line, because the failure they are guarding against is a section disagreeing with the usage line above it — and because the column an entry sits in is decided across a whole section, so no single entry can be checked alone.",
+  "vectors": [
+    {
+      "id": "supplied-help-entry",
+      "doc": "A page lists `--help` even though no spec declares it, because a reader looking for how to get help should find it on the page.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "version-entry-only-with-a-version",
+      "doc": "`--version` appears only where the spec declares one, and the banner appears with it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "ex 1.2.3",
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force    Do it anyway",
+          "  -h, --help     Print help",
+          "  -V, --version  Print version"
+        ]
+      }
+    },
+    {
+      "id": "annotations-on-one-line-and-on-their-own",
+      "doc": "Choices, environment and default are bracketed after an entry's help in the short form and each get a line in the long form. The two layouts differ in more than width, which is why both are pinned here.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shell <SHELL>\" help=\"Which shell\" env=\"EX_SHELL\" {\n    arg \"<SHELL>\" default=\"bash\" {\n        choices \"bash\" \"zsh\"\n    }\n}\narg \"[file]\" help=\"Where to write\" default=\"-\"\n",
+      "expect": {
+        "usage": "ex [--shell [SHELL]] [file]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--shell [SHELL]] [file]",
+          "",
+          "Arguments:",
+          "  [file]  Where to write (default: -)",
+          "",
+          "Flags:",
+          "      --shell [SHELL]  Which shell [bash, zsh] [env: EX_SHELL]",
+          "  -h, --help           Print help"
+        ],
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--shell [SHELL]] [file]",
+          "",
+          "Arguments:",
+          "  [file]  Where to write",
+          "    (default: -)",
+          "",
+          "Flags:",
+          "      --shell [SHELL]  Which shell",
+          "    [possible values: bash, zsh]",
+          "    [env: EX_SHELL]",
+          "  -h, --help           Print help"
+        ]
+      }
+    },
+    {
+      "id": "flags-grouped-by-heading",
+      "doc": "A `help_heading` puts a flag in a section of its own; unheaded flags keep the default section and come first, and headings follow in the order they are first seen.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--plain\" help=\"No heading\"\nflag \"--fast\" help=\"Go faster\" help_heading=\"Speed\"\nflag \"--slow\" help=\"Go slower\" help_heading=\"Speed\"\nflag \"--loud\" help=\"Say more\" help_heading=\"Noise\"\n",
+      "expect": {
+        "usage": "ex [FLAGS]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [FLAGS]",
+          "",
+          "Flags:",
+          "      --plain  No heading",
+          "  -h, --help   Print help",
+          "",
+          "Speed:",
+          "      --fast   Go faster",
+          "      --slow   Go slower",
+          "",
+          "Noise:",
+          "      --loud   Say more"
+        ]
+      }
+    },
+    {
+      "id": "global-flags-are-listed-where-they-are-inherited",
+      "doc": "A flag declared `global` on an ancestor is listed on a descendant's page, under a heading that says where it came from — a flag a user can type and cannot discover is the worst way for help to be wrong.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-c --config <FILE>\" global=#true help=\"Config file\"\ncmd \"go\" help=\"Go somewhere\" {\n    flag \"--fast\" help=\"Go faster\"\n}\n",
+      "cmd": ["go"],
+      "expect": {
+        "usage": "ex go [--fast]",
+        "short_help": [
+          "Go somewhere",
+          "",
+          "Usage: ex go [--fast]",
+          "",
+          "Flags:",
+          "      --fast           Go faster",
+          "  -h, --help           Print help",
+          "",
+          "Global flags:",
+          "  -c, --config <FILE>  Config file"
+        ]
+      }
+    },
+    {
+      "id": "commands-list-with-aliases",
+      "doc": "Subcommands are listed by their rendered usage with visible aliases beside them; a hidden alias works and is not advertised. Note the supplied `help` entry, which is written flush rather than into the column the declared commands share — the reference's behaviour, pinned here so that fixing it is a decision rather than an accident.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ncmd \"install\" help=\"Install a tool\" {\n    alias \"i\"\n    alias \"add\" hide=#true\n    arg \"<TOOL>\"\n}\ncmd \"remove\" help=\"Remove a tool\" hide=#true\n",
+      "expect": {
+        "usage": "ex <SUBCOMMAND>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex <SUBCOMMAND>",
+          "",
+          "Commands:",
+          "  install <TOOL> [aliases: i]  Install a tool",
+          "  help  Print this message or the help of the given subcommand(s)",
+          "",
+          "Flags:",
+          "  -h, --help  Print help"
+        ]
+      }
+    },
+    {
+      "id": "a-negation-is-shown-beside-its-flag",
+      "doc": "A flag that declares a negation offers both spellings, since both are things a user may type.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--color\" negate=\"--no-color\" help=\"Colourise output\"\n",
+      "expect": {
+        "usage": "ex [--color]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--color]",
+          "",
+          "Flags:",
+          "      --color / --no-color  Colourise output",
+          "  -h, --help                Print help"
+        ]
+      }
+    },
+    {
+      "id": "a-short-only-flag-does-not-pay-for-the-long-column",
+      "doc": "The short column is only spent where there is a long form to line up with, so a short-only flag is written flush and the section still lines up.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"-j <JOBS>\" help=\"How many\"\nflag \"-n --dry-run\" help=\"Do nothing\"\nflag \"--github-release\" help=\"Use a release\"\n",
+      "expect": {
+        "usage": "ex [FLAGS]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [FLAGS]",
+          "",
+          "Flags:",
+          "  -j <JOBS>             How many",
+          "  -n, --dry-run         Do nothing",
+          "      --github-release  Use a release",
+          "  -h, --help            Print help"
+        ]
+      }
+    },
+    {
+      "id": "long-help-wraps-and-prefers-the-long-text",
+      "doc": "The wide layout prefers each entry's long help and wraps it into the column, at the 80 columns both implementations fall back to.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\" {\n    long_help \"Do it anyway, even when the tool is already installed and the version on disk is the one that was asked for.\"\n}\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway, even when the tool is already installed and the",
+          "               version on disk is the one that was asked for.",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "hidden-entries-are-absent-from-every-section",
+      "doc": "`hide` keeps a flag, an argument and a subcommand out of the page as well as out of the usage line.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shown\" help=\"Visible\"\nflag \"--secret\" help=\"Hidden\" hide=#true\narg \"[shown]\" help=\"Visible\"\narg \"[buried]\" help=\"Hidden\" hide=#true\ncmd \"go\" help=\"Go\"\ncmd \"lurk\" help=\"Hidden\" hide=#true\n",
+      "expect": {
+        "usage": "ex [--shown] [shown] <SUBCOMMAND>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--shown] [shown] <SUBCOMMAND>",
+          "",
+          "Commands:",
+          "  go  Go",
+          "  help  Print this message or the help of the given subcommand(s)",
+          "",
+          "Arguments:",
+          "  [shown]  Visible",
+          "",
+          "Flags:",
+          "      --shown  Visible",
+          "  -h, --help   Print help"
+        ]
+      }
+    }
+  ]
+}

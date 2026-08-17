@@ -28,3 +28,7 @@ usage-derive = { workspace = true }
 [[bin]]
 name = "oracle"
 path = "src/bin/oracle.rs"
+
+[[bin]]
+name = "render-oracle"
+path = "src/bin/render-oracle.rs"

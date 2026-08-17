@@ -1,0 +1,103 @@
+{
+  "section": "usage-line",
+  "about": "Everything the one-line summary decides: which entries appear at all, when a list is too long to spell out, and how a positional is written. The collapse thresholds and the hidden-entry rules are the parts a real CLI exercises unevenly — mise has plenty of commands past the threshold and almost none sitting exactly on it.",
+  "vectors": [
+    {
+      "id": "positional-required",
+      "doc": "A required positional is angled.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<TOOL>\"\n",
+      "expect": { "usage": "ex <TOOL>" }
+    },
+    {
+      "id": "positional-optional",
+      "doc": "An optional positional is square-bracketed.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[TOOL]\"\n",
+      "expect": { "usage": "ex [TOOL]" }
+    },
+    {
+      "id": "positional-defaulted",
+      "doc": "A default makes a positional optional, so it is square-bracketed however it was declared.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<file>\" default=\"-\"\n",
+      "expect": { "usage": "ex [file]" }
+    },
+    {
+      "id": "positional-variadic",
+      "doc": "The ellipsis goes outside the brackets.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[FILES]...\"\n",
+      "expect": { "usage": "ex [FILES]…" }
+    },
+    {
+      "id": "positional-after-double-dash",
+      "doc": "A positional that only takes what follows `--` shows the separator inside its brackets: one optional thing, not a literal `--` and then an optional word.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[COMMAND]...\" double_dash=\"required\"\n",
+      "expect": { "usage": "ex [-- COMMAND]…" }
+    },
+    {
+      "id": "flags-collapse-past-two",
+      "doc": "Three or more flags collapse to a placeholder rather than being spelled out.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\nflag \"--c\"\n",
+      "expect": { "usage": "ex [FLAGS]" }
+    },
+    {
+      "id": "flags-collapse-when-one-is-required",
+      "doc": "The collapsed placeholder is angled when any of the flags it stands for is required.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\nflag \"--c <v>\" required=#true\n",
+      "expect": { "usage": "ex <FLAGS>" }
+    },
+    {
+      "id": "flags-two-are-spelled-out",
+      "doc": "Two is the limit, and at the limit the flags are still named.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\n",
+      "expect": { "usage": "ex [--a] [--b]" }
+    },
+    {
+      "id": "args-collapse-past-two",
+      "doc": "Positionals collapse the same way, and the placeholder is always variadic.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[a]\"\narg \"[b]\"\narg \"[c]\"\n",
+      "expect": { "usage": "ex [ARGS]…" }
+    },
+    {
+      "id": "args-collapse-when-one-is-required",
+      "doc": "Angled when any of the positionals it stands for is required.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<a>\"\narg \"[b]\"\narg \"[c]\"\n",
+      "expect": { "usage": "ex <ARGS>…" }
+    },
+    {
+      "id": "hidden-flag-is-not-counted",
+      "doc": "A hidden flag is absent from the line, and does not count towards the collapse threshold either.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\nflag \"--secret\" hide=#true\n",
+      "expect": { "usage": "ex [--a] [--b]" }
+    },
+    {
+      "id": "hidden-flag-does-not-make-the-line-required",
+      "doc": "A hidden required flag does not angle the placeholder for the visible ones: the line describes what a user is invited to type.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--a\"\nflag \"--b\"\nflag \"--c\"\nflag \"--secret <v>\" hide=#true required=#true\n",
+      "expect": { "usage": "ex [FLAGS]" }
+    },
+    {
+      "id": "subcommands-are-named-generically",
+      "doc": "A command with subcommands ends its line by saying so, whatever they are called.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" help=\"Go\"\ncmd \"stop\" help=\"Stop\"\n",
+      "expect": { "usage": "ex <SUBCOMMAND>" }
+    },
+    {
+      "id": "subcommands-all-hidden-still-say-subcommand",
+      "doc": "The line is computed before hidden commands are filtered, so a command whose subcommands are all hidden still says `<SUBCOMMAND>` while listing none. Recorded because it looks like a bug and is the reference's behaviour, which mise reaches on `direnv` and `dotfiles`.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" help=\"Go\" hide=#true\n",
+      "expect": { "usage": "ex <SUBCOMMAND>" }
+    },
+    {
+      "id": "subcommand-line-starts-at-the-command",
+      "doc": "A subcommand's line names the whole path from the binary down, not the child's own name.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"config\" help=\"Config\" {\n    cmd \"set\" help=\"Set one\" {\n        arg \"<KEY>\"\n        arg \"<VALUE>\"\n    }\n}\n",
+      "cmd": ["config", "set"],
+      "expect": { "usage": "ex config set <KEY> <VALUE>" }
+    },
+    {
+      "id": "flags-and-args-together",
+      "doc": "Flags come before positionals, each group collapsing on its own count.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\narg \"<TOOL>\"\narg \"[VERSION]\"\n",
+      "expect": { "usage": "ex [--force] <TOOL> [VERSION]" }
+    }
+  ]
+}
