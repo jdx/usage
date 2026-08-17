@@ -4,7 +4,9 @@ description = "Harness for the argv conformance corpus"
 publish = false
 version = "0.0.0"
 edition = "2021"
-rust-version = "1.80.0"
+# No `rust-version`: nobody can depend on this, so it has nobody to promise. It declared 1.91
+# while depending on `usage-lib` and `kdl`, which need 1.95 — a floor that was never reachable
+# and that no job checked, because the matrix only covers what is published.
 homepage = { workspace = true }
 documentation = { workspace = true }
 repository = { workspace = true }

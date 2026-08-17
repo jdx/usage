@@ -64,3 +64,82 @@ jobs:
             exit 1
           fi
       - run: mise r lint
+
+  # The declared `rust-version` is a promise to anyone depending on these crates, and nothing
+  # was checking it. It said 1.80 — set in 2024 when `LazyLock` landed and never revisited —
+  # and usage-argv had not built at 1.80 for a long time. A promise nobody checks is a guess.
+  #
+  # Two floors, because the crates genuinely differ: usage-argv, usage-derive and usage-config
+  # take no dependency on KDL and hold mise's own 1.91, which is the floor that matters for the
+  # fleet. usage-lib and everything that reads a spec through it need 1.95, because `kdl` says
+  # so. Each crate is checked at the version *it* declares rather than at one shared guess,
+  # which is how a lower floor stays real instead of aspirational.
+  #
+  # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
+  # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
+  msrv:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "1.91"
+            crates: usage-argv usage-derive usage-config
+          - version: "1.95"
+            crates: usage-lib usage-config-build clap_usage usage-cli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: the matrix and the manifests agree
+        run: |
+          # Both directions, because one of them alone is how a false floor survives.
+          #
+          # Every crate this row checks declares this row's version. Or the job checks a version
+          # nobody promised: a crate that raises its floor without touching this file would
+          # otherwise be tested at the old one and pass.
+          for crate in ${{ matrix.crates }}; do
+            manifest="$(git ls-files '*Cargo.toml' | xargs grep -l "^name = \"$crate\"$" | head -1)"
+            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
+            if [ "$declared" != "${{ matrix.version }}" ]; then
+              echo "::error::$crate declares $declared, checked here at ${{ matrix.version }}"
+              exit 1
+            fi
+          done
+          # And every published crate declaring this row's version is in this row. Without this
+          # half, a new crate — or one that was simply never listed — makes a floor promise that
+          # no toolchain ever tries. `usage-conformance` and `xtask` promised 1.91 for as long as
+          # this job existed while depending on a crate that needs 1.95; nothing noticed, because
+          # nothing looked from the manifests back to the matrix.
+          #
+          # Published only: a floor is a promise to whoever depends on the crate, so a
+          # `publish = false` member has nobody to make one to and should not declare one.
+          for manifest in $(git ls-files '*Cargo.toml'); do
+            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
+            [ "$declared" = "${{ matrix.version }}" ] || continue
+            grep -q '^publish *= *false' "$manifest" && continue
+            name="$(sed -n 's/^name *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
+            case " ${{ matrix.crates }} " in
+              *" $name "*) ;;
+              *)
+                echo "::error::$name declares $declared and is published, but no row checks it"
+                exit 1
+                ;;
+            esac
+          done
+      # `rustup` rather than an action: it is already on the runner, and this needs one
+      # toolchain and no other behaviour — a pinned third-party action would be one more
+      # thing to keep current for no gain.
+      - name: install the toolchain under test
+        run: rustup toolchain install ${{ matrix.version }} --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: msrv-${{ matrix.version }}
+      - name: they build at the version they claim
+        run: |
+          for crate in ${{ matrix.crates }}; do
+            cargo +${{ matrix.version }} check --locked -p "$crate" --all-features
+          done
