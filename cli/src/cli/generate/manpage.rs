@@ -16,7 +16,7 @@ pub struct Manpage {
     #[usage(
         short,
         long,
-        value_hint = clap::ValueHint::FilePath,
+        value_hint = usage_argv::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,
