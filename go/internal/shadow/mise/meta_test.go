@@ -273,3 +273,74 @@ func TestAGeneratedPageReadsAsAPage(t *testing.T) {
 		}
 	}
 }
+
+// The generated front door, on mise's real command lines.
+//
+// `Parse` is what an author actually calls, and it is generated from the same
+// tables the rest of the suite checks — so this is the join between them: the
+// structs exist, the right one is filled, and the rules still run.
+func TestGeneratedParseFillsTheStructs(t *testing.T) {
+	cli, err := Parse([]string{"use", "-g", "node@20"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cli.Use == nil {
+		t.Fatal("`use` should be selected")
+	}
+	if !cli.Use.Global {
+		t.Error("-g should set Global")
+	}
+	if got := cli.Use.ToolVersion; len(got) != 1 || got[0] != "node@20" {
+		t.Errorf("want [node@20], got %q", got)
+	}
+	// A command nobody ran is nil, which is how a caller tells which was chosen.
+	if cli.Config != nil {
+		t.Error("`config` was not on the command line")
+	}
+}
+
+// The shape that made the Rust derive's validation wrong, through the front door.
+func TestGeneratedParseSplitsArgsAcrossASeparator(t *testing.T) {
+	cli, err := Parse([]string{"tasks", "run", "build", "extra", "--", "--verbose"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	run := cli.Tasks.Run
+	if run == nil {
+		t.Fatal("`tasks run` should be selected")
+	}
+	if run.Task != "build" {
+		t.Errorf("want build, got %q", run.Task)
+	}
+	if len(run.Args) != 1 || run.Args[0] != "extra" {
+		t.Errorf("want [extra] before the separator, got %q", run.Args)
+	}
+	if len(run.ArgsLast) != 1 || run.ArgsLast[0] != "--verbose" {
+		t.Errorf("want [--verbose] after it, got %q", run.ArgsLast)
+	}
+}
+
+// A default reaches the field. mise's `bootstrap packages import --manager`
+// defaults to `brew`, and a front door that enforces a default and hands back the
+// zero value is worse than one with no defaults at all.
+func TestGeneratedParseAppliesADefault(t *testing.T) {
+	cli, err := Parse([]string{"bootstrap", "packages", "import"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := cli.Bootstrap.Packages.Import.Manager; got != "brew" {
+		t.Errorf("want the declared default, got %q", got)
+	}
+}
+
+// And the rules still run: a value outside the choices comes back rather than
+// reaching the struct.
+func TestGeneratedParseEnforcesChoices(t *testing.T) {
+	_, err := Parse([]string{"--log-level", "chatty"})
+	if err == nil {
+		t.Fatal("a value outside the choices should be refused")
+	}
+	if e, ok := err.(*argv.Error); !ok || e.Code != argv.CodeInvalidChoice {
+		t.Errorf("want invalid_choice, got %v", err)
+	}
+}

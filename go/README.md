@@ -96,8 +96,27 @@ a derive macro:
 //go:generate usage generate go -f mycli.usage.kdl -o tables.go
 ```
 
-The generated file exports `Root` to pass to `argv.New`, `Meta` for the rules
-decided after the last token, and a key constant per command, flag and argument.
+The generated file exports `Parse`, a struct per command, `Root` and the two cold
+tables, and a key constant per entry:
+
+```go
+cli, err := mycli.Parse(os.Args[1:])
+if err != nil {
+    fmt.Fprint(os.Stderr, argv.Render(err.(*argv.Error), path, chain, mycli.HelpText))
+    os.Exit(2)
+}
+if cli.Run != nil {
+    fmt.Println(cli.Run.Task, cli.Run.Args)
+}
+```
+
+`Parse` binds, applies the post-binding rules, and fills the structs — a missing
+required flag or a value outside its choices comes back rather than reaching your
+code, and `env` and `default` values reach the fields.
+
+Fields are `string`, `bool` and `[]string`, because that is what a spec knows: it
+says what a value is _called_ and never what type it is. Turning `"8"` into an
+`int` is what the conversions above are for.
 
 **Three tables, and you pay for the ones you use.** Go's linker drops an
 unreferenced package-level table entirely, so the split is enforced by the linker

@@ -5896,3 +5896,8277 @@ var HelpText = argv.HelpTable{
 // HelpMeta is what a page needs from the spec's root rather than from any one
 // command: the header, and the text that brackets every page.
 var HelpMeta = argv.HelpSpec{Name: "mise", Bin: "mise", About: "Dev tools, env vars, and tasks in one CLI", LongAbout: "mise prepares your development environment before each command runs. https://github.com/jdx/mise"}
+
+// Cli is the whole command line.
+type Cli struct {
+	ContinueOnError bool             // FlagContinueOnError
+	Cd              string           // FlagCd
+	Env             []string         // FlagEnv
+	Force           bool             // FlagForce
+	Jobs            string           // FlagJobs
+	DryRun          bool             // FlagDryRun
+	Profile         []string         // FlagProfile
+	Quiet           bool             // FlagQuiet
+	Shell           string           // FlagShell
+	Tool            []string         // FlagTool
+	Verbose         int              // FlagVerbose
+	Version         bool             // FlagVersion
+	Yes             bool             // FlagYes
+	Debug           bool             // FlagDebug
+	LogLevel        string           // FlagLogLevel
+	NoConfig        bool             // FlagNoConfig
+	NoEnv           bool             // FlagNoEnv
+	NoHooks         bool             // FlagNoHooks
+	NoTimings       bool             // FlagNoTimings
+	Output          string           // FlagOutput
+	Raw             bool             // FlagRaw
+	Locked          bool             // FlagLocked
+	Silent          bool             // FlagSilent
+	Timings         bool             // FlagTimings
+	Trace           bool             // FlagTrace
+	Task            string           // ArgTask
+	TaskArgs        []string         // ArgTaskArgs
+	TaskArgsLast    []string         // ArgTaskArgsLast
+	Activate        *ActivateCmd     // CmdActivate
+	ToolAlias       *ToolAliasCmd    // CmdToolAlias
+	Asdf            *AsdfCmd         // CmdAsdf
+	Backends        *BackendsCmd     // CmdBackends
+	BinPaths        *BinPathsCmd     // CmdBinPaths
+	Bootstrap       *BootstrapCmd    // CmdBootstrap
+	Cache           *CacheCmd        // CmdCache
+	Completion      *CompletionCmd   // CmdCompletion
+	Config          *ConfigCmd       // CmdConfig
+	Current         *CurrentCmd      // CmdCurrent
+	Deactivate      *DeactivateCmd   // CmdDeactivate
+	Direnv          *DirenvCmd       // CmdDirenv
+	Dotfiles        *DotfilesCmd     // CmdDotfiles
+	Doctor          *DoctorCmd       // CmdDoctor
+	En              *EnCmd           // CmdEn
+	EnvCmd          *EnvCmd          // CmdEnv
+	Exec            *ExecCmd         // CmdExec
+	Fmt             *FmtCmd          // CmdFmt
+	Generate        *GenerateCmd     // CmdGenerate
+	Github          *GithubCmd       // CmdGithub
+	Global          *GlobalCmd       // CmdGlobal
+	HookEnv         *HookEnvCmd      // CmdHookEnv
+	HookNotFound    *HookNotFoundCmd // CmdHookNotFound
+	Implode         *ImplodeCmd      // CmdImplode
+	Edit            *EditCmd         // CmdEdit
+	Install         *InstallCmd      // CmdInstall
+	InstallInto     *InstallIntoCmd  // CmdInstallInto
+	Latest          *LatestCmd       // CmdLatest
+	Link            *LinkCmd         // CmdLink
+	Local           *LocalCmd        // CmdLocal
+	Lock            *LockCmd         // CmdLock
+	Ls              *LsCmd           // CmdLs
+	LsRemote        *LsRemoteCmd     // CmdLsRemote
+	Mcp             *McpCmd          // CmdMcp
+	Oci             *OciCmd          // CmdOci
+	Outdated        *OutdatedCmd     // CmdOutdated
+	Patrons         *PatronsCmd      // CmdPatrons
+	Plugins         *PluginsCmd      // CmdPlugins
+	Deps            *DepsCmd         // CmdDeps
+	Prune           *PruneCmd        // CmdPrune
+	Registry        *RegistryCmd     // CmdRegistry
+	RenderHelp      *RenderHelpCmd   // CmdRenderHelp
+	Reshim          *ReshimCmd       // CmdReshim
+	Run             *RunCmd          // CmdRun
+	Search          *SearchCmd       // CmdSearch
+	SelfUpdate      *SelfUpdateCmd   // CmdSelfUpdate
+	Set             *SetCmd          // CmdSet
+	Settings        *SettingsCmd     // CmdSettings
+	ShellCmd        *ShellCmd        // CmdShell
+	ShellAlias      *ShellAliasCmd   // CmdShellAlias
+	Sponsors        *SponsorsCmd     // CmdSponsors
+	Sync            *SyncCmd         // CmdSync
+	Tasks           *TasksCmd        // CmdTasks
+	TestTool        *TestToolCmd     // CmdTestTool
+	Token           *TokenCmd        // CmdToken
+	ToolCmd         *ToolCmd         // CmdTool
+	ToolStub        *ToolStubCmd     // CmdToolStub
+	Trust           *TrustCmd        // CmdTrust
+	Uninstall       *UninstallCmd    // CmdUninstall
+	Unset           *UnsetCmd        // CmdUnset
+	Untrust         *UntrustCmd      // CmdUntrust
+	Unuse           *UnuseCmd        // CmdUnuse
+	Upgrade         *UpgradeCmd      // CmdUpgrade
+	Usage           *UsageCmd        // CmdUsage
+	Use             *UseCmd          // CmdUse
+	VersionCmd      *VersionCmd      // CmdVersion
+	Watch           *WatchCmd        // CmdWatch
+	Where           *WhereCmd        // CmdWhere
+	Which           *WhichCmd        // CmdWhich
+}
+
+// ActivateCmd is `activate`.
+type ActivateCmd struct {
+	Quiet     bool   // FlagActivateQuiet
+	Shell     string // FlagActivateShell
+	NoHookEnv bool   // FlagActivateNoHookEnv
+	Shims     bool   // FlagActivateShims
+	Status    bool   // FlagActivateStatus
+	ShellType string // ArgActivateShellType
+}
+
+// ToolAliasCmd is `tool-alias`.
+type ToolAliasCmd struct {
+	Tool     string             // FlagToolAliasTool
+	NoHeader bool               // FlagToolAliasNoHeader
+	Get      *ToolAliasGetCmd   // CmdToolAliasGet
+	Ls       *ToolAliasLsCmd    // CmdToolAliasLs
+	Set      *ToolAliasSetCmd   // CmdToolAliasSet
+	Unset    *ToolAliasUnsetCmd // CmdToolAliasUnset
+}
+
+// ToolAliasGetCmd is `tool-alias get`.
+type ToolAliasGetCmd struct {
+	Tool  string // ArgToolAliasGetTool
+	Alias string // ArgToolAliasGetAlias
+}
+
+// ToolAliasLsCmd is `tool-alias ls`.
+type ToolAliasLsCmd struct {
+	NoHeader bool   // FlagToolAliasLsNoHeader
+	Tool     string // ArgToolAliasLsTool
+}
+
+// ToolAliasSetCmd is `tool-alias set`.
+type ToolAliasSetCmd struct {
+	Tool  string // ArgToolAliasSetTool
+	Alias string // ArgToolAliasSetAlias
+	Value string // ArgToolAliasSetValue
+}
+
+// ToolAliasUnsetCmd is `tool-alias unset`.
+type ToolAliasUnsetCmd struct {
+	Tool  string // ArgToolAliasUnsetTool
+	Alias string // ArgToolAliasUnsetAlias
+}
+
+// AsdfCmd is `asdf`.
+type AsdfCmd struct {
+	Args []string // ArgAsdfArgs
+}
+
+// BackendsCmd is `backends`.
+type BackendsCmd struct {
+	Ls *BackendsLsCmd // CmdBackendsLs
+}
+
+// BackendsLsCmd is `backends ls`.
+type BackendsLsCmd struct {
+}
+
+// BinPathsCmd is `bin-paths`.
+type BinPathsCmd struct {
+	BinNames    bool     // FlagBinPathsBinNames
+	Json        bool     // FlagBinPathsJson
+	ToolVersion []string // ArgBinPathsToolVersion
+}
+
+// BootstrapCmd is `bootstrap`.
+type BootstrapCmd struct {
+	DryRun              bool                             // FlagBootstrapDryRun
+	Yes                 bool                             // FlagBootstrapYes
+	ForceDotfiles       bool                             // FlagBootstrapForceDotfiles
+	Only                []string                         // FlagBootstrapOnly
+	PromptSecrets       bool                             // FlagBootstrapPromptSecrets
+	Skip                []string                         // FlagBootstrapSkip
+	Update              bool                             // FlagBootstrapUpdate
+	ApplyAccountPlan    *BootstrapApplyAccountPlanCmd    // CmdBootstrapApplyAccountPlan
+	ApplyServicePlan    *BootstrapApplyServicePlanCmd    // CmdBootstrapApplyServicePlan
+	ApplyFirewallPlan   *BootstrapApplyFirewallPlanCmd   // CmdBootstrapApplyFirewallPlan
+	ApplySystemPlan     *BootstrapApplySystemPlanCmd     // CmdBootstrapApplySystemPlan
+	InspectSystemFiles  *BootstrapInspectSystemFilesCmd  // CmdBootstrapInspectSystemFiles
+	InspectFirewallPlan *BootstrapInspectFirewallPlanCmd // CmdBootstrapInspectFirewallPlan
+	Accounts            *BootstrapAccountsCmd            // CmdBootstrapAccounts
+	Compose             *BootstrapComposeCmd             // CmdBootstrapCompose
+	Dotfiles            *BootstrapDotfilesCmd            // CmdBootstrapDotfiles
+	Files               *BootstrapFilesCmd               // CmdBootstrapFiles
+	Firewall            *BootstrapFirewallCmd            // CmdBootstrapFirewall
+	Launchd             *BootstrapLaunchdCmd             // CmdBootstrapLaunchd
+	Linux               *BootstrapLinuxCmd               // CmdBootstrapLinux
+	Macos               *BootstrapMacosCmd               // CmdBootstrapMacos
+	MacosDefaults       *BootstrapMacosDefaults2Cmd      // CmdBootstrapMacosDefaults2
+	MiseShellActivate   *BootstrapMiseShellActivateCmd   // CmdBootstrapMiseShellActivate
+	Packages            *BootstrapPackagesCmd            // CmdBootstrapPackages
+	Plan                *BootstrapPlanCmd                // CmdBootstrapPlan
+	Plugins             *BootstrapPluginsCmd             // CmdBootstrapPlugins
+	Remote              *BootstrapRemoteCmd              // CmdBootstrapRemote
+	Repos               *BootstrapReposCmd               // CmdBootstrapRepos
+	Secrets             *BootstrapSecretsCmd             // CmdBootstrapSecrets
+	Services            *BootstrapServicesCmd            // CmdBootstrapServices
+	Status              *BootstrapStatusCmd              // CmdBootstrapStatus
+	Systemd             *BootstrapSystemdCmd             // CmdBootstrapSystemd
+	User                *BootstrapUserCmd                // CmdBootstrapUser
+}
+
+// BootstrapApplyAccountPlanCmd is `bootstrap __apply-account-plan`.
+type BootstrapApplyAccountPlanCmd struct {
+}
+
+// BootstrapApplyServicePlanCmd is `bootstrap __apply-service-plan`.
+type BootstrapApplyServicePlanCmd struct {
+}
+
+// BootstrapApplyFirewallPlanCmd is `bootstrap __apply-firewall-plan`.
+type BootstrapApplyFirewallPlanCmd struct {
+}
+
+// BootstrapApplySystemPlanCmd is `bootstrap __apply-system-plan`.
+type BootstrapApplySystemPlanCmd struct {
+}
+
+// BootstrapInspectSystemFilesCmd is `bootstrap __inspect-system-files`.
+type BootstrapInspectSystemFilesCmd struct {
+}
+
+// BootstrapInspectFirewallPlanCmd is `bootstrap __inspect-firewall-plan`.
+type BootstrapInspectFirewallPlanCmd struct {
+}
+
+// BootstrapAccountsCmd is `bootstrap accounts`.
+type BootstrapAccountsCmd struct {
+	Apply  *BootstrapAccountsApplyCmd  // CmdBootstrapAccountsApply
+	Status *BootstrapAccountsStatusCmd // CmdBootstrapAccountsStatus
+}
+
+// BootstrapAccountsApplyCmd is `bootstrap accounts apply`.
+type BootstrapAccountsApplyCmd struct {
+	DryRun bool // FlagBootstrapAccountsApplyDryRun
+	Yes    bool // FlagBootstrapAccountsApplyYes
+}
+
+// BootstrapAccountsStatusCmd is `bootstrap accounts status`.
+type BootstrapAccountsStatusCmd struct {
+	Json    bool // FlagBootstrapAccountsStatusJson
+	Missing bool // FlagBootstrapAccountsStatusMissing
+}
+
+// BootstrapComposeCmd is `bootstrap compose`.
+type BootstrapComposeCmd struct {
+	Apply  *BootstrapComposeApplyCmd  // CmdBootstrapComposeApply
+	Status *BootstrapComposeStatusCmd // CmdBootstrapComposeStatus
+}
+
+// BootstrapComposeApplyCmd is `bootstrap compose apply`.
+type BootstrapComposeApplyCmd struct {
+	DryRun bool // FlagBootstrapComposeApplyDryRun
+	Yes    bool // FlagBootstrapComposeApplyYes
+}
+
+// BootstrapComposeStatusCmd is `bootstrap compose status`.
+type BootstrapComposeStatusCmd struct {
+	Json    bool // FlagBootstrapComposeStatusJson
+	Missing bool // FlagBootstrapComposeStatusMissing
+}
+
+// BootstrapDotfilesCmd is `bootstrap dotfiles`.
+type BootstrapDotfilesCmd struct {
+	Add     *BootstrapDotfilesAddCmd     // CmdBootstrapDotfilesAdd
+	Apply   *BootstrapDotfilesApplyCmd   // CmdBootstrapDotfilesApply
+	Edit    *BootstrapDotfilesEditCmd    // CmdBootstrapDotfilesEdit
+	Status  *BootstrapDotfilesStatusCmd  // CmdBootstrapDotfilesStatus
+	Unapply *BootstrapDotfilesUnapplyCmd // CmdBootstrapDotfilesUnapply
+}
+
+// BootstrapDotfilesAddCmd is `bootstrap dotfiles add`.
+type BootstrapDotfilesAddCmd struct {
+	Force   bool     // FlagBootstrapDotfilesAddForce
+	Global  bool     // FlagBootstrapDotfilesAddGlobal
+	Local   bool     // FlagBootstrapDotfilesAddLocal
+	Mode    string   // FlagBootstrapDotfilesAddMode
+	DryRun  bool     // FlagBootstrapDotfilesAddDryRun
+	NoApply bool     // FlagBootstrapDotfilesAddNoApply
+	Path    string   // FlagBootstrapDotfilesAddPath
+	Source  string   // FlagBootstrapDotfilesAddSource
+	Yes     bool     // FlagBootstrapDotfilesAddYes
+	Target  []string // ArgBootstrapDotfilesAddTarget
+}
+
+// BootstrapDotfilesApplyCmd is `bootstrap dotfiles apply`.
+type BootstrapDotfilesApplyCmd struct {
+	Force  bool     // FlagBootstrapDotfilesApplyForce
+	DryRun bool     // FlagBootstrapDotfilesApplyDryRun
+	Yes    bool     // FlagBootstrapDotfilesApplyYes
+	Target []string // ArgBootstrapDotfilesApplyTarget
+}
+
+// BootstrapDotfilesEditCmd is `bootstrap dotfiles edit`.
+type BootstrapDotfilesEditCmd struct {
+	Apply  bool   // FlagBootstrapDotfilesEditApply
+	Mode   string // FlagBootstrapDotfilesEditMode
+	Source string // FlagBootstrapDotfilesEditSource
+	Yes    bool   // FlagBootstrapDotfilesEditYes
+	Target string // ArgBootstrapDotfilesEditTarget
+}
+
+// BootstrapDotfilesStatusCmd is `bootstrap dotfiles status`.
+type BootstrapDotfilesStatusCmd struct {
+	Json    bool     // FlagBootstrapDotfilesStatusJson
+	Missing bool     // FlagBootstrapDotfilesStatusMissing
+	Target  []string // ArgBootstrapDotfilesStatusTarget
+}
+
+// BootstrapDotfilesUnapplyCmd is `bootstrap dotfiles unapply`.
+type BootstrapDotfilesUnapplyCmd struct {
+	Force  bool     // FlagBootstrapDotfilesUnapplyForce
+	DryRun bool     // FlagBootstrapDotfilesUnapplyDryRun
+	Yes    bool     // FlagBootstrapDotfilesUnapplyYes
+	Target []string // ArgBootstrapDotfilesUnapplyTarget
+}
+
+// BootstrapFilesCmd is `bootstrap files`.
+type BootstrapFilesCmd struct {
+	Apply  *BootstrapFilesApplyCmd  // CmdBootstrapFilesApply
+	Status *BootstrapFilesStatusCmd // CmdBootstrapFilesStatus
+}
+
+// BootstrapFilesApplyCmd is `bootstrap files apply`.
+type BootstrapFilesApplyCmd struct {
+	DryRun        bool // FlagBootstrapFilesApplyDryRun
+	Yes           bool // FlagBootstrapFilesApplyYes
+	PromptSecrets bool // FlagBootstrapFilesApplyPromptSecrets
+}
+
+// BootstrapFilesStatusCmd is `bootstrap files status`.
+type BootstrapFilesStatusCmd struct {
+	Json          bool // FlagBootstrapFilesStatusJson
+	Missing       bool // FlagBootstrapFilesStatusMissing
+	PromptSecrets bool // FlagBootstrapFilesStatusPromptSecrets
+}
+
+// BootstrapFirewallCmd is `bootstrap firewall`.
+type BootstrapFirewallCmd struct {
+	Apply  *BootstrapFirewallApplyCmd  // CmdBootstrapFirewallApply
+	Status *BootstrapFirewallStatusCmd // CmdBootstrapFirewallStatus
+}
+
+// BootstrapFirewallApplyCmd is `bootstrap firewall apply`.
+type BootstrapFirewallApplyCmd struct {
+	DryRun bool // FlagBootstrapFirewallApplyDryRun
+	Yes    bool // FlagBootstrapFirewallApplyYes
+}
+
+// BootstrapFirewallStatusCmd is `bootstrap firewall status`.
+type BootstrapFirewallStatusCmd struct {
+	Json    bool // FlagBootstrapFirewallStatusJson
+	Missing bool // FlagBootstrapFirewallStatusMissing
+}
+
+// BootstrapLaunchdCmd is `bootstrap launchd`.
+type BootstrapLaunchdCmd struct {
+	Apply  *BootstrapLaunchdApplyCmd  // CmdBootstrapLaunchdApply
+	Status *BootstrapLaunchdStatusCmd // CmdBootstrapLaunchdStatus
+}
+
+// BootstrapLaunchdApplyCmd is `bootstrap launchd apply`.
+type BootstrapLaunchdApplyCmd struct {
+	DryRun bool // FlagBootstrapLaunchdApplyDryRun
+	Yes    bool // FlagBootstrapLaunchdApplyYes
+}
+
+// BootstrapLaunchdStatusCmd is `bootstrap launchd status`.
+type BootstrapLaunchdStatusCmd struct {
+	Json    bool // FlagBootstrapLaunchdStatusJson
+	Missing bool // FlagBootstrapLaunchdStatusMissing
+}
+
+// BootstrapLinuxCmd is `bootstrap linux`.
+type BootstrapLinuxCmd struct {
+	SystemdUnits *BootstrapLinuxSystemdUnitsCmd // CmdBootstrapLinuxSystemdUnits
+}
+
+// BootstrapLinuxSystemdUnitsCmd is `bootstrap linux systemd-units`.
+type BootstrapLinuxSystemdUnitsCmd struct {
+	Apply  *BootstrapLinuxSystemdUnitsApplyCmd  // CmdBootstrapLinuxSystemdUnitsApply
+	Status *BootstrapLinuxSystemdUnitsStatusCmd // CmdBootstrapLinuxSystemdUnitsStatus
+}
+
+// BootstrapLinuxSystemdUnitsApplyCmd is `bootstrap linux systemd-units apply`.
+type BootstrapLinuxSystemdUnitsApplyCmd struct {
+	DryRun bool // FlagBootstrapLinuxSystemdUnitsApplyDryRun
+	Yes    bool // FlagBootstrapLinuxSystemdUnitsApplyYes
+}
+
+// BootstrapLinuxSystemdUnitsStatusCmd is `bootstrap linux systemd-units status`.
+type BootstrapLinuxSystemdUnitsStatusCmd struct {
+	Json    bool // FlagBootstrapLinuxSystemdUnitsStatusJson
+	Missing bool // FlagBootstrapLinuxSystemdUnitsStatusMissing
+}
+
+// BootstrapMacosCmd is `bootstrap macos`.
+type BootstrapMacosCmd struct {
+	Defaults      *BootstrapMacosDefaultsCmd      // CmdBootstrapMacosDefaults
+	LaunchdAgents *BootstrapMacosLaunchdAgentsCmd // CmdBootstrapMacosLaunchdAgents
+}
+
+// BootstrapMacosDefaultsCmd is `bootstrap macos defaults`.
+type BootstrapMacosDefaultsCmd struct {
+	Apply  *BootstrapMacosDefaultsApplyCmd  // CmdBootstrapMacosDefaultsApply
+	Status *BootstrapMacosDefaultsStatusCmd // CmdBootstrapMacosDefaultsStatus
+}
+
+// BootstrapMacosDefaultsApplyCmd is `bootstrap macos defaults apply`.
+type BootstrapMacosDefaultsApplyCmd struct {
+	DryRun bool // FlagBootstrapMacosDefaultsApplyDryRun
+	Yes    bool // FlagBootstrapMacosDefaultsApplyYes
+}
+
+// BootstrapMacosDefaultsStatusCmd is `bootstrap macos defaults status`.
+type BootstrapMacosDefaultsStatusCmd struct {
+	Json    bool // FlagBootstrapMacosDefaultsStatusJson
+	Missing bool // FlagBootstrapMacosDefaultsStatusMissing
+}
+
+// BootstrapMacosLaunchdAgentsCmd is `bootstrap macos launchd-agents`.
+type BootstrapMacosLaunchdAgentsCmd struct {
+	Apply  *BootstrapMacosLaunchdAgentsApplyCmd  // CmdBootstrapMacosLaunchdAgentsApply
+	Status *BootstrapMacosLaunchdAgentsStatusCmd // CmdBootstrapMacosLaunchdAgentsStatus
+}
+
+// BootstrapMacosLaunchdAgentsApplyCmd is `bootstrap macos launchd-agents apply`.
+type BootstrapMacosLaunchdAgentsApplyCmd struct {
+	DryRun bool // FlagBootstrapMacosLaunchdAgentsApplyDryRun
+	Yes    bool // FlagBootstrapMacosLaunchdAgentsApplyYes
+}
+
+// BootstrapMacosLaunchdAgentsStatusCmd is `bootstrap macos launchd-agents status`.
+type BootstrapMacosLaunchdAgentsStatusCmd struct {
+	Json    bool // FlagBootstrapMacosLaunchdAgentsStatusJson
+	Missing bool // FlagBootstrapMacosLaunchdAgentsStatusMissing
+}
+
+// BootstrapMacosDefaults2Cmd is `bootstrap macos-defaults`.
+type BootstrapMacosDefaults2Cmd struct {
+	Apply  *BootstrapMacosDefaultsApply2Cmd  // CmdBootstrapMacosDefaultsApply2
+	Status *BootstrapMacosDefaultsStatus2Cmd // CmdBootstrapMacosDefaultsStatus2
+}
+
+// BootstrapMacosDefaultsApply2Cmd is `bootstrap macos-defaults apply`.
+type BootstrapMacosDefaultsApply2Cmd struct {
+	DryRun bool // FlagBootstrapMacosDefaultsApplyDryRun2
+	Yes    bool // FlagBootstrapMacosDefaultsApplyYes2
+}
+
+// BootstrapMacosDefaultsStatus2Cmd is `bootstrap macos-defaults status`.
+type BootstrapMacosDefaultsStatus2Cmd struct {
+	Json    bool // FlagBootstrapMacosDefaultsStatusJson2
+	Missing bool // FlagBootstrapMacosDefaultsStatusMissing2
+}
+
+// BootstrapMiseShellActivateCmd is `bootstrap mise-shell-activate`.
+type BootstrapMiseShellActivateCmd struct {
+	Apply  *BootstrapMiseShellActivateApplyCmd  // CmdBootstrapMiseShellActivateApply
+	Status *BootstrapMiseShellActivateStatusCmd // CmdBootstrapMiseShellActivateStatus
+}
+
+// BootstrapMiseShellActivateApplyCmd is `bootstrap mise-shell-activate apply`.
+type BootstrapMiseShellActivateApplyCmd struct {
+	DryRun bool // FlagBootstrapMiseShellActivateApplyDryRun
+	Yes    bool // FlagBootstrapMiseShellActivateApplyYes
+}
+
+// BootstrapMiseShellActivateStatusCmd is `bootstrap mise-shell-activate status`.
+type BootstrapMiseShellActivateStatusCmd struct {
+	Json    bool // FlagBootstrapMiseShellActivateStatusJson
+	Missing bool // FlagBootstrapMiseShellActivateStatusMissing
+}
+
+// BootstrapPackagesCmd is `bootstrap packages`.
+type BootstrapPackagesCmd struct {
+	Apply   *BootstrapPackagesApplyCmd   // CmdBootstrapPackagesApply
+	Brew    *BootstrapPackagesBrewCmd    // CmdBootstrapPackagesBrew
+	Import  *BootstrapPackagesImportCmd  // CmdBootstrapPackagesImport
+	Prune   *BootstrapPackagesPruneCmd   // CmdBootstrapPackagesPrune
+	Status  *BootstrapPackagesStatusCmd  // CmdBootstrapPackagesStatus
+	Upgrade *BootstrapPackagesUpgradeCmd // CmdBootstrapPackagesUpgrade
+	Use     *BootstrapPackagesUseCmd     // CmdBootstrapPackagesUse
+}
+
+// BootstrapPackagesApplyCmd is `bootstrap packages apply`.
+type BootstrapPackagesApplyCmd struct {
+	Manager string   // FlagBootstrapPackagesApplyManager
+	DryRun  bool     // FlagBootstrapPackagesApplyDryRun
+	Yes     bool     // FlagBootstrapPackagesApplyYes
+	Update  bool     // FlagBootstrapPackagesApplyUpdate
+	Package []string // ArgBootstrapPackagesApplyPackage
+}
+
+// BootstrapPackagesBrewCmd is `bootstrap packages brew`.
+type BootstrapPackagesBrewCmd struct {
+	Tap   *BootstrapPackagesBrewTapCmd   // CmdBootstrapPackagesBrewTap
+	Untap *BootstrapPackagesBrewUntapCmd // CmdBootstrapPackagesBrewUntap
+}
+
+// BootstrapPackagesBrewTapCmd is `bootstrap packages brew tap`.
+type BootstrapPackagesBrewTapCmd struct {
+	Local  bool   // FlagBootstrapPackagesBrewTapLocal
+	DryRun bool   // FlagBootstrapPackagesBrewTapDryRun
+	Path   string // FlagBootstrapPackagesBrewTapPath
+	Tap    string // ArgBootstrapPackagesBrewTapTap
+	Url    string // ArgBootstrapPackagesBrewTapUrl
+}
+
+// BootstrapPackagesBrewUntapCmd is `bootstrap packages brew untap`.
+type BootstrapPackagesBrewUntapCmd struct {
+	Local  bool     // FlagBootstrapPackagesBrewUntapLocal
+	DryRun bool     // FlagBootstrapPackagesBrewUntapDryRun
+	Path   string   // FlagBootstrapPackagesBrewUntapPath
+	Taps   []string // ArgBootstrapPackagesBrewUntapTaps
+}
+
+// BootstrapPackagesImportCmd is `bootstrap packages import`.
+type BootstrapPackagesImportCmd struct {
+	Env     string // FlagBootstrapPackagesImportEnv
+	Global  bool   // FlagBootstrapPackagesImportGlobal
+	Manager string // FlagBootstrapPackagesImportManager
+	All     bool   // FlagBootstrapPackagesImportAll
+	DryRun  bool   // FlagBootstrapPackagesImportDryRun
+	Path    string // FlagBootstrapPackagesImportPath
+}
+
+// BootstrapPackagesPruneCmd is `bootstrap packages prune`.
+type BootstrapPackagesPruneCmd struct {
+	Manager string // FlagBootstrapPackagesPruneManager
+	DryRun  bool   // FlagBootstrapPackagesPruneDryRun
+	Yes     bool   // FlagBootstrapPackagesPruneYes
+}
+
+// BootstrapPackagesStatusCmd is `bootstrap packages status`.
+type BootstrapPackagesStatusCmd struct {
+	Json    bool // FlagBootstrapPackagesStatusJson
+	Missing bool // FlagBootstrapPackagesStatusMissing
+}
+
+// BootstrapPackagesUpgradeCmd is `bootstrap packages upgrade`.
+type BootstrapPackagesUpgradeCmd struct {
+	Manager string   // FlagBootstrapPackagesUpgradeManager
+	DryRun  bool     // FlagBootstrapPackagesUpgradeDryRun
+	Yes     bool     // FlagBootstrapPackagesUpgradeYes
+	Package []string // ArgBootstrapPackagesUpgradePackage
+}
+
+// BootstrapPackagesUseCmd is `bootstrap packages use`.
+type BootstrapPackagesUseCmd struct {
+	Env     string   // FlagBootstrapPackagesUseEnv
+	Global  bool     // FlagBootstrapPackagesUseGlobal
+	DryRun  bool     // FlagBootstrapPackagesUseDryRun
+	Path    string   // FlagBootstrapPackagesUsePath
+	Yes     bool     // FlagBootstrapPackagesUseYes
+	Package []string // ArgBootstrapPackagesUsePackage
+}
+
+// BootstrapPlanCmd is `bootstrap plan`.
+type BootstrapPlanCmd struct {
+	Json             bool // FlagBootstrapPlanJson
+	DetailedExitcode bool // FlagBootstrapPlanDetailedExitcode
+	PromptSecrets    bool // FlagBootstrapPlanPromptSecrets
+}
+
+// BootstrapPluginsCmd is `bootstrap plugins`.
+type BootstrapPluginsCmd struct {
+	Apply  *BootstrapPluginsApplyCmd  // CmdBootstrapPluginsApply
+	Status *BootstrapPluginsStatusCmd // CmdBootstrapPluginsStatus
+}
+
+// BootstrapPluginsApplyCmd is `bootstrap plugins apply`.
+type BootstrapPluginsApplyCmd struct {
+	DryRun bool // FlagBootstrapPluginsApplyDryRun
+}
+
+// BootstrapPluginsStatusCmd is `bootstrap plugins status`.
+type BootstrapPluginsStatusCmd struct {
+	Missing bool // FlagBootstrapPluginsStatusMissing
+}
+
+// BootstrapRemoteCmd is `bootstrap remote`.
+type BootstrapRemoteCmd struct {
+	All              bool     // FlagBootstrapRemoteAll
+	BootstrapCommand string   // FlagBootstrapRemoteBootstrapCommand
+	ConnectTimeout   string   // FlagBootstrapRemoteConnectTimeout
+	Exclude          []string // FlagBootstrapRemoteExclude
+	FailFast         bool     // FlagBootstrapRemoteFailFast
+	ForceDotfiles    bool     // FlagBootstrapRemoteForceDotfiles
+	Host             []string // FlagBootstrapRemoteHost
+	IdentityFile     string   // FlagBootstrapRemoteIdentityFile
+	DryRun           bool     // FlagBootstrapRemoteDryRun
+	KeepStaging      bool     // FlagBootstrapRemoteKeepStaging
+	MiseBin          string   // FlagBootstrapRemoteMiseBin
+	Only             []string // FlagBootstrapRemoteOnly
+	Port             string   // FlagBootstrapRemotePort
+	PromptSecrets    bool     // FlagBootstrapRemotePromptSecrets
+	RemoteMise       string   // FlagBootstrapRemoteRemoteMise
+	Skip             []string // FlagBootstrapRemoteSkip
+	Source           string   // FlagBootstrapRemoteSource
+	SshOption        []string // FlagBootstrapRemoteSshOption
+	Tag              []string // FlagBootstrapRemoteTag
+	Update           bool     // FlagBootstrapRemoteUpdate
+	Yes              bool     // FlagBootstrapRemoteYes
+	Target           []string // ArgBootstrapRemoteTarget
+}
+
+// BootstrapReposCmd is `bootstrap repos`.
+type BootstrapReposCmd struct {
+	Apply  *BootstrapReposApplyCmd  // CmdBootstrapReposApply
+	Exec   *BootstrapReposExecCmd   // CmdBootstrapReposExec
+	Status *BootstrapReposStatusCmd // CmdBootstrapReposStatus
+	Update *BootstrapReposUpdateCmd // CmdBootstrapReposUpdate
+}
+
+// BootstrapReposApplyCmd is `bootstrap repos apply`.
+type BootstrapReposApplyCmd struct {
+	DryRun bool // FlagBootstrapReposApplyDryRun
+	Yes    bool // FlagBootstrapReposApplyYes
+}
+
+// BootstrapReposExecCmd is `bootstrap repos exec`.
+type BootstrapReposExecCmd struct {
+	ContinueOnError bool     // FlagBootstrapReposExecContinueOnError
+	DryRun          bool     // FlagBootstrapReposExecDryRun
+	Path            []string // ArgBootstrapReposExecPath
+	Command         []string // ArgBootstrapReposExecCommand
+}
+
+// BootstrapReposStatusCmd is `bootstrap repos status`.
+type BootstrapReposStatusCmd struct {
+	Json    bool // FlagBootstrapReposStatusJson
+	Missing bool // FlagBootstrapReposStatusMissing
+}
+
+// BootstrapReposUpdateCmd is `bootstrap repos update`.
+type BootstrapReposUpdateCmd struct {
+	DryRun bool     // FlagBootstrapReposUpdateDryRun
+	Yes    bool     // FlagBootstrapReposUpdateYes
+	Path   []string // ArgBootstrapReposUpdatePath
+}
+
+// BootstrapSecretsCmd is `bootstrap secrets`.
+type BootstrapSecretsCmd struct {
+	Status *BootstrapSecretsStatusCmd // CmdBootstrapSecretsStatus
+}
+
+// BootstrapSecretsStatusCmd is `bootstrap secrets status`.
+type BootstrapSecretsStatusCmd struct {
+	Json    bool // FlagBootstrapSecretsStatusJson
+	Missing bool // FlagBootstrapSecretsStatusMissing
+}
+
+// BootstrapServicesCmd is `bootstrap services`.
+type BootstrapServicesCmd struct {
+	Apply  *BootstrapServicesApplyCmd  // CmdBootstrapServicesApply
+	Status *BootstrapServicesStatusCmd // CmdBootstrapServicesStatus
+}
+
+// BootstrapServicesApplyCmd is `bootstrap services apply`.
+type BootstrapServicesApplyCmd struct {
+	DryRun bool // FlagBootstrapServicesApplyDryRun
+	Yes    bool // FlagBootstrapServicesApplyYes
+}
+
+// BootstrapServicesStatusCmd is `bootstrap services status`.
+type BootstrapServicesStatusCmd struct {
+	Json    bool // FlagBootstrapServicesStatusJson
+	Missing bool // FlagBootstrapServicesStatusMissing
+}
+
+// BootstrapStatusCmd is `bootstrap status`.
+type BootstrapStatusCmd struct {
+	Json          bool // FlagBootstrapStatusJson
+	Missing       bool // FlagBootstrapStatusMissing
+	PromptSecrets bool // FlagBootstrapStatusPromptSecrets
+}
+
+// BootstrapSystemdCmd is `bootstrap systemd`.
+type BootstrapSystemdCmd struct {
+	Apply  *BootstrapSystemdApplyCmd  // CmdBootstrapSystemdApply
+	Status *BootstrapSystemdStatusCmd // CmdBootstrapSystemdStatus
+}
+
+// BootstrapSystemdApplyCmd is `bootstrap systemd apply`.
+type BootstrapSystemdApplyCmd struct {
+	DryRun bool // FlagBootstrapSystemdApplyDryRun
+	Yes    bool // FlagBootstrapSystemdApplyYes
+}
+
+// BootstrapSystemdStatusCmd is `bootstrap systemd status`.
+type BootstrapSystemdStatusCmd struct {
+	Json    bool // FlagBootstrapSystemdStatusJson
+	Missing bool // FlagBootstrapSystemdStatusMissing
+}
+
+// BootstrapUserCmd is `bootstrap user`.
+type BootstrapUserCmd struct {
+	Apply  *BootstrapUserApplyCmd  // CmdBootstrapUserApply
+	Status *BootstrapUserStatusCmd // CmdBootstrapUserStatus
+}
+
+// BootstrapUserApplyCmd is `bootstrap user apply`.
+type BootstrapUserApplyCmd struct {
+	DryRun bool // FlagBootstrapUserApplyDryRun
+	Yes    bool // FlagBootstrapUserApplyYes
+}
+
+// BootstrapUserStatusCmd is `bootstrap user status`.
+type BootstrapUserStatusCmd struct {
+	Json    bool // FlagBootstrapUserStatusJson
+	Missing bool // FlagBootstrapUserStatusMissing
+}
+
+// CacheCmd is `cache`.
+type CacheCmd struct {
+	Clear *CacheClearCmd // CmdCacheClear
+	Path  *CachePathCmd  // CmdCachePath
+	Prune *CachePruneCmd // CmdCachePrune
+	Task  *CacheTaskCmd  // CmdCacheTask
+}
+
+// CacheClearCmd is `cache clear`.
+type CacheClearCmd struct {
+	Outdate bool     // FlagCacheClearOutdate
+	Task    string   // FlagCacheClearTask
+	Tool    []string // ArgCacheClearTool
+}
+
+// CachePathCmd is `cache path`.
+type CachePathCmd struct {
+}
+
+// CachePruneCmd is `cache prune`.
+type CachePruneCmd struct {
+	Verbose int      // FlagCachePruneVerbose
+	DryRun  bool     // FlagCachePruneDryRun
+	Tool    []string // ArgCachePruneTool
+}
+
+// CacheTaskCmd is `cache task`.
+type CacheTaskCmd struct {
+	Json bool   // FlagCacheTaskJson
+	Task string // ArgCacheTaskTask
+}
+
+// CompletionCmd is `completion`.
+type CompletionCmd struct {
+	Shell                    string // FlagCompletionShell
+	IncludeBashCompletionLib bool   // FlagCompletionIncludeBashCompletionLib
+	Usage                    bool   // FlagCompletionUsage
+	ShellArg                 string // ArgCompletionShell
+}
+
+// ConfigCmd is `config`.
+type ConfigCmd struct {
+	Json           bool          // FlagConfigJson
+	NoHeader       bool          // FlagConfigNoHeader
+	TrackedConfigs bool          // FlagConfigTrackedConfigs
+	Get            *ConfigGetCmd // CmdConfigGet
+	Ls             *ConfigLsCmd  // CmdConfigLs
+	Set            *ConfigSetCmd // CmdConfigSet
+}
+
+// ConfigGetCmd is `config get`.
+type ConfigGetCmd struct {
+	File string // FlagConfigGetFile
+	Key  string // ArgConfigGetKey
+}
+
+// ConfigLsCmd is `config ls`.
+type ConfigLsCmd struct {
+	Json           bool // FlagConfigLsJson
+	NoHeader       bool // FlagConfigLsNoHeader
+	TrackedConfigs bool // FlagConfigLsTrackedConfigs
+}
+
+// ConfigSetCmd is `config set`.
+type ConfigSetCmd struct {
+	File  string // FlagConfigSetFile
+	Type  string // FlagConfigSetType
+	Key   string // ArgConfigSetKey
+	Value string // ArgConfigSetValue
+}
+
+// CurrentCmd is `current`.
+type CurrentCmd struct {
+	Plugin string // ArgCurrentPlugin
+}
+
+// DeactivateCmd is `deactivate`.
+type DeactivateCmd struct {
+}
+
+// DirenvCmd is `direnv`.
+type DirenvCmd struct {
+	Activate *DirenvActivateCmd // CmdDirenvActivate
+	Envrc    *DirenvEnvrcCmd    // CmdDirenvEnvrc
+	Exec     *DirenvExecCmd     // CmdDirenvExec
+}
+
+// DirenvActivateCmd is `direnv activate`.
+type DirenvActivateCmd struct {
+}
+
+// DirenvEnvrcCmd is `direnv envrc`.
+type DirenvEnvrcCmd struct {
+}
+
+// DirenvExecCmd is `direnv exec`.
+type DirenvExecCmd struct {
+}
+
+// DotfilesCmd is `dotfiles`.
+type DotfilesCmd struct {
+	Add     *DotfilesAddCmd     // CmdDotfilesAdd
+	Apply   *DotfilesApplyCmd   // CmdDotfilesApply
+	Edit    *DotfilesEditCmd    // CmdDotfilesEdit
+	Status  *DotfilesStatusCmd  // CmdDotfilesStatus
+	Unapply *DotfilesUnapplyCmd // CmdDotfilesUnapply
+}
+
+// DotfilesAddCmd is `dotfiles add`.
+type DotfilesAddCmd struct {
+	Force   bool     // FlagDotfilesAddForce
+	Global  bool     // FlagDotfilesAddGlobal
+	Local   bool     // FlagDotfilesAddLocal
+	Mode    string   // FlagDotfilesAddMode
+	DryRun  bool     // FlagDotfilesAddDryRun
+	NoApply bool     // FlagDotfilesAddNoApply
+	Path    string   // FlagDotfilesAddPath
+	Source  string   // FlagDotfilesAddSource
+	Yes     bool     // FlagDotfilesAddYes
+	Target  []string // ArgDotfilesAddTarget
+}
+
+// DotfilesApplyCmd is `dotfiles apply`.
+type DotfilesApplyCmd struct {
+	Force  bool     // FlagDotfilesApplyForce
+	DryRun bool     // FlagDotfilesApplyDryRun
+	Yes    bool     // FlagDotfilesApplyYes
+	Target []string // ArgDotfilesApplyTarget
+}
+
+// DotfilesEditCmd is `dotfiles edit`.
+type DotfilesEditCmd struct {
+	Apply  bool   // FlagDotfilesEditApply
+	Mode   string // FlagDotfilesEditMode
+	Source string // FlagDotfilesEditSource
+	Yes    bool   // FlagDotfilesEditYes
+	Target string // ArgDotfilesEditTarget
+}
+
+// DotfilesStatusCmd is `dotfiles status`.
+type DotfilesStatusCmd struct {
+	Json    bool     // FlagDotfilesStatusJson
+	Missing bool     // FlagDotfilesStatusMissing
+	Target  []string // ArgDotfilesStatusTarget
+}
+
+// DotfilesUnapplyCmd is `dotfiles unapply`.
+type DotfilesUnapplyCmd struct {
+	Force  bool     // FlagDotfilesUnapplyForce
+	DryRun bool     // FlagDotfilesUnapplyDryRun
+	Yes    bool     // FlagDotfilesUnapplyYes
+	Target []string // ArgDotfilesUnapplyTarget
+}
+
+// DoctorCmd is `doctor`.
+type DoctorCmd struct {
+	Json bool           // FlagDoctorJson
+	Path *DoctorPathCmd // CmdDoctorPath
+}
+
+// DoctorPathCmd is `doctor path`.
+type DoctorPathCmd struct {
+	Full bool // FlagDoctorPathFull
+}
+
+// EnCmd is `en`.
+type EnCmd struct {
+	Shell string // FlagEnShell
+	Dir   string // ArgEnDir
+}
+
+// EnvCmd is `env`.
+type EnvCmd struct {
+	Dotenv       bool     // FlagEnvDotenv
+	Json         bool     // FlagEnvJson
+	Shell        string   // FlagEnvShell
+	JsonExtended bool     // FlagEnvJsonExtended
+	Redacted     bool     // FlagEnvRedacted
+	Values       bool     // FlagEnvValues
+	ToolVersion  []string // ArgEnvToolVersion
+}
+
+// ExecCmd is `exec`.
+type ExecCmd struct {
+	Command     string   // FlagExecCommand
+	Jobs        string   // FlagExecJobs
+	AllowEnv    []string // FlagExecAllowEnv
+	AllowNet    []string // FlagExecAllowNet
+	AllowRead   []string // FlagExecAllowRead
+	AllowWrite  []string // FlagExecAllowWrite
+	DenyAll     bool     // FlagExecDenyAll
+	DenyEnv     bool     // FlagExecDenyEnv
+	DenyNet     bool     // FlagExecDenyNet
+	DenyRead    bool     // FlagExecDenyRead
+	DenyWrite   bool     // FlagExecDenyWrite
+	FreshEnv    bool     // FlagExecFreshEnv
+	NoDeps      bool     // FlagExecNoDeps
+	Raw         bool     // FlagExecRaw
+	ToolVersion []string // ArgExecToolVersion
+	CommandArg  []string // ArgExecCommand
+}
+
+// FmtCmd is `fmt`.
+type FmtCmd struct {
+	All   bool // FlagFmtAll
+	Check bool // FlagFmtCheck
+	Stdin bool // FlagFmtStdin
+}
+
+// GenerateCmd is `generate`.
+type GenerateCmd struct {
+	Bootstrap    *GenerateBootstrapCmd    // CmdGenerateBootstrap
+	Config       *GenerateConfigCmd       // CmdGenerateConfig
+	Devcontainer *GenerateDevcontainerCmd // CmdGenerateDevcontainer
+	GitPreCommit *GenerateGitPreCommitCmd // CmdGenerateGitPreCommit
+	GithubAction *GenerateGithubActionCmd // CmdGenerateGithubAction
+	TaskDocs     *GenerateTaskDocsCmd     // CmdGenerateTaskDocs
+	TaskStubs    *GenerateTaskStubsCmd    // CmdGenerateTaskStubs
+	ToolStub     *GenerateToolStubCmd     // CmdGenerateToolStub
+}
+
+// GenerateBootstrapCmd is `generate bootstrap`.
+type GenerateBootstrapCmd struct {
+	Localize     bool   // FlagGenerateBootstrapLocalize
+	Version      string // FlagGenerateBootstrapVersion
+	Write        string // FlagGenerateBootstrapWrite
+	LocalizedDir string // FlagGenerateBootstrapLocalizedDir
+}
+
+// GenerateConfigCmd is `generate config`.
+type GenerateConfigCmd struct {
+	Global       bool   // FlagGenerateConfigGlobal
+	DryRun       bool   // FlagGenerateConfigDryRun
+	ToolVersions string // FlagGenerateConfigToolVersions
+	Path         string // ArgGenerateConfigPath
+}
+
+// GenerateDevcontainerCmd is `generate devcontainer`.
+type GenerateDevcontainerCmd struct {
+	Image         string // FlagGenerateDevcontainerImage
+	MountMiseData bool   // FlagGenerateDevcontainerMountMiseData
+	Name          string // FlagGenerateDevcontainerName
+	Write         bool   // FlagGenerateDevcontainerWrite
+}
+
+// GenerateGitPreCommitCmd is `generate git-pre-commit`.
+type GenerateGitPreCommitCmd struct {
+	Task  string // FlagGenerateGitPreCommitTask
+	Write bool   // FlagGenerateGitPreCommitWrite
+	Hook  string // FlagGenerateGitPreCommitHook
+}
+
+// GenerateGithubActionCmd is `generate github-action`.
+type GenerateGithubActionCmd struct {
+	Task  string // FlagGenerateGithubActionTask
+	Write bool   // FlagGenerateGithubActionWrite
+	Name  string // FlagGenerateGithubActionName
+}
+
+// GenerateTaskDocsCmd is `generate task-docs`.
+type GenerateTaskDocsCmd struct {
+	Inject bool   // FlagGenerateTaskDocsInject
+	Index  bool   // FlagGenerateTaskDocsIndex
+	Multi  bool   // FlagGenerateTaskDocsMulti
+	Output string // FlagGenerateTaskDocsOutput
+	Root   string // FlagGenerateTaskDocsRoot
+	Style  string // FlagGenerateTaskDocsStyle
+}
+
+// GenerateTaskStubsCmd is `generate task-stubs`.
+type GenerateTaskStubsCmd struct {
+	Dir     string // FlagGenerateTaskStubsDir
+	MiseBin string // FlagGenerateTaskStubsMiseBin
+}
+
+// GenerateToolStubCmd is `generate tool-stub`.
+type GenerateToolStubCmd struct {
+	Bin              string   // FlagGenerateToolStubBin
+	Bootstrap        bool     // FlagGenerateToolStubBootstrap
+	BootstrapVersion string   // FlagGenerateToolStubBootstrapVersion
+	Fetch            bool     // FlagGenerateToolStubFetch
+	Http             string   // FlagGenerateToolStubHttp
+	Lock             bool     // FlagGenerateToolStubLock
+	PlatformBin      []string // FlagGenerateToolStubPlatformBin
+	PlatformUrl      []string // FlagGenerateToolStubPlatformUrl
+	SkipDownload     bool     // FlagGenerateToolStubSkipDownload
+	Url              string   // FlagGenerateToolStubUrl
+	Version          string   // FlagGenerateToolStubVersion
+	Output           string   // ArgGenerateToolStubOutput
+}
+
+// GithubCmd is `github`.
+type GithubCmd struct {
+	Token *GithubTokenCmd // CmdGithubToken
+}
+
+// GithubTokenCmd is `github token`.
+type GithubTokenCmd struct {
+	Oauth   bool   // FlagGithubTokenOauth
+	Raw     bool   // FlagGithubTokenRaw
+	Refresh bool   // FlagGithubTokenRefresh
+	Unmask  bool   // FlagGithubTokenUnmask
+	Host    string // ArgGithubTokenHost
+}
+
+// GlobalCmd is `global`.
+type GlobalCmd struct {
+	Fuzzy       bool     // FlagGlobalFuzzy
+	Path        bool     // FlagGlobalPath
+	Pin         bool     // FlagGlobalPin
+	Remove      []string // FlagGlobalRemove
+	ToolVersion []string // ArgGlobalToolVersion
+}
+
+// HookEnvCmd is `hook-env`.
+type HookEnvCmd struct {
+	Force  bool   // FlagHookEnvForce
+	Quiet  bool   // FlagHookEnvQuiet
+	Shell  string // FlagHookEnvShell
+	Reason string // FlagHookEnvReason
+	Status bool   // FlagHookEnvStatus
+}
+
+// HookNotFoundCmd is `hook-not-found`.
+type HookNotFoundCmd struct {
+	Shell string // FlagHookNotFoundShell
+	Bin   string // ArgHookNotFoundBin
+}
+
+// ImplodeCmd is `implode`.
+type ImplodeCmd struct {
+	DryRun bool // FlagImplodeDryRun
+	Config bool // FlagImplodeConfig
+}
+
+// EditCmd is `edit`.
+type EditCmd struct {
+	Global       bool   // FlagEditGlobal
+	DryRun       bool   // FlagEditDryRun
+	ToolVersions string // FlagEditToolVersions
+	Path         string // ArgEditPath
+}
+
+// InstallCmd is `install`.
+type InstallCmd struct {
+	Force             bool     // FlagInstallForce
+	Jobs              string   // FlagInstallJobs
+	DryRun            bool     // FlagInstallDryRun
+	Verbose           int      // FlagInstallVerbose
+	DryRunCode        bool     // FlagInstallDryRunCode
+	MinimumReleaseAge string   // FlagInstallMinimumReleaseAge
+	Monorepo          bool     // FlagInstallMonorepo
+	Raw               bool     // FlagInstallRaw
+	Shared            string   // FlagInstallShared
+	System            bool     // FlagInstallSystem
+	ToolVersion       []string // ArgInstallToolVersion
+}
+
+// InstallIntoCmd is `install-into`.
+type InstallIntoCmd struct {
+	ToolVersion string // ArgInstallIntoToolVersion
+	Path        string // ArgInstallIntoPath
+}
+
+// LatestCmd is `latest`.
+type LatestCmd struct {
+	Installed         bool   // FlagLatestInstalled
+	MinimumReleaseAge string // FlagLatestMinimumReleaseAge
+	ToolVersion       string // ArgLatestToolVersion
+	AsdfVersion       string // ArgLatestAsdfVersion
+}
+
+// LinkCmd is `link`.
+type LinkCmd struct {
+	Force       bool   // FlagLinkForce
+	ToolVersion string // ArgLinkToolVersion
+	Path        string // ArgLinkPath
+}
+
+// LocalCmd is `local`.
+type LocalCmd struct {
+	Parent      bool     // FlagLocalParent
+	Fuzzy       bool     // FlagLocalFuzzy
+	Path        bool     // FlagLocalPath
+	Pin         bool     // FlagLocalPin
+	Remove      []string // FlagLocalRemove
+	ToolVersion []string // ArgLocalToolVersion
+}
+
+// LockCmd is `lock`.
+type LockCmd struct {
+	Global            bool     // FlagLockGlobal
+	Jobs              string   // FlagLockJobs
+	DryRun            bool     // FlagLockDryRun
+	Platform          []string // FlagLockPlatform
+	Bump              bool     // FlagLockBump
+	Json              bool     // FlagLockJson
+	Local             bool     // FlagLockLocal
+	MinimumReleaseAge string   // FlagLockMinimumReleaseAge
+	Tool              []string // ArgLockTool
+}
+
+// LsCmd is `ls`.
+type LsCmd struct {
+	Current       bool     // FlagLsCurrent
+	Global        bool     // FlagLsGlobal
+	Installed     bool     // FlagLsInstalled
+	Json          bool     // FlagLsJson
+	Local         bool     // FlagLsLocal
+	Missing       bool     // FlagLsMissing
+	Offline       bool     // FlagLsOffline
+	Plugin        string   // FlagLsPlugin
+	AllSources    bool     // FlagLsAllSources
+	Monorepo      bool     // FlagLsMonorepo
+	NoHeader      bool     // FlagLsNoHeader
+	Outdated      bool     // FlagLsOutdated
+	Prefix        string   // FlagLsPrefix
+	Prunable      bool     // FlagLsPrunable
+	InstalledTool []string // ArgLsInstalledTool
+}
+
+// LsRemoteCmd is `ls-remote`.
+type LsRemoteCmd struct {
+	All               bool   // FlagLsRemoteAll
+	MinimumReleaseAge string // FlagLsRemoteMinimumReleaseAge
+	Json              bool   // FlagLsRemoteJson
+	NoVersionsHost    bool   // FlagLsRemoteNoVersionsHost
+	Prerelease        bool   // FlagLsRemotePrerelease
+	StrictMetadata    bool   // FlagLsRemoteStrictMetadata
+	ToolVersion       string // ArgLsRemoteToolVersion
+	Prefix            string // ArgLsRemotePrefix
+}
+
+// McpCmd is `mcp`.
+type McpCmd struct {
+}
+
+// OciCmd is `oci`.
+type OciCmd struct {
+	Build *OciBuildCmd // CmdOciBuild
+	Push  *OciPushCmd  // CmdOciPush
+	Run   *OciRunCmd   // CmdOciRun
+}
+
+// OciBuildCmd is `oci build`.
+type OciBuildCmd struct {
+	Copy          []string // FlagOciBuildCopy
+	Output        string   // FlagOciBuildOutput
+	From          string   // FlagOciBuildFrom
+	IncludeGlobal bool     // FlagOciBuildIncludeGlobal
+	Tag           string   // FlagOciBuildTag
+	MountPoint    string   // FlagOciBuildMountPoint
+	NoMise        bool     // FlagOciBuildNoMise
+	Owner         string   // FlagOciBuildOwner
+}
+
+// OciPushCmd is `oci push`.
+type OciPushCmd struct {
+	CacheFrom     string // FlagOciPushCacheFrom
+	From          string // FlagOciPushFrom
+	ImageDir      string // FlagOciPushImageDir
+	IncludeGlobal bool   // FlagOciPushIncludeGlobal
+	MountPoint    string // FlagOciPushMountPoint
+	NoCache       bool   // FlagOciPushNoCache
+	NoMise        bool   // FlagOciPushNoMise
+	Owner         string // FlagOciPushOwner
+	UpdateIndex   bool   // FlagOciPushUpdateIndex
+	Ref           string // ArgOciPushRef
+}
+
+// OciRunCmd is `oci run`.
+type OciRunCmd struct {
+	Engine        string   // FlagOciRunEngine
+	From          string   // FlagOciRunFrom
+	ImageDir      string   // FlagOciRunImageDir
+	IncludeGlobal bool     // FlagOciRunIncludeGlobal
+	Keep          bool     // FlagOciRunKeep
+	MountPoint    string   // FlagOciRunMountPoint
+	NoMise        bool     // FlagOciRunNoMise
+	Owner         string   // FlagOciRunOwner
+	Volume        []string // FlagOciRunVolume
+	Env           []string // FlagOciRunEnv
+	Interactive   bool     // FlagOciRunInteractive
+	Tty           bool     // FlagOciRunTty
+	Workdir       string   // FlagOciRunWorkdir
+	Cmd           []string // ArgOciRunCmd
+}
+
+// OutdatedCmd is `outdated`.
+type OutdatedCmd struct {
+	Json        bool     // FlagOutdatedJson
+	Bump        bool     // FlagOutdatedBump
+	Inactive    bool     // FlagOutdatedInactive
+	Local       bool     // FlagOutdatedLocal
+	Monorepo    bool     // FlagOutdatedMonorepo
+	NoHeader    bool     // FlagOutdatedNoHeader
+	ToolVersion []string // ArgOutdatedToolVersion
+}
+
+// PatronsCmd is `patrons`.
+type PatronsCmd struct {
+	Json    bool // FlagPatronsJson
+	Refresh bool // FlagPatronsRefresh
+}
+
+// PluginsCmd is `plugins`.
+type PluginsCmd struct {
+	All       bool                 // FlagPluginsAll
+	Core      bool                 // FlagPluginsCore
+	Urls      bool                 // FlagPluginsUrls
+	Refs      bool                 // FlagPluginsRefs
+	User      bool                 // FlagPluginsUser
+	Install   *PluginsInstallCmd   // CmdPluginsInstall
+	Link      *PluginsLinkCmd      // CmdPluginsLink
+	Ls        *PluginsLsCmd        // CmdPluginsLs
+	LsRemote  *PluginsLsRemoteCmd  // CmdPluginsLsRemote
+	Uninstall *PluginsUninstallCmd // CmdPluginsUninstall
+	Update    *PluginsUpdateCmd    // CmdPluginsUpdate
+}
+
+// PluginsInstallCmd is `plugins install`.
+type PluginsInstallCmd struct {
+	All       bool     // FlagPluginsInstallAll
+	Force     bool     // FlagPluginsInstallForce
+	Jobs      string   // FlagPluginsInstallJobs
+	Verbose   int      // FlagPluginsInstallVerbose
+	NewPlugin string   // ArgPluginsInstallNewPlugin
+	GitUrl    string   // ArgPluginsInstallGitUrl
+	Rest      []string // ArgPluginsInstallRest
+}
+
+// PluginsLinkCmd is `plugins link`.
+type PluginsLinkCmd struct {
+	Force bool   // FlagPluginsLinkForce
+	Name  string // ArgPluginsLinkName
+	Dir   string // ArgPluginsLinkDir
+}
+
+// PluginsLsCmd is `plugins ls`.
+type PluginsLsCmd struct {
+	All      bool // FlagPluginsLsAll
+	Core     bool // FlagPluginsLsCore
+	Outdated bool // FlagPluginsLsOutdated
+	Urls     bool // FlagPluginsLsUrls
+	Refs     bool // FlagPluginsLsRefs
+	User     bool // FlagPluginsLsUser
+}
+
+// PluginsLsRemoteCmd is `plugins ls-remote`.
+type PluginsLsRemoteCmd struct {
+	Urls      bool // FlagPluginsLsRemoteUrls
+	OnlyNames bool // FlagPluginsLsRemoteOnlyNames
+}
+
+// PluginsUninstallCmd is `plugins uninstall`.
+type PluginsUninstallCmd struct {
+	All    bool     // FlagPluginsUninstallAll
+	Purge  bool     // FlagPluginsUninstallPurge
+	Plugin []string // ArgPluginsUninstallPlugin
+}
+
+// PluginsUpdateCmd is `plugins update`.
+type PluginsUpdateCmd struct {
+	Jobs   string   // FlagPluginsUpdateJobs
+	Plugin []string // ArgPluginsUpdatePlugin
+}
+
+// DepsCmd is `deps`.
+type DepsCmd struct {
+	Explain  bool            // FlagDepsExplain
+	Force    bool            // FlagDepsForce
+	DryRun   bool            // FlagDepsDryRun
+	List     bool            // FlagDepsList
+	Monorepo bool            // FlagDepsMonorepo
+	Only     []string        // FlagDepsOnly
+	Skip     []string        // FlagDepsSkip
+	Provider string          // ArgDepsProvider
+	Add      *DepsAddCmd     // CmdDepsAdd
+	Install  *DepsInstallCmd // CmdDepsInstall
+	Remove   *DepsRemoveCmd  // CmdDepsRemove
+}
+
+// DepsAddCmd is `deps add`.
+type DepsAddCmd struct {
+	Dev      bool     // FlagDepsAddDev
+	Packages []string // ArgDepsAddPackages
+}
+
+// DepsInstallCmd is `deps install`.
+type DepsInstallCmd struct {
+	Explain  bool     // FlagDepsInstallExplain
+	Force    bool     // FlagDepsInstallForce
+	DryRun   bool     // FlagDepsInstallDryRun
+	List     bool     // FlagDepsInstallList
+	Monorepo bool     // FlagDepsInstallMonorepo
+	Only     []string // FlagDepsInstallOnly
+	Skip     []string // FlagDepsInstallSkip
+	Provider string   // ArgDepsInstallProvider
+}
+
+// DepsRemoveCmd is `deps remove`.
+type DepsRemoveCmd struct {
+	Packages []string // ArgDepsRemovePackages
+}
+
+// PruneCmd is `prune`.
+type PruneCmd struct {
+	DryRun        bool     // FlagPruneDryRun
+	Configs       bool     // FlagPruneConfigs
+	DryRunCode    bool     // FlagPruneDryRunCode
+	Monorepo      bool     // FlagPruneMonorepo
+	Tools         bool     // FlagPruneTools
+	InstalledTool []string // ArgPruneInstalledTool
+}
+
+// RegistryCmd is `registry`.
+type RegistryCmd struct {
+	Backend     string // FlagRegistryBackend
+	Complete    bool   // FlagRegistryComplete
+	HideAliased bool   // FlagRegistryHideAliased
+	Json        bool   // FlagRegistryJson
+	Security    bool   // FlagRegistrySecurity
+	Name        string // ArgRegistryName
+}
+
+// RenderHelpCmd is `render-help`.
+type RenderHelpCmd struct {
+}
+
+// ReshimCmd is `reshim`.
+type ReshimCmd struct {
+	Force   bool   // FlagReshimForce
+	Tool    string // ArgReshimTool
+	Version string // ArgReshimVersion
+}
+
+// RunCmd is `run`.
+type RunCmd struct {
+	Affected             bool     // FlagRunAffected
+	AffectedBase         string   // FlagRunAffectedBase
+	AffectedExplain      bool     // FlagRunAffectedExplain
+	AffectedHead         string   // FlagRunAffectedHead
+	AffectedJson         bool     // FlagRunAffectedJson
+	ContinueOnError      bool     // FlagRunContinueOnError
+	Cd                   string   // FlagRunCd
+	Force                bool     // FlagRunForce
+	Jobs                 string   // FlagRunJobs
+	DryRun               bool     // FlagRunDryRun
+	Output               string   // FlagRunOutput
+	Quiet                bool     // FlagRunQuiet
+	Raw                  bool     // FlagRunRaw
+	Shell                string   // FlagRunShell
+	Silent               bool     // FlagRunSilent
+	Tool                 []string // FlagRunTool
+	AllowEnv             []string // FlagRunAllowEnv
+	AllowNet             []string // FlagRunAllowNet
+	AllowRead            []string // FlagRunAllowRead
+	AllowWrite           []string // FlagRunAllowWrite
+	DenyAll              bool     // FlagRunDenyAll
+	DenyEnv              bool     // FlagRunDenyEnv
+	DenyNet              bool     // FlagRunDenyNet
+	DenyRead             bool     // FlagRunDenyRead
+	DenyWrite            bool     // FlagRunDenyWrite
+	FreshEnv             bool     // FlagRunFreshEnv
+	NoCache              bool     // FlagRunNoCache
+	NoDeps               bool     // FlagRunNoDeps
+	NoTimings            bool     // FlagRunNoTimings
+	SkipDeps             bool     // FlagRunSkipDeps
+	SkipTools            bool     // FlagRunSkipTools
+	TaskCache            string   // FlagRunTaskCache
+	TaskCacheExplain     bool     // FlagRunTaskCacheExplain
+	TaskCacheExplainJson bool     // FlagRunTaskCacheExplainJson
+	TaskCacheStats       bool     // FlagRunTaskCacheStats
+	Timeout              string   // FlagRunTimeout
+	Timings              bool     // FlagRunTimings
+}
+
+// SearchCmd is `search`.
+type SearchCmd struct {
+	Interactive bool   // FlagSearchInteractive
+	MatchType   string // FlagSearchMatchType
+	NoHeader    bool   // FlagSearchNoHeader
+	Name        string // ArgSearchName
+}
+
+// SelfUpdateCmd is `self-update`.
+type SelfUpdateCmd struct {
+	Force     bool   // FlagSelfUpdateForce
+	Yes       bool   // FlagSelfUpdateYes
+	NoPlugins bool   // FlagSelfUpdateNoPlugins
+	Version   string // ArgSelfUpdateVersion
+}
+
+// SetCmd is `set`.
+type SetCmd struct {
+	Env             string   // FlagSetEnv
+	Global          bool     // FlagSetGlobal
+	AgeEncrypt      bool     // FlagSetAgeEncrypt
+	AgeKeyFile      string   // FlagSetAgeKeyFile
+	AgeRecipient    []string // FlagSetAgeRecipient
+	AgeSshRecipient []string // FlagSetAgeSshRecipient
+	Complete        bool     // FlagSetComplete
+	File            string   // FlagSetFile
+	NoRedact        bool     // FlagSetNoRedact
+	Prompt          bool     // FlagSetPrompt
+	Remove          []string // FlagSetRemove
+	Stdin           bool     // FlagSetStdin
+	EnvVar          []string // ArgSetEnvVar
+}
+
+// SettingsCmd is `settings`.
+type SettingsCmd struct {
+	All          bool              // FlagSettingsAll
+	Json         bool              // FlagSettingsJson
+	Local        bool              // FlagSettingsLocal
+	Toml         bool              // FlagSettingsToml
+	Complete     bool              // FlagSettingsComplete
+	JsonExtended bool              // FlagSettingsJsonExtended
+	Setting      string            // ArgSettingsSetting
+	Value        string            // ArgSettingsValue
+	Add          *SettingsAddCmd   // CmdSettingsAdd
+	Get          *SettingsGetCmd   // CmdSettingsGet
+	Ls           *SettingsLsCmd    // CmdSettingsLs
+	Set          *SettingsSetCmd   // CmdSettingsSet
+	Unset        *SettingsUnsetCmd // CmdSettingsUnset
+}
+
+// SettingsAddCmd is `settings add`.
+type SettingsAddCmd struct {
+	Local   bool   // FlagSettingsAddLocal
+	Setting string // ArgSettingsAddSetting
+	Value   string // ArgSettingsAddValue
+}
+
+// SettingsGetCmd is `settings get`.
+type SettingsGetCmd struct {
+	Local   bool   // FlagSettingsGetLocal
+	Setting string // ArgSettingsGetSetting
+}
+
+// SettingsLsCmd is `settings ls`.
+type SettingsLsCmd struct {
+	All          bool   // FlagSettingsLsAll
+	Json         bool   // FlagSettingsLsJson
+	Local        bool   // FlagSettingsLsLocal
+	Toml         bool   // FlagSettingsLsToml
+	Complete     bool   // FlagSettingsLsComplete
+	JsonExtended bool   // FlagSettingsLsJsonExtended
+	Setting      string // ArgSettingsLsSetting
+}
+
+// SettingsSetCmd is `settings set`.
+type SettingsSetCmd struct {
+	Local   bool   // FlagSettingsSetLocal
+	Setting string // ArgSettingsSetSetting
+	Value   string // ArgSettingsSetValue
+}
+
+// SettingsUnsetCmd is `settings unset`.
+type SettingsUnsetCmd struct {
+	Local bool   // FlagSettingsUnsetLocal
+	Key   string // ArgSettingsUnsetKey
+}
+
+// ShellCmd is `shell`.
+type ShellCmd struct {
+	Jobs        string   // FlagShellJobs
+	Unset       bool     // FlagShellUnset
+	Raw         bool     // FlagShellRaw
+	ToolVersion []string // ArgShellToolVersion
+}
+
+// ShellAliasCmd is `shell-alias`.
+type ShellAliasCmd struct {
+	NoHeader bool                // FlagShellAliasNoHeader
+	Get      *ShellAliasGetCmd   // CmdShellAliasGet
+	Ls       *ShellAliasLsCmd    // CmdShellAliasLs
+	Set      *ShellAliasSetCmd   // CmdShellAliasSet
+	Unset    *ShellAliasUnsetCmd // CmdShellAliasUnset
+}
+
+// ShellAliasGetCmd is `shell-alias get`.
+type ShellAliasGetCmd struct {
+	ShellAlias string // ArgShellAliasGetShellAlias
+}
+
+// ShellAliasLsCmd is `shell-alias ls`.
+type ShellAliasLsCmd struct {
+	NoHeader bool // FlagShellAliasLsNoHeader
+}
+
+// ShellAliasSetCmd is `shell-alias set`.
+type ShellAliasSetCmd struct {
+	ShellAlias string // ArgShellAliasSetShellAlias
+	Command    string // ArgShellAliasSetCommand
+}
+
+// ShellAliasUnsetCmd is `shell-alias unset`.
+type ShellAliasUnsetCmd struct {
+	ShellAlias string // ArgShellAliasUnsetShellAlias
+}
+
+// SponsorsCmd is `sponsors`.
+type SponsorsCmd struct {
+}
+
+// SyncCmd is `sync`.
+type SyncCmd struct {
+	Node   *SyncNodeCmd   // CmdSyncNode
+	Python *SyncPythonCmd // CmdSyncPython
+	Ruby   *SyncRubyCmd   // CmdSyncRuby
+}
+
+// SyncNodeCmd is `sync node`.
+type SyncNodeCmd struct {
+	Brew   bool // FlagSyncNodeBrew
+	Nodenv bool // FlagSyncNodeNodenv
+	Nvm    bool // FlagSyncNodeNvm
+}
+
+// SyncPythonCmd is `sync python`.
+type SyncPythonCmd struct {
+	Pyenv bool // FlagSyncPythonPyenv
+	Uv    bool // FlagSyncPythonUv
+}
+
+// SyncRubyCmd is `sync ruby`.
+type SyncRubyCmd struct {
+	Brew bool // FlagSyncRubyBrew
+}
+
+// TasksCmd is `tasks`.
+type TasksCmd struct {
+	Global    bool              // FlagTasksGlobal
+	Json      bool              // FlagTasksJson
+	Local     bool              // FlagTasksLocal
+	Extended  bool              // FlagTasksExtended
+	All       bool              // FlagTasksAll
+	Complete  bool              // FlagTasksComplete
+	Hidden    bool              // FlagTasksHidden
+	NameOnly  bool              // FlagTasksNameOnly
+	NoHeader  bool              // FlagTasksNoHeader
+	Sort      string            // FlagTasksSort
+	SortOrder string            // FlagTasksSortOrder
+	Usage     bool              // FlagTasksUsage
+	Task      string            // ArgTasksTask
+	Add       *TasksAddCmd      // CmdTasksAdd
+	Deps      *TasksDepsCmd     // CmdTasksDeps
+	Edit      *TasksEditCmd     // CmdTasksEdit
+	Graph     *TasksGraphCmd    // CmdTasksGraph
+	Info      *TasksInfoCmd     // CmdTasksInfo
+	Ls        *TasksLsCmd       // CmdTasksLs
+	Run       *TasksRunCmd      // CmdTasksRun
+	Validate  *TasksValidateCmd // CmdTasksValidate
+}
+
+// TasksAddCmd is `tasks add`.
+type TasksAddCmd struct {
+	Alias       []string // FlagTasksAddAlias
+	Depends     []string // FlagTasksAddDepends
+	Dir         string   // FlagTasksAddDir
+	File        bool     // FlagTasksAddFile
+	Hide        bool     // FlagTasksAddHide
+	Quiet       bool     // FlagTasksAddQuiet
+	Raw         bool     // FlagTasksAddRaw
+	Sources     []string // FlagTasksAddSources
+	WaitFor     []string // FlagTasksAddWaitFor
+	DependsPost []string // FlagTasksAddDependsPost
+	Description string   // FlagTasksAddDescription
+	Outputs     []string // FlagTasksAddOutputs
+	RunWindows  string   // FlagTasksAddRunWindows
+	Shell       string   // FlagTasksAddShell
+	Silent      bool     // FlagTasksAddSilent
+	Task        string   // ArgTasksAddTask
+	Run         []string // ArgTasksAddRun
+}
+
+// TasksDepsCmd is `tasks deps`.
+type TasksDepsCmd struct {
+	Compact bool     // FlagTasksDepsCompact
+	Dot     bool     // FlagTasksDepsDot
+	Hidden  bool     // FlagTasksDepsHidden
+	Tasks   []string // ArgTasksDepsTasks
+}
+
+// TasksEditCmd is `tasks edit`.
+type TasksEditCmd struct {
+	Path bool   // FlagTasksEditPath
+	Task string // ArgTasksEditTask
+}
+
+// TasksGraphCmd is `tasks graph`.
+type TasksGraphCmd struct {
+	Json     bool // FlagTasksGraphJson
+	Explain  bool // FlagTasksGraphExplain
+	NoHeader bool // FlagTasksGraphNoHeader
+}
+
+// TasksInfoCmd is `tasks info`.
+type TasksInfoCmd struct {
+	Json bool   // FlagTasksInfoJson
+	Task string // ArgTasksInfoTask
+}
+
+// TasksLsCmd is `tasks ls`.
+type TasksLsCmd struct {
+	Global    bool   // FlagTasksLsGlobal
+	Json      bool   // FlagTasksLsJson
+	Local     bool   // FlagTasksLsLocal
+	Extended  bool   // FlagTasksLsExtended
+	All       bool   // FlagTasksLsAll
+	Complete  bool   // FlagTasksLsComplete
+	Hidden    bool   // FlagTasksLsHidden
+	NameOnly  bool   // FlagTasksLsNameOnly
+	NoHeader  bool   // FlagTasksLsNoHeader
+	Sort      string // FlagTasksLsSort
+	SortOrder string // FlagTasksLsSortOrder
+	Usage     bool   // FlagTasksLsUsage
+}
+
+// TasksRunCmd is `tasks run`.
+type TasksRunCmd struct {
+	Affected             bool     // FlagTasksRunAffected
+	AffectedBase         string   // FlagTasksRunAffectedBase
+	AffectedExplain      bool     // FlagTasksRunAffectedExplain
+	AffectedHead         string   // FlagTasksRunAffectedHead
+	AffectedJson         bool     // FlagTasksRunAffectedJson
+	ContinueOnError      bool     // FlagTasksRunContinueOnError
+	Cd                   string   // FlagTasksRunCd
+	Force                bool     // FlagTasksRunForce
+	Jobs                 string   // FlagTasksRunJobs
+	DryRun               bool     // FlagTasksRunDryRun
+	Output               string   // FlagTasksRunOutput
+	Quiet                bool     // FlagTasksRunQuiet
+	Raw                  bool     // FlagTasksRunRaw
+	Shell                string   // FlagTasksRunShell
+	Silent               bool     // FlagTasksRunSilent
+	Tool                 []string // FlagTasksRunTool
+	AllowEnv             []string // FlagTasksRunAllowEnv
+	AllowNet             []string // FlagTasksRunAllowNet
+	AllowRead            []string // FlagTasksRunAllowRead
+	AllowWrite           []string // FlagTasksRunAllowWrite
+	DenyAll              bool     // FlagTasksRunDenyAll
+	DenyEnv              bool     // FlagTasksRunDenyEnv
+	DenyNet              bool     // FlagTasksRunDenyNet
+	DenyRead             bool     // FlagTasksRunDenyRead
+	DenyWrite            bool     // FlagTasksRunDenyWrite
+	FreshEnv             bool     // FlagTasksRunFreshEnv
+	NoCache              bool     // FlagTasksRunNoCache
+	NoDeps               bool     // FlagTasksRunNoDeps
+	NoTimings            bool     // FlagTasksRunNoTimings
+	SkipDeps             bool     // FlagTasksRunSkipDeps
+	SkipTools            bool     // FlagTasksRunSkipTools
+	TaskCache            string   // FlagTasksRunTaskCache
+	TaskCacheExplain     bool     // FlagTasksRunTaskCacheExplain
+	TaskCacheExplainJson bool     // FlagTasksRunTaskCacheExplainJson
+	TaskCacheStats       bool     // FlagTasksRunTaskCacheStats
+	Timeout              string   // FlagTasksRunTimeout
+	Timings              bool     // FlagTasksRunTimings
+	Task                 string   // ArgTasksRunTask
+	Args                 []string // ArgTasksRunArgs
+	ArgsLast             []string // ArgTasksRunArgsLast
+}
+
+// TasksValidateCmd is `tasks validate`.
+type TasksValidateCmd struct {
+	ErrorsOnly bool     // FlagTasksValidateErrorsOnly
+	Json       bool     // FlagTasksValidateJson
+	Tasks      []string // ArgTasksValidateTasks
+}
+
+// TestToolCmd is `test-tool`.
+type TestToolCmd struct {
+	All               bool     // FlagTestToolAll
+	Jobs              string   // FlagTestToolJobs
+	AllConfig         bool     // FlagTestToolAllConfig
+	IncludeNonDefined bool     // FlagTestToolIncludeNonDefined
+	Raw               bool     // FlagTestToolRaw
+	Tools             []string // ArgTestToolTools
+}
+
+// TokenCmd is `token`.
+type TokenCmd struct {
+	Forgejo *TokenForgejoCmd // CmdTokenForgejo
+	Github  *TokenGithubCmd  // CmdTokenGithub
+	Gitlab  *TokenGitlabCmd  // CmdTokenGitlab
+}
+
+// TokenForgejoCmd is `token forgejo`.
+type TokenForgejoCmd struct {
+	Unmask bool   // FlagTokenForgejoUnmask
+	Host   string // ArgTokenForgejoHost
+}
+
+// TokenGithubCmd is `token github`.
+type TokenGithubCmd struct {
+	Oauth   bool   // FlagTokenGithubOauth
+	Raw     bool   // FlagTokenGithubRaw
+	Refresh bool   // FlagTokenGithubRefresh
+	Unmask  bool   // FlagTokenGithubUnmask
+	Host    string // ArgTokenGithubHost
+}
+
+// TokenGitlabCmd is `token gitlab`.
+type TokenGitlabCmd struct {
+	Unmask bool   // FlagTokenGitlabUnmask
+	Host   string // ArgTokenGitlabHost
+}
+
+// ToolCmd is `tool`.
+type ToolCmd struct {
+	Json         bool   // FlagToolJson
+	Active       bool   // FlagToolActive
+	Backend      bool   // FlagToolBackend
+	ConfigSource bool   // FlagToolConfigSource
+	Description  bool   // FlagToolDescription
+	Installed    bool   // FlagToolInstalled
+	Requested    bool   // FlagToolRequested
+	ToolOptions  bool   // FlagToolToolOptions
+	Tool         string // ArgToolTool
+}
+
+// ToolStubCmd is `tool-stub`.
+type ToolStubCmd struct {
+	File string   // ArgToolStubFile
+	Args []string // ArgToolStubArgs
+}
+
+// TrustCmd is `trust`.
+type TrustCmd struct {
+	All        bool   // FlagTrustAll
+	Ignore     bool   // FlagTrustIgnore
+	Show       bool   // FlagTrustShow
+	Untrust    bool   // FlagTrustUntrust
+	ConfigFile string // ArgTrustConfigFile
+}
+
+// UninstallCmd is `uninstall`.
+type UninstallCmd struct {
+	All                  bool     // FlagUninstallAll
+	DryRun               bool     // FlagUninstallDryRun
+	DryRunCode           bool     // FlagUninstallDryRunCode
+	InstalledToolVersion []string // ArgUninstallInstalledToolVersion
+}
+
+// UnsetCmd is `unset`.
+type UnsetCmd struct {
+	File   string   // FlagUnsetFile
+	Global bool     // FlagUnsetGlobal
+	EnvKey []string // ArgUnsetEnvKey
+}
+
+// UntrustCmd is `untrust`.
+type UntrustCmd struct {
+	ConfigFile string // ArgUntrustConfigFile
+}
+
+// UnuseCmd is `unuse`.
+type UnuseCmd struct {
+	Env                  string   // FlagUnuseEnv
+	Global               bool     // FlagUnuseGlobal
+	Path                 string   // FlagUnusePath
+	NoPrune              bool     // FlagUnuseNoPrune
+	InstalledToolVersion []string // ArgUnuseInstalledToolVersion
+}
+
+// UpgradeCmd is `upgrade`.
+type UpgradeCmd struct {
+	Interactive          bool     // FlagUpgradeInteractive
+	Jobs                 string   // FlagUpgradeJobs
+	Bump                 bool     // FlagUpgradeBump
+	DryRun               bool     // FlagUpgradeDryRun
+	Exclude              []string // FlagUpgradeExclude
+	DryRunCode           bool     // FlagUpgradeDryRunCode
+	Inactive             bool     // FlagUpgradeInactive
+	Local                bool     // FlagUpgradeLocal
+	MinimumReleaseAge    string   // FlagUpgradeMinimumReleaseAge
+	Monorepo             bool     // FlagUpgradeMonorepo
+	NoPrune              bool     // FlagUpgradeNoPrune
+	Raw                  bool     // FlagUpgradeRaw
+	InstalledToolVersion []string // ArgUpgradeInstalledToolVersion
+}
+
+// UsageCmd is `usage`.
+type UsageCmd struct {
+}
+
+// UseCmd is `use`.
+type UseCmd struct {
+	Env               string   // FlagUseEnv
+	Force             bool     // FlagUseForce
+	Global            bool     // FlagUseGlobal
+	Jobs              string   // FlagUseJobs
+	DryRun            bool     // FlagUseDryRun
+	Path              string   // FlagUsePath
+	DryRunCode        bool     // FlagUseDryRunCode
+	Fuzzy             bool     // FlagUseFuzzy
+	MinimumReleaseAge string   // FlagUseMinimumReleaseAge
+	Pin               bool     // FlagUsePin
+	Raw               bool     // FlagUseRaw
+	Remove            []string // FlagUseRemove
+	ToolVersion       []string // ArgUseToolVersion
+}
+
+// VersionCmd is `version`.
+type VersionCmd struct {
+	Json bool // FlagVersionJson
+}
+
+// WatchCmd is `watch`.
+type WatchCmd struct {
+	TaskFlag          []string // FlagWatchTaskFlag
+	Glob              []string // FlagWatchGlob
+	SkipDeps          bool     // FlagWatchSkipDeps
+	Watch             []string // FlagWatchWatch
+	WatchNonRecursive []string // FlagWatchWatchNonRecursive
+	WatchFile         string   // FlagWatchWatchFile
+	Clear             string   // FlagWatchClear
+	OnBusyUpdate      string   // FlagWatchOnBusyUpdate
+	Restart           bool     // FlagWatchRestart
+	Signal            string   // FlagWatchSignal
+	StopSignal        string   // FlagWatchStopSignal
+	StopTimeout       string   // FlagWatchStopTimeout
+	MapSignal         []string // FlagWatchMapSignal
+	Debounce          string   // FlagWatchDebounce
+	StdinQuit         bool     // FlagWatchStdinQuit
+	NoVcsIgnore       bool     // FlagWatchNoVcsIgnore
+	NoProjectIgnore   bool     // FlagWatchNoProjectIgnore
+	NoGlobalIgnore    bool     // FlagWatchNoGlobalIgnore
+	NoDefaultIgnore   bool     // FlagWatchNoDefaultIgnore
+	NoDiscoverIgnore  bool     // FlagWatchNoDiscoverIgnore
+	IgnoreNothing     bool     // FlagWatchIgnoreNothing
+	Postpone          bool     // FlagWatchPostpone
+	DelayRun          string   // FlagWatchDelayRun
+	Poll              string   // FlagWatchPoll
+	Shell             string   // FlagWatchShell
+	N                 bool     // FlagWatchN
+	EmitEventsTo      string   // FlagWatchEmitEventsTo
+	OnlyEmitEvents    bool     // FlagWatchOnlyEmitEvents
+	Env               []string // FlagWatchEnv
+	WrapProcess       string   // FlagWatchWrapProcess
+	Notify            bool     // FlagWatchNotify
+	Color             string   // FlagWatchColor
+	Timings           bool     // FlagWatchTimings
+	Quiet             bool     // FlagWatchQuiet
+	Bell              bool     // FlagWatchBell
+	ProjectOrigin     string   // FlagWatchProjectOrigin
+	Workdir           string   // FlagWatchWorkdir
+	Exts              []string // FlagWatchExts
+	Filter            []string // FlagWatchFilter
+	FilterFile        []string // FlagWatchFilterFile
+	FilterProg        []string // FlagWatchFilterProg
+	Ignore            []string // FlagWatchIgnore
+	IgnoreFile        []string // FlagWatchIgnoreFile
+	FsEvents          []string // FlagWatchFsEvents
+	NoMeta            bool     // FlagWatchNoMeta
+	PrintEvents       bool     // FlagWatchPrintEvents
+	Manual            bool     // FlagWatchManual
+	Task              string   // ArgWatchTask
+	Args              []string // ArgWatchArgs
+}
+
+// WhereCmd is `where`.
+type WhereCmd struct {
+	ToolVersion string // ArgWhereToolVersion
+	AsdfVersion string // ArgWhereAsdfVersion
+}
+
+// WhichCmd is `which`.
+type WhichCmd struct {
+	Tool     string // FlagWhichTool
+	Complete bool   // FlagWhichComplete
+	Plugin   bool   // FlagWhichPlugin
+	Version  bool   // FlagWhichVersion
+	BinName  string // ArgWhichBinName
+}
+
+// Parse binds a command line and fills the structs above.
+//
+// The rules decided once the last token has been read run here too, so a
+// missing required flag or a value outside its choices comes back rather than
+// reaching your code. A returned error is an *argv.Error; render it with
+// argv.Render.
+//
+// Help and version arrive as errors, because a parse that stops to print a page
+// has produced no value. Check the code before treating one as a failure.
+func Parse(args []string) (*Cli, error) {
+	out := &Cli{}
+	var cmdActivateV *ActivateCmd
+	var cmdToolAliasV *ToolAliasCmd
+	var cmdToolAliasGetV *ToolAliasGetCmd
+	var cmdToolAliasLsV *ToolAliasLsCmd
+	var cmdToolAliasSetV *ToolAliasSetCmd
+	var cmdToolAliasUnsetV *ToolAliasUnsetCmd
+	var cmdAsdfV *AsdfCmd
+	var cmdBackendsV *BackendsCmd
+	var cmdBackendsLsV *BackendsLsCmd
+	var cmdBinPathsV *BinPathsCmd
+	var cmdBootstrapV *BootstrapCmd
+	var cmdBootstrapApplyAccountPlanV *BootstrapApplyAccountPlanCmd
+	var cmdBootstrapApplyServicePlanV *BootstrapApplyServicePlanCmd
+	var cmdBootstrapApplyFirewallPlanV *BootstrapApplyFirewallPlanCmd
+	var cmdBootstrapApplySystemPlanV *BootstrapApplySystemPlanCmd
+	var cmdBootstrapInspectSystemFilesV *BootstrapInspectSystemFilesCmd
+	var cmdBootstrapInspectFirewallPlanV *BootstrapInspectFirewallPlanCmd
+	var cmdBootstrapAccountsV *BootstrapAccountsCmd
+	var cmdBootstrapAccountsApplyV *BootstrapAccountsApplyCmd
+	var cmdBootstrapAccountsStatusV *BootstrapAccountsStatusCmd
+	var cmdBootstrapComposeV *BootstrapComposeCmd
+	var cmdBootstrapComposeApplyV *BootstrapComposeApplyCmd
+	var cmdBootstrapComposeStatusV *BootstrapComposeStatusCmd
+	var cmdBootstrapDotfilesV *BootstrapDotfilesCmd
+	var cmdBootstrapDotfilesAddV *BootstrapDotfilesAddCmd
+	var cmdBootstrapDotfilesApplyV *BootstrapDotfilesApplyCmd
+	var cmdBootstrapDotfilesEditV *BootstrapDotfilesEditCmd
+	var cmdBootstrapDotfilesStatusV *BootstrapDotfilesStatusCmd
+	var cmdBootstrapDotfilesUnapplyV *BootstrapDotfilesUnapplyCmd
+	var cmdBootstrapFilesV *BootstrapFilesCmd
+	var cmdBootstrapFilesApplyV *BootstrapFilesApplyCmd
+	var cmdBootstrapFilesStatusV *BootstrapFilesStatusCmd
+	var cmdBootstrapFirewallV *BootstrapFirewallCmd
+	var cmdBootstrapFirewallApplyV *BootstrapFirewallApplyCmd
+	var cmdBootstrapFirewallStatusV *BootstrapFirewallStatusCmd
+	var cmdBootstrapLaunchdV *BootstrapLaunchdCmd
+	var cmdBootstrapLaunchdApplyV *BootstrapLaunchdApplyCmd
+	var cmdBootstrapLaunchdStatusV *BootstrapLaunchdStatusCmd
+	var cmdBootstrapLinuxV *BootstrapLinuxCmd
+	var cmdBootstrapLinuxSystemdUnitsV *BootstrapLinuxSystemdUnitsCmd
+	var cmdBootstrapLinuxSystemdUnitsApplyV *BootstrapLinuxSystemdUnitsApplyCmd
+	var cmdBootstrapLinuxSystemdUnitsStatusV *BootstrapLinuxSystemdUnitsStatusCmd
+	var cmdBootstrapMacosV *BootstrapMacosCmd
+	var cmdBootstrapMacosDefaultsV *BootstrapMacosDefaultsCmd
+	var cmdBootstrapMacosDefaultsApplyV *BootstrapMacosDefaultsApplyCmd
+	var cmdBootstrapMacosDefaultsStatusV *BootstrapMacosDefaultsStatusCmd
+	var cmdBootstrapMacosLaunchdAgentsV *BootstrapMacosLaunchdAgentsCmd
+	var cmdBootstrapMacosLaunchdAgentsApplyV *BootstrapMacosLaunchdAgentsApplyCmd
+	var cmdBootstrapMacosLaunchdAgentsStatusV *BootstrapMacosLaunchdAgentsStatusCmd
+	var cmdBootstrapMacosDefaults2V *BootstrapMacosDefaults2Cmd
+	var cmdBootstrapMacosDefaultsApply2V *BootstrapMacosDefaultsApply2Cmd
+	var cmdBootstrapMacosDefaultsStatus2V *BootstrapMacosDefaultsStatus2Cmd
+	var cmdBootstrapMiseShellActivateV *BootstrapMiseShellActivateCmd
+	var cmdBootstrapMiseShellActivateApplyV *BootstrapMiseShellActivateApplyCmd
+	var cmdBootstrapMiseShellActivateStatusV *BootstrapMiseShellActivateStatusCmd
+	var cmdBootstrapPackagesV *BootstrapPackagesCmd
+	var cmdBootstrapPackagesApplyV *BootstrapPackagesApplyCmd
+	var cmdBootstrapPackagesBrewV *BootstrapPackagesBrewCmd
+	var cmdBootstrapPackagesBrewTapV *BootstrapPackagesBrewTapCmd
+	var cmdBootstrapPackagesBrewUntapV *BootstrapPackagesBrewUntapCmd
+	var cmdBootstrapPackagesImportV *BootstrapPackagesImportCmd
+	var cmdBootstrapPackagesPruneV *BootstrapPackagesPruneCmd
+	var cmdBootstrapPackagesStatusV *BootstrapPackagesStatusCmd
+	var cmdBootstrapPackagesUpgradeV *BootstrapPackagesUpgradeCmd
+	var cmdBootstrapPackagesUseV *BootstrapPackagesUseCmd
+	var cmdBootstrapPlanV *BootstrapPlanCmd
+	var cmdBootstrapPluginsV *BootstrapPluginsCmd
+	var cmdBootstrapPluginsApplyV *BootstrapPluginsApplyCmd
+	var cmdBootstrapPluginsStatusV *BootstrapPluginsStatusCmd
+	var cmdBootstrapRemoteV *BootstrapRemoteCmd
+	var cmdBootstrapReposV *BootstrapReposCmd
+	var cmdBootstrapReposApplyV *BootstrapReposApplyCmd
+	var cmdBootstrapReposExecV *BootstrapReposExecCmd
+	var cmdBootstrapReposStatusV *BootstrapReposStatusCmd
+	var cmdBootstrapReposUpdateV *BootstrapReposUpdateCmd
+	var cmdBootstrapSecretsV *BootstrapSecretsCmd
+	var cmdBootstrapSecretsStatusV *BootstrapSecretsStatusCmd
+	var cmdBootstrapServicesV *BootstrapServicesCmd
+	var cmdBootstrapServicesApplyV *BootstrapServicesApplyCmd
+	var cmdBootstrapServicesStatusV *BootstrapServicesStatusCmd
+	var cmdBootstrapStatusV *BootstrapStatusCmd
+	var cmdBootstrapSystemdV *BootstrapSystemdCmd
+	var cmdBootstrapSystemdApplyV *BootstrapSystemdApplyCmd
+	var cmdBootstrapSystemdStatusV *BootstrapSystemdStatusCmd
+	var cmdBootstrapUserV *BootstrapUserCmd
+	var cmdBootstrapUserApplyV *BootstrapUserApplyCmd
+	var cmdBootstrapUserStatusV *BootstrapUserStatusCmd
+	var cmdCacheV *CacheCmd
+	var cmdCacheClearV *CacheClearCmd
+	var cmdCachePathV *CachePathCmd
+	var cmdCachePruneV *CachePruneCmd
+	var cmdCacheTaskV *CacheTaskCmd
+	var cmdCompletionV *CompletionCmd
+	var cmdConfigV *ConfigCmd
+	var cmdConfigGetV *ConfigGetCmd
+	var cmdConfigLsV *ConfigLsCmd
+	var cmdConfigSetV *ConfigSetCmd
+	var cmdCurrentV *CurrentCmd
+	var cmdDeactivateV *DeactivateCmd
+	var cmdDirenvV *DirenvCmd
+	var cmdDirenvActivateV *DirenvActivateCmd
+	var cmdDirenvEnvrcV *DirenvEnvrcCmd
+	var cmdDirenvExecV *DirenvExecCmd
+	var cmdDotfilesV *DotfilesCmd
+	var cmdDotfilesAddV *DotfilesAddCmd
+	var cmdDotfilesApplyV *DotfilesApplyCmd
+	var cmdDotfilesEditV *DotfilesEditCmd
+	var cmdDotfilesStatusV *DotfilesStatusCmd
+	var cmdDotfilesUnapplyV *DotfilesUnapplyCmd
+	var cmdDoctorV *DoctorCmd
+	var cmdDoctorPathV *DoctorPathCmd
+	var cmdEnV *EnCmd
+	var cmdEnvV *EnvCmd
+	var cmdExecV *ExecCmd
+	var cmdFmtV *FmtCmd
+	var cmdGenerateV *GenerateCmd
+	var cmdGenerateBootstrapV *GenerateBootstrapCmd
+	var cmdGenerateConfigV *GenerateConfigCmd
+	var cmdGenerateDevcontainerV *GenerateDevcontainerCmd
+	var cmdGenerateGitPreCommitV *GenerateGitPreCommitCmd
+	var cmdGenerateGithubActionV *GenerateGithubActionCmd
+	var cmdGenerateTaskDocsV *GenerateTaskDocsCmd
+	var cmdGenerateTaskStubsV *GenerateTaskStubsCmd
+	var cmdGenerateToolStubV *GenerateToolStubCmd
+	var cmdGithubV *GithubCmd
+	var cmdGithubTokenV *GithubTokenCmd
+	var cmdGlobalV *GlobalCmd
+	var cmdHookEnvV *HookEnvCmd
+	var cmdHookNotFoundV *HookNotFoundCmd
+	var cmdImplodeV *ImplodeCmd
+	var cmdEditV *EditCmd
+	var cmdInstallV *InstallCmd
+	var cmdInstallIntoV *InstallIntoCmd
+	var cmdLatestV *LatestCmd
+	var cmdLinkV *LinkCmd
+	var cmdLocalV *LocalCmd
+	var cmdLockV *LockCmd
+	var cmdLsV *LsCmd
+	var cmdLsRemoteV *LsRemoteCmd
+	var cmdMcpV *McpCmd
+	var cmdOciV *OciCmd
+	var cmdOciBuildV *OciBuildCmd
+	var cmdOciPushV *OciPushCmd
+	var cmdOciRunV *OciRunCmd
+	var cmdOutdatedV *OutdatedCmd
+	var cmdPatronsV *PatronsCmd
+	var cmdPluginsV *PluginsCmd
+	var cmdPluginsInstallV *PluginsInstallCmd
+	var cmdPluginsLinkV *PluginsLinkCmd
+	var cmdPluginsLsV *PluginsLsCmd
+	var cmdPluginsLsRemoteV *PluginsLsRemoteCmd
+	var cmdPluginsUninstallV *PluginsUninstallCmd
+	var cmdPluginsUpdateV *PluginsUpdateCmd
+	var cmdDepsV *DepsCmd
+	var cmdDepsAddV *DepsAddCmd
+	var cmdDepsInstallV *DepsInstallCmd
+	var cmdDepsRemoveV *DepsRemoveCmd
+	var cmdPruneV *PruneCmd
+	var cmdRegistryV *RegistryCmd
+	var cmdRenderHelpV *RenderHelpCmd
+	var cmdReshimV *ReshimCmd
+	var cmdRunV *RunCmd
+	var cmdSearchV *SearchCmd
+	var cmdSelfUpdateV *SelfUpdateCmd
+	var cmdSetV *SetCmd
+	var cmdSettingsV *SettingsCmd
+	var cmdSettingsAddV *SettingsAddCmd
+	var cmdSettingsGetV *SettingsGetCmd
+	var cmdSettingsLsV *SettingsLsCmd
+	var cmdSettingsSetV *SettingsSetCmd
+	var cmdSettingsUnsetV *SettingsUnsetCmd
+	var cmdShellV *ShellCmd
+	var cmdShellAliasV *ShellAliasCmd
+	var cmdShellAliasGetV *ShellAliasGetCmd
+	var cmdShellAliasLsV *ShellAliasLsCmd
+	var cmdShellAliasSetV *ShellAliasSetCmd
+	var cmdShellAliasUnsetV *ShellAliasUnsetCmd
+	var cmdSponsorsV *SponsorsCmd
+	var cmdSyncV *SyncCmd
+	var cmdSyncNodeV *SyncNodeCmd
+	var cmdSyncPythonV *SyncPythonCmd
+	var cmdSyncRubyV *SyncRubyCmd
+	var cmdTasksV *TasksCmd
+	var cmdTasksAddV *TasksAddCmd
+	var cmdTasksDepsV *TasksDepsCmd
+	var cmdTasksEditV *TasksEditCmd
+	var cmdTasksGraphV *TasksGraphCmd
+	var cmdTasksInfoV *TasksInfoCmd
+	var cmdTasksLsV *TasksLsCmd
+	var cmdTasksRunV *TasksRunCmd
+	var cmdTasksValidateV *TasksValidateCmd
+	var cmdTestToolV *TestToolCmd
+	var cmdTokenV *TokenCmd
+	var cmdTokenForgejoV *TokenForgejoCmd
+	var cmdTokenGithubV *TokenGithubCmd
+	var cmdTokenGitlabV *TokenGitlabCmd
+	var cmdToolV *ToolCmd
+	var cmdToolStubV *ToolStubCmd
+	var cmdTrustV *TrustCmd
+	var cmdUninstallV *UninstallCmd
+	var cmdUnsetV *UnsetCmd
+	var cmdUntrustV *UntrustCmd
+	var cmdUnuseV *UnuseCmd
+	var cmdUpgradeV *UpgradeCmd
+	var cmdUsageV *UsageCmd
+	var cmdUseV *UseCmd
+	var cmdVersionV *VersionCmd
+	var cmdWatchV *WatchCmd
+	var cmdWhereV *WhereCmd
+	var cmdWhichV *WhichCmd
+
+	// Collected by key, so the post-binding rules can judge what arrived
+	// before any of it is handed back.
+	given := map[uint64][]string{}
+	seen := map[uint64]int{}
+	chain := []*argv.Command{Root}
+
+	p := argv.New(Root, args)
+	for p.Next() {
+		ev := p.Event()
+		switch ev.Kind {
+		case argv.KindCommand:
+			chain = append(chain, ev.Command)
+			switch ev.Command.Key {
+			case CmdActivate:
+				cmdActivateV = &ActivateCmd{}
+				out.Activate = cmdActivateV
+			case CmdToolAlias:
+				cmdToolAliasV = &ToolAliasCmd{}
+				out.ToolAlias = cmdToolAliasV
+			case CmdToolAliasGet:
+				cmdToolAliasGetV = &ToolAliasGetCmd{}
+				cmdToolAliasV.Get = cmdToolAliasGetV
+			case CmdToolAliasLs:
+				cmdToolAliasLsV = &ToolAliasLsCmd{}
+				cmdToolAliasV.Ls = cmdToolAliasLsV
+			case CmdToolAliasSet:
+				cmdToolAliasSetV = &ToolAliasSetCmd{}
+				cmdToolAliasV.Set = cmdToolAliasSetV
+			case CmdToolAliasUnset:
+				cmdToolAliasUnsetV = &ToolAliasUnsetCmd{}
+				cmdToolAliasV.Unset = cmdToolAliasUnsetV
+			case CmdAsdf:
+				cmdAsdfV = &AsdfCmd{}
+				out.Asdf = cmdAsdfV
+			case CmdBackends:
+				cmdBackendsV = &BackendsCmd{}
+				out.Backends = cmdBackendsV
+			case CmdBackendsLs:
+				cmdBackendsLsV = &BackendsLsCmd{}
+				cmdBackendsV.Ls = cmdBackendsLsV
+			case CmdBinPaths:
+				cmdBinPathsV = &BinPathsCmd{}
+				out.BinPaths = cmdBinPathsV
+			case CmdBootstrap:
+				cmdBootstrapV = &BootstrapCmd{}
+				out.Bootstrap = cmdBootstrapV
+			case CmdBootstrapApplyAccountPlan:
+				cmdBootstrapApplyAccountPlanV = &BootstrapApplyAccountPlanCmd{}
+				cmdBootstrapV.ApplyAccountPlan = cmdBootstrapApplyAccountPlanV
+			case CmdBootstrapApplyServicePlan:
+				cmdBootstrapApplyServicePlanV = &BootstrapApplyServicePlanCmd{}
+				cmdBootstrapV.ApplyServicePlan = cmdBootstrapApplyServicePlanV
+			case CmdBootstrapApplyFirewallPlan:
+				cmdBootstrapApplyFirewallPlanV = &BootstrapApplyFirewallPlanCmd{}
+				cmdBootstrapV.ApplyFirewallPlan = cmdBootstrapApplyFirewallPlanV
+			case CmdBootstrapApplySystemPlan:
+				cmdBootstrapApplySystemPlanV = &BootstrapApplySystemPlanCmd{}
+				cmdBootstrapV.ApplySystemPlan = cmdBootstrapApplySystemPlanV
+			case CmdBootstrapInspectSystemFiles:
+				cmdBootstrapInspectSystemFilesV = &BootstrapInspectSystemFilesCmd{}
+				cmdBootstrapV.InspectSystemFiles = cmdBootstrapInspectSystemFilesV
+			case CmdBootstrapInspectFirewallPlan:
+				cmdBootstrapInspectFirewallPlanV = &BootstrapInspectFirewallPlanCmd{}
+				cmdBootstrapV.InspectFirewallPlan = cmdBootstrapInspectFirewallPlanV
+			case CmdBootstrapAccounts:
+				cmdBootstrapAccountsV = &BootstrapAccountsCmd{}
+				cmdBootstrapV.Accounts = cmdBootstrapAccountsV
+			case CmdBootstrapAccountsApply:
+				cmdBootstrapAccountsApplyV = &BootstrapAccountsApplyCmd{}
+				cmdBootstrapAccountsV.Apply = cmdBootstrapAccountsApplyV
+			case CmdBootstrapAccountsStatus:
+				cmdBootstrapAccountsStatusV = &BootstrapAccountsStatusCmd{}
+				cmdBootstrapAccountsV.Status = cmdBootstrapAccountsStatusV
+			case CmdBootstrapCompose:
+				cmdBootstrapComposeV = &BootstrapComposeCmd{}
+				cmdBootstrapV.Compose = cmdBootstrapComposeV
+			case CmdBootstrapComposeApply:
+				cmdBootstrapComposeApplyV = &BootstrapComposeApplyCmd{}
+				cmdBootstrapComposeV.Apply = cmdBootstrapComposeApplyV
+			case CmdBootstrapComposeStatus:
+				cmdBootstrapComposeStatusV = &BootstrapComposeStatusCmd{}
+				cmdBootstrapComposeV.Status = cmdBootstrapComposeStatusV
+			case CmdBootstrapDotfiles:
+				cmdBootstrapDotfilesV = &BootstrapDotfilesCmd{}
+				cmdBootstrapV.Dotfiles = cmdBootstrapDotfilesV
+			case CmdBootstrapDotfilesAdd:
+				cmdBootstrapDotfilesAddV = &BootstrapDotfilesAddCmd{}
+				cmdBootstrapDotfilesV.Add = cmdBootstrapDotfilesAddV
+			case CmdBootstrapDotfilesApply:
+				cmdBootstrapDotfilesApplyV = &BootstrapDotfilesApplyCmd{}
+				cmdBootstrapDotfilesV.Apply = cmdBootstrapDotfilesApplyV
+			case CmdBootstrapDotfilesEdit:
+				cmdBootstrapDotfilesEditV = &BootstrapDotfilesEditCmd{}
+				cmdBootstrapDotfilesV.Edit = cmdBootstrapDotfilesEditV
+			case CmdBootstrapDotfilesStatus:
+				cmdBootstrapDotfilesStatusV = &BootstrapDotfilesStatusCmd{}
+				cmdBootstrapDotfilesV.Status = cmdBootstrapDotfilesStatusV
+			case CmdBootstrapDotfilesUnapply:
+				cmdBootstrapDotfilesUnapplyV = &BootstrapDotfilesUnapplyCmd{}
+				cmdBootstrapDotfilesV.Unapply = cmdBootstrapDotfilesUnapplyV
+			case CmdBootstrapFiles:
+				cmdBootstrapFilesV = &BootstrapFilesCmd{}
+				cmdBootstrapV.Files = cmdBootstrapFilesV
+			case CmdBootstrapFilesApply:
+				cmdBootstrapFilesApplyV = &BootstrapFilesApplyCmd{}
+				cmdBootstrapFilesV.Apply = cmdBootstrapFilesApplyV
+			case CmdBootstrapFilesStatus:
+				cmdBootstrapFilesStatusV = &BootstrapFilesStatusCmd{}
+				cmdBootstrapFilesV.Status = cmdBootstrapFilesStatusV
+			case CmdBootstrapFirewall:
+				cmdBootstrapFirewallV = &BootstrapFirewallCmd{}
+				cmdBootstrapV.Firewall = cmdBootstrapFirewallV
+			case CmdBootstrapFirewallApply:
+				cmdBootstrapFirewallApplyV = &BootstrapFirewallApplyCmd{}
+				cmdBootstrapFirewallV.Apply = cmdBootstrapFirewallApplyV
+			case CmdBootstrapFirewallStatus:
+				cmdBootstrapFirewallStatusV = &BootstrapFirewallStatusCmd{}
+				cmdBootstrapFirewallV.Status = cmdBootstrapFirewallStatusV
+			case CmdBootstrapLaunchd:
+				cmdBootstrapLaunchdV = &BootstrapLaunchdCmd{}
+				cmdBootstrapV.Launchd = cmdBootstrapLaunchdV
+			case CmdBootstrapLaunchdApply:
+				cmdBootstrapLaunchdApplyV = &BootstrapLaunchdApplyCmd{}
+				cmdBootstrapLaunchdV.Apply = cmdBootstrapLaunchdApplyV
+			case CmdBootstrapLaunchdStatus:
+				cmdBootstrapLaunchdStatusV = &BootstrapLaunchdStatusCmd{}
+				cmdBootstrapLaunchdV.Status = cmdBootstrapLaunchdStatusV
+			case CmdBootstrapLinux:
+				cmdBootstrapLinuxV = &BootstrapLinuxCmd{}
+				cmdBootstrapV.Linux = cmdBootstrapLinuxV
+			case CmdBootstrapLinuxSystemdUnits:
+				cmdBootstrapLinuxSystemdUnitsV = &BootstrapLinuxSystemdUnitsCmd{}
+				cmdBootstrapLinuxV.SystemdUnits = cmdBootstrapLinuxSystemdUnitsV
+			case CmdBootstrapLinuxSystemdUnitsApply:
+				cmdBootstrapLinuxSystemdUnitsApplyV = &BootstrapLinuxSystemdUnitsApplyCmd{}
+				cmdBootstrapLinuxSystemdUnitsV.Apply = cmdBootstrapLinuxSystemdUnitsApplyV
+			case CmdBootstrapLinuxSystemdUnitsStatus:
+				cmdBootstrapLinuxSystemdUnitsStatusV = &BootstrapLinuxSystemdUnitsStatusCmd{}
+				cmdBootstrapLinuxSystemdUnitsV.Status = cmdBootstrapLinuxSystemdUnitsStatusV
+			case CmdBootstrapMacos:
+				cmdBootstrapMacosV = &BootstrapMacosCmd{}
+				cmdBootstrapV.Macos = cmdBootstrapMacosV
+			case CmdBootstrapMacosDefaults:
+				cmdBootstrapMacosDefaultsV = &BootstrapMacosDefaultsCmd{}
+				cmdBootstrapMacosV.Defaults = cmdBootstrapMacosDefaultsV
+			case CmdBootstrapMacosDefaultsApply:
+				cmdBootstrapMacosDefaultsApplyV = &BootstrapMacosDefaultsApplyCmd{}
+				cmdBootstrapMacosDefaultsV.Apply = cmdBootstrapMacosDefaultsApplyV
+			case CmdBootstrapMacosDefaultsStatus:
+				cmdBootstrapMacosDefaultsStatusV = &BootstrapMacosDefaultsStatusCmd{}
+				cmdBootstrapMacosDefaultsV.Status = cmdBootstrapMacosDefaultsStatusV
+			case CmdBootstrapMacosLaunchdAgents:
+				cmdBootstrapMacosLaunchdAgentsV = &BootstrapMacosLaunchdAgentsCmd{}
+				cmdBootstrapMacosV.LaunchdAgents = cmdBootstrapMacosLaunchdAgentsV
+			case CmdBootstrapMacosLaunchdAgentsApply:
+				cmdBootstrapMacosLaunchdAgentsApplyV = &BootstrapMacosLaunchdAgentsApplyCmd{}
+				cmdBootstrapMacosLaunchdAgentsV.Apply = cmdBootstrapMacosLaunchdAgentsApplyV
+			case CmdBootstrapMacosLaunchdAgentsStatus:
+				cmdBootstrapMacosLaunchdAgentsStatusV = &BootstrapMacosLaunchdAgentsStatusCmd{}
+				cmdBootstrapMacosLaunchdAgentsV.Status = cmdBootstrapMacosLaunchdAgentsStatusV
+			case CmdBootstrapMacosDefaults2:
+				cmdBootstrapMacosDefaults2V = &BootstrapMacosDefaults2Cmd{}
+				cmdBootstrapV.MacosDefaults = cmdBootstrapMacosDefaults2V
+			case CmdBootstrapMacosDefaultsApply2:
+				cmdBootstrapMacosDefaultsApply2V = &BootstrapMacosDefaultsApply2Cmd{}
+				cmdBootstrapMacosDefaults2V.Apply = cmdBootstrapMacosDefaultsApply2V
+			case CmdBootstrapMacosDefaultsStatus2:
+				cmdBootstrapMacosDefaultsStatus2V = &BootstrapMacosDefaultsStatus2Cmd{}
+				cmdBootstrapMacosDefaults2V.Status = cmdBootstrapMacosDefaultsStatus2V
+			case CmdBootstrapMiseShellActivate:
+				cmdBootstrapMiseShellActivateV = &BootstrapMiseShellActivateCmd{}
+				cmdBootstrapV.MiseShellActivate = cmdBootstrapMiseShellActivateV
+			case CmdBootstrapMiseShellActivateApply:
+				cmdBootstrapMiseShellActivateApplyV = &BootstrapMiseShellActivateApplyCmd{}
+				cmdBootstrapMiseShellActivateV.Apply = cmdBootstrapMiseShellActivateApplyV
+			case CmdBootstrapMiseShellActivateStatus:
+				cmdBootstrapMiseShellActivateStatusV = &BootstrapMiseShellActivateStatusCmd{}
+				cmdBootstrapMiseShellActivateV.Status = cmdBootstrapMiseShellActivateStatusV
+			case CmdBootstrapPackages:
+				cmdBootstrapPackagesV = &BootstrapPackagesCmd{}
+				cmdBootstrapV.Packages = cmdBootstrapPackagesV
+			case CmdBootstrapPackagesApply:
+				cmdBootstrapPackagesApplyV = &BootstrapPackagesApplyCmd{}
+				cmdBootstrapPackagesV.Apply = cmdBootstrapPackagesApplyV
+			case CmdBootstrapPackagesBrew:
+				cmdBootstrapPackagesBrewV = &BootstrapPackagesBrewCmd{}
+				cmdBootstrapPackagesV.Brew = cmdBootstrapPackagesBrewV
+			case CmdBootstrapPackagesBrewTap:
+				cmdBootstrapPackagesBrewTapV = &BootstrapPackagesBrewTapCmd{}
+				cmdBootstrapPackagesBrewV.Tap = cmdBootstrapPackagesBrewTapV
+			case CmdBootstrapPackagesBrewUntap:
+				cmdBootstrapPackagesBrewUntapV = &BootstrapPackagesBrewUntapCmd{}
+				cmdBootstrapPackagesBrewV.Untap = cmdBootstrapPackagesBrewUntapV
+			case CmdBootstrapPackagesImport:
+				cmdBootstrapPackagesImportV = &BootstrapPackagesImportCmd{}
+				cmdBootstrapPackagesV.Import = cmdBootstrapPackagesImportV
+			case CmdBootstrapPackagesPrune:
+				cmdBootstrapPackagesPruneV = &BootstrapPackagesPruneCmd{}
+				cmdBootstrapPackagesV.Prune = cmdBootstrapPackagesPruneV
+			case CmdBootstrapPackagesStatus:
+				cmdBootstrapPackagesStatusV = &BootstrapPackagesStatusCmd{}
+				cmdBootstrapPackagesV.Status = cmdBootstrapPackagesStatusV
+			case CmdBootstrapPackagesUpgrade:
+				cmdBootstrapPackagesUpgradeV = &BootstrapPackagesUpgradeCmd{}
+				cmdBootstrapPackagesV.Upgrade = cmdBootstrapPackagesUpgradeV
+			case CmdBootstrapPackagesUse:
+				cmdBootstrapPackagesUseV = &BootstrapPackagesUseCmd{}
+				cmdBootstrapPackagesV.Use = cmdBootstrapPackagesUseV
+			case CmdBootstrapPlan:
+				cmdBootstrapPlanV = &BootstrapPlanCmd{}
+				cmdBootstrapV.Plan = cmdBootstrapPlanV
+			case CmdBootstrapPlugins:
+				cmdBootstrapPluginsV = &BootstrapPluginsCmd{}
+				cmdBootstrapV.Plugins = cmdBootstrapPluginsV
+			case CmdBootstrapPluginsApply:
+				cmdBootstrapPluginsApplyV = &BootstrapPluginsApplyCmd{}
+				cmdBootstrapPluginsV.Apply = cmdBootstrapPluginsApplyV
+			case CmdBootstrapPluginsStatus:
+				cmdBootstrapPluginsStatusV = &BootstrapPluginsStatusCmd{}
+				cmdBootstrapPluginsV.Status = cmdBootstrapPluginsStatusV
+			case CmdBootstrapRemote:
+				cmdBootstrapRemoteV = &BootstrapRemoteCmd{}
+				cmdBootstrapV.Remote = cmdBootstrapRemoteV
+			case CmdBootstrapRepos:
+				cmdBootstrapReposV = &BootstrapReposCmd{}
+				cmdBootstrapV.Repos = cmdBootstrapReposV
+			case CmdBootstrapReposApply:
+				cmdBootstrapReposApplyV = &BootstrapReposApplyCmd{}
+				cmdBootstrapReposV.Apply = cmdBootstrapReposApplyV
+			case CmdBootstrapReposExec:
+				cmdBootstrapReposExecV = &BootstrapReposExecCmd{}
+				cmdBootstrapReposV.Exec = cmdBootstrapReposExecV
+			case CmdBootstrapReposStatus:
+				cmdBootstrapReposStatusV = &BootstrapReposStatusCmd{}
+				cmdBootstrapReposV.Status = cmdBootstrapReposStatusV
+			case CmdBootstrapReposUpdate:
+				cmdBootstrapReposUpdateV = &BootstrapReposUpdateCmd{}
+				cmdBootstrapReposV.Update = cmdBootstrapReposUpdateV
+			case CmdBootstrapSecrets:
+				cmdBootstrapSecretsV = &BootstrapSecretsCmd{}
+				cmdBootstrapV.Secrets = cmdBootstrapSecretsV
+			case CmdBootstrapSecretsStatus:
+				cmdBootstrapSecretsStatusV = &BootstrapSecretsStatusCmd{}
+				cmdBootstrapSecretsV.Status = cmdBootstrapSecretsStatusV
+			case CmdBootstrapServices:
+				cmdBootstrapServicesV = &BootstrapServicesCmd{}
+				cmdBootstrapV.Services = cmdBootstrapServicesV
+			case CmdBootstrapServicesApply:
+				cmdBootstrapServicesApplyV = &BootstrapServicesApplyCmd{}
+				cmdBootstrapServicesV.Apply = cmdBootstrapServicesApplyV
+			case CmdBootstrapServicesStatus:
+				cmdBootstrapServicesStatusV = &BootstrapServicesStatusCmd{}
+				cmdBootstrapServicesV.Status = cmdBootstrapServicesStatusV
+			case CmdBootstrapStatus:
+				cmdBootstrapStatusV = &BootstrapStatusCmd{}
+				cmdBootstrapV.Status = cmdBootstrapStatusV
+			case CmdBootstrapSystemd:
+				cmdBootstrapSystemdV = &BootstrapSystemdCmd{}
+				cmdBootstrapV.Systemd = cmdBootstrapSystemdV
+			case CmdBootstrapSystemdApply:
+				cmdBootstrapSystemdApplyV = &BootstrapSystemdApplyCmd{}
+				cmdBootstrapSystemdV.Apply = cmdBootstrapSystemdApplyV
+			case CmdBootstrapSystemdStatus:
+				cmdBootstrapSystemdStatusV = &BootstrapSystemdStatusCmd{}
+				cmdBootstrapSystemdV.Status = cmdBootstrapSystemdStatusV
+			case CmdBootstrapUser:
+				cmdBootstrapUserV = &BootstrapUserCmd{}
+				cmdBootstrapV.User = cmdBootstrapUserV
+			case CmdBootstrapUserApply:
+				cmdBootstrapUserApplyV = &BootstrapUserApplyCmd{}
+				cmdBootstrapUserV.Apply = cmdBootstrapUserApplyV
+			case CmdBootstrapUserStatus:
+				cmdBootstrapUserStatusV = &BootstrapUserStatusCmd{}
+				cmdBootstrapUserV.Status = cmdBootstrapUserStatusV
+			case CmdCache:
+				cmdCacheV = &CacheCmd{}
+				out.Cache = cmdCacheV
+			case CmdCacheClear:
+				cmdCacheClearV = &CacheClearCmd{}
+				cmdCacheV.Clear = cmdCacheClearV
+			case CmdCachePath:
+				cmdCachePathV = &CachePathCmd{}
+				cmdCacheV.Path = cmdCachePathV
+			case CmdCachePrune:
+				cmdCachePruneV = &CachePruneCmd{}
+				cmdCacheV.Prune = cmdCachePruneV
+			case CmdCacheTask:
+				cmdCacheTaskV = &CacheTaskCmd{}
+				cmdCacheV.Task = cmdCacheTaskV
+			case CmdCompletion:
+				cmdCompletionV = &CompletionCmd{}
+				out.Completion = cmdCompletionV
+			case CmdConfig:
+				cmdConfigV = &ConfigCmd{}
+				out.Config = cmdConfigV
+			case CmdConfigGet:
+				cmdConfigGetV = &ConfigGetCmd{}
+				cmdConfigV.Get = cmdConfigGetV
+			case CmdConfigLs:
+				cmdConfigLsV = &ConfigLsCmd{}
+				cmdConfigV.Ls = cmdConfigLsV
+			case CmdConfigSet:
+				cmdConfigSetV = &ConfigSetCmd{}
+				cmdConfigV.Set = cmdConfigSetV
+			case CmdCurrent:
+				cmdCurrentV = &CurrentCmd{}
+				out.Current = cmdCurrentV
+			case CmdDeactivate:
+				cmdDeactivateV = &DeactivateCmd{}
+				out.Deactivate = cmdDeactivateV
+			case CmdDirenv:
+				cmdDirenvV = &DirenvCmd{}
+				out.Direnv = cmdDirenvV
+			case CmdDirenvActivate:
+				cmdDirenvActivateV = &DirenvActivateCmd{}
+				cmdDirenvV.Activate = cmdDirenvActivateV
+			case CmdDirenvEnvrc:
+				cmdDirenvEnvrcV = &DirenvEnvrcCmd{}
+				cmdDirenvV.Envrc = cmdDirenvEnvrcV
+			case CmdDirenvExec:
+				cmdDirenvExecV = &DirenvExecCmd{}
+				cmdDirenvV.Exec = cmdDirenvExecV
+			case CmdDotfiles:
+				cmdDotfilesV = &DotfilesCmd{}
+				out.Dotfiles = cmdDotfilesV
+			case CmdDotfilesAdd:
+				cmdDotfilesAddV = &DotfilesAddCmd{}
+				cmdDotfilesV.Add = cmdDotfilesAddV
+			case CmdDotfilesApply:
+				cmdDotfilesApplyV = &DotfilesApplyCmd{}
+				cmdDotfilesV.Apply = cmdDotfilesApplyV
+			case CmdDotfilesEdit:
+				cmdDotfilesEditV = &DotfilesEditCmd{}
+				cmdDotfilesV.Edit = cmdDotfilesEditV
+			case CmdDotfilesStatus:
+				cmdDotfilesStatusV = &DotfilesStatusCmd{}
+				cmdDotfilesV.Status = cmdDotfilesStatusV
+			case CmdDotfilesUnapply:
+				cmdDotfilesUnapplyV = &DotfilesUnapplyCmd{}
+				cmdDotfilesV.Unapply = cmdDotfilesUnapplyV
+			case CmdDoctor:
+				cmdDoctorV = &DoctorCmd{}
+				out.Doctor = cmdDoctorV
+			case CmdDoctorPath:
+				cmdDoctorPathV = &DoctorPathCmd{}
+				cmdDoctorV.Path = cmdDoctorPathV
+			case CmdEn:
+				cmdEnV = &EnCmd{}
+				out.En = cmdEnV
+			case CmdEnv:
+				cmdEnvV = &EnvCmd{}
+				out.EnvCmd = cmdEnvV
+			case CmdExec:
+				cmdExecV = &ExecCmd{}
+				out.Exec = cmdExecV
+			case CmdFmt:
+				cmdFmtV = &FmtCmd{}
+				out.Fmt = cmdFmtV
+			case CmdGenerate:
+				cmdGenerateV = &GenerateCmd{}
+				out.Generate = cmdGenerateV
+			case CmdGenerateBootstrap:
+				cmdGenerateBootstrapV = &GenerateBootstrapCmd{}
+				cmdGenerateV.Bootstrap = cmdGenerateBootstrapV
+			case CmdGenerateConfig:
+				cmdGenerateConfigV = &GenerateConfigCmd{}
+				cmdGenerateV.Config = cmdGenerateConfigV
+			case CmdGenerateDevcontainer:
+				cmdGenerateDevcontainerV = &GenerateDevcontainerCmd{}
+				cmdGenerateV.Devcontainer = cmdGenerateDevcontainerV
+			case CmdGenerateGitPreCommit:
+				cmdGenerateGitPreCommitV = &GenerateGitPreCommitCmd{}
+				cmdGenerateV.GitPreCommit = cmdGenerateGitPreCommitV
+			case CmdGenerateGithubAction:
+				cmdGenerateGithubActionV = &GenerateGithubActionCmd{}
+				cmdGenerateV.GithubAction = cmdGenerateGithubActionV
+			case CmdGenerateTaskDocs:
+				cmdGenerateTaskDocsV = &GenerateTaskDocsCmd{}
+				cmdGenerateV.TaskDocs = cmdGenerateTaskDocsV
+			case CmdGenerateTaskStubs:
+				cmdGenerateTaskStubsV = &GenerateTaskStubsCmd{}
+				cmdGenerateV.TaskStubs = cmdGenerateTaskStubsV
+			case CmdGenerateToolStub:
+				cmdGenerateToolStubV = &GenerateToolStubCmd{}
+				cmdGenerateV.ToolStub = cmdGenerateToolStubV
+			case CmdGithub:
+				cmdGithubV = &GithubCmd{}
+				out.Github = cmdGithubV
+			case CmdGithubToken:
+				cmdGithubTokenV = &GithubTokenCmd{}
+				cmdGithubV.Token = cmdGithubTokenV
+			case CmdGlobal:
+				cmdGlobalV = &GlobalCmd{}
+				out.Global = cmdGlobalV
+			case CmdHookEnv:
+				cmdHookEnvV = &HookEnvCmd{}
+				out.HookEnv = cmdHookEnvV
+			case CmdHookNotFound:
+				cmdHookNotFoundV = &HookNotFoundCmd{}
+				out.HookNotFound = cmdHookNotFoundV
+			case CmdImplode:
+				cmdImplodeV = &ImplodeCmd{}
+				out.Implode = cmdImplodeV
+			case CmdEdit:
+				cmdEditV = &EditCmd{}
+				out.Edit = cmdEditV
+			case CmdInstall:
+				cmdInstallV = &InstallCmd{}
+				out.Install = cmdInstallV
+			case CmdInstallInto:
+				cmdInstallIntoV = &InstallIntoCmd{}
+				out.InstallInto = cmdInstallIntoV
+			case CmdLatest:
+				cmdLatestV = &LatestCmd{}
+				out.Latest = cmdLatestV
+			case CmdLink:
+				cmdLinkV = &LinkCmd{}
+				out.Link = cmdLinkV
+			case CmdLocal:
+				cmdLocalV = &LocalCmd{}
+				out.Local = cmdLocalV
+			case CmdLock:
+				cmdLockV = &LockCmd{}
+				out.Lock = cmdLockV
+			case CmdLs:
+				cmdLsV = &LsCmd{}
+				out.Ls = cmdLsV
+			case CmdLsRemote:
+				cmdLsRemoteV = &LsRemoteCmd{}
+				out.LsRemote = cmdLsRemoteV
+			case CmdMcp:
+				cmdMcpV = &McpCmd{}
+				out.Mcp = cmdMcpV
+			case CmdOci:
+				cmdOciV = &OciCmd{}
+				out.Oci = cmdOciV
+			case CmdOciBuild:
+				cmdOciBuildV = &OciBuildCmd{}
+				cmdOciV.Build = cmdOciBuildV
+			case CmdOciPush:
+				cmdOciPushV = &OciPushCmd{}
+				cmdOciV.Push = cmdOciPushV
+			case CmdOciRun:
+				cmdOciRunV = &OciRunCmd{}
+				cmdOciV.Run = cmdOciRunV
+			case CmdOutdated:
+				cmdOutdatedV = &OutdatedCmd{}
+				out.Outdated = cmdOutdatedV
+			case CmdPatrons:
+				cmdPatronsV = &PatronsCmd{}
+				out.Patrons = cmdPatronsV
+			case CmdPlugins:
+				cmdPluginsV = &PluginsCmd{}
+				out.Plugins = cmdPluginsV
+			case CmdPluginsInstall:
+				cmdPluginsInstallV = &PluginsInstallCmd{}
+				cmdPluginsV.Install = cmdPluginsInstallV
+			case CmdPluginsLink:
+				cmdPluginsLinkV = &PluginsLinkCmd{}
+				cmdPluginsV.Link = cmdPluginsLinkV
+			case CmdPluginsLs:
+				cmdPluginsLsV = &PluginsLsCmd{}
+				cmdPluginsV.Ls = cmdPluginsLsV
+			case CmdPluginsLsRemote:
+				cmdPluginsLsRemoteV = &PluginsLsRemoteCmd{}
+				cmdPluginsV.LsRemote = cmdPluginsLsRemoteV
+			case CmdPluginsUninstall:
+				cmdPluginsUninstallV = &PluginsUninstallCmd{}
+				cmdPluginsV.Uninstall = cmdPluginsUninstallV
+			case CmdPluginsUpdate:
+				cmdPluginsUpdateV = &PluginsUpdateCmd{}
+				cmdPluginsV.Update = cmdPluginsUpdateV
+			case CmdDeps:
+				cmdDepsV = &DepsCmd{}
+				out.Deps = cmdDepsV
+			case CmdDepsAdd:
+				cmdDepsAddV = &DepsAddCmd{}
+				cmdDepsV.Add = cmdDepsAddV
+			case CmdDepsInstall:
+				cmdDepsInstallV = &DepsInstallCmd{}
+				cmdDepsV.Install = cmdDepsInstallV
+			case CmdDepsRemove:
+				cmdDepsRemoveV = &DepsRemoveCmd{}
+				cmdDepsV.Remove = cmdDepsRemoveV
+			case CmdPrune:
+				cmdPruneV = &PruneCmd{}
+				out.Prune = cmdPruneV
+			case CmdRegistry:
+				cmdRegistryV = &RegistryCmd{}
+				out.Registry = cmdRegistryV
+			case CmdRenderHelp:
+				cmdRenderHelpV = &RenderHelpCmd{}
+				out.RenderHelp = cmdRenderHelpV
+			case CmdReshim:
+				cmdReshimV = &ReshimCmd{}
+				out.Reshim = cmdReshimV
+			case CmdRun:
+				cmdRunV = &RunCmd{}
+				out.Run = cmdRunV
+			case CmdSearch:
+				cmdSearchV = &SearchCmd{}
+				out.Search = cmdSearchV
+			case CmdSelfUpdate:
+				cmdSelfUpdateV = &SelfUpdateCmd{}
+				out.SelfUpdate = cmdSelfUpdateV
+			case CmdSet:
+				cmdSetV = &SetCmd{}
+				out.Set = cmdSetV
+			case CmdSettings:
+				cmdSettingsV = &SettingsCmd{}
+				out.Settings = cmdSettingsV
+			case CmdSettingsAdd:
+				cmdSettingsAddV = &SettingsAddCmd{}
+				cmdSettingsV.Add = cmdSettingsAddV
+			case CmdSettingsGet:
+				cmdSettingsGetV = &SettingsGetCmd{}
+				cmdSettingsV.Get = cmdSettingsGetV
+			case CmdSettingsLs:
+				cmdSettingsLsV = &SettingsLsCmd{}
+				cmdSettingsV.Ls = cmdSettingsLsV
+			case CmdSettingsSet:
+				cmdSettingsSetV = &SettingsSetCmd{}
+				cmdSettingsV.Set = cmdSettingsSetV
+			case CmdSettingsUnset:
+				cmdSettingsUnsetV = &SettingsUnsetCmd{}
+				cmdSettingsV.Unset = cmdSettingsUnsetV
+			case CmdShell:
+				cmdShellV = &ShellCmd{}
+				out.ShellCmd = cmdShellV
+			case CmdShellAlias:
+				cmdShellAliasV = &ShellAliasCmd{}
+				out.ShellAlias = cmdShellAliasV
+			case CmdShellAliasGet:
+				cmdShellAliasGetV = &ShellAliasGetCmd{}
+				cmdShellAliasV.Get = cmdShellAliasGetV
+			case CmdShellAliasLs:
+				cmdShellAliasLsV = &ShellAliasLsCmd{}
+				cmdShellAliasV.Ls = cmdShellAliasLsV
+			case CmdShellAliasSet:
+				cmdShellAliasSetV = &ShellAliasSetCmd{}
+				cmdShellAliasV.Set = cmdShellAliasSetV
+			case CmdShellAliasUnset:
+				cmdShellAliasUnsetV = &ShellAliasUnsetCmd{}
+				cmdShellAliasV.Unset = cmdShellAliasUnsetV
+			case CmdSponsors:
+				cmdSponsorsV = &SponsorsCmd{}
+				out.Sponsors = cmdSponsorsV
+			case CmdSync:
+				cmdSyncV = &SyncCmd{}
+				out.Sync = cmdSyncV
+			case CmdSyncNode:
+				cmdSyncNodeV = &SyncNodeCmd{}
+				cmdSyncV.Node = cmdSyncNodeV
+			case CmdSyncPython:
+				cmdSyncPythonV = &SyncPythonCmd{}
+				cmdSyncV.Python = cmdSyncPythonV
+			case CmdSyncRuby:
+				cmdSyncRubyV = &SyncRubyCmd{}
+				cmdSyncV.Ruby = cmdSyncRubyV
+			case CmdTasks:
+				cmdTasksV = &TasksCmd{}
+				out.Tasks = cmdTasksV
+			case CmdTasksAdd:
+				cmdTasksAddV = &TasksAddCmd{}
+				cmdTasksV.Add = cmdTasksAddV
+			case CmdTasksDeps:
+				cmdTasksDepsV = &TasksDepsCmd{}
+				cmdTasksV.Deps = cmdTasksDepsV
+			case CmdTasksEdit:
+				cmdTasksEditV = &TasksEditCmd{}
+				cmdTasksV.Edit = cmdTasksEditV
+			case CmdTasksGraph:
+				cmdTasksGraphV = &TasksGraphCmd{}
+				cmdTasksV.Graph = cmdTasksGraphV
+			case CmdTasksInfo:
+				cmdTasksInfoV = &TasksInfoCmd{}
+				cmdTasksV.Info = cmdTasksInfoV
+			case CmdTasksLs:
+				cmdTasksLsV = &TasksLsCmd{}
+				cmdTasksV.Ls = cmdTasksLsV
+			case CmdTasksRun:
+				cmdTasksRunV = &TasksRunCmd{}
+				cmdTasksV.Run = cmdTasksRunV
+			case CmdTasksValidate:
+				cmdTasksValidateV = &TasksValidateCmd{}
+				cmdTasksV.Validate = cmdTasksValidateV
+			case CmdTestTool:
+				cmdTestToolV = &TestToolCmd{}
+				out.TestTool = cmdTestToolV
+			case CmdToken:
+				cmdTokenV = &TokenCmd{}
+				out.Token = cmdTokenV
+			case CmdTokenForgejo:
+				cmdTokenForgejoV = &TokenForgejoCmd{}
+				cmdTokenV.Forgejo = cmdTokenForgejoV
+			case CmdTokenGithub:
+				cmdTokenGithubV = &TokenGithubCmd{}
+				cmdTokenV.Github = cmdTokenGithubV
+			case CmdTokenGitlab:
+				cmdTokenGitlabV = &TokenGitlabCmd{}
+				cmdTokenV.Gitlab = cmdTokenGitlabV
+			case CmdTool:
+				cmdToolV = &ToolCmd{}
+				out.ToolCmd = cmdToolV
+			case CmdToolStub:
+				cmdToolStubV = &ToolStubCmd{}
+				out.ToolStub = cmdToolStubV
+			case CmdTrust:
+				cmdTrustV = &TrustCmd{}
+				out.Trust = cmdTrustV
+			case CmdUninstall:
+				cmdUninstallV = &UninstallCmd{}
+				out.Uninstall = cmdUninstallV
+			case CmdUnset:
+				cmdUnsetV = &UnsetCmd{}
+				out.Unset = cmdUnsetV
+			case CmdUntrust:
+				cmdUntrustV = &UntrustCmd{}
+				out.Untrust = cmdUntrustV
+			case CmdUnuse:
+				cmdUnuseV = &UnuseCmd{}
+				out.Unuse = cmdUnuseV
+			case CmdUpgrade:
+				cmdUpgradeV = &UpgradeCmd{}
+				out.Upgrade = cmdUpgradeV
+			case CmdUsage:
+				cmdUsageV = &UsageCmd{}
+				out.Usage = cmdUsageV
+			case CmdUse:
+				cmdUseV = &UseCmd{}
+				out.Use = cmdUseV
+			case CmdVersion:
+				cmdVersionV = &VersionCmd{}
+				out.VersionCmd = cmdVersionV
+			case CmdWatch:
+				cmdWatchV = &WatchCmd{}
+				out.Watch = cmdWatchV
+			case CmdWhere:
+				cmdWhereV = &WhereCmd{}
+				out.Where = cmdWhereV
+			case CmdWhich:
+				cmdWhichV = &WhichCmd{}
+				out.Which = cmdWhichV
+			}
+		case argv.KindFlag:
+			seen[ev.Flag.Key]++
+			if ev.HasValue {
+				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+			} else if given[ev.Flag.Key] == nil {
+				// Given without a value is still given, and nil would read as
+				// absent when the fallbacks are applied.
+				given[ev.Flag.Key] = []string{}
+			}
+			switch ev.Flag.Key {
+			case FlagContinueOnError:
+				out.ContinueOnError = !ev.Negated
+			case FlagCd:
+				out.Cd = ev.Value
+			case FlagEnv:
+				if ev.HasValue {
+					out.Env = append(out.Env, ev.Value)
+				}
+			case FlagForce:
+				out.Force = !ev.Negated
+			case FlagJobs:
+				out.Jobs = ev.Value
+			case FlagDryRun:
+				out.DryRun = !ev.Negated
+			case FlagProfile:
+				if ev.HasValue {
+					out.Profile = append(out.Profile, ev.Value)
+				}
+			case FlagQuiet:
+				out.Quiet = !ev.Negated
+			case FlagShell:
+				out.Shell = ev.Value
+			case FlagTool:
+				if ev.HasValue {
+					out.Tool = append(out.Tool, ev.Value)
+				}
+			case FlagVerbose:
+				out.Verbose++
+			case FlagVersion:
+				out.Version = !ev.Negated
+			case FlagYes:
+				out.Yes = !ev.Negated
+			case FlagDebug:
+				out.Debug = !ev.Negated
+			case FlagLogLevel:
+				out.LogLevel = ev.Value
+			case FlagNoConfig:
+				out.NoConfig = !ev.Negated
+			case FlagNoEnv:
+				out.NoEnv = !ev.Negated
+			case FlagNoHooks:
+				out.NoHooks = !ev.Negated
+			case FlagNoTimings:
+				out.NoTimings = !ev.Negated
+			case FlagOutput:
+				out.Output = ev.Value
+			case FlagRaw:
+				out.Raw = !ev.Negated
+			case FlagLocked:
+				out.Locked = !ev.Negated
+			case FlagSilent:
+				out.Silent = !ev.Negated
+			case FlagTimings:
+				out.Timings = !ev.Negated
+			case FlagTrace:
+				out.Trace = !ev.Negated
+			case FlagActivateQuiet:
+				cmdActivateV.Quiet = !ev.Negated
+			case FlagActivateShell:
+				cmdActivateV.Shell = ev.Value
+			case FlagActivateNoHookEnv:
+				cmdActivateV.NoHookEnv = !ev.Negated
+			case FlagActivateShims:
+				cmdActivateV.Shims = !ev.Negated
+			case FlagActivateStatus:
+				cmdActivateV.Status = !ev.Negated
+			case FlagToolAliasTool:
+				cmdToolAliasV.Tool = ev.Value
+			case FlagToolAliasNoHeader:
+				cmdToolAliasV.NoHeader = !ev.Negated
+			case FlagToolAliasLsNoHeader:
+				cmdToolAliasLsV.NoHeader = !ev.Negated
+			case FlagBinPathsBinNames:
+				cmdBinPathsV.BinNames = !ev.Negated
+			case FlagBinPathsJson:
+				cmdBinPathsV.Json = !ev.Negated
+			case FlagBootstrapDryRun:
+				cmdBootstrapV.DryRun = !ev.Negated
+			case FlagBootstrapYes:
+				cmdBootstrapV.Yes = !ev.Negated
+			case FlagBootstrapForceDotfiles:
+				cmdBootstrapV.ForceDotfiles = !ev.Negated
+			case FlagBootstrapOnly:
+				if ev.HasValue {
+					cmdBootstrapV.Only = append(cmdBootstrapV.Only, ev.Value)
+				}
+			case FlagBootstrapPromptSecrets:
+				cmdBootstrapV.PromptSecrets = !ev.Negated
+			case FlagBootstrapSkip:
+				if ev.HasValue {
+					cmdBootstrapV.Skip = append(cmdBootstrapV.Skip, ev.Value)
+				}
+			case FlagBootstrapUpdate:
+				cmdBootstrapV.Update = !ev.Negated
+			case FlagBootstrapAccountsApplyDryRun:
+				cmdBootstrapAccountsApplyV.DryRun = !ev.Negated
+			case FlagBootstrapAccountsApplyYes:
+				cmdBootstrapAccountsApplyV.Yes = !ev.Negated
+			case FlagBootstrapAccountsStatusJson:
+				cmdBootstrapAccountsStatusV.Json = !ev.Negated
+			case FlagBootstrapAccountsStatusMissing:
+				cmdBootstrapAccountsStatusV.Missing = !ev.Negated
+			case FlagBootstrapComposeApplyDryRun:
+				cmdBootstrapComposeApplyV.DryRun = !ev.Negated
+			case FlagBootstrapComposeApplyYes:
+				cmdBootstrapComposeApplyV.Yes = !ev.Negated
+			case FlagBootstrapComposeStatusJson:
+				cmdBootstrapComposeStatusV.Json = !ev.Negated
+			case FlagBootstrapComposeStatusMissing:
+				cmdBootstrapComposeStatusV.Missing = !ev.Negated
+			case FlagBootstrapDotfilesAddForce:
+				cmdBootstrapDotfilesAddV.Force = !ev.Negated
+			case FlagBootstrapDotfilesAddGlobal:
+				cmdBootstrapDotfilesAddV.Global = !ev.Negated
+			case FlagBootstrapDotfilesAddLocal:
+				cmdBootstrapDotfilesAddV.Local = !ev.Negated
+			case FlagBootstrapDotfilesAddMode:
+				cmdBootstrapDotfilesAddV.Mode = ev.Value
+			case FlagBootstrapDotfilesAddDryRun:
+				cmdBootstrapDotfilesAddV.DryRun = !ev.Negated
+			case FlagBootstrapDotfilesAddNoApply:
+				cmdBootstrapDotfilesAddV.NoApply = !ev.Negated
+			case FlagBootstrapDotfilesAddPath:
+				cmdBootstrapDotfilesAddV.Path = ev.Value
+			case FlagBootstrapDotfilesAddSource:
+				cmdBootstrapDotfilesAddV.Source = ev.Value
+			case FlagBootstrapDotfilesAddYes:
+				cmdBootstrapDotfilesAddV.Yes = !ev.Negated
+			case FlagBootstrapDotfilesApplyForce:
+				cmdBootstrapDotfilesApplyV.Force = !ev.Negated
+			case FlagBootstrapDotfilesApplyDryRun:
+				cmdBootstrapDotfilesApplyV.DryRun = !ev.Negated
+			case FlagBootstrapDotfilesApplyYes:
+				cmdBootstrapDotfilesApplyV.Yes = !ev.Negated
+			case FlagBootstrapDotfilesEditApply:
+				cmdBootstrapDotfilesEditV.Apply = !ev.Negated
+			case FlagBootstrapDotfilesEditMode:
+				cmdBootstrapDotfilesEditV.Mode = ev.Value
+			case FlagBootstrapDotfilesEditSource:
+				cmdBootstrapDotfilesEditV.Source = ev.Value
+			case FlagBootstrapDotfilesEditYes:
+				cmdBootstrapDotfilesEditV.Yes = !ev.Negated
+			case FlagBootstrapDotfilesStatusJson:
+				cmdBootstrapDotfilesStatusV.Json = !ev.Negated
+			case FlagBootstrapDotfilesStatusMissing:
+				cmdBootstrapDotfilesStatusV.Missing = !ev.Negated
+			case FlagBootstrapDotfilesUnapplyForce:
+				cmdBootstrapDotfilesUnapplyV.Force = !ev.Negated
+			case FlagBootstrapDotfilesUnapplyDryRun:
+				cmdBootstrapDotfilesUnapplyV.DryRun = !ev.Negated
+			case FlagBootstrapDotfilesUnapplyYes:
+				cmdBootstrapDotfilesUnapplyV.Yes = !ev.Negated
+			case FlagBootstrapFilesApplyDryRun:
+				cmdBootstrapFilesApplyV.DryRun = !ev.Negated
+			case FlagBootstrapFilesApplyYes:
+				cmdBootstrapFilesApplyV.Yes = !ev.Negated
+			case FlagBootstrapFilesApplyPromptSecrets:
+				cmdBootstrapFilesApplyV.PromptSecrets = !ev.Negated
+			case FlagBootstrapFilesStatusJson:
+				cmdBootstrapFilesStatusV.Json = !ev.Negated
+			case FlagBootstrapFilesStatusMissing:
+				cmdBootstrapFilesStatusV.Missing = !ev.Negated
+			case FlagBootstrapFilesStatusPromptSecrets:
+				cmdBootstrapFilesStatusV.PromptSecrets = !ev.Negated
+			case FlagBootstrapFirewallApplyDryRun:
+				cmdBootstrapFirewallApplyV.DryRun = !ev.Negated
+			case FlagBootstrapFirewallApplyYes:
+				cmdBootstrapFirewallApplyV.Yes = !ev.Negated
+			case FlagBootstrapFirewallStatusJson:
+				cmdBootstrapFirewallStatusV.Json = !ev.Negated
+			case FlagBootstrapFirewallStatusMissing:
+				cmdBootstrapFirewallStatusV.Missing = !ev.Negated
+			case FlagBootstrapLaunchdApplyDryRun:
+				cmdBootstrapLaunchdApplyV.DryRun = !ev.Negated
+			case FlagBootstrapLaunchdApplyYes:
+				cmdBootstrapLaunchdApplyV.Yes = !ev.Negated
+			case FlagBootstrapLaunchdStatusJson:
+				cmdBootstrapLaunchdStatusV.Json = !ev.Negated
+			case FlagBootstrapLaunchdStatusMissing:
+				cmdBootstrapLaunchdStatusV.Missing = !ev.Negated
+			case FlagBootstrapLinuxSystemdUnitsApplyDryRun:
+				cmdBootstrapLinuxSystemdUnitsApplyV.DryRun = !ev.Negated
+			case FlagBootstrapLinuxSystemdUnitsApplyYes:
+				cmdBootstrapLinuxSystemdUnitsApplyV.Yes = !ev.Negated
+			case FlagBootstrapLinuxSystemdUnitsStatusJson:
+				cmdBootstrapLinuxSystemdUnitsStatusV.Json = !ev.Negated
+			case FlagBootstrapLinuxSystemdUnitsStatusMissing:
+				cmdBootstrapLinuxSystemdUnitsStatusV.Missing = !ev.Negated
+			case FlagBootstrapMacosDefaultsApplyDryRun:
+				cmdBootstrapMacosDefaultsApplyV.DryRun = !ev.Negated
+			case FlagBootstrapMacosDefaultsApplyYes:
+				cmdBootstrapMacosDefaultsApplyV.Yes = !ev.Negated
+			case FlagBootstrapMacosDefaultsStatusJson:
+				cmdBootstrapMacosDefaultsStatusV.Json = !ev.Negated
+			case FlagBootstrapMacosDefaultsStatusMissing:
+				cmdBootstrapMacosDefaultsStatusV.Missing = !ev.Negated
+			case FlagBootstrapMacosLaunchdAgentsApplyDryRun:
+				cmdBootstrapMacosLaunchdAgentsApplyV.DryRun = !ev.Negated
+			case FlagBootstrapMacosLaunchdAgentsApplyYes:
+				cmdBootstrapMacosLaunchdAgentsApplyV.Yes = !ev.Negated
+			case FlagBootstrapMacosLaunchdAgentsStatusJson:
+				cmdBootstrapMacosLaunchdAgentsStatusV.Json = !ev.Negated
+			case FlagBootstrapMacosLaunchdAgentsStatusMissing:
+				cmdBootstrapMacosLaunchdAgentsStatusV.Missing = !ev.Negated
+			case FlagBootstrapMacosDefaultsApplyDryRun2:
+				cmdBootstrapMacosDefaultsApply2V.DryRun = !ev.Negated
+			case FlagBootstrapMacosDefaultsApplyYes2:
+				cmdBootstrapMacosDefaultsApply2V.Yes = !ev.Negated
+			case FlagBootstrapMacosDefaultsStatusJson2:
+				cmdBootstrapMacosDefaultsStatus2V.Json = !ev.Negated
+			case FlagBootstrapMacosDefaultsStatusMissing2:
+				cmdBootstrapMacosDefaultsStatus2V.Missing = !ev.Negated
+			case FlagBootstrapMiseShellActivateApplyDryRun:
+				cmdBootstrapMiseShellActivateApplyV.DryRun = !ev.Negated
+			case FlagBootstrapMiseShellActivateApplyYes:
+				cmdBootstrapMiseShellActivateApplyV.Yes = !ev.Negated
+			case FlagBootstrapMiseShellActivateStatusJson:
+				cmdBootstrapMiseShellActivateStatusV.Json = !ev.Negated
+			case FlagBootstrapMiseShellActivateStatusMissing:
+				cmdBootstrapMiseShellActivateStatusV.Missing = !ev.Negated
+			case FlagBootstrapPackagesApplyManager:
+				cmdBootstrapPackagesApplyV.Manager = ev.Value
+			case FlagBootstrapPackagesApplyDryRun:
+				cmdBootstrapPackagesApplyV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesApplyYes:
+				cmdBootstrapPackagesApplyV.Yes = !ev.Negated
+			case FlagBootstrapPackagesApplyUpdate:
+				cmdBootstrapPackagesApplyV.Update = !ev.Negated
+			case FlagBootstrapPackagesBrewTapLocal:
+				cmdBootstrapPackagesBrewTapV.Local = !ev.Negated
+			case FlagBootstrapPackagesBrewTapDryRun:
+				cmdBootstrapPackagesBrewTapV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesBrewTapPath:
+				cmdBootstrapPackagesBrewTapV.Path = ev.Value
+			case FlagBootstrapPackagesBrewUntapLocal:
+				cmdBootstrapPackagesBrewUntapV.Local = !ev.Negated
+			case FlagBootstrapPackagesBrewUntapDryRun:
+				cmdBootstrapPackagesBrewUntapV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesBrewUntapPath:
+				cmdBootstrapPackagesBrewUntapV.Path = ev.Value
+			case FlagBootstrapPackagesImportEnv:
+				cmdBootstrapPackagesImportV.Env = ev.Value
+			case FlagBootstrapPackagesImportGlobal:
+				cmdBootstrapPackagesImportV.Global = !ev.Negated
+			case FlagBootstrapPackagesImportManager:
+				cmdBootstrapPackagesImportV.Manager = ev.Value
+			case FlagBootstrapPackagesImportAll:
+				cmdBootstrapPackagesImportV.All = !ev.Negated
+			case FlagBootstrapPackagesImportDryRun:
+				cmdBootstrapPackagesImportV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesImportPath:
+				cmdBootstrapPackagesImportV.Path = ev.Value
+			case FlagBootstrapPackagesPruneManager:
+				cmdBootstrapPackagesPruneV.Manager = ev.Value
+			case FlagBootstrapPackagesPruneDryRun:
+				cmdBootstrapPackagesPruneV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesPruneYes:
+				cmdBootstrapPackagesPruneV.Yes = !ev.Negated
+			case FlagBootstrapPackagesStatusJson:
+				cmdBootstrapPackagesStatusV.Json = !ev.Negated
+			case FlagBootstrapPackagesStatusMissing:
+				cmdBootstrapPackagesStatusV.Missing = !ev.Negated
+			case FlagBootstrapPackagesUpgradeManager:
+				cmdBootstrapPackagesUpgradeV.Manager = ev.Value
+			case FlagBootstrapPackagesUpgradeDryRun:
+				cmdBootstrapPackagesUpgradeV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesUpgradeYes:
+				cmdBootstrapPackagesUpgradeV.Yes = !ev.Negated
+			case FlagBootstrapPackagesUseEnv:
+				cmdBootstrapPackagesUseV.Env = ev.Value
+			case FlagBootstrapPackagesUseGlobal:
+				cmdBootstrapPackagesUseV.Global = !ev.Negated
+			case FlagBootstrapPackagesUseDryRun:
+				cmdBootstrapPackagesUseV.DryRun = !ev.Negated
+			case FlagBootstrapPackagesUsePath:
+				cmdBootstrapPackagesUseV.Path = ev.Value
+			case FlagBootstrapPackagesUseYes:
+				cmdBootstrapPackagesUseV.Yes = !ev.Negated
+			case FlagBootstrapPlanJson:
+				cmdBootstrapPlanV.Json = !ev.Negated
+			case FlagBootstrapPlanDetailedExitcode:
+				cmdBootstrapPlanV.DetailedExitcode = !ev.Negated
+			case FlagBootstrapPlanPromptSecrets:
+				cmdBootstrapPlanV.PromptSecrets = !ev.Negated
+			case FlagBootstrapPluginsApplyDryRun:
+				cmdBootstrapPluginsApplyV.DryRun = !ev.Negated
+			case FlagBootstrapPluginsStatusMissing:
+				cmdBootstrapPluginsStatusV.Missing = !ev.Negated
+			case FlagBootstrapRemoteAll:
+				cmdBootstrapRemoteV.All = !ev.Negated
+			case FlagBootstrapRemoteBootstrapCommand:
+				cmdBootstrapRemoteV.BootstrapCommand = ev.Value
+			case FlagBootstrapRemoteConnectTimeout:
+				cmdBootstrapRemoteV.ConnectTimeout = ev.Value
+			case FlagBootstrapRemoteExclude:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, ev.Value)
+				}
+			case FlagBootstrapRemoteFailFast:
+				cmdBootstrapRemoteV.FailFast = !ev.Negated
+			case FlagBootstrapRemoteForceDotfiles:
+				cmdBootstrapRemoteV.ForceDotfiles = !ev.Negated
+			case FlagBootstrapRemoteHost:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.Host = append(cmdBootstrapRemoteV.Host, ev.Value)
+				}
+			case FlagBootstrapRemoteIdentityFile:
+				cmdBootstrapRemoteV.IdentityFile = ev.Value
+			case FlagBootstrapRemoteDryRun:
+				cmdBootstrapRemoteV.DryRun = !ev.Negated
+			case FlagBootstrapRemoteKeepStaging:
+				cmdBootstrapRemoteV.KeepStaging = !ev.Negated
+			case FlagBootstrapRemoteMiseBin:
+				cmdBootstrapRemoteV.MiseBin = ev.Value
+			case FlagBootstrapRemoteOnly:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.Only = append(cmdBootstrapRemoteV.Only, ev.Value)
+				}
+			case FlagBootstrapRemotePort:
+				cmdBootstrapRemoteV.Port = ev.Value
+			case FlagBootstrapRemotePromptSecrets:
+				cmdBootstrapRemoteV.PromptSecrets = !ev.Negated
+			case FlagBootstrapRemoteRemoteMise:
+				cmdBootstrapRemoteV.RemoteMise = ev.Value
+			case FlagBootstrapRemoteSkip:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.Skip = append(cmdBootstrapRemoteV.Skip, ev.Value)
+				}
+			case FlagBootstrapRemoteSource:
+				cmdBootstrapRemoteV.Source = ev.Value
+			case FlagBootstrapRemoteSshOption:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.SshOption = append(cmdBootstrapRemoteV.SshOption, ev.Value)
+				}
+			case FlagBootstrapRemoteTag:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.Tag = append(cmdBootstrapRemoteV.Tag, ev.Value)
+				}
+			case FlagBootstrapRemoteUpdate:
+				cmdBootstrapRemoteV.Update = !ev.Negated
+			case FlagBootstrapRemoteYes:
+				cmdBootstrapRemoteV.Yes = !ev.Negated
+			case FlagBootstrapReposApplyDryRun:
+				cmdBootstrapReposApplyV.DryRun = !ev.Negated
+			case FlagBootstrapReposApplyYes:
+				cmdBootstrapReposApplyV.Yes = !ev.Negated
+			case FlagBootstrapReposExecContinueOnError:
+				cmdBootstrapReposExecV.ContinueOnError = !ev.Negated
+			case FlagBootstrapReposExecDryRun:
+				cmdBootstrapReposExecV.DryRun = !ev.Negated
+			case FlagBootstrapReposStatusJson:
+				cmdBootstrapReposStatusV.Json = !ev.Negated
+			case FlagBootstrapReposStatusMissing:
+				cmdBootstrapReposStatusV.Missing = !ev.Negated
+			case FlagBootstrapReposUpdateDryRun:
+				cmdBootstrapReposUpdateV.DryRun = !ev.Negated
+			case FlagBootstrapReposUpdateYes:
+				cmdBootstrapReposUpdateV.Yes = !ev.Negated
+			case FlagBootstrapSecretsStatusJson:
+				cmdBootstrapSecretsStatusV.Json = !ev.Negated
+			case FlagBootstrapSecretsStatusMissing:
+				cmdBootstrapSecretsStatusV.Missing = !ev.Negated
+			case FlagBootstrapServicesApplyDryRun:
+				cmdBootstrapServicesApplyV.DryRun = !ev.Negated
+			case FlagBootstrapServicesApplyYes:
+				cmdBootstrapServicesApplyV.Yes = !ev.Negated
+			case FlagBootstrapServicesStatusJson:
+				cmdBootstrapServicesStatusV.Json = !ev.Negated
+			case FlagBootstrapServicesStatusMissing:
+				cmdBootstrapServicesStatusV.Missing = !ev.Negated
+			case FlagBootstrapStatusJson:
+				cmdBootstrapStatusV.Json = !ev.Negated
+			case FlagBootstrapStatusMissing:
+				cmdBootstrapStatusV.Missing = !ev.Negated
+			case FlagBootstrapStatusPromptSecrets:
+				cmdBootstrapStatusV.PromptSecrets = !ev.Negated
+			case FlagBootstrapSystemdApplyDryRun:
+				cmdBootstrapSystemdApplyV.DryRun = !ev.Negated
+			case FlagBootstrapSystemdApplyYes:
+				cmdBootstrapSystemdApplyV.Yes = !ev.Negated
+			case FlagBootstrapSystemdStatusJson:
+				cmdBootstrapSystemdStatusV.Json = !ev.Negated
+			case FlagBootstrapSystemdStatusMissing:
+				cmdBootstrapSystemdStatusV.Missing = !ev.Negated
+			case FlagBootstrapUserApplyDryRun:
+				cmdBootstrapUserApplyV.DryRun = !ev.Negated
+			case FlagBootstrapUserApplyYes:
+				cmdBootstrapUserApplyV.Yes = !ev.Negated
+			case FlagBootstrapUserStatusJson:
+				cmdBootstrapUserStatusV.Json = !ev.Negated
+			case FlagBootstrapUserStatusMissing:
+				cmdBootstrapUserStatusV.Missing = !ev.Negated
+			case FlagCacheClearOutdate:
+				cmdCacheClearV.Outdate = !ev.Negated
+			case FlagCacheClearTask:
+				cmdCacheClearV.Task = ev.Value
+			case FlagCachePruneVerbose:
+				cmdCachePruneV.Verbose++
+			case FlagCachePruneDryRun:
+				cmdCachePruneV.DryRun = !ev.Negated
+			case FlagCacheTaskJson:
+				cmdCacheTaskV.Json = !ev.Negated
+			case FlagCompletionShell:
+				cmdCompletionV.Shell = ev.Value
+			case FlagCompletionIncludeBashCompletionLib:
+				cmdCompletionV.IncludeBashCompletionLib = !ev.Negated
+			case FlagCompletionUsage:
+				cmdCompletionV.Usage = !ev.Negated
+			case FlagConfigJson:
+				cmdConfigV.Json = !ev.Negated
+			case FlagConfigNoHeader:
+				cmdConfigV.NoHeader = !ev.Negated
+			case FlagConfigTrackedConfigs:
+				cmdConfigV.TrackedConfigs = !ev.Negated
+			case FlagConfigGetFile:
+				cmdConfigGetV.File = ev.Value
+			case FlagConfigLsJson:
+				cmdConfigLsV.Json = !ev.Negated
+			case FlagConfigLsNoHeader:
+				cmdConfigLsV.NoHeader = !ev.Negated
+			case FlagConfigLsTrackedConfigs:
+				cmdConfigLsV.TrackedConfigs = !ev.Negated
+			case FlagConfigSetFile:
+				cmdConfigSetV.File = ev.Value
+			case FlagConfigSetType:
+				cmdConfigSetV.Type = ev.Value
+			case FlagDotfilesAddForce:
+				cmdDotfilesAddV.Force = !ev.Negated
+			case FlagDotfilesAddGlobal:
+				cmdDotfilesAddV.Global = !ev.Negated
+			case FlagDotfilesAddLocal:
+				cmdDotfilesAddV.Local = !ev.Negated
+			case FlagDotfilesAddMode:
+				cmdDotfilesAddV.Mode = ev.Value
+			case FlagDotfilesAddDryRun:
+				cmdDotfilesAddV.DryRun = !ev.Negated
+			case FlagDotfilesAddNoApply:
+				cmdDotfilesAddV.NoApply = !ev.Negated
+			case FlagDotfilesAddPath:
+				cmdDotfilesAddV.Path = ev.Value
+			case FlagDotfilesAddSource:
+				cmdDotfilesAddV.Source = ev.Value
+			case FlagDotfilesAddYes:
+				cmdDotfilesAddV.Yes = !ev.Negated
+			case FlagDotfilesApplyForce:
+				cmdDotfilesApplyV.Force = !ev.Negated
+			case FlagDotfilesApplyDryRun:
+				cmdDotfilesApplyV.DryRun = !ev.Negated
+			case FlagDotfilesApplyYes:
+				cmdDotfilesApplyV.Yes = !ev.Negated
+			case FlagDotfilesEditApply:
+				cmdDotfilesEditV.Apply = !ev.Negated
+			case FlagDotfilesEditMode:
+				cmdDotfilesEditV.Mode = ev.Value
+			case FlagDotfilesEditSource:
+				cmdDotfilesEditV.Source = ev.Value
+			case FlagDotfilesEditYes:
+				cmdDotfilesEditV.Yes = !ev.Negated
+			case FlagDotfilesStatusJson:
+				cmdDotfilesStatusV.Json = !ev.Negated
+			case FlagDotfilesStatusMissing:
+				cmdDotfilesStatusV.Missing = !ev.Negated
+			case FlagDotfilesUnapplyForce:
+				cmdDotfilesUnapplyV.Force = !ev.Negated
+			case FlagDotfilesUnapplyDryRun:
+				cmdDotfilesUnapplyV.DryRun = !ev.Negated
+			case FlagDotfilesUnapplyYes:
+				cmdDotfilesUnapplyV.Yes = !ev.Negated
+			case FlagDoctorJson:
+				cmdDoctorV.Json = !ev.Negated
+			case FlagDoctorPathFull:
+				cmdDoctorPathV.Full = !ev.Negated
+			case FlagEnShell:
+				cmdEnV.Shell = ev.Value
+			case FlagEnvDotenv:
+				cmdEnvV.Dotenv = !ev.Negated
+			case FlagEnvJson:
+				cmdEnvV.Json = !ev.Negated
+			case FlagEnvShell:
+				cmdEnvV.Shell = ev.Value
+			case FlagEnvJsonExtended:
+				cmdEnvV.JsonExtended = !ev.Negated
+			case FlagEnvRedacted:
+				cmdEnvV.Redacted = !ev.Negated
+			case FlagEnvValues:
+				cmdEnvV.Values = !ev.Negated
+			case FlagExecCommand:
+				cmdExecV.Command = ev.Value
+			case FlagExecJobs:
+				cmdExecV.Jobs = ev.Value
+			case FlagExecAllowEnv:
+				if ev.HasValue {
+					cmdExecV.AllowEnv = append(cmdExecV.AllowEnv, ev.Value)
+				}
+			case FlagExecAllowNet:
+				if ev.HasValue {
+					cmdExecV.AllowNet = append(cmdExecV.AllowNet, ev.Value)
+				}
+			case FlagExecAllowRead:
+				if ev.HasValue {
+					cmdExecV.AllowRead = append(cmdExecV.AllowRead, ev.Value)
+				}
+			case FlagExecAllowWrite:
+				if ev.HasValue {
+					cmdExecV.AllowWrite = append(cmdExecV.AllowWrite, ev.Value)
+				}
+			case FlagExecDenyAll:
+				cmdExecV.DenyAll = !ev.Negated
+			case FlagExecDenyEnv:
+				cmdExecV.DenyEnv = !ev.Negated
+			case FlagExecDenyNet:
+				cmdExecV.DenyNet = !ev.Negated
+			case FlagExecDenyRead:
+				cmdExecV.DenyRead = !ev.Negated
+			case FlagExecDenyWrite:
+				cmdExecV.DenyWrite = !ev.Negated
+			case FlagExecFreshEnv:
+				cmdExecV.FreshEnv = !ev.Negated
+			case FlagExecNoDeps:
+				cmdExecV.NoDeps = !ev.Negated
+			case FlagExecRaw:
+				cmdExecV.Raw = !ev.Negated
+			case FlagFmtAll:
+				cmdFmtV.All = !ev.Negated
+			case FlagFmtCheck:
+				cmdFmtV.Check = !ev.Negated
+			case FlagFmtStdin:
+				cmdFmtV.Stdin = !ev.Negated
+			case FlagGenerateBootstrapLocalize:
+				cmdGenerateBootstrapV.Localize = !ev.Negated
+			case FlagGenerateBootstrapVersion:
+				cmdGenerateBootstrapV.Version = ev.Value
+			case FlagGenerateBootstrapWrite:
+				cmdGenerateBootstrapV.Write = ev.Value
+			case FlagGenerateBootstrapLocalizedDir:
+				cmdGenerateBootstrapV.LocalizedDir = ev.Value
+			case FlagGenerateConfigGlobal:
+				cmdGenerateConfigV.Global = !ev.Negated
+			case FlagGenerateConfigDryRun:
+				cmdGenerateConfigV.DryRun = !ev.Negated
+			case FlagGenerateConfigToolVersions:
+				cmdGenerateConfigV.ToolVersions = ev.Value
+			case FlagGenerateDevcontainerImage:
+				cmdGenerateDevcontainerV.Image = ev.Value
+			case FlagGenerateDevcontainerMountMiseData:
+				cmdGenerateDevcontainerV.MountMiseData = !ev.Negated
+			case FlagGenerateDevcontainerName:
+				cmdGenerateDevcontainerV.Name = ev.Value
+			case FlagGenerateDevcontainerWrite:
+				cmdGenerateDevcontainerV.Write = !ev.Negated
+			case FlagGenerateGitPreCommitTask:
+				cmdGenerateGitPreCommitV.Task = ev.Value
+			case FlagGenerateGitPreCommitWrite:
+				cmdGenerateGitPreCommitV.Write = !ev.Negated
+			case FlagGenerateGitPreCommitHook:
+				cmdGenerateGitPreCommitV.Hook = ev.Value
+			case FlagGenerateGithubActionTask:
+				cmdGenerateGithubActionV.Task = ev.Value
+			case FlagGenerateGithubActionWrite:
+				cmdGenerateGithubActionV.Write = !ev.Negated
+			case FlagGenerateGithubActionName:
+				cmdGenerateGithubActionV.Name = ev.Value
+			case FlagGenerateTaskDocsInject:
+				cmdGenerateTaskDocsV.Inject = !ev.Negated
+			case FlagGenerateTaskDocsIndex:
+				cmdGenerateTaskDocsV.Index = !ev.Negated
+			case FlagGenerateTaskDocsMulti:
+				cmdGenerateTaskDocsV.Multi = !ev.Negated
+			case FlagGenerateTaskDocsOutput:
+				cmdGenerateTaskDocsV.Output = ev.Value
+			case FlagGenerateTaskDocsRoot:
+				cmdGenerateTaskDocsV.Root = ev.Value
+			case FlagGenerateTaskDocsStyle:
+				cmdGenerateTaskDocsV.Style = ev.Value
+			case FlagGenerateTaskStubsDir:
+				cmdGenerateTaskStubsV.Dir = ev.Value
+			case FlagGenerateTaskStubsMiseBin:
+				cmdGenerateTaskStubsV.MiseBin = ev.Value
+			case FlagGenerateToolStubBin:
+				cmdGenerateToolStubV.Bin = ev.Value
+			case FlagGenerateToolStubBootstrap:
+				cmdGenerateToolStubV.Bootstrap = !ev.Negated
+			case FlagGenerateToolStubBootstrapVersion:
+				cmdGenerateToolStubV.BootstrapVersion = ev.Value
+			case FlagGenerateToolStubFetch:
+				cmdGenerateToolStubV.Fetch = !ev.Negated
+			case FlagGenerateToolStubHttp:
+				cmdGenerateToolStubV.Http = ev.Value
+			case FlagGenerateToolStubLock:
+				cmdGenerateToolStubV.Lock = !ev.Negated
+			case FlagGenerateToolStubPlatformBin:
+				if ev.HasValue {
+					cmdGenerateToolStubV.PlatformBin = append(cmdGenerateToolStubV.PlatformBin, ev.Value)
+				}
+			case FlagGenerateToolStubPlatformUrl:
+				if ev.HasValue {
+					cmdGenerateToolStubV.PlatformUrl = append(cmdGenerateToolStubV.PlatformUrl, ev.Value)
+				}
+			case FlagGenerateToolStubSkipDownload:
+				cmdGenerateToolStubV.SkipDownload = !ev.Negated
+			case FlagGenerateToolStubUrl:
+				cmdGenerateToolStubV.Url = ev.Value
+			case FlagGenerateToolStubVersion:
+				cmdGenerateToolStubV.Version = ev.Value
+			case FlagGithubTokenOauth:
+				cmdGithubTokenV.Oauth = !ev.Negated
+			case FlagGithubTokenRaw:
+				cmdGithubTokenV.Raw = !ev.Negated
+			case FlagGithubTokenRefresh:
+				cmdGithubTokenV.Refresh = !ev.Negated
+			case FlagGithubTokenUnmask:
+				cmdGithubTokenV.Unmask = !ev.Negated
+			case FlagGlobalFuzzy:
+				cmdGlobalV.Fuzzy = !ev.Negated
+			case FlagGlobalPath:
+				cmdGlobalV.Path = !ev.Negated
+			case FlagGlobalPin:
+				cmdGlobalV.Pin = !ev.Negated
+			case FlagGlobalRemove:
+				if ev.HasValue {
+					cmdGlobalV.Remove = append(cmdGlobalV.Remove, ev.Value)
+				}
+			case FlagHookEnvForce:
+				cmdHookEnvV.Force = !ev.Negated
+			case FlagHookEnvQuiet:
+				cmdHookEnvV.Quiet = !ev.Negated
+			case FlagHookEnvShell:
+				cmdHookEnvV.Shell = ev.Value
+			case FlagHookEnvReason:
+				cmdHookEnvV.Reason = ev.Value
+			case FlagHookEnvStatus:
+				cmdHookEnvV.Status = !ev.Negated
+			case FlagHookNotFoundShell:
+				cmdHookNotFoundV.Shell = ev.Value
+			case FlagImplodeDryRun:
+				cmdImplodeV.DryRun = !ev.Negated
+			case FlagImplodeConfig:
+				cmdImplodeV.Config = !ev.Negated
+			case FlagEditGlobal:
+				cmdEditV.Global = !ev.Negated
+			case FlagEditDryRun:
+				cmdEditV.DryRun = !ev.Negated
+			case FlagEditToolVersions:
+				cmdEditV.ToolVersions = ev.Value
+			case FlagInstallForce:
+				cmdInstallV.Force = !ev.Negated
+			case FlagInstallJobs:
+				cmdInstallV.Jobs = ev.Value
+			case FlagInstallDryRun:
+				cmdInstallV.DryRun = !ev.Negated
+			case FlagInstallVerbose:
+				cmdInstallV.Verbose++
+			case FlagInstallDryRunCode:
+				cmdInstallV.DryRunCode = !ev.Negated
+			case FlagInstallMinimumReleaseAge:
+				cmdInstallV.MinimumReleaseAge = ev.Value
+			case FlagInstallMonorepo:
+				cmdInstallV.Monorepo = !ev.Negated
+			case FlagInstallRaw:
+				cmdInstallV.Raw = !ev.Negated
+			case FlagInstallShared:
+				cmdInstallV.Shared = ev.Value
+			case FlagInstallSystem:
+				cmdInstallV.System = !ev.Negated
+			case FlagLatestInstalled:
+				cmdLatestV.Installed = !ev.Negated
+			case FlagLatestMinimumReleaseAge:
+				cmdLatestV.MinimumReleaseAge = ev.Value
+			case FlagLinkForce:
+				cmdLinkV.Force = !ev.Negated
+			case FlagLocalParent:
+				cmdLocalV.Parent = !ev.Negated
+			case FlagLocalFuzzy:
+				cmdLocalV.Fuzzy = !ev.Negated
+			case FlagLocalPath:
+				cmdLocalV.Path = !ev.Negated
+			case FlagLocalPin:
+				cmdLocalV.Pin = !ev.Negated
+			case FlagLocalRemove:
+				if ev.HasValue {
+					cmdLocalV.Remove = append(cmdLocalV.Remove, ev.Value)
+				}
+			case FlagLockGlobal:
+				cmdLockV.Global = !ev.Negated
+			case FlagLockJobs:
+				cmdLockV.Jobs = ev.Value
+			case FlagLockDryRun:
+				cmdLockV.DryRun = !ev.Negated
+			case FlagLockPlatform:
+				if ev.HasValue {
+					cmdLockV.Platform = append(cmdLockV.Platform, ev.Value)
+				}
+			case FlagLockBump:
+				cmdLockV.Bump = !ev.Negated
+			case FlagLockJson:
+				cmdLockV.Json = !ev.Negated
+			case FlagLockLocal:
+				cmdLockV.Local = !ev.Negated
+			case FlagLockMinimumReleaseAge:
+				cmdLockV.MinimumReleaseAge = ev.Value
+			case FlagLsCurrent:
+				cmdLsV.Current = !ev.Negated
+			case FlagLsGlobal:
+				cmdLsV.Global = !ev.Negated
+			case FlagLsInstalled:
+				cmdLsV.Installed = !ev.Negated
+			case FlagLsJson:
+				cmdLsV.Json = !ev.Negated
+			case FlagLsLocal:
+				cmdLsV.Local = !ev.Negated
+			case FlagLsMissing:
+				cmdLsV.Missing = !ev.Negated
+			case FlagLsOffline:
+				cmdLsV.Offline = !ev.Negated
+			case FlagLsPlugin:
+				cmdLsV.Plugin = ev.Value
+			case FlagLsAllSources:
+				cmdLsV.AllSources = !ev.Negated
+			case FlagLsMonorepo:
+				cmdLsV.Monorepo = !ev.Negated
+			case FlagLsNoHeader:
+				cmdLsV.NoHeader = !ev.Negated
+			case FlagLsOutdated:
+				cmdLsV.Outdated = !ev.Negated
+			case FlagLsPrefix:
+				cmdLsV.Prefix = ev.Value
+			case FlagLsPrunable:
+				cmdLsV.Prunable = !ev.Negated
+			case FlagLsRemoteAll:
+				cmdLsRemoteV.All = !ev.Negated
+			case FlagLsRemoteMinimumReleaseAge:
+				cmdLsRemoteV.MinimumReleaseAge = ev.Value
+			case FlagLsRemoteJson:
+				cmdLsRemoteV.Json = !ev.Negated
+			case FlagLsRemoteNoVersionsHost:
+				cmdLsRemoteV.NoVersionsHost = !ev.Negated
+			case FlagLsRemotePrerelease:
+				cmdLsRemoteV.Prerelease = !ev.Negated
+			case FlagLsRemoteStrictMetadata:
+				cmdLsRemoteV.StrictMetadata = !ev.Negated
+			case FlagOciBuildCopy:
+				if ev.HasValue {
+					cmdOciBuildV.Copy = append(cmdOciBuildV.Copy, ev.Value)
+				}
+			case FlagOciBuildOutput:
+				cmdOciBuildV.Output = ev.Value
+			case FlagOciBuildFrom:
+				cmdOciBuildV.From = ev.Value
+			case FlagOciBuildIncludeGlobal:
+				cmdOciBuildV.IncludeGlobal = !ev.Negated
+			case FlagOciBuildTag:
+				cmdOciBuildV.Tag = ev.Value
+			case FlagOciBuildMountPoint:
+				cmdOciBuildV.MountPoint = ev.Value
+			case FlagOciBuildNoMise:
+				cmdOciBuildV.NoMise = !ev.Negated
+			case FlagOciBuildOwner:
+				cmdOciBuildV.Owner = ev.Value
+			case FlagOciPushCacheFrom:
+				cmdOciPushV.CacheFrom = ev.Value
+			case FlagOciPushFrom:
+				cmdOciPushV.From = ev.Value
+			case FlagOciPushImageDir:
+				cmdOciPushV.ImageDir = ev.Value
+			case FlagOciPushIncludeGlobal:
+				cmdOciPushV.IncludeGlobal = !ev.Negated
+			case FlagOciPushMountPoint:
+				cmdOciPushV.MountPoint = ev.Value
+			case FlagOciPushNoCache:
+				cmdOciPushV.NoCache = !ev.Negated
+			case FlagOciPushNoMise:
+				cmdOciPushV.NoMise = !ev.Negated
+			case FlagOciPushOwner:
+				cmdOciPushV.Owner = ev.Value
+			case FlagOciPushUpdateIndex:
+				cmdOciPushV.UpdateIndex = !ev.Negated
+			case FlagOciRunEngine:
+				cmdOciRunV.Engine = ev.Value
+			case FlagOciRunFrom:
+				cmdOciRunV.From = ev.Value
+			case FlagOciRunImageDir:
+				cmdOciRunV.ImageDir = ev.Value
+			case FlagOciRunIncludeGlobal:
+				cmdOciRunV.IncludeGlobal = !ev.Negated
+			case FlagOciRunKeep:
+				cmdOciRunV.Keep = !ev.Negated
+			case FlagOciRunMountPoint:
+				cmdOciRunV.MountPoint = ev.Value
+			case FlagOciRunNoMise:
+				cmdOciRunV.NoMise = !ev.Negated
+			case FlagOciRunOwner:
+				cmdOciRunV.Owner = ev.Value
+			case FlagOciRunVolume:
+				if ev.HasValue {
+					cmdOciRunV.Volume = append(cmdOciRunV.Volume, ev.Value)
+				}
+			case FlagOciRunEnv:
+				if ev.HasValue {
+					cmdOciRunV.Env = append(cmdOciRunV.Env, ev.Value)
+				}
+			case FlagOciRunInteractive:
+				cmdOciRunV.Interactive = !ev.Negated
+			case FlagOciRunTty:
+				cmdOciRunV.Tty = !ev.Negated
+			case FlagOciRunWorkdir:
+				cmdOciRunV.Workdir = ev.Value
+			case FlagOutdatedJson:
+				cmdOutdatedV.Json = !ev.Negated
+			case FlagOutdatedBump:
+				cmdOutdatedV.Bump = !ev.Negated
+			case FlagOutdatedInactive:
+				cmdOutdatedV.Inactive = !ev.Negated
+			case FlagOutdatedLocal:
+				cmdOutdatedV.Local = !ev.Negated
+			case FlagOutdatedMonorepo:
+				cmdOutdatedV.Monorepo = !ev.Negated
+			case FlagOutdatedNoHeader:
+				cmdOutdatedV.NoHeader = !ev.Negated
+			case FlagPatronsJson:
+				cmdPatronsV.Json = !ev.Negated
+			case FlagPatronsRefresh:
+				cmdPatronsV.Refresh = !ev.Negated
+			case FlagPluginsAll:
+				cmdPluginsV.All = !ev.Negated
+			case FlagPluginsCore:
+				cmdPluginsV.Core = !ev.Negated
+			case FlagPluginsUrls:
+				cmdPluginsV.Urls = !ev.Negated
+			case FlagPluginsRefs:
+				cmdPluginsV.Refs = !ev.Negated
+			case FlagPluginsUser:
+				cmdPluginsV.User = !ev.Negated
+			case FlagPluginsInstallAll:
+				cmdPluginsInstallV.All = !ev.Negated
+			case FlagPluginsInstallForce:
+				cmdPluginsInstallV.Force = !ev.Negated
+			case FlagPluginsInstallJobs:
+				cmdPluginsInstallV.Jobs = ev.Value
+			case FlagPluginsInstallVerbose:
+				cmdPluginsInstallV.Verbose++
+			case FlagPluginsLinkForce:
+				cmdPluginsLinkV.Force = !ev.Negated
+			case FlagPluginsLsAll:
+				cmdPluginsLsV.All = !ev.Negated
+			case FlagPluginsLsCore:
+				cmdPluginsLsV.Core = !ev.Negated
+			case FlagPluginsLsOutdated:
+				cmdPluginsLsV.Outdated = !ev.Negated
+			case FlagPluginsLsUrls:
+				cmdPluginsLsV.Urls = !ev.Negated
+			case FlagPluginsLsRefs:
+				cmdPluginsLsV.Refs = !ev.Negated
+			case FlagPluginsLsUser:
+				cmdPluginsLsV.User = !ev.Negated
+			case FlagPluginsLsRemoteUrls:
+				cmdPluginsLsRemoteV.Urls = !ev.Negated
+			case FlagPluginsLsRemoteOnlyNames:
+				cmdPluginsLsRemoteV.OnlyNames = !ev.Negated
+			case FlagPluginsUninstallAll:
+				cmdPluginsUninstallV.All = !ev.Negated
+			case FlagPluginsUninstallPurge:
+				cmdPluginsUninstallV.Purge = !ev.Negated
+			case FlagPluginsUpdateJobs:
+				cmdPluginsUpdateV.Jobs = ev.Value
+			case FlagDepsExplain:
+				cmdDepsV.Explain = !ev.Negated
+			case FlagDepsForce:
+				cmdDepsV.Force = !ev.Negated
+			case FlagDepsDryRun:
+				cmdDepsV.DryRun = !ev.Negated
+			case FlagDepsList:
+				cmdDepsV.List = !ev.Negated
+			case FlagDepsMonorepo:
+				cmdDepsV.Monorepo = !ev.Negated
+			case FlagDepsOnly:
+				if ev.HasValue {
+					cmdDepsV.Only = append(cmdDepsV.Only, ev.Value)
+				}
+			case FlagDepsSkip:
+				if ev.HasValue {
+					cmdDepsV.Skip = append(cmdDepsV.Skip, ev.Value)
+				}
+			case FlagDepsAddDev:
+				cmdDepsAddV.Dev = !ev.Negated
+			case FlagDepsInstallExplain:
+				cmdDepsInstallV.Explain = !ev.Negated
+			case FlagDepsInstallForce:
+				cmdDepsInstallV.Force = !ev.Negated
+			case FlagDepsInstallDryRun:
+				cmdDepsInstallV.DryRun = !ev.Negated
+			case FlagDepsInstallList:
+				cmdDepsInstallV.List = !ev.Negated
+			case FlagDepsInstallMonorepo:
+				cmdDepsInstallV.Monorepo = !ev.Negated
+			case FlagDepsInstallOnly:
+				if ev.HasValue {
+					cmdDepsInstallV.Only = append(cmdDepsInstallV.Only, ev.Value)
+				}
+			case FlagDepsInstallSkip:
+				if ev.HasValue {
+					cmdDepsInstallV.Skip = append(cmdDepsInstallV.Skip, ev.Value)
+				}
+			case FlagPruneDryRun:
+				cmdPruneV.DryRun = !ev.Negated
+			case FlagPruneConfigs:
+				cmdPruneV.Configs = !ev.Negated
+			case FlagPruneDryRunCode:
+				cmdPruneV.DryRunCode = !ev.Negated
+			case FlagPruneMonorepo:
+				cmdPruneV.Monorepo = !ev.Negated
+			case FlagPruneTools:
+				cmdPruneV.Tools = !ev.Negated
+			case FlagRegistryBackend:
+				cmdRegistryV.Backend = ev.Value
+			case FlagRegistryComplete:
+				cmdRegistryV.Complete = !ev.Negated
+			case FlagRegistryHideAliased:
+				cmdRegistryV.HideAliased = !ev.Negated
+			case FlagRegistryJson:
+				cmdRegistryV.Json = !ev.Negated
+			case FlagRegistrySecurity:
+				cmdRegistryV.Security = !ev.Negated
+			case FlagReshimForce:
+				cmdReshimV.Force = !ev.Negated
+			case FlagRunAffected:
+				cmdRunV.Affected = !ev.Negated
+			case FlagRunAffectedBase:
+				cmdRunV.AffectedBase = ev.Value
+			case FlagRunAffectedExplain:
+				cmdRunV.AffectedExplain = !ev.Negated
+			case FlagRunAffectedHead:
+				cmdRunV.AffectedHead = ev.Value
+			case FlagRunAffectedJson:
+				cmdRunV.AffectedJson = !ev.Negated
+			case FlagRunContinueOnError:
+				cmdRunV.ContinueOnError = !ev.Negated
+			case FlagRunCd:
+				cmdRunV.Cd = ev.Value
+			case FlagRunForce:
+				cmdRunV.Force = !ev.Negated
+			case FlagRunJobs:
+				cmdRunV.Jobs = ev.Value
+			case FlagRunDryRun:
+				cmdRunV.DryRun = !ev.Negated
+			case FlagRunOutput:
+				cmdRunV.Output = ev.Value
+			case FlagRunQuiet:
+				cmdRunV.Quiet = !ev.Negated
+			case FlagRunRaw:
+				cmdRunV.Raw = !ev.Negated
+			case FlagRunShell:
+				cmdRunV.Shell = ev.Value
+			case FlagRunSilent:
+				cmdRunV.Silent = !ev.Negated
+			case FlagRunTool:
+				if ev.HasValue {
+					cmdRunV.Tool = append(cmdRunV.Tool, ev.Value)
+				}
+			case FlagRunAllowEnv:
+				if ev.HasValue {
+					cmdRunV.AllowEnv = append(cmdRunV.AllowEnv, ev.Value)
+				}
+			case FlagRunAllowNet:
+				if ev.HasValue {
+					cmdRunV.AllowNet = append(cmdRunV.AllowNet, ev.Value)
+				}
+			case FlagRunAllowRead:
+				if ev.HasValue {
+					cmdRunV.AllowRead = append(cmdRunV.AllowRead, ev.Value)
+				}
+			case FlagRunAllowWrite:
+				if ev.HasValue {
+					cmdRunV.AllowWrite = append(cmdRunV.AllowWrite, ev.Value)
+				}
+			case FlagRunDenyAll:
+				cmdRunV.DenyAll = !ev.Negated
+			case FlagRunDenyEnv:
+				cmdRunV.DenyEnv = !ev.Negated
+			case FlagRunDenyNet:
+				cmdRunV.DenyNet = !ev.Negated
+			case FlagRunDenyRead:
+				cmdRunV.DenyRead = !ev.Negated
+			case FlagRunDenyWrite:
+				cmdRunV.DenyWrite = !ev.Negated
+			case FlagRunFreshEnv:
+				cmdRunV.FreshEnv = !ev.Negated
+			case FlagRunNoCache:
+				cmdRunV.NoCache = !ev.Negated
+			case FlagRunNoDeps:
+				cmdRunV.NoDeps = !ev.Negated
+			case FlagRunNoTimings:
+				cmdRunV.NoTimings = !ev.Negated
+			case FlagRunSkipDeps:
+				cmdRunV.SkipDeps = !ev.Negated
+			case FlagRunSkipTools:
+				cmdRunV.SkipTools = !ev.Negated
+			case FlagRunTaskCache:
+				cmdRunV.TaskCache = ev.Value
+			case FlagRunTaskCacheExplain:
+				cmdRunV.TaskCacheExplain = !ev.Negated
+			case FlagRunTaskCacheExplainJson:
+				cmdRunV.TaskCacheExplainJson = !ev.Negated
+			case FlagRunTaskCacheStats:
+				cmdRunV.TaskCacheStats = !ev.Negated
+			case FlagRunTimeout:
+				cmdRunV.Timeout = ev.Value
+			case FlagRunTimings:
+				cmdRunV.Timings = !ev.Negated
+			case FlagSearchInteractive:
+				cmdSearchV.Interactive = !ev.Negated
+			case FlagSearchMatchType:
+				cmdSearchV.MatchType = ev.Value
+			case FlagSearchNoHeader:
+				cmdSearchV.NoHeader = !ev.Negated
+			case FlagSelfUpdateForce:
+				cmdSelfUpdateV.Force = !ev.Negated
+			case FlagSelfUpdateYes:
+				cmdSelfUpdateV.Yes = !ev.Negated
+			case FlagSelfUpdateNoPlugins:
+				cmdSelfUpdateV.NoPlugins = !ev.Negated
+			case FlagSetEnv:
+				cmdSetV.Env = ev.Value
+			case FlagSetGlobal:
+				cmdSetV.Global = !ev.Negated
+			case FlagSetAgeEncrypt:
+				cmdSetV.AgeEncrypt = !ev.Negated
+			case FlagSetAgeKeyFile:
+				cmdSetV.AgeKeyFile = ev.Value
+			case FlagSetAgeRecipient:
+				if ev.HasValue {
+					cmdSetV.AgeRecipient = append(cmdSetV.AgeRecipient, ev.Value)
+				}
+			case FlagSetAgeSshRecipient:
+				if ev.HasValue {
+					cmdSetV.AgeSshRecipient = append(cmdSetV.AgeSshRecipient, ev.Value)
+				}
+			case FlagSetComplete:
+				cmdSetV.Complete = !ev.Negated
+			case FlagSetFile:
+				cmdSetV.File = ev.Value
+			case FlagSetNoRedact:
+				cmdSetV.NoRedact = !ev.Negated
+			case FlagSetPrompt:
+				cmdSetV.Prompt = !ev.Negated
+			case FlagSetRemove:
+				if ev.HasValue {
+					cmdSetV.Remove = append(cmdSetV.Remove, ev.Value)
+				}
+			case FlagSetStdin:
+				cmdSetV.Stdin = !ev.Negated
+			case FlagSettingsAll:
+				cmdSettingsV.All = !ev.Negated
+			case FlagSettingsJson:
+				cmdSettingsV.Json = !ev.Negated
+			case FlagSettingsLocal:
+				cmdSettingsV.Local = !ev.Negated
+			case FlagSettingsToml:
+				cmdSettingsV.Toml = !ev.Negated
+			case FlagSettingsComplete:
+				cmdSettingsV.Complete = !ev.Negated
+			case FlagSettingsJsonExtended:
+				cmdSettingsV.JsonExtended = !ev.Negated
+			case FlagSettingsAddLocal:
+				cmdSettingsAddV.Local = !ev.Negated
+			case FlagSettingsGetLocal:
+				cmdSettingsGetV.Local = !ev.Negated
+			case FlagSettingsLsAll:
+				cmdSettingsLsV.All = !ev.Negated
+			case FlagSettingsLsJson:
+				cmdSettingsLsV.Json = !ev.Negated
+			case FlagSettingsLsLocal:
+				cmdSettingsLsV.Local = !ev.Negated
+			case FlagSettingsLsToml:
+				cmdSettingsLsV.Toml = !ev.Negated
+			case FlagSettingsLsComplete:
+				cmdSettingsLsV.Complete = !ev.Negated
+			case FlagSettingsLsJsonExtended:
+				cmdSettingsLsV.JsonExtended = !ev.Negated
+			case FlagSettingsSetLocal:
+				cmdSettingsSetV.Local = !ev.Negated
+			case FlagSettingsUnsetLocal:
+				cmdSettingsUnsetV.Local = !ev.Negated
+			case FlagShellJobs:
+				cmdShellV.Jobs = ev.Value
+			case FlagShellUnset:
+				cmdShellV.Unset = !ev.Negated
+			case FlagShellRaw:
+				cmdShellV.Raw = !ev.Negated
+			case FlagShellAliasNoHeader:
+				cmdShellAliasV.NoHeader = !ev.Negated
+			case FlagShellAliasLsNoHeader:
+				cmdShellAliasLsV.NoHeader = !ev.Negated
+			case FlagSyncNodeBrew:
+				cmdSyncNodeV.Brew = !ev.Negated
+			case FlagSyncNodeNodenv:
+				cmdSyncNodeV.Nodenv = !ev.Negated
+			case FlagSyncNodeNvm:
+				cmdSyncNodeV.Nvm = !ev.Negated
+			case FlagSyncPythonPyenv:
+				cmdSyncPythonV.Pyenv = !ev.Negated
+			case FlagSyncPythonUv:
+				cmdSyncPythonV.Uv = !ev.Negated
+			case FlagSyncRubyBrew:
+				cmdSyncRubyV.Brew = !ev.Negated
+			case FlagTasksGlobal:
+				cmdTasksV.Global = !ev.Negated
+			case FlagTasksJson:
+				cmdTasksV.Json = !ev.Negated
+			case FlagTasksLocal:
+				cmdTasksV.Local = !ev.Negated
+			case FlagTasksExtended:
+				cmdTasksV.Extended = !ev.Negated
+			case FlagTasksAll:
+				cmdTasksV.All = !ev.Negated
+			case FlagTasksComplete:
+				cmdTasksV.Complete = !ev.Negated
+			case FlagTasksHidden:
+				cmdTasksV.Hidden = !ev.Negated
+			case FlagTasksNameOnly:
+				cmdTasksV.NameOnly = !ev.Negated
+			case FlagTasksNoHeader:
+				cmdTasksV.NoHeader = !ev.Negated
+			case FlagTasksSort:
+				cmdTasksV.Sort = ev.Value
+			case FlagTasksSortOrder:
+				cmdTasksV.SortOrder = ev.Value
+			case FlagTasksUsage:
+				cmdTasksV.Usage = !ev.Negated
+			case FlagTasksAddAlias:
+				if ev.HasValue {
+					cmdTasksAddV.Alias = append(cmdTasksAddV.Alias, ev.Value)
+				}
+			case FlagTasksAddDepends:
+				if ev.HasValue {
+					cmdTasksAddV.Depends = append(cmdTasksAddV.Depends, ev.Value)
+				}
+			case FlagTasksAddDir:
+				cmdTasksAddV.Dir = ev.Value
+			case FlagTasksAddFile:
+				cmdTasksAddV.File = !ev.Negated
+			case FlagTasksAddHide:
+				cmdTasksAddV.Hide = !ev.Negated
+			case FlagTasksAddQuiet:
+				cmdTasksAddV.Quiet = !ev.Negated
+			case FlagTasksAddRaw:
+				cmdTasksAddV.Raw = !ev.Negated
+			case FlagTasksAddSources:
+				if ev.HasValue {
+					cmdTasksAddV.Sources = append(cmdTasksAddV.Sources, ev.Value)
+				}
+			case FlagTasksAddWaitFor:
+				if ev.HasValue {
+					cmdTasksAddV.WaitFor = append(cmdTasksAddV.WaitFor, ev.Value)
+				}
+			case FlagTasksAddDependsPost:
+				if ev.HasValue {
+					cmdTasksAddV.DependsPost = append(cmdTasksAddV.DependsPost, ev.Value)
+				}
+			case FlagTasksAddDescription:
+				cmdTasksAddV.Description = ev.Value
+			case FlagTasksAddOutputs:
+				if ev.HasValue {
+					cmdTasksAddV.Outputs = append(cmdTasksAddV.Outputs, ev.Value)
+				}
+			case FlagTasksAddRunWindows:
+				cmdTasksAddV.RunWindows = ev.Value
+			case FlagTasksAddShell:
+				cmdTasksAddV.Shell = ev.Value
+			case FlagTasksAddSilent:
+				cmdTasksAddV.Silent = !ev.Negated
+			case FlagTasksDepsCompact:
+				cmdTasksDepsV.Compact = !ev.Negated
+			case FlagTasksDepsDot:
+				cmdTasksDepsV.Dot = !ev.Negated
+			case FlagTasksDepsHidden:
+				cmdTasksDepsV.Hidden = !ev.Negated
+			case FlagTasksEditPath:
+				cmdTasksEditV.Path = !ev.Negated
+			case FlagTasksGraphJson:
+				cmdTasksGraphV.Json = !ev.Negated
+			case FlagTasksGraphExplain:
+				cmdTasksGraphV.Explain = !ev.Negated
+			case FlagTasksGraphNoHeader:
+				cmdTasksGraphV.NoHeader = !ev.Negated
+			case FlagTasksInfoJson:
+				cmdTasksInfoV.Json = !ev.Negated
+			case FlagTasksLsGlobal:
+				cmdTasksLsV.Global = !ev.Negated
+			case FlagTasksLsJson:
+				cmdTasksLsV.Json = !ev.Negated
+			case FlagTasksLsLocal:
+				cmdTasksLsV.Local = !ev.Negated
+			case FlagTasksLsExtended:
+				cmdTasksLsV.Extended = !ev.Negated
+			case FlagTasksLsAll:
+				cmdTasksLsV.All = !ev.Negated
+			case FlagTasksLsComplete:
+				cmdTasksLsV.Complete = !ev.Negated
+			case FlagTasksLsHidden:
+				cmdTasksLsV.Hidden = !ev.Negated
+			case FlagTasksLsNameOnly:
+				cmdTasksLsV.NameOnly = !ev.Negated
+			case FlagTasksLsNoHeader:
+				cmdTasksLsV.NoHeader = !ev.Negated
+			case FlagTasksLsSort:
+				cmdTasksLsV.Sort = ev.Value
+			case FlagTasksLsSortOrder:
+				cmdTasksLsV.SortOrder = ev.Value
+			case FlagTasksLsUsage:
+				cmdTasksLsV.Usage = !ev.Negated
+			case FlagTasksRunAffected:
+				cmdTasksRunV.Affected = !ev.Negated
+			case FlagTasksRunAffectedBase:
+				cmdTasksRunV.AffectedBase = ev.Value
+			case FlagTasksRunAffectedExplain:
+				cmdTasksRunV.AffectedExplain = !ev.Negated
+			case FlagTasksRunAffectedHead:
+				cmdTasksRunV.AffectedHead = ev.Value
+			case FlagTasksRunAffectedJson:
+				cmdTasksRunV.AffectedJson = !ev.Negated
+			case FlagTasksRunContinueOnError:
+				cmdTasksRunV.ContinueOnError = !ev.Negated
+			case FlagTasksRunCd:
+				cmdTasksRunV.Cd = ev.Value
+			case FlagTasksRunForce:
+				cmdTasksRunV.Force = !ev.Negated
+			case FlagTasksRunJobs:
+				cmdTasksRunV.Jobs = ev.Value
+			case FlagTasksRunDryRun:
+				cmdTasksRunV.DryRun = !ev.Negated
+			case FlagTasksRunOutput:
+				cmdTasksRunV.Output = ev.Value
+			case FlagTasksRunQuiet:
+				cmdTasksRunV.Quiet = !ev.Negated
+			case FlagTasksRunRaw:
+				cmdTasksRunV.Raw = !ev.Negated
+			case FlagTasksRunShell:
+				cmdTasksRunV.Shell = ev.Value
+			case FlagTasksRunSilent:
+				cmdTasksRunV.Silent = !ev.Negated
+			case FlagTasksRunTool:
+				if ev.HasValue {
+					cmdTasksRunV.Tool = append(cmdTasksRunV.Tool, ev.Value)
+				}
+			case FlagTasksRunAllowEnv:
+				if ev.HasValue {
+					cmdTasksRunV.AllowEnv = append(cmdTasksRunV.AllowEnv, ev.Value)
+				}
+			case FlagTasksRunAllowNet:
+				if ev.HasValue {
+					cmdTasksRunV.AllowNet = append(cmdTasksRunV.AllowNet, ev.Value)
+				}
+			case FlagTasksRunAllowRead:
+				if ev.HasValue {
+					cmdTasksRunV.AllowRead = append(cmdTasksRunV.AllowRead, ev.Value)
+				}
+			case FlagTasksRunAllowWrite:
+				if ev.HasValue {
+					cmdTasksRunV.AllowWrite = append(cmdTasksRunV.AllowWrite, ev.Value)
+				}
+			case FlagTasksRunDenyAll:
+				cmdTasksRunV.DenyAll = !ev.Negated
+			case FlagTasksRunDenyEnv:
+				cmdTasksRunV.DenyEnv = !ev.Negated
+			case FlagTasksRunDenyNet:
+				cmdTasksRunV.DenyNet = !ev.Negated
+			case FlagTasksRunDenyRead:
+				cmdTasksRunV.DenyRead = !ev.Negated
+			case FlagTasksRunDenyWrite:
+				cmdTasksRunV.DenyWrite = !ev.Negated
+			case FlagTasksRunFreshEnv:
+				cmdTasksRunV.FreshEnv = !ev.Negated
+			case FlagTasksRunNoCache:
+				cmdTasksRunV.NoCache = !ev.Negated
+			case FlagTasksRunNoDeps:
+				cmdTasksRunV.NoDeps = !ev.Negated
+			case FlagTasksRunNoTimings:
+				cmdTasksRunV.NoTimings = !ev.Negated
+			case FlagTasksRunSkipDeps:
+				cmdTasksRunV.SkipDeps = !ev.Negated
+			case FlagTasksRunSkipTools:
+				cmdTasksRunV.SkipTools = !ev.Negated
+			case FlagTasksRunTaskCache:
+				cmdTasksRunV.TaskCache = ev.Value
+			case FlagTasksRunTaskCacheExplain:
+				cmdTasksRunV.TaskCacheExplain = !ev.Negated
+			case FlagTasksRunTaskCacheExplainJson:
+				cmdTasksRunV.TaskCacheExplainJson = !ev.Negated
+			case FlagTasksRunTaskCacheStats:
+				cmdTasksRunV.TaskCacheStats = !ev.Negated
+			case FlagTasksRunTimeout:
+				cmdTasksRunV.Timeout = ev.Value
+			case FlagTasksRunTimings:
+				cmdTasksRunV.Timings = !ev.Negated
+			case FlagTasksValidateErrorsOnly:
+				cmdTasksValidateV.ErrorsOnly = !ev.Negated
+			case FlagTasksValidateJson:
+				cmdTasksValidateV.Json = !ev.Negated
+			case FlagTestToolAll:
+				cmdTestToolV.All = !ev.Negated
+			case FlagTestToolJobs:
+				cmdTestToolV.Jobs = ev.Value
+			case FlagTestToolAllConfig:
+				cmdTestToolV.AllConfig = !ev.Negated
+			case FlagTestToolIncludeNonDefined:
+				cmdTestToolV.IncludeNonDefined = !ev.Negated
+			case FlagTestToolRaw:
+				cmdTestToolV.Raw = !ev.Negated
+			case FlagTokenForgejoUnmask:
+				cmdTokenForgejoV.Unmask = !ev.Negated
+			case FlagTokenGithubOauth:
+				cmdTokenGithubV.Oauth = !ev.Negated
+			case FlagTokenGithubRaw:
+				cmdTokenGithubV.Raw = !ev.Negated
+			case FlagTokenGithubRefresh:
+				cmdTokenGithubV.Refresh = !ev.Negated
+			case FlagTokenGithubUnmask:
+				cmdTokenGithubV.Unmask = !ev.Negated
+			case FlagTokenGitlabUnmask:
+				cmdTokenGitlabV.Unmask = !ev.Negated
+			case FlagToolJson:
+				cmdToolV.Json = !ev.Negated
+			case FlagToolActive:
+				cmdToolV.Active = !ev.Negated
+			case FlagToolBackend:
+				cmdToolV.Backend = !ev.Negated
+			case FlagToolConfigSource:
+				cmdToolV.ConfigSource = !ev.Negated
+			case FlagToolDescription:
+				cmdToolV.Description = !ev.Negated
+			case FlagToolInstalled:
+				cmdToolV.Installed = !ev.Negated
+			case FlagToolRequested:
+				cmdToolV.Requested = !ev.Negated
+			case FlagToolToolOptions:
+				cmdToolV.ToolOptions = !ev.Negated
+			case FlagTrustAll:
+				cmdTrustV.All = !ev.Negated
+			case FlagTrustIgnore:
+				cmdTrustV.Ignore = !ev.Negated
+			case FlagTrustShow:
+				cmdTrustV.Show = !ev.Negated
+			case FlagTrustUntrust:
+				cmdTrustV.Untrust = !ev.Negated
+			case FlagUninstallAll:
+				cmdUninstallV.All = !ev.Negated
+			case FlagUninstallDryRun:
+				cmdUninstallV.DryRun = !ev.Negated
+			case FlagUninstallDryRunCode:
+				cmdUninstallV.DryRunCode = !ev.Negated
+			case FlagUnsetFile:
+				cmdUnsetV.File = ev.Value
+			case FlagUnsetGlobal:
+				cmdUnsetV.Global = !ev.Negated
+			case FlagUnuseEnv:
+				cmdUnuseV.Env = ev.Value
+			case FlagUnuseGlobal:
+				cmdUnuseV.Global = !ev.Negated
+			case FlagUnusePath:
+				cmdUnuseV.Path = ev.Value
+			case FlagUnuseNoPrune:
+				cmdUnuseV.NoPrune = !ev.Negated
+			case FlagUpgradeInteractive:
+				cmdUpgradeV.Interactive = !ev.Negated
+			case FlagUpgradeJobs:
+				cmdUpgradeV.Jobs = ev.Value
+			case FlagUpgradeBump:
+				cmdUpgradeV.Bump = !ev.Negated
+			case FlagUpgradeDryRun:
+				cmdUpgradeV.DryRun = !ev.Negated
+			case FlagUpgradeExclude:
+				if ev.HasValue {
+					cmdUpgradeV.Exclude = append(cmdUpgradeV.Exclude, ev.Value)
+				}
+			case FlagUpgradeDryRunCode:
+				cmdUpgradeV.DryRunCode = !ev.Negated
+			case FlagUpgradeInactive:
+				cmdUpgradeV.Inactive = !ev.Negated
+			case FlagUpgradeLocal:
+				cmdUpgradeV.Local = !ev.Negated
+			case FlagUpgradeMinimumReleaseAge:
+				cmdUpgradeV.MinimumReleaseAge = ev.Value
+			case FlagUpgradeMonorepo:
+				cmdUpgradeV.Monorepo = !ev.Negated
+			case FlagUpgradeNoPrune:
+				cmdUpgradeV.NoPrune = !ev.Negated
+			case FlagUpgradeRaw:
+				cmdUpgradeV.Raw = !ev.Negated
+			case FlagUseEnv:
+				cmdUseV.Env = ev.Value
+			case FlagUseForce:
+				cmdUseV.Force = !ev.Negated
+			case FlagUseGlobal:
+				cmdUseV.Global = !ev.Negated
+			case FlagUseJobs:
+				cmdUseV.Jobs = ev.Value
+			case FlagUseDryRun:
+				cmdUseV.DryRun = !ev.Negated
+			case FlagUsePath:
+				cmdUseV.Path = ev.Value
+			case FlagUseDryRunCode:
+				cmdUseV.DryRunCode = !ev.Negated
+			case FlagUseFuzzy:
+				cmdUseV.Fuzzy = !ev.Negated
+			case FlagUseMinimumReleaseAge:
+				cmdUseV.MinimumReleaseAge = ev.Value
+			case FlagUsePin:
+				cmdUseV.Pin = !ev.Negated
+			case FlagUseRaw:
+				cmdUseV.Raw = !ev.Negated
+			case FlagUseRemove:
+				if ev.HasValue {
+					cmdUseV.Remove = append(cmdUseV.Remove, ev.Value)
+				}
+			case FlagVersionJson:
+				cmdVersionV.Json = !ev.Negated
+			case FlagWatchTaskFlag:
+				if ev.HasValue {
+					cmdWatchV.TaskFlag = append(cmdWatchV.TaskFlag, ev.Value)
+				}
+			case FlagWatchGlob:
+				if ev.HasValue {
+					cmdWatchV.Glob = append(cmdWatchV.Glob, ev.Value)
+				}
+			case FlagWatchSkipDeps:
+				cmdWatchV.SkipDeps = !ev.Negated
+			case FlagWatchWatch:
+				if ev.HasValue {
+					cmdWatchV.Watch = append(cmdWatchV.Watch, ev.Value)
+				}
+			case FlagWatchWatchNonRecursive:
+				if ev.HasValue {
+					cmdWatchV.WatchNonRecursive = append(cmdWatchV.WatchNonRecursive, ev.Value)
+				}
+			case FlagWatchWatchFile:
+				cmdWatchV.WatchFile = ev.Value
+			case FlagWatchClear:
+				cmdWatchV.Clear = ev.Value
+			case FlagWatchOnBusyUpdate:
+				cmdWatchV.OnBusyUpdate = ev.Value
+			case FlagWatchRestart:
+				cmdWatchV.Restart = !ev.Negated
+			case FlagWatchSignal:
+				cmdWatchV.Signal = ev.Value
+			case FlagWatchStopSignal:
+				cmdWatchV.StopSignal = ev.Value
+			case FlagWatchStopTimeout:
+				cmdWatchV.StopTimeout = ev.Value
+			case FlagWatchMapSignal:
+				if ev.HasValue {
+					cmdWatchV.MapSignal = append(cmdWatchV.MapSignal, ev.Value)
+				}
+			case FlagWatchDebounce:
+				cmdWatchV.Debounce = ev.Value
+			case FlagWatchStdinQuit:
+				cmdWatchV.StdinQuit = !ev.Negated
+			case FlagWatchNoVcsIgnore:
+				cmdWatchV.NoVcsIgnore = !ev.Negated
+			case FlagWatchNoProjectIgnore:
+				cmdWatchV.NoProjectIgnore = !ev.Negated
+			case FlagWatchNoGlobalIgnore:
+				cmdWatchV.NoGlobalIgnore = !ev.Negated
+			case FlagWatchNoDefaultIgnore:
+				cmdWatchV.NoDefaultIgnore = !ev.Negated
+			case FlagWatchNoDiscoverIgnore:
+				cmdWatchV.NoDiscoverIgnore = !ev.Negated
+			case FlagWatchIgnoreNothing:
+				cmdWatchV.IgnoreNothing = !ev.Negated
+			case FlagWatchPostpone:
+				cmdWatchV.Postpone = !ev.Negated
+			case FlagWatchDelayRun:
+				cmdWatchV.DelayRun = ev.Value
+			case FlagWatchPoll:
+				cmdWatchV.Poll = ev.Value
+			case FlagWatchShell:
+				cmdWatchV.Shell = ev.Value
+			case FlagWatchN:
+				cmdWatchV.N = !ev.Negated
+			case FlagWatchEmitEventsTo:
+				cmdWatchV.EmitEventsTo = ev.Value
+			case FlagWatchOnlyEmitEvents:
+				cmdWatchV.OnlyEmitEvents = !ev.Negated
+			case FlagWatchEnv:
+				if ev.HasValue {
+					cmdWatchV.Env = append(cmdWatchV.Env, ev.Value)
+				}
+			case FlagWatchWrapProcess:
+				cmdWatchV.WrapProcess = ev.Value
+			case FlagWatchNotify:
+				cmdWatchV.Notify = !ev.Negated
+			case FlagWatchColor:
+				cmdWatchV.Color = ev.Value
+			case FlagWatchTimings:
+				cmdWatchV.Timings = !ev.Negated
+			case FlagWatchQuiet:
+				cmdWatchV.Quiet = !ev.Negated
+			case FlagWatchBell:
+				cmdWatchV.Bell = !ev.Negated
+			case FlagWatchProjectOrigin:
+				cmdWatchV.ProjectOrigin = ev.Value
+			case FlagWatchWorkdir:
+				cmdWatchV.Workdir = ev.Value
+			case FlagWatchExts:
+				if ev.HasValue {
+					cmdWatchV.Exts = append(cmdWatchV.Exts, ev.Value)
+				}
+			case FlagWatchFilter:
+				if ev.HasValue {
+					cmdWatchV.Filter = append(cmdWatchV.Filter, ev.Value)
+				}
+			case FlagWatchFilterFile:
+				if ev.HasValue {
+					cmdWatchV.FilterFile = append(cmdWatchV.FilterFile, ev.Value)
+				}
+			case FlagWatchFilterProg:
+				if ev.HasValue {
+					cmdWatchV.FilterProg = append(cmdWatchV.FilterProg, ev.Value)
+				}
+			case FlagWatchIgnore:
+				if ev.HasValue {
+					cmdWatchV.Ignore = append(cmdWatchV.Ignore, ev.Value)
+				}
+			case FlagWatchIgnoreFile:
+				if ev.HasValue {
+					cmdWatchV.IgnoreFile = append(cmdWatchV.IgnoreFile, ev.Value)
+				}
+			case FlagWatchFsEvents:
+				if ev.HasValue {
+					cmdWatchV.FsEvents = append(cmdWatchV.FsEvents, ev.Value)
+				}
+			case FlagWatchNoMeta:
+				cmdWatchV.NoMeta = !ev.Negated
+			case FlagWatchPrintEvents:
+				cmdWatchV.PrintEvents = !ev.Negated
+			case FlagWatchManual:
+				cmdWatchV.Manual = !ev.Negated
+			case FlagWhichTool:
+				cmdWhichV.Tool = ev.Value
+			case FlagWhichComplete:
+				cmdWhichV.Complete = !ev.Negated
+			case FlagWhichPlugin:
+				cmdWhichV.Plugin = !ev.Negated
+			case FlagWhichVersion:
+				cmdWhichV.Version = !ev.Negated
+			}
+		case argv.KindArg:
+			seen[ev.Arg.Key]++
+			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
+			switch ev.Arg.Key {
+			case ArgTask:
+				out.Task = ev.Value
+			case ArgTaskArgs:
+				out.TaskArgs = append(out.TaskArgs, ev.Value)
+			case ArgTaskArgsLast:
+				out.TaskArgsLast = append(out.TaskArgsLast, ev.Value)
+			case ArgActivateShellType:
+				cmdActivateV.ShellType = ev.Value
+			case ArgToolAliasGetTool:
+				cmdToolAliasGetV.Tool = ev.Value
+			case ArgToolAliasGetAlias:
+				cmdToolAliasGetV.Alias = ev.Value
+			case ArgToolAliasLsTool:
+				cmdToolAliasLsV.Tool = ev.Value
+			case ArgToolAliasSetTool:
+				cmdToolAliasSetV.Tool = ev.Value
+			case ArgToolAliasSetAlias:
+				cmdToolAliasSetV.Alias = ev.Value
+			case ArgToolAliasSetValue:
+				cmdToolAliasSetV.Value = ev.Value
+			case ArgToolAliasUnsetTool:
+				cmdToolAliasUnsetV.Tool = ev.Value
+			case ArgToolAliasUnsetAlias:
+				cmdToolAliasUnsetV.Alias = ev.Value
+			case ArgAsdfArgs:
+				cmdAsdfV.Args = append(cmdAsdfV.Args, ev.Value)
+			case ArgBinPathsToolVersion:
+				cmdBinPathsV.ToolVersion = append(cmdBinPathsV.ToolVersion, ev.Value)
+			case ArgBootstrapDotfilesAddTarget:
+				cmdBootstrapDotfilesAddV.Target = append(cmdBootstrapDotfilesAddV.Target, ev.Value)
+			case ArgBootstrapDotfilesApplyTarget:
+				cmdBootstrapDotfilesApplyV.Target = append(cmdBootstrapDotfilesApplyV.Target, ev.Value)
+			case ArgBootstrapDotfilesEditTarget:
+				cmdBootstrapDotfilesEditV.Target = ev.Value
+			case ArgBootstrapDotfilesStatusTarget:
+				cmdBootstrapDotfilesStatusV.Target = append(cmdBootstrapDotfilesStatusV.Target, ev.Value)
+			case ArgBootstrapDotfilesUnapplyTarget:
+				cmdBootstrapDotfilesUnapplyV.Target = append(cmdBootstrapDotfilesUnapplyV.Target, ev.Value)
+			case ArgBootstrapPackagesApplyPackage:
+				cmdBootstrapPackagesApplyV.Package = append(cmdBootstrapPackagesApplyV.Package, ev.Value)
+			case ArgBootstrapPackagesBrewTapTap:
+				cmdBootstrapPackagesBrewTapV.Tap = ev.Value
+			case ArgBootstrapPackagesBrewTapUrl:
+				cmdBootstrapPackagesBrewTapV.Url = ev.Value
+			case ArgBootstrapPackagesBrewUntapTaps:
+				cmdBootstrapPackagesBrewUntapV.Taps = append(cmdBootstrapPackagesBrewUntapV.Taps, ev.Value)
+			case ArgBootstrapPackagesUpgradePackage:
+				cmdBootstrapPackagesUpgradeV.Package = append(cmdBootstrapPackagesUpgradeV.Package, ev.Value)
+			case ArgBootstrapPackagesUsePackage:
+				cmdBootstrapPackagesUseV.Package = append(cmdBootstrapPackagesUseV.Package, ev.Value)
+			case ArgBootstrapRemoteTarget:
+				cmdBootstrapRemoteV.Target = append(cmdBootstrapRemoteV.Target, ev.Value)
+			case ArgBootstrapReposExecPath:
+				cmdBootstrapReposExecV.Path = append(cmdBootstrapReposExecV.Path, ev.Value)
+			case ArgBootstrapReposExecCommand:
+				cmdBootstrapReposExecV.Command = append(cmdBootstrapReposExecV.Command, ev.Value)
+			case ArgBootstrapReposUpdatePath:
+				cmdBootstrapReposUpdateV.Path = append(cmdBootstrapReposUpdateV.Path, ev.Value)
+			case ArgCacheClearTool:
+				cmdCacheClearV.Tool = append(cmdCacheClearV.Tool, ev.Value)
+			case ArgCachePruneTool:
+				cmdCachePruneV.Tool = append(cmdCachePruneV.Tool, ev.Value)
+			case ArgCacheTaskTask:
+				cmdCacheTaskV.Task = ev.Value
+			case ArgCompletionShell:
+				cmdCompletionV.ShellArg = ev.Value
+			case ArgConfigGetKey:
+				cmdConfigGetV.Key = ev.Value
+			case ArgConfigSetKey:
+				cmdConfigSetV.Key = ev.Value
+			case ArgConfigSetValue:
+				cmdConfigSetV.Value = ev.Value
+			case ArgCurrentPlugin:
+				cmdCurrentV.Plugin = ev.Value
+			case ArgDotfilesAddTarget:
+				cmdDotfilesAddV.Target = append(cmdDotfilesAddV.Target, ev.Value)
+			case ArgDotfilesApplyTarget:
+				cmdDotfilesApplyV.Target = append(cmdDotfilesApplyV.Target, ev.Value)
+			case ArgDotfilesEditTarget:
+				cmdDotfilesEditV.Target = ev.Value
+			case ArgDotfilesStatusTarget:
+				cmdDotfilesStatusV.Target = append(cmdDotfilesStatusV.Target, ev.Value)
+			case ArgDotfilesUnapplyTarget:
+				cmdDotfilesUnapplyV.Target = append(cmdDotfilesUnapplyV.Target, ev.Value)
+			case ArgEnDir:
+				cmdEnV.Dir = ev.Value
+			case ArgEnvToolVersion:
+				cmdEnvV.ToolVersion = append(cmdEnvV.ToolVersion, ev.Value)
+			case ArgExecToolVersion:
+				cmdExecV.ToolVersion = append(cmdExecV.ToolVersion, ev.Value)
+			case ArgExecCommand:
+				cmdExecV.CommandArg = append(cmdExecV.CommandArg, ev.Value)
+			case ArgGenerateConfigPath:
+				cmdGenerateConfigV.Path = ev.Value
+			case ArgGenerateToolStubOutput:
+				cmdGenerateToolStubV.Output = ev.Value
+			case ArgGithubTokenHost:
+				cmdGithubTokenV.Host = ev.Value
+			case ArgGlobalToolVersion:
+				cmdGlobalV.ToolVersion = append(cmdGlobalV.ToolVersion, ev.Value)
+			case ArgHookNotFoundBin:
+				cmdHookNotFoundV.Bin = ev.Value
+			case ArgEditPath:
+				cmdEditV.Path = ev.Value
+			case ArgInstallToolVersion:
+				cmdInstallV.ToolVersion = append(cmdInstallV.ToolVersion, ev.Value)
+			case ArgInstallIntoToolVersion:
+				cmdInstallIntoV.ToolVersion = ev.Value
+			case ArgInstallIntoPath:
+				cmdInstallIntoV.Path = ev.Value
+			case ArgLatestToolVersion:
+				cmdLatestV.ToolVersion = ev.Value
+			case ArgLatestAsdfVersion:
+				cmdLatestV.AsdfVersion = ev.Value
+			case ArgLinkToolVersion:
+				cmdLinkV.ToolVersion = ev.Value
+			case ArgLinkPath:
+				cmdLinkV.Path = ev.Value
+			case ArgLocalToolVersion:
+				cmdLocalV.ToolVersion = append(cmdLocalV.ToolVersion, ev.Value)
+			case ArgLockTool:
+				cmdLockV.Tool = append(cmdLockV.Tool, ev.Value)
+			case ArgLsInstalledTool:
+				cmdLsV.InstalledTool = append(cmdLsV.InstalledTool, ev.Value)
+			case ArgLsRemoteToolVersion:
+				cmdLsRemoteV.ToolVersion = ev.Value
+			case ArgLsRemotePrefix:
+				cmdLsRemoteV.Prefix = ev.Value
+			case ArgOciPushRef:
+				cmdOciPushV.Ref = ev.Value
+			case ArgOciRunCmd:
+				cmdOciRunV.Cmd = append(cmdOciRunV.Cmd, ev.Value)
+			case ArgOutdatedToolVersion:
+				cmdOutdatedV.ToolVersion = append(cmdOutdatedV.ToolVersion, ev.Value)
+			case ArgPluginsInstallNewPlugin:
+				cmdPluginsInstallV.NewPlugin = ev.Value
+			case ArgPluginsInstallGitUrl:
+				cmdPluginsInstallV.GitUrl = ev.Value
+			case ArgPluginsInstallRest:
+				cmdPluginsInstallV.Rest = append(cmdPluginsInstallV.Rest, ev.Value)
+			case ArgPluginsLinkName:
+				cmdPluginsLinkV.Name = ev.Value
+			case ArgPluginsLinkDir:
+				cmdPluginsLinkV.Dir = ev.Value
+			case ArgPluginsUninstallPlugin:
+				cmdPluginsUninstallV.Plugin = append(cmdPluginsUninstallV.Plugin, ev.Value)
+			case ArgPluginsUpdatePlugin:
+				cmdPluginsUpdateV.Plugin = append(cmdPluginsUpdateV.Plugin, ev.Value)
+			case ArgDepsProvider:
+				cmdDepsV.Provider = ev.Value
+			case ArgDepsAddPackages:
+				cmdDepsAddV.Packages = append(cmdDepsAddV.Packages, ev.Value)
+			case ArgDepsInstallProvider:
+				cmdDepsInstallV.Provider = ev.Value
+			case ArgDepsRemovePackages:
+				cmdDepsRemoveV.Packages = append(cmdDepsRemoveV.Packages, ev.Value)
+			case ArgPruneInstalledTool:
+				cmdPruneV.InstalledTool = append(cmdPruneV.InstalledTool, ev.Value)
+			case ArgRegistryName:
+				cmdRegistryV.Name = ev.Value
+			case ArgReshimTool:
+				cmdReshimV.Tool = ev.Value
+			case ArgReshimVersion:
+				cmdReshimV.Version = ev.Value
+			case ArgSearchName:
+				cmdSearchV.Name = ev.Value
+			case ArgSelfUpdateVersion:
+				cmdSelfUpdateV.Version = ev.Value
+			case ArgSetEnvVar:
+				cmdSetV.EnvVar = append(cmdSetV.EnvVar, ev.Value)
+			case ArgSettingsSetting:
+				cmdSettingsV.Setting = ev.Value
+			case ArgSettingsValue:
+				cmdSettingsV.Value = ev.Value
+			case ArgSettingsAddSetting:
+				cmdSettingsAddV.Setting = ev.Value
+			case ArgSettingsAddValue:
+				cmdSettingsAddV.Value = ev.Value
+			case ArgSettingsGetSetting:
+				cmdSettingsGetV.Setting = ev.Value
+			case ArgSettingsLsSetting:
+				cmdSettingsLsV.Setting = ev.Value
+			case ArgSettingsSetSetting:
+				cmdSettingsSetV.Setting = ev.Value
+			case ArgSettingsSetValue:
+				cmdSettingsSetV.Value = ev.Value
+			case ArgSettingsUnsetKey:
+				cmdSettingsUnsetV.Key = ev.Value
+			case ArgShellToolVersion:
+				cmdShellV.ToolVersion = append(cmdShellV.ToolVersion, ev.Value)
+			case ArgShellAliasGetShellAlias:
+				cmdShellAliasGetV.ShellAlias = ev.Value
+			case ArgShellAliasSetShellAlias:
+				cmdShellAliasSetV.ShellAlias = ev.Value
+			case ArgShellAliasSetCommand:
+				cmdShellAliasSetV.Command = ev.Value
+			case ArgShellAliasUnsetShellAlias:
+				cmdShellAliasUnsetV.ShellAlias = ev.Value
+			case ArgTasksTask:
+				cmdTasksV.Task = ev.Value
+			case ArgTasksAddTask:
+				cmdTasksAddV.Task = ev.Value
+			case ArgTasksAddRun:
+				cmdTasksAddV.Run = append(cmdTasksAddV.Run, ev.Value)
+			case ArgTasksDepsTasks:
+				cmdTasksDepsV.Tasks = append(cmdTasksDepsV.Tasks, ev.Value)
+			case ArgTasksEditTask:
+				cmdTasksEditV.Task = ev.Value
+			case ArgTasksInfoTask:
+				cmdTasksInfoV.Task = ev.Value
+			case ArgTasksRunTask:
+				cmdTasksRunV.Task = ev.Value
+			case ArgTasksRunArgs:
+				cmdTasksRunV.Args = append(cmdTasksRunV.Args, ev.Value)
+			case ArgTasksRunArgsLast:
+				cmdTasksRunV.ArgsLast = append(cmdTasksRunV.ArgsLast, ev.Value)
+			case ArgTasksValidateTasks:
+				cmdTasksValidateV.Tasks = append(cmdTasksValidateV.Tasks, ev.Value)
+			case ArgTestToolTools:
+				cmdTestToolV.Tools = append(cmdTestToolV.Tools, ev.Value)
+			case ArgTokenForgejoHost:
+				cmdTokenForgejoV.Host = ev.Value
+			case ArgTokenGithubHost:
+				cmdTokenGithubV.Host = ev.Value
+			case ArgTokenGitlabHost:
+				cmdTokenGitlabV.Host = ev.Value
+			case ArgToolTool:
+				cmdToolV.Tool = ev.Value
+			case ArgToolStubFile:
+				cmdToolStubV.File = ev.Value
+			case ArgToolStubArgs:
+				cmdToolStubV.Args = append(cmdToolStubV.Args, ev.Value)
+			case ArgTrustConfigFile:
+				cmdTrustV.ConfigFile = ev.Value
+			case ArgUninstallInstalledToolVersion:
+				cmdUninstallV.InstalledToolVersion = append(cmdUninstallV.InstalledToolVersion, ev.Value)
+			case ArgUnsetEnvKey:
+				cmdUnsetV.EnvKey = append(cmdUnsetV.EnvKey, ev.Value)
+			case ArgUntrustConfigFile:
+				cmdUntrustV.ConfigFile = ev.Value
+			case ArgUnuseInstalledToolVersion:
+				cmdUnuseV.InstalledToolVersion = append(cmdUnuseV.InstalledToolVersion, ev.Value)
+			case ArgUpgradeInstalledToolVersion:
+				cmdUpgradeV.InstalledToolVersion = append(cmdUpgradeV.InstalledToolVersion, ev.Value)
+			case ArgUseToolVersion:
+				cmdUseV.ToolVersion = append(cmdUseV.ToolVersion, ev.Value)
+			case ArgWatchTask:
+				cmdWatchV.Task = ev.Value
+			case ArgWatchArgs:
+				cmdWatchV.Args = append(cmdWatchV.Args, ev.Value)
+			case ArgWhereToolVersion:
+				cmdWhereV.ToolVersion = ev.Value
+			case ArgWhereAsdfVersion:
+				cmdWhereV.AsdfVersion = ev.Value
+			case ArgWhichBinName:
+				cmdWhichV.BinName = ev.Value
+			}
+		}
+	}
+	if err := p.Err(); err != nil {
+		return nil, err
+	}
+
+	// Only the commands the words actually selected are judged: a required
+	// flag on a command nobody ran is not missing.
+	var scope []uint64
+	for _, cmd := range chain {
+		for _, f := range cmd.Flags {
+			scope = append(scope, f.Key)
+		}
+		for _, a := range cmd.Args {
+			scope = append(scope, a.Key)
+		}
+	}
+	sources := map[uint64]argv.Source{}
+	for _, key := range scope {
+		values, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)
+		sources[key] = source
+		if err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {
+			return nil, err
+		}
+		// What the environment or a default supplied has to reach the field
+		// too. A front door that enforces a default and then hands back the
+		// zero value is worse than one that has no defaults at all.
+		//
+		// Written here rather than in a function of its own because a
+		// subcommand's struct is reachable only from inside this one: the
+		// variable holding it is local, and only the keys of commands the
+		// words selected are in scope, so it is never nil when its key is.
+		if source == argv.FromEnv || source == argv.FromDefault {
+			switch key {
+			case FlagContinueOnError:
+				if source == argv.FromEnv {
+					out.ContinueOnError = argv.EnvTruth(values[0])
+				} else {
+					out.ContinueOnError = values[0] == "true"
+				}
+			case FlagCd:
+				out.Cd = values[len(values)-1]
+			case FlagEnv:
+				out.Env = append(out.Env, values...)
+			case FlagForce:
+				if source == argv.FromEnv {
+					out.Force = argv.EnvTruth(values[0])
+				} else {
+					out.Force = values[0] == "true"
+				}
+			case FlagJobs:
+				out.Jobs = values[len(values)-1]
+			case FlagDryRun:
+				if source == argv.FromEnv {
+					out.DryRun = argv.EnvTruth(values[0])
+				} else {
+					out.DryRun = values[0] == "true"
+				}
+			case FlagProfile:
+				out.Profile = append(out.Profile, values...)
+			case FlagQuiet:
+				if source == argv.FromEnv {
+					out.Quiet = argv.EnvTruth(values[0])
+				} else {
+					out.Quiet = values[0] == "true"
+				}
+			case FlagShell:
+				out.Shell = values[len(values)-1]
+			case FlagTool:
+				out.Tool = append(out.Tool, values...)
+			case FlagVersion:
+				if source == argv.FromEnv {
+					out.Version = argv.EnvTruth(values[0])
+				} else {
+					out.Version = values[0] == "true"
+				}
+			case FlagYes:
+				if source == argv.FromEnv {
+					out.Yes = argv.EnvTruth(values[0])
+				} else {
+					out.Yes = values[0] == "true"
+				}
+			case FlagDebug:
+				if source == argv.FromEnv {
+					out.Debug = argv.EnvTruth(values[0])
+				} else {
+					out.Debug = values[0] == "true"
+				}
+			case FlagLogLevel:
+				out.LogLevel = values[len(values)-1]
+			case FlagNoConfig:
+				if source == argv.FromEnv {
+					out.NoConfig = argv.EnvTruth(values[0])
+				} else {
+					out.NoConfig = values[0] == "true"
+				}
+			case FlagNoEnv:
+				if source == argv.FromEnv {
+					out.NoEnv = argv.EnvTruth(values[0])
+				} else {
+					out.NoEnv = values[0] == "true"
+				}
+			case FlagNoHooks:
+				if source == argv.FromEnv {
+					out.NoHooks = argv.EnvTruth(values[0])
+				} else {
+					out.NoHooks = values[0] == "true"
+				}
+			case FlagNoTimings:
+				if source == argv.FromEnv {
+					out.NoTimings = argv.EnvTruth(values[0])
+				} else {
+					out.NoTimings = values[0] == "true"
+				}
+			case FlagOutput:
+				out.Output = values[len(values)-1]
+			case FlagRaw:
+				if source == argv.FromEnv {
+					out.Raw = argv.EnvTruth(values[0])
+				} else {
+					out.Raw = values[0] == "true"
+				}
+			case FlagLocked:
+				if source == argv.FromEnv {
+					out.Locked = argv.EnvTruth(values[0])
+				} else {
+					out.Locked = values[0] == "true"
+				}
+			case FlagSilent:
+				if source == argv.FromEnv {
+					out.Silent = argv.EnvTruth(values[0])
+				} else {
+					out.Silent = values[0] == "true"
+				}
+			case FlagTimings:
+				if source == argv.FromEnv {
+					out.Timings = argv.EnvTruth(values[0])
+				} else {
+					out.Timings = values[0] == "true"
+				}
+			case FlagTrace:
+				if source == argv.FromEnv {
+					out.Trace = argv.EnvTruth(values[0])
+				} else {
+					out.Trace = values[0] == "true"
+				}
+			case ArgTask:
+				out.Task = values[len(values)-1]
+			case ArgTaskArgs:
+				out.TaskArgs = append(out.TaskArgs, values...)
+			case ArgTaskArgsLast:
+				out.TaskArgsLast = append(out.TaskArgsLast, values...)
+			case FlagActivateQuiet:
+				if source == argv.FromEnv {
+					cmdActivateV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdActivateV.Quiet = values[0] == "true"
+				}
+			case FlagActivateShell:
+				cmdActivateV.Shell = values[len(values)-1]
+			case FlagActivateNoHookEnv:
+				if source == argv.FromEnv {
+					cmdActivateV.NoHookEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdActivateV.NoHookEnv = values[0] == "true"
+				}
+			case FlagActivateShims:
+				if source == argv.FromEnv {
+					cmdActivateV.Shims = argv.EnvTruth(values[0])
+				} else {
+					cmdActivateV.Shims = values[0] == "true"
+				}
+			case FlagActivateStatus:
+				if source == argv.FromEnv {
+					cmdActivateV.Status = argv.EnvTruth(values[0])
+				} else {
+					cmdActivateV.Status = values[0] == "true"
+				}
+			case ArgActivateShellType:
+				cmdActivateV.ShellType = values[len(values)-1]
+			case FlagToolAliasTool:
+				cmdToolAliasV.Tool = values[len(values)-1]
+			case FlagToolAliasNoHeader:
+				if source == argv.FromEnv {
+					cmdToolAliasV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdToolAliasV.NoHeader = values[0] == "true"
+				}
+			case ArgToolAliasGetTool:
+				cmdToolAliasGetV.Tool = values[len(values)-1]
+			case ArgToolAliasGetAlias:
+				cmdToolAliasGetV.Alias = values[len(values)-1]
+			case FlagToolAliasLsNoHeader:
+				if source == argv.FromEnv {
+					cmdToolAliasLsV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdToolAliasLsV.NoHeader = values[0] == "true"
+				}
+			case ArgToolAliasLsTool:
+				cmdToolAliasLsV.Tool = values[len(values)-1]
+			case ArgToolAliasSetTool:
+				cmdToolAliasSetV.Tool = values[len(values)-1]
+			case ArgToolAliasSetAlias:
+				cmdToolAliasSetV.Alias = values[len(values)-1]
+			case ArgToolAliasSetValue:
+				cmdToolAliasSetV.Value = values[len(values)-1]
+			case ArgToolAliasUnsetTool:
+				cmdToolAliasUnsetV.Tool = values[len(values)-1]
+			case ArgToolAliasUnsetAlias:
+				cmdToolAliasUnsetV.Alias = values[len(values)-1]
+			case ArgAsdfArgs:
+				cmdAsdfV.Args = append(cmdAsdfV.Args, values...)
+			case FlagBinPathsBinNames:
+				if source == argv.FromEnv {
+					cmdBinPathsV.BinNames = argv.EnvTruth(values[0])
+				} else {
+					cmdBinPathsV.BinNames = values[0] == "true"
+				}
+			case FlagBinPathsJson:
+				if source == argv.FromEnv {
+					cmdBinPathsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBinPathsV.Json = values[0] == "true"
+				}
+			case ArgBinPathsToolVersion:
+				cmdBinPathsV.ToolVersion = append(cmdBinPathsV.ToolVersion, values...)
+			case FlagBootstrapDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapYes:
+				if source == argv.FromEnv {
+					cmdBootstrapV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapForceDotfiles:
+				if source == argv.FromEnv {
+					cmdBootstrapV.ForceDotfiles = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapV.ForceDotfiles = values[0] == "true"
+				}
+			case FlagBootstrapOnly:
+				cmdBootstrapV.Only = append(cmdBootstrapV.Only, values...)
+			case FlagBootstrapPromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapSkip:
+				cmdBootstrapV.Skip = append(cmdBootstrapV.Skip, values...)
+			case FlagBootstrapUpdate:
+				if source == argv.FromEnv {
+					cmdBootstrapV.Update = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapV.Update = values[0] == "true"
+				}
+			case FlagBootstrapAccountsApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapAccountsApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapAccountsApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapAccountsApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapAccountsApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapAccountsApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapAccountsStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapAccountsStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapAccountsStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapAccountsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapAccountsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapAccountsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapComposeApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapComposeApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapComposeApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapComposeApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapComposeApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapComposeApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapComposeStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapComposeStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapComposeStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapComposeStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapComposeStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapComposeStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddForce:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.Force = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddGlobal:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.Global = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddLocal:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.Local = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddMode:
+				cmdBootstrapDotfilesAddV.Mode = values[len(values)-1]
+			case FlagBootstrapDotfilesAddDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddNoApply:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.NoApply = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.NoApply = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesAddPath:
+				cmdBootstrapDotfilesAddV.Path = values[len(values)-1]
+			case FlagBootstrapDotfilesAddSource:
+				cmdBootstrapDotfilesAddV.Source = values[len(values)-1]
+			case FlagBootstrapDotfilesAddYes:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesAddV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesAddV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapDotfilesAddTarget:
+				cmdBootstrapDotfilesAddV.Target = append(cmdBootstrapDotfilesAddV.Target, values...)
+			case FlagBootstrapDotfilesApplyForce:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesApplyV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesApplyV.Force = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesApplyV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapDotfilesApplyTarget:
+				cmdBootstrapDotfilesApplyV.Target = append(cmdBootstrapDotfilesApplyV.Target, values...)
+			case FlagBootstrapDotfilesEditApply:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesEditV.Apply = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesEditV.Apply = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesEditMode:
+				cmdBootstrapDotfilesEditV.Mode = values[len(values)-1]
+			case FlagBootstrapDotfilesEditSource:
+				cmdBootstrapDotfilesEditV.Source = values[len(values)-1]
+			case FlagBootstrapDotfilesEditYes:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesEditV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesEditV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapDotfilesEditTarget:
+				cmdBootstrapDotfilesEditV.Target = values[len(values)-1]
+			case FlagBootstrapDotfilesStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesStatusV.Missing = values[0] == "true"
+				}
+			case ArgBootstrapDotfilesStatusTarget:
+				cmdBootstrapDotfilesStatusV.Target = append(cmdBootstrapDotfilesStatusV.Target, values...)
+			case FlagBootstrapDotfilesUnapplyForce:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesUnapplyV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesUnapplyV.Force = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesUnapplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesUnapplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesUnapplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapDotfilesUnapplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapDotfilesUnapplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapDotfilesUnapplyV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapDotfilesUnapplyTarget:
+				cmdBootstrapDotfilesUnapplyV.Target = append(cmdBootstrapDotfilesUnapplyV.Target, values...)
+			case FlagBootstrapFilesApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapFilesApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapFilesApplyPromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesApplyV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesApplyV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapFilesStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapFilesStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapFilesStatusPromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapFilesStatusV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFilesStatusV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapFirewallApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapFirewallApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFirewallApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapFirewallApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapFirewallApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFirewallApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapFirewallStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapFirewallStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFirewallStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapFirewallStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapFirewallStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapFirewallStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapLaunchdApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapLaunchdApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLaunchdApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapLaunchdApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapLaunchdApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLaunchdApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapLaunchdStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapLaunchdStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLaunchdStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapLaunchdStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapLaunchdStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLaunchdStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapLinuxSystemdUnitsApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapLinuxSystemdUnitsApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLinuxSystemdUnitsApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapLinuxSystemdUnitsApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapLinuxSystemdUnitsApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLinuxSystemdUnitsApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapLinuxSystemdUnitsStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapLinuxSystemdUnitsStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLinuxSystemdUnitsStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapLinuxSystemdUnitsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapLinuxSystemdUnitsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapLinuxSystemdUnitsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapMacosLaunchdAgentsApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosLaunchdAgentsApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosLaunchdAgentsApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapMacosLaunchdAgentsApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosLaunchdAgentsApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosLaunchdAgentsApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapMacosLaunchdAgentsStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosLaunchdAgentsStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosLaunchdAgentsStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapMacosLaunchdAgentsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosLaunchdAgentsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosLaunchdAgentsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsApplyDryRun2:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsApply2V.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsApply2V.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsApplyYes2:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsApply2V.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsApply2V.Yes = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsStatusJson2:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsStatus2V.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsStatus2V.Json = values[0] == "true"
+				}
+			case FlagBootstrapMacosDefaultsStatusMissing2:
+				if source == argv.FromEnv {
+					cmdBootstrapMacosDefaultsStatus2V.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMacosDefaultsStatus2V.Missing = values[0] == "true"
+				}
+			case FlagBootstrapMiseShellActivateApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapMiseShellActivateApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMiseShellActivateApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapMiseShellActivateApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapMiseShellActivateApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMiseShellActivateApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapMiseShellActivateStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapMiseShellActivateStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMiseShellActivateStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapMiseShellActivateStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapMiseShellActivateStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapMiseShellActivateStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapPackagesApplyManager:
+				cmdBootstrapPackagesApplyV.Manager = values[len(values)-1]
+			case FlagBootstrapPackagesApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapPackagesApplyUpdate:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesApplyV.Update = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesApplyV.Update = values[0] == "true"
+				}
+			case ArgBootstrapPackagesApplyPackage:
+				cmdBootstrapPackagesApplyV.Package = append(cmdBootstrapPackagesApplyV.Package, values...)
+			case FlagBootstrapPackagesBrewTapLocal:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesBrewTapV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesBrewTapV.Local = values[0] == "true"
+				}
+			case FlagBootstrapPackagesBrewTapDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesBrewTapV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesBrewTapV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesBrewTapPath:
+				cmdBootstrapPackagesBrewTapV.Path = values[len(values)-1]
+			case ArgBootstrapPackagesBrewTapTap:
+				cmdBootstrapPackagesBrewTapV.Tap = values[len(values)-1]
+			case ArgBootstrapPackagesBrewTapUrl:
+				cmdBootstrapPackagesBrewTapV.Url = values[len(values)-1]
+			case FlagBootstrapPackagesBrewUntapLocal:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesBrewUntapV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesBrewUntapV.Local = values[0] == "true"
+				}
+			case FlagBootstrapPackagesBrewUntapDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesBrewUntapV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesBrewUntapV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesBrewUntapPath:
+				cmdBootstrapPackagesBrewUntapV.Path = values[len(values)-1]
+			case ArgBootstrapPackagesBrewUntapTaps:
+				cmdBootstrapPackagesBrewUntapV.Taps = append(cmdBootstrapPackagesBrewUntapV.Taps, values...)
+			case FlagBootstrapPackagesImportEnv:
+				cmdBootstrapPackagesImportV.Env = values[len(values)-1]
+			case FlagBootstrapPackagesImportGlobal:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesImportV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesImportV.Global = values[0] == "true"
+				}
+			case FlagBootstrapPackagesImportManager:
+				cmdBootstrapPackagesImportV.Manager = values[len(values)-1]
+			case FlagBootstrapPackagesImportAll:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesImportV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesImportV.All = values[0] == "true"
+				}
+			case FlagBootstrapPackagesImportDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesImportV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesImportV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesImportPath:
+				cmdBootstrapPackagesImportV.Path = values[len(values)-1]
+			case FlagBootstrapPackagesPruneManager:
+				cmdBootstrapPackagesPruneV.Manager = values[len(values)-1]
+			case FlagBootstrapPackagesPruneDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesPruneV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesPruneV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesPruneYes:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesPruneV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesPruneV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapPackagesStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapPackagesStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapPackagesUpgradeManager:
+				cmdBootstrapPackagesUpgradeV.Manager = values[len(values)-1]
+			case FlagBootstrapPackagesUpgradeDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesUpgradeV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesUpgradeV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesUpgradeYes:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesUpgradeV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesUpgradeV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapPackagesUpgradePackage:
+				cmdBootstrapPackagesUpgradeV.Package = append(cmdBootstrapPackagesUpgradeV.Package, values...)
+			case FlagBootstrapPackagesUseEnv:
+				cmdBootstrapPackagesUseV.Env = values[len(values)-1]
+			case FlagBootstrapPackagesUseGlobal:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesUseV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesUseV.Global = values[0] == "true"
+				}
+			case FlagBootstrapPackagesUseDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesUseV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesUseV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPackagesUsePath:
+				cmdBootstrapPackagesUseV.Path = values[len(values)-1]
+			case FlagBootstrapPackagesUseYes:
+				if source == argv.FromEnv {
+					cmdBootstrapPackagesUseV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPackagesUseV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapPackagesUsePackage:
+				cmdBootstrapPackagesUseV.Package = append(cmdBootstrapPackagesUseV.Package, values...)
+			case FlagBootstrapPlanJson:
+				if source == argv.FromEnv {
+					cmdBootstrapPlanV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPlanV.Json = values[0] == "true"
+				}
+			case FlagBootstrapPlanDetailedExitcode:
+				if source == argv.FromEnv {
+					cmdBootstrapPlanV.DetailedExitcode = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPlanV.DetailedExitcode = values[0] == "true"
+				}
+			case FlagBootstrapPlanPromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapPlanV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPlanV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapPluginsApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapPluginsApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPluginsApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapPluginsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapPluginsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapPluginsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapRemoteAll:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.All = values[0] == "true"
+				}
+			case FlagBootstrapRemoteBootstrapCommand:
+				cmdBootstrapRemoteV.BootstrapCommand = values[len(values)-1]
+			case FlagBootstrapRemoteConnectTimeout:
+				cmdBootstrapRemoteV.ConnectTimeout = values[len(values)-1]
+			case FlagBootstrapRemoteExclude:
+				cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, values...)
+			case FlagBootstrapRemoteFailFast:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.FailFast = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.FailFast = values[0] == "true"
+				}
+			case FlagBootstrapRemoteForceDotfiles:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.ForceDotfiles = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.ForceDotfiles = values[0] == "true"
+				}
+			case FlagBootstrapRemoteHost:
+				cmdBootstrapRemoteV.Host = append(cmdBootstrapRemoteV.Host, values...)
+			case FlagBootstrapRemoteIdentityFile:
+				cmdBootstrapRemoteV.IdentityFile = values[len(values)-1]
+			case FlagBootstrapRemoteDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapRemoteKeepStaging:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.KeepStaging = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.KeepStaging = values[0] == "true"
+				}
+			case FlagBootstrapRemoteMiseBin:
+				cmdBootstrapRemoteV.MiseBin = values[len(values)-1]
+			case FlagBootstrapRemoteOnly:
+				cmdBootstrapRemoteV.Only = append(cmdBootstrapRemoteV.Only, values...)
+			case FlagBootstrapRemotePort:
+				cmdBootstrapRemoteV.Port = values[len(values)-1]
+			case FlagBootstrapRemotePromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapRemoteRemoteMise:
+				cmdBootstrapRemoteV.RemoteMise = values[len(values)-1]
+			case FlagBootstrapRemoteSkip:
+				cmdBootstrapRemoteV.Skip = append(cmdBootstrapRemoteV.Skip, values...)
+			case FlagBootstrapRemoteSource:
+				cmdBootstrapRemoteV.Source = values[len(values)-1]
+			case FlagBootstrapRemoteSshOption:
+				cmdBootstrapRemoteV.SshOption = append(cmdBootstrapRemoteV.SshOption, values...)
+			case FlagBootstrapRemoteTag:
+				cmdBootstrapRemoteV.Tag = append(cmdBootstrapRemoteV.Tag, values...)
+			case FlagBootstrapRemoteUpdate:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.Update = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.Update = values[0] == "true"
+				}
+			case FlagBootstrapRemoteYes:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapRemoteTarget:
+				cmdBootstrapRemoteV.Target = append(cmdBootstrapRemoteV.Target, values...)
+			case FlagBootstrapReposApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapReposApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapReposApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapReposApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapReposExecContinueOnError:
+				if source == argv.FromEnv {
+					cmdBootstrapReposExecV.ContinueOnError = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposExecV.ContinueOnError = values[0] == "true"
+				}
+			case FlagBootstrapReposExecDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapReposExecV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposExecV.DryRun = values[0] == "true"
+				}
+			case ArgBootstrapReposExecPath:
+				cmdBootstrapReposExecV.Path = append(cmdBootstrapReposExecV.Path, values...)
+			case ArgBootstrapReposExecCommand:
+				cmdBootstrapReposExecV.Command = append(cmdBootstrapReposExecV.Command, values...)
+			case FlagBootstrapReposStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapReposStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapReposStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapReposStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapReposUpdateDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapReposUpdateV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposUpdateV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapReposUpdateYes:
+				if source == argv.FromEnv {
+					cmdBootstrapReposUpdateV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapReposUpdateV.Yes = values[0] == "true"
+				}
+			case ArgBootstrapReposUpdatePath:
+				cmdBootstrapReposUpdateV.Path = append(cmdBootstrapReposUpdateV.Path, values...)
+			case FlagBootstrapSecretsStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapSecretsStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSecretsStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapSecretsStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapSecretsStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSecretsStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapServicesApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapServicesApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapServicesApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapServicesApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapServicesApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapServicesApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapServicesStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapServicesStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapServicesStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapServicesStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapServicesStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapServicesStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapStatusPromptSecrets:
+				if source == argv.FromEnv {
+					cmdBootstrapStatusV.PromptSecrets = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapStatusV.PromptSecrets = values[0] == "true"
+				}
+			case FlagBootstrapSystemdApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapSystemdApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSystemdApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapSystemdApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapSystemdApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSystemdApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapSystemdStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapSystemdStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSystemdStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapSystemdStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapSystemdStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapSystemdStatusV.Missing = values[0] == "true"
+				}
+			case FlagBootstrapUserApplyDryRun:
+				if source == argv.FromEnv {
+					cmdBootstrapUserApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapUserApplyV.DryRun = values[0] == "true"
+				}
+			case FlagBootstrapUserApplyYes:
+				if source == argv.FromEnv {
+					cmdBootstrapUserApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapUserApplyV.Yes = values[0] == "true"
+				}
+			case FlagBootstrapUserStatusJson:
+				if source == argv.FromEnv {
+					cmdBootstrapUserStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapUserStatusV.Json = values[0] == "true"
+				}
+			case FlagBootstrapUserStatusMissing:
+				if source == argv.FromEnv {
+					cmdBootstrapUserStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapUserStatusV.Missing = values[0] == "true"
+				}
+			case FlagCacheClearOutdate:
+				if source == argv.FromEnv {
+					cmdCacheClearV.Outdate = argv.EnvTruth(values[0])
+				} else {
+					cmdCacheClearV.Outdate = values[0] == "true"
+				}
+			case FlagCacheClearTask:
+				cmdCacheClearV.Task = values[len(values)-1]
+			case ArgCacheClearTool:
+				cmdCacheClearV.Tool = append(cmdCacheClearV.Tool, values...)
+			case FlagCachePruneDryRun:
+				if source == argv.FromEnv {
+					cmdCachePruneV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdCachePruneV.DryRun = values[0] == "true"
+				}
+			case ArgCachePruneTool:
+				cmdCachePruneV.Tool = append(cmdCachePruneV.Tool, values...)
+			case FlagCacheTaskJson:
+				if source == argv.FromEnv {
+					cmdCacheTaskV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdCacheTaskV.Json = values[0] == "true"
+				}
+			case ArgCacheTaskTask:
+				cmdCacheTaskV.Task = values[len(values)-1]
+			case FlagCompletionShell:
+				cmdCompletionV.Shell = values[len(values)-1]
+			case FlagCompletionIncludeBashCompletionLib:
+				if source == argv.FromEnv {
+					cmdCompletionV.IncludeBashCompletionLib = argv.EnvTruth(values[0])
+				} else {
+					cmdCompletionV.IncludeBashCompletionLib = values[0] == "true"
+				}
+			case FlagCompletionUsage:
+				if source == argv.FromEnv {
+					cmdCompletionV.Usage = argv.EnvTruth(values[0])
+				} else {
+					cmdCompletionV.Usage = values[0] == "true"
+				}
+			case ArgCompletionShell:
+				cmdCompletionV.ShellArg = values[len(values)-1]
+			case FlagConfigJson:
+				if source == argv.FromEnv {
+					cmdConfigV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigV.Json = values[0] == "true"
+				}
+			case FlagConfigNoHeader:
+				if source == argv.FromEnv {
+					cmdConfigV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigV.NoHeader = values[0] == "true"
+				}
+			case FlagConfigTrackedConfigs:
+				if source == argv.FromEnv {
+					cmdConfigV.TrackedConfigs = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigV.TrackedConfigs = values[0] == "true"
+				}
+			case FlagConfigGetFile:
+				cmdConfigGetV.File = values[len(values)-1]
+			case ArgConfigGetKey:
+				cmdConfigGetV.Key = values[len(values)-1]
+			case FlagConfigLsJson:
+				if source == argv.FromEnv {
+					cmdConfigLsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigLsV.Json = values[0] == "true"
+				}
+			case FlagConfigLsNoHeader:
+				if source == argv.FromEnv {
+					cmdConfigLsV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigLsV.NoHeader = values[0] == "true"
+				}
+			case FlagConfigLsTrackedConfigs:
+				if source == argv.FromEnv {
+					cmdConfigLsV.TrackedConfigs = argv.EnvTruth(values[0])
+				} else {
+					cmdConfigLsV.TrackedConfigs = values[0] == "true"
+				}
+			case FlagConfigSetFile:
+				cmdConfigSetV.File = values[len(values)-1]
+			case FlagConfigSetType:
+				cmdConfigSetV.Type = values[len(values)-1]
+			case ArgConfigSetKey:
+				cmdConfigSetV.Key = values[len(values)-1]
+			case ArgConfigSetValue:
+				cmdConfigSetV.Value = values[len(values)-1]
+			case ArgCurrentPlugin:
+				cmdCurrentV.Plugin = values[len(values)-1]
+			case FlagDotfilesAddForce:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.Force = values[0] == "true"
+				}
+			case FlagDotfilesAddGlobal:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.Global = values[0] == "true"
+				}
+			case FlagDotfilesAddLocal:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.Local = values[0] == "true"
+				}
+			case FlagDotfilesAddMode:
+				cmdDotfilesAddV.Mode = values[len(values)-1]
+			case FlagDotfilesAddDryRun:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.DryRun = values[0] == "true"
+				}
+			case FlagDotfilesAddNoApply:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.NoApply = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.NoApply = values[0] == "true"
+				}
+			case FlagDotfilesAddPath:
+				cmdDotfilesAddV.Path = values[len(values)-1]
+			case FlagDotfilesAddSource:
+				cmdDotfilesAddV.Source = values[len(values)-1]
+			case FlagDotfilesAddYes:
+				if source == argv.FromEnv {
+					cmdDotfilesAddV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesAddV.Yes = values[0] == "true"
+				}
+			case ArgDotfilesAddTarget:
+				cmdDotfilesAddV.Target = append(cmdDotfilesAddV.Target, values...)
+			case FlagDotfilesApplyForce:
+				if source == argv.FromEnv {
+					cmdDotfilesApplyV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesApplyV.Force = values[0] == "true"
+				}
+			case FlagDotfilesApplyDryRun:
+				if source == argv.FromEnv {
+					cmdDotfilesApplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesApplyV.DryRun = values[0] == "true"
+				}
+			case FlagDotfilesApplyYes:
+				if source == argv.FromEnv {
+					cmdDotfilesApplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesApplyV.Yes = values[0] == "true"
+				}
+			case ArgDotfilesApplyTarget:
+				cmdDotfilesApplyV.Target = append(cmdDotfilesApplyV.Target, values...)
+			case FlagDotfilesEditApply:
+				if source == argv.FromEnv {
+					cmdDotfilesEditV.Apply = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesEditV.Apply = values[0] == "true"
+				}
+			case FlagDotfilesEditMode:
+				cmdDotfilesEditV.Mode = values[len(values)-1]
+			case FlagDotfilesEditSource:
+				cmdDotfilesEditV.Source = values[len(values)-1]
+			case FlagDotfilesEditYes:
+				if source == argv.FromEnv {
+					cmdDotfilesEditV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesEditV.Yes = values[0] == "true"
+				}
+			case ArgDotfilesEditTarget:
+				cmdDotfilesEditV.Target = values[len(values)-1]
+			case FlagDotfilesStatusJson:
+				if source == argv.FromEnv {
+					cmdDotfilesStatusV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesStatusV.Json = values[0] == "true"
+				}
+			case FlagDotfilesStatusMissing:
+				if source == argv.FromEnv {
+					cmdDotfilesStatusV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesStatusV.Missing = values[0] == "true"
+				}
+			case ArgDotfilesStatusTarget:
+				cmdDotfilesStatusV.Target = append(cmdDotfilesStatusV.Target, values...)
+			case FlagDotfilesUnapplyForce:
+				if source == argv.FromEnv {
+					cmdDotfilesUnapplyV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesUnapplyV.Force = values[0] == "true"
+				}
+			case FlagDotfilesUnapplyDryRun:
+				if source == argv.FromEnv {
+					cmdDotfilesUnapplyV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesUnapplyV.DryRun = values[0] == "true"
+				}
+			case FlagDotfilesUnapplyYes:
+				if source == argv.FromEnv {
+					cmdDotfilesUnapplyV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdDotfilesUnapplyV.Yes = values[0] == "true"
+				}
+			case ArgDotfilesUnapplyTarget:
+				cmdDotfilesUnapplyV.Target = append(cmdDotfilesUnapplyV.Target, values...)
+			case FlagDoctorJson:
+				if source == argv.FromEnv {
+					cmdDoctorV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdDoctorV.Json = values[0] == "true"
+				}
+			case FlagDoctorPathFull:
+				if source == argv.FromEnv {
+					cmdDoctorPathV.Full = argv.EnvTruth(values[0])
+				} else {
+					cmdDoctorPathV.Full = values[0] == "true"
+				}
+			case FlagEnShell:
+				cmdEnV.Shell = values[len(values)-1]
+			case ArgEnDir:
+				cmdEnV.Dir = values[len(values)-1]
+			case FlagEnvDotenv:
+				if source == argv.FromEnv {
+					cmdEnvV.Dotenv = argv.EnvTruth(values[0])
+				} else {
+					cmdEnvV.Dotenv = values[0] == "true"
+				}
+			case FlagEnvJson:
+				if source == argv.FromEnv {
+					cmdEnvV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdEnvV.Json = values[0] == "true"
+				}
+			case FlagEnvShell:
+				cmdEnvV.Shell = values[len(values)-1]
+			case FlagEnvJsonExtended:
+				if source == argv.FromEnv {
+					cmdEnvV.JsonExtended = argv.EnvTruth(values[0])
+				} else {
+					cmdEnvV.JsonExtended = values[0] == "true"
+				}
+			case FlagEnvRedacted:
+				if source == argv.FromEnv {
+					cmdEnvV.Redacted = argv.EnvTruth(values[0])
+				} else {
+					cmdEnvV.Redacted = values[0] == "true"
+				}
+			case FlagEnvValues:
+				if source == argv.FromEnv {
+					cmdEnvV.Values = argv.EnvTruth(values[0])
+				} else {
+					cmdEnvV.Values = values[0] == "true"
+				}
+			case ArgEnvToolVersion:
+				cmdEnvV.ToolVersion = append(cmdEnvV.ToolVersion, values...)
+			case FlagExecCommand:
+				cmdExecV.Command = values[len(values)-1]
+			case FlagExecJobs:
+				cmdExecV.Jobs = values[len(values)-1]
+			case FlagExecAllowEnv:
+				cmdExecV.AllowEnv = append(cmdExecV.AllowEnv, values...)
+			case FlagExecAllowNet:
+				cmdExecV.AllowNet = append(cmdExecV.AllowNet, values...)
+			case FlagExecAllowRead:
+				cmdExecV.AllowRead = append(cmdExecV.AllowRead, values...)
+			case FlagExecAllowWrite:
+				cmdExecV.AllowWrite = append(cmdExecV.AllowWrite, values...)
+			case FlagExecDenyAll:
+				if source == argv.FromEnv {
+					cmdExecV.DenyAll = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.DenyAll = values[0] == "true"
+				}
+			case FlagExecDenyEnv:
+				if source == argv.FromEnv {
+					cmdExecV.DenyEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.DenyEnv = values[0] == "true"
+				}
+			case FlagExecDenyNet:
+				if source == argv.FromEnv {
+					cmdExecV.DenyNet = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.DenyNet = values[0] == "true"
+				}
+			case FlagExecDenyRead:
+				if source == argv.FromEnv {
+					cmdExecV.DenyRead = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.DenyRead = values[0] == "true"
+				}
+			case FlagExecDenyWrite:
+				if source == argv.FromEnv {
+					cmdExecV.DenyWrite = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.DenyWrite = values[0] == "true"
+				}
+			case FlagExecFreshEnv:
+				if source == argv.FromEnv {
+					cmdExecV.FreshEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.FreshEnv = values[0] == "true"
+				}
+			case FlagExecNoDeps:
+				if source == argv.FromEnv {
+					cmdExecV.NoDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.NoDeps = values[0] == "true"
+				}
+			case FlagExecRaw:
+				if source == argv.FromEnv {
+					cmdExecV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdExecV.Raw = values[0] == "true"
+				}
+			case ArgExecToolVersion:
+				cmdExecV.ToolVersion = append(cmdExecV.ToolVersion, values...)
+			case ArgExecCommand:
+				cmdExecV.CommandArg = append(cmdExecV.CommandArg, values...)
+			case FlagFmtAll:
+				if source == argv.FromEnv {
+					cmdFmtV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdFmtV.All = values[0] == "true"
+				}
+			case FlagFmtCheck:
+				if source == argv.FromEnv {
+					cmdFmtV.Check = argv.EnvTruth(values[0])
+				} else {
+					cmdFmtV.Check = values[0] == "true"
+				}
+			case FlagFmtStdin:
+				if source == argv.FromEnv {
+					cmdFmtV.Stdin = argv.EnvTruth(values[0])
+				} else {
+					cmdFmtV.Stdin = values[0] == "true"
+				}
+			case FlagGenerateBootstrapLocalize:
+				if source == argv.FromEnv {
+					cmdGenerateBootstrapV.Localize = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateBootstrapV.Localize = values[0] == "true"
+				}
+			case FlagGenerateBootstrapVersion:
+				cmdGenerateBootstrapV.Version = values[len(values)-1]
+			case FlagGenerateBootstrapWrite:
+				cmdGenerateBootstrapV.Write = values[len(values)-1]
+			case FlagGenerateBootstrapLocalizedDir:
+				cmdGenerateBootstrapV.LocalizedDir = values[len(values)-1]
+			case FlagGenerateConfigGlobal:
+				if source == argv.FromEnv {
+					cmdGenerateConfigV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateConfigV.Global = values[0] == "true"
+				}
+			case FlagGenerateConfigDryRun:
+				if source == argv.FromEnv {
+					cmdGenerateConfigV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateConfigV.DryRun = values[0] == "true"
+				}
+			case FlagGenerateConfigToolVersions:
+				cmdGenerateConfigV.ToolVersions = values[len(values)-1]
+			case ArgGenerateConfigPath:
+				cmdGenerateConfigV.Path = values[len(values)-1]
+			case FlagGenerateDevcontainerImage:
+				cmdGenerateDevcontainerV.Image = values[len(values)-1]
+			case FlagGenerateDevcontainerMountMiseData:
+				if source == argv.FromEnv {
+					cmdGenerateDevcontainerV.MountMiseData = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateDevcontainerV.MountMiseData = values[0] == "true"
+				}
+			case FlagGenerateDevcontainerName:
+				cmdGenerateDevcontainerV.Name = values[len(values)-1]
+			case FlagGenerateDevcontainerWrite:
+				if source == argv.FromEnv {
+					cmdGenerateDevcontainerV.Write = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateDevcontainerV.Write = values[0] == "true"
+				}
+			case FlagGenerateGitPreCommitTask:
+				cmdGenerateGitPreCommitV.Task = values[len(values)-1]
+			case FlagGenerateGitPreCommitWrite:
+				if source == argv.FromEnv {
+					cmdGenerateGitPreCommitV.Write = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateGitPreCommitV.Write = values[0] == "true"
+				}
+			case FlagGenerateGitPreCommitHook:
+				cmdGenerateGitPreCommitV.Hook = values[len(values)-1]
+			case FlagGenerateGithubActionTask:
+				cmdGenerateGithubActionV.Task = values[len(values)-1]
+			case FlagGenerateGithubActionWrite:
+				if source == argv.FromEnv {
+					cmdGenerateGithubActionV.Write = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateGithubActionV.Write = values[0] == "true"
+				}
+			case FlagGenerateGithubActionName:
+				cmdGenerateGithubActionV.Name = values[len(values)-1]
+			case FlagGenerateTaskDocsInject:
+				if source == argv.FromEnv {
+					cmdGenerateTaskDocsV.Inject = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateTaskDocsV.Inject = values[0] == "true"
+				}
+			case FlagGenerateTaskDocsIndex:
+				if source == argv.FromEnv {
+					cmdGenerateTaskDocsV.Index = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateTaskDocsV.Index = values[0] == "true"
+				}
+			case FlagGenerateTaskDocsMulti:
+				if source == argv.FromEnv {
+					cmdGenerateTaskDocsV.Multi = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateTaskDocsV.Multi = values[0] == "true"
+				}
+			case FlagGenerateTaskDocsOutput:
+				cmdGenerateTaskDocsV.Output = values[len(values)-1]
+			case FlagGenerateTaskDocsRoot:
+				cmdGenerateTaskDocsV.Root = values[len(values)-1]
+			case FlagGenerateTaskDocsStyle:
+				cmdGenerateTaskDocsV.Style = values[len(values)-1]
+			case FlagGenerateTaskStubsDir:
+				cmdGenerateTaskStubsV.Dir = values[len(values)-1]
+			case FlagGenerateTaskStubsMiseBin:
+				cmdGenerateTaskStubsV.MiseBin = values[len(values)-1]
+			case FlagGenerateToolStubBin:
+				cmdGenerateToolStubV.Bin = values[len(values)-1]
+			case FlagGenerateToolStubBootstrap:
+				if source == argv.FromEnv {
+					cmdGenerateToolStubV.Bootstrap = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateToolStubV.Bootstrap = values[0] == "true"
+				}
+			case FlagGenerateToolStubBootstrapVersion:
+				cmdGenerateToolStubV.BootstrapVersion = values[len(values)-1]
+			case FlagGenerateToolStubFetch:
+				if source == argv.FromEnv {
+					cmdGenerateToolStubV.Fetch = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateToolStubV.Fetch = values[0] == "true"
+				}
+			case FlagGenerateToolStubHttp:
+				cmdGenerateToolStubV.Http = values[len(values)-1]
+			case FlagGenerateToolStubLock:
+				if source == argv.FromEnv {
+					cmdGenerateToolStubV.Lock = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateToolStubV.Lock = values[0] == "true"
+				}
+			case FlagGenerateToolStubPlatformBin:
+				cmdGenerateToolStubV.PlatformBin = append(cmdGenerateToolStubV.PlatformBin, values...)
+			case FlagGenerateToolStubPlatformUrl:
+				cmdGenerateToolStubV.PlatformUrl = append(cmdGenerateToolStubV.PlatformUrl, values...)
+			case FlagGenerateToolStubSkipDownload:
+				if source == argv.FromEnv {
+					cmdGenerateToolStubV.SkipDownload = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateToolStubV.SkipDownload = values[0] == "true"
+				}
+			case FlagGenerateToolStubUrl:
+				cmdGenerateToolStubV.Url = values[len(values)-1]
+			case FlagGenerateToolStubVersion:
+				cmdGenerateToolStubV.Version = values[len(values)-1]
+			case ArgGenerateToolStubOutput:
+				cmdGenerateToolStubV.Output = values[len(values)-1]
+			case FlagGithubTokenOauth:
+				if source == argv.FromEnv {
+					cmdGithubTokenV.Oauth = argv.EnvTruth(values[0])
+				} else {
+					cmdGithubTokenV.Oauth = values[0] == "true"
+				}
+			case FlagGithubTokenRaw:
+				if source == argv.FromEnv {
+					cmdGithubTokenV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdGithubTokenV.Raw = values[0] == "true"
+				}
+			case FlagGithubTokenRefresh:
+				if source == argv.FromEnv {
+					cmdGithubTokenV.Refresh = argv.EnvTruth(values[0])
+				} else {
+					cmdGithubTokenV.Refresh = values[0] == "true"
+				}
+			case FlagGithubTokenUnmask:
+				if source == argv.FromEnv {
+					cmdGithubTokenV.Unmask = argv.EnvTruth(values[0])
+				} else {
+					cmdGithubTokenV.Unmask = values[0] == "true"
+				}
+			case ArgGithubTokenHost:
+				cmdGithubTokenV.Host = values[len(values)-1]
+			case FlagGlobalFuzzy:
+				if source == argv.FromEnv {
+					cmdGlobalV.Fuzzy = argv.EnvTruth(values[0])
+				} else {
+					cmdGlobalV.Fuzzy = values[0] == "true"
+				}
+			case FlagGlobalPath:
+				if source == argv.FromEnv {
+					cmdGlobalV.Path = argv.EnvTruth(values[0])
+				} else {
+					cmdGlobalV.Path = values[0] == "true"
+				}
+			case FlagGlobalPin:
+				if source == argv.FromEnv {
+					cmdGlobalV.Pin = argv.EnvTruth(values[0])
+				} else {
+					cmdGlobalV.Pin = values[0] == "true"
+				}
+			case FlagGlobalRemove:
+				cmdGlobalV.Remove = append(cmdGlobalV.Remove, values...)
+			case ArgGlobalToolVersion:
+				cmdGlobalV.ToolVersion = append(cmdGlobalV.ToolVersion, values...)
+			case FlagHookEnvForce:
+				if source == argv.FromEnv {
+					cmdHookEnvV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdHookEnvV.Force = values[0] == "true"
+				}
+			case FlagHookEnvQuiet:
+				if source == argv.FromEnv {
+					cmdHookEnvV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdHookEnvV.Quiet = values[0] == "true"
+				}
+			case FlagHookEnvShell:
+				cmdHookEnvV.Shell = values[len(values)-1]
+			case FlagHookEnvReason:
+				cmdHookEnvV.Reason = values[len(values)-1]
+			case FlagHookEnvStatus:
+				if source == argv.FromEnv {
+					cmdHookEnvV.Status = argv.EnvTruth(values[0])
+				} else {
+					cmdHookEnvV.Status = values[0] == "true"
+				}
+			case FlagHookNotFoundShell:
+				cmdHookNotFoundV.Shell = values[len(values)-1]
+			case ArgHookNotFoundBin:
+				cmdHookNotFoundV.Bin = values[len(values)-1]
+			case FlagImplodeDryRun:
+				if source == argv.FromEnv {
+					cmdImplodeV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdImplodeV.DryRun = values[0] == "true"
+				}
+			case FlagImplodeConfig:
+				if source == argv.FromEnv {
+					cmdImplodeV.Config = argv.EnvTruth(values[0])
+				} else {
+					cmdImplodeV.Config = values[0] == "true"
+				}
+			case FlagEditGlobal:
+				if source == argv.FromEnv {
+					cmdEditV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdEditV.Global = values[0] == "true"
+				}
+			case FlagEditDryRun:
+				if source == argv.FromEnv {
+					cmdEditV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdEditV.DryRun = values[0] == "true"
+				}
+			case FlagEditToolVersions:
+				cmdEditV.ToolVersions = values[len(values)-1]
+			case ArgEditPath:
+				cmdEditV.Path = values[len(values)-1]
+			case FlagInstallForce:
+				if source == argv.FromEnv {
+					cmdInstallV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.Force = values[0] == "true"
+				}
+			case FlagInstallJobs:
+				cmdInstallV.Jobs = values[len(values)-1]
+			case FlagInstallDryRun:
+				if source == argv.FromEnv {
+					cmdInstallV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.DryRun = values[0] == "true"
+				}
+			case FlagInstallDryRunCode:
+				if source == argv.FromEnv {
+					cmdInstallV.DryRunCode = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.DryRunCode = values[0] == "true"
+				}
+			case FlagInstallMinimumReleaseAge:
+				cmdInstallV.MinimumReleaseAge = values[len(values)-1]
+			case FlagInstallMonorepo:
+				if source == argv.FromEnv {
+					cmdInstallV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.Monorepo = values[0] == "true"
+				}
+			case FlagInstallRaw:
+				if source == argv.FromEnv {
+					cmdInstallV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.Raw = values[0] == "true"
+				}
+			case FlagInstallShared:
+				cmdInstallV.Shared = values[len(values)-1]
+			case FlagInstallSystem:
+				if source == argv.FromEnv {
+					cmdInstallV.System = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.System = values[0] == "true"
+				}
+			case ArgInstallToolVersion:
+				cmdInstallV.ToolVersion = append(cmdInstallV.ToolVersion, values...)
+			case ArgInstallIntoToolVersion:
+				cmdInstallIntoV.ToolVersion = values[len(values)-1]
+			case ArgInstallIntoPath:
+				cmdInstallIntoV.Path = values[len(values)-1]
+			case FlagLatestInstalled:
+				if source == argv.FromEnv {
+					cmdLatestV.Installed = argv.EnvTruth(values[0])
+				} else {
+					cmdLatestV.Installed = values[0] == "true"
+				}
+			case FlagLatestMinimumReleaseAge:
+				cmdLatestV.MinimumReleaseAge = values[len(values)-1]
+			case ArgLatestToolVersion:
+				cmdLatestV.ToolVersion = values[len(values)-1]
+			case ArgLatestAsdfVersion:
+				cmdLatestV.AsdfVersion = values[len(values)-1]
+			case FlagLinkForce:
+				if source == argv.FromEnv {
+					cmdLinkV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdLinkV.Force = values[0] == "true"
+				}
+			case ArgLinkToolVersion:
+				cmdLinkV.ToolVersion = values[len(values)-1]
+			case ArgLinkPath:
+				cmdLinkV.Path = values[len(values)-1]
+			case FlagLocalParent:
+				if source == argv.FromEnv {
+					cmdLocalV.Parent = argv.EnvTruth(values[0])
+				} else {
+					cmdLocalV.Parent = values[0] == "true"
+				}
+			case FlagLocalFuzzy:
+				if source == argv.FromEnv {
+					cmdLocalV.Fuzzy = argv.EnvTruth(values[0])
+				} else {
+					cmdLocalV.Fuzzy = values[0] == "true"
+				}
+			case FlagLocalPath:
+				if source == argv.FromEnv {
+					cmdLocalV.Path = argv.EnvTruth(values[0])
+				} else {
+					cmdLocalV.Path = values[0] == "true"
+				}
+			case FlagLocalPin:
+				if source == argv.FromEnv {
+					cmdLocalV.Pin = argv.EnvTruth(values[0])
+				} else {
+					cmdLocalV.Pin = values[0] == "true"
+				}
+			case FlagLocalRemove:
+				cmdLocalV.Remove = append(cmdLocalV.Remove, values...)
+			case ArgLocalToolVersion:
+				cmdLocalV.ToolVersion = append(cmdLocalV.ToolVersion, values...)
+			case FlagLockGlobal:
+				if source == argv.FromEnv {
+					cmdLockV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdLockV.Global = values[0] == "true"
+				}
+			case FlagLockJobs:
+				cmdLockV.Jobs = values[len(values)-1]
+			case FlagLockDryRun:
+				if source == argv.FromEnv {
+					cmdLockV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdLockV.DryRun = values[0] == "true"
+				}
+			case FlagLockPlatform:
+				cmdLockV.Platform = append(cmdLockV.Platform, values...)
+			case FlagLockBump:
+				if source == argv.FromEnv {
+					cmdLockV.Bump = argv.EnvTruth(values[0])
+				} else {
+					cmdLockV.Bump = values[0] == "true"
+				}
+			case FlagLockJson:
+				if source == argv.FromEnv {
+					cmdLockV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdLockV.Json = values[0] == "true"
+				}
+			case FlagLockLocal:
+				if source == argv.FromEnv {
+					cmdLockV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdLockV.Local = values[0] == "true"
+				}
+			case FlagLockMinimumReleaseAge:
+				cmdLockV.MinimumReleaseAge = values[len(values)-1]
+			case ArgLockTool:
+				cmdLockV.Tool = append(cmdLockV.Tool, values...)
+			case FlagLsCurrent:
+				if source == argv.FromEnv {
+					cmdLsV.Current = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Current = values[0] == "true"
+				}
+			case FlagLsGlobal:
+				if source == argv.FromEnv {
+					cmdLsV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Global = values[0] == "true"
+				}
+			case FlagLsInstalled:
+				if source == argv.FromEnv {
+					cmdLsV.Installed = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Installed = values[0] == "true"
+				}
+			case FlagLsJson:
+				if source == argv.FromEnv {
+					cmdLsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Json = values[0] == "true"
+				}
+			case FlagLsLocal:
+				if source == argv.FromEnv {
+					cmdLsV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Local = values[0] == "true"
+				}
+			case FlagLsMissing:
+				if source == argv.FromEnv {
+					cmdLsV.Missing = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Missing = values[0] == "true"
+				}
+			case FlagLsOffline:
+				if source == argv.FromEnv {
+					cmdLsV.Offline = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Offline = values[0] == "true"
+				}
+			case FlagLsPlugin:
+				cmdLsV.Plugin = values[len(values)-1]
+			case FlagLsAllSources:
+				if source == argv.FromEnv {
+					cmdLsV.AllSources = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.AllSources = values[0] == "true"
+				}
+			case FlagLsMonorepo:
+				if source == argv.FromEnv {
+					cmdLsV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Monorepo = values[0] == "true"
+				}
+			case FlagLsNoHeader:
+				if source == argv.FromEnv {
+					cmdLsV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.NoHeader = values[0] == "true"
+				}
+			case FlagLsOutdated:
+				if source == argv.FromEnv {
+					cmdLsV.Outdated = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Outdated = values[0] == "true"
+				}
+			case FlagLsPrefix:
+				cmdLsV.Prefix = values[len(values)-1]
+			case FlagLsPrunable:
+				if source == argv.FromEnv {
+					cmdLsV.Prunable = argv.EnvTruth(values[0])
+				} else {
+					cmdLsV.Prunable = values[0] == "true"
+				}
+			case ArgLsInstalledTool:
+				cmdLsV.InstalledTool = append(cmdLsV.InstalledTool, values...)
+			case FlagLsRemoteAll:
+				if source == argv.FromEnv {
+					cmdLsRemoteV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdLsRemoteV.All = values[0] == "true"
+				}
+			case FlagLsRemoteMinimumReleaseAge:
+				cmdLsRemoteV.MinimumReleaseAge = values[len(values)-1]
+			case FlagLsRemoteJson:
+				if source == argv.FromEnv {
+					cmdLsRemoteV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdLsRemoteV.Json = values[0] == "true"
+				}
+			case FlagLsRemoteNoVersionsHost:
+				if source == argv.FromEnv {
+					cmdLsRemoteV.NoVersionsHost = argv.EnvTruth(values[0])
+				} else {
+					cmdLsRemoteV.NoVersionsHost = values[0] == "true"
+				}
+			case FlagLsRemotePrerelease:
+				if source == argv.FromEnv {
+					cmdLsRemoteV.Prerelease = argv.EnvTruth(values[0])
+				} else {
+					cmdLsRemoteV.Prerelease = values[0] == "true"
+				}
+			case FlagLsRemoteStrictMetadata:
+				if source == argv.FromEnv {
+					cmdLsRemoteV.StrictMetadata = argv.EnvTruth(values[0])
+				} else {
+					cmdLsRemoteV.StrictMetadata = values[0] == "true"
+				}
+			case ArgLsRemoteToolVersion:
+				cmdLsRemoteV.ToolVersion = values[len(values)-1]
+			case ArgLsRemotePrefix:
+				cmdLsRemoteV.Prefix = values[len(values)-1]
+			case FlagOciBuildCopy:
+				cmdOciBuildV.Copy = append(cmdOciBuildV.Copy, values...)
+			case FlagOciBuildOutput:
+				cmdOciBuildV.Output = values[len(values)-1]
+			case FlagOciBuildFrom:
+				cmdOciBuildV.From = values[len(values)-1]
+			case FlagOciBuildIncludeGlobal:
+				if source == argv.FromEnv {
+					cmdOciBuildV.IncludeGlobal = argv.EnvTruth(values[0])
+				} else {
+					cmdOciBuildV.IncludeGlobal = values[0] == "true"
+				}
+			case FlagOciBuildTag:
+				cmdOciBuildV.Tag = values[len(values)-1]
+			case FlagOciBuildMountPoint:
+				cmdOciBuildV.MountPoint = values[len(values)-1]
+			case FlagOciBuildNoMise:
+				if source == argv.FromEnv {
+					cmdOciBuildV.NoMise = argv.EnvTruth(values[0])
+				} else {
+					cmdOciBuildV.NoMise = values[0] == "true"
+				}
+			case FlagOciBuildOwner:
+				cmdOciBuildV.Owner = values[len(values)-1]
+			case FlagOciPushCacheFrom:
+				cmdOciPushV.CacheFrom = values[len(values)-1]
+			case FlagOciPushFrom:
+				cmdOciPushV.From = values[len(values)-1]
+			case FlagOciPushImageDir:
+				cmdOciPushV.ImageDir = values[len(values)-1]
+			case FlagOciPushIncludeGlobal:
+				if source == argv.FromEnv {
+					cmdOciPushV.IncludeGlobal = argv.EnvTruth(values[0])
+				} else {
+					cmdOciPushV.IncludeGlobal = values[0] == "true"
+				}
+			case FlagOciPushMountPoint:
+				cmdOciPushV.MountPoint = values[len(values)-1]
+			case FlagOciPushNoCache:
+				if source == argv.FromEnv {
+					cmdOciPushV.NoCache = argv.EnvTruth(values[0])
+				} else {
+					cmdOciPushV.NoCache = values[0] == "true"
+				}
+			case FlagOciPushNoMise:
+				if source == argv.FromEnv {
+					cmdOciPushV.NoMise = argv.EnvTruth(values[0])
+				} else {
+					cmdOciPushV.NoMise = values[0] == "true"
+				}
+			case FlagOciPushOwner:
+				cmdOciPushV.Owner = values[len(values)-1]
+			case FlagOciPushUpdateIndex:
+				if source == argv.FromEnv {
+					cmdOciPushV.UpdateIndex = argv.EnvTruth(values[0])
+				} else {
+					cmdOciPushV.UpdateIndex = values[0] == "true"
+				}
+			case ArgOciPushRef:
+				cmdOciPushV.Ref = values[len(values)-1]
+			case FlagOciRunEngine:
+				cmdOciRunV.Engine = values[len(values)-1]
+			case FlagOciRunFrom:
+				cmdOciRunV.From = values[len(values)-1]
+			case FlagOciRunImageDir:
+				cmdOciRunV.ImageDir = values[len(values)-1]
+			case FlagOciRunIncludeGlobal:
+				if source == argv.FromEnv {
+					cmdOciRunV.IncludeGlobal = argv.EnvTruth(values[0])
+				} else {
+					cmdOciRunV.IncludeGlobal = values[0] == "true"
+				}
+			case FlagOciRunKeep:
+				if source == argv.FromEnv {
+					cmdOciRunV.Keep = argv.EnvTruth(values[0])
+				} else {
+					cmdOciRunV.Keep = values[0] == "true"
+				}
+			case FlagOciRunMountPoint:
+				cmdOciRunV.MountPoint = values[len(values)-1]
+			case FlagOciRunNoMise:
+				if source == argv.FromEnv {
+					cmdOciRunV.NoMise = argv.EnvTruth(values[0])
+				} else {
+					cmdOciRunV.NoMise = values[0] == "true"
+				}
+			case FlagOciRunOwner:
+				cmdOciRunV.Owner = values[len(values)-1]
+			case FlagOciRunVolume:
+				cmdOciRunV.Volume = append(cmdOciRunV.Volume, values...)
+			case FlagOciRunEnv:
+				cmdOciRunV.Env = append(cmdOciRunV.Env, values...)
+			case FlagOciRunInteractive:
+				if source == argv.FromEnv {
+					cmdOciRunV.Interactive = argv.EnvTruth(values[0])
+				} else {
+					cmdOciRunV.Interactive = values[0] == "true"
+				}
+			case FlagOciRunTty:
+				if source == argv.FromEnv {
+					cmdOciRunV.Tty = argv.EnvTruth(values[0])
+				} else {
+					cmdOciRunV.Tty = values[0] == "true"
+				}
+			case FlagOciRunWorkdir:
+				cmdOciRunV.Workdir = values[len(values)-1]
+			case ArgOciRunCmd:
+				cmdOciRunV.Cmd = append(cmdOciRunV.Cmd, values...)
+			case FlagOutdatedJson:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Json = values[0] == "true"
+				}
+			case FlagOutdatedBump:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Bump = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Bump = values[0] == "true"
+				}
+			case FlagOutdatedInactive:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Inactive = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Inactive = values[0] == "true"
+				}
+			case FlagOutdatedLocal:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Local = values[0] == "true"
+				}
+			case FlagOutdatedMonorepo:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Monorepo = values[0] == "true"
+				}
+			case FlagOutdatedNoHeader:
+				if source == argv.FromEnv {
+					cmdOutdatedV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.NoHeader = values[0] == "true"
+				}
+			case ArgOutdatedToolVersion:
+				cmdOutdatedV.ToolVersion = append(cmdOutdatedV.ToolVersion, values...)
+			case FlagPatronsJson:
+				if source == argv.FromEnv {
+					cmdPatronsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdPatronsV.Json = values[0] == "true"
+				}
+			case FlagPatronsRefresh:
+				if source == argv.FromEnv {
+					cmdPatronsV.Refresh = argv.EnvTruth(values[0])
+				} else {
+					cmdPatronsV.Refresh = values[0] == "true"
+				}
+			case FlagPluginsAll:
+				if source == argv.FromEnv {
+					cmdPluginsV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsV.All = values[0] == "true"
+				}
+			case FlagPluginsCore:
+				if source == argv.FromEnv {
+					cmdPluginsV.Core = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsV.Core = values[0] == "true"
+				}
+			case FlagPluginsUrls:
+				if source == argv.FromEnv {
+					cmdPluginsV.Urls = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsV.Urls = values[0] == "true"
+				}
+			case FlagPluginsRefs:
+				if source == argv.FromEnv {
+					cmdPluginsV.Refs = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsV.Refs = values[0] == "true"
+				}
+			case FlagPluginsUser:
+				if source == argv.FromEnv {
+					cmdPluginsV.User = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsV.User = values[0] == "true"
+				}
+			case FlagPluginsInstallAll:
+				if source == argv.FromEnv {
+					cmdPluginsInstallV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsInstallV.All = values[0] == "true"
+				}
+			case FlagPluginsInstallForce:
+				if source == argv.FromEnv {
+					cmdPluginsInstallV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsInstallV.Force = values[0] == "true"
+				}
+			case FlagPluginsInstallJobs:
+				cmdPluginsInstallV.Jobs = values[len(values)-1]
+			case ArgPluginsInstallNewPlugin:
+				cmdPluginsInstallV.NewPlugin = values[len(values)-1]
+			case ArgPluginsInstallGitUrl:
+				cmdPluginsInstallV.GitUrl = values[len(values)-1]
+			case ArgPluginsInstallRest:
+				cmdPluginsInstallV.Rest = append(cmdPluginsInstallV.Rest, values...)
+			case FlagPluginsLinkForce:
+				if source == argv.FromEnv {
+					cmdPluginsLinkV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLinkV.Force = values[0] == "true"
+				}
+			case ArgPluginsLinkName:
+				cmdPluginsLinkV.Name = values[len(values)-1]
+			case ArgPluginsLinkDir:
+				cmdPluginsLinkV.Dir = values[len(values)-1]
+			case FlagPluginsLsAll:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.All = values[0] == "true"
+				}
+			case FlagPluginsLsCore:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.Core = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.Core = values[0] == "true"
+				}
+			case FlagPluginsLsOutdated:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.Outdated = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.Outdated = values[0] == "true"
+				}
+			case FlagPluginsLsUrls:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.Urls = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.Urls = values[0] == "true"
+				}
+			case FlagPluginsLsRefs:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.Refs = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.Refs = values[0] == "true"
+				}
+			case FlagPluginsLsUser:
+				if source == argv.FromEnv {
+					cmdPluginsLsV.User = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsV.User = values[0] == "true"
+				}
+			case FlagPluginsLsRemoteUrls:
+				if source == argv.FromEnv {
+					cmdPluginsLsRemoteV.Urls = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsRemoteV.Urls = values[0] == "true"
+				}
+			case FlagPluginsLsRemoteOnlyNames:
+				if source == argv.FromEnv {
+					cmdPluginsLsRemoteV.OnlyNames = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsLsRemoteV.OnlyNames = values[0] == "true"
+				}
+			case FlagPluginsUninstallAll:
+				if source == argv.FromEnv {
+					cmdPluginsUninstallV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsUninstallV.All = values[0] == "true"
+				}
+			case FlagPluginsUninstallPurge:
+				if source == argv.FromEnv {
+					cmdPluginsUninstallV.Purge = argv.EnvTruth(values[0])
+				} else {
+					cmdPluginsUninstallV.Purge = values[0] == "true"
+				}
+			case ArgPluginsUninstallPlugin:
+				cmdPluginsUninstallV.Plugin = append(cmdPluginsUninstallV.Plugin, values...)
+			case FlagPluginsUpdateJobs:
+				cmdPluginsUpdateV.Jobs = values[len(values)-1]
+			case ArgPluginsUpdatePlugin:
+				cmdPluginsUpdateV.Plugin = append(cmdPluginsUpdateV.Plugin, values...)
+			case FlagDepsExplain:
+				if source == argv.FromEnv {
+					cmdDepsV.Explain = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsV.Explain = values[0] == "true"
+				}
+			case FlagDepsForce:
+				if source == argv.FromEnv {
+					cmdDepsV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsV.Force = values[0] == "true"
+				}
+			case FlagDepsDryRun:
+				if source == argv.FromEnv {
+					cmdDepsV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsV.DryRun = values[0] == "true"
+				}
+			case FlagDepsList:
+				if source == argv.FromEnv {
+					cmdDepsV.List = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsV.List = values[0] == "true"
+				}
+			case FlagDepsMonorepo:
+				if source == argv.FromEnv {
+					cmdDepsV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsV.Monorepo = values[0] == "true"
+				}
+			case FlagDepsOnly:
+				cmdDepsV.Only = append(cmdDepsV.Only, values...)
+			case FlagDepsSkip:
+				cmdDepsV.Skip = append(cmdDepsV.Skip, values...)
+			case ArgDepsProvider:
+				cmdDepsV.Provider = values[len(values)-1]
+			case FlagDepsAddDev:
+				if source == argv.FromEnv {
+					cmdDepsAddV.Dev = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsAddV.Dev = values[0] == "true"
+				}
+			case ArgDepsAddPackages:
+				cmdDepsAddV.Packages = append(cmdDepsAddV.Packages, values...)
+			case FlagDepsInstallExplain:
+				if source == argv.FromEnv {
+					cmdDepsInstallV.Explain = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsInstallV.Explain = values[0] == "true"
+				}
+			case FlagDepsInstallForce:
+				if source == argv.FromEnv {
+					cmdDepsInstallV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsInstallV.Force = values[0] == "true"
+				}
+			case FlagDepsInstallDryRun:
+				if source == argv.FromEnv {
+					cmdDepsInstallV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsInstallV.DryRun = values[0] == "true"
+				}
+			case FlagDepsInstallList:
+				if source == argv.FromEnv {
+					cmdDepsInstallV.List = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsInstallV.List = values[0] == "true"
+				}
+			case FlagDepsInstallMonorepo:
+				if source == argv.FromEnv {
+					cmdDepsInstallV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdDepsInstallV.Monorepo = values[0] == "true"
+				}
+			case FlagDepsInstallOnly:
+				cmdDepsInstallV.Only = append(cmdDepsInstallV.Only, values...)
+			case FlagDepsInstallSkip:
+				cmdDepsInstallV.Skip = append(cmdDepsInstallV.Skip, values...)
+			case ArgDepsInstallProvider:
+				cmdDepsInstallV.Provider = values[len(values)-1]
+			case ArgDepsRemovePackages:
+				cmdDepsRemoveV.Packages = append(cmdDepsRemoveV.Packages, values...)
+			case FlagPruneDryRun:
+				if source == argv.FromEnv {
+					cmdPruneV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdPruneV.DryRun = values[0] == "true"
+				}
+			case FlagPruneConfigs:
+				if source == argv.FromEnv {
+					cmdPruneV.Configs = argv.EnvTruth(values[0])
+				} else {
+					cmdPruneV.Configs = values[0] == "true"
+				}
+			case FlagPruneDryRunCode:
+				if source == argv.FromEnv {
+					cmdPruneV.DryRunCode = argv.EnvTruth(values[0])
+				} else {
+					cmdPruneV.DryRunCode = values[0] == "true"
+				}
+			case FlagPruneMonorepo:
+				if source == argv.FromEnv {
+					cmdPruneV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdPruneV.Monorepo = values[0] == "true"
+				}
+			case FlagPruneTools:
+				if source == argv.FromEnv {
+					cmdPruneV.Tools = argv.EnvTruth(values[0])
+				} else {
+					cmdPruneV.Tools = values[0] == "true"
+				}
+			case ArgPruneInstalledTool:
+				cmdPruneV.InstalledTool = append(cmdPruneV.InstalledTool, values...)
+			case FlagRegistryBackend:
+				cmdRegistryV.Backend = values[len(values)-1]
+			case FlagRegistryComplete:
+				if source == argv.FromEnv {
+					cmdRegistryV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdRegistryV.Complete = values[0] == "true"
+				}
+			case FlagRegistryHideAliased:
+				if source == argv.FromEnv {
+					cmdRegistryV.HideAliased = argv.EnvTruth(values[0])
+				} else {
+					cmdRegistryV.HideAliased = values[0] == "true"
+				}
+			case FlagRegistryJson:
+				if source == argv.FromEnv {
+					cmdRegistryV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdRegistryV.Json = values[0] == "true"
+				}
+			case FlagRegistrySecurity:
+				if source == argv.FromEnv {
+					cmdRegistryV.Security = argv.EnvTruth(values[0])
+				} else {
+					cmdRegistryV.Security = values[0] == "true"
+				}
+			case ArgRegistryName:
+				cmdRegistryV.Name = values[len(values)-1]
+			case FlagReshimForce:
+				if source == argv.FromEnv {
+					cmdReshimV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdReshimV.Force = values[0] == "true"
+				}
+			case ArgReshimTool:
+				cmdReshimV.Tool = values[len(values)-1]
+			case ArgReshimVersion:
+				cmdReshimV.Version = values[len(values)-1]
+			case FlagRunAffected:
+				if source == argv.FromEnv {
+					cmdRunV.Affected = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Affected = values[0] == "true"
+				}
+			case FlagRunAffectedBase:
+				cmdRunV.AffectedBase = values[len(values)-1]
+			case FlagRunAffectedExplain:
+				if source == argv.FromEnv {
+					cmdRunV.AffectedExplain = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.AffectedExplain = values[0] == "true"
+				}
+			case FlagRunAffectedHead:
+				cmdRunV.AffectedHead = values[len(values)-1]
+			case FlagRunAffectedJson:
+				if source == argv.FromEnv {
+					cmdRunV.AffectedJson = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.AffectedJson = values[0] == "true"
+				}
+			case FlagRunContinueOnError:
+				if source == argv.FromEnv {
+					cmdRunV.ContinueOnError = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.ContinueOnError = values[0] == "true"
+				}
+			case FlagRunCd:
+				cmdRunV.Cd = values[len(values)-1]
+			case FlagRunForce:
+				if source == argv.FromEnv {
+					cmdRunV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Force = values[0] == "true"
+				}
+			case FlagRunJobs:
+				cmdRunV.Jobs = values[len(values)-1]
+			case FlagRunDryRun:
+				if source == argv.FromEnv {
+					cmdRunV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DryRun = values[0] == "true"
+				}
+			case FlagRunOutput:
+				cmdRunV.Output = values[len(values)-1]
+			case FlagRunQuiet:
+				if source == argv.FromEnv {
+					cmdRunV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Quiet = values[0] == "true"
+				}
+			case FlagRunRaw:
+				if source == argv.FromEnv {
+					cmdRunV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Raw = values[0] == "true"
+				}
+			case FlagRunShell:
+				cmdRunV.Shell = values[len(values)-1]
+			case FlagRunSilent:
+				if source == argv.FromEnv {
+					cmdRunV.Silent = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Silent = values[0] == "true"
+				}
+			case FlagRunTool:
+				cmdRunV.Tool = append(cmdRunV.Tool, values...)
+			case FlagRunAllowEnv:
+				cmdRunV.AllowEnv = append(cmdRunV.AllowEnv, values...)
+			case FlagRunAllowNet:
+				cmdRunV.AllowNet = append(cmdRunV.AllowNet, values...)
+			case FlagRunAllowRead:
+				cmdRunV.AllowRead = append(cmdRunV.AllowRead, values...)
+			case FlagRunAllowWrite:
+				cmdRunV.AllowWrite = append(cmdRunV.AllowWrite, values...)
+			case FlagRunDenyAll:
+				if source == argv.FromEnv {
+					cmdRunV.DenyAll = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DenyAll = values[0] == "true"
+				}
+			case FlagRunDenyEnv:
+				if source == argv.FromEnv {
+					cmdRunV.DenyEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DenyEnv = values[0] == "true"
+				}
+			case FlagRunDenyNet:
+				if source == argv.FromEnv {
+					cmdRunV.DenyNet = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DenyNet = values[0] == "true"
+				}
+			case FlagRunDenyRead:
+				if source == argv.FromEnv {
+					cmdRunV.DenyRead = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DenyRead = values[0] == "true"
+				}
+			case FlagRunDenyWrite:
+				if source == argv.FromEnv {
+					cmdRunV.DenyWrite = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.DenyWrite = values[0] == "true"
+				}
+			case FlagRunFreshEnv:
+				if source == argv.FromEnv {
+					cmdRunV.FreshEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.FreshEnv = values[0] == "true"
+				}
+			case FlagRunNoCache:
+				if source == argv.FromEnv {
+					cmdRunV.NoCache = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.NoCache = values[0] == "true"
+				}
+			case FlagRunNoDeps:
+				if source == argv.FromEnv {
+					cmdRunV.NoDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.NoDeps = values[0] == "true"
+				}
+			case FlagRunNoTimings:
+				if source == argv.FromEnv {
+					cmdRunV.NoTimings = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.NoTimings = values[0] == "true"
+				}
+			case FlagRunSkipDeps:
+				if source == argv.FromEnv {
+					cmdRunV.SkipDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.SkipDeps = values[0] == "true"
+				}
+			case FlagRunSkipTools:
+				if source == argv.FromEnv {
+					cmdRunV.SkipTools = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.SkipTools = values[0] == "true"
+				}
+			case FlagRunTaskCache:
+				cmdRunV.TaskCache = values[len(values)-1]
+			case FlagRunTaskCacheExplain:
+				if source == argv.FromEnv {
+					cmdRunV.TaskCacheExplain = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.TaskCacheExplain = values[0] == "true"
+				}
+			case FlagRunTaskCacheExplainJson:
+				if source == argv.FromEnv {
+					cmdRunV.TaskCacheExplainJson = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.TaskCacheExplainJson = values[0] == "true"
+				}
+			case FlagRunTaskCacheStats:
+				if source == argv.FromEnv {
+					cmdRunV.TaskCacheStats = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.TaskCacheStats = values[0] == "true"
+				}
+			case FlagRunTimeout:
+				cmdRunV.Timeout = values[len(values)-1]
+			case FlagRunTimings:
+				if source == argv.FromEnv {
+					cmdRunV.Timings = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.Timings = values[0] == "true"
+				}
+			case FlagSearchInteractive:
+				if source == argv.FromEnv {
+					cmdSearchV.Interactive = argv.EnvTruth(values[0])
+				} else {
+					cmdSearchV.Interactive = values[0] == "true"
+				}
+			case FlagSearchMatchType:
+				cmdSearchV.MatchType = values[len(values)-1]
+			case FlagSearchNoHeader:
+				if source == argv.FromEnv {
+					cmdSearchV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdSearchV.NoHeader = values[0] == "true"
+				}
+			case ArgSearchName:
+				cmdSearchV.Name = values[len(values)-1]
+			case FlagSelfUpdateForce:
+				if source == argv.FromEnv {
+					cmdSelfUpdateV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdSelfUpdateV.Force = values[0] == "true"
+				}
+			case FlagSelfUpdateYes:
+				if source == argv.FromEnv {
+					cmdSelfUpdateV.Yes = argv.EnvTruth(values[0])
+				} else {
+					cmdSelfUpdateV.Yes = values[0] == "true"
+				}
+			case FlagSelfUpdateNoPlugins:
+				if source == argv.FromEnv {
+					cmdSelfUpdateV.NoPlugins = argv.EnvTruth(values[0])
+				} else {
+					cmdSelfUpdateV.NoPlugins = values[0] == "true"
+				}
+			case ArgSelfUpdateVersion:
+				cmdSelfUpdateV.Version = values[len(values)-1]
+			case FlagSetEnv:
+				cmdSetV.Env = values[len(values)-1]
+			case FlagSetGlobal:
+				if source == argv.FromEnv {
+					cmdSetV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.Global = values[0] == "true"
+				}
+			case FlagSetAgeEncrypt:
+				if source == argv.FromEnv {
+					cmdSetV.AgeEncrypt = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.AgeEncrypt = values[0] == "true"
+				}
+			case FlagSetAgeKeyFile:
+				cmdSetV.AgeKeyFile = values[len(values)-1]
+			case FlagSetAgeRecipient:
+				cmdSetV.AgeRecipient = append(cmdSetV.AgeRecipient, values...)
+			case FlagSetAgeSshRecipient:
+				cmdSetV.AgeSshRecipient = append(cmdSetV.AgeSshRecipient, values...)
+			case FlagSetComplete:
+				if source == argv.FromEnv {
+					cmdSetV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.Complete = values[0] == "true"
+				}
+			case FlagSetFile:
+				cmdSetV.File = values[len(values)-1]
+			case FlagSetNoRedact:
+				if source == argv.FromEnv {
+					cmdSetV.NoRedact = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.NoRedact = values[0] == "true"
+				}
+			case FlagSetPrompt:
+				if source == argv.FromEnv {
+					cmdSetV.Prompt = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.Prompt = values[0] == "true"
+				}
+			case FlagSetRemove:
+				cmdSetV.Remove = append(cmdSetV.Remove, values...)
+			case FlagSetStdin:
+				if source == argv.FromEnv {
+					cmdSetV.Stdin = argv.EnvTruth(values[0])
+				} else {
+					cmdSetV.Stdin = values[0] == "true"
+				}
+			case ArgSetEnvVar:
+				cmdSetV.EnvVar = append(cmdSetV.EnvVar, values...)
+			case FlagSettingsAll:
+				if source == argv.FromEnv {
+					cmdSettingsV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.All = values[0] == "true"
+				}
+			case FlagSettingsJson:
+				if source == argv.FromEnv {
+					cmdSettingsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.Json = values[0] == "true"
+				}
+			case FlagSettingsLocal:
+				if source == argv.FromEnv {
+					cmdSettingsV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.Local = values[0] == "true"
+				}
+			case FlagSettingsToml:
+				if source == argv.FromEnv {
+					cmdSettingsV.Toml = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.Toml = values[0] == "true"
+				}
+			case FlagSettingsComplete:
+				if source == argv.FromEnv {
+					cmdSettingsV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.Complete = values[0] == "true"
+				}
+			case FlagSettingsJsonExtended:
+				if source == argv.FromEnv {
+					cmdSettingsV.JsonExtended = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsV.JsonExtended = values[0] == "true"
+				}
+			case ArgSettingsSetting:
+				cmdSettingsV.Setting = values[len(values)-1]
+			case ArgSettingsValue:
+				cmdSettingsV.Value = values[len(values)-1]
+			case FlagSettingsAddLocal:
+				if source == argv.FromEnv {
+					cmdSettingsAddV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsAddV.Local = values[0] == "true"
+				}
+			case ArgSettingsAddSetting:
+				cmdSettingsAddV.Setting = values[len(values)-1]
+			case ArgSettingsAddValue:
+				cmdSettingsAddV.Value = values[len(values)-1]
+			case FlagSettingsGetLocal:
+				if source == argv.FromEnv {
+					cmdSettingsGetV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsGetV.Local = values[0] == "true"
+				}
+			case ArgSettingsGetSetting:
+				cmdSettingsGetV.Setting = values[len(values)-1]
+			case FlagSettingsLsAll:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.All = values[0] == "true"
+				}
+			case FlagSettingsLsJson:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.Json = values[0] == "true"
+				}
+			case FlagSettingsLsLocal:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.Local = values[0] == "true"
+				}
+			case FlagSettingsLsToml:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.Toml = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.Toml = values[0] == "true"
+				}
+			case FlagSettingsLsComplete:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.Complete = values[0] == "true"
+				}
+			case FlagSettingsLsJsonExtended:
+				if source == argv.FromEnv {
+					cmdSettingsLsV.JsonExtended = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsLsV.JsonExtended = values[0] == "true"
+				}
+			case ArgSettingsLsSetting:
+				cmdSettingsLsV.Setting = values[len(values)-1]
+			case FlagSettingsSetLocal:
+				if source == argv.FromEnv {
+					cmdSettingsSetV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsSetV.Local = values[0] == "true"
+				}
+			case ArgSettingsSetSetting:
+				cmdSettingsSetV.Setting = values[len(values)-1]
+			case ArgSettingsSetValue:
+				cmdSettingsSetV.Value = values[len(values)-1]
+			case FlagSettingsUnsetLocal:
+				if source == argv.FromEnv {
+					cmdSettingsUnsetV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdSettingsUnsetV.Local = values[0] == "true"
+				}
+			case ArgSettingsUnsetKey:
+				cmdSettingsUnsetV.Key = values[len(values)-1]
+			case FlagShellJobs:
+				cmdShellV.Jobs = values[len(values)-1]
+			case FlagShellUnset:
+				if source == argv.FromEnv {
+					cmdShellV.Unset = argv.EnvTruth(values[0])
+				} else {
+					cmdShellV.Unset = values[0] == "true"
+				}
+			case FlagShellRaw:
+				if source == argv.FromEnv {
+					cmdShellV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdShellV.Raw = values[0] == "true"
+				}
+			case ArgShellToolVersion:
+				cmdShellV.ToolVersion = append(cmdShellV.ToolVersion, values...)
+			case FlagShellAliasNoHeader:
+				if source == argv.FromEnv {
+					cmdShellAliasV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdShellAliasV.NoHeader = values[0] == "true"
+				}
+			case ArgShellAliasGetShellAlias:
+				cmdShellAliasGetV.ShellAlias = values[len(values)-1]
+			case FlagShellAliasLsNoHeader:
+				if source == argv.FromEnv {
+					cmdShellAliasLsV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdShellAliasLsV.NoHeader = values[0] == "true"
+				}
+			case ArgShellAliasSetShellAlias:
+				cmdShellAliasSetV.ShellAlias = values[len(values)-1]
+			case ArgShellAliasSetCommand:
+				cmdShellAliasSetV.Command = values[len(values)-1]
+			case ArgShellAliasUnsetShellAlias:
+				cmdShellAliasUnsetV.ShellAlias = values[len(values)-1]
+			case FlagSyncNodeBrew:
+				if source == argv.FromEnv {
+					cmdSyncNodeV.Brew = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncNodeV.Brew = values[0] == "true"
+				}
+			case FlagSyncNodeNodenv:
+				if source == argv.FromEnv {
+					cmdSyncNodeV.Nodenv = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncNodeV.Nodenv = values[0] == "true"
+				}
+			case FlagSyncNodeNvm:
+				if source == argv.FromEnv {
+					cmdSyncNodeV.Nvm = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncNodeV.Nvm = values[0] == "true"
+				}
+			case FlagSyncPythonPyenv:
+				if source == argv.FromEnv {
+					cmdSyncPythonV.Pyenv = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncPythonV.Pyenv = values[0] == "true"
+				}
+			case FlagSyncPythonUv:
+				if source == argv.FromEnv {
+					cmdSyncPythonV.Uv = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncPythonV.Uv = values[0] == "true"
+				}
+			case FlagSyncRubyBrew:
+				if source == argv.FromEnv {
+					cmdSyncRubyV.Brew = argv.EnvTruth(values[0])
+				} else {
+					cmdSyncRubyV.Brew = values[0] == "true"
+				}
+			case FlagTasksGlobal:
+				if source == argv.FromEnv {
+					cmdTasksV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Global = values[0] == "true"
+				}
+			case FlagTasksJson:
+				if source == argv.FromEnv {
+					cmdTasksV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Json = values[0] == "true"
+				}
+			case FlagTasksLocal:
+				if source == argv.FromEnv {
+					cmdTasksV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Local = values[0] == "true"
+				}
+			case FlagTasksExtended:
+				if source == argv.FromEnv {
+					cmdTasksV.Extended = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Extended = values[0] == "true"
+				}
+			case FlagTasksAll:
+				if source == argv.FromEnv {
+					cmdTasksV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.All = values[0] == "true"
+				}
+			case FlagTasksComplete:
+				if source == argv.FromEnv {
+					cmdTasksV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Complete = values[0] == "true"
+				}
+			case FlagTasksHidden:
+				if source == argv.FromEnv {
+					cmdTasksV.Hidden = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Hidden = values[0] == "true"
+				}
+			case FlagTasksNameOnly:
+				if source == argv.FromEnv {
+					cmdTasksV.NameOnly = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.NameOnly = values[0] == "true"
+				}
+			case FlagTasksNoHeader:
+				if source == argv.FromEnv {
+					cmdTasksV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.NoHeader = values[0] == "true"
+				}
+			case FlagTasksSort:
+				cmdTasksV.Sort = values[len(values)-1]
+			case FlagTasksSortOrder:
+				cmdTasksV.SortOrder = values[len(values)-1]
+			case FlagTasksUsage:
+				if source == argv.FromEnv {
+					cmdTasksV.Usage = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksV.Usage = values[0] == "true"
+				}
+			case ArgTasksTask:
+				cmdTasksV.Task = values[len(values)-1]
+			case FlagTasksAddAlias:
+				cmdTasksAddV.Alias = append(cmdTasksAddV.Alias, values...)
+			case FlagTasksAddDepends:
+				cmdTasksAddV.Depends = append(cmdTasksAddV.Depends, values...)
+			case FlagTasksAddDir:
+				cmdTasksAddV.Dir = values[len(values)-1]
+			case FlagTasksAddFile:
+				if source == argv.FromEnv {
+					cmdTasksAddV.File = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksAddV.File = values[0] == "true"
+				}
+			case FlagTasksAddHide:
+				if source == argv.FromEnv {
+					cmdTasksAddV.Hide = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksAddV.Hide = values[0] == "true"
+				}
+			case FlagTasksAddQuiet:
+				if source == argv.FromEnv {
+					cmdTasksAddV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksAddV.Quiet = values[0] == "true"
+				}
+			case FlagTasksAddRaw:
+				if source == argv.FromEnv {
+					cmdTasksAddV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksAddV.Raw = values[0] == "true"
+				}
+			case FlagTasksAddSources:
+				cmdTasksAddV.Sources = append(cmdTasksAddV.Sources, values...)
+			case FlagTasksAddWaitFor:
+				cmdTasksAddV.WaitFor = append(cmdTasksAddV.WaitFor, values...)
+			case FlagTasksAddDependsPost:
+				cmdTasksAddV.DependsPost = append(cmdTasksAddV.DependsPost, values...)
+			case FlagTasksAddDescription:
+				cmdTasksAddV.Description = values[len(values)-1]
+			case FlagTasksAddOutputs:
+				cmdTasksAddV.Outputs = append(cmdTasksAddV.Outputs, values...)
+			case FlagTasksAddRunWindows:
+				cmdTasksAddV.RunWindows = values[len(values)-1]
+			case FlagTasksAddShell:
+				cmdTasksAddV.Shell = values[len(values)-1]
+			case FlagTasksAddSilent:
+				if source == argv.FromEnv {
+					cmdTasksAddV.Silent = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksAddV.Silent = values[0] == "true"
+				}
+			case ArgTasksAddTask:
+				cmdTasksAddV.Task = values[len(values)-1]
+			case ArgTasksAddRun:
+				cmdTasksAddV.Run = append(cmdTasksAddV.Run, values...)
+			case FlagTasksDepsCompact:
+				if source == argv.FromEnv {
+					cmdTasksDepsV.Compact = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksDepsV.Compact = values[0] == "true"
+				}
+			case FlagTasksDepsDot:
+				if source == argv.FromEnv {
+					cmdTasksDepsV.Dot = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksDepsV.Dot = values[0] == "true"
+				}
+			case FlagTasksDepsHidden:
+				if source == argv.FromEnv {
+					cmdTasksDepsV.Hidden = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksDepsV.Hidden = values[0] == "true"
+				}
+			case ArgTasksDepsTasks:
+				cmdTasksDepsV.Tasks = append(cmdTasksDepsV.Tasks, values...)
+			case FlagTasksEditPath:
+				if source == argv.FromEnv {
+					cmdTasksEditV.Path = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksEditV.Path = values[0] == "true"
+				}
+			case ArgTasksEditTask:
+				cmdTasksEditV.Task = values[len(values)-1]
+			case FlagTasksGraphJson:
+				if source == argv.FromEnv {
+					cmdTasksGraphV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksGraphV.Json = values[0] == "true"
+				}
+			case FlagTasksGraphExplain:
+				if source == argv.FromEnv {
+					cmdTasksGraphV.Explain = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksGraphV.Explain = values[0] == "true"
+				}
+			case FlagTasksGraphNoHeader:
+				if source == argv.FromEnv {
+					cmdTasksGraphV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksGraphV.NoHeader = values[0] == "true"
+				}
+			case FlagTasksInfoJson:
+				if source == argv.FromEnv {
+					cmdTasksInfoV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksInfoV.Json = values[0] == "true"
+				}
+			case ArgTasksInfoTask:
+				cmdTasksInfoV.Task = values[len(values)-1]
+			case FlagTasksLsGlobal:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Global = values[0] == "true"
+				}
+			case FlagTasksLsJson:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Json = values[0] == "true"
+				}
+			case FlagTasksLsLocal:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Local = values[0] == "true"
+				}
+			case FlagTasksLsExtended:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Extended = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Extended = values[0] == "true"
+				}
+			case FlagTasksLsAll:
+				if source == argv.FromEnv {
+					cmdTasksLsV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.All = values[0] == "true"
+				}
+			case FlagTasksLsComplete:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Complete = values[0] == "true"
+				}
+			case FlagTasksLsHidden:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Hidden = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Hidden = values[0] == "true"
+				}
+			case FlagTasksLsNameOnly:
+				if source == argv.FromEnv {
+					cmdTasksLsV.NameOnly = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.NameOnly = values[0] == "true"
+				}
+			case FlagTasksLsNoHeader:
+				if source == argv.FromEnv {
+					cmdTasksLsV.NoHeader = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.NoHeader = values[0] == "true"
+				}
+			case FlagTasksLsSort:
+				cmdTasksLsV.Sort = values[len(values)-1]
+			case FlagTasksLsSortOrder:
+				cmdTasksLsV.SortOrder = values[len(values)-1]
+			case FlagTasksLsUsage:
+				if source == argv.FromEnv {
+					cmdTasksLsV.Usage = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksLsV.Usage = values[0] == "true"
+				}
+			case FlagTasksRunAffected:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Affected = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Affected = values[0] == "true"
+				}
+			case FlagTasksRunAffectedBase:
+				cmdTasksRunV.AffectedBase = values[len(values)-1]
+			case FlagTasksRunAffectedExplain:
+				if source == argv.FromEnv {
+					cmdTasksRunV.AffectedExplain = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.AffectedExplain = values[0] == "true"
+				}
+			case FlagTasksRunAffectedHead:
+				cmdTasksRunV.AffectedHead = values[len(values)-1]
+			case FlagTasksRunAffectedJson:
+				if source == argv.FromEnv {
+					cmdTasksRunV.AffectedJson = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.AffectedJson = values[0] == "true"
+				}
+			case FlagTasksRunContinueOnError:
+				if source == argv.FromEnv {
+					cmdTasksRunV.ContinueOnError = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.ContinueOnError = values[0] == "true"
+				}
+			case FlagTasksRunCd:
+				cmdTasksRunV.Cd = values[len(values)-1]
+			case FlagTasksRunForce:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Force = values[0] == "true"
+				}
+			case FlagTasksRunJobs:
+				cmdTasksRunV.Jobs = values[len(values)-1]
+			case FlagTasksRunDryRun:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DryRun = values[0] == "true"
+				}
+			case FlagTasksRunOutput:
+				cmdTasksRunV.Output = values[len(values)-1]
+			case FlagTasksRunQuiet:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Quiet = values[0] == "true"
+				}
+			case FlagTasksRunRaw:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Raw = values[0] == "true"
+				}
+			case FlagTasksRunShell:
+				cmdTasksRunV.Shell = values[len(values)-1]
+			case FlagTasksRunSilent:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Silent = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Silent = values[0] == "true"
+				}
+			case FlagTasksRunTool:
+				cmdTasksRunV.Tool = append(cmdTasksRunV.Tool, values...)
+			case FlagTasksRunAllowEnv:
+				cmdTasksRunV.AllowEnv = append(cmdTasksRunV.AllowEnv, values...)
+			case FlagTasksRunAllowNet:
+				cmdTasksRunV.AllowNet = append(cmdTasksRunV.AllowNet, values...)
+			case FlagTasksRunAllowRead:
+				cmdTasksRunV.AllowRead = append(cmdTasksRunV.AllowRead, values...)
+			case FlagTasksRunAllowWrite:
+				cmdTasksRunV.AllowWrite = append(cmdTasksRunV.AllowWrite, values...)
+			case FlagTasksRunDenyAll:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DenyAll = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DenyAll = values[0] == "true"
+				}
+			case FlagTasksRunDenyEnv:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DenyEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DenyEnv = values[0] == "true"
+				}
+			case FlagTasksRunDenyNet:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DenyNet = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DenyNet = values[0] == "true"
+				}
+			case FlagTasksRunDenyRead:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DenyRead = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DenyRead = values[0] == "true"
+				}
+			case FlagTasksRunDenyWrite:
+				if source == argv.FromEnv {
+					cmdTasksRunV.DenyWrite = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.DenyWrite = values[0] == "true"
+				}
+			case FlagTasksRunFreshEnv:
+				if source == argv.FromEnv {
+					cmdTasksRunV.FreshEnv = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.FreshEnv = values[0] == "true"
+				}
+			case FlagTasksRunNoCache:
+				if source == argv.FromEnv {
+					cmdTasksRunV.NoCache = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.NoCache = values[0] == "true"
+				}
+			case FlagTasksRunNoDeps:
+				if source == argv.FromEnv {
+					cmdTasksRunV.NoDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.NoDeps = values[0] == "true"
+				}
+			case FlagTasksRunNoTimings:
+				if source == argv.FromEnv {
+					cmdTasksRunV.NoTimings = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.NoTimings = values[0] == "true"
+				}
+			case FlagTasksRunSkipDeps:
+				if source == argv.FromEnv {
+					cmdTasksRunV.SkipDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.SkipDeps = values[0] == "true"
+				}
+			case FlagTasksRunSkipTools:
+				if source == argv.FromEnv {
+					cmdTasksRunV.SkipTools = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.SkipTools = values[0] == "true"
+				}
+			case FlagTasksRunTaskCache:
+				cmdTasksRunV.TaskCache = values[len(values)-1]
+			case FlagTasksRunTaskCacheExplain:
+				if source == argv.FromEnv {
+					cmdTasksRunV.TaskCacheExplain = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.TaskCacheExplain = values[0] == "true"
+				}
+			case FlagTasksRunTaskCacheExplainJson:
+				if source == argv.FromEnv {
+					cmdTasksRunV.TaskCacheExplainJson = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.TaskCacheExplainJson = values[0] == "true"
+				}
+			case FlagTasksRunTaskCacheStats:
+				if source == argv.FromEnv {
+					cmdTasksRunV.TaskCacheStats = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.TaskCacheStats = values[0] == "true"
+				}
+			case FlagTasksRunTimeout:
+				cmdTasksRunV.Timeout = values[len(values)-1]
+			case FlagTasksRunTimings:
+				if source == argv.FromEnv {
+					cmdTasksRunV.Timings = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.Timings = values[0] == "true"
+				}
+			case ArgTasksRunTask:
+				cmdTasksRunV.Task = values[len(values)-1]
+			case ArgTasksRunArgs:
+				cmdTasksRunV.Args = append(cmdTasksRunV.Args, values...)
+			case ArgTasksRunArgsLast:
+				cmdTasksRunV.ArgsLast = append(cmdTasksRunV.ArgsLast, values...)
+			case FlagTasksValidateErrorsOnly:
+				if source == argv.FromEnv {
+					cmdTasksValidateV.ErrorsOnly = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksValidateV.ErrorsOnly = values[0] == "true"
+				}
+			case FlagTasksValidateJson:
+				if source == argv.FromEnv {
+					cmdTasksValidateV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksValidateV.Json = values[0] == "true"
+				}
+			case ArgTasksValidateTasks:
+				cmdTasksValidateV.Tasks = append(cmdTasksValidateV.Tasks, values...)
+			case FlagTestToolAll:
+				if source == argv.FromEnv {
+					cmdTestToolV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdTestToolV.All = values[0] == "true"
+				}
+			case FlagTestToolJobs:
+				cmdTestToolV.Jobs = values[len(values)-1]
+			case FlagTestToolAllConfig:
+				if source == argv.FromEnv {
+					cmdTestToolV.AllConfig = argv.EnvTruth(values[0])
+				} else {
+					cmdTestToolV.AllConfig = values[0] == "true"
+				}
+			case FlagTestToolIncludeNonDefined:
+				if source == argv.FromEnv {
+					cmdTestToolV.IncludeNonDefined = argv.EnvTruth(values[0])
+				} else {
+					cmdTestToolV.IncludeNonDefined = values[0] == "true"
+				}
+			case FlagTestToolRaw:
+				if source == argv.FromEnv {
+					cmdTestToolV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdTestToolV.Raw = values[0] == "true"
+				}
+			case ArgTestToolTools:
+				cmdTestToolV.Tools = append(cmdTestToolV.Tools, values...)
+			case FlagTokenForgejoUnmask:
+				if source == argv.FromEnv {
+					cmdTokenForgejoV.Unmask = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenForgejoV.Unmask = values[0] == "true"
+				}
+			case ArgTokenForgejoHost:
+				cmdTokenForgejoV.Host = values[len(values)-1]
+			case FlagTokenGithubOauth:
+				if source == argv.FromEnv {
+					cmdTokenGithubV.Oauth = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenGithubV.Oauth = values[0] == "true"
+				}
+			case FlagTokenGithubRaw:
+				if source == argv.FromEnv {
+					cmdTokenGithubV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenGithubV.Raw = values[0] == "true"
+				}
+			case FlagTokenGithubRefresh:
+				if source == argv.FromEnv {
+					cmdTokenGithubV.Refresh = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenGithubV.Refresh = values[0] == "true"
+				}
+			case FlagTokenGithubUnmask:
+				if source == argv.FromEnv {
+					cmdTokenGithubV.Unmask = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenGithubV.Unmask = values[0] == "true"
+				}
+			case ArgTokenGithubHost:
+				cmdTokenGithubV.Host = values[len(values)-1]
+			case FlagTokenGitlabUnmask:
+				if source == argv.FromEnv {
+					cmdTokenGitlabV.Unmask = argv.EnvTruth(values[0])
+				} else {
+					cmdTokenGitlabV.Unmask = values[0] == "true"
+				}
+			case ArgTokenGitlabHost:
+				cmdTokenGitlabV.Host = values[len(values)-1]
+			case FlagToolJson:
+				if source == argv.FromEnv {
+					cmdToolV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Json = values[0] == "true"
+				}
+			case FlagToolActive:
+				if source == argv.FromEnv {
+					cmdToolV.Active = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Active = values[0] == "true"
+				}
+			case FlagToolBackend:
+				if source == argv.FromEnv {
+					cmdToolV.Backend = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Backend = values[0] == "true"
+				}
+			case FlagToolConfigSource:
+				if source == argv.FromEnv {
+					cmdToolV.ConfigSource = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.ConfigSource = values[0] == "true"
+				}
+			case FlagToolDescription:
+				if source == argv.FromEnv {
+					cmdToolV.Description = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Description = values[0] == "true"
+				}
+			case FlagToolInstalled:
+				if source == argv.FromEnv {
+					cmdToolV.Installed = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Installed = values[0] == "true"
+				}
+			case FlagToolRequested:
+				if source == argv.FromEnv {
+					cmdToolV.Requested = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.Requested = values[0] == "true"
+				}
+			case FlagToolToolOptions:
+				if source == argv.FromEnv {
+					cmdToolV.ToolOptions = argv.EnvTruth(values[0])
+				} else {
+					cmdToolV.ToolOptions = values[0] == "true"
+				}
+			case ArgToolTool:
+				cmdToolV.Tool = values[len(values)-1]
+			case ArgToolStubFile:
+				cmdToolStubV.File = values[len(values)-1]
+			case ArgToolStubArgs:
+				cmdToolStubV.Args = append(cmdToolStubV.Args, values...)
+			case FlagTrustAll:
+				if source == argv.FromEnv {
+					cmdTrustV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdTrustV.All = values[0] == "true"
+				}
+			case FlagTrustIgnore:
+				if source == argv.FromEnv {
+					cmdTrustV.Ignore = argv.EnvTruth(values[0])
+				} else {
+					cmdTrustV.Ignore = values[0] == "true"
+				}
+			case FlagTrustShow:
+				if source == argv.FromEnv {
+					cmdTrustV.Show = argv.EnvTruth(values[0])
+				} else {
+					cmdTrustV.Show = values[0] == "true"
+				}
+			case FlagTrustUntrust:
+				if source == argv.FromEnv {
+					cmdTrustV.Untrust = argv.EnvTruth(values[0])
+				} else {
+					cmdTrustV.Untrust = values[0] == "true"
+				}
+			case ArgTrustConfigFile:
+				cmdTrustV.ConfigFile = values[len(values)-1]
+			case FlagUninstallAll:
+				if source == argv.FromEnv {
+					cmdUninstallV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdUninstallV.All = values[0] == "true"
+				}
+			case FlagUninstallDryRun:
+				if source == argv.FromEnv {
+					cmdUninstallV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdUninstallV.DryRun = values[0] == "true"
+				}
+			case FlagUninstallDryRunCode:
+				if source == argv.FromEnv {
+					cmdUninstallV.DryRunCode = argv.EnvTruth(values[0])
+				} else {
+					cmdUninstallV.DryRunCode = values[0] == "true"
+				}
+			case ArgUninstallInstalledToolVersion:
+				cmdUninstallV.InstalledToolVersion = append(cmdUninstallV.InstalledToolVersion, values...)
+			case FlagUnsetFile:
+				cmdUnsetV.File = values[len(values)-1]
+			case FlagUnsetGlobal:
+				if source == argv.FromEnv {
+					cmdUnsetV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdUnsetV.Global = values[0] == "true"
+				}
+			case ArgUnsetEnvKey:
+				cmdUnsetV.EnvKey = append(cmdUnsetV.EnvKey, values...)
+			case ArgUntrustConfigFile:
+				cmdUntrustV.ConfigFile = values[len(values)-1]
+			case FlagUnuseEnv:
+				cmdUnuseV.Env = values[len(values)-1]
+			case FlagUnuseGlobal:
+				if source == argv.FromEnv {
+					cmdUnuseV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdUnuseV.Global = values[0] == "true"
+				}
+			case FlagUnusePath:
+				cmdUnuseV.Path = values[len(values)-1]
+			case FlagUnuseNoPrune:
+				if source == argv.FromEnv {
+					cmdUnuseV.NoPrune = argv.EnvTruth(values[0])
+				} else {
+					cmdUnuseV.NoPrune = values[0] == "true"
+				}
+			case ArgUnuseInstalledToolVersion:
+				cmdUnuseV.InstalledToolVersion = append(cmdUnuseV.InstalledToolVersion, values...)
+			case FlagUpgradeInteractive:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Interactive = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Interactive = values[0] == "true"
+				}
+			case FlagUpgradeJobs:
+				cmdUpgradeV.Jobs = values[len(values)-1]
+			case FlagUpgradeBump:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Bump = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Bump = values[0] == "true"
+				}
+			case FlagUpgradeDryRun:
+				if source == argv.FromEnv {
+					cmdUpgradeV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.DryRun = values[0] == "true"
+				}
+			case FlagUpgradeExclude:
+				cmdUpgradeV.Exclude = append(cmdUpgradeV.Exclude, values...)
+			case FlagUpgradeDryRunCode:
+				if source == argv.FromEnv {
+					cmdUpgradeV.DryRunCode = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.DryRunCode = values[0] == "true"
+				}
+			case FlagUpgradeInactive:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Inactive = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Inactive = values[0] == "true"
+				}
+			case FlagUpgradeLocal:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Local = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Local = values[0] == "true"
+				}
+			case FlagUpgradeMinimumReleaseAge:
+				cmdUpgradeV.MinimumReleaseAge = values[len(values)-1]
+			case FlagUpgradeMonorepo:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Monorepo = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Monorepo = values[0] == "true"
+				}
+			case FlagUpgradeNoPrune:
+				if source == argv.FromEnv {
+					cmdUpgradeV.NoPrune = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.NoPrune = values[0] == "true"
+				}
+			case FlagUpgradeRaw:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Raw = values[0] == "true"
+				}
+			case ArgUpgradeInstalledToolVersion:
+				cmdUpgradeV.InstalledToolVersion = append(cmdUpgradeV.InstalledToolVersion, values...)
+			case FlagUseEnv:
+				cmdUseV.Env = values[len(values)-1]
+			case FlagUseForce:
+				if source == argv.FromEnv {
+					cmdUseV.Force = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.Force = values[0] == "true"
+				}
+			case FlagUseGlobal:
+				if source == argv.FromEnv {
+					cmdUseV.Global = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.Global = values[0] == "true"
+				}
+			case FlagUseJobs:
+				cmdUseV.Jobs = values[len(values)-1]
+			case FlagUseDryRun:
+				if source == argv.FromEnv {
+					cmdUseV.DryRun = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.DryRun = values[0] == "true"
+				}
+			case FlagUsePath:
+				cmdUseV.Path = values[len(values)-1]
+			case FlagUseDryRunCode:
+				if source == argv.FromEnv {
+					cmdUseV.DryRunCode = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.DryRunCode = values[0] == "true"
+				}
+			case FlagUseFuzzy:
+				if source == argv.FromEnv {
+					cmdUseV.Fuzzy = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.Fuzzy = values[0] == "true"
+				}
+			case FlagUseMinimumReleaseAge:
+				cmdUseV.MinimumReleaseAge = values[len(values)-1]
+			case FlagUsePin:
+				if source == argv.FromEnv {
+					cmdUseV.Pin = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.Pin = values[0] == "true"
+				}
+			case FlagUseRaw:
+				if source == argv.FromEnv {
+					cmdUseV.Raw = argv.EnvTruth(values[0])
+				} else {
+					cmdUseV.Raw = values[0] == "true"
+				}
+			case FlagUseRemove:
+				cmdUseV.Remove = append(cmdUseV.Remove, values...)
+			case ArgUseToolVersion:
+				cmdUseV.ToolVersion = append(cmdUseV.ToolVersion, values...)
+			case FlagVersionJson:
+				if source == argv.FromEnv {
+					cmdVersionV.Json = argv.EnvTruth(values[0])
+				} else {
+					cmdVersionV.Json = values[0] == "true"
+				}
+			case FlagWatchTaskFlag:
+				cmdWatchV.TaskFlag = append(cmdWatchV.TaskFlag, values...)
+			case FlagWatchGlob:
+				cmdWatchV.Glob = append(cmdWatchV.Glob, values...)
+			case FlagWatchSkipDeps:
+				if source == argv.FromEnv {
+					cmdWatchV.SkipDeps = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.SkipDeps = values[0] == "true"
+				}
+			case FlagWatchWatch:
+				cmdWatchV.Watch = append(cmdWatchV.Watch, values...)
+			case FlagWatchWatchNonRecursive:
+				cmdWatchV.WatchNonRecursive = append(cmdWatchV.WatchNonRecursive, values...)
+			case FlagWatchWatchFile:
+				cmdWatchV.WatchFile = values[len(values)-1]
+			case FlagWatchClear:
+				cmdWatchV.Clear = values[len(values)-1]
+			case FlagWatchOnBusyUpdate:
+				cmdWatchV.OnBusyUpdate = values[len(values)-1]
+			case FlagWatchRestart:
+				if source == argv.FromEnv {
+					cmdWatchV.Restart = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Restart = values[0] == "true"
+				}
+			case FlagWatchSignal:
+				cmdWatchV.Signal = values[len(values)-1]
+			case FlagWatchStopSignal:
+				cmdWatchV.StopSignal = values[len(values)-1]
+			case FlagWatchStopTimeout:
+				cmdWatchV.StopTimeout = values[len(values)-1]
+			case FlagWatchMapSignal:
+				cmdWatchV.MapSignal = append(cmdWatchV.MapSignal, values...)
+			case FlagWatchDebounce:
+				cmdWatchV.Debounce = values[len(values)-1]
+			case FlagWatchStdinQuit:
+				if source == argv.FromEnv {
+					cmdWatchV.StdinQuit = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.StdinQuit = values[0] == "true"
+				}
+			case FlagWatchNoVcsIgnore:
+				if source == argv.FromEnv {
+					cmdWatchV.NoVcsIgnore = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoVcsIgnore = values[0] == "true"
+				}
+			case FlagWatchNoProjectIgnore:
+				if source == argv.FromEnv {
+					cmdWatchV.NoProjectIgnore = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoProjectIgnore = values[0] == "true"
+				}
+			case FlagWatchNoGlobalIgnore:
+				if source == argv.FromEnv {
+					cmdWatchV.NoGlobalIgnore = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoGlobalIgnore = values[0] == "true"
+				}
+			case FlagWatchNoDefaultIgnore:
+				if source == argv.FromEnv {
+					cmdWatchV.NoDefaultIgnore = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoDefaultIgnore = values[0] == "true"
+				}
+			case FlagWatchNoDiscoverIgnore:
+				if source == argv.FromEnv {
+					cmdWatchV.NoDiscoverIgnore = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoDiscoverIgnore = values[0] == "true"
+				}
+			case FlagWatchIgnoreNothing:
+				if source == argv.FromEnv {
+					cmdWatchV.IgnoreNothing = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.IgnoreNothing = values[0] == "true"
+				}
+			case FlagWatchPostpone:
+				if source == argv.FromEnv {
+					cmdWatchV.Postpone = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Postpone = values[0] == "true"
+				}
+			case FlagWatchDelayRun:
+				cmdWatchV.DelayRun = values[len(values)-1]
+			case FlagWatchPoll:
+				cmdWatchV.Poll = values[len(values)-1]
+			case FlagWatchShell:
+				cmdWatchV.Shell = values[len(values)-1]
+			case FlagWatchN:
+				if source == argv.FromEnv {
+					cmdWatchV.N = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.N = values[0] == "true"
+				}
+			case FlagWatchEmitEventsTo:
+				cmdWatchV.EmitEventsTo = values[len(values)-1]
+			case FlagWatchOnlyEmitEvents:
+				if source == argv.FromEnv {
+					cmdWatchV.OnlyEmitEvents = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.OnlyEmitEvents = values[0] == "true"
+				}
+			case FlagWatchEnv:
+				cmdWatchV.Env = append(cmdWatchV.Env, values...)
+			case FlagWatchWrapProcess:
+				cmdWatchV.WrapProcess = values[len(values)-1]
+			case FlagWatchNotify:
+				if source == argv.FromEnv {
+					cmdWatchV.Notify = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Notify = values[0] == "true"
+				}
+			case FlagWatchColor:
+				cmdWatchV.Color = values[len(values)-1]
+			case FlagWatchTimings:
+				if source == argv.FromEnv {
+					cmdWatchV.Timings = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Timings = values[0] == "true"
+				}
+			case FlagWatchQuiet:
+				if source == argv.FromEnv {
+					cmdWatchV.Quiet = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Quiet = values[0] == "true"
+				}
+			case FlagWatchBell:
+				if source == argv.FromEnv {
+					cmdWatchV.Bell = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Bell = values[0] == "true"
+				}
+			case FlagWatchProjectOrigin:
+				cmdWatchV.ProjectOrigin = values[len(values)-1]
+			case FlagWatchWorkdir:
+				cmdWatchV.Workdir = values[len(values)-1]
+			case FlagWatchExts:
+				cmdWatchV.Exts = append(cmdWatchV.Exts, values...)
+			case FlagWatchFilter:
+				cmdWatchV.Filter = append(cmdWatchV.Filter, values...)
+			case FlagWatchFilterFile:
+				cmdWatchV.FilterFile = append(cmdWatchV.FilterFile, values...)
+			case FlagWatchFilterProg:
+				cmdWatchV.FilterProg = append(cmdWatchV.FilterProg, values...)
+			case FlagWatchIgnore:
+				cmdWatchV.Ignore = append(cmdWatchV.Ignore, values...)
+			case FlagWatchIgnoreFile:
+				cmdWatchV.IgnoreFile = append(cmdWatchV.IgnoreFile, values...)
+			case FlagWatchFsEvents:
+				cmdWatchV.FsEvents = append(cmdWatchV.FsEvents, values...)
+			case FlagWatchNoMeta:
+				if source == argv.FromEnv {
+					cmdWatchV.NoMeta = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.NoMeta = values[0] == "true"
+				}
+			case FlagWatchPrintEvents:
+				if source == argv.FromEnv {
+					cmdWatchV.PrintEvents = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.PrintEvents = values[0] == "true"
+				}
+			case FlagWatchManual:
+				if source == argv.FromEnv {
+					cmdWatchV.Manual = argv.EnvTruth(values[0])
+				} else {
+					cmdWatchV.Manual = values[0] == "true"
+				}
+			case ArgWatchTask:
+				cmdWatchV.Task = values[len(values)-1]
+			case ArgWatchArgs:
+				cmdWatchV.Args = append(cmdWatchV.Args, values...)
+			case ArgWhereToolVersion:
+				cmdWhereV.ToolVersion = values[len(values)-1]
+			case ArgWhereAsdfVersion:
+				cmdWhereV.AsdfVersion = values[len(values)-1]
+			case FlagWhichTool:
+				cmdWhichV.Tool = values[len(values)-1]
+			case FlagWhichComplete:
+				if source == argv.FromEnv {
+					cmdWhichV.Complete = argv.EnvTruth(values[0])
+				} else {
+					cmdWhichV.Complete = values[0] == "true"
+				}
+			case FlagWhichPlugin:
+				if source == argv.FromEnv {
+					cmdWhichV.Plugin = argv.EnvTruth(values[0])
+				} else {
+					cmdWhichV.Plugin = values[0] == "true"
+				}
+			case FlagWhichVersion:
+				if source == argv.FromEnv {
+					cmdWhichV.Version = argv.EnvTruth(values[0])
+				} else {
+					cmdWhichV.Version = values[0] == "true"
+				}
+			case ArgWhichBinName:
+				cmdWhichV.BinName = values[len(values)-1]
+			}
+		}
+	}
+	if err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {
+		return sources[k]
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
