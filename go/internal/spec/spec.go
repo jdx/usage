@@ -97,12 +97,23 @@ type NamedCmd struct {
 // UnmarshalJSON reads the object a key at a time, which is the only way to see
 // the order the keys were written in.
 func (s *Subcommands) UnmarshalJSON(data []byte) error {
+	// Into a list of its own, assigned at the end. A decoder is allowed to be
+	// handed a value that already holds something — decoding twice into the same
+	// Spec, or a Spec kept around and refilled — and appending to the receiver
+	// would leave the previous spec's commands in the table beside this one's.
+	// Assigning only on success is the other half: a spec that failed to decode
+	// should not have half-replaced the one that did.
+	var out Subcommands
+
 	dec := json.NewDecoder(bytes.NewReader(data))
 	tok, err := dec.Token()
 	if err != nil {
 		return err
 	}
+	// `null` is a command with no subcommands, and it replaces whatever was there
+	// rather than leaving it.
 	if tok == nil {
+		*s = nil
 		return nil
 	}
 	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
@@ -121,13 +132,14 @@ func (s *Subcommands) UnmarshalJSON(data []byte) error {
 		if err := dec.Decode(&cmd); err != nil {
 			return err
 		}
-		*s = append(*s, NamedCmd{Name: name, Cmd: cmd})
+		out = append(out, NamedCmd{Name: name, Cmd: cmd})
 	}
 	// The closing brace, so that a truncated object is an error rather than a
 	// short list.
 	if _, err := dec.Token(); err != nil {
 		return err
 	}
+	*s = out
 	return nil
 }
 

@@ -420,6 +420,39 @@ func TestSubcommandsKeepTheOrderTheyWereDeclaredIn(t *testing.T) {
 	}
 }
 
+// Decoding into a spec that already holds one replaces its commands.
+//
+// A decoder does not get to assume a fresh value: appending to the receiver would
+// leave the first spec's commands in the second spec's table, which is a parse
+// table describing a CLI that does not exist.
+func TestDecodingASecondSpecReplacesTheFirstsSubcommands(t *testing.T) {
+	var s Spec
+	first := `{"cmd":{"name":"ex","subcommands":{"run":{"name":"run"}}}}`
+	second := `{"cmd":{"name":"ex","subcommands":{"add":{"name":"add"}}}}`
+	if err := json.Unmarshal([]byte(first), &s); err != nil {
+		t.Fatalf("the first spec should decode: %v", err)
+	}
+	if err := json.Unmarshal([]byte(second), &s); err != nil {
+		t.Fatalf("the second spec should decode: %v", err)
+	}
+	var got []string
+	for _, sub := range s.Cmd.Subcommands {
+		got = append(got, sub.Name)
+	}
+	if want := []string{"add"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("the second spec's commands are all there is, got %v", got)
+	}
+
+	// And a command that says it has none says so, rather than keeping the last
+	// answer.
+	if err := json.Unmarshal([]byte(`{"cmd":{"subcommands":null}}`), &s); err != nil {
+		t.Fatalf("null should decode: %v", err)
+	}
+	if len(s.Cmd.Subcommands) != 0 {
+		t.Errorf("null is no subcommands, got %v", s.Cmd.Subcommands)
+	}
+}
+
 // A truncated object is an error rather than a short list: the decoder reads the
 // closing brace itself, so nothing else is there to notice.
 func TestATruncatedSubcommandObjectIsAnError(t *testing.T) {
