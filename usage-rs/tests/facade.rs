@@ -38,7 +38,9 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
         panic!("show command should be selected");
     };
     assert_eq!(show.file, Path::new("input.txt"));
-    assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+    let spec = Ex::to_kdl();
+    assert!(spec.contains("complete \"file\""), "{spec}");
+    assert!(spec.contains("type=\"path\""), "{spec}");
 }
 
 #[test]

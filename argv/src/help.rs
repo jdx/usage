@@ -110,6 +110,23 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
     out
 }
 
+/// Write the declared root synopsis when it has one, or infer the current command's shape.
+fn write_usage(
+    out: &mut String,
+    spec: &Spec<'_>,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    root: bool,
+) {
+    if root {
+        if let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty()) {
+            let _ = writeln!(out, "{}", usage.trim_end());
+            return;
+        }
+    }
+    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+}
+
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
 fn flag_usage(meta: &FlagMeta<'_>) -> String {
     flag_usage_masked(meta, &Shown::all(meta))
@@ -327,7 +344,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     if let Some(about) = about {
         let _ = writeln!(out, "{about}\n");
     }
-    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+    write_usage(&mut out, spec, path, meta, root);
 
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
     // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
@@ -668,7 +685,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
     if let Some(about) = about {
         let _ = writeln!(out, "{about}\n");
     }
-    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+    write_usage(&mut out, spec, path, meta, root);
 
     long_commands_section(&mut out, &path[1.min(path.len())..], meta);
 

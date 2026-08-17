@@ -253,31 +253,25 @@ enum VerbatimCommands {
 #[test]
 fn doc_comments_can_preserve_their_layout() {
     let spec: LibSpec = VerbatimComments::to_kdl().parse().expect("valid spec");
-    assert_eq!(
-        spec.about.as_deref(),
-        Some("First root line\nsecond root line")
-    );
+    assert_eq!(spec.about.as_deref(), Some("First root line"));
     assert_eq!(
         spec.about_long.as_deref(),
         Some("First root line\nsecond root line\n\n    root example")
     );
 
     let layout = spec.cmd.flags.iter().find(|f| f.name == "layout").unwrap();
-    assert_eq!(
-        layout.help.as_deref(),
-        Some("First field line\nsecond field line")
-    );
+    assert_eq!(layout.help.as_deref(), Some("First field line"));
     assert_eq!(
         layout.help_long.as_deref(),
         Some("First field line\nsecond field line\n\n    field example")
     );
 
     let paint = spec.cmd.subcommands.get("paint").expect("paint");
+    assert_eq!(paint.help.as_deref(), Some("First command line"));
     assert_eq!(
-        paint.help.as_deref(),
+        paint.help_long.as_deref(),
         Some("First command line\nsecond command line")
     );
-    assert!(paint.help_long.is_none());
 
     let argv = [
         std::ffi::OsStr::new("--layout"),
@@ -306,11 +300,11 @@ fn verbatim_multiline_doc_attributes_keep_their_indentation() {
     let spec: LibSpec = VerbatimAttributeComments::to_kdl()
         .parse()
         .expect("valid spec");
+    assert_eq!(spec.about.as_deref(), Some("Verbatim first line"));
     assert_eq!(
-        spec.about.as_deref(),
+        spec.about_long.as_deref(),
         Some("Verbatim first line\n    indented continuation")
     );
-    assert!(spec.about_long.is_none());
 }
 
 #[test]

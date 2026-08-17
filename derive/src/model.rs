@@ -248,6 +248,9 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
 }
 
 /// usage's path-oriented `ValueHint`s lowered into the completion types the spec has.
+///
+/// Only the final path segment is significant, so both `FilePath` and a qualified
+/// `usage::ValueHint::FilePath` are accepted.
 fn value_hint(meta: &Meta) -> syn::Result<String> {
     let value = &meta.require_name_value()?.value;
     let Expr::Path(path) = value else {
@@ -257,12 +260,11 @@ fn value_hint(meta: &Meta) -> syn::Result<String> {
              `value_hint = usage::ValueHint::FilePath`",
         ));
     };
-    let Some(variant) = path.path.segments.last() else {
-        return Err(syn::Error::new_spanned(
-            value,
-            "`value_hint` needs a variant",
-        ));
-    };
+    let variant = path
+        .path
+        .segments
+        .last()
+        .expect("a parsed expression path has a segment");
     match variant.ident.to_string().as_str() {
         "FilePath" | "AnyPath" => Ok("path".to_string()),
         "DirPath" => Ok("dir".to_string()),
@@ -2074,10 +2076,9 @@ fn doc_comment(
     }
 
     if verbatim {
-        let first_blank = lines.iter().position(|line| line.trim().is_empty());
-        let short_lines = first_blank.map_or(lines.as_slice(), |i| &lines[..i]);
-        let short = short_lines.join("\n");
-        let long = first_blank.map(|_| lines.join("\n"));
+        let full = lines.join("\n");
+        let short = lines.first().cloned().unwrap_or_default();
+        let long = (full != short).then_some(full);
         return Ok(((!short.is_empty()).then_some(short), long));
     }
 
@@ -2339,8 +2340,8 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden` and \
-                                 `verbatim_doc_comment` here, \
+                                 variant takes `name`, `alias`, `alias_hidden`, `hide`, \
+                                 `effect`, `help`, `long_help` and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));

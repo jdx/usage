@@ -66,6 +66,32 @@ fn the_long_and_short_forms_ask_for_different_pages() {
 }
 
 #[test]
+fn an_explicit_root_synopsis_is_used_by_both_help_forms() {
+    #[derive(Cli)]
+    #[usage(
+        bin = "forms",
+        usage = "Usage: forms <COMMAND>\n       forms --print-spec"
+    )]
+    #[allow(dead_code)]
+    struct Forms {
+        #[usage(subcommand)]
+        command: Commands,
+    }
+
+    for flag in ["-h", "--help"] {
+        let argv = [OsStr::new(flag)];
+        let Err(Error::Help { cmd, long }) = Forms::parse_from(&argv) else {
+            panic!("{flag} should request help");
+        };
+        let page = usage_argv::help::render(Forms::spec(), cmd, long).expect("the root page");
+        assert!(
+            page.contains("Usage: forms <COMMAND>\n       forms --print-spec"),
+            "{page}"
+        );
+    }
+}
+
+#[test]
 fn help_is_asked_about_the_command_the_words_reached() {
     // `ex ls --help` is a question about `ls`, not about `ex` — which is why the request carries
     // the command in scope rather than the root.

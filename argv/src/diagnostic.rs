@@ -828,6 +828,22 @@ mod tests {
     }
 
     #[test]
+    fn a_missing_subcommand_uses_the_declared_root_synopsis() {
+        static EXACT: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            usage: Some("Usage: ex <COMMAND>\n       ex --print-spec"),
+            root: &ROOT_META,
+            ..Spec::EMPTY
+        };
+        let message = render(&EXACT, &[], &Error::MissingSubcommand, Style::PLAIN);
+        assert!(
+            message.contains("Usage: ex <COMMAND>\n       ex --print-spec"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn a_missing_value_names_what_it_wanted() {
         // No usage block: the shape of the command line was right, one value was missing — which
         // is the distinction clap draws too.

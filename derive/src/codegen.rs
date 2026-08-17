@@ -18,28 +18,46 @@ use quote::{format_ident, quote};
 
 use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum};
 
+/// One package as the adopter depended on it, preferring the `usage-rs` facade.
+fn resolved_path(fallback: &str, facade_suffix: Option<&str>) -> TokenStream {
+    let with_suffix = |base: TokenStream| match facade_suffix {
+        Some(suffix) => {
+            let suffix = format_ident!("{suffix}");
+            quote!(#base::#suffix)
+        }
+        None => base,
+    };
+
+    match crate_name("usage-rs") {
+        // The facade aliases itself under its package name. Keeping one absolute path works
+        // both in the library target and in rustdoc's wrapper crate, where dependency lookup
+        // still reports `Itself` but `crate` names the wrapper rather than the facade.
+        Ok(FoundCrate::Itself) => with_suffix(quote!(::usage_rs)),
+        Ok(FoundCrate::Name(name)) => {
+            let facade = format_ident!("{}", name.replace('-', "_"));
+            with_suffix(quote!(::#facade))
+        }
+        Err(_) => match crate_name(fallback) {
+            Ok(FoundCrate::Name(name)) => {
+                let dependency = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#dependency)
+            }
+            // Preserve the useful compiler error naming the undeclared direct dependency.
+            _ => {
+                let dependency = format_ident!("{}", fallback.replace('-', "_"));
+                quote!(::#dependency)
+            }
+        },
+    }
+}
+
 /// The runtime as the adopter depended on it.
 ///
 /// A direct `usage-argv` dependency remains supported for the low-level crates and existing
 /// users. The `usage-rs` facade re-exports that runtime as `usage::argv`, which lets an
 /// application keep derives, tables, and their versions behind one dependency.
 fn runtime_path() -> TokenStream {
-    match crate_name("usage-rs") {
-        Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
-        Ok(FoundCrate::Name(name)) => {
-            let facade = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#facade::argv)
-        }
-        Err(_) => match crate_name("usage-argv") {
-            Ok(FoundCrate::Name(name)) => {
-                let runtime = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#runtime)
-            }
-            // Deriving inside an integration target of `usage-argv`, or preserving the old
-            // useful compiler error when neither dependency was declared.
-            _ => quote!(::usage_argv),
-        },
-    }
+    resolved_path("usage-argv", Some("argv"))
 }
 
 /// The derive package as the adopter depended on it.
@@ -48,20 +66,7 @@ fn runtime_path() -> TokenStream {
 /// struct, though, so that derive must come through the facade too when it is the application's
 /// only dependency.
 fn derive_path() -> TokenStream {
-    match crate_name("usage-rs") {
-        Ok(FoundCrate::Itself) => quote!(::usage_rs),
-        Ok(FoundCrate::Name(name)) => {
-            let facade = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#facade)
-        }
-        Err(_) => match crate_name("usage-derive") {
-            Ok(FoundCrate::Name(name)) => {
-                let derive = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#derive)
-            }
-            _ => quote!(::usage_derive),
-        },
-    }
+    resolved_path("usage-derive", None)
 }
 
 pub fn emit(cli: &Cli) -> TokenStream {
