@@ -134,3 +134,182 @@ func TestMetadataLinesUpWithTheParseTables(t *testing.T) {
 	}
 	walk(root)
 }
+
+// A relationship may name a flag the declaring command does not own.
+//
+// A global is in scope for everything beneath it, so `conflicts="--quiet"` on a
+// subcommand flag names the root's `--quiet`. Searching only the local flags left
+// the key unresolved and the rule silently unenforced — while usage-lib enforced
+// it, which is the kind of difference a generated CLI cannot afford.
+func TestARelationshipCanNameAnInheritedGlobal(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex",
+			Flags: []Flag{
+				{Name: "quiet", Long: []string{"quiet"}, Global: true},
+				// Not global, so not in scope below, and naming it must resolve to
+				// nothing rather than to something that will never be enforced.
+				{Name: "local", Long: []string{"local"}},
+			},
+			Subcommands: map[string]Cmd{
+				"run": {Name: "run", Flags: []Flag{
+					{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
+					{Name: "solo", Long: []string{"solo"}, Conflicts: []string{"--local"}},
+				}},
+			},
+		},
+	})
+
+	var quiet uint64
+	for _, f := range root.Flags {
+		if f.Name == "quiet" {
+			quiet = f.Key
+		}
+	}
+	run := root.Subcommands[0]
+
+	for _, f := range run.Flags {
+		m := meta.Lookup(f.Key)
+		switch f.Name {
+		case "loud":
+			if len(m.Conflicts) != 1 || m.Conflicts[0] != quiet {
+				t.Errorf("--loud should conflict with the root's --quiet, got %v", m.Conflicts)
+			}
+		case "solo":
+			if len(m.Conflicts) != 0 {
+				t.Errorf("--local is not global, so nothing should resolve: %v", m.Conflicts)
+			}
+		}
+	}
+}
+
+// A subcommand redeclaring an inherited name shadows it, here as at parse time.
+func TestALocalFlagShadowsTheGlobalOfTheSameName(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex",
+			Flags: []Flag{{Name: "quiet", Long: []string{"quiet"}, Global: true}},
+			Subcommands: map[string]Cmd{
+				"run": {Name: "run", Flags: []Flag{
+					{Name: "quiet", Long: []string{"quiet"}},
+					{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
+				}},
+			},
+		},
+	})
+
+	run := root.Subcommands[0]
+	var localQuiet uint64
+	for _, f := range run.Flags {
+		if f.Name == "quiet" {
+			localQuiet = f.Key
+		}
+	}
+	for _, f := range run.Flags {
+		if f.Name != "loud" {
+			continue
+		}
+		m := meta.Lookup(f.Key)
+		if len(m.Conflicts) != 1 || m.Conflicts[0] != localQuiet {
+			t.Errorf("should name run's own --quiet (%d), got %v", localQuiet, m.Conflicts)
+		}
+	}
+}
+
+// usage-lib treats `conflicts="--no-color"` as naming the `color` flag, and
+// reports the conflict whichever of the two spellings was typed — the
+// relationship is between entries, not tokens.
+func TestARelationshipCanNameANegation(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "color", Long: []string{"color"}, Negate: "--no-color"},
+			{Name: "plain", Long: []string{"plain"}, Conflicts: []string{"--no-color"}},
+		}},
+	})
+
+	var color uint64
+	for _, f := range root.Flags {
+		if f.Name == "color" {
+			color = f.Key
+		}
+	}
+	m := metaFor(t, meta, root, "plain")
+	if len(m.Conflicts) != 1 || m.Conflicts[0] != color {
+		t.Errorf("should resolve to the color flag (%d), got %v", color, m.Conflicts)
+	}
+}
+
+// A relationship names a flag by a form that flag actually has.
+//
+// usage-lib resolves neither `--q` for a short `-q` nor `-color` for a long
+// `--color`, so resolving them here would have a generated CLI enforcing a rule
+// the reference does not. A declaration naming the wrong form is a typo, and the
+// useful failure is the rule not existing.
+func TestARelationshipNeedsTheRightForm(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "quiet", Long: []string{"quiet"}, Short: []string{"q"}},
+			{Name: "color", Long: []string{"color"}},
+			{Name: "a", Long: []string{"a"}, Conflicts: []string{"--q"}},
+			{Name: "b", Long: []string{"b"}, Conflicts: []string{"-color"}},
+			{Name: "c", Long: []string{"c"}, Conflicts: []string{"-q"}},
+			{Name: "d", Long: []string{"d"}, Conflicts: []string{"--color"}},
+		}},
+	})
+
+	var quiet, color uint64
+	for _, f := range root.Flags {
+		switch f.Name {
+		case "quiet":
+			quiet = f.Key
+		case "color":
+			color = f.Key
+		}
+	}
+
+	for _, c := range []struct {
+		flag string
+		want []uint64
+	}{
+		{"a", nil},             // --q is not a long form of anything
+		{"b", nil},             // -color is not a short
+		{"c", []uint64{quiet}}, // -q is
+		{"d", []uint64{color}}, // --color is
+	} {
+		got := metaFor(t, meta, root, c.flag).Conflicts
+		if len(got) != len(c.want) || (len(got) == 1 && got[0] != c.want[0]) {
+			t.Errorf("--%s: want %v, got %v", c.flag, c.want, got)
+		}
+	}
+}
+
+// A negation is compared as the spec wrote it.
+//
+// `negate="-no-color"` is a form nobody can type as `--no-color`, and usage-lib
+// does not resolve a relationship naming the latter to the flag declaring the
+// former. Resolving it here would enforce a rule the reference does not.
+func TestANegationIsMatchedAsWritten(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "color", Long: []string{"color"}, Negate: "--no-color"},
+			{Name: "tint", Long: []string{"tint"}, Negate: "-no-tint"},
+			{Name: "a", Long: []string{"a"}, Conflicts: []string{"--no-color"}},
+			{Name: "b", Long: []string{"b"}, Conflicts: []string{"--no-tint"}},
+		}},
+	})
+	var color uint64
+	for _, f := range root.Flags {
+		if f.Name == "color" {
+			color = f.Key
+		}
+	}
+	if got := metaFor(t, meta, root, "a").Conflicts; len(got) != 1 || got[0] != color {
+		t.Errorf("--no-color should reach the color flag, got %v", got)
+	}
+	if got := metaFor(t, meta, root, "b").Conflicts; len(got) != 0 {
+		t.Errorf("--no-tint is not the form `-no-tint`, so nothing: got %v", got)
+	}
+}

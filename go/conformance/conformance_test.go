@@ -124,6 +124,13 @@ func TestCorpus(t *testing.T) {
 
 	t.Logf("%d vectors: %d answered, %d not yet", len(vectors), ran, skipped)
 
+	// The corpus is answered in full today. Asserted so that it stays a
+	// measurement: a vector that starts failing gets skipped by nobody, and one
+	// that gets quietly excluded shows up here.
+	if skipped != 0 {
+		t.Errorf("%d vectors were skipped; the whole corpus is meant to be answered", skipped)
+	}
+
 	// Asserted, so the unsupported set cannot quietly grow: a vector added to
 	// `notYet` without this being raised deliberately fails here instead.
 	if skipped != len(notYet) {
@@ -134,26 +141,15 @@ func TestCorpus(t *testing.T) {
 
 // Vectors this implementation does not answer yet, and why.
 //
-// By id rather than by inspecting the spec. Every one of these is a relationship
-// *between* flags, which needs a resolution step the cold table does not have
-// yet: a name in `conflicts` or `overrides` has to be turned into the entry it
-// refers to. Everything else the post-binding layer covers — required, choices,
-// env fallback, defaults, var_min, var_max — is a property of one entry and is
-// answered.
+// Empty, and kept rather than deleted: the whole corpus is answered today, and
+// the mechanism is what makes that a measurement instead of a claim. The count is
+// asserted against this map above, so a vector added here has to be added
+// deliberately, and one that stops being skipped without being removed fails.
 //
-// Listing ids is deliberately annoying. Inferring "has a `conflicts` in the spec"
-// would exempt vectors nobody meant to exempt — `overrides-loser-is-not-refilled-from-env`
-// is as much an env question as an overrides one — and the count above is asserted
-// so this list cannot rot into a way of hiding failures.
-var notYet = map[string]string{
-	"conflicts-both-given":                     "conflicts: a relationship between flags",
-	"conflicts-either-order":                   "conflicts: a relationship between flags",
-	"conflicts-one-side-from-env":              "conflicts: a relationship between flags",
-	"conflicts-both-sides-from-env":            "conflicts: a relationship between flags",
-	"overrides-last-wins":                      "overrides: a relationship between flags",
-	"overrides-loser-is-not-refilled-from-env": "overrides: a relationship between flags",
-	"required-unless-unsatisfied":              "required_unless: a relationship between flags",
-}
+// By id, if it ever refills. Inferring "has a `conflicts` in the spec" would
+// exempt vectors nobody meant to exempt: `overrides-loser-is-not-refilled-from-env`
+// is as much an env question as an overrides one.
+var notYet = map[string]string{}
 
 // note quotes the vector's own explanation on failure, and flags the ones where
 // usage-lib diverges from the grammar: those are the cases where matching the
@@ -184,8 +180,15 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 		values      []string
 		occurrences int
 		negated     bool
+		// Where this entry's last token sat, which `overrides` needs and nothing
+		// else does: it is the one rule decided by which of two flags came last.
+		at int
 	}
+	seen := 0
 	got := map[uint64]*bound{}
+	// Keys an override removed. They are absent from here on, including from the
+	// fallbacks, which is the whole point.
+	lost := map[uint64]bool{}
 	entry := func(key uint64) *bound {
 		if got[key] == nil {
 			got[key] = &bound{}
@@ -205,15 +208,19 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 			out := ev.Command
 			path = append(path, out)
 		case argv.KindFlag:
+			seen++
 			b := entry(ev.Flag.Key)
 			b.occurrences++
 			b.negated = ev.Negated
+			b.at = seen
 			if ev.HasValue {
 				b.values = append(b.values, ev.Value)
 			}
 		case argv.KindArg:
+			seen++
 			b := entry(ev.Arg.Key)
 			b.occurrences++
+			b.at = seen
 			b.values = append(b.values, ev.Value)
 		}
 	}
@@ -241,52 +248,113 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 		return v, ok
 	}
 
-	for _, cmd := range path {
-		for _, f := range cmd.Flags {
-			b := got[f.Key]
-			m := meta.Lookup(f.Key)
+	// Overrides first, and before anything fills from `env` or `default`: a flag
+	// that lost is not merely unset, and refilling it afterwards would leave both
+	// standing and undo the last-one-wins.
+	order := map[uint64]int{}
+	for key, b := range got {
+		order[key] = b.at
+	}
+	for key := range argv.ApplyOverrides(meta, order) {
+		delete(got, key)
+		lost[key] = true
+	}
 
-			var given []string
-			if b != nil && (len(b.values) > 0 || !f.TakesValue) {
-				// A value-less flag that was given has no values, and `nil` would
-				// read as "the command line said nothing" — so the empty slice is
-				// the distinction.
-				given = b.values
-				if given == nil {
-					given = []string{}
-				}
-			}
-			values, source := argv.Fill(m, given, lookup)
-			occurrences := 0
-			if b != nil {
-				occurrences = b.occurrences
-			}
-			if err := argv.Check(m, values, occurrences); err != nil {
-				return nil, err
-			}
-			if v, ok := renderFlag(f, m, multi, values, source, b != nil && b.negated,
-				occurrences); ok {
-				out.Flags[f.Name] = v
+	// The fallbacks are applied to everything in scope before anything is judged,
+	// because the rules that compare two entries need both of their final states —
+	// and `conflicts` in particular asks only whether a flag has a value, not how
+	// it got one.
+	type resolved struct {
+		flag        *argv.Flag
+		arg         *argv.Arg
+		values      []string
+		source      argv.Source
+		occurrences int
+		negated     bool
+	}
+	final := map[uint64]*resolved{}
+	var scope []uint64
+
+	fill := func(key uint64, takesValue bool) *resolved {
+		b := got[key]
+		var given []string
+		if b != nil && (len(b.values) > 0 || !takesValue) {
+			// A value-less flag that was given has no values, and nil would read as
+			// "the command line said nothing" — so the empty slice is the
+			// distinction.
+			given = b.values
+			if given == nil {
+				given = []string{}
 			}
 		}
-		for _, a := range cmd.Args {
-			b := got[a.Key]
-			m := meta.Lookup(a.Key)
-			var given []string
-			if b != nil {
-				given = b.values
-			}
-			values, _ := argv.Fill(m, given, lookup)
-			if err := argv.Check(m, values, 0); err != nil {
-				return nil, err
-			}
-			if len(values) == 0 {
+		r := &resolved{}
+		r.values, r.source = argv.Fill(meta.Lookup(key), given, lookup)
+		if b != nil {
+			r.occurrences = b.occurrences
+			r.negated = b.negated
+		}
+		final[key] = r
+		scope = append(scope, key)
+		return r
+	}
+
+	for _, cmd := range path {
+		for _, f := range cmd.Flags {
+			// A flag that lost an override is out of the running rather than
+			// merely absent: it is not filled from `env` or `default`, and it is
+			// not judged either. A `required` loser reported as missing would undo
+			// the last-one-wins the user asked for by typing the other flag, and
+			// usage-lib skips overridden flags in the requirement pass for exactly
+			// that reason.
+			if lost[f.Key] {
 				continue
 			}
-			if a.Var {
-				out.Args[a.Name] = toList(values)
+			fill(f.Key, f.TakesValue).flag = f
+		}
+		for _, a := range cmd.Args {
+			fill(a.Key, true).arg = a
+		}
+	}
+
+	// What one entry ended up with, judged on its own.
+	for _, key := range scope {
+		r := final[key]
+		occurrences := r.occurrences
+		if r.arg != nil {
+			occurrences = 0
+		}
+		if err := argv.Check(meta.Lookup(key), r.values, occurrences); err != nil {
+			return nil, err
+		}
+	}
+
+	// Then the rules that read one entry to judge another.
+	sourceOf := func(key uint64) argv.Source {
+		if r := final[key]; r != nil {
+			return r.source
+		}
+		return argv.Unset
+	}
+	if err := argv.CheckRelationships(meta, scope, sourceOf); err != nil {
+		return nil, err
+	}
+
+	for _, key := range scope {
+		r := final[key]
+		switch {
+		case r.flag != nil:
+			if v, ok := renderFlag(r.flag, multi, r.values, r.source, r.negated,
+				r.occurrences); ok {
+				out.Flags[r.flag.Name] = v
+			}
+		case r.arg != nil:
+			if len(r.values) == 0 {
+				continue
+			}
+			if r.arg.Var {
+				out.Args[r.arg.Name] = toList(r.values)
 			} else {
-				out.Args[a.Name] = values[len(values)-1]
+				out.Args[r.arg.Name] = r.values[len(r.values)-1]
 			}
 		}
 	}
@@ -295,7 +363,7 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 
 // renderFlag turns what a flag ended up with into the shape the corpus records,
 // which depends on what the flag is rather than on where the value came from.
-func renderFlag(f *argv.Flag, m *argv.Meta, multi map[string]spec.Multi,
+func renderFlag(f *argv.Flag, multi map[string]spec.Multi,
 	values []string, source argv.Source, negated bool, occurrences int) (interface{}, bool) {
 
 	if !f.TakesValue {

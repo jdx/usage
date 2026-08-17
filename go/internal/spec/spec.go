@@ -74,7 +74,12 @@ type Flag struct {
 	Required bool     `json:"required"`
 	Default  []string `json:"default"`
 	Env      string   `json:"env"`
-	Arg      *Arg     `json:"arg"`
+	// The four that name another flag. They arrive as written, dashes included.
+	Conflicts      []string `json:"conflicts"`
+	Overrides      []string `json:"overrides"`
+	RequiredIf     []string `json:"required_if"`
+	RequiredUnless []string `json:"required_unless"`
+	Arg            *Arg     `json:"arg"`
 }
 
 // choices for a flag are declared on the value it takes, not on the flag.
@@ -219,9 +224,29 @@ type builder struct {
 	// meta grows in step with the keys, so entry `Key` lands at `meta[Key-1]` and
 	// a lookup is an index.
 	meta argv.Metadata
+	// scope is the chain above the command being built, so a relationship can
+	// name an inherited global. Ancestors only: a command cannot see its own
+	// children's flags, and neither can a declaration.
+	scope []*argv.Command
+	// negation holds each flag's `negate` exactly as the spec wrote it, dashes
+	// included. The parse table stores it bare, because that is what the parser
+	// has after stripping the `--`; a relationship names a *form*, so comparing
+	// it needs the original. A spec declaring `negate="-no-color"` is not named
+	// by `--no-color`, and usage-lib does not resolve it either.
+	negation map[uint64]string
 }
 
 // record files an entry's cold half at the position its key indexes.
+func (b *builder) recordNegation(key uint64, raw string) {
+	if raw == "" {
+		return
+	}
+	if b.negation == nil {
+		b.negation = map[uint64]string{}
+	}
+	b.negation[key] = raw
+}
+
 func (b *builder) record(key uint64, m argv.Meta) {
 	m.Key = key
 	for uint64(len(b.meta)) < key {
@@ -261,11 +286,127 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	for i := range c.Args {
 		out.Args = append(out.Args, b.arg(&c.Args[i]))
 	}
+	// After the flags, because a relationship names a sibling and every sibling
+	// needs a key before any of them can be pointed at.
+	b.resolveRelationships(c, out)
+	// In scope for everything below, and out of scope again afterwards.
+	b.scope = append(b.scope, out)
 	for _, name := range sortedKeys(c.Subcommands) {
 		sub := c.Subcommands[name]
 		out.Subcommands = append(out.Subcommands, b.command(&sub, unknown))
 	}
+	b.scope = b.scope[:len(b.scope)-1]
 	return out
+}
+
+// resolveRelationships turns the names in `conflicts`, `overrides`,
+// `required_if` and `required_unless` into the keys they refer to.
+//
+// Done here, where the whole command is visible, so that nothing downstream has
+// to search by name on a path where it would be repeating the work per parse.
+//
+// The names arrive as they are written — `--stdin`, dashes and all — so they are
+// matched against a flag's long forms, its shorts and the name the spec gives it.
+// A name nothing answers to is dropped rather than guessed at; the generator is
+// where that should be reported, since it is the one a spec author runs.
+func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
+	find := func(name string) (uint64, bool) {
+		// This command's own flags first, then any ancestor's globals — the same
+		// scope a token has, and in the same order, so a subcommand redeclaring an
+		// inherited name shadows it here exactly as it does at parse time.
+		//
+		// Searching only locally was a silent hole: `conflicts="--quiet"` on a
+		// subcommand flag, where `--quiet` is a root global, resolved to nothing
+		// and the rule was simply never enforced. usage-lib enforces it.
+		if key, ok := b.matchFlag(out.Flags, name, false); ok {
+			return key, true
+		}
+		for i := len(b.scope) - 1; i >= 0; i-- {
+			if key, ok := b.matchFlag(b.scope[i].Flags, name, true); ok {
+				return key, true
+			}
+		}
+		return 0, false
+	}
+	resolve := func(names []string) []uint64 {
+		var out []uint64
+		for _, name := range names {
+			if key, ok := find(name); ok {
+				out = append(out, key)
+			}
+		}
+		return out
+	}
+
+	// `c.Flags` and `out.Flags` are built in step, so the index is the join.
+	for i := range c.Flags {
+		src := &c.Flags[i]
+		m := &b.meta[out.Flags[i].Key-1]
+		m.Conflicts = resolve(src.Conflicts)
+		m.Overrides = resolve(src.Overrides)
+		m.RequiredUnless = resolve(src.RequiredUnless)
+		m.RequiredIf = resolve(src.RequiredIf)
+	}
+}
+
+// matchFlag finds a flag by any spelling a declaration may use for it.
+//
+// The negation counts, and resolves to the same entry: usage-lib treats
+// `conflicts="--no-color"` as naming the `color` flag, and reports the conflict
+// whichever of the two spellings was typed. The relationship is between entries
+// rather than between tokens, which is what this key model already assumes.
+func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool) {
+	// The form is part of the name. `--q` does not reach the short `-q`, and
+	// `-color` does not reach the long `--color`: usage-lib resolves neither, and
+	// resolving them here would have a generated CLI enforcing a rule the
+	// reference does not. A declaration that names a flag by the wrong form is a
+	// typo, and the useful failure is the rule not existing rather than a rule
+	// nobody wrote.
+	long, short, bare := "", byte(0), ""
+	switch {
+	case strings.HasPrefix(name, "--"):
+		long = name[2:]
+	case strings.HasPrefix(name, "-") && len(name) == 2:
+		short = name[1]
+	case !strings.HasPrefix(name, "-"):
+		// Undashed, which is the name the spec gives the flag rather than a form
+		// it can be typed as.
+		bare = name
+	}
+	if long == "" && short == 0 && bare == "" {
+		return 0, false
+	}
+
+	for _, f := range flags {
+		if globalsOnly && !f.Global {
+			continue
+		}
+		if bare != "" && f.Name == bare {
+			return f.Key, true
+		}
+		if long != "" {
+			// The negation is a form of the flag it belongs to and names the same
+			// entry: usage-lib reports a conflict declared against `--no-color`
+			// whichever of the two spellings was typed. Compared as written, so a
+			// `negate="-no-color"` is not reached by `--no-color`.
+			if b.negation[f.Key] == name {
+				return f.Key, true
+			}
+			for _, l := range f.Longs {
+				if l == long {
+					return f.Key, true
+				}
+			}
+		}
+		if short != 0 {
+			for _, s := range f.Shorts {
+				if s == short {
+					return f.Key, true
+				}
+			}
+		}
+	}
+	return 0, false
 }
 
 func (b *builder) flag(f *Flag) *argv.Flag {
@@ -277,6 +418,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		TakesValue: f.Arg != nil,
 		Global:     f.Global,
 	}
+	b.recordNegation(out.Key, f.Negate)
 	for _, s := range f.Short {
 		if s != "" {
 			// One byte: a cluster is walked a byte at a time, so a multi-byte short
