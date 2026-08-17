@@ -7,12 +7,15 @@
 //!
 //! # What it emits, and what it does not
 //!
-//! Binding tables only — which token becomes which flag or argument. Help text,
-//! choices, defaults, `env`, and every other thing that needs a value's type are
-//! deliberately absent, for the same reason they are absent from the Rust hot
-//! path: a successful parse never touches them, and a table that carried them
-//! would put mise's several hundred kilobytes of help strings in front of the
-//! parser. They belong in a second, cold table, which is a separate piece of work.
+//! Two tables, kept apart on purpose. The hot one is what binding reads: which
+//! token becomes which flag or argument, and nothing else. The cold one — `Meta` —
+//! carries what the rules decided after the last token need: `required`,
+//! `choices`, `default`, `env`, the var bounds, and the four that compare one
+//! entry against another. A parse never touches the second.
+//!
+//! Help text is in neither. mise's runs to several hundred kilobytes, and a table
+//! carrying it would put all of that in front of the parser; rendering help is its
+//! own cold table and its own piece of work.
 //!
 //! # Why package-level `var` and not `const`
 //!
@@ -27,7 +30,7 @@
 //! because `default_subcommand` has to point at a node inside the tree, and a
 //! composite literal cannot refer to its own interior.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 
 use heck::AsPascalCase;
@@ -145,6 +148,7 @@ impl<'a> Emitter<'a> {
         self.header();
         self.constants(&commands);
         self.tables(&commands);
+        self.metadata(&commands);
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -378,6 +382,251 @@ impl<'a> Emitter<'a> {
             let _ = writeln!(self.out, "}}\n");
         }
     }
+}
+
+impl Emitter<'_> {
+    /// Emit the cold table: everything binding deliberately does not know.
+    ///
+    /// Indexed by key, which is what makes a lookup an index rather than a map —
+    /// and a Go map would have to be built at init, which is the one thing these
+    /// tables are for avoiding. Keys are handed out to commands as well as to
+    /// flags and arguments, and a command has no cold half, so its slot is an
+    /// empty entry rather than a gap: `Metadata.Lookup` checks the key it finds
+    /// and reports nothing when it does not match, so an empty slot answers
+    /// correctly and the index stays dense.
+    fn metadata(&mut self, commands: &[Emitted]) {
+        // By key, so the slice can be written in one pass in index order.
+        let mut by_key: BTreeMap<u64, String> = BTreeMap::new();
+        for e in commands {
+            for (flag, named) in &e.flags {
+                by_key.insert(named.number, self.flag_meta(flag, named, e, commands));
+            }
+            for (arg, named) in &e.args {
+                by_key.insert(named.number, arg_meta(arg, named));
+            }
+        }
+
+        let total = commands
+            .iter()
+            .map(|e| 1 + e.flags.len() + e.args.len())
+            .sum::<usize>() as u64;
+
+        let _ = writeln!(
+            self.out,
+            "// Meta is the cold table, read only by the rules that are decided once the\n\
+             // last token has been read: required, choices, the env-then-default fallback,\n\
+             // the var bounds, and the four that compare one entry against another. A parse\n\
+             // never touches it.\n\
+             //\n\
+             // Indexed by key, so entry Key sits at Meta[Key-1]. A command's slot is empty:\n\
+             // commands take keys too, and have no cold half.\n\
+             var Meta = argv.Metadata{{"
+        );
+        for key in 1..=total {
+            match by_key.get(&key) {
+                Some(entry) => {
+                    let _ = writeln!(self.out, "\t{entry},");
+                }
+                None => {
+                    let _ = writeln!(self.out, "\t{{}},");
+                }
+            }
+        }
+        let _ = writeln!(self.out, "}}\n");
+    }
+
+    /// The cold half of a flag.
+    fn flag_meta(
+        &self,
+        flag: &SpecFlag,
+        named: &Named,
+        owner: &Emitted,
+        commands: &[Emitted],
+    ) -> String {
+        let mut fields = vec![
+            format!("Key: {}", named.key),
+            format!("Name: {}", go_string(&flag.name)),
+            "Flag: true".to_string(),
+        ];
+        if flag.required {
+            fields.push("Required: true".to_string());
+        }
+        // Written on the value a flag takes, never on the flag.
+        if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
+            fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+        }
+        // A default can be written in either place, and usage-lib falls back to
+        // the one on the value. `env` deliberately does not follow the same
+        // nesting, because usage-lib does not read it there either.
+        let default = if !flag.default.is_empty() {
+            &flag.default
+        } else {
+            flag.arg
+                .as_ref()
+                .map(|a| &a.default)
+                .unwrap_or(&flag.default)
+        };
+        if !default.is_empty() {
+            fields.push(format!("Default: {}", string_slice(default)));
+        }
+        if let Some(env) = &flag.env {
+            fields.push(format!("Env: {}", go_string(env)));
+        }
+        if let Some(min) = flag.var_min {
+            fields.push(format!("VarMin: {}", clamp_var_max(min)));
+        }
+        // Occurrences. The per-occurrence value bound is a limit binding applies
+        // and lives on the parse table.
+        if let Some(max) = flag.var_max {
+            fields.push(format!("VarMax: {}", clamp_var_max(max)));
+        }
+
+        for (label, names) in [
+            ("Conflicts", &flag.conflicts),
+            ("Overrides", &flag.overrides),
+            ("RequiredUnless", &flag.required_unless),
+            ("RequiredIf", &flag.required_if),
+        ] {
+            let keys = resolve_relationship(names, owner, commands);
+            if !keys.is_empty() {
+                fields.push(format!("{label}: {}", key_slice(&keys)));
+            }
+        }
+
+        format!("{{{}}}", fields.join(", "))
+    }
+}
+
+/// The cold half of a positional argument.
+fn arg_meta(arg: &SpecArg, named: &Named) -> String {
+    let mut fields = vec![
+        format!("Key: {}", named.key),
+        format!("Name: {}", go_string(&arg.name)),
+    ];
+    if arg.required {
+        fields.push("Required: true".to_string());
+    }
+    if let Some(choices) = &arg.choices {
+        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+    }
+    if !arg.default.is_empty() {
+        fields.push(format!("Default: {}", string_slice(&arg.default)));
+    }
+    if let Some(env) = &arg.env {
+        fields.push(format!("Env: {}", go_string(env)));
+    }
+    if let Some(min) = arg.var_min {
+        fields.push(format!("VarMin: {}", clamp_var_max(min)));
+    }
+    // No VarMax: for an argument the bound is a limit binding applies, which is
+    // what makes `[a]… [b]` fillable at all, so judging it again would fail an
+    // invocation that never broke it.
+    format!("{{{}}}", fields.join(", "))
+}
+
+/// Turn the names in a relationship into the keys they refer to.
+///
+/// Resolved here, where the whole command is visible, so that nothing downstream
+/// searches by name on a path it would repeat per parse. The names arrive as
+/// written — `--stdin`, dashes and all — so they are matched against a flag's long
+/// forms, its shorts, and the name the spec gives it.
+///
+/// A name nothing answers to is dropped. That is a spec bug worth reporting, but
+/// this function has no way to; the check belongs beside the duplicate-form and
+/// duplicate-key checks that already run where the whole tree is visible.
+fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted]) -> Vec<String> {
+    let mut out = Vec::new();
+    for name in names {
+        // The declaring command's own flags first, then any ancestor's globals —
+        // the scope a token has, in the order a token gets it, so a subcommand
+        // redeclaring an inherited name shadows it here as it does at parse time.
+        let mut found = match_flag(owner, name, false);
+        if found.is_none() {
+            let path = &owner.cmd.full_cmd;
+            for depth in (0..path.len()).rev() {
+                let ancestor = commands
+                    .iter()
+                    .find(|e| e.cmd.full_cmd.len() == depth && e.cmd.full_cmd[..] == path[..depth]);
+                if let Some(key) = ancestor.and_then(|a| match_flag(a, name, true)) {
+                    found = Some(key);
+                    break;
+                }
+            }
+        }
+        if let Some(key) = found {
+            out.push(key);
+        }
+    }
+    out
+}
+
+/// Find a flag by any spelling a declaration may use for it.
+///
+/// The negation counts, and resolves to the same entry: usage-lib treats
+/// `conflicts = "--no-color"` as naming the `color` flag and reports the conflict
+/// whichever of the two spellings was typed. The relationship is between entries
+/// rather than between tokens, which is what the key model already assumes.
+fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
+    // Two passes, in the order the parser itself looks: every ordinary form
+    // first, then negations.
+    //
+    // That order is not a nicety. The parser tries every long form before it
+    // tries any negation, so with `--a` declaring `negate = "--zap"` and a
+    // separate `--zap`, typing `--zap` binds *zap*. A per-candidate search hands
+    // the relationship to `a`, and the table then enforces a rule against a flag
+    // the command line never binds. The table has to agree with the binder it
+    // feeds.
+    let eligible = |flag: &SpecFlag| !globals_only || flag.global;
+
+    // The form is part of the name: `--q` does not reach the short `-q`, and
+    // `-color` does not reach the long `--color`. usage-lib resolves neither.
+    let (long, short, bare) = if let Some(rest) = name.strip_prefix("--") {
+        (Some(rest), None, None)
+    } else if let Some(rest) = name.strip_prefix('-') {
+        let mut chars = rest.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => (None, Some(c), None),
+            _ => (None, None, None),
+        }
+    } else {
+        (None, None, Some(name))
+    };
+
+    let ordinary = cmd.flags.iter().find(|(flag, _)| {
+        if !eligible(flag) {
+            return false;
+        }
+        if let Some(bare) = bare {
+            return flag.name == bare;
+        }
+        if let Some(long) = long {
+            return flag.long.iter().any(|l| l == long);
+        }
+        short.is_some_and(|c| flag.short.contains(&c))
+    });
+    if let Some((_, named)) = ordinary {
+        return Some(named.key.clone());
+    }
+
+    // Negations, compared exactly as both sides were written — dashes included.
+    // `negate = "-no-tint"` is named by `-no-tint` and not by `--no-tint`, and
+    // usage-lib resolves it that way round too.
+    cmd.flags
+        .iter()
+        .find(|(flag, _)| eligible(flag) && flag.negate.as_deref() == Some(name))
+        .map(|(_, named)| named.key.clone())
+}
+fn string_slice(values: &[String]) -> String {
+    let list = values
+        .iter()
+        .map(|v| go_string(v))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[]string{{{list}}}")
+}
+
+fn key_slice(keys: &[String]) -> String {
+    format!("[]uint64{{{}}}", keys.join(", "))
 }
 
 /// A line inside a `const` block or a composite literal.
@@ -897,6 +1146,142 @@ flag "--tag <t>" var=#true var_max=1
         );
         let tag = out.lines().find(|l| l.contains("\"tag\"")).unwrap();
         assert!(!tag.contains("VarMax"), "occurrence bound leaked: {tag}");
+    }
+
+    /// A relationship names a flag by any spelling that reaches it, and from
+    /// anywhere the flag is in scope.
+    ///
+    /// Both halves were silently resolving to nothing, which is worse than an
+    /// error: the rule simply never fired, while usage-lib enforced it.
+    #[test]
+    fn a_relationship_resolves_through_scope_and_negation() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--quiet" global=#true
+flag "--color" negate="--no-color"
+flag "--plain" conflicts="--no-color"
+cmd "run" {
+    flag "--loud" conflicts="--quiet"
+    flag "--solo" conflicts="--plain"
+}
+"#);
+        // A negation names the flag it belongs to.
+        assert!(
+            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+        // An inherited global is in scope from below.
+        assert!(
+            out.contains("Name: \"loud\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
+            "{out}"
+        );
+        // `--plain` is not global, so from a subcommand it names nothing — the
+        // other half, and the one a looser search would get wrong.
+        assert!(
+            out.contains("{Key: FlagRunSolo, Name: \"solo\", Flag: true},"),
+            "a non-global should not resolve from below:\n{out}"
+        );
+    }
+
+    /// The form is part of the name, and usage-lib resolves neither of the
+    /// mismatched ones — so resolving them would have a generated CLI enforcing a
+    /// rule the reference does not.
+    #[test]
+    fn a_relationship_needs_the_right_form() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "-q --quiet"
+flag "--color"
+flag "--a" conflicts="--q"
+flag "--b" conflicts="-color"
+flag "--c" conflicts="-q"
+flag "--d" conflicts="--color"
+"#);
+        // `--q` is not a long form of anything, and `-color` is not a short.
+        assert!(
+            out.contains("{Key: FlagA, Name: \"a\", Flag: true},"),
+            "{out}"
+        );
+        assert!(
+            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
+            "{out}"
+        );
+        // The forms the flags actually have.
+        assert!(
+            out.contains("Name: \"c\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
+            "{out}"
+        );
+        assert!(
+            out.contains("Name: \"d\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+    }
+
+    /// The table has to agree with the binder it feeds.
+    ///
+    /// The parser tries every long form before any negation, so with `--a`
+    /// declaring `negate="--zap"` and a separate `--zap`, typing `--zap` binds
+    /// *zap*. A per-candidate search handed the relationship to `a`, which would
+    /// have enforced the rule against a flag the command line never binds.
+    #[test]
+    fn an_ordinary_form_beats_another_flags_negation() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--a" negate="--zap"
+flag "--zap"
+flag "--p" conflicts="--zap"
+"#);
+        assert!(
+            out.contains("Name: \"p\", Flag: true, Conflicts: []uint64{FlagZap}"),
+            "should name the flag `--zap` binds, not the one negating to it:\n{out}"
+        );
+    }
+
+    /// A negation is named by the form it was written as, whatever the dashes.
+    #[test]
+    fn a_single_dash_negation_is_named_by_its_own_form() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--tint" negate="-no-tint"
+flag "--plain" conflicts="-no-tint"
+flag "--other" conflicts="--no-tint"
+"#);
+        assert!(
+            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagTint}"),
+            "the exact form should resolve:\n{out}"
+        );
+        // And the form it was not written as does not.
+        assert!(
+            out.contains("{Key: FlagOther, Name: \"other\", Flag: true},"),
+            "`--no-tint` is not how it was declared:\n{out}"
+        );
+    }
+
+    /// A negation is matched as the spec wrote it, dashes and all.
+    #[test]
+    fn a_negation_is_matched_as_written() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--color" negate="--no-color"
+flag "--tint" negate="-no-tint"
+flag "--a" conflicts="--no-color"
+flag "--b" conflicts="--no-tint"
+"#);
+        assert!(
+            out.contains("Name: \"a\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+        // `--no-tint` is not the form `-no-tint`, so it names nothing — as in
+        // usage-lib, which does not resolve it either.
+        assert!(
+            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
+            "{out}"
+        );
     }
 
     #[test]

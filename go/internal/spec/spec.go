@@ -356,12 +356,19 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 // whichever of the two spellings was typed. The relationship is between entries
 // rather than between tokens, which is what this key model already assumes.
 func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool) {
-	// The form is part of the name. `--q` does not reach the short `-q`, and
-	// `-color` does not reach the long `--color`: usage-lib resolves neither, and
-	// resolving them here would have a generated CLI enforcing a rule the
-	// reference does not. A declaration that names a flag by the wrong form is a
-	// typo, and the useful failure is the rule not existing rather than a rule
-	// nobody wrote.
+	// Two passes, in the order the parser itself looks: every ordinary form
+	// first, then negations.
+	//
+	// That order is not a nicety. `longFlag` tries `findLong` across all flags
+	// before it tries `findNegation`, so with `--a` declaring `negate="--zap"`
+	// and a separate `--zap`, typing `--zap` binds *zap*. A per-candidate search
+	// would hand the relationship to `a`, and the table would then enforce a rule
+	// against a flag the command line never binds. The table has to agree with
+	// the binder it feeds.
+	eligible := func(f *argv.Flag) bool { return !globalsOnly || f.Global }
+
+	// The form is part of the name: `--q` does not reach the short `-q`, and
+	// `-color` does not reach the long `--color`. usage-lib resolves neither.
 	long, short, bare := "", byte(0), ""
 	switch {
 	case strings.HasPrefix(name, "--"):
@@ -373,25 +380,15 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 		// it can be typed as.
 		bare = name
 	}
-	if long == "" && short == 0 && bare == "" {
-		return 0, false
-	}
 
 	for _, f := range flags {
-		if globalsOnly && !f.Global {
+		if !eligible(f) {
 			continue
 		}
 		if bare != "" && f.Name == bare {
 			return f.Key, true
 		}
 		if long != "" {
-			// The negation is a form of the flag it belongs to and names the same
-			// entry: usage-lib reports a conflict declared against `--no-color`
-			// whichever of the two spellings was typed. Compared as written, so a
-			// `negate="-no-color"` is not reached by `--no-color`.
-			if b.negation[f.Key] == name {
-				return f.Key, true
-			}
 			for _, l := range f.Longs {
 				if l == long {
 					return f.Key, true
@@ -406,9 +403,17 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 			}
 		}
 	}
+
+	// Negations, compared exactly as both sides were written — dashes included.
+	// `negate="-no-tint"` is named by `-no-tint` and not by `--no-tint`, and
+	// usage-lib resolves it that way round too.
+	for _, f := range flags {
+		if eligible(f) && b.negation[f.Key] != "" && b.negation[f.Key] == name {
+			return f.Key, true
+		}
+	}
 	return 0, false
 }
-
 func (b *builder) flag(f *Flag) *argv.Flag {
 	out := &argv.Flag{
 		Key:        b.next(),

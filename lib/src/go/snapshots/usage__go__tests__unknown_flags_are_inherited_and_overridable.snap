@@ -60,3 +60,18 @@ var cmdExecNested = &argv.Command{
 	Name: "nested",
 	Key:  CmdExecNested,
 }
+
+// Meta is the cold table, read only by the rules that are decided once the
+// last token has been read: required, choices, the env-then-default fallback,
+// the var bounds, and the four that compare one entry against another. A parse
+// never touches it.
+//
+// Indexed by key, so entry Key sits at Meta[Key-1]. A command's slot is empty:
+// commands take keys too, and have no cold half.
+var Meta = argv.Metadata{
+	{},
+	{},
+	{},
+	{},
+	{},
+}
