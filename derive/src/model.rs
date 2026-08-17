@@ -20,7 +20,13 @@ pub struct Cli {
     pub fingerprint: String,
     pub name: String,
     pub bin: Option<String>,
-    pub version: Option<String>,
+    /// The version the CLI reports, as the tokens for an `Option<&str>`.
+    ///
+    /// Tokens rather than a string because bare `version` means "the package's", and
+    /// `env!("CARGO_PKG_VERSION")` has to be expanded in the *adopter's* crate — this one has
+    /// its own version and it is not the answer. clap's bare `#[command(version)]` reads it the
+    /// same way.
+    pub version: Option<proc_macro2::TokenStream>,
     /// Whether this CLI answers a completion request.
     ///
     /// Opt in rather than supplied like `--help`: it is a hidden command a binary carries and a
@@ -322,6 +328,7 @@ impl Cli {
             ));
         }
 
+        let mut name_given = false;
         let (about, long_about) = doc_comment(&input.attrs)?;
         let mut cli = Cli {
             ident: input.ident.clone(),
@@ -357,7 +364,10 @@ impl Cli {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
-                    "name" => cli.name = string_value(&meta)?,
+                    "name" => {
+                        cli.name = string_value(&meta)?;
+                        name_given = true;
+                    }
                     "bin" => cli.bin = Some(string_value(&meta)?),
                     // Through the same helper as `global` and `var`, so `completion = false`
                     // means false rather than being read as the bare word with something
@@ -366,7 +376,16 @@ impl Cli {
                     "settings" => cli.settings = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
-                    "version" => cli.version = Some(string_value(&meta)?),
+                    "version" => {
+                        cli.version = Some(match &meta {
+                            // `version` on its own: whatever the adopter's package says.
+                            Meta::Path(_) => quote::quote!(env!("CARGO_PKG_VERSION")),
+                            _ => {
+                                let literal = string_value(&meta)?;
+                                quote::quote!(#literal)
+                            }
+                        })
+                    }
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
                     // independent, and mise's differ entirely: "Dev tools, env vars, and tasks
@@ -426,6 +445,15 @@ impl Cli {
 
         for field in &named.named {
             cli.fields.push(Field::from_field(field)?);
+        }
+        // A program is called what its binary is called, unless it says otherwise. The name
+        // defaults to the struct's, and a struct is usually called `Cli` — so `bin =
+        // "communique"` with no `name` bannered itself as `cli 1.3.1`, and every adopter had
+        // to declare the same word twice to avoid it.
+        if !name_given {
+            if let Some(bin) = &cli.bin {
+                cli.name = bin.clone();
+            }
         }
         cli.check()?;
         Ok(cli)
