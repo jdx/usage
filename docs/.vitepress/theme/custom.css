@@ -648,6 +648,67 @@
   margin: 1.75rem 0 0;
 }
 
+/* The caveats a bar chart cannot carry: how a figure was measured, and what the
+   comparison leaves out. Hover or focus, so a keyboard reaches them too. */
+.usage-bench-hint {
+  position: relative;
+  display: inline-block;
+  color: rgba(245, 240, 255, 0.8);
+  border-bottom: 1px dotted rgba(1, 205, 254, 0.7);
+  cursor: help;
+}
+
+.usage-bench-tip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  width: max-content;
+  max-width: min(300px, 74vw);
+  margin-top: 0.5rem;
+  padding: 0.8rem 1rem;
+  background: rgba(13, 2, 33, 0.97);
+  border: 1px solid var(--vw-cyan);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 20px var(--vw-cyan-glow);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+  /* The metric line is uppercase mono; a tooltip inside it is prose. */
+  font-family: var(--vp-font-family-base);
+  font-size: 0.78rem;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+}
+
+.usage-bench-hint:hover .usage-bench-tip,
+.usage-bench-hint:focus-visible .usage-bench-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.usage-bench-tip strong {
+  display: block;
+  color: var(--vw-cyan);
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+/* A span rather than a p: the tips live inside paragraphs, and a nested p would
+   be closed early by the browser parsing the server-rendered HTML. */
+.usage-bench-tip span {
+  display: block;
+  color: rgba(245, 240, 255, 0.75);
+  line-height: 1.55;
+}
+
 @media (max-width: 860px) {
   .usage-bench-cards {
     grid-template-columns: 1fr;
