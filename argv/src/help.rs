@@ -1241,9 +1241,11 @@ pub fn route_to<'t>(
     for token in argv.get(help_from..help_to).unwrap_or_default() {
         let here = *route.last()?;
         let word = token.as_encoded_bytes();
-        let next = here.subcommands.iter().copied().find(|sub| {
-            sub.name.as_bytes() == word || sub.aliases.iter().any(|a| a.as_bytes() == word)
-        })?;
+        // Through `find_named`, so this walk ranks names above aliases exactly as the parse
+        // that reached here did. Matching on name and alias together instead answered with
+        // whichever subcommand came first, which for a colliding word is a different command
+        // than the one the parser selected.
+        let next = crate::find_named(here, word)?;
         route.push(next);
     }
     // Only if the walk actually arrived: a caller should fall back rather than be handed a

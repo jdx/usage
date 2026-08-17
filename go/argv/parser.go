@@ -606,11 +606,17 @@ func (p *Parser) findSubcommand(name string) *Command {
 }
 
 // findNamed resolves a word against a command's subcommands, by name or alias.
+//
+// Names are checked across every subcommand before any alias is, so a command's
+// own name outranks another command's alias and the answer does not depend on
+// the order the table lists them in.
 func findNamed(cmd *Command, name string) *Command {
 	for _, sub := range cmd.Subcommands {
 		if sub.Name == name {
 			return sub
 		}
+	}
+	for _, sub := range cmd.Subcommands {
 		for _, a := range sub.Aliases {
 			if a == name {
 				return sub

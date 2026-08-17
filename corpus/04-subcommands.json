@@ -17,6 +17,20 @@
       "expect": { "ok": { "cmd": ["install"] } }
     },
     {
+      "id": "cmd-name-outranks-other-alias",
+      "doc": "A command's own name outranks another command's alias: the word is matched against every subcommand's name before any alias is considered. Such a spec is a mistake — `usage lint` reports `duplicate-subcommand` — but the resolution is pinned so that a parser handed an unvalidated spec answers like every other one.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"alpha\" {\n  alias \"run\"\n  arg \"[a]\"\n}\ncmd \"run\" {\n  arg \"[b]\"\n}\n",
+      "argv": ["run", "x"],
+      "expect": { "ok": { "cmd": ["run"], "args": { "b": "x" } } }
+    },
+    {
+      "id": "cmd-name-outranks-other-alias-reordered",
+      "doc": "The same spec with the two `cmd` blocks swapped selects the same command, which is the point of ranking names above aliases rather than taking the first or last declaration: reordering declarations cannot change what a command line means.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" {\n  arg \"[b]\"\n}\ncmd \"alpha\" {\n  alias \"run\"\n  arg \"[a]\"\n}\n",
+      "argv": ["run", "x"],
+      "expect": { "ok": { "cmd": ["run"], "args": { "b": "x" } } }
+    },
+    {
       "id": "cmd-nested",
       "doc": "Descent continues as long as words keep matching subcommands.",
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"settings\" {\n  cmd \"set\"\n}\n",

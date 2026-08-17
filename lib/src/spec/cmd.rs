@@ -587,13 +587,19 @@ impl SpecCommand {
     pub fn find_subcommand(&self, name: &str) -> Option<&SpecCommand> {
         let sl = self.subcommand_lookup.get_or_init(|| {
             let mut map = HashMap::new();
-            for (name, cmd) in &self.subcommands {
+            // Names first, then aliases only where nothing answers already: a
+            // command's own name outranks another command's alias, so reordering
+            // `cmd` blocks cannot change which command a word selects.
+            //
+            // Inserting both in one pass instead let the *last* declaration win,
+            // which was the opposite of what usage-argv did with the same spec —
+            // it takes the first. Neither was a rule anyone had chosen.
+            for name in self.subcommands.keys() {
                 map.insert(name.clone(), name.clone());
-                for alias in &cmd.aliases {
-                    map.insert(alias.clone(), name.clone());
-                }
-                for alias in &cmd.hidden_aliases {
-                    map.insert(alias.clone(), name.clone());
+            }
+            for (name, cmd) in &self.subcommands {
+                for alias in cmd.aliases.iter().chain(&cmd.hidden_aliases) {
+                    map.entry(alias.clone()).or_insert_with(|| name.clone());
                 }
             }
             map

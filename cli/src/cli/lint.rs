@@ -151,7 +151,11 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
 
     // Check default_subcommand reference
     if let Some(default_subcmd) = &spec.default_subcommand {
-        if !spec.cmd.subcommands.contains_key(default_subcmd) {
+        // Resolved the way a typed word is, rather than by canonical key alone: the name may
+        // be any the command answers to, aliases and hidden aliases included, so a spec
+        // declaring `default_subcommand "r"` against `cmd "run" { alias "r" }` is valid and
+        // was being reported as naming a command that does not exist.
+        if spec.cmd.find_subcommand(default_subcmd).is_none() {
             let valid: Vec<&str> = spec.cmd.subcommands.keys().map(|s| s.as_str()).collect();
             let valid_list = if valid.is_empty() {
                 "no subcommands defined".to_string()
@@ -207,6 +211,37 @@ fn lint_command(
             message: "Command has subcommand_required=true but no subcommands defined".to_string(),
             location: Some(format!("cmd {}", cmd_path)),
         });
+    }
+
+    // Check for subcommands that answer to the same word
+    //
+    // One command's alias equal to another command's name leaves one of the two
+    // unreachable however it is resolved, so the spec is a mistake rather than
+    // something with a right answer. The grammar still picks the name over the
+    // alias, for a parser handed a spec nothing validated; a derive rejects the
+    // same shape outright, via `usage_argv::assert_unique_subcommand_names`.
+    let mut seen_subcommands: std::collections::HashMap<&str, &str> =
+        std::collections::HashMap::new();
+    for sub in cmd.subcommands.values() {
+        for word in std::iter::once(&sub.name)
+            .chain(&sub.aliases)
+            .chain(&sub.hidden_aliases)
+        {
+            match seen_subcommands.get(word.as_str()) {
+                Some(existing) => issues.push(LintIssue {
+                    severity: Severity::Error,
+                    code: "duplicate-subcommand".to_string(),
+                    message: format!(
+                        "Subcommands '{}' and '{}' both answer to '{}'",
+                        existing, sub.name, word
+                    ),
+                    location: Some(format!("cmd {}", cmd_path)),
+                }),
+                None => {
+                    seen_subcommands.insert(word.as_str(), &sub.name);
+                }
+            }
+        }
     }
 
     // Check for duplicate flag names
@@ -535,6 +570,68 @@ flag "-v --very" help="very"
 
         let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "duplicate-flag"));
+    }
+
+    #[test]
+    fn test_lint_default_subcommand_may_name_an_alias() {
+        // `default_subcommand` is resolved the way a typed word is, so any name the command
+        // answers to is valid. Checking canonical keys alone called this spec broken.
+        for alias in [r#"alias "r""#, r#"alias "r" hide=#true"#] {
+            let spec: Spec = format!(
+                r#"
+name "test"
+default_subcommand "r"
+cmd "run" help="run" {{
+    {alias}
+}}
+"#
+            )
+            .parse()
+            .unwrap();
+
+            let issues = lint_spec(&spec, LintOptions::default());
+            assert!(
+                !issues
+                    .iter()
+                    .any(|i| i.code == "invalid-default-subcommand"),
+                "{alias}: {issues:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_lint_duplicate_subcommand() {
+        // One command's alias equal to another's name. The grammar resolves it —
+        // the name wins — but the alias is then unreachable, so the spec is still
+        // a mistake worth reporting.
+        let spec: Spec = r#"
+name "test"
+cmd "alpha" help="alpha" {
+    alias "run"
+}
+cmd "run" help="run"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues.iter().any(|i| i.code == "duplicate-subcommand"));
+    }
+
+    #[test]
+    fn test_lint_allows_an_alias_that_collides_with_nothing() {
+        let spec: Spec = r#"
+name "test"
+cmd "install" help="install" {
+    alias "i"
+}
+cmd "run" help="run"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(!issues.iter().any(|i| i.code == "duplicate-subcommand"));
     }
 
     #[test]

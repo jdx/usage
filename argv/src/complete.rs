@@ -525,11 +525,12 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
             if let Some(default) = spec.default_subcommand {
                 // By any name it answers to: `default_subcommand` names a command, and a
                 // spec may name it the way its author refers to it rather than canonically.
-                let target = spec
-                    .root
-                    .subcommands
-                    .iter()
-                    .find(|sub| sub.cmd.name == default || sub.cmd.aliases.contains(&default));
+                // Names before aliases, so the command whose first argument is offered here
+                // is the one the parser would actually route the word to.
+                let subcommands = || spec.root.subcommands.iter();
+                let target = subcommands()
+                    .find(|sub| sub.cmd.name == default)
+                    .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)));
                 if let Some(arg) = target.and_then(|sub| sub.args.first()) {
                     found.extend(positional(arg, &position, split, token));
                 }
@@ -1842,6 +1843,77 @@ mod tests {
         let found = offered("mise ");
         assert!(found.contains(&"node".to_string()), "{found:?}");
     }
+
+    #[test]
+    fn the_fallback_command_prefers_a_name_to_another_commands_alias() {
+        // Resolved the way a typed word is, so what a shell offers at the root is the first
+        // argument of the command the parser would actually route the word to. Matching name
+        // and alias in one pass offered `alpha`'s values for a line the parse sends to `run`.
+        static A_ARG: Arg = Arg {
+            key: 90,
+            name: "a",
+            ..Arg::REQUIRED
+        };
+        static B_ARG: Arg = Arg {
+            key: 91,
+            name: "b",
+            ..Arg::REQUIRED
+        };
+        static ALPHA: Command = Command {
+            name: "alpha",
+            aliases: &["run"],
+            args: &[&A_ARG],
+            ..Command::EMPTY
+        };
+        static PLAIN_RUN: Command = Command {
+            name: "run",
+            args: &[&B_ARG],
+            ..Command::EMPTY
+        };
+        static META_ALPHA: CommandMeta = CommandMeta {
+            cmd: &ALPHA,
+            args: &[ArgMeta {
+                arg: &A_ARG,
+                choices: &["from-alpha"],
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static META_PLAIN_RUN: CommandMeta = CommandMeta {
+            cmd: &PLAIN_RUN,
+            args: &[ArgMeta {
+                arg: &B_ARG,
+                choices: &["from-run"],
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static EX: Command = Command {
+            name: "ex",
+            subcommands: &[&ALPHA, &PLAIN_RUN],
+            ..Command::EMPTY
+        };
+        static META_EX: CommandMeta = CommandMeta {
+            cmd: &EX,
+            subcommands: &[&META_ALPHA, &META_PLAIN_RUN],
+            ..CommandMeta::EMPTY
+        };
+        static EX_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META_EX,
+            default_subcommand: Some("run"),
+            ..Spec::EMPTY
+        };
+
+        let found: Vec<String> = candidates(&EX_SPEC, &at_end("ex "))
+            .into_iter()
+            .map(|c| c.value)
+            .collect();
+        assert!(found.contains(&"from-run".to_string()), "{found:?}");
+        assert!(!found.contains(&"from-alpha".to_string()), "{found:?}");
+    }
+
     /// The whole answer for a line: what this CLI knows, and whether paths belong.
     fn answer(line: &str) -> Completions<'static> {
         complete(&SPEC, &at_end(line))

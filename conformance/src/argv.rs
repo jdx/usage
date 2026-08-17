@@ -71,11 +71,14 @@ pub fn run(vector: &Vector) -> Outcome {
     // will fail loudly rather than this guessing.
     let root: &'static Command<'static> = match spec.default_subcommand.as_deref() {
         Some(name) => {
-            let default = root
-                .subcommands
-                .iter()
-                .copied()
-                .find(|sub| sub.name == name || sub.aliases.contains(&name));
+            // Names before aliases, the rule `usage_argv::find_subcommand` implements for
+            // generated code. Spelled out again rather than called because that one panics
+            // on a name nothing answers to — a compile error where it runs, but here the
+            // vector should fail on its own terms instead.
+            let subcommands = || root.subcommands.iter().copied();
+            let default = subcommands()
+                .find(|sub| sub.name == name)
+                .or_else(|| subcommands().find(|sub| sub.aliases.contains(&name)));
             Box::leak(Box::new(Command {
                 default_subcommand: default,
                 ..*root
