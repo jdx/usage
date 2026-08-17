@@ -1285,13 +1285,23 @@ fn parse_partial_with_env(
         // Selecting a child is company for an exclusive flag declared by an ancestor. An
         // exclusive flag belonging to the child itself does not conflict with the command
         // word needed to reach that child.
-        let selected_subcommand = (out.cmds.len() > 1
-            && out.cmds[..out.cmds.len() - 1].iter().any(|cmd| {
-                cmd.flags
-                    .iter()
-                    .any(|declared| declared.name == flag.name && declared.exclusive)
-            }))
-        .then(|| out.cmd.name.clone());
+        //
+        // Identity matters here, not only the canonical name: a parent and child may each
+        // declare their own non-global `--clean`. The selected command's flag is still in
+        // `available_flags` under the same Arc the parse recorded; a non-global ancestor was
+        // dropped on descent. A child re-declaring an inherited global is the same logical
+        // ancestor flag only when the merged flag kept `global`, hence the declaration check.
+        let belongs_to_selected_command = out
+            .available_flags
+            .values()
+            .any(|available| Arc::ptr_eq(available, flag))
+            && out
+                .cmd
+                .flags
+                .iter()
+                .any(|declared| declared.name == flag.name && declared.global == flag.global);
+        let selected_subcommand =
+            (out.cmds.len() > 1 && !belongs_to_selected_command).then(|| out.cmd.name.clone());
         let other = other_flag
             .or_else(|| other_arg.map(|arg| format!("<{}>", arg.name)))
             .or(selected_subcommand);
@@ -3008,6 +3018,20 @@ flag "--file <file>" required_unless="--stdin"
 
         parse(&spec, &input(&["ex", "--version"])).expect("alone is allowed");
         assert!(parse(&spec, &input(&["ex", "--version", "run"])).is_err());
+    }
+
+    #[test]
+    fn a_child_exclusive_flag_is_not_mistaken_for_a_same_named_parent_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child flag is alone within the child command");
+        assert!(
+            parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
+            "the parent flag still conflicts with selecting the child"
+        );
     }
 
     #[test]
