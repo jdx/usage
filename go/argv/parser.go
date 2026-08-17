@@ -282,7 +282,10 @@ func (p *Parser) longFlag(token string) bool {
 			if hasAttached {
 				value = attached
 			} else {
-				v, ok := p.takeDetachedValue(flag)
+				// `token`, not `--`+name: with no attached value the token is the
+				// spelling, and slicing it costs nothing on a path that must not
+				// allocate.
+				v, ok := p.takeDetachedValue(flag, token, 0)
 				if !ok {
 					return false
 				}
@@ -365,7 +368,7 @@ func (p *Parser) shortFlag() bool {
 	var value string
 	switch {
 	case rest == "":
-		v, ok := p.takeDetachedValue(flag)
+		v, ok := p.takeDetachedValue(flag, "", b)
 		if !ok {
 			return false
 		}
@@ -386,13 +389,26 @@ func (p *Parser) shortFlag() bool {
 // It refuses a flag-like token: `--jobs --force` is far more likely a forgotten
 // value than a deliberate one, and the attached form is available for the
 // deliberate case. The negative-number exception means `--offset -1` still works.
-func (p *Parser) takeDetachedValue(flag *Flag) (string, bool) {
+func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool) {
 	if p.pos < len(p.argv) && !isFlagLike(p.argv[p.pos]) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true
 	}
-	p.fail(Error{Code: CodeMissingFlagValue, Flag: flag})
+	// The form the user actually wrote, carried so the advice can use it. A flag
+	// answers to several spellings and the first is not always the one in front of
+	// them: with an inherited `--jobs --workers` whose `--jobs` a nearer command
+	// has taken, `--workers` is what bound, and telling them to write `--jobs=…`
+	// sends them to a different flag.
+	//
+	// The long form arrives as a slice of the token, and the short one is built
+	// here rather than by the caller — this branch is the failure, and the caller
+	// is the hot path that must not allocate.
+	typed := long
+	if typed == "" && short != 0 {
+		typed = "-" + string(short)
+	}
+	p.fail(Error{Code: CodeMissingFlagValue, Flag: flag, Token: typed})
 	return "", false
 }
 

@@ -65,9 +65,12 @@ func explain(err *Error, help HelpTable) string {
 		// binds. Illustrating the rule with the case that is exempt from it was
 		// advice that contradicted itself.
 		//
-		// And it is spelled in the form the flag actually has: telling someone
-		// with a short-only `-j` to write `--j=-x` sends them to an unknown flag.
-		spelling := spell(err.Flag)
+		// And it is spelled the way the user wrote it, where the parser said so:
+		// a flag answers to several forms, and the first one is not always the one
+		// in front of them — an inherited `--workers` whose `--jobs` a nearer
+		// command has taken is bound by `--workers` alone. Falling back to the
+		// flag's own first form, which at least exists, when nothing was carried.
+		spelling := typedAs(safe(err.Token), spell(err.Flag))
 		return "missing value for `" + spelling + "`" +
 			" (a value beginning with `-` has to be attached: `" + spelling + "=-x`)"
 	case CodeUnexpectedArg:

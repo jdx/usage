@@ -200,6 +200,35 @@ func TestAnErrorValueIsSafeToPrintToo(t *testing.T) {
 	}
 }
 
+// The advice names the form the user typed, where the parser knows it.
+//
+// A flag answers to several spellings, and the first is not always the one in
+// front of them: an inherited `--jobs --workers` whose `--jobs` a nearer command
+// has taken still binds through `--workers`, and advising `--jobs=-x` there sends
+// them to a different flag entirely.
+func TestTheAttachedFormIsSpelledTheWayItWasTyped(t *testing.T) {
+	global := &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs", "workers"},
+		TakesValue: true, Global: true}
+	local := &Flag{Key: 3, Name: "jobs", Longs: []string{"jobs"}}
+	sub := &Command{Name: "run", Key: 4, Flags: []*Flag{local}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
+
+	p := New(root, []string{"run", "--workers"})
+	for p.Next() {
+	}
+	err, _ := p.Err().(*Error)
+	if err == nil || err.Code != CodeMissingFlagValue {
+		t.Fatalf("a value-taking flag with nothing after it should fail: %v", p.Err())
+	}
+	got := explain(err, nil)
+	if !strings.Contains(got, "`--workers=-x`") {
+		t.Errorf("the advice should use the form that bound: %s", got)
+	}
+	if strings.Contains(got, "--jobs") {
+		t.Errorf("`--jobs` is the nearer command's flag here: %s", got)
+	}
+}
+
 // The spelling is carried, not guessed.
 //
 // A one-character *long* form and a short form are both one character, so a
