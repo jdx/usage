@@ -859,6 +859,14 @@ pub struct Parser<'t, 'v> {
     default_taken: bool,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
+    /// The `argv` range the `help` *word* resolved as a command path, if one was typed.
+    ///
+    /// Empty for `--help`, which asks about wherever the parse had got to. For the word, the
+    /// question is about a command deeper than the parse reached, and only this walk knows
+    /// which tokens named it: a caller re-scanning `argv` would count a flag's detached value
+    /// that happens to spell a sibling's name. Two indices rather than the commands
+    /// themselves, so the parser keeps allocating nothing.
+    help_span: (usize, usize),
 }
 
 impl<'t, 'v> Parser<'t, 'v> {
@@ -885,6 +893,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             separator_seen: false,
             default_taken: false,
             done: false,
+            help_span: (0, 0),
         }
     }
 
@@ -918,6 +927,14 @@ impl<'t, 'v> Parser<'t, 'v> {
         }
         out.push((self.cmd, self.cmd_start));
         out
+    }
+
+    /// The `argv` range the `help` word resolved as a command path.
+    ///
+    /// Empty unless the word was typed. Every token in it named a subcommand of the one before
+    /// it — the parser resolved them itself, so nothing here is a flag or a flag's value.
+    pub fn help_span(&self) -> (usize, usize) {
+        self.help_span
     }
 
     /// Where the command in scope began: the index in `argv` just after its name.
@@ -1237,6 +1254,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             // descending would bind them, and they are a question rather than an invocation.
             if token == b"help" && !self.cmd.subcommands.is_empty() {
                 let mut cmd = self.cmd;
+                let from = self.pos;
                 while let Some(next) = self.argv.get(self.pos) {
                     let Some(sub) = find_named(cmd, bytes(next)) else {
                         break;
@@ -1244,6 +1262,9 @@ impl<'t, 'v> Parser<'t, 'v> {
                     cmd = sub;
                     self.pos += 1;
                 }
+                // Kept for `help::route_to`: which mount was asked about is not recoverable
+                // from `cmd`, since two mounts of one `Subcommands` type are one address.
+                self.help_span = (from, self.pos);
                 // The long form, as `ex config --help` gives: someone who typed a whole word to
                 // ask for help wants the fuller answer.
                 return Err(Error::Help { cmd, long: true });
