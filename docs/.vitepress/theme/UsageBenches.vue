@@ -51,9 +51,9 @@ function width(value: number, max: number): string {
         <h3>usage-rs <span>vs clap, argh, bpaf</span></h3>
         <p class="usage-bench-metric">
           wall time,
-          <span class="usage-bench-hint" tabindex="0"
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-warmed"
             >one warmed parse
-            <span class="usage-bench-tip" role="tooltip">
+            <span class="usage-bench-tip" id="bench-tip-warmed" role="tooltip">
               <strong>How this is measured</strong>
               <span>
                 In-process and warmed — the fastest of many short rounds, since a fresh
@@ -86,9 +86,9 @@ function width(value: number, max: number): string {
           usage-rs and argh are the two bars you cannot see, and neither is a number anyone
           could feel — starting a process costs ~1ms. The gap that matters is to clap and
           bpaf, which
-          <span class="usage-bench-hint" tabindex="0"
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-build"
             >build a parser before they can use one
-            <span class="usage-bench-tip" role="tooltip">
+            <span class="usage-bench-tip" id="bench-tip-build" role="tooltip">
               <strong>Where their time goes</strong>
               <span>
                 Most of clap's is constructing and validating its command tree. bpaf's is
@@ -98,9 +98,9 @@ function width(value: number, max: number): string {
             </span></span
           >. Heap allocations for a bare parse: <strong>zero</strong> vs clap's 6,280. argh
           and bpaf are also doing less: the generator counts
-          <span class="usage-bench-hint" tabindex="0"
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-express"
             >what they cannot express
-            <span class="usage-bench-tip" role="tooltip">
+            <span class="usage-bench-tip" id="bench-tip-express" role="tooltip">
               <strong>Missing from the argh and bpaf shadows</strong>
               <span>
                 Aliases, hidden commands, global flags, and a positional beside a
@@ -117,9 +117,9 @@ function width(value: number, max: number): string {
         <h3>usage-go <span>vs cobra, urfave/cli, kong</span></h3>
         <p class="usage-bench-metric">
           wall time,
-          <span class="usage-bench-hint" tabindex="0"
+          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-cold"
             >one cold parse
-            <span class="usage-bench-tip" role="tooltip">
+            <span class="usage-bench-tip" id="bench-tip-cold" role="tooltip">
               <strong>How this is measured</strong>
               <span>
                 Whole-process, with the ~0.95ms of Go runtime startup a do-nothing process
