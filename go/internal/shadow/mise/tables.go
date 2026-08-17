@@ -1103,7 +1103,7 @@ var Root = &argv.Command{
 		{Key: ArgTaskArgsLast, Name: "TASK_ARGS_LAST", Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
 	Subcommands:       []*argv.Command{cmdActivate, cmdToolAlias, cmdAsdf, cmdBackends, cmdBinPaths, cmdBootstrap, cmdCache, cmdCompletion, cmdConfig, cmdCurrent, cmdDeactivate, cmdDirenv, cmdDotfiles, cmdDoctor, cmdEn, cmdEnv, cmdExec, cmdFmt, cmdGenerate, cmdGithub, cmdGlobal, cmdHookEnv, cmdHookNotFound, cmdImplode, cmdEdit, cmdInstall, cmdInstallInto, cmdLatest, cmdLink, cmdLocal, cmdLock, cmdLs, cmdLsRemote, cmdMcp, cmdOci, cmdOutdated, cmdPatrons, cmdPlugins, cmdDeps, cmdPrune, cmdRegistry, cmdRenderHelp, cmdReshim, cmdRun, cmdSearch, cmdSelfUpdate, cmdSet, cmdSettings, cmdShell, cmdShellAlias, cmdSponsors, cmdSync, cmdTasks, cmdTestTool, cmdToken, cmdTool, cmdToolStub, cmdTrust, cmdUninstall, cmdUnset, cmdUntrust, cmdUnuse, cmdUpgrade, cmdUsage, cmdUse, cmdVersion, cmdWatch, cmdWhere, cmdWhich},
-	DefaultSubcommand: cmdOciRun,
+	DefaultSubcommand: cmdRun,
 }
 
 // activate

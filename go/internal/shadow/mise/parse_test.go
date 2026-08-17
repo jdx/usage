@@ -120,6 +120,30 @@ func TestRealCommandLines(t *testing.T) {
 	}
 }
 
+// TestDefaultSubcommandIsTheRootsOwnRun pins a pointer, because a review of the
+// generated diff is what caught it being the wrong one.
+//
+// mise declares `default_subcommand run`, which names a subcommand of the root.
+// It also has an `oci run`, and an emitter that resolved the name against the
+// whole tree found that one first in depth-first order — so `mise build` would
+// have descended into a command that is not the root's child at all. Nothing in
+// the parse of an ordinary command line shows the difference, which is why it is
+// asserted directly rather than through a binding.
+func TestDefaultSubcommandIsTheRootsOwnRun(t *testing.T) {
+	if Root.DefaultSubcommand != cmdRun {
+		name := "<unset>"
+		if Root.DefaultSubcommand != nil {
+			name = Root.DefaultSubcommand.Name
+		}
+		t.Fatalf("default subcommand should be the root's own `run`, got %q", name)
+	}
+	// The one the whole-tree search used to win with, so a regression is specific
+	// rather than merely "not cmdRun".
+	if Root.DefaultSubcommand == cmdOciRun {
+		t.Error("resolved against the whole tree again: this is `oci run`")
+	}
+}
+
 // TestKeysAreUniqueAndDense checks the property generated dispatch depends on.
 //
 // Code switches on a Key, so two entries sharing one would bind the wrong field —
