@@ -1348,12 +1348,20 @@ fn parse_partial_with_env(
                 parsed_flag_spellings
                     .get(&(Arc::as_ptr(flag) as usize))
                     .is_some_and(|spellings| {
-                        out.cmd.flags.iter().any(|declared| {
-                            declared.name == flag.name
-                                && flag_keys(declared)
-                                    .iter()
-                                    .any(|spelling| spellings.contains(spelling))
-                        })
+                        let child_spellings: HashSet<String> = out
+                            .cmd
+                            .flags
+                            .iter()
+                            .filter(|declared| declared.name == flag.name)
+                            .flat_map(flag_keys)
+                            .collect();
+                        // Every occurrence must belong to the child. A merged declaration can
+                        // collect both an ancestor-only `-c` and the child's `--clean`; treating
+                        // one child spelling as ownership of the whole set hid the ancestor's
+                        // exclusivity from the selected subcommand.
+                        spellings
+                            .iter()
+                            .all(|spelling| child_spellings.contains(spelling))
                     })
             } else {
                 // An environment value has no typed spelling. Preserve the declaration
@@ -3153,6 +3161,10 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
             "the inherited short form still belongs to the ancestor"
+        );
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c", "--clean"])).is_err(),
+            "a child spelling cannot mask the ancestor-exclusive occurrence on the same merged flag"
         );
     }
 
