@@ -215,6 +215,24 @@
           "  -h, --help   Print help"
         ]
       }
+    },
+    {
+      "id": "top-level-examples-reach-root-help",
+      "doc": "Top-level examples belong to the whole CLI and are folded onto the root metadata used by usage-argv's help renderer.",
+      "spec": "name \"ex\"\nbin \"ex\"\nexample \"ex --verbose\" header=\"Verbose\"\n",
+      "expect": {
+        "usage": "ex",
+        "short_help": [
+          "Usage: ex",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Verbose:",
+          "    $ ex --verbose"
+        ]
+      }
     }
   ]
 }

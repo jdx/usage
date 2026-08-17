@@ -15,6 +15,7 @@
 //! usage-argv the questions it asks usage-lib; a program wanting a parser for a spec it read
 //! at run time should use usage-lib, which is built for exactly that.
 
+use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta};
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
@@ -117,17 +118,7 @@ pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) ->
         before_long_help: opt(&cmd.before_help_long),
         after_help: opt(&cmd.after_help),
         after_long_help: opt(&cmd.after_help_long),
-        examples: Box::leak(
-            cmd.examples
-                .iter()
-                .map(|e| Example {
-                    code: leak(&e.code),
-                    header: opt(&e.header),
-                    help: opt(&e.help),
-                })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
+        examples: examples(&cmd.examples),
         flags: Box::leak(flag_metas.into_boxed_slice()),
         args: Box::leak(arg_metas.into_boxed_slice()),
         subcommands: Box::leak(
@@ -156,12 +147,15 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         version: spec.version.is_some(),
         ..*root.cmd
     }));
+    let mut root_examples = root.meta.examples.to_vec();
+    root_examples.extend(spec.examples.iter().map(example));
     let root_meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
         cmd: root_cmd,
         before_help: root.meta.before_help.or(opt(&spec.before_help)),
         before_long_help: root.meta.before_long_help.or(opt(&spec.before_help_long)),
         after_help: root.meta.after_help.or(opt(&spec.after_help)),
         after_long_help: root.meta.after_long_help.or(opt(&spec.after_help_long)),
+        examples: Box::leak(root_examples.into_boxed_slice()),
         ..*root.meta
     }));
     Box::leak(Box::new(usage_argv::spec::Spec {
@@ -295,6 +289,23 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     Box::leak(
         list.iter()
             .map(|s| leak(s))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn example(e: &SpecExample) -> Example<'static> {
+    Example {
+        code: leak(&e.code),
+        header: opt(&e.header),
+        help: opt(&e.help),
+    }
+}
+
+fn examples(list: &[SpecExample]) -> &'static [Example<'static>] {
+    Box::leak(
+        list.iter()
+            .map(example)
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )
