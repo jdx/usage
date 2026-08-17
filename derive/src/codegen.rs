@@ -2909,23 +2909,22 @@ fn declared_groups(cli: &Cli) -> Vec<(String, bool, bool, Vec<String>)> {
 /// spec-as-definition rule exists to prevent.
 fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     let groups = declared_groups(cli);
-    let flattened: Vec<TokenStream> = cli
-        .fields
+    // Where each group's first member was written, which is the position `declared_groups`
+    // already orders them by. A group whose members straddle a flattened field still belongs
+    // where it *starts*, so it keeps its whole member list rather than being split in two.
+    let first_member_at: Vec<usize> = groups
         .iter()
-        .filter_map(|f| {
-            let Kind::Flatten { ty } = &f.kind else {
-                return None;
-            };
-            // Named directly, as the flag and argument tables beside this one are: the
-            // generated items live in the user's own scope now rather than in a module
-            // above it, so there is no path to rewrite.
-            Some(quote!(<#ty as usage_argv::spec::CommandArgs>::META.groups))
+        .map(|(name, _, _, _)| {
+            cli.fields
+                .iter()
+                .position(|f| {
+                    f.group.as_deref() == Some(name.as_str())
+                        && Cli::selector_for_field(f).is_some()
+                })
+                .unwrap_or(usize::MAX)
         })
         .collect();
-    if groups.is_empty() && flattened.is_empty() {
-        return (quote!(), quote!(&[]));
-    }
-    let entries = groups.iter().map(|(name, required, multiple, members)| {
+    let entry = |(name, required, multiple, members): &(String, bool, bool, Vec<String>)| {
         quote! {
             usage_argv::spec::GroupMeta {
                 name: #name,
@@ -2934,9 +2933,50 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
                 multiple: #multiple,
             }
         }
-    });
-    let len = groups.len();
-    if flattened.is_empty() {
+    };
+
+    // One walk over the fields, so a flattened struct's groups land where the field was
+    // written rather than after everything this struct declares — the same interleaving the
+    // flag and argument tables are built with, and visible in the same places their order is.
+    let mut parts: Vec<TokenStream> = Vec::new();
+    let mut run: Vec<TokenStream> = Vec::new();
+    let mut emitted = vec![false; groups.len()];
+    let mut any_flattened = false;
+    for (i, field) in cli.fields.iter().enumerate() {
+        let Kind::Flatten { ty } = &field.kind else {
+            continue;
+        };
+        any_flattened = true;
+        for (g, group) in groups.iter().enumerate() {
+            if !emitted[g] && first_member_at[g] < i {
+                emitted[g] = true;
+                run.push(entry(group));
+            }
+        }
+        if !run.is_empty() {
+            let entries = std::mem::take(&mut run);
+            parts.push(quote!(&[#(#entries),*]));
+        }
+        // Named directly, as the flag and argument tables beside this one are: the
+        // generated items live in the user's own scope now rather than in a module
+        // above it, so there is no path to rewrite.
+        parts.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.groups));
+    }
+    for (g, group) in groups.iter().enumerate() {
+        if !emitted[g] {
+            run.push(entry(group));
+        }
+    }
+    if !run.is_empty() {
+        parts.push(quote!(&[#(#run),*]));
+    }
+
+    if parts.is_empty() {
+        return (quote!(), quote!(&[]));
+    }
+    if !any_flattened {
+        let len = groups.len();
+        let entries = groups.iter().map(entry);
         return (
             quote! {
                 pub static GROUP_METAS: [usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
@@ -2946,9 +2986,8 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     }
     (
         quote! {
-            pub static OWN_GROUP_METAS: [usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
             const GROUP_META_GROUPS: &[&[usage_argv::spec::GroupMeta<'static>]] =
-                &[&OWN_GROUP_METAS, #(#flattened),*];
+                &[#(#parts),*];
             static GROUP_METAS: [usage_argv::spec::GroupMeta<'static>;
                 usage_argv::table_len(GROUP_META_GROUPS)] =
                 usage_argv::spec::concat_group_metas(GROUP_META_GROUPS);

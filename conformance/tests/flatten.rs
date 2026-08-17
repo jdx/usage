@@ -316,3 +316,61 @@ fn a_flattened_structs_group_is_enforced_and_emitted() {
     assert_eq!(spec.cmd.groups.len(), 1);
     assert!(spec.cmd.groups[0].required);
 }
+
+/// A second group to flatten, so a struct can hold one on each side of one.
+#[allow(dead_code)]
+#[derive(Args)]
+#[usage(group("format"))]
+struct Formatting {
+    /// Compact output
+    #[usage(long, group = "format")]
+    compact: bool,
+    /// Pretty output
+    #[usage(long, group = "format")]
+    pretty: bool,
+}
+
+/// A group before the flattened field, and another after it.
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "ord", group("source"), group("sink"))]
+struct GroupOrder {
+    /// Read from a file
+    #[usage(long, group = "source")]
+    file: Option<String>,
+    /// Read from a URL
+    #[usage(long, group = "source")]
+    url: Option<String>,
+    #[usage(flatten)]
+    formatting: Formatting,
+    /// Write to a file
+    #[usage(long, group = "sink")]
+    out: Option<String>,
+    /// Write to stdout
+    #[usage(long, group = "sink")]
+    stdout: bool,
+}
+
+#[test]
+fn a_flattened_structs_groups_land_where_the_field_was_written() {
+    // The order the flag and argument tables already promise, on the groups beside them:
+    // a flattened struct's groups splice in at the field, rather than after everything this
+    // struct declares. Emitting all the local ones first put `sink` — written below the
+    // flattened field — above the group that field brought in.
+    let kdl = GroupOrder::to_kdl();
+    let at = |name: &str| kdl.find(name).unwrap_or_else(|| panic!("{name} in {kdl}"));
+    assert!(
+        at("\"source\"") < at("\"format\"") && at("\"format\"") < at("\"sink\""),
+        "groups follow the fields that declare them: {kdl}"
+    );
+
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    assert_eq!(
+        spec.cmd
+            .groups
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect::<Vec<_>>(),
+        ["source", "format", "sink"],
+    );
+}
