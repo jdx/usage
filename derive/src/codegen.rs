@@ -1202,13 +1202,23 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         let duplicated = format_ident!("__duplicated_{}", ident);
         if has_negate(field) {
             let negated = format_ident!("__negated_{}", ident);
+            // For a global the question is asked per level, exactly as in the arm
+            // below: clap accepts `--colour sub --colour` when `--colour` is global
+            // and negatable just as when it is plain.
+            let (guard, mark) = if duplicates_per_level(field) {
+                let here = format_ident!("__here_{}", ident);
+                (quote!(partial.#here), quote!(partial.#here = true;))
+            } else {
+                (quote!(partial.#given), TokenStream::new())
+            };
             quote! {
-                if partial.#given {
+                if #guard {
                     // The positive and negative spellings override one another: the
                     // last of `--color --no-color` wins just like an explicit
                     // `overrides` pair. Repeating the same spelling is still an error.
                     partial.#duplicated = partial.#negated == negated;
                 }
+                #mark
                 partial.#negated = negated;
             }
         } else if duplicates_per_level(field) {
@@ -2079,6 +2089,7 @@ fn reset_to_default(field: &Field) -> TokenStream {
 /// Take one event and say whether it belonged to this command.
 fn apply_fn(cli: &Cli) -> TokenStream {
     let route = subcommand_parts(cli).map(|p| p.route).unwrap_or_default();
+    let per_level_resets = reset_per_level(cli);
     // A flattened struct's flags are in this command's table, but its *keys* were minted in
     // its own expansion — so they cannot be matched here. Its `apply` recognises them, and
     // says whether it took the event.
@@ -2136,8 +2147,15 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                     }
                 }
                 // Descending is the caller's business: it is what decides which
-                // command's fields the following events belong to.
-                Event::Command(_) => false,
+                // command's fields the following events belong to. But any command
+                // word — not only a child of ours — begins a level at which this
+                // struct's globals may be given again, and this arm is the one
+                // place every partial sees the word, whether it belongs to a root,
+                // a subcommand, or a flattened group.
+                Event::Command(_) => {
+                    #per_level_resets
+                    false
+                }
             }
         }
     }
@@ -2174,7 +2192,6 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     })?;
     let ident = &field.ident;
     let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
-    let per_level_resets = reset_per_level(cli);
 
     let selected = quote! {
         match partial.__usage_selected {
@@ -2244,9 +2261,6 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                 {
                     partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                 }
-                // Any command word, not only one of ours: a descent at any depth begins a
-                // level at which this command's globals may be given again.
-                #per_level_resets
             }
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
             // set just above, so a command word reaches the command it named on the same
