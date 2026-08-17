@@ -7,27 +7,27 @@ use crate::schema::{config_schema, SchemaOptions};
 use crate::Result;
 
 /// Generate a JSON Schema for a CLI's config file from its usage spec
-#[derive(clap::Args)]
-#[clap()]
+#[derive(usage_derive::Args)]
+#[usage(effect = "read")]
 pub struct JsonSchema {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short = 'f', long)]
     file: Option<PathBuf>,
 
     /// Write the schema here instead of to stdout
-    #[clap(long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(long, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 
     /// The schema's title, shown by editors
-    #[clap(long)]
+    #[usage(long)]
     title: Option<String>,
 
     /// Where the schema is published, for its `$id`
-    #[clap(long)]
+    #[usage(long)]
     url: Option<String>,
 }
 

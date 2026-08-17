@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use std::vec;
 
-use clap::Args;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use usage::{SpecArg, SpecCommand, SpecComplete, SpecFlag};
+use usage_derive::Args;
 
 use crate::cli::generate;
 use serde::{Deserialize, Serialize, Serializer};
@@ -46,18 +46,18 @@ mod description_format {
 
 /// Generate Fig completion spec for Amazon Q / Fig
 #[derive(Args)]
-#[clap()]
+#[usage(effect = "read")]
 pub struct Fig {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short = 'f', long)]
     file: Option<PathBuf>,
 
     /// File path where the generated Fig spec will be saved, or "-" for stdout
-    #[clap(long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(long, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// Raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }
 

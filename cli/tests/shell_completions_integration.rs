@@ -1609,7 +1609,9 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
         "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.contains("bin usage"),
+        // Quoted, which is how the parse tables write a spec: `usage --usage-spec` is
+        // emitted by the CLI's own derive rather than by the clap bridge.
+        stdout.contains(r#"bin "usage""#),
         "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
@@ -1763,7 +1765,9 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
         "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.contains("bin usage"),
+        // Quoted, which is how the parse tables write a spec: `usage --usage-spec` is
+        // emitted by the CLI's own derive rather than by the clap bridge.
+        stdout.contains(r#"bin "usage""#),
         "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 

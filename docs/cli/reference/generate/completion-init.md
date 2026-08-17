@@ -9,7 +9,9 @@
 
 Generate a shell init script that auto-completes any usage shebang script on $PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable
+tab-completion for any executable whose first line is a `usage` shebang —
+no per-script `usage g completion` step required.
 
 ## Arguments
 
@@ -32,3 +34,5 @@ Override the bin used for calling back to usage-cli
 You may need to set this if you have a different bin named "usage"
 
 **Default:** `usage`
+
+**Environment Variable:** `JDX_USAGE_BIN`

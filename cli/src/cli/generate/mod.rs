@@ -7,7 +7,6 @@ use usage::Spec;
 mod completion;
 mod completion_init;
 mod fig;
-mod go;
 mod json;
 mod json_schema;
 mod manpage;
@@ -15,24 +14,32 @@ mod markdown;
 mod sdk;
 
 /// Generate completions, documentation, and other artifacts from usage specs
-#[derive(clap::Args)]
-#[clap(visible_alias = "g")]
+// Cannot run alone, and every child starts at `read`, so the parent is `read` too.
+#[derive(usage_derive::Args)]
+#[usage(effect = "read")]
 pub struct Generate {
-    #[clap(subcommand)]
+    #[usage(subcommand)]
     pub command: Command,
 }
 
-#[derive(clap::Subcommand)]
+/// The generators.
+///
+/// Each command's help is its struct's doc comment rather than a second one here, which the
+/// derive would let win: one description, in the file that owns the command.
+#[derive(usage_derive::Subcommands)]
 pub enum Command {
-    Completion(completion::Completion),
-    CompletionInit(completion_init::CompletionInit),
-    Fig(fig::Fig),
-    Go(go::Go),
-    Json(json::Json),
-    JsonSchema(json_schema::JsonSchema),
-    Manpage(manpage::Manpage),
-    Markdown(markdown::Markdown),
-    Sdk(sdk::Sdk),
+    #[usage(alias = "c", alias_hidden("complete", "completions"))]
+    Completion(Box<completion::Completion>),
+    #[usage(alias = "ci", alias_hidden("init", "completions-init"))]
+    CompletionInit(Box<completion_init::CompletionInit>),
+    Fig(Box<fig::Fig>),
+    Json(Box<json::Json>),
+    JsonSchema(Box<json_schema::JsonSchema>),
+    #[usage(alias = "man")]
+    Manpage(Box<manpage::Manpage>),
+    #[usage(alias = "md")]
+    Markdown(Box<markdown::Markdown>),
+    Sdk(Box<sdk::Sdk>),
 }
 
 impl Generate {
@@ -41,7 +48,6 @@ impl Generate {
             Command::Completion(cmd) => cmd.run(),
             Command::CompletionInit(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),
-            Command::Go(cmd) => cmd.run(),
             Command::Json(cmd) => cmd.run(),
             Command::JsonSchema(cmd) => cmd.run(),
             Command::Manpage(cmd) => cmd.run(),
