@@ -325,7 +325,7 @@ static SPEC: Spec = Spec {
     min_usage_version: None,
     about: Some("does things"),
     long_about: Some("Does things, at length."),
-    usage: None,
+    usage: Some("Usage: ex <COMMAND>\n       ex --version \"quoted\""),
     default_subcommand: Some("run"),
     root: &ROOT_META,
 };
@@ -345,6 +345,10 @@ fn the_program_itself_survives() {
     assert_eq!(spec.about.as_deref(), Some("does things"));
     assert_eq!(spec.about_long.as_deref(), Some("Does things, at length."));
     assert_eq!(spec.default_subcommand.as_deref(), Some("run"));
+    assert_eq!(
+        spec.usage,
+        "Usage: ex <COMMAND>\n       ex --version \"quoted\""
+    );
 }
 
 #[test]
