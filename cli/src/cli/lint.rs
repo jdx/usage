@@ -5,18 +5,18 @@ use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 use crate::cli::generate::parse_file_or_stdin;
 
 /// Lint a usage spec file for common issues
-#[derive(clap::Args)]
+#[derive(usage_derive::Args)]
+#[usage(effect = "read")]
 pub struct Lint {
     /// A usage spec file to lint, use "-" to read from stdin
-    #[clap(required = true)]
     file: PathBuf,
 
     /// Output format
-    #[clap(long, short, default_value = "text")]
+    #[usage(long, short = 'f', default = "text", value_enum)]
     format: OutputFormat,
 
     /// Treat warnings as errors
-    #[clap(long, short = 'W')]
+    #[usage(long, short = 'W')]
     warnings_as_errors: bool,
 
     /// Also check that subcommands and flags are declared in sorted order
@@ -24,7 +24,7 @@ pub struct Lint {
     /// Off by default: declaration order is a house convention rather than a
     /// correctness question, so a spec that keeps a different order is not wrong.
     /// Pair it with --warnings-as-errors to hold the order in CI.
-    #[clap(long)]
+    #[usage(long)]
     sorted: bool,
 }
 
@@ -35,7 +35,7 @@ pub struct LintOptions {
     pub sorted: bool,
 }
 
-#[derive(Clone, Copy, Default, clap::ValueEnum)]
+#[derive(Clone, Copy, Default, usage_derive::ValueEnum)]
 enum OutputFormat {
     #[default]
     Text,

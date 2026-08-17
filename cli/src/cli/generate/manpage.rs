@@ -1,18 +1,19 @@
 use std::path::PathBuf;
 
 use super::{parse_file_or_stdin, write_or_stdout};
-use clap::Args;
 use usage::docs::manpage::ManpageRenderer;
+use usage_derive::Args;
 
+/// Generate a manpage from a usage spec
 #[derive(Args)]
-#[clap(visible_alias = "man")]
+#[usage(effect = "read")]
 pub struct Manpage {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short = 'f', long)]
     file: PathBuf,
 
     /// Output file path, or "-" for stdout (default)
-    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(short = 'o', long, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// Manual section number (default: 1)
@@ -22,7 +23,7 @@ pub struct Manpage {
     /// - 5: File formats
     /// - 7: Miscellaneous
     /// - 8: System administration commands
-    #[clap(short, long, default_value = "1")]
+    #[usage(short = 's', long, default = "1")]
     section: u8,
 }
 

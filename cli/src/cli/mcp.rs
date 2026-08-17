@@ -42,17 +42,17 @@ means unknown — treat it as needing confirmation, not as safe.";
 ///
 /// Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
 /// clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
-#[derive(Debug, clap::Args)]
-#[clap(visible_alias = "mcp-server", verbatim_doc_comment)]
+#[derive(Debug, usage_derive::Args)]
+#[usage(effect = "read")]
 pub struct Mcp {
     // Unlike other subcommands this cannot be "-": stdin is the transport, so
     // reading the spec from it would consume the session.
     /// Usage spec file (not "-": stdin is the MCP transport)
-    #[clap(short, long)]
+    #[usage(short = 'f', long)]
     file: Option<PathBuf>,
 
     /// Raw string spec input
-    #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(short = 's', long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }
 

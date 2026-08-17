@@ -51,6 +51,10 @@ You may need to set this if you have a different bin named "usage"
 
 **Default:** `usage`
 
+**Environment Variable:** `JDX_USAGE_BIN`
+
 ### `--usage-cmd <USAGE_CMD>`
 
-A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+A command which generates a usage spec
+e.g.: `mycli --usage` or `mycli completion usage`
+Defaults to "$bin --usage"

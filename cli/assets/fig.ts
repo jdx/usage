@@ -460,6 +460,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["manpage", "man"],
+          description: "Generate a manpage from a usage spec",
           options: [
             {
               name: ["-f", "--file"],
