@@ -83,6 +83,21 @@
 
 use std::ffi::{OsStr, OsString};
 
+/// A value's filesystem completion class for `#[usage(value_hint = ...)]`.
+///
+/// This lives in the runtime crate so a declaration never needs clap merely to describe what
+/// kind of path a shell should offer. It is metadata only and adds no work to a successful
+/// parse.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ValueHint {
+    /// A path to a file.
+    FilePath,
+    /// A path to either a file or a directory.
+    AnyPath,
+    /// A path to a directory.
+    DirPath,
+}
+
 #[cfg(feature = "complete")]
 pub mod complete;
 #[cfg(feature = "diagnostics")]

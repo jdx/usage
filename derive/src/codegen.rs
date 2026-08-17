@@ -802,6 +802,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
     let value_name = option_str(field.value_name.as_deref());
+    let complete_type = option_str(field.complete_type.as_deref());
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
@@ -836,6 +837,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
         pub static #name: ::usage_argv::spec::FlagMeta = ::usage_argv::spec::FlagMeta {
             effect: #effect,
             complete: #completer,
+            complete_type: #complete_type,
             flag: &#table,
             help: #help,
             long_help: #long_help,
@@ -867,6 +869,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
+    let complete_type = option_str(field.complete_type.as_deref());
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
@@ -882,6 +885,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
         #completer_decl
         pub static #name: ::usage_argv::spec::ArgMeta = ::usage_argv::spec::ArgMeta {
             complete: #completer,
+            complete_type: #complete_type,
             arg: &#table,
             help: #help,
             long_help: #long_help,

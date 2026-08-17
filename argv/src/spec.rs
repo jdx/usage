@@ -485,6 +485,8 @@ pub struct FlagMeta<'a> {
     /// that asks *this binary*, so a spec stays complete for every other consumer while the
     /// binary answers itself.
     pub complete: Option<Completer>,
+    /// A built-in completion class such as `path` or `dir`.
+    pub complete_type: Option<&'a str>,
     /// Whether the flag may be given more than once. Distinct from
     /// [`Flag::variadic`], which is one occurrence taking several values.
     pub repeatable: bool,
@@ -518,6 +520,7 @@ impl FlagMeta<'_> {
     /// Metadata for a flag with nothing declared, for struct update syntax.
     pub const EMPTY: FlagMeta<'static> = FlagMeta {
         complete: None,
+        complete_type: None,
         flag: &Flag::BOOL,
         help: None,
         long_help: None,
@@ -561,12 +564,15 @@ pub struct ArgMeta<'a> {
     pub help_heading: Option<&'a str>,
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
     pub complete: Option<Completer>,
+    /// A built-in completion class such as `path` or `dir`.
+    pub complete_type: Option<&'a str>,
 }
 
 impl ArgMeta<'_> {
     /// Metadata for an argument with nothing declared, for struct update syntax.
     pub const EMPTY: ArgMeta<'static> = ArgMeta {
         complete: None,
+        complete_type: None,
         arg: &Arg::REQUIRED,
         help: None,
         long_help: None,
@@ -785,10 +791,41 @@ fn write_body(
         );
         write_arg(out, arg, depth)?;
     }
+    write_completion_types(out, meta, depth)?;
     #[cfg(feature = "complete")]
     write_completers(out, meta, bin, depth)?;
     for sub in meta.subcommands {
         write_command(out, sub, depth, enclosing_unknown_flags, bin)?;
+    }
+    Ok(())
+}
+
+/// Built-in completion types declared by this command, written in the spec's vocabulary.
+fn write_completion_types(
+    out: &mut String,
+    meta: &CommandMeta<'_>,
+    depth: usize,
+) -> core::fmt::Result {
+    for arg in meta.args {
+        if let Some(type_) = arg.complete_type {
+            indent(out, depth)?;
+            writeln!(
+                out,
+                "complete {} type={}",
+                quoted(&arg.arg.name.to_ascii_lowercase()),
+                quoted(type_)
+            )?;
+        }
+    }
+    for flag in meta.flags {
+        if let Some(type_) = flag.complete_type {
+            let name = flag
+                .value_name
+                .unwrap_or(flag.flag.name)
+                .to_ascii_lowercase();
+            indent(out, depth)?;
+            writeln!(out, "complete {} type={}", quoted(&name), quoted(type_))?;
+        }
     }
     Ok(())
 }
