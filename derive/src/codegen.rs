@@ -1211,6 +1211,14 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
                 }
                 partial.#negated = negated;
             }
+        } else if duplicates_per_level(field) {
+            let here = format_ident!("__here_{}", ident);
+            quote! {
+                if partial.#here {
+                    partial.#duplicated = true;
+                }
+                partial.#here = true;
+            }
         } else {
             quote! {
                 if partial.#given {
@@ -1258,6 +1266,29 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
 ///
 /// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
 /// into repetition. Every other flag matches clap's default of one occurrence.
+/// Whether a repeat of this flag is only a duplicate *within one command*.
+///
+/// A `global` flag is in scope for every descendant, and clap lets it be given again on a
+/// subcommand — the inner occurrence simply wins, which is what makes `mise -y install -y` a
+/// line that works today. Repeating it at *one* level is still an error there, so the check
+/// cannot simply be dropped: it has to be per level, which is what `__here_` records.
+fn duplicates_per_level(field: &Field) -> bool {
+    rejects_duplicate(field) && matches!(field.kind, Kind::Flag { global: true, .. })
+}
+
+/// Clearing those markers, to run when a command word is read: descending starts a new level.
+fn reset_per_level(cli: &Cli) -> TokenStream {
+    let resets = cli
+        .fields
+        .iter()
+        .filter(|f| duplicates_per_level(f))
+        .map(|f| {
+            let here = format_ident!("__here_{}", f.ident);
+            quote!(partial.#here = false;)
+        });
+    quote!(#(#resets)*)
+}
+
 fn rejects_duplicate(field: &Field) -> bool {
     matches!(field.kind, Kind::Flag { .. })
         && !matches!(field.shape, Shape::Count | Shape::Many)
@@ -1409,11 +1440,17 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(pub #duplicated: bool,)
         });
+        // Given at *this* level, for a global — see `duplicates_per_level`. Only for those
+        // fields, so nothing else carries a `bool` no code reads.
+        let here = duplicates_per_level(f).then(|| {
+            let here = format_ident!("__here_{}", ident);
+            quote!(pub #here: bool,)
+        });
         let negated = has_negate(f).then(|| {
             let negated = format_ident!("__negated_{}", ident);
             quote!(pub #negated: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #negated))
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -1737,6 +1774,10 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(#duplicated: false,)
         });
+        let here = duplicates_per_level(f).then(|| {
+            let here = format_ident!("__here_{}", ident);
+            quote!(#here: false,)
+        });
         let negated = has_negate(f).then(|| {
             let negated = format_ident!("__negated_{}", ident);
             quote!(#negated: false,)
@@ -1746,6 +1787,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             #given: false,
             #overridden
             #duplicated
+            #here
             #negated
         })
     });
@@ -2132,6 +2174,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     })?;
     let ident = &field.ident;
     let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
+    let per_level_resets = reset_per_level(cli);
 
     let selected = quote! {
         match partial.__usage_selected {
@@ -2201,6 +2244,9 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                 {
                     partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                 }
+                // Any command word, not only one of ours: a descent at any depth begins a
+                // level at which this command's globals may be given again.
+                #per_level_resets
             }
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
             // set just above, so a command word reaches the command it named on the same

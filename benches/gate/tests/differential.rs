@@ -264,21 +264,6 @@ fn explained(o: Outcome) -> Option<&'static str> {
             clap: Question,
         } => Some("a question, which usage-lib answers by accepting rather than by erroring"),
 
-        // A global flag given at two levels: `mise -y config ls -y`. clap lets a global be
-        // repeated deeper down and the inner occurrence win; usage-argv sees the same flag
-        // twice and calls it a duplicate; usage-lib accepts. Found by the generator once it
-        // learned to put tokens *before* the command path, which is what makes this shape
-        // reachable at all.
-        //
-        // usage-argv is the strict one here, and the only one of the three, so this is
-        // usage-argv's to settle rather than something the fuzzer should paper over —
-        // recorded, with `a_repeated_global_is_usage_argvs_alone` below as the witness.
-        Outcome {
-            argv: Conflict,
-            lib: true,
-            clap: Accept,
-        } => Some("usage-argv calls a global given at two levels a duplicate; clap allows it"),
-
         // usage-argv and clap both refuse; usage-lib accepts. Three of the four classes the
         // first run found are this shape: a missing subcommand, a flag whose value is missing,
         // and a repeated flag that may not repeat. usage-lib accepts all three.
@@ -492,29 +477,39 @@ fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
 }
 
 #[test]
-fn a_repeated_global_is_usage_argvs_alone() {
-    // Found by the generator once `head` let it put tokens before the command path. mise's
-    // `-y` is `global=#true`, and clap lets a global be given again on the subcommand — the
-    // inner occurrence simply wins. usage-argv sees one flag bound twice and refuses.
-    //
-    // Pinned rather than fixed: usage-argv is the only strict one of the three, and mise
-    // ships clap today, so `mise -y config ls -y` is a line that works now. Which way that
-    // should go is usage-argv's to settle; this records what is true meanwhile.
+fn a_global_may_be_given_once_per_level() {
+    // Found by the generator once `head` let it put tokens before the command path, and fixed
+    // in the commit this test came with. `-y` is `global=#true`; clap lets it be given again on
+    // a subcommand — the inner occurrence wins — and refuses a repeat at one level. usage-argv
+    // now draws the same line, which matters because `mise -y install -y` works today.
     let spec = spec();
-    let repeated: Vec<String> = ["-y", "config", "ls", "-y"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let o = run(&spec, &repeated);
-    assert_eq!(o.argv, Verdict::Conflict, "{o:?}");
-    assert_eq!(o.accepted(), (false, true, true), "{o:?}");
-    assert!(explained(o).is_some(), "{o:?}");
+    let go = |words: &[&str]| {
+        run(
+            &spec,
+            &words.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        )
+    };
 
-    // At one level, though, clap refuses too — so the divergence really is about globals
-    // crossing a command boundary, not about repetition.
-    let twice: Vec<String> = ["-y", "-y"].iter().map(|s| s.to_string()).collect();
-    let o = run(&spec, &twice);
-    assert_eq!((o.argv, o.clap), (Verdict::Conflict, Verdict::Conflict));
+    // Across a boundary: allowed, at any depth, and more than once.
+    for words in [
+        &["-y", "config", "ls", "-y"][..],
+        &["-y", "config", "-y", "ls"][..],
+    ] {
+        let o = go(words);
+        assert_eq!(o.accepted(), (true, true, true), "{words:?} {o:?}");
+    }
+
+    // Twice at one level: refused, and refused by clap too — whether that level is the root or
+    // a command three words in. This is the half a blanket exemption for globals would lose.
+    for words in [
+        &["-y", "-y"][..],
+        &["config", "ls", "-y", "-y"][..],
+        &["-y", "config", "ls", "-y", "-y"][..],
+    ] {
+        let o = go(words);
+        assert_eq!(o.argv, Verdict::Conflict, "{words:?} {o:?}");
+        assert_eq!(o.clap, Verdict::Conflict, "{words:?} {o:?}");
+    }
 }
 
 #[test]
