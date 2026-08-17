@@ -20,12 +20,39 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     //
     // Listed nowhere before this: `communique generate` accepts `--config` from its root and
     // its page mentioned none of it — a flag a user can type and cannot discover.
-    let mut inherited = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
+    let (mut inherited, ancestors_taken) = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
 
     // One column over both lists, so the two sections read as one table with a rule through it
     // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
     // padding — a continuation line is indented to sit under the description — so both lists
     // are laid out again once the width is known.
+    // Last in the command's own section, which is where clap has them: they carry no
+    // `help_heading`, so a CLI that groups its flags gets them at the end of the ungrouped
+    // list rather than inside somebody's section.
+    {
+        let supplied = supplied_flags(spec, cmd, &ancestors_taken, docs_cmd.full_cmd.is_empty());
+        if !supplied.is_empty() {
+            match docs_cmd
+                .flag_groups
+                .iter_mut()
+                .find(|g| g.heading.is_none())
+            {
+                Some(group) => group.items.extend(supplied),
+                // Inserted first, not pushed: `group_by_heading` sorts the unheaded group to
+                // the front and argv's `groups_section` emits it there, so a CLI that heads
+                // every one of its flags would otherwise get `Flags:` *after* the headed
+                // sections here and before them there.
+                None => docs_cmd.flag_groups.insert(
+                    0,
+                    crate::docs::models::Group {
+                        heading: None,
+                        items: supplied,
+                    },
+                ),
+            }
+        }
+    }
+
     let width = crate::docs::layout::get_terminal_width();
     let col = crate::docs::layout::max_usage_width(
         docs_cmd
@@ -50,6 +77,77 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
         "spec_template_short.tera"
     };
     TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
+}
+
+/// The entries for `--help` and `--version`, which the parser supplies and no spec declares.
+///
+/// Listed because help is written for people: a reader looking for how to ask for help should
+/// find it on the page. This reverses the rule these two used to follow — that a page lists
+/// exactly what its spec declares — and the reason is that the spec has its own readers, and
+/// they are not the ones reading this.
+///
+/// `--version` only on the program's own page and only where a version is declared, which is
+/// where a parser accepts one. Each spelling is dropped where the CLI claimed it, since a page
+/// must not describe a flag that something else binds.
+///
+/// The twin of `supplied_entries` in `usage-argv`'s `help` module; the gate over mise's spec is
+/// what says the two agree.
+fn supplied_flags(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    ancestors_taken: &[String],
+    is_root: bool,
+) -> Vec<crate::docs::models::SpecFlag> {
+    // The command's own spellings plus everything in scope above it — the set the inherited
+    // walk built, which counts hidden globals and negations. Rebuilding it from the *visible*
+    // inherited list lost both: a hidden ancestor that binds `--help` would have had the page
+    // offer it anyway.
+    let mut taken: Vec<String> = ancestors_taken.to_vec();
+    for f in &cmd.flags {
+        taken.extend(f.long.iter().map(|l| format!("--{l}")));
+        taken.extend(f.short.iter().map(|s| format!("-{s}")));
+        // Stored with its dashes here, unlike in usage-argv.
+        taken.extend(f.negate.clone());
+    }
+
+    let build = |name: &str, long: &str, short: char, help: &str| {
+        let long_free = !taken.contains(&format!("--{long}"));
+        let short_free = !taken.contains(&format!("-{short}"));
+        if !long_free && !short_free {
+            return None;
+        }
+        // Named after the form it shows: a short-only entry called `help` reads as a renamed
+        // flag and printed `help: -h`.
+        let name = if long_free { name } else { &short.to_string() };
+        let mut flag = crate::SpecFlag {
+            name: name.to_string(),
+            long: if long_free {
+                vec![long.to_string()]
+            } else {
+                vec![]
+            },
+            short: if short_free { vec![short] } else { vec![] },
+            help: Some(help.to_string()),
+            ..Default::default()
+        };
+        flag.usage = flag.usage();
+        Some(crate::docs::models::SpecFlag::from(&flag))
+    };
+
+    let mut out = Vec::new();
+    // `disable_help` turns the parser's answer off — `is_help_arg` refuses the spelling
+    // outright — so a page that still listed it would describe an action nothing performs.
+    // The same rule as a claimed or hidden spelling, with the claim made by the spec itself.
+    //
+    // usage-argv has no equivalent: `disable_help` is a KDL-only word, so no spec that crate
+    // can hold ever carries one, and the two renderers cannot disagree about it.
+    if spec.disable_help != Some(true) {
+        out.extend(build("help", "help", 'h', "Print help"));
+    }
+    if is_root && spec.version.is_some() {
+        out.extend(build("version", "version", 'V', "Print version"));
+    }
+    out
 }
 
 /// Fit a list of flags to a column: how wide their names are, and where their help wraps.
@@ -88,14 +186,14 @@ fn inherited_flags(
     spec: &Spec,
     cmd: &SpecCommand,
     full_cmd: &[String],
-) -> Vec<crate::docs::models::SpecFlag> {
+) -> (Vec<crate::docs::models::SpecFlag>, Vec<String>) {
     // Every ancestor, root first, which is the order a reader meets them walking down.
     let mut ancestors: Vec<&SpecCommand> = Vec::new();
     let mut at = &spec.cmd;
     for name in full_cmd.iter().take(full_cmd.len().saturating_sub(1)) {
         ancestors.push(at);
         let Some(next) = at.subcommands.get(name) else {
-            return Vec::new();
+            return (Vec::new(), Vec::new());
         };
         at = next;
     }
@@ -164,7 +262,7 @@ fn inherited_flags(
             keep.push((f, long, short, negate));
         }
     }
-    ancestors
+    let shown: Vec<crate::docs::models::SpecFlag> = ancestors
         .iter()
         .flat_map(|a| a.flags.iter())
         .filter_map(|f| {
@@ -184,7 +282,12 @@ fn inherited_flags(
             shown.usage = shown.usage();
             crate::docs::models::SpecFlag::from(&shown)
         })
-        .collect()
+        .collect();
+    // The claim set travels with the result, forms and negations together: the supplied
+    // `--help` and `--version` entries lose to both, since `find_negation` runs before either
+    // is offered — even though a negation loses to a long.
+    taken.extend(taken_negations);
+    (shown, taken)
 }
 
 /// The command without anything marked `hide`.
@@ -247,6 +350,33 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn a_hidden_ancestor_claim_keeps_help_off_the_page() {
+        // `--help` is supplied by the parser, and a hidden global that declares it still binds
+        // first — `hide` keeps a flag off the page, not out of the parse. Deciding the supplied
+        // entries from the *visible* inherited list lost exactly that, and the page offered a
+        // `--help` that does something else.
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "--help" global=#true hide=#true help="the CLI's own, and invisible"
+cmd inner help="a command" {
+    flag "--plain" help="its own"
+}
+        "# }
+        .unwrap();
+
+        let inner = spec.cmd.subcommands.get("inner").expect("inner");
+        for long in [false, true] {
+            let page = super::render_help(&spec, inner, long);
+            assert!(
+                !page.contains("--help"),
+                "long={long}: a hidden ancestor binds this:\n{page}"
+            );
+            // The short form is untouched, since nothing claimed it.
+            assert!(page.contains("-h"), "long={long}:\n{page}");
+        }
+    }
 
     #[test]
     fn a_long_beats_a_negation_however_far_away_it_is() {
@@ -349,6 +479,7 @@ cmd sneaky hide=#true help="a hidden command"
 
         Flags:
               --visible  shown
+          -h, --help     Print help
         ");
     }
 
@@ -378,6 +509,7 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
 
         Flags:
               --verbose            Verbose output
+          -h, --help               Print help
 
         Filtering:
               --filter <pattern>   Only matching
@@ -401,6 +533,9 @@ flag "--filter <pattern>" help="Only matching" help_heading="Filtering"
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--filter <pattern>]
 
+        Flags:
+          -h, --help              Print help
+
         Filtering:
               --filter <pattern>  Only matching
         ");
@@ -423,6 +558,7 @@ flag "--debug" help="Debug mode"
               --color    Enable color output [env: MYCLI_COLOR]
               --verbose  Verbose output [env: MYCLI_VERBOSE]
               --debug    Debug mode
+          -h, --help     Print help
         ");
 
         assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
@@ -434,6 +570,7 @@ flag "--debug" help="Debug mode"
               --verbose  Verbose output
             [env: MYCLI_VERBOSE]
               --debug    Debug mode
+          -h, --help     Print help
         ");
     }
 
@@ -456,9 +593,12 @@ arg "[default]" help="Arg with default value" default="default value"
           <output>   Output file [env: MY_OUTPUT]
           <extra>    Extra arg without env
           [default]  Arg with default value (default: default value)
+
+        Flags:
+          -h, --help  Print help
         ");
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, true), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
         Usage: testcli <ARGS>…
 
         Arguments:
@@ -469,6 +609,9 @@ arg "[default]" help="Arg with default value" default="default value"
           <extra>    Extra arg without env
           [default]  Arg with default value
             (default: default value)
+
+        Flags:
+          -h, --help  Print help
         ");
     }
 
@@ -487,6 +630,7 @@ flag "--verbose" help="Verbose output"
         Flags:
               --compress / --no-compress  Compress output
               --verbose                   Verbose output
+          -h, --help                      Print help
         ");
 
         assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
@@ -495,6 +639,7 @@ flag "--verbose" help="Verbose output"
         Flags:
               --compress / --no-compress  Compress output
               --verbose                   Verbose output
+          -h, --help                      Print help
         ");
     }
 
@@ -515,6 +660,7 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         This text appears after the help
         ");
@@ -539,6 +685,7 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         short after
         ");
@@ -550,6 +697,7 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         This is the long version of after help
         ");
@@ -570,6 +718,7 @@ example "testcli" header="Run normally" help="Just runs the tool"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         Examples:
           Run with verbose output:
@@ -583,6 +732,7 @@ example "testcli" header="Run normally" help="Just runs the tool"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         Examples:
           Run with verbose output:
@@ -609,6 +759,31 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
+          -V, --version  Print version
+        ");
+    }
+
+    #[test]
+    fn test_render_help_omits_help_when_disabled() {
+        // `disable_help` turns the parser's answer off, so the page must not offer it: the same
+        // rule as a spelling the CLI claimed, with the spec doing the claiming. `--version`
+        // stays, because nothing disabled that.
+        let spec = crate::spec! { r#"
+bin "testcli"
+version "1.2.3"
+disable_help #true
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
+        testcli 1.2.3
+        Usage: testcli [--verbose]
+
+        Flags:
+              --verbose  Enable verbose output
+          -V, --version  Print version
         ");
     }
 
@@ -628,6 +803,7 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
         ");
 
         // Long help should show author/license at the bottom
@@ -636,6 +812,7 @@ flag "--verbose" help="Enable verbose output"
 
         Flags:
               --verbose  Enable verbose output
+          -h, --help     Print help
 
         Author: Test Author
         License: MIT
@@ -651,13 +828,16 @@ cmd "new-cmd" help="Do something better"
         "# }
         .unwrap();
 
-        assert_snapshot!(render_help(&spec, &spec.cmd, false), @r"
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli <SUBCOMMAND>
 
         Commands:
           new-cmd  Do something better
           old-cmd [deprecated: use new-cmd instead]  Do something
           help  Print this message or the help of the given subcommand(s)
+
+        Flags:
+          -h, --help  Print help
         ");
     }
 }

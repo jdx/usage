@@ -939,6 +939,135 @@ pub fn find<'a>(
     walk(&mut path, &mut chain, spec.root, cmd).then_some((path, chain))
 }
 
+/// The entries for `--help` and `--version`, which the parser supplies and no spec declares.
+///
+/// Listed because help is written for people: a reader looking for how to get help should find
+/// it on the page. This reverses the rule these two used to follow — that a page lists exactly
+/// what its spec declares — and the reason is that the spec has its own readers, and they are
+/// not the ones reading this.
+///
+/// Four spellings each, because a CLI may have claimed either form for itself. The parser
+/// yields to a declaration (`in_scope` looks a command's own flags up first), so a page that
+/// claimed otherwise would be describing a flag that never binds.
+mod supplied {
+    use crate::spec::FlagMeta;
+    use crate::Flag;
+
+    macro_rules! entry {
+        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr) => {
+            static $flag: Flag<'static> = Flag {
+                key: $key,
+                name: $label,
+                longs: $longs,
+                shorts: $shorts,
+                ..Flag::BOOL
+            };
+            pub static $name: FlagMeta<'static> = FlagMeta {
+                flag: &$flag,
+                help: Some($help),
+                ..FlagMeta::EMPTY
+            };
+        };
+    }
+
+    entry!(
+        HELP_BOTH,
+        HB,
+        crate::HELP_LONG_KEY,
+        "help",
+        &["help"],
+        b"h",
+        "Print help"
+    );
+    entry!(
+        HELP_LONG_ONLY,
+        HL,
+        crate::HELP_LONG_KEY,
+        "help",
+        &["help"],
+        b"",
+        "Print help"
+    );
+    // Named `h`, not `help`: the declared name is judged against the forms the entry shows,
+    // and a short-only entry called `help` reads as a renamed flag — it printed `help: -h`.
+    entry!(
+        HELP_SHORT_ONLY,
+        HS,
+        crate::HELP_SHORT_KEY,
+        "h",
+        &[],
+        b"h",
+        "Print help"
+    );
+    entry!(
+        VERSION_BOTH,
+        VB,
+        crate::VERSION_LONG_KEY,
+        "version",
+        &["version"],
+        b"V",
+        "Print version"
+    );
+    entry!(
+        VERSION_LONG_ONLY,
+        VL,
+        crate::VERSION_LONG_KEY,
+        "version",
+        &["version"],
+        b"",
+        "Print version"
+    );
+    entry!(
+        VERSION_SHORT_ONLY,
+        VS,
+        crate::VERSION_SHORT_KEY,
+        "V",
+        &[],
+        b"V",
+        "Print version"
+    );
+}
+
+/// The supplied entries a page should list, given what the command already claims.
+///
+/// `--version` only where the parser actually accepts it: on a command whose table says so,
+/// which the derive sets on the root when a version is declared. A page offering one that the
+/// parser would refuse is worse than a page that stays quiet.
+fn supplied_entries(cmd: &Command<'_>, taken: &[String]) -> Vec<&'static FlagMeta<'static>> {
+    // Against the same set every other decision on this page uses, so a spelling claimed by a
+    // hidden declaration or by a negation is claimed here too. Offering a `--help` that
+    // something else binds is exactly the lie the model exists to prevent.
+    let pick = |long: &str, short: char, both, l, s| match (
+        taken.contains(&format!("--{long}")),
+        taken.contains(&format!("-{short}")),
+    ) {
+        (true, true) => None,
+        (true, false) => Some(s),
+        (false, true) => Some(l),
+        (false, false) => Some(both),
+    };
+
+    let mut out = Vec::new();
+    out.extend(pick(
+        "help",
+        'h',
+        &supplied::HELP_BOTH,
+        &supplied::HELP_LONG_ONLY,
+        &supplied::HELP_SHORT_ONLY,
+    ));
+    // Only where the parser accepts one, which is the root of a CLI that declared a version.
+    if cmd.version {
+        out.extend(pick(
+            "version",
+            'V',
+            &supplied::VERSION_BOTH,
+            &supplied::VERSION_LONG_ONLY,
+            &supplied::VERSION_SHORT_ONLY,
+        ));
+    }
+    out
+}
+
 /// Every flag a page should list, split into the command's own and the ones it inherits.
 ///
 /// The rule the parser follows on the way down, and the same one the diagnostics suggest
@@ -1022,6 +1151,22 @@ fn own_and_global<'a>(
         })
         .collect();
 
+    // Last in the command's own section, which is where clap has them: they carry no
+    // `help_heading`, so a CLI that groups its flags gets them at the end of the ungrouped
+    // list rather than inside somebody's section.
+    //
+    // Given `taken` rather than the two lists: that set already counts hidden declarations and
+    // negations, and a `--help` the page offers while something else binds it is exactly the
+    // lie this whole model exists to prevent.
+    let mut own = own;
+    // Forms *and* negations: `long_flag` asks `find_negation` before it offers `--version`,
+    // so a declared negation beats a supplied flag even though it loses to a long.
+    let claimed: Vec<String> = taken
+        .iter()
+        .cloned()
+        .chain(taken_negations.iter().cloned())
+        .collect();
+    own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)
 }
 

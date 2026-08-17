@@ -187,29 +187,53 @@ fn a_declared_long_wins_too() {
 }
 
 #[test]
-fn the_flag_is_not_in_the_help_page_or_the_spec() {
-    // Supplied rather than declared, exactly as `--help` is. A page listing a flag the spec
-    // does not declare is a page that disagrees with the spec it was rendered from.
+fn the_flag_is_listed_but_still_not_declared() {
+    // Listed, because a reader looking for the version should find it where they are looking.
+    // Not *declared*: the parser supplies it, and a spec claiming otherwise would have every
+    // reader inventing a flag its CLI never wrote.
     let page = usage_argv::help::render(Versioned::spec(), Versioned::spec().root.cmd, true)
         .expect("a page");
-    assert!(!page.contains("--version"), "{page}");
-
-    // Asserted on the metadata rather than by searching the page for `-V`: `go` declares one of
-    // its own, and it is listed — correctly — in the commands summary. What must be absent is a
-    // *root* flag nobody declared.
-    assert!(
-        !Versioned::spec()
-            .root
-            .flags
-            .iter()
-            .any(|f| f.flag.shorts.contains(&b'V') || f.flag.longs.contains(&"version")),
-        "the root lists a flag it does not declare"
-    );
+    assert!(page.contains("-V, --version"), "{page}");
+    assert!(page.contains("Print version"), "{page}");
 
     let kdl = Versioned::to_kdl();
     assert!(!kdl.contains("--version"), "{kdl}");
     // But the version itself is declared, which is what the flag answers with.
     assert!(kdl.contains(r#"version "1.2.3""#), "{kdl}");
+}
+
+#[test]
+fn a_command_that_cannot_answer_does_not_offer() {
+    // `--version` is the root's, so a subcommand's page must not list one: the parser would
+    // refuse it there, and a page offering a flag that gets refused is worse than a quiet one.
+    let root = Versioned::spec().root.cmd;
+    let other = root
+        .subcommands
+        .iter()
+        .find(|c| c.name == "other")
+        .expect("other");
+    let page = usage_argv::help::render(Versioned::spec(), other, true).expect("a page");
+    assert!(!page.contains("--version"), "{page}");
+    // And help, which every command does answer, is still there.
+    assert!(page.contains("-h, --help"), "{page}");
+
+    // Nor does a CLI that declares no version at all.
+    let page = usage_argv::help::render(Unversioned::spec(), Unversioned::spec().root.cmd, true)
+        .expect("a page");
+    assert!(!page.contains("--version"), "{page}");
+}
+
+#[test]
+fn a_claimed_spelling_is_not_offered_twice() {
+    // `OwnShort` takes `-V` for `--verbose`. The page must show the spelling that is still
+    // free and not claim the one that is taken, or it would describe a flag that never binds.
+    let page = usage_argv::help::render(OwnShort::spec(), OwnShort::spec().root.cmd, true)
+        .expect("a page");
+    assert!(page.contains("--version"), "{page}");
+    assert!(
+        !page.contains("-V, --version"),
+        "`-V` belongs to `--verbose` here: {page}"
+    );
 }
 
 #[test]
@@ -249,4 +273,47 @@ fn a_failure_renders_the_way_a_user_should_read_it() {
         message.contains("For more information, try '--help'."),
         "{message}"
     );
+}
+
+/// Takes `--help` for itself, with a flag nobody can see
+#[derive(Cli)]
+#[usage(bin = "hidden-help", version = "1.0")]
+struct HiddenHelp {
+    /// Hidden, and still binds — so the page must not offer `--help` as its own
+    #[usage(long = "help", hide)]
+    help_of_its_own: bool,
+    /// Its negation is `-V`'s long form, which counts as claiming it
+    #[usage(long = "quiet", negate = "--version")]
+    quiet: bool,
+}
+
+#[test]
+fn a_hidden_or_negated_claim_still_counts() {
+    // The parser looks a command's own flags up first and does not care whether they are
+    // shown, so a hidden `--help` binds and a negation named `--version` binds. Offering
+    // either as the supplied entry would describe an action that typing it does not perform.
+    let page = usage_argv::help::render(HiddenHelp::spec(), HiddenHelp::spec().root.cmd, true)
+        .expect("a page");
+    let listing = page.split_once("\nFlags:").expect("a flags section").1;
+
+    // `--help` is claimed, so only the short form is offered — and named after the form it
+    // shows, or it renders as a renamed flag: `help: -h`.
+    assert!(listing.contains("  -h  "), "{page}");
+    assert!(!listing.contains("help: -h"), "{page}");
+    assert!(!listing.contains("-h, --help"), "{page}");
+
+    // `--version` is claimed by a negation, so only `-V` is offered.
+    assert!(!listing.contains("-V, --version"), "{page}");
+}
+
+#[test]
+fn the_hidden_help_fields_are_bound() {
+    use std::ffi::OsStr;
+    let argv = ["--help"].map(OsStr::new);
+    let parsed = HiddenHelp::parse_from(&argv).expect("its own flag, not a help request");
+    assert!(parsed.help_of_its_own);
+
+    let argv = ["--version"].map(OsStr::new);
+    let parsed = HiddenHelp::parse_from(&argv).expect("its own negation, not a version request");
+    assert!(!parsed.quiet);
 }

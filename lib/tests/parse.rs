@@ -114,6 +114,9 @@ arg_choices_help_short:
 
 Arguments:
   <shell>  shorthelp [bash, fish, zsh]
+
+Flags:
+  -h, --help  Print help
 "#,
 
 arg_choices_help_long:
@@ -129,6 +132,9 @@ Arguments:
     fooo
     bar
     [possible values: bash, fish, zsh]
+
+Flags:
+  -h, --help  Print help
 "#,
 
 flag_choices_help_short:
@@ -140,6 +146,7 @@ flag_choices_help_short:
 
 Flags:
       --shell <shell>  shorthelp [bash, fish, zsh]
+  -h, --help           Print help
 "#,
 
 flag_choices_help_long:
@@ -155,6 +162,7 @@ Flags:
     fooo
     bar
     [possible values: bash, fish, zsh]
+  -h, --help           Print help
 "#,
 
 cmd_help_short:
@@ -165,6 +173,9 @@ cmd_help_short:
 Commands:
   cmd  shorthelp
   help  Print this message or the help of the given subcommand(s)
+
+Flags:
+  -h, --help  Print help
 "#,
 
 cmd_help_long:
@@ -180,6 +191,9 @@ Commands:
 
   help
     Print this message or the help of the given subcommand(s)
+
+Flags:
+  -h, --help  Print help
     "#,
 
 subcommand_help_short:
@@ -192,6 +206,9 @@ subcommand_help_short:
 Commands:
   plugins install  shorthelp
   help  Print this message or the help of the given subcommand(s)
+
+Flags:
+  -h, --help  Print help
 "#,
 
 flag_default:
