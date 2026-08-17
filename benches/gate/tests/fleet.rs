@@ -18,6 +18,8 @@
 //!
 //! See `benches/fleet/README.md` for where the specs come from and how to refresh one.
 
+use std::collections::BTreeSet;
+
 use usage::{Spec as LibSpec, SpecCommand};
 use usage_argv::help::{long_help, short_help};
 use usage_argv::spec::{CommandMeta, Spec};
@@ -50,6 +52,15 @@ fn lib_command<'a>(spec: &'a LibSpec, path: &[&str]) -> Option<&'a SpecCommand> 
     Some(cmd)
 }
 
+fn walk_lib(path: Vec<String>, cmd: &SpecCommand, out: &mut BTreeSet<String>) {
+    out.insert(path.join(" "));
+    for (name, sub) in &cmd.subcommands {
+        let mut child = path.clone();
+        child.push(name.clone());
+        walk_lib(child, sub, out);
+    }
+}
+
 /// The first line where two pages part company, with a little of each side.
 fn first_diff(ours: &str, theirs: &str) -> String {
     let (o, t): (Vec<&str>, Vec<&str>) = (ours.lines().collect(), theirs.lines().collect());
@@ -59,7 +70,8 @@ fn first_diff(ours: &str, theirs: &str) -> String {
         .position(|(a, b)| a != b)
         .unwrap_or(o.len().min(t.len()));
     format!(
-        "    line {at}\n      argv: {:?}\n      lib : {:?}",
+        "    line {}\n      argv: {:?}\n      lib : {:?}",
+        at + 1,
         o.get(at),
         t.get(at)
     )
@@ -79,9 +91,18 @@ fn agrees(name: &str, bin: &str, kdl: &str, root: &'static Spec<'static>) -> Vec
     );
 
     let mut differences = Vec::new();
+    let shadow_paths: BTreeSet<String> = commands.iter().map(|(path, _)| path.join(" ")).collect();
+    let mut lib_paths = BTreeSet::new();
+    walk_lib(vec![bin.to_string()], &spec.cmd, &mut lib_paths);
+    for path in lib_paths.difference(&shadow_paths) {
+        differences.push(format!("  {path}: missing from the shadow"));
+    }
+    for path in shadow_paths.difference(&lib_paths) {
+        differences.push(format!("  {path}: not in the spec"));
+    }
+
     for (path, chain) in &commands {
         let Some(cmd) = lib_command(&spec, &path[1..]) else {
-            differences.push(format!("  {}: not in the spec", path.join(" ")));
             continue;
         };
         // Both forms: `-h` and `--help` share a column calculation and diverge in layout, and a
