@@ -2,6 +2,7 @@ package argv
 
 import (
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -36,8 +37,18 @@ func Int(name, value string) (int64, *Error) {
 }
 
 // Uint is [Int] for a value that may not be negative.
+//
+// A leading `+` is a sign, not a digit, and Rust takes it: `"+8".parse::<u64>()`
+// is 8, while `strconv.ParseUint` refuses the string outright. Refusing `+8` here
+// would have the same spec accept a value in Rust and reject it in Go — and the
+// message would have said it was not a non-negative whole number, about a value
+// that is plainly both.
 func Uint(name, value string) (uint64, *Error) {
-	n, err := strconv.ParseUint(value, 10, 64)
+	digits := value
+	if rest, found := strings.CutPrefix(digits, "+"); found {
+		digits = rest
+	}
+	n, err := strconv.ParseUint(digits, 10, 64)
 	if err != nil {
 		return 0, invalid(name, value, "a whole number, not negative")
 	}
@@ -45,7 +56,16 @@ func Uint(name, value string) (uint64, *Error) {
 }
 
 // Float converts a bound value to a float.
+//
+// Two of Go's spellings are refused first, because Rust has neither:
+// `strconv.ParseFloat` takes digit separators (`1_5`) and hexadecimal floats
+// (`0x1.8p0`), and `f64::from_str` takes neither. The rest agree, `inf` and `NaN`
+// and a bare `.5` included, which is why this is a check on two characters rather
+// than a reimplementation of the grammar.
 func Float(name, value string) (float64, *Error) {
+	if strings.ContainsAny(value, "_xX") {
+		return 0, invalid(name, value, "a number")
+	}
 	n, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return 0, invalid(name, value, "a number")

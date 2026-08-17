@@ -30,6 +30,40 @@ func TestConversions(t *testing.T) {
 	}
 }
 
+// Where Go's conversions and Rust's disagree, the spec wins the same way in both.
+//
+// Every case here was checked by running both — the standard libraries do not
+// agree by default, and the same spec compiled two ways would otherwise accept
+// different values.
+func TestTheConvertersAgreeWithRustAtTheEdges(t *testing.T) {
+	// A leading `+` is a sign, and Rust's u64 takes one. Go's ParseUint refuses
+	// the string outright.
+	if n, err := Uint("jobs", "+8"); err != nil || n != 8 {
+		t.Errorf("`+8` is 8 in Rust, got %v %v", n, err)
+	}
+	if _, err := Uint("jobs", "++8"); err == nil {
+		t.Error("one sign, not two")
+	}
+	if _, err := Uint("jobs", "+"); err == nil {
+		t.Error("a sign with no digits is not a number")
+	}
+
+	// Go's ParseFloat takes digit separators and hexadecimal floats. Rust's f64
+	// takes neither.
+	for _, v := range []string{"1_5", "0x1.8p0", "0x10"} {
+		if _, err := Float("ratio", v); err == nil {
+			t.Errorf("%q parses in Go and not in Rust, so it is refused here", v)
+		}
+	}
+	// The spellings both do take, so the check above is two characters rather
+	// than a grammar of its own.
+	for _, v := range []string{"1e3", ".5", "5.", "inf", "-inf", "NaN", "infinity"} {
+		if _, err := Float("ratio", v); err != nil {
+			t.Errorf("%q parses in Rust, so it should here: %v", v, err)
+		}
+	}
+}
+
 // A failure carries the text that would not convert and the type it was going
 // to: a message saying only "invalid value" makes the user guess which of their
 // words was wrong.
