@@ -81,7 +81,7 @@ func explain(err *Error, help HelpTable) string {
 	case CodeTooDeep:
 		return "the command tree is nested deeper than this parser will go"
 	case CodeMissingRequiredFlag:
-		return "missing required flag `" + spellName(err.Name) + "`"
+		return "missing required flag `" + typedAs(err.Spelling, err.Name) + "`"
 	case CodeMissingRequiredArg:
 		return "missing required argument `" + err.Name + "`"
 	case CodeInvalidChoice:
@@ -99,10 +99,11 @@ func explain(err *Error, help HelpTable) string {
 	case CodeConflictingFlags:
 		other := err.Other
 		if other == "" {
-			return "`" + spellName(err.Name) + "` cannot be given with another flag it conflicts with"
+			return "`" + typedAs(err.Spelling, err.Name) +
+				"` cannot be given with another flag it conflicts with"
 		}
-		return "`" + spellName(err.Name) + "` and `" + spellName(other) +
-			"` cannot be given together"
+		return "`" + typedAs(err.Spelling, err.Name) + "` and `" +
+			typedAs(err.OtherSpelling, other) + "` cannot be given together"
 	}
 	return "the command line could not be parsed"
 }
@@ -120,18 +121,19 @@ func spell(f *Flag) string {
 	return f.Name
 }
 
-// spellName is [spell] for the failures that carry only a name, which is what the
-// post-binding rules have: they judge an entry rather than a token, so no [Flag]
-// reaches them.
+// typedAs prefers the spelling the tables carry, and falls back to the bare name.
 //
-// A single-character name is taken to be a short flag, which is a guess — but the
-// right one nearly always, since a flag's name is its long form where it has one.
-// The alternative is printing `--f` for something only typeable as `-f`.
-func spellName(name string) string {
-	if len([]rune(name)) == 1 {
-		return "-" + name
+// It used to guess: a one-character name was read as a short flag, on the reasoning
+// that a name is a long form wherever there is one. That is wrong for a long-only
+// `--a`, which it rendered as `-a` — a form that does not exist, and which may
+// belong to a *different* flag. So the spelling is carried now, and where it is
+// missing the name is printed bare rather than dressed as something the user
+// cannot type.
+func typedAs(spelling, name string) string {
+	if spelling != "" {
+		return spelling
 	}
-	return "--" + name
+	return name
 }
 
 // safe makes text from the command line printable.

@@ -78,7 +78,8 @@ func TestMessagesQuoteWhatTheUserWouldType(t *testing.T) {
 	}{
 		{&Error{Code: CodeInvalidChoice, Name: "shell", Choices: []string{"bash", "zsh"}},
 			"expected one of: bash, zsh"},
-		{&Error{Code: CodeConflictingFlags, Name: "file", Other: "stdin"},
+		{&Error{Code: CodeConflictingFlags, Name: "file", Spelling: "--file",
+			Other: "stdin", OtherSpelling: "--stdin"},
 			"`--file` and `--stdin` cannot be given together"},
 		{&Error{Code: CodeVarTooFew, Name: "files", Bound: 2, Got: 1},
 			"at least 2 values, got 1"},
@@ -113,14 +114,13 @@ func TestAShortOnlyFlagIsNamedAsItIsTyped(t *testing.T) {
 		t.Errorf("a flag with a long form is named by it: %s", got)
 	}
 
-	// The post-binding failures carry a name rather than a flag, so the form is
-	// inferred from its length — the right guess nearly always, since a name is a
-	// long form where there is one.
-	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "f"}, nil); !strings.Contains(got, "`-f`") {
-		t.Errorf("a one-character name reads as a short: %s", got)
+	// The post-binding failures never see a flag, so they carry the spelling the
+	// tables worked out — see TestAOneCharacterLongFormIsNotMistakenForAShort.
+	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "f", Spelling: "-f"}, nil); !strings.Contains(got, "`-f`") {
+		t.Errorf("the carried spelling should be used: %s", got)
 	}
-	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "file"}, nil); !strings.Contains(got, "`--file`") {
-		t.Errorf("a longer name reads as a long: %s", got)
+	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "file", Spelling: "--file"}, nil); !strings.Contains(got, "`--file`") {
+		t.Errorf("the carried spelling should be used: %s", got)
 	}
 }
 
@@ -138,5 +138,32 @@ func TestControlCharactersDoNotReachTheTerminal(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("want %q kept visible in %q", want, got)
 		}
+	}
+}
+
+// The spelling is carried, not guessed.
+//
+// A one-character *long* form and a short form are both one character, so a
+// heuristic on the name renders `--a` as `-a` — a form that does not exist, and
+// one that may belong to a different flag.
+func TestAOneCharacterLongFormIsNotMistakenForAShort(t *testing.T) {
+	long := explain(&Error{Code: CodeMissingRequiredFlag, Name: "a", Spelling: "--a"}, nil)
+	if !strings.Contains(long, "`--a`") {
+		t.Errorf("want --a, got %s", long)
+	}
+	short := explain(&Error{Code: CodeMissingRequiredFlag, Name: "a", Spelling: "-a"}, nil)
+	if !strings.Contains(short, "`-a`") || strings.Contains(short, "--a") {
+		t.Errorf("want -a, got %s", short)
+	}
+	// Nothing carried: the bare name rather than a form the user cannot type.
+	bare := explain(&Error{Code: CodeMissingRequiredFlag, Name: "a"}, nil)
+	if strings.Contains(bare, "-a") {
+		t.Errorf("no spelling means no prefix invented: %s", bare)
+	}
+	// Both sides of a conflict get their own.
+	both := explain(&Error{Code: CodeConflictingFlags, Name: "a", Spelling: "--a",
+		Other: "f", OtherSpelling: "-f"}, nil)
+	if !strings.Contains(both, "`--a`") || !strings.Contains(both, "`-f`") {
+		t.Errorf("want both spellings, got %s", both)
 	}
 }

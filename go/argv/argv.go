@@ -318,6 +318,11 @@ type Error struct {
 	// Name is the flag or argument the post-binding rules rejected, as the spec
 	// spells it.
 	Name string
+	// Spelling is how the entry is typed, where the rule that raised this knew —
+	// see [Meta.Spelling]. Empty means only the name is known.
+	Spelling string
+	// OtherSpelling is the same for [Error.Other].
+	OtherSpelling string
 	// Choices carries the declared list for CodeInvalidChoice, rather than the
 	// offending value: the value is the caller's to render, and it has it.
 	Choices []string

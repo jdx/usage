@@ -99,11 +99,12 @@ func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) S
 				if given(other) {
 					// Both names, because either alone reads as a puzzle: which flag
 					// is unwelcome depends entirely on what else was given.
-					return &Error{
-						Code:  CodeConflictingFlags,
-						Name:  m.Name,
-						Other: nameOf(meta, other),
+					o := meta.Lookup(other)
+					e := &Error{Code: CodeConflictingFlags, Name: m.Name, Spelling: m.Spelling}
+					if o != nil {
+						e.Other, e.OtherSpelling = o.Name, o.Spelling
 					}
+					return e
 				}
 			}
 			continue
@@ -146,7 +147,7 @@ func missingRequired(m *Meta) *Error {
 	if m.Flag {
 		code = CodeMissingRequiredFlag
 	}
-	return &Error{Code: code, Name: m.Name}
+	return &Error{Code: code, Name: m.Name, Spelling: m.Spelling}
 }
 
 func anySet(keys []uint64, isSet func(uint64) bool) bool {
@@ -156,14 +157,4 @@ func anySet(keys []uint64, isSet func(uint64) bool) bool {
 		}
 	}
 	return false
-}
-
-// nameOf renders the other side of a relationship, falling back to nothing rather
-// than to a number: an error naming `key 7` is worse than one naming only the
-// flag the reader already knows about.
-func nameOf(meta Metadata, key uint64) string {
-	if m := meta.Lookup(key); m != nil {
-		return m.Name
-	}
-	return ""
 }

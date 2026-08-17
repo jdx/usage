@@ -454,6 +454,14 @@ impl Emitter<'_> {
         if flag.required {
             fields.push("Required: true".to_string());
         }
+        // How a user types it, worked out where the forms are visible: the rules
+        // that judge an entry never see a flag, and guessing from the name gets a
+        // one-letter long form and a short the wrong way round.
+        if let Some(long) = flag.long.first() {
+            fields.push(format!("Spelling: {}", go_string(&format!("--{long}"))));
+        } else if let Some(short) = flag.short.first() {
+            fields.push(format!("Spelling: {}", go_string(&format!("-{short}"))));
+        }
         // Written on the value a flag takes, never on the flag.
         if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
             fields.push(format!("Choices: {}", string_slice(&choices.choices)));
@@ -1145,6 +1153,16 @@ fn go_byte(c: char) -> String {
 mod tests {
     use super::*;
 
+    /// The emitted `Meta` line for an entry, so a test can assert about the part
+    /// it cares about rather than the whole rendered row — which grows a field
+    /// every time the cold table learns something.
+    fn entry_of(out: &str, name: &str) -> String {
+        out.lines()
+            .find(|l| l.contains(&format!("Name: \"{name}\", Flag: true")))
+            .unwrap_or_default()
+            .to_string()
+    }
+
     fn go(kdl: &str) -> String {
         let spec: Spec = kdl.parse().expect("the fixture spec should parse");
         generate(&spec, &GoOptions::default())
@@ -1527,19 +1545,13 @@ cmd "run" {
 }
 "#);
         // A negation names the flag it belongs to.
-        assert!(
-            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagColor}"),
-            "{out}"
-        );
+        assert!(out.contains("Conflicts: []uint64{FlagColor}"), "{out}");
         // An inherited global is in scope from below.
-        assert!(
-            out.contains("Name: \"loud\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
-            "{out}"
-        );
+        assert!(out.contains("Conflicts: []uint64{FlagQuiet}"), "{out}");
         // `--plain` is not global, so from a subcommand it names nothing — the
         // other half, and the one a looser search would get wrong.
         assert!(
-            out.contains("{Key: FlagRunSolo, Name: \"solo\", Flag: true},"),
+            !entry_of(&out, "solo").contains("Conflicts"),
             "a non-global should not resolve from below:\n{out}"
         );
     }
@@ -1560,21 +1572,15 @@ flag "--c" conflicts="-q"
 flag "--d" conflicts="--color"
 "#);
         // `--q` is not a long form of anything, and `-color` is not a short.
-        assert!(
-            out.contains("{Key: FlagA, Name: \"a\", Flag: true},"),
-            "{out}"
-        );
-        assert!(
-            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
-            "{out}"
-        );
+        assert!(!entry_of(&out, "a").contains("Conflicts"), "{out}");
+        assert!(!entry_of(&out, "b").contains("Conflicts"), "{out}");
         // The forms the flags actually have.
         assert!(
-            out.contains("Name: \"c\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
+            out.contains("Name: \"c\"") && out.contains("Conflicts: []uint64{FlagQuiet}"),
             "{out}"
         );
         assert!(
-            out.contains("Name: \"d\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            out.contains("Name: \"d\"") && out.contains("Conflicts: []uint64{FlagColor}"),
             "{out}"
         );
     }
@@ -1595,7 +1601,7 @@ flag "--zap"
 flag "--p" conflicts="--zap"
 "#);
         assert!(
-            out.contains("Name: \"p\", Flag: true, Conflicts: []uint64{FlagZap}"),
+            out.contains("Name: \"p\"") && out.contains("Conflicts: []uint64{FlagZap}"),
             "should name the flag `--zap` binds, not the one negating to it:\n{out}"
         );
     }
@@ -1611,12 +1617,12 @@ flag "--plain" conflicts="-no-tint"
 flag "--other" conflicts="--no-tint"
 "#);
         assert!(
-            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagTint}"),
+            out.contains("Name: \"plain\"") && out.contains("Conflicts: []uint64{FlagTint}"),
             "the exact form should resolve:\n{out}"
         );
         // And the form it was not written as does not.
         assert!(
-            out.contains("{Key: FlagOther, Name: \"other\", Flag: true},"),
+            !entry_of(&out, "other").contains("Conflicts"),
             "`--no-tint` is not how it was declared:\n{out}"
         );
     }
@@ -1633,15 +1639,12 @@ flag "--a" conflicts="--no-color"
 flag "--b" conflicts="--no-tint"
 "#);
         assert!(
-            out.contains("Name: \"a\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            out.contains("Name: \"a\"") && out.contains("Conflicts: []uint64{FlagColor}"),
             "{out}"
         );
         // `--no-tint` is not the form `-no-tint`, so it names nothing — as in
         // usage-lib, which does not resolve it either.
-        assert!(
-            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
-            "{out}"
-        );
+        assert!(!entry_of(&out, "b").contains("Conflicts"), "{out}");
     }
 
     #[test]

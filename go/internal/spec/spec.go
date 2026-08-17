@@ -198,6 +198,21 @@ type Flag struct {
 	Arg            *Arg     `json:"arg"`
 }
 
+// spelling is how a user types a flag: its first long form, else its first short.
+//
+// Worked out here, where the forms are visible, because the rules that judge an
+// entry never see one — and guessing from the name gets `--a` and `-a` the wrong
+// way round.
+func spelling(f *Flag) string {
+	if len(f.Long) > 0 {
+		return "--" + f.Long[0]
+	}
+	if len(f.Short) > 0 && f.Short[0] != "" {
+		return "-" + f.Short[0]
+	}
+	return ""
+}
+
 // choices for a flag are declared on the value it takes, not on the flag.
 func (f *Flag) choices() []string {
 	if f.Arg == nil {
@@ -659,6 +674,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 	b.record(out.Key, argv.Meta{
 		Name:     f.Name,
 		Flag:     true,
+		Spelling: spelling(f),
 		Required: f.Required,
 		Choices:  f.choices(),
 		Default:  f.defaults(),

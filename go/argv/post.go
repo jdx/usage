@@ -29,6 +29,14 @@ type Meta struct {
 	Key uint64
 	// Name is what the spec calls it, for the error.
 	Name string
+	// Spelling is how a user types it — `--file`, `-f` — for the errors raised
+	// here, which judge an *entry* and so never see a [Flag].
+	//
+	// Carried rather than derived from the name: a name is a long form wherever
+	// there is one, but `--a` and `-a` are both one character and guessing
+	// between them can name a different flag entirely. Empty for an argument,
+	// which is typed as its value rather than as a form.
+	Spelling string
 	// Flag distinguishes a missing flag from a missing argument, which the
 	// grammar reports as different classes.
 	Flag bool
@@ -175,7 +183,7 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		if m.Flag {
 			code = CodeMissingRequiredFlag
 		}
-		return &Error{Code: code, Name: m.Name}
+		return &Error{Code: code, Name: m.Name, Spelling: m.Spelling}
 	}
 
 	if len(m.Choices) > 0 {
