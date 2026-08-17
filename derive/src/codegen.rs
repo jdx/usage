@@ -1234,14 +1234,32 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         let duplicated = format_ident!("__duplicated_{}", ident);
         if has_negate(field) {
             let negated = format_ident!("__negated_{}", ident);
+            // For a global the question is asked per level, exactly as in the arm
+            // below: clap accepts `--colour sub --colour` when `--colour` is global
+            // and negatable just as when it is plain.
+            let (guard, mark) = if duplicates_per_level(field) {
+                let here = format_ident!("__here_{}", ident);
+                (quote!(partial.#here), quote!(partial.#here = true;))
+            } else {
+                (quote!(partial.#given), TokenStream::new())
+            };
             quote! {
-                if partial.#given {
+                if #guard {
                     // The positive and negative spellings override one another: the
                     // last of `--color --no-color` wins just like an explicit
                     // `overrides` pair. Repeating the same spelling is still an error.
                     partial.#duplicated = partial.#negated == negated;
                 }
+                #mark
                 partial.#negated = negated;
+            }
+        } else if duplicates_per_level(field) {
+            let here = format_ident!("__here_{}", ident);
+            quote! {
+                if partial.#here {
+                    partial.#duplicated = true;
+                }
+                partial.#here = true;
             }
         } else {
             quote! {
@@ -1290,6 +1308,29 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
 ///
 /// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
 /// into repetition. Every other flag matches clap's default of one occurrence.
+/// Whether a repeat of this flag is only a duplicate *within one command*.
+///
+/// A `global` flag is in scope for every descendant, and clap lets it be given again on a
+/// subcommand — the inner occurrence simply wins, which is what makes `mise -y install -y` a
+/// line that works today. Repeating it at *one* level is still an error there, so the check
+/// cannot simply be dropped: it has to be per level, which is what `__here_` records.
+fn duplicates_per_level(field: &Field) -> bool {
+    rejects_duplicate(field) && matches!(field.kind, Kind::Flag { global: true, .. })
+}
+
+/// Clearing those markers, to run when a command word is read: descending starts a new level.
+fn reset_per_level(cli: &Cli) -> TokenStream {
+    let resets = cli
+        .fields
+        .iter()
+        .filter(|f| duplicates_per_level(f))
+        .map(|f| {
+            let here = format_ident!("__here_{}", f.ident);
+            quote!(partial.#here = false;)
+        });
+    quote!(#(#resets)*)
+}
+
 fn rejects_duplicate(field: &Field) -> bool {
     matches!(field.kind, Kind::Flag { .. })
         && !matches!(field.shape, Shape::Count | Shape::Many)
@@ -1441,11 +1482,17 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(pub #duplicated: bool,)
         });
+        // Given at *this* level, for a global — see `duplicates_per_level`. Only for those
+        // fields, so nothing else carries a `bool` no code reads.
+        let here = duplicates_per_level(f).then(|| {
+            let here = format_ident!("__here_{}", ident);
+            quote!(pub #here: bool,)
+        });
         let negated = has_negate(f).then(|| {
             let negated = format_ident!("__negated_{}", ident);
             quote!(pub #negated: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #negated))
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -1769,6 +1816,10 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(#duplicated: false,)
         });
+        let here = duplicates_per_level(f).then(|| {
+            let here = format_ident!("__here_{}", ident);
+            quote!(#here: false,)
+        });
         let negated = has_negate(f).then(|| {
             let negated = format_ident!("__negated_{}", ident);
             quote!(#negated: false,)
@@ -1778,6 +1829,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             #given: false,
             #overridden
             #duplicated
+            #here
             #negated
         })
     });
@@ -2069,6 +2121,7 @@ fn reset_to_default(field: &Field) -> TokenStream {
 /// Take one event and say whether it belonged to this command.
 fn apply_fn(cli: &Cli) -> TokenStream {
     let route = subcommand_parts(cli).map(|p| p.route).unwrap_or_default();
+    let per_level_resets = reset_per_level(cli);
     // A flattened struct's flags are in this command's table, but its *keys* were minted in
     // its own expansion — so they cannot be matched here. Its `apply` recognises them, and
     // says whether it took the event.
@@ -2126,8 +2179,15 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                     }
                 }
                 // Descending is the caller's business: it is what decides which
-                // command's fields the following events belong to.
-                Event::Command(_) => false,
+                // command's fields the following events belong to. But any command
+                // word — not only a child of ours — begins a level at which this
+                // struct's globals may be given again, and this arm is the one
+                // place every partial sees the word, whether it belongs to a root,
+                // a subcommand, or a flattened group.
+                Event::Command(_) => {
+                    #per_level_resets
+                    false
+                }
             }
         }
     }
