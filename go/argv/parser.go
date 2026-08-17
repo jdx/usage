@@ -140,6 +140,15 @@ func (p *Parser) DoubleDashSeen() bool { return p.separatorSeen }
 // word is a value, so there is no flag there to offer.
 func (p *Parser) FlagsStopped() bool { return p.flagsStopped }
 
+// SubcommandsPossible reports whether a word here could still name a subcommand.
+//
+// The other half of the rule [Parser.FlagsStopped] answers for flags: descent
+// stops once a positional of this command has taken a word, so a later word that
+// happens to equal a subcommand name is just a value. A completion that offered
+// one there would be advertising a word the parser no longer accepts as a
+// command.
+func (p *Parser) SubcommandsPossible() bool { return !p.argFilled && !p.flagsStopped }
+
 // CommandStart is where the command in scope began: the index in argv just after
 // its name. argv[CommandStart():] is what that command was given.
 func (p *Parser) CommandStart() int { return p.cmdStart }
