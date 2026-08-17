@@ -682,6 +682,8 @@ pub struct ArgMeta<'a> {
     pub hide: bool,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// The character one word is split on to make several positional values.
+    pub delimiter: Option<char>,
     /// Heading to list this argument under in help output.
     pub help_heading: Option<&'a str>,
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
@@ -705,6 +707,7 @@ impl ArgMeta<'_> {
         hide: false,
         var_min: None,
         var_max: None,
+        delimiter: None,
         help_heading: None,
     };
 }
@@ -1246,6 +1249,9 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     if let Some(max) = meta.var_max {
         write!(out, " var_max={max}")?;
+    }
+    if let Some(delimiter) = meta.delimiter {
+        write!(out, " delimiter={}", quoted(&delimiter.to_string()))?;
     }
     if meta.arg.double_dash != DoubleDash::Optional {
         let mode = match meta.arg.double_dash {

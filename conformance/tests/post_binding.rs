@@ -1124,6 +1124,9 @@ struct Splitting {
     /// Where to look
     #[usage(long, delimiter = ':', choices("src", "docs"))]
     paths: Vec<String>,
+    /// Labels to attach
+    #[usage(arg, delimiter = ';')]
+    labels: Vec<String>,
 }
 
 #[test]
@@ -1144,6 +1147,12 @@ fn a_delimiter_makes_one_word_several_values() {
     // A word with no separator in it is one value, as it was before.
     let a = argv(["--tags", "a"]);
     assert_eq!(Splitting::parse_from(&a).expect("split").tags, ["a"]);
+
+    let a = argv(["one;two"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split positional").labels,
+        ["one", "two"]
+    );
 }
 
 #[test]
@@ -1176,4 +1185,5 @@ fn a_delimiter_reaches_the_spec() {
     let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
     let tags = spec.cmd.flags.iter().find(|f| f.name == "tags").unwrap();
     assert_eq!(tags.arg.as_ref().unwrap().delimiter, Some(','));
+    assert_eq!(spec.cmd.args[0].delimiter, Some(';'));
 }

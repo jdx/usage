@@ -978,6 +978,10 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let required = field.shape == Shape::Required || field.required_collection;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
+    let delimiter = match field.delimiter {
+        Some(c) => quote!(::std::option::Option::Some(#c)),
+        None => quote!(::std::option::Option::None),
+    };
     let (completer_decl, completer) = completer_tokens(i, field, "arg", owner);
 
     quote! {
@@ -996,6 +1000,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
+            delimiter: #delimiter,
             ..usage_argv::spec::ArgMeta::EMPTY
         };
     }
