@@ -146,8 +146,17 @@ cargo run -p usage-conformance --bin render-oracle -- flag-value
 ## Adding a vector
 
 Write the spec and the `doc` first, with the rendering the rules say you should get. Then run
-the oracle: `--json` prints what both implementations produced, in the shape `expect` takes, so
-a page goes in as a measurement rather than a transcription.
+the oracle: `--json` prints what both implementations produced, so a page goes in as a
+measurement rather than a transcription.
+
+Each row is `{"id", "usage-lib", "usage-argv"}`, and each of the two is an `expect` object
+exactly as a vector writes one — the row is not, so pick the renderer you have decided is right
+and copy its object out:
+
+```sh
+cargo run -q -p usage-conformance --bin render-oracle -- --json flag-optional-value-optional \
+  | jq '.[0]."usage-lib"'
+```
 
 If the two agree and match what you expected, you are done. If they agree and you expected
 something else, you have found a rule you had wrong — or a rule worth changing, in which case

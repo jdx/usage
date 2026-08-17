@@ -5,8 +5,11 @@
 //! expectation gets filled in with a measurement rather than a guess — and how the `reference`
 //! label gets set honestly when the two disagree.
 //!
-//! `--json` emits the same thing machine-readably, which is what makes it usable for filling
-//! in a new vector: pipe it into the file rather than transcribing a page by hand.
+//! `--json` emits the same thing machine-readably, which is what makes it usable for filling in
+//! a new vector: an array of `{"id", "usage-lib", "usage-argv"}`, where each of the two is a
+//! vector's `expect` object exactly as written. So it is not the file's own shape — pick the
+//! renderer you have decided is right and copy that object, which `corpus/render/README.md`
+//! shows with `jq`. Copying a measurement beats transcribing a page by hand either way.
 //!
 //! The test suite (`conformance/tests/render.rs`) is what actually enforces agreement in CI.
 
@@ -32,7 +35,8 @@ fn main() -> Result<(), String> {
     }
 
     if json {
-        // The shape a vector's `expect` takes, so a new one can be filled in by copying.
+        // One row per vector, each renderer's result in the shape a vector's `expect` takes, so
+        // a new one can be filled in by copying the object of whichever renderer is right.
         let out: Vec<serde_json::Value> = rows
             .iter()
             .map(|(vector, lib, argv)| {
