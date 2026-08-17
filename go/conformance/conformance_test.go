@@ -329,11 +329,13 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 	}
 
 	// Then the rules that read one entry to judge another.
-	isSet := func(key uint64) bool {
-		r := final[key]
-		return r != nil && r.source.Given()
+	sourceOf := func(key uint64) argv.Source {
+		if r := final[key]; r != nil {
+			return r.source
+		}
+		return argv.Unset
 	}
-	if err := argv.CheckRelationships(meta, scope, isSet); err != nil {
+	if err := argv.CheckRelationships(meta, scope, sourceOf); err != nil {
 		return nil, err
 	}
 

@@ -92,17 +92,24 @@ func TestApplyOverrides(t *testing.T) {
 	}
 }
 
+// set builds a `sourceOf` where the named keys came from the command line and
+// everything else is absent.
+func set(keys ...uint64) func(uint64) Source {
+	in := map[uint64]bool{}
+	for _, k := range keys {
+		in[k] = true
+	}
+	return func(k uint64) Source {
+		if in[k] {
+			return FromArgv
+		}
+		return Unset
+	}
+}
+
 func TestConflicts(t *testing.T) {
 	meta := pair([]uint64{keyStdin}, nil, "conflicts")
 	all := []uint64{keyFile, keyStdin, keyURL}
-
-	set := func(keys ...uint64) func(uint64) bool {
-		in := map[uint64]bool{}
-		for _, k := range keys {
-			in[k] = true
-		}
-		return func(k uint64) bool { return in[k] }
-	}
 
 	if err := CheckRelationships(meta, all, set(keyFile, keyStdin)); err == nil {
 		t.Error("both given should conflict")
@@ -131,13 +138,6 @@ func TestConflicts(t *testing.T) {
 }
 
 func TestConditionalRequirements(t *testing.T) {
-	set := func(keys ...uint64) func(uint64) bool {
-		in := map[uint64]bool{}
-		for _, k := range keys {
-			in[k] = true
-		}
-		return func(k uint64) bool { return in[k] }
-	}
 	all := []uint64{keyFile, keyStdin, keyURL}
 
 	unless := pair([]uint64{keyStdin}, nil, "required_unless")
@@ -176,8 +176,56 @@ func TestAnAlreadyRequiredEntryIsNotReportedTwice(t *testing.T) {
 			RequiredUnless: []uint64{keyStdin}},
 		{Key: keyStdin, Name: "stdin", Flag: true},
 	}
-	none := func(uint64) bool { return false }
+	none := func(uint64) Source { return Unset }
 	if err := CheckRelationships(meta, []uint64{keyFile, keyStdin}, none); err != nil {
 		t.Errorf("Check owns this one, got %q", err.Code)
+	}
+}
+
+// A default counts for the entry being judged and not for the partners judging
+// it. Getting that backwards is silent in either direction, so both halves are
+// pinned — and both were checked against usage-lib rather than reasoned about.
+func TestADefaultCountsOnlyForTheEntryItHolds(t *testing.T) {
+	unless := pair([]uint64{keyStdin}, nil, "required_unless")
+	all := []uint64{keyFile, keyStdin, keyURL}
+
+	// `--file` has a value, from its default, so it is not missing.
+	defaulted := func(k uint64) Source {
+		if k == keyFile {
+			return FromDefault
+		}
+		return Unset
+	}
+	if err := CheckRelationships(unless, all, defaulted); err != nil {
+		t.Errorf("a defaulted entry has a value and is not missing, got %q", err.Code)
+	}
+
+	// A defaulted *partner* does not satisfy the requirement: nobody said
+	// `--stdin`, so `--file` is still required and still absent.
+	partner := func(k uint64) Source {
+		if k == keyStdin {
+			return FromDefault
+		}
+		return Unset
+	}
+	if err := CheckRelationships(unless, all, partner); err == nil {
+		t.Error("a defaulted partner should not satisfy required_unless")
+	} else if err.Code != CodeMissingRequiredFlag || err.Name != "file" {
+		t.Errorf("want missing file, got %q %q", err.Code, err.Name)
+	}
+
+	// Nor does a defaulted partner trigger a conflict.
+	conflicts := pair([]uint64{keyStdin}, nil, "conflicts")
+	both := func(k uint64) Source {
+		switch k {
+		case keyFile:
+			return FromArgv
+		case keyStdin:
+			return FromDefault
+		}
+		return Unset
+	}
+	if err := CheckRelationships(conflicts, all, both); err != nil {
+		t.Errorf("a defaulted partner should not conflict, got %q", err.Code)
 	}
 }

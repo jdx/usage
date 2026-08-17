@@ -228,9 +228,25 @@ type builder struct {
 	// name an inherited global. Ancestors only: a command cannot see its own
 	// children's flags, and neither can a declaration.
 	scope []*argv.Command
+	// negation holds each flag's `negate` exactly as the spec wrote it, dashes
+	// included. The parse table stores it bare, because that is what the parser
+	// has after stripping the `--`; a relationship names a *form*, so comparing
+	// it needs the original. A spec declaring `negate="-no-color"` is not named
+	// by `--no-color`, and usage-lib does not resolve it either.
+	negation map[uint64]string
 }
 
 // record files an entry's cold half at the position its key indexes.
+func (b *builder) recordNegation(key uint64, raw string) {
+	if raw == "" {
+		return
+	}
+	if b.negation == nil {
+		b.negation = map[uint64]string{}
+	}
+	b.negation[key] = raw
+}
+
 func (b *builder) record(key uint64, m argv.Meta) {
 	m.Key = key
 	for uint64(len(b.meta)) < key {
@@ -302,11 +318,11 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		// Searching only locally was a silent hole: `conflicts="--quiet"` on a
 		// subcommand flag, where `--quiet` is a root global, resolved to nothing
 		// and the rule was simply never enforced. usage-lib enforces it.
-		if key, ok := matchFlag(out.Flags, name, false); ok {
+		if key, ok := b.matchFlag(out.Flags, name, false); ok {
 			return key, true
 		}
 		for i := len(b.scope) - 1; i >= 0; i-- {
-			if key, ok := matchFlag(b.scope[i].Flags, name, true); ok {
+			if key, ok := b.matchFlag(b.scope[i].Flags, name, true); ok {
 				return key, true
 			}
 		}
@@ -339,7 +355,7 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 // `conflicts="--no-color"` as naming the `color` flag, and reports the conflict
 // whichever of the two spellings was typed. The relationship is between entries
 // rather than between tokens, which is what this key model already assumes.
-func matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool) {
+func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool) {
 	// The form is part of the name. `--q` does not reach the short `-q`, and
 	// `-color` does not reach the long `--color`: usage-lib resolves neither, and
 	// resolving them here would have a generated CLI enforcing a rule the
@@ -369,10 +385,11 @@ func matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool)
 			return f.Key, true
 		}
 		if long != "" {
-			// The negation is a long form of the flag it belongs to, and names the
-			// same entry: usage-lib reports a conflict declared against
-			// `--no-color` whichever of the two spellings was typed.
-			if f.Negate == long {
+			// The negation is a form of the flag it belongs to and names the same
+			// entry: usage-lib reports a conflict declared against `--no-color`
+			// whichever of the two spellings was typed. Compared as written, so a
+			// `negate="-no-color"` is not reached by `--no-color`.
+			if b.negation[f.Key] == name {
 				return f.Key, true
 			}
 			for _, l := range f.Longs {
@@ -401,6 +418,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		TakesValue: f.Arg != nil,
 		Global:     f.Global,
 	}
+	b.recordNegation(out.Key, f.Negate)
 	for _, s := range f.Short {
 		if s != "" {
 			// One byte: a cluster is walked a byte at a time, so a multi-byte short

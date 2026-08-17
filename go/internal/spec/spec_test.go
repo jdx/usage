@@ -284,3 +284,32 @@ func TestARelationshipNeedsTheRightForm(t *testing.T) {
 		}
 	}
 }
+
+// A negation is compared as the spec wrote it.
+//
+// `negate="-no-color"` is a form nobody can type as `--no-color`, and usage-lib
+// does not resolve a relationship naming the latter to the flag declaring the
+// former. Resolving it here would enforce a rule the reference does not.
+func TestANegationIsMatchedAsWritten(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "color", Long: []string{"color"}, Negate: "--no-color"},
+			{Name: "tint", Long: []string{"tint"}, Negate: "-no-tint"},
+			{Name: "a", Long: []string{"a"}, Conflicts: []string{"--no-color"}},
+			{Name: "b", Long: []string{"b"}, Conflicts: []string{"--no-tint"}},
+		}},
+	})
+	var color uint64
+	for _, f := range root.Flags {
+		if f.Name == "color" {
+			color = f.Key
+		}
+	}
+	if got := metaFor(t, meta, root, "a").Conflicts; len(got) != 1 || got[0] != color {
+		t.Errorf("--no-color should reach the color flag, got %v", got)
+	}
+	if got := metaFor(t, meta, root, "b").Conflicts; len(got) != 0 {
+		t.Errorf("--no-tint is not the form `-no-tint`, so nothing: got %v", got)
+	}
+}

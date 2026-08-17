@@ -68,29 +68,35 @@ func ApplyOverrides(meta Metadata, order map[uint64]int) map[uint64]bool {
 // another, once every entry's final state is known.
 //
 // `entries` is every key in scope, so each declaration is visited once, and
-// `isSet` reports whether an entry counts as *given* — see [Source.Given], which
-// is what a caller should use to answer it.
+// `sourceOf` reports where each entry's value came from — the whole [Source]
+// rather than a yes or no, because the rules need both readings of it.
 //
-// The command line and the environment count; a default does not. That asymmetry
-// is the part worth getting right: `conflicts` asks whether a flag has a value
-// rather than how it got one, so an environment variable counts on both sides
-// and the corpus pins the one-sided and neither-side-typed cases. But a default
-// is a fallback rather than something the user said, and counting it would make
-// a defaulted flag conflict with every partner anyone types. usage-lib and clap
-// both draw the line there.
+// As a *partner*, only the command line and the environment count. `conflicts`
+// asks whether a flag has a value rather than how it got one, so an environment
+// variable counts on both sides and the corpus pins the one-sided and
+// neither-side-typed cases. A default does not count: it is a fallback rather
+// than something the user said, and counting it would make a defaulted flag
+// conflict with every partner anyone types.
+//
+// As the entry *being judged*, a default does count — it has a value, so it is
+// not missing. usage-lib agrees on both halves, and a caller that collapsed
+// `sourceOf` into one predicate would get one of them wrong whichever way it
+// chose.
 //
 // A key removed by [ApplyOverrides] should not appear in `entries` at all: it
 // lost, so it is out of the running rather than merely absent.
-func CheckRelationships(meta Metadata, entries []uint64, isSet func(uint64) bool) *Error {
+func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) Source) *Error {
+	given := func(key uint64) bool { return sourceOf(key).Given() }
+
 	for _, key := range entries {
 		m := meta.Lookup(key)
 		if m == nil {
 			continue
 		}
 
-		if isSet(key) {
+		if given(key) {
 			for _, other := range m.Conflicts {
-				if isSet(other) {
+				if given(other) {
 					// Both names, because either alone reads as a puzzle: which flag
 					// is unwelcome depends entirely on what else was given.
 					return &Error{
@@ -103,21 +109,32 @@ func CheckRelationships(meta Metadata, entries []uint64, isSet func(uint64) bool
 			continue
 		}
 
-		// Absent, so the two conditional requirements are the question. Both are
-		// skipped where the entry is already `Required`, since that has been
-		// answered by Check and reporting it twice helps nobody.
+		// Not given — but a default still fills it, and an entry that has a value
+		// is not missing whatever supplied it. That is the asymmetry: a default
+		// counts for the entry being judged and not for the partners judging it.
+		// usage-lib draws it in exactly the same place, which is worth spelling
+		// out because getting it backwards is silent either way:
+		//
+		//	--file defaulted, required_unless="--stdin", nothing typed  → fine
+		//	--stdin defaulted, --file required_unless="--stdin"         → --file missing
+		if sourceOf(key) != Unset {
+			continue
+		}
+
+		// Both are skipped where the entry is already `Required`, since that has
+		// been answered by Check and reporting it twice helps nobody.
 		if m.Required {
 			continue
 		}
 
 		// Required unless one of these is present. With none of them present the
 		// requirement stands.
-		if len(m.RequiredUnless) > 0 && !anySet(m.RequiredUnless, isSet) {
+		if len(m.RequiredUnless) > 0 && !anySet(m.RequiredUnless, given) {
 			return missingRequired(m)
 		}
 
 		// Required because one of these is present.
-		if len(m.RequiredIf) > 0 && anySet(m.RequiredIf, isSet) {
+		if len(m.RequiredIf) > 0 && anySet(m.RequiredIf, given) {
 			return missingRequired(m)
 		}
 	}
