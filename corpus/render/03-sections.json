@@ -337,7 +337,7 @@
         ]
       },
       "reference": {
-        "diverges": "usage-lib's help renderer ignores a declared `usage` and writes the generated line; its manpage renderer honours it (`lib/src/docs/manpage/renderer.rs`). usage-argv honours it on the root page, which is what #965 added it for. Recorded rather than fixed here because it is the reference that needs changing, not the expectation."
+        "diverges": "usage-lib's help renderer ignores a declared `usage` and writes the generated line; its manpage renderer honours it (`lib/src/docs/manpage/renderer.rs`). usage-argv honours it on the root page, which is what #965 added it for. The fleet gate cannot see this even though six of its seven CLIs declare one, because `xtask gen-shadow` does not carry the node into the shadow it generates — so each shadow's `Spec::usage` is `None` and both sides render the generated line. Recorded rather than fixed here because it is the reference that needs changing, not the expectation."
       }
     }
   ]

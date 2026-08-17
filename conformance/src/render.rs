@@ -6,18 +6,23 @@
 //! emitter's help table), and three implementations of a rendering rule drift exactly the way
 //! three implementations of a parsing rule do.
 //!
-//! # Why this exists beside the mise fixture
+//! # Why this exists beside the fleet gate
 //!
-//! `benches/gate/tests/help.rs` compares every one of mise's 211 commands against usage-lib,
-//! byte for byte, and it is the check that decides whether an adopter's help output changes.
-//! What it cannot do is cover a shape mise does not use. A flag whose *value* is optional is
-//! one: every flag value mise declares is required and undefaulted, so `[--opt [n]]` rendered
-//! as `[--opt <n>]` for as long as usage-argv existed and the 211-command comparison passed
-//! throughout.
+//! `benches/gate/tests/help.rs` and `fleet.rs` beside it render every command of mise and the
+//! six other jdx CLIs and compare each page against usage-lib byte for byte. That is the check
+//! that decides whether an adopter's help output changes, and no hand-written corpus will match
+//! it for scale.
 //!
-//! So the two are complements. The fixture answers "does a real CLI still render the same",
-//! at a scale no hand-written case reaches. The corpus answers "does every shape a spec can
-//! declare render the same", including the ones no single CLI happens to contain.
+//! What it cannot do is cover a shape no CLI in the fleet uses. Across all 809 value-taking
+//! flags in the fleet, three of the four "must the flag be given" against "must its value be
+//! given" pairings appear and the fourth appears nowhere; nor does a flag whose value carries a
+//! default, which relaxes the value's brackets by another route. The fleet was one CLI until
+//! #972, and widening it found three bugs at once — so the lesson is not that seven is enough,
+//! it is that a fixture only asks about the vocabulary its CLIs happen to use.
+//!
+//! So the two are complements. The gate answers "do real CLIs still render the same", at a scale
+//! no hand-written case reaches. This answers "does every shape a spec can declare render the
+//! same", including the ones no CLI in the fleet contains.
 //!
 //! # Scope
 //!

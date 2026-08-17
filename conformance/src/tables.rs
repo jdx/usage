@@ -273,10 +273,12 @@ fn flag_meta<'a>(
         help: opt(&f.help),
         long_help: opt(&f.help_long),
         value_name: arg.map(|a| leak(&a.name)),
-        // The value's own bracket bit, folded with the value's own default the way usage-lib
-        // folds a positional's — a default declared on the *flag* is a different statement and
-        // stays in `default` below.
-        value_required: arg.is_none_or(|a| a.required && a.default.is_empty()),
+        // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from
+        // two independent `required` bits and a spec can write either without the other. Folded
+        // with the value's own default the way usage-lib folds a positional's, so
+        // `arg "<n>" default="4"` inside a flag reads as optional; a default declared on the
+        // *flag* is a different statement and stays in `default` below.
+        value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
         env: opt(&f.env),
         default: strs(&f.default),
         choices: arg

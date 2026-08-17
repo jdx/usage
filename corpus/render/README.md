@@ -11,28 +11,43 @@ these without reimplementing a test format. If you are rendering help from a usa
 Go, in JavaScript, or as a second Rust implementation — this directory is the definition of
 correct.
 
-## Why this exists beside the mise fixture
+## Why this exists beside the fleet gate
 
 `benches/gate/tests/help.rs` renders all 211 of mise's commands with `usage-argv` and compares
-each page against usage-lib byte for byte. That is the check that decides whether an adopter's
-help output changes, and no hand-written corpus will ever match it for scale.
+each page against usage-lib byte for byte; `fleet.rs` beside it does the same for the other six
+jdx CLIs. Together they are the check that decides whether an adopter's help output changes, and
+no hand-written corpus will match them for scale.
 
-What it cannot do is cover a shape mise does not use. A flag whose _value_ is optional is one:
-every flag value mise declares is required and undefaulted, so the fixture runs entirely
-through the one combination where the two implementations happen to agree. `[--opt [n]]`
-rendered as `[--opt <n>]` for as long as `usage-argv` existed, and the 211-command comparison
-passed the whole time.
+What they cannot do is cover a shape no CLI in the fleet uses. The fleet was one CLI until #972,
+and widening it found three bugs in a week — the version banner, an optional flag value, a
+description ending in a break. That is the argument for this corpus rather than against it:
+seven real CLIs still leave gaps, and the gaps are not exotic.
 
-So the two are complements, and the split is worth stating plainly:
+Flag values are the worked example. There are four pairings of "must the flag be given" against
+"must its value be given", and across all 809 value-taking flags in mise and the fleet:
 
-|                  | asks                                                 | covers                             |
-| ---------------- | ---------------------------------------------------- | ---------------------------------- |
-| the mise fixture | does a real CLI still render the same?               | one CLI, exhaustively              |
-| this corpus      | does every shape a spec can declare render the same? | every shape, one command at a time |
+| pairing                                                  | in the fleet                 |
+| -------------------------------------------------------- | ---------------------------- |
+| `[--tool <TOOL>]` optional flag, required value          | 796                          |
+| `<--v <n>>` both required                                | 8                            |
+| `[--opt [n]]` both optional                              | 5, all in pitchfork and aube |
+| `<--jobs [n]>` required flag, optional value             | **0**                        |
+| a value carrying a `default`, which relaxes its brackets | **0**                        |
 
-A rule that only one of them can catch belongs in whichever one catches it. In practice that
-means: if you fix a rendering bug, the regression test goes _here_ unless mise already
-exercises the shape.
+The third row is what #969 fixed, and pitchfork is the only reason it was visible. The last two
+rows are shapes a spec can declare that nothing in the fleet does — so nothing but a written-down
+case will hold them.
+
+So the two are complements:
+
+|                | asks                                                 | covers                             |
+| -------------- | ---------------------------------------------------- | ---------------------------------- |
+| the fleet gate | do seven real CLIs still render the same?            | those CLIs, exhaustively           |
+| this corpus    | does every shape a spec can declare render the same? | every shape, one command at a time |
+
+A rule that only one of them can catch belongs in whichever one catches it. In practice: if you
+fix a rendering bug, the regression test goes _here_ unless a fleet CLI already exercises the
+shape — and if one does, add it there instead, where it is checked at scale.
 
 ## Format
 
