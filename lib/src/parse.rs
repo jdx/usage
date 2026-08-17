@@ -1208,12 +1208,20 @@ fn parse_partial_with_env(
             .filter(|declared| declared.name == flag.name)
             .flat_map(flag_keys)
             .collect();
-        let speaks_for_this_flag = !declared.is_empty()
-            && declared.iter().all(|spelling| {
-                out.available_flags
-                    .get(spelling)
-                    .is_some_and(|available| Arc::ptr_eq(available, flag))
-            });
+        // *Any* of them, not all. All was too strong: a child may declare a spelling that
+        // some other inherited global already owns — `-c --clean` beside an inherited
+        // `-c --config` — and that collision is resolved in the other global's favor, so the
+        // child's `-c` resolves elsewhere. Requiring every spelling to land here let one
+        // unrelated collision disown the child from the `--clean` it plainly does own.
+        //
+        // Still enough to tell the two-object case apart, which is what this guards: when a
+        // child re-declares a global as global, the child's own spellings resolve to the
+        // child's separate flag, so none of them lands on the ancestor's.
+        let speaks_for_this_flag = declared.iter().any(|spelling| {
+            out.available_flags
+                .get(spelling)
+                .is_some_and(|available| Arc::ptr_eq(available, flag))
+        });
         if speaks_for_this_flag {
             declared
         } else {
@@ -3226,6 +3234,49 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "run", "--no-clean"])).is_err(),
             "the inherited negated alias still belongs to the ancestor exclusive flag"
+        );
+    }
+
+    #[test]
+    fn a_colliding_alias_does_not_disown_the_child_from_the_rest() {
+        // The child re-declares the inherited `--clean` as exclusive and gives it a `-c` that
+        // an unrelated inherited global already owns. That collision is resolved in the other
+        // global's favor, so the child's `-c` resolves elsewhere — but the child plainly owns
+        // the `--clean` it declared, and its exclusivity holds.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\nflag \"-c --config <f>\" global=#true\ncmd \"run\" {\n  flag \"-c --clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"])).expect("alone is allowed");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "one unrelated alias collision cannot disown the child from its own flag"
+        );
+    }
+
+    #[test]
+    fn a_local_child_declaration_is_not_in_scope_before_the_subcommand() {
+        // A child's *local* re-declaration describes the flag at the child. Typed ahead of the
+        // subcommand word the flag can only be the ancestor's, because that is the only one in
+        // scope there — so the ancestor's exclusivity is the one that answers, whichever way it
+        // is set. The pair below differ in nothing else, which is what makes this one rule
+        // rather than two behaviors.
+        let quiet: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+        parse(&quiet, &input(&["ex", "--clean", "run", "--verbose"]))
+            .expect("the ancestor owns this occurrence, and it is not exclusive");
+        assert!(
+            parse(&quiet, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "after the subcommand word the child's declaration is in scope, and it is exclusive"
+        );
+
+        let loud: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+        assert!(
+            parse(&loud, &input(&["ex", "--clean", "run"])).is_err(),
+            "the same rule, with an exclusive ancestor: selecting the child is company for it"
         );
     }
 
