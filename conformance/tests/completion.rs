@@ -63,10 +63,10 @@ fn ask(shell: &str, line: &str) -> String {
 #[usage(bin = "hinted", completion)]
 struct Hinted {
     /// A file to read
-    #[usage(long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(long, value_hint = usage_argv::ValueHint::FilePath)]
     file: Option<std::path::PathBuf>,
     /// A directory to write
-    #[usage(long, value_hint = clap::ValueHint::DirPath)]
+    #[usage(long, value_hint = usage_argv::ValueHint::DirPath)]
     dir: Option<std::path::PathBuf>,
 }
 
@@ -79,7 +79,7 @@ fn ask_hinted(line: &str) -> String {
 }
 
 #[test]
-fn clap_path_value_hints_reach_native_and_emitted_completions() {
+fn usage_path_value_hints_reach_native_and_emitted_completions() {
     assert_eq!(
         ask_hinted("hinted --file "),
         format!("{}\n", usage_argv::complete::FILES_MARKER)

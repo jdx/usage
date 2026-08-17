@@ -245,17 +245,14 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
     )))
 }
 
-/// Clap's path-oriented `ValueHint`s lowered into the completion types the usage spec has.
-///
-/// The path is consumed syntactically, so accepting `clap::ValueHint::FilePath` does not keep
-/// clap as a dependency after a declaration migrates to `#[usage(...)]`.
+/// usage's path-oriented `ValueHint`s lowered into the completion types the spec has.
 fn value_hint(meta: &Meta) -> syn::Result<String> {
     let value = &meta.require_name_value()?.value;
     let Expr::Path(path) = value else {
         return Err(syn::Error::new_spanned(
             value,
-            "`value_hint` takes a ValueHint variant, as in \
-             `value_hint = clap::ValueHint::FilePath`",
+            "`value_hint` takes a usage ValueHint variant, as in \
+             `value_hint = usage_argv::ValueHint::FilePath`",
         ));
     };
     let Some(variant) = path.path.segments.last() else {
