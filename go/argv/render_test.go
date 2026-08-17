@@ -90,3 +90,53 @@ func TestMessagesQuoteWhatTheUserWouldType(t *testing.T) {
 		}
 	}
 }
+
+// A short-only flag is named the way it can be typed.
+//
+// `--f` is not a flag anybody can enter, and the advice that comes with a missing
+// value has to be followable: telling someone with `-j` to write `--j=-1` sends
+// them to an unknown-flag error.
+func TestAShortOnlyFlagIsNamedAsItIsTyped(t *testing.T) {
+	short := &Flag{Key: 1, Name: "j", Shorts: []byte{'j'}, TakesValue: true}
+	got := explain(&Error{Code: CodeMissingFlagValue, Flag: short}, nil)
+	if strings.Contains(got, "--j") {
+		t.Errorf("a short-only flag should not be named `--j`: %s", got)
+	}
+	for _, want := range []string{"`-j`", "`-j=-1`"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("want %s in: %s", want, got)
+		}
+	}
+
+	long := &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}}
+	if got := explain(&Error{Code: CodeMissingFlagValue, Flag: long}, nil); !strings.Contains(got, "`--jobs`") {
+		t.Errorf("a flag with a long form is named by it: %s", got)
+	}
+
+	// The post-binding failures carry a name rather than a flag, so the form is
+	// inferred from its length — the right guess nearly always, since a name is a
+	// long form where there is one.
+	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "f"}, nil); !strings.Contains(got, "`-f`") {
+		t.Errorf("a one-character name reads as a short: %s", got)
+	}
+	if got := explain(&Error{Code: CodeMissingRequiredFlag, Name: "file"}, nil); !strings.Contains(got, "`--file`") {
+		t.Errorf("a longer name reads as a long: %s", got)
+	}
+}
+
+// An error quotes back what the user typed, and what the user typed can contain
+// escape sequences. Rendering a rejected value is not a reason to execute it.
+func TestControlCharactersDoNotReachTheTerminal(t *testing.T) {
+	got := explain(&Error{Code: CodeUnknownFlag, Token: "--x\x1b[31mred\r\nerror: forged"}, nil)
+	for _, forbidden := range []string{"\x1b", "\r", "\n"} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("a control character survived into %q", got)
+		}
+	}
+	// Still legible: the escaping shows what was there rather than dropping it.
+	for _, want := range []string{`\x1b`, `\r`, `\n`, "red", "forged"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("want %q kept visible in %q", want, got)
+		}
+	}
+}

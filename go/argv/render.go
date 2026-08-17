@@ -52,18 +52,21 @@ func Render(err *Error, path []string, chain []*Command, help HelpTable) string 
 func explain(err *Error, help HelpTable) string {
 	switch err.Code {
 	case CodeUnknownFlag:
-		return "unknown flag `" + err.Token + "`"
+		return "unknown flag `" + safe(err.Token) + "`"
 	case CodeMissingFlagValue:
-		name := "a flag"
-		if err.Flag != nil {
-			name = "`--" + primaryLong(err.Flag) + "`"
+		if err.Flag == nil {
+			return "missing value for a flag"
 		}
 		// The likeliest cause, said out loud: a flag-like token following the flag
-		// is refused as its value, and the attached form is how to force it.
-		return "missing value for " + name +
-			" (a value beginning with `-` has to be attached: `--flag=-x`)"
+		// is refused as its value, and attaching it is how to force it. The
+		// example is spelled in the form the flag actually has — telling someone
+		// with a short-only `-j` to write `--j=-1` sends them to an unknown-flag
+		// error.
+		spelling := spell(err.Flag)
+		return "missing value for `" + spelling + "`" +
+			" (a value beginning with `-` has to be attached: `" + spelling + "=-1`)"
 	case CodeUnexpectedArg:
-		return "unexpected argument `" + err.Token + "`"
+		return "unexpected argument `" + safe(err.Token) + "`"
 	case CodeArgRequiresDoubleDash:
 		name := "that argument"
 		if err.Arg != nil {
@@ -73,7 +76,7 @@ func explain(err *Error, help HelpTable) string {
 	case CodeTooDeep:
 		return "the command tree is nested deeper than this parser will go"
 	case CodeMissingRequiredFlag:
-		return "missing required flag `--" + err.Name + "`"
+		return "missing required flag `" + spellName(err.Name) + "`"
 	case CodeMissingRequiredArg:
 		return "missing required argument `" + err.Name + "`"
 	case CodeInvalidChoice:
@@ -91,20 +94,70 @@ func explain(err *Error, help HelpTable) string {
 	case CodeConflictingFlags:
 		other := err.Other
 		if other == "" {
-			return "`--" + err.Name + "` cannot be given with another flag it conflicts with"
+			return "`" + spellName(err.Name) + "` cannot be given with another flag it conflicts with"
 		}
-		return "`--" + err.Name + "` and `--" + other + "` cannot be given together"
+		return "`" + spellName(err.Name) + "` and `" + spellName(other) +
+			"` cannot be given together"
 	}
 	return "the command line could not be parsed"
 }
 
-// primaryLong is the spelling to name a flag by: its first long form, or its name
-// where it has none.
-func primaryLong(f *Flag) string {
+// spell names a flag the way a user would type it: its first long form, else its
+// first short. Naming a short-only flag `--f` gives advice that cannot be
+// followed.
+func spell(f *Flag) string {
 	if len(f.Longs) > 0 {
-		return f.Longs[0]
+		return "--" + f.Longs[0]
+	}
+	if len(f.Shorts) > 0 {
+		return "-" + string(f.Shorts[0])
 	}
 	return f.Name
+}
+
+// spellName is [spell] for the failures that carry only a name, which is what the
+// post-binding rules have: they judge an entry rather than a token, so no [Flag]
+// reaches them.
+//
+// A single-character name is taken to be a short flag, which is a guess — but the
+// right one nearly always, since a flag's name is its long form where it has one.
+// The alternative is printing `--f` for something only typeable as `-f`.
+func spellName(name string) string {
+	if len([]rune(name)) == 1 {
+		return "-" + name
+	}
+	return "--" + name
+}
+
+// safe makes text from the command line printable.
+//
+// An error quotes back what the user typed, and what the user typed can contain
+// control characters: an escape sequence in an argument would otherwise reach the
+// terminal through the error message, where it can recolour the output, move the
+// cursor, or forge lines that look like they came from the program. Rendering a
+// rejected value is not a reason to execute it.
+func safe(s string) string {
+	var out strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\t':
+			out.WriteString("\\t")
+		case r == '\n':
+			out.WriteString("\\n")
+		case r == '\r':
+			out.WriteString("\\r")
+		case r < 0x20 || r == 0x7f:
+			out.WriteString("\\x" + hex(byte(r)))
+		default:
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
+func hex(b byte) string {
+	const digits = "0123456789abcdef"
+	return string([]byte{digits[b>>4], digits[b&0xf]})
 }
 
 func plural(n int, noun string) string {
