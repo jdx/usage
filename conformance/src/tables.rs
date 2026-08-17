@@ -14,6 +14,14 @@
 //! This is deliberately *not* a general-purpose bridge. It exists so the corpus can ask
 //! usage-argv the questions it asks usage-lib; a program wanting a parser for a spec it read
 //! at run time should use usage-lib, which is built for exactly that.
+//!
+//! # Every literal here is exhaustive, on purpose
+//!
+//! Nothing below ends in `..EMPTY`, so a new field in usage-argv's model breaks this file
+//! until somebody says what the spec puts there. That is the point: this is a mirror, and a
+//! mirror that quietly defaults a field describes a CLI that is not the one the spec declares.
+//! `Spec::usage` arrived this way — the build broke, carrying it took one line, and doing so
+//! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
@@ -175,6 +183,11 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),
         default_subcommand: opt(&spec.default_subcommand),
+        // An exact synopsis the spec declares, which replaces the generated line on the root's
+        // page. usage-lib's manpage renderer honours it and its help renderer does not, so a
+        // spec that declares one is a case the two disagree about; `render/03-sections.json`
+        // records it rather than this quietly declining to carry it.
+        usage: (!spec.usage.trim().is_empty()).then(|| leak(spec.usage.trim())),
         root: root_meta,
     }))
 }

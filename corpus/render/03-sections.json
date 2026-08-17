@@ -315,6 +315,30 @@
           "      --force  Do it anyway"
         ]
       }
+    },
+    {
+      "id": "an-explicit-synopsis-replaces-the-root-line",
+      "doc": "A spec can declare an exact synopsis, including the `Usage:` prefix, for a CLI whose shape needs alternatives no single command grammar implies. It belongs to the program, so it replaces the root's generated line and leaves every subcommand page deriving its own. The `usage` field below is the *generated* line, which both implementations still compute the same way — the override is applied where the page writes its synopsis, not where the line is built, so the difference shows only in the page.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nusage \"Usage: ex <TOOL>\\n       ex --list\"\nflag \"--list\" help=\"List them instead\"\narg \"[TOOL]\" help=\"Which tool\"\n",
+      "expect": {
+        "usage": "ex [--list] [TOOL]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex <TOOL>",
+          "       ex --list",
+          "",
+          "Arguments:",
+          "  [TOOL]  Which tool",
+          "",
+          "Flags:",
+          "      --list  List them instead",
+          "  -h, --help  Print help"
+        ]
+      },
+      "reference": {
+        "diverges": "usage-lib's help renderer ignores a declared `usage` and writes the generated line; its manpage renderer honours it (`lib/src/docs/manpage/renderer.rs`). usage-argv honours it on the root page, which is what #965 added it for. Recorded rather than fixed here because it is the reference that needs changing, not the expectation."
+      }
     }
   ]
 }
