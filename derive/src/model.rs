@@ -205,6 +205,12 @@ pub struct Field {
     /// one lives on the flag the rule is about, which is where clap puts it and where a
     /// reader looks for it.
     pub requires: Vec<String>,
+    /// The character a value is split on, making one word several values.
+    ///
+    /// Only where several can land, so the field has to be a collection — checked at
+    /// compile time, since a delimiter on a single-value field would drop everything
+    /// after the first separator.
+    pub delimiter: Option<char>,
     /// Whether this flag must be given on its own — clap's `exclusive`.
     pub exclusive: bool,
     /// The group this flag belongs to, if any. Properties live on the group's own
@@ -854,6 +860,19 @@ impl Cli {
             }
         }
 
+        // A delimiter splits one word into several values, so the field has to be able to
+        // hold several. Anything else would drop everything after the first separator —
+        // silently, and only at run time, which is the worst way to find out.
+        for field in &self.fields {
+            if field.delimiter.is_some() && field.shape != Shape::Many {
+                return Err(syn::Error::new(
+                    field.span,
+                    "`delimiter` makes one word several values, so the field needs to be \
+                     a `Vec`",
+                ));
+            }
+        }
+
         // Groups: every member is a flag, every declared group has members, and a group
         // holds at least two of them — the same floor the spec enforces, checked here so
         // it fails where it is written rather than when the spec is emitted.
@@ -1055,6 +1074,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            delimiter: None,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1151,6 +1171,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            delimiter: None,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1212,6 +1233,7 @@ impl Field {
         let mut requires: Vec<String> = Vec::new();
         let mut group: Option<String> = None;
         let mut exclusive = false;
+        let mut delimiter: Option<char> = None;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1306,6 +1328,19 @@ impl Field {
                     "requires" => requires = selectors(&meta)?,
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
+                    "delimiter" => {
+                        let c = char_value(&meta)?;
+                        if !c.is_ascii() {
+                            return Err(syn::Error::new_spanned(
+                                &path,
+                                format!(
+                                    "`delimiter = {c:?}` is more than one byte, and a \
+                                     value is split by bytes; use an ASCII separator"
+                                ),
+                            ));
+                        }
+                        delimiter = Some(c);
+                    }
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
                     "value_enum" => value_enum = flag_value(&meta)?,
@@ -1350,6 +1385,7 @@ impl Field {
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
+                                 `delimiter`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -1908,6 +1944,7 @@ impl Field {
             overrides,
             conflicts,
             requires,
+            delimiter,
             exclusive,
             group,
             required_if,

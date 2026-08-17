@@ -150,6 +150,7 @@ impl SpecFlag {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         let mut allow_hyphen_values = false;
+        let mut delimiter: Option<String> = None;
         for (k, v) in node.props() {
             match k {
                 "help" => flag.help = Some(v.ensure_string()?),
@@ -186,6 +187,10 @@ impl SpecFlag {
                 "conflicts" => flag.conflicts = vec![v.ensure_string()?],
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
+                // Written on the flag and kept on its argument, as `allow_hyphen_values`
+                // is: the value is what gets split, and `flag "--tags <tag>"` is where a
+                // reader writes something about that value.
+                "delimiter" => delimiter = Some(v.ensure_string()?),
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -317,6 +322,41 @@ impl SpecFlag {
         }
         if allow_hyphen_values {
             flag.set_allow_hyphen_values(ctx, node.node.name().span(), true)?;
+        }
+        if let Some(raw) = delimiter {
+            let mut chars = raw.chars();
+            let Some(delimiter) = chars.next().filter(|_| chars.next().is_none()) else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a delimiter is one character, and {raw:?} is not"
+                );
+            };
+            let Some(arg) = flag.arg.as_mut() else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "`delimiter` splits a value, and flag --{} takes none",
+                    flag.name
+                );
+            };
+            arg.delimiter = Some(delimiter);
+        }
+        // A delimiter with nowhere to put the extra values would drop everything after
+        // the first separator, silently. Refused where it is written instead — and `var`
+        // on either the flag or its argument is somewhere for them to go, since both are
+        // ways of saying the flag holds a list.
+        if flag.arg.as_ref().is_some_and(|a| a.delimiter.is_some()) && !flag.var {
+            let takes_several = flag.arg.as_ref().is_some_and(|a| a.var);
+            if !takes_several {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "flag --{} has a delimiter and holds one value; add `var=#true` for \
+                     the values it splits into",
+                    flag.name
+                );
+            }
         }
         flag.usage = flag.usage();
         flag.help_first_line = flag.help.as_ref().map(|s| string::first_line(s));
@@ -607,6 +647,18 @@ impl From<&clap::Arg> for SpecFlag {
                     choices,
                     ..Default::default()
                 });
+            }
+
+            // The flag's argument is built from its value name rather than from the
+            // clap `Arg`, so what the `Arg` says about the *value* has to be carried
+            // here — the `From<&clap::Arg> for SpecArg` impl never sees this one.
+            //
+            // Only where several values can land. clap refuses `value_delimiter` with
+            // `num_args(1)` itself, and a spec that recorded one on a single-value
+            // argument would be a spec this crate then declines to parse.
+            if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
+                arg.var = true;
+                arg.delimiter = c.get_value_delimiter();
             }
 
             Some(arg)

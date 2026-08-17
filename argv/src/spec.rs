@@ -611,6 +611,9 @@ pub struct FlagMeta<'a> {
     /// flag win, this reports it: the combination has no meaning, so honouring one
     /// side silently would hide a mistake.
     pub conflicts: &'a [&'a str],
+    /// The character one word is split on to make several values, as clap's
+    /// `value_delimiter` does. Only ever set where several values can land.
+    pub delimiter: Option<char>,
     /// Whether this flag must be given on its own.
     ///
     /// The whole-command form of [`conflicts`](Self::conflicts): everything the command
@@ -653,6 +656,7 @@ impl FlagMeta<'_> {
         var_max: None,
         overrides: &[],
         conflicts: &[],
+        delimiter: None,
         exclusive: false,
         requires: &[],
         required_if: &[],
@@ -1159,6 +1163,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_list(out, "conflicts", meta.conflicts)?;
     if meta.exclusive {
         out.push_str(" exclusive=#true");
+    }
+    if let Some(delimiter) = meta.delimiter {
+        write!(out, " delimiter={}", quoted(&delimiter.to_string()))?;
     }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;

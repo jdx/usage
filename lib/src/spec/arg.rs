@@ -74,6 +74,14 @@ pub struct SpecArg {
     /// Maximum number of values for variadic arguments
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
+    /// The character a single word is split on to produce several values.
+    ///
+    /// `--tags a,b,c` as three values rather than one, which is clap's
+    /// `value_delimiter`. Only meaningful where several values can land, so it goes with
+    /// [`SpecArg::var`]; declaring it anywhere else is refused rather than silently
+    /// dropping everything after the first separator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delimiter: Option<char>,
     /// Whether to hide this argument from help output
     pub hide: bool,
     /// Default value(s) if the argument is not provided
@@ -112,6 +120,18 @@ impl SpecArg {
                 "required" => arg.required = v.ensure_bool()?,
                 "double_dash" => arg.double_dash = v.ensure_string()?.parse()?,
                 "var" => arg.var = v.ensure_bool()?,
+                "delimiter" => {
+                    let raw = v.ensure_string()?;
+                    let mut chars = raw.chars();
+                    match (chars.next(), chars.next()) {
+                        (Some(c), None) => arg.delimiter = Some(c),
+                        _ => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "a delimiter is one character, and {raw:?} is not"
+                        ),
+                    }
+                }
                 "hide" => arg.hide = v.ensure_bool()?,
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
@@ -240,6 +260,9 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(max) = arg.var_max {
             node.push(KdlEntry::new_prop("var_max", max as i128));
+        }
+        if let Some(delimiter) = arg.delimiter {
+            node.push(string_entry(Some("delimiter"), &delimiter.to_string()));
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
@@ -400,6 +423,9 @@ impl From<&clap::Arg> for SpecArg {
             var,
             var_max: None,
             var_min: None,
+            // clap answers for this one, and the same getter `default_values` already
+            // uses just above: a default is split by it, and so is a typed value.
+            delimiter: arg.get_value_delimiter(),
             hide,
             default: default_values(arg),
             choices: None,
@@ -432,6 +458,66 @@ impl Eq for SpecArg {}
 impl Hash for SpecArg {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod delimiter_tests {
+    use crate::Spec;
+
+    #[test]
+    fn a_delimiter_round_trips_and_comes_across_from_clap() {
+        let spec: Spec = "flag \"--tags <tag>\" var=#true delimiter=\",\"\n"
+            .parse()
+            .unwrap();
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','));
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        let arg = reparsed.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','), "{spec}");
+
+        // clap answers for this one, through the same getter the default splitting
+        // already used.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .value_delimiter(',')
+                .num_args(1..)
+                .default_value("a,b"),
+        );
+        let spec = Spec::from(&cmd);
+        let flag = &spec.cmd.flags[0];
+        assert_eq!(flag.arg.as_ref().unwrap().delimiter, Some(','));
+        // And the default is still recorded split, which is the same statement. On the
+        // flag rather than on its argument, which is where the bridge puts a flag's.
+        assert_eq!(flag.default, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn a_delimiter_needs_somewhere_to_put_what_it_splits() {
+        // Without `var` everything after the first separator would be dropped, silently.
+        let err = "flag \"--tags <tag>\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one value"), "{err:?}");
+
+        let err = "arg \"[tags]\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one value"), "{err:?}");
+
+        // A flag that takes no value has nothing to split at all.
+        let err = "flag \"--quiet\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("takes none"), "{err:?}");
+
+        // One character, or it is not a delimiter.
+        let err = "flag \"--tags <tag>\" var=#true delimiter=\"::\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one character"), "{err:?}");
     }
 }
 

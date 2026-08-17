@@ -1113,3 +1113,67 @@ fn a_child_spelling_stays_exclusive_beside_an_ancestor_spelling() {
     let a = argv(["run", "-c", "--verbose"]);
     MixedAliasExclusive::parse_from(&a).expect("the ancestor's own spelling was never exclusive");
 }
+
+/// A CLI whose values arrive several to a word.
+#[derive(Cli)]
+#[usage(bin = "ex3")]
+struct Splitting {
+    /// Tags to apply
+    #[usage(long, delimiter = ',', var_max = 3)]
+    tags: Vec<String>,
+    /// Where to look
+    #[usage(long, delimiter = ':', choices("src", "docs"))]
+    paths: Vec<String>,
+}
+
+#[test]
+fn a_delimiter_makes_one_word_several_values() {
+    let a = argv(["--tags", "a,b,c"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split").tags,
+        ["a", "b", "c"]
+    );
+
+    // Several occurrences, each split.
+    let a = argv(["--tags", "a,b", "--tags", "c"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split").tags,
+        ["a", "b", "c"]
+    );
+
+    // A word with no separator in it is one value, as it was before.
+    let a = argv(["--tags", "a"]);
+    assert_eq!(Splitting::parse_from(&a).expect("split").tags, ["a"]);
+}
+
+#[test]
+fn split_values_are_judged_and_counted_as_values() {
+    // The split runs before every check, so `choices` sees each value rather than the
+    // word that carried them, and the bounds count what the user meant.
+    let a = argv(["--paths", "src:docs"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("both are choices").paths,
+        ["src", "docs"]
+    );
+
+    let a = argv(["--paths", "src:nowhere"]);
+    assert!(matches!(
+        Splitting::parse_from(&a),
+        Err(Error::InvalidChoice { .. })
+    ));
+
+    let a = argv(["--tags", "a,b,c,d"]);
+    assert!(matches!(
+        Splitting::parse_from(&a),
+        Err(Error::VarTooMany { got: 4, .. })
+    ));
+}
+
+#[test]
+fn a_delimiter_reaches_the_spec() {
+    let kdl = Splitting::to_kdl();
+    assert!(kdl.contains(r#"delimiter=",""#), "{kdl}");
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let tags = spec.cmd.flags.iter().find(|f| f.name == "tags").unwrap();
+    assert_eq!(tags.arg.as_ref().unwrap().delimiter, Some(','));
+}

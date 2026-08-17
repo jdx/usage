@@ -1164,7 +1164,14 @@ fn parse_partial_with_env(
                     .or_insert_with(|| ParseValue::MultiString(vec![]))
                     .try_as_multi_string_mut()
                     .unwrap();
-                arr.push(w);
+                // One word, several values, when the argument says so: `--tags a,b,c`.
+                // Split here rather than after the parse, so everything downstream —
+                // `var_max` stopping the collection, `choices`, `var_min` — counts the
+                // values the user meant rather than the words they typed.
+                match arg.delimiter {
+                    Some(delimiter) => arr.extend(w.split(delimiter).map(str::to_string)),
+                    None => arr.push(w),
+                }
                 if arr.len() >= arg.var_max.unwrap_or(usize::MAX) {
                     next_arg_idx += 1;
                 }
@@ -1948,28 +1955,45 @@ fn drain_pending_flag_values(
 ) -> miette::Result<bool> {
     while let Some(flag) = flag_awaiting_value.pop() {
         let arg = flag.arg.as_ref().unwrap();
-        if validate_choices(
-            spec,
-            cmd,
-            errors,
-            ChoiceTarget::option(&flag),
-            word,
-            arg.choices.as_ref(),
-            custom_env,
-        )? {
-            return Ok(true);
+        // Split before anything judges the word, because after the split it is no longer
+        // one value: `--env dev,prod` is two, and `choices` has to be asked about each.
+        // Judging first would reject the whole word against a list neither half is on.
+        let parts: Vec<String> = match arg.delimiter {
+            Some(delimiter) => word.split(delimiter).map(str::to_string).collect(),
+            None => vec![std::mem::take(word)],
+        };
+        for part in &parts {
+            if validate_choices(
+                spec,
+                cmd,
+                errors,
+                ChoiceTarget::option(&flag),
+                part,
+                arg.choices.as_ref(),
+                custom_env,
+            )? {
+                return Ok(true);
+            }
         }
-        let value = std::mem::take(word);
+        word.clear();
+        let value = parts.join(&arg.delimiter.map(String::from).unwrap_or_default());
         // Two ways to hold several values, and both record a list: a `var` flag
         // collects one per occurrence, a variadic argument collects several from one.
         if flag.var || arg.var {
+            // Read before the flag is moved into the map, and it is only a `char`.
+            let delimiter = arg.delimiter;
             let arr = flags
                 .entry(flag)
                 .or_insert_with(|| ParseValue::MultiString(vec![]))
                 .try_as_multi_string_mut()
                 .unwrap();
-            arr.push(value);
+            match delimiter {
+                Some(delimiter) => arr.extend(value.split(delimiter).map(str::to_string)),
+                None => arr.push(value),
+            }
         } else {
+            // Nowhere for a second value to go, so the word stands as it was typed. A
+            // delimiter on a flag that takes one value is refused where it is written.
             flags.insert(flag, ParseValue::String(value));
         }
     }
@@ -3068,6 +3092,45 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn a_delimiter_turns_one_word_into_several_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--tags <tag>\" var=#true delimiter=\",\"\narg \"[files]...\" var=#true delimiter=\":\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = parse(&spec, &input(&["ex", "--tags", "a,b,c", "x:y"])).unwrap();
+        let multi = |value: &ParseValue| match value {
+            ParseValue::MultiString(values) => values.clone(),
+            other => panic!("expected several values, got {other:?}"),
+        };
+        let tags = parsed
+            .flags
+            .iter()
+            .find(|(f, _)| f.name == "tags")
+            .map(|(_, v)| v)
+            .unwrap();
+        assert_eq!(multi(tags), vec!["a", "b", "c"]);
+        assert_eq!(multi(parsed.args.values().next().unwrap()), vec!["x", "y"]);
+    }
+
+    #[test]
+    fn a_split_value_is_counted_and_judged_as_values() {
+        // Split during the parse rather than after it, so everything downstream sees the
+        // values the user meant rather than the words they typed: `choices` judges each
+        // one, and the bounds count them.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--env <e>\" var=#true delimiter=\",\" var_max=2 {\n  choices \"dev\" \"prod\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--env", "dev,prod"])).expect("two values, both allowed");
+        let err = parse(&spec, &input(&["ex", "--env", "dev,staging"])).unwrap_err();
+        assert!(err.to_string().contains("staging"), "{err}");
+        assert!(
+            parse(&spec, &input(&["ex", "--env", "dev,prod,dev"])).is_err(),
+            "three values should breach var_max=2"
+        );
     }
 
     #[test]
