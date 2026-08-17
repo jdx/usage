@@ -1563,6 +1563,15 @@ pub trait CommandArgs: Sized {
         None
     }
 
+    /// Fill fields in this command from their declared environment variables.
+    ///
+    /// A parent calls this before relationships that cross a flattened `CommandArgs`
+    /// boundary, so those relationships see the same values as the nested command's own
+    /// checks. Empty by default for hand-written implementations.
+    fn apply_env(partial: &mut Self::Partial) {
+        let _ = partial;
+    }
+
     /// Everything this command decides after the last token: required-ness,
     /// choices, and how many values a variadic got.
     ///

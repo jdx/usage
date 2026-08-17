@@ -2357,6 +2357,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
     let presence = presence_methods(cli);
+    let apply_env = env_fallbacks(cli);
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -2582,6 +2583,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 }
 
                 #presence
+
+                fn apply_env(partial: &mut Self::Partial) {
+                    #apply_env
+                }
 
                 #settings_impl
 
@@ -3082,6 +3087,75 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     )
 }
 
+/// Environment fallbacks for this command and every argument group flattened into it.
+///
+/// Kept separate from the rest of post-binding validation because a parent must apply these
+/// before it can enforce a relationship whose other side lives across a flatten boundary.
+fn env_fallbacks(cli: &Cli) -> TokenStream {
+    let own = cli.fields.iter().filter_map(|f| {
+        let ident = &f.ident;
+        let given = format_ident!("__given_{}", ident);
+        let var = f.env.as_deref()?;
+        let assign = match f.shape {
+            // `env::var` gives text, which is right for an environment variable: the
+            // partial holds bytes because *argv* may not be UTF-8, and this is not argv.
+            Shape::Optional => quote! {
+                partial.#ident = ::std::option::Option::Some(value.into_bytes());
+            },
+            Shape::Required => quote!(partial.#ident = value.into_bytes();),
+            // Cleared first, so the environment *replaces* a declared default instead of
+            // adding to it — which is what every other shape does by assigning.
+            Shape::Many => quote! {
+                partial.#ident.clear();
+                partial.#ident.push(value.into_bytes());
+            },
+            Shape::Bool => quote! {
+                partial.#ident = !matches!(
+                    value.as_str(),
+                    "" | "0" | "false" | "no" | "off"
+                );
+            },
+            // An unparseable count leaves the field alone rather than counting as given.
+            Shape::Count => {
+                let ty = &f.ty;
+                quote! {
+                    match value.parse::<#ty>() {
+                        ::std::result::Result::Ok(count) => partial.#ident = count,
+                        ::std::result::Result::Err(_) => continue_unset = true,
+                    }
+                }
+            }
+        };
+        // A flag that lost an override is not merely unset: filling it from the
+        // environment would undo the last-one-wins the command line asked for.
+        let standing = displaced_guard(cli, f);
+        Some(quote! {
+            if !partial.#given #standing {
+                if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
+                    let mut continue_unset = false;
+                    #assign
+                    if !continue_unset {
+                        partial.#given = true;
+                    }
+                }
+            }
+        })
+    });
+    let flattened = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        Some(quote! {
+            <#ty as ::usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
+        })
+    });
+    quote! {
+        #(#own)*
+        #(#flattened)*
+    }
+}
+
 /// Everything decided once the last token has been read.
 ///
 /// Ordered deliberately. The environment fills what argv left out, so it runs
@@ -3141,62 +3215,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
-    let env_fallbacks = cli.fields.iter().filter_map(|f| {
-        let ident = &f.ident;
-        let given = format_ident!("__given_{}", ident);
-        let var = f.env.as_deref()?;
-        let assign = match f.shape {
-            // `env::var` gives text, which is right for an environment variable: the
-            // partial holds bytes because *argv* may not be UTF-8, and this is not argv.
-            Shape::Optional => quote! {
-                partial.#ident = ::std::option::Option::Some(value.into_bytes());
-            },
-            Shape::Required => quote!(partial.#ident = value.into_bytes();),
-            // Cleared first, so the environment *replaces* a declared default instead of
-            // adding to it — which is what every other shape does by assigning, and what the
-            // order here means: a default says what the value is when nobody said anything,
-            // and the environment is somebody saying something. Nothing else can be in the
-            // collection at this point: argv sets `__given_*`, which this is guarded on.
-            Shape::Many => quote! {
-                partial.#ident.clear();
-                partial.#ident.push(value.into_bytes());
-            },
-            // A switch reads as on for anything but the spellings of "off", which is
-            // what every tool that takes a boolean from the environment settles on.
-            Shape::Bool => quote! {
-                partial.#ident = !matches!(
-                    value.as_str(),
-                    "" | "0" | "false" | "no" | "off"
-                );
-            },
-            // A number, since the environment cannot repeat a flag: `EX_VERBOSE=3`
-            // is how you say `-vvv`. An unparseable value leaves the field alone
-            // rather than being counted as given.
-            Shape::Count => {
-                let ty = &f.ty;
-                quote! {
-                    match value.parse::<#ty>() {
-                        ::std::result::Result::Ok(count) => partial.#ident = count,
-                        ::std::result::Result::Err(_) => continue_unset = true,
-                    }
-                }
-            }
-        };
-        // A flag that lost an override is not merely unset: filling it from the
-        // environment would undo the last-one-wins the command line asked for.
-        let standing = displaced_guard(cli, f);
-        Some(quote! {
-            if !partial.#given #standing {
-                if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
-                    let mut continue_unset = false;
-                    #assign
-                    if !continue_unset {
-                        partial.#given = true;
-                    }
-                }
-            }
-        })
-    });
+    let env_fallbacks = env_fallbacks(cli);
 
     let required_checks = cli.fields.iter().filter_map(|f| {
         // A `String` has nowhere to put "absent", so the type is the declaration; a collection
@@ -3650,7 +3669,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // Before the environment, which overrides a default when the flag was not given —
         // the order `start` used to give them.
         #(#declared_defaults)*
-        #(#env_fallbacks)*
+        #env_fallbacks
         #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the
         // more useful of the two answers when a conflict has also left something

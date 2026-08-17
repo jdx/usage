@@ -9,7 +9,7 @@
 
 use std::ffi::OsStr;
 
-use usage_derive::Cli;
+use usage_derive::{Args, Cli};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
@@ -118,6 +118,61 @@ fn an_environment_value_counts_for_exclusivity() {
     let parsed = ExclusiveEnv::parse_from(&a).expect("without the environment it is alone");
     assert!(parsed.dump);
     assert!(parsed.out.is_none());
+}
+
+#[derive(Args)]
+struct FlattenedEnvOutput {
+    /// Where to write
+    #[usage(long, env = "FLAT_EXCLUSIVE_ENV_OUT")]
+    out: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-exclusive-env")]
+struct ExclusiveAcrossFlattenEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: FlattenedEnvOutput,
+}
+
+#[derive(Args)]
+struct FlattenedExclusiveEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-exclusive-env-reverse")]
+struct EnvAcrossFlattenExclusive {
+    /// Where to write
+    #[usage(long, env = "FLAT_EXCLUSIVE_ENV_REVERSE_OUT")]
+    out: Option<String>,
+    #[usage(flatten)]
+    extra: FlattenedExclusiveEnv,
+}
+
+#[test]
+fn flattened_environment_values_are_visible_to_cross_boundary_exclusivity() {
+    unsafe { std::env::set_var("FLAT_EXCLUSIVE_ENV_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(ExclusiveAcrossFlattenEnv::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("FLAT_EXCLUSIVE_ENV_OUT") };
+
+    unsafe { std::env::set_var("FLAT_EXCLUSIVE_ENV_REVERSE_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(EnvAcrossFlattenExclusive::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("FLAT_EXCLUSIVE_ENV_REVERSE_OUT") };
+
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveAcrossFlattenEnv::parse_from(&a).expect("alone after cleanup");
+    assert!(parsed.dump);
+    assert!(parsed.extra.out.is_none());
+    let parsed = EnvAcrossFlattenExclusive::parse_from(&a).expect("alone after cleanup");
+    assert!(parsed.out.is_none());
+    assert!(parsed.extra.dump);
 }
 
 #[test]
