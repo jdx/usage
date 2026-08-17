@@ -168,14 +168,10 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 			if h := help.Lookup(s.flag.Key); h != nil && h.Hide {
 				continue
 			}
+			// Negations included: flagsInScope works out which spellings are still
+			// this flag's, and a negation is one of them.
 			for _, form := range s.forms {
 				add(CandidateFlag, form, describe(s.flag.Key, help))
-			}
-			// A negation is a spelling like any other, and it is claimed the same
-			// way — but a long anywhere in scope beats it, which is what the
-			// parser does and what `taken` already records.
-			if s.flag.Negate != "" {
-				add(CandidateFlag, "--"+s.flag.Negate, describe(s.flag.Key, help))
 			}
 		}
 	}
@@ -212,33 +208,43 @@ func flagsInScope(chain []*Command) []inScope {
 	if len(chain) == 0 {
 		return nil
 	}
-	here := chain[len(chain)-1]
-	taken := map[string]bool{}
+	everyForm := everyFormInScope(chain)
+	var taken, takenNegations []string
 	var out []inScope
-	for _, f := range here.Flags {
-		out = append(out, inScope{flag: f, forms: formsOf(f)})
+
+	// Nearest first, which is the order the parser resolves in, so that "nothing
+	// nearer has taken it" is just "not seen yet".
+	offer := func(f *Flag) {
+		var left []string
 		for _, form := range formsOf(f) {
-			taken[form] = true
+			if !has(taken, form) {
+				left = append(left, form)
+			}
 		}
+		// A negation is a spelling like any other, and it loses to a long anywhere
+		// in scope rather than only to a nearer one — see negationSurvives, which
+		// the pages use for the same decision.
+		if n := negationOf(f); n != "" && negationSurvives(f, n, takenNegations, everyForm) {
+			left = append(left, n)
+		}
+		// Claimed whether or not anything is left: a spelling this flag answers to
+		// is not available to something farther away either.
+		taken = append(taken, formsOf(f)...)
+		if n := negationOf(f); n != "" {
+			takenNegations = append(takenNegations, n)
+		}
+		if len(left) > 0 {
+			out = append(out, inScope{flag: f, forms: left})
+		}
+	}
+
+	for _, f := range chain[len(chain)-1].Flags {
+		offer(f)
 	}
 	for i := len(chain) - 2; i >= 0; i-- {
 		for _, f := range chain[i].Flags {
-			if !f.Global {
-				continue
-			}
-			var left []string
-			for _, form := range formsOf(f) {
-				if !taken[form] {
-					left = append(left, form)
-				}
-			}
-			// Claimed whether or not anything is left: a spelling this flag
-			// answers to is not available to something farther away either.
-			for _, form := range formsOf(f) {
-				taken[form] = true
-			}
-			if len(left) > 0 {
-				out = append(out, inScope{flag: f, forms: left})
+			if f.Global {
+				offer(f)
 			}
 		}
 	}

@@ -81,6 +81,40 @@ func has(list []string, s string) bool {
 	return false
 }
 
+// everyFormInScope is every long and short anything in scope answers to, near or
+// far.
+//
+// One of these always beats a negation — the parser asks for every long form
+// across the whole scope before it asks for any negation — so a negation
+// survives only where none of them is the same word. Both the pages and the
+// completions need it, and they need the same one: a spelling offered by one and
+// not the other is the two halves disagreeing about what the parser does.
+func everyFormInScope(chain []*Command) []string {
+	if len(chain) == 0 {
+		return nil
+	}
+	var out []string
+	for _, f := range chain[len(chain)-1].Flags {
+		out = append(out, formsOf(f)...)
+	}
+	for _, a := range chain[:len(chain)-1] {
+		for _, f := range a.Flags {
+			if f.Global {
+				out = append(out, formsOf(f)...)
+			}
+		}
+	}
+	return out
+}
+
+// negationSurvives reports whether a flag's negation is still its own to offer:
+// nothing nearer has claimed the spelling, and no long anywhere in scope — this
+// flag's own excepted — is the same word.
+func negationSurvives(f *Flag, negation string, takenNegations, everyForm []string) bool {
+	return !has(takenNegations, negation) &&
+		(!has(everyForm, negation) || has(formsOf(f), negation))
+}
+
 // surviving is the spellings left to a flag once everything nearer has taken
 // what it answers to.
 func surviving(f *Flag, taken, takenNegations, everyForm []string) shown {
@@ -98,9 +132,7 @@ func surviving(f *Flag, taken, takenNegations, everyForm []string) shown {
 		}
 	}
 	if n := negationOf(f); n != "" {
-		// A long anywhere in scope wins over a negation — this flag's own
-		// excepted — because the parser asks for every long before any negation.
-		out.negate = !has(takenNegations, n) && (!has(everyForm, n) || has(formsOf(f), n))
+		out.negate = negationSurvives(f, n, takenNegations, everyForm)
 	}
 	return out
 }
@@ -113,20 +145,7 @@ func ownAndGlobal(chain []*Command, help HelpTable) (own, inherited []shownFlag)
 	}
 	here, ancestors := chain[len(chain)-1], chain[:len(chain)-1]
 
-	// Every long and short anything in scope answers to, near or far: one of these
-	// always beats a negation, so a negation survives only where none of them is
-	// the same word.
-	var everyForm []string
-	for _, f := range here.Flags {
-		everyForm = append(everyForm, formsOf(f)...)
-	}
-	for _, a := range ancestors {
-		for _, f := range a.Flags {
-			if f.Global {
-				everyForm = append(everyForm, formsOf(f)...)
-			}
-		}
-	}
+	everyForm := everyFormInScope(chain)
 
 	var taken, takenNegations []string
 	for _, f := range here.Flags {

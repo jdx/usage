@@ -220,6 +220,77 @@ func TestOnlyTheClaimedSpellingIsWithdrawn(t *testing.T) {
 	}
 }
 
+// Whichever flag the parser binds a spelling to is the flag that offers it.
+//
+// `binds` asks the parser, rather than asserting what the scope rules ought to
+// do: the whole claim of this file is that what is offered is what would be
+// accepted, and the only authority on the second half is the parser.
+func binds(t *testing.T, root *Command, words []string) *Flag {
+	t.Helper()
+	p := New(root, words)
+	var last *Flag
+	for p.Next() {
+		if ev := p.Event(); ev.Kind == KindFlag {
+			last = ev.Flag
+		}
+	}
+	if err := p.Err(); err != nil {
+		t.Fatalf("%v should bind: %v", words, err)
+	}
+	return last
+}
+
+// A negation loses to a long form anywhere in scope, so it is not offered twice.
+//
+// An ancestor's `--no-color` is a literal long, and the parser asks for every
+// long across the whole scope before it asks for any negation — so typing it
+// binds the ancestor's flag, not the nearer flag's negation. Offering it under
+// both put the same word in the list twice, described two different ways, one of
+// them wrong.
+func TestANegationLosesToALongOfTheSameSpelling(t *testing.T) {
+	global := &Flag{Key: 3, Name: "no-color", Longs: []string{"no-color"}, Global: true}
+	local := &Flag{Key: 4, Name: "color", Longs: []string{"color"}, Negate: "no-color"}
+	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+
+	if f := binds(t, root, []string{"run", "--no-color"}); f != global {
+		t.Fatalf("the parser binds --no-color to %v, so the premise is wrong", f)
+	}
+	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	if n := count(got, "--no-color"); n != 1 {
+		t.Errorf("--no-color should be offered once, by the flag that binds it, got %d: %v",
+			n, got)
+	}
+}
+
+// And a negation is offered where it is all that is left of an inherited flag.
+//
+// The nearer command reclaims `--color`, so nothing of the global's own spellings
+// survives — but `--no-color` still binds to the global, and dropping the flag
+// for having no primary form left hid it.
+func TestAnInheritedNegationSurvivesItsFlagsOtherSpellings(t *testing.T) {
+	global := &Flag{Key: 3, Name: "color", Longs: []string{"color"},
+		Negate: "no-color", Global: true}
+	local := &Flag{Key: 4, Name: "color", Longs: []string{"color"}}
+	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+
+	if f := binds(t, root, []string{"run", "--no-color"}); f != global {
+		t.Fatalf("the parser binds --no-color to %v, so the premise is wrong", f)
+	}
+	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	if !offered(got, "--no-color") {
+		t.Errorf("--no-color still binds, so it should be offered: %v", got)
+	}
+	if n := count(got, "--color"); n != 1 {
+		t.Errorf("--color is the subcommand's now, and offered once, got %d: %v", n, got)
+	}
+}
+
 func count(list []string, want string) int {
 	n := 0
 	for _, s := range list {
