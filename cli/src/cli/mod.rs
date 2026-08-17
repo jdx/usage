@@ -79,19 +79,19 @@ pub(crate) fn version() -> String {
 /// where a variant holds nothing and there is no struct to carry one.
 #[derive(Subcommands)]
 enum Command {
-    Bash(Box<shell::Bash>),
-    CompleteWord(Box<complete_word::CompleteWord>),
-    Exec(Box<exec::Exec>),
-    Fish(Box<shell::Fish>),
-    Generate(Box<generate::Generate>),
-    Lint(Box<lint::Lint>),
-    Mcp(Box<mcp::Mcp>),
+    Bash(shell::Bash),
+    CompleteWord(complete_word::CompleteWord),
+    Exec(exec::Exec),
+    Fish(shell::Fish),
+    Generate(generate::Generate),
+    Lint(lint::Lint),
+    Mcp(mcp::Mcp),
     #[usage(name = "powershell")]
-    PowerShell(Box<shell::PowerShell>),
+    PowerShell(shell::PowerShell),
     /// Show the companies sponsoring usage and the jdx.dev open source tools
     #[usage(effect = "read")]
     Sponsors,
-    Zsh(Box<shell::Zsh>),
+    Zsh(shell::Zsh),
 }
 
 impl Cli {
