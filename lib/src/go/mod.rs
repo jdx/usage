@@ -534,20 +534,55 @@ fn arg_meta(arg: &SpecArg, named: &Named) -> String {
 /// A name nothing answers to is dropped. That is a spec bug worth reporting, but
 /// this function has no way to; the check belongs beside the duplicate-form and
 /// duplicate-key checks that already run where the whole tree is visible.
-fn resolve_relationship(names: &[String], owner: &Emitted, _commands: &[Emitted]) -> Vec<String> {
+fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted]) -> Vec<String> {
     let mut out = Vec::new();
     for name in names {
         let bare = name.trim_start_matches('-');
-        let found = owner.flags.iter().find(|(flag, _)| {
-            flag.name == bare
-                || flag.long.iter().any(|l| l == bare)
-                || (bare.chars().count() == 1 && flag.short.iter().any(|c| c.to_string() == bare))
-        });
-        if let Some((_, named)) = found {
-            out.push(named.key.clone());
+        // The declaring command's own flags first, then any ancestor's globals —
+        // the scope a token has, in the order a token gets it, so a subcommand
+        // redeclaring an inherited name shadows it here as it does at parse time.
+        let mut found = match_flag(owner, bare, false);
+        if found.is_none() {
+            let path = &owner.cmd.full_cmd;
+            for depth in (0..path.len()).rev() {
+                let ancestor = commands
+                    .iter()
+                    .find(|e| e.cmd.full_cmd.len() == depth && e.cmd.full_cmd[..] == path[..depth]);
+                if let Some(key) = ancestor.and_then(|a| match_flag(a, bare, true)) {
+                    found = Some(key);
+                    break;
+                }
+            }
+        }
+        if let Some(key) = found {
+            out.push(key);
         }
     }
     out
+}
+
+/// Find a flag by any spelling a declaration may use for it.
+///
+/// The negation counts, and resolves to the same entry: usage-lib treats
+/// `conflicts = "--no-color"` as naming the `color` flag and reports the conflict
+/// whichever of the two spellings was typed. The relationship is between entries
+/// rather than between tokens, which is what the key model already assumes.
+fn match_flag(cmd: &Emitted, bare: &str, globals_only: bool) -> Option<String> {
+    cmd.flags
+        .iter()
+        .find(|(flag, _)| {
+            if globals_only && !flag.global {
+                return false;
+            }
+            flag.name == bare
+                || flag
+                    .negate
+                    .as_deref()
+                    .is_some_and(|n| n.trim_start_matches('-') == bare)
+                || flag.long.iter().any(|l| l == bare)
+                || (bare.chars().count() == 1 && flag.short.iter().any(|c| c.to_string() == bare))
+        })
+        .map(|(_, named)| named.key.clone())
 }
 
 fn string_slice(values: &[String]) -> String {
@@ -1080,6 +1115,42 @@ flag "--tag <t>" var=#true var_max=1
         );
         let tag = out.lines().find(|l| l.contains("\"tag\"")).unwrap();
         assert!(!tag.contains("VarMax"), "occurrence bound leaked: {tag}");
+    }
+
+    /// A relationship names a flag by any spelling that reaches it, and from
+    /// anywhere the flag is in scope.
+    ///
+    /// Both halves were silently resolving to nothing, which is worse than an
+    /// error: the rule simply never fired, while usage-lib enforced it.
+    #[test]
+    fn a_relationship_resolves_through_scope_and_negation() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--quiet" global=#true
+flag "--color" negate="--no-color"
+flag "--plain" conflicts="--no-color"
+cmd "run" {
+    flag "--loud" conflicts="--quiet"
+    flag "--solo" conflicts="--plain"
+}
+"#);
+        // A negation names the flag it belongs to.
+        assert!(
+            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+        // An inherited global is in scope from below.
+        assert!(
+            out.contains("Name: \"loud\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
+            "{out}"
+        );
+        // `--plain` is not global, so from a subcommand it names nothing — the
+        // other half, and the one a looser search would get wrong.
+        assert!(
+            out.contains("{Key: FlagRunSolo, Name: \"solo\", Flag: true},"),
+            "a non-global should not resolve from below:\n{out}"
+        );
     }
 
     #[test]
