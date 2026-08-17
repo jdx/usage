@@ -1997,10 +1997,11 @@ fn doc_comment(
                 // command to type.
                 let raw = s.value();
                 if verbatim {
-                    lines.extend(
-                        raw.split('\n')
-                            .map(|line| line.strip_prefix(' ').unwrap_or(line).to_string()),
-                    );
+                    let mut raw_lines = raw.split('\n');
+                    if let Some(first) = raw_lines.next() {
+                        lines.push(first.strip_prefix(' ').unwrap_or(first).to_string());
+                    }
+                    lines.extend(raw_lines.map(str::to_string));
                 } else {
                     // Preserve the pre-verbatim behaviour for an explicitly written,
                     // multiline `#[doc = "..."]`: only `///` contributes one leading

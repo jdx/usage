@@ -217,6 +217,11 @@ struct Verbatim {
 #[usage(bin = "ordinary-comments")]
 struct OrdinaryComments {}
 
+#[doc = " Verbatim first line\n    indented continuation"]
+#[derive(Cli)]
+#[usage(bin = "verbatim-attribute-comments", verbatim_doc_comment)]
+struct VerbatimAttributeComments {}
+
 /// First root line
 /// second root line
 ///
@@ -294,6 +299,18 @@ fn ordinary_multiline_doc_attributes_keep_their_indentation() {
         spec.about_long.as_deref(),
         Some("Ordinary first line\n    indented continuation")
     );
+}
+
+#[test]
+fn verbatim_multiline_doc_attributes_keep_their_indentation() {
+    let spec: LibSpec = VerbatimAttributeComments::to_kdl()
+        .parse()
+        .expect("valid spec");
+    assert_eq!(
+        spec.about.as_deref(),
+        Some("Verbatim first line\n    indented continuation")
+    );
+    assert!(spec.about_long.is_none());
 }
 
 #[test]
