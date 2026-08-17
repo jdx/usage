@@ -1138,15 +1138,30 @@ fn parse_partial_with_env(
                 // in an error rather than in `unexpected word`.
                 continue;
             }
-            if validate_choices(
-                spec,
-                &out.cmd,
-                &mut out.errors,
-                ChoiceTarget::arg(arg),
-                &w,
-                arg.choices.as_ref(),
-                custom_env,
-            )? {
+            // Split before judging, as the flag path does: after the split the word is
+            // no longer one value, and `choices` has to be asked about each. Judging
+            // first rejects `src:docs` against a list that both halves are on, and
+            // names the whole word rather than the half that was wrong.
+            let parts: Vec<String> = match arg.delimiter {
+                Some(delimiter) => w.split(delimiter).map(str::to_string).collect(),
+                None => vec![w.clone()],
+            };
+            let mut refused = false;
+            for part in &parts {
+                if validate_choices(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    ChoiceTarget::arg(arg),
+                    part,
+                    arg.choices.as_ref(),
+                    custom_env,
+                )? {
+                    refused = true;
+                    break;
+                }
+            }
+            if refused {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
             }
@@ -1164,14 +1179,10 @@ fn parse_partial_with_env(
                     .or_insert_with(|| ParseValue::MultiString(vec![]))
                     .try_as_multi_string_mut()
                     .unwrap();
-                // One word, several values, when the argument says so: `--tags a,b,c`.
-                // Split here rather than after the parse, so everything downstream —
-                // `var_max` stopping the collection, `choices`, `var_min` — counts the
-                // values the user meant rather than the words they typed.
-                match arg.delimiter {
-                    Some(delimiter) => arr.extend(w.split(delimiter).map(str::to_string)),
-                    None => arr.push(w),
-                }
+                // The values this word carried, split above so that everything
+                // downstream — `choices`, `var_max` stopping the collection, `var_min` —
+                // counts the values the user meant rather than the words they typed.
+                arr.extend(parts.iter().cloned());
                 if arr.len() >= arg.var_max.unwrap_or(usize::MAX) {
                     next_arg_idx += 1;
                 }
@@ -3113,6 +3124,26 @@ flag "--file <file>" required_unless="--stdin"
             .unwrap();
         assert_eq!(multi(tags), vec!["a", "b", "c"]);
         assert_eq!(multi(parsed.args.values().next().unwrap()), vec!["x", "y"]);
+    }
+
+    #[test]
+    fn a_positional_splits_before_its_choices_are_asked() {
+        // The flag path did this and the positional path did not, so a word whose parts
+        // were all choices was rejected as one value, and a bad half was reported as the
+        // whole word.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\narg \"[paths]...\" var=#true delimiter=\":\" {\n  choices \"src\" \"docs\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "src:docs"])).expect("both halves are choices");
+
+        let err = parse(&spec, &input(&["ex", "src:nowhere"])).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("nowhere"), "{message}");
+        assert!(
+            !message.contains("src:nowhere"),
+            "the bad half should be named, not the whole word: {message}"
+        );
     }
 
     #[test]

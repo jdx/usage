@@ -495,6 +495,27 @@ mod delimiter_tests {
     }
 
     #[test]
+    fn a_single_valued_clap_arg_keeps_its_delimiter() {
+        // clap's parser splits whenever a delimiter is set, whatever `num_args` says, so
+        // `ArgAction::Set` with `value_delimiter(',')` is one word becoming several — the
+        // common spelling. Reading it as single-valued dropped the delimiter and left a
+        // CLI whose defaults split and whose typed values did not.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .action(clap::ArgAction::Set)
+                .value_delimiter(','),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','));
+        // And it says so: a delimiter is the statement that several values can land, so
+        // the emitted spec has somewhere to put them and parses back.
+        assert!(arg.var, "a delimiter brings `var` with it");
+        let _: Spec = spec.to_string().parse().expect("{spec}");
+    }
+
+    #[test]
     fn a_delimiter_needs_somewhere_to_put_what_it_splits() {
         // Without `var` everything after the first separator would be dropped, silently.
         let err = "flag \"--tags <tag>\" delimiter=\",\"\n"

@@ -653,12 +653,21 @@ impl From<&clap::Arg> for SpecFlag {
             // clap `Arg`, so what the `Arg` says about the *value* has to be carried
             // here — the `From<&clap::Arg> for SpecArg` impl never sees this one.
             //
-            // Only where several values can land. clap refuses `value_delimiter` with
-            // `num_args(1)` itself, and a spec that recorded one on a single-value
-            // argument would be a spec this crate then declines to parse.
-            if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
+            // A delimiter *is* the statement that several values can land, so it brings
+            // `var` with it rather than waiting for one.
+            //
+            // Gating this on the action or on `num_args` was wrong: clap's parser splits
+            // whenever a delimiter is set — `parser.rs` reaches for
+            // `arg.get_value_delimiter()` before it looks at anything else — so
+            // `ArgAction::Set` with `value_delimiter(',')` is one word becoming several,
+            // and that is the common spelling. Reading it as single-valued dropped the
+            // delimiter and left a CLI whose defaults split and whose typed values did
+            // not.
+            if let Some(delimiter) = c.get_value_delimiter() {
                 arg.var = true;
-                arg.delimiter = c.get_value_delimiter();
+                arg.delimiter = Some(delimiter);
+            } else if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
+                arg.var = true;
             }
 
             Some(arg)
