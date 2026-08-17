@@ -43,36 +43,44 @@ type Spec struct {
 	AboutLong         string `json:"about_long"`
 	BeforeHelp        string `json:"before_help"`
 	AfterHelp         string `json:"after_help"`
+	BeforeHelpLong    string `json:"before_help_long"`
+	AfterHelpLong     string `json:"after_help_long"`
+	Usage             string `json:"usage"`
 }
 
 // HelpSpec is what a page needs from the spec's root rather than from a command.
 func (s *Spec) HelpSpec() argv.HelpSpec {
 	return argv.HelpSpec{
-		Name:       s.Name,
-		Bin:        s.Bin,
-		Version:    s.Version,
-		About:      first(s.About, s.AboutLong),
-		BeforeHelp: s.BeforeHelp,
-		AfterHelp:  s.AfterHelp,
+		Name:           s.Name,
+		Bin:            s.Bin,
+		Version:        s.Version,
+		About:          s.About,
+		LongAbout:      s.AboutLong,
+		BeforeHelp:     s.BeforeHelp,
+		AfterHelp:      s.AfterHelp,
+		BeforeLongHelp: s.BeforeHelpLong,
+		AfterLongHelp:  s.AfterHelpLong,
 	}
 }
 
 // Cmd is one command in the lowered spec.
 type Cmd struct {
-	Name          string      `json:"name"`
-	Hide          bool        `json:"hide"`
-	Help          string      `json:"help"`
-	HelpLong      string      `json:"help_long"`
-	Usage         string      `json:"usage"`
-	BeforeHelp    string      `json:"before_help"`
-	AfterHelp     string      `json:"after_help"`
-	Examples      []Example   `json:"examples"`
-	Aliases       []string    `json:"aliases"`
-	HiddenAliases []string    `json:"hidden_aliases"`
-	Subcommands   Subcommands `json:"subcommands"`
-	Args          []Arg       `json:"args"`
-	Flags         []Flag      `json:"flags"`
-	UnknownFlags  *string     `json:"unknown_flags"`
+	Name           string      `json:"name"`
+	Hide           bool        `json:"hide"`
+	Help           string      `json:"help"`
+	HelpLong       string      `json:"help_long"`
+	Usage          string      `json:"usage"`
+	BeforeHelp     string      `json:"before_help"`
+	AfterHelp      string      `json:"after_help"`
+	BeforeHelpLong string      `json:"before_help_long"`
+	AfterHelpLong  string      `json:"after_help_long"`
+	Examples       []Example   `json:"examples"`
+	Aliases        []string    `json:"aliases"`
+	HiddenAliases  []string    `json:"hidden_aliases"`
+	Subcommands    Subcommands `json:"subcommands"`
+	Args           []Arg       `json:"args"`
+	Flags          []Flag      `json:"flags"`
+	UnknownFlags   *string     `json:"unknown_flags"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -245,6 +253,7 @@ type Arg struct {
 type Example struct {
 	Header string `json:"header"`
 	Code   string `json:"code"`
+	Help   string `json:"help"`
 }
 
 // Choices is the declared set of values, which the lowering nests one level.
@@ -445,7 +454,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	}
 	examples := make([]argv.Example, 0, len(c.Examples))
 	for _, e := range c.Examples {
-		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code})
+		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code, Help: e.Help})
 	}
 	b.recordHelp(out.Key, argv.Help{
 		Hide:  c.Hide,
@@ -462,6 +471,8 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		VisibleAliases: visibleAliases(c),
 		BeforeHelp:     c.BeforeHelp,
 		AfterHelp:      c.AfterHelp,
+		BeforeLongHelp: c.BeforeHelpLong,
+		AfterLongHelp:  c.AfterHelpLong,
 		Examples:       examples,
 	})
 

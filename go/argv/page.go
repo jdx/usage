@@ -3,6 +3,7 @@ package argv
 import (
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // The page `-h` prints.
@@ -26,15 +27,23 @@ type HelpSpec struct {
 	// About is the root's description, which the root's page uses in place of the
 	// command's own.
 	About string
-	// BeforeHelp and AfterHelp bracket every page that does not override them.
-	BeforeHelp string
-	AfterHelp  string
+	// LongAbout is what `--help` prefers over About.
+	LongAbout string
+	// BeforeHelp and AfterHelp bracket every page that does not override them,
+	// and the long variants are what `--help` prefers.
+	BeforeHelp     string
+	AfterHelp      string
+	BeforeLongHelp string
+	AfterLongHelp  string
 }
 
 // Example is one worked invocation, as a page prints it.
 type Example struct {
 	Header string
 	Code   string
+	// Help introduces the line on the long page, printed above the command
+	// rather than beside it.
+	Help string
 }
 
 // shortCol is the width the short-flag column is padded to, so that `-J, --json`
@@ -80,7 +89,10 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	} else if meta != nil {
 		about = meta.Short
 	}
-	if about != "" {
+	// Trimmed as the long page trims it, and for the same reason: the blank line
+	// under a description belongs to the renderer, so one already in the text is a
+	// second one.
+	if about := trimEnd(about); about != "" {
 		out.WriteString(about + "\n\n")
 	}
 
@@ -161,7 +173,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
 
-	examplesSection(&out, meta)
+	examplesSection(&out, pageExamples(chain, help, meta))
 
 	after := spec.AfterHelp
 	if meta != nil && meta.AfterHelp != "" {
@@ -201,7 +213,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 	out.WriteString("\nCommands:\n")
 
 	// Sorted by the rendered usage rather than by name, as usage-lib sorts them.
-	sort.SliceStable(lines, func(i, j int) bool { return lines[i].usage < lines[j].usage })
+	sortLines(lines, func(i int) string { return lines[i].usage })
 
 	for _, l := range lines {
 		out.WriteString("  " + l.usage)
@@ -256,12 +268,30 @@ func groupsSection(out *strings.Builder, defaultTitle string, n int,
 	}
 }
 
-func examplesSection(out *strings.Builder, meta *Help) {
-	if meta == nil || len(meta.Examples) == 0 {
+// pageExamples is a command's own examples, or the root's where it has none.
+//
+// The same fallback `BeforeHelp` and `AfterHelp` get, and for the same reason: a
+// CLI writing examples once at the top means them to appear. mise declares none
+// at its root, so the 211-page parity test cannot see this either way — it is
+// checked against the reference's rule rather than against the fixture.
+func pageExamples(chain []*Command, help HelpTable, meta *Help) []Example {
+	if meta != nil && len(meta.Examples) > 0 {
+		return meta.Examples
+	}
+	if len(chain) > 0 {
+		if root := help.Lookup(chain[0].Key); root != nil {
+			return root.Examples
+		}
+	}
+	return nil
+}
+
+func examplesSection(out *strings.Builder, examples []Example) {
+	if len(examples) == 0 {
 		return
 	}
 	out.WriteString("\nExamples:\n")
-	for _, e := range meta.Examples {
+	for _, e := range examples {
 		if e.Header != "" {
 			out.WriteString("  " + e.Header + ":\n")
 		}
@@ -324,6 +354,17 @@ func pad(s string, col int) string {
 }
 
 func width(s string) int { return len([]rune(s)) }
+
+// trimEnd drops trailing whitespace, which is what `str::trim_end` does on the
+// two sides this is ported from.
+func trimEnd(s string) string { return strings.TrimRightFunc(s, unicode.IsSpace) }
+
+// sortLines orders a section's entries by their rendered usage, which is how
+// usage-lib orders them — for a command with no flags or arguments that agrees
+// with sorting by name, and where it differs this is what a reader sees.
+func sortLines[T any](lines []T, key func(int) string) {
+	sort.SliceStable(lines, func(i, j int) bool { return key(i) < key(j) })
+}
 
 func min(a, b int) int {
 	if a < b {
