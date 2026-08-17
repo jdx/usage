@@ -20,23 +20,23 @@ use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcomman
 
 /// The runtime as the adopter depended on it.
 ///
-/// A direct `usage-argv` dependency remains supported for the low-level crates and existing
-/// users. The `usage-rs` facade re-exports that runtime as `usage::argv`, which lets an
-/// application keep derives, tables, and their versions behind one dependency.
+/// A direct `usage-argv` dependency wins when both forms are present: a low-level adopter may
+/// deliberately enable a different feature set there. Otherwise the `usage-rs` facade provides
+/// the runtime as `usage::argv`, keeping derives, tables, and their versions behind one
+/// dependency.
 fn runtime_path() -> TokenStream {
-    match crate_name("usage-rs") {
-        Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
+    match crate_name("usage-argv") {
         Ok(FoundCrate::Name(name)) => {
-            let facade = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#facade::argv)
+            let runtime = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#runtime)
         }
-        Err(_) => match crate_name("usage-argv") {
+        _ => match crate_name("usage-rs") {
+            Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
             Ok(FoundCrate::Name(name)) => {
-                let runtime = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#runtime)
+                let facade = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#facade::argv)
             }
-            // Deriving inside an integration target of `usage-argv`, or preserving the old
-            // useful compiler error when neither dependency was declared.
+            // Preserve the old useful compiler error when neither dependency was declared.
             _ => quote!(::usage_argv),
         },
     }
@@ -48,16 +48,16 @@ fn runtime_path() -> TokenStream {
 /// struct, though, so that derive must come through the facade too when it is the application's
 /// only dependency.
 fn derive_path() -> TokenStream {
-    match crate_name("usage-rs") {
-        Ok(FoundCrate::Itself) => quote!(::usage_rs),
+    match crate_name("usage-derive") {
         Ok(FoundCrate::Name(name)) => {
-            let facade = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#facade)
+            let derive = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#derive)
         }
-        Err(_) => match crate_name("usage-derive") {
+        _ => match crate_name("usage-rs") {
+            Ok(FoundCrate::Itself) => quote!(::usage_rs),
             Ok(FoundCrate::Name(name)) => {
-                let derive = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#derive)
+                let facade = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#facade)
             }
             _ => quote!(::usage_derive),
         },

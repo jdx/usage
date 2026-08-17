@@ -1,0 +1,12 @@
+[package]
+name = "usage-rs-mixed-dependencies-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+usage = { package = "usage-rs", path = "../../..", default-features = false }
+usage_argv_direct = { package = "usage-argv", path = "../../../../argv", features = ["spec"] }
+usage_derive_direct = { package = "usage-derive", path = "../../../../derive" }
+
+[workspace]

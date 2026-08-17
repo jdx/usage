@@ -1,10 +1,7 @@
-#![cfg(feature = "spec")]
-
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use usage_rs as usage;
-use usage_rs::{Args, Cli, Subcommands};
+use usage::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
 #[usage(bin = "ex")]
@@ -27,9 +24,7 @@ struct Show {
     file: PathBuf,
 }
 
-#[test]
-fn one_dependency_provides_derives_runtime_and_value_hints() {
-    let _hint_from_facade = usage::ValueHint::FilePath;
+fn main() {
     let argv = [
         OsStr::new("show"),
         OsStr::new("--file"),
@@ -41,10 +36,7 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
     };
     assert_eq!(show.file, Path::new("input.txt"));
     assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
-}
 
-#[test]
-fn unit_subcommands_use_the_facade_derive() {
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));
 }
