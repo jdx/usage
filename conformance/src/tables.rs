@@ -49,11 +49,27 @@ pub fn convert_unknown_flags(mode: usage::UnknownFlags) -> ArgvUnknownFlags {
 /// `root_unknown_flags` is carried through as the spec states it — `None` where a command says
 /// nothing — because the parser inherits it. The root takes the spec-level setting, since that
 /// is the command a spec's own property describes.
-pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) -> Built {
+///
+/// `spec_completers` are the spec's top-level `complete` nodes, which every command sees: the
+/// reference looks a completer up spec-level first and only then on the command
+/// (`cli/src/cli/complete_word.rs`), so they are handed down the tree in that order rather than
+/// folded onto the root. fnox is the fleet's proof that this matters — its `complete "key"` is
+/// written once at the top level and means the `<KEY>` argument of a dozen subcommands.
+pub fn build(
+    cmd: &SpecCommand,
+    root_unknown_flags: Option<ArgvUnknownFlags>,
+    spec_completers: &[&SpecComplete],
+) -> Built {
     let unknown_flags = cmd
         .unknown_flags
         .map(convert_unknown_flags)
         .or(root_unknown_flags);
+    // Spec-level first, so that the first match wins in the reference's own order of preference.
+    let completers: Vec<&SpecComplete> = spec_completers
+        .iter()
+        .copied()
+        .chain(cmd.complete.values())
+        .collect();
 
     let flags: Vec<&'static Flag<'static>> = cmd.flags.iter().map(build_flag).collect();
     let args: Vec<&'static Arg<'static>> = cmd.args.iter().map(build_arg).collect();
@@ -61,8 +77,9 @@ pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) ->
         .subcommands
         .values()
         // A subcommand states its own or says nothing; there is no spec-level setting to hand
-        // it, since the root has already taken that.
-        .map(|sub| build(sub, None))
+        // it, since the root has already taken that. The completers do carry down, because the
+        // reference resolves them for whichever command is being completed.
+        .map(|sub| build(sub, None, spec_completers))
         .collect();
 
     let aliases: Vec<&'static str> = cmd
@@ -95,13 +112,13 @@ pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) ->
         .flags
         .iter()
         .zip(&flags)
-        .map(|(f, table)| flag_meta(f, table, cmd.complete.values()))
+        .map(|(f, table)| flag_meta(f, table, &completers))
         .collect();
     let arg_metas: Vec<ArgMeta<'static>> = cmd
         .args
         .iter()
         .zip(&args)
-        .map(|(a, table)| arg_meta(a, table, cmd.complete.values()))
+        .map(|(a, table)| arg_meta(a, table, &completers))
         .collect();
 
     let meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
@@ -155,7 +172,15 @@ pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) ->
 /// the help texts lost them silently, and `render/03-sections.json` pins all three cases now:
 /// the root's own page, a page that falls back to them, and a page that has its own instead.
 pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
-    let root = build(&spec.cmd, spec.unknown_flags.map(convert_unknown_flags));
+    // The third thing a spec writes at the top level and hangs off `Spec` rather than off the
+    // root command. Unlike the other two it is not the root's to keep: `build` hands it down to
+    // every command, because that is where the reference looks for it.
+    let spec_completers: Vec<&SpecComplete> = spec.complete.values().collect();
+    let root = build(
+        &spec.cmd,
+        spec.unknown_flags.map(convert_unknown_flags),
+        &spec_completers,
+    );
     // Whether the parser answers `--version` here, which the derive sets on the root of a CLI
     // that declares one. It has to be on the *table*, not only on the spec: a page offers
     // `--version` where the parser accepts it, and one that offered it otherwise would be
@@ -166,31 +191,6 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
     }));
     let mut root_examples = root.meta.examples.to_vec();
     root_examples.extend(spec.examples.iter().map(example));
-    // The third thing a spec writes at the top level and hangs off `Spec` rather than off the
-    // root command. Filled in only where the command's own map had nothing, so a `complete`
-    // inside a `cmd` block still wins for that command.
-    let root_flags: Vec<FlagMeta<'static>> = root
-        .meta
-        .flags
-        .iter()
-        .map(|f| FlagMeta {
-            complete_type: f
-                .complete_type
-                .or_else(|| complete_type(spec.complete.values(), f.flag.name, f.value_name)),
-            ..*f
-        })
-        .collect();
-    let root_args: Vec<ArgMeta<'static>> = root
-        .meta
-        .args
-        .iter()
-        .map(|a| ArgMeta {
-            complete_type: a
-                .complete_type
-                .or_else(|| complete_type(spec.complete.values(), a.arg.name, None)),
-            ..*a
-        })
-        .collect();
     let root_meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
         cmd: root_cmd,
         before_help: root.meta.before_help.or(opt(&spec.before_help)),
@@ -198,8 +198,6 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         after_help: root.meta.after_help.or(opt(&spec.after_help)),
         after_long_help: root.meta.after_long_help.or(opt(&spec.after_help_long)),
         examples: Box::leak(root_examples.into_boxed_slice()),
-        flags: Box::leak(root_flags.into_boxed_slice()),
-        args: Box::leak(root_args.into_boxed_slice()),
         ..*root.meta
     }));
     Box::leak(Box::new(usage_argv::spec::Spec {
@@ -221,7 +219,21 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
 
 fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
     let longs: Vec<&'static str> = f.long.iter().map(|l| leak(l)).collect();
-    let shorts: Vec<u8> = f.short.iter().map(|c| *c as u8).collect();
+    // A short flag is one byte in the table, so a non-ASCII spelling has no representation there
+    // at all: the line arrives as UTF-8, where such a character is two bytes or more, and
+    // whatever single byte a cast produced would match nothing anybody could type. Refusing says
+    // so; `'é' as u8` would have built a table describing a flag that cannot be reached.
+    let shorts: Vec<u8> = f
+        .short
+        .iter()
+        .map(|c| {
+            assert!(
+                c.is_ascii(),
+                "a short flag must be ASCII for usage-argv's tables, and `-{c}` is not"
+            );
+            *c as u8
+        })
+        .collect();
     Box::leak(Box::new(Flag {
         key: 0,
         name: leak(&f.name),
@@ -262,10 +274,10 @@ fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
     }))
 }
 
-fn flag_meta<'a>(
+fn flag_meta(
     f: &SpecFlag,
     table: &'static Flag<'static>,
-    completers: impl Iterator<Item = &'a SpecComplete>,
+    completers: &[&SpecComplete],
 ) -> FlagMeta<'static> {
     let arg = f.arg.as_ref();
     FlagMeta {
@@ -303,10 +315,10 @@ fn flag_meta<'a>(
     }
 }
 
-fn arg_meta<'a>(
+fn arg_meta(
     a: &SpecArg,
     table: &'static Arg<'static>,
-    completers: impl Iterator<Item = &'a SpecComplete>,
+    completers: &[&SpecComplete],
 ) -> ArgMeta<'static> {
     ArgMeta {
         arg: table,
@@ -335,23 +347,30 @@ const NO_COMPLETER: Option<usage_argv::spec::Completer> = None;
 
 /// The built-in completion class declared for a flag or argument, if any.
 ///
-/// `complete` nodes name the thing they complete rather than living on it, so this is a lookup.
-/// A flag's node may name the flag or its value, and `Spec::to_kdl` writes the value's
-/// lowercased, so both are tried — the flag's own name first, as the more specific of the two.
+/// `complete` nodes name the thing they complete rather than living on it, so this is a lookup,
+/// and it has to key the way the reference keys or the two disagree about a spec neither is free
+/// to reinterpret. Two rules come from `cli/src/cli/complete_word.rs`:
 ///
-/// Taken as an iterator rather than the `IndexMap` it comes from, so that this crate does not
-/// have to depend on `indexmap` to name the type. Each node knows its own name.
-fn complete_type<'a>(
-    completers: impl Iterator<Item = &'a SpecComplete>,
+/// - **The key is the value's name, lowercased.** A completer for a flag is found by the name of
+///   the value it takes, never by the flag's own — the reference completes a flag by handing its
+///   `SpecArg` to the same code that completes a positional. The flag's name is tried only for a
+///   flag that takes no value, which is the fallback `Spec::to_kdl` writes back.
+/// - **The comparison ignores case.** `SpecComplete::parse` lowercases the node's name, so a
+///   declared `complete "key"` is stored as `key` and matched against `<KEY>` lowercased. fnox
+///   writes exactly that, and comparing the name as written found nothing for any of it.
+///
+/// `completers` are already in the reference's order of preference — the spec's own nodes before
+/// the command's — so the first match wins. They arrive as a slice of borrows rather than the
+/// `IndexMap` they come from so that this crate need not depend on `indexmap` to name the type.
+fn complete_type(
+    completers: &[&SpecComplete],
     name: &str,
     value_name: Option<&str>,
 ) -> Option<&'static str> {
-    let lowered = value_name.map(str::to_ascii_lowercase);
-    let all: Vec<&SpecComplete> = completers.collect();
-    let found = [Some(name), lowered.as_deref()]
-        .into_iter()
-        .flatten()
-        .find_map(|key| all.iter().find(|c| c.name == key))
+    let key = value_name.unwrap_or(name).to_lowercase();
+    let found = completers
+        .iter()
+        .find(|c| c.name == key)
         .and_then(|c| c.type_.as_deref());
     found.map(leak)
 }
@@ -421,7 +440,7 @@ mod tests {
     fn the_fields_that_do_not_reach_a_page_are_carried_too() {
         let spec: Spec = "name \"ex\"\nbin \"ex\"\nmin_usage_version \"2.1.0\"\n\
              flag \"--out <FILE>\"\narg \"<dir>\"\n\
-             complete \"out\" type=\"path\"\ncomplete \"dir\" type=\"dir\"\n"
+             complete \"file\" type=\"path\"\ncomplete \"dir\" type=\"dir\"\n"
             .parse()
             .expect("valid spec");
         let built = build_spec(&spec);
@@ -434,15 +453,58 @@ mod tests {
         assert!(built.root.flags[0].complete.is_none());
     }
 
-    /// A `complete` node may name a flag's *value* rather than the flag, and `Spec::to_kdl`
-    /// writes the value's name lowercased — so the lookup has to try both spellings.
+    /// A completer is keyed by the *value's* name, lowercased, on whichever command asks.
+    ///
+    /// All three parts are the reference's, and getting any of them wrong resolves nothing for
+    /// fnox, whose `complete "key"` is written once at the top level and means the `<KEY>` of a
+    /// subcommand. Written as a unit test because `complete_type` reaches no page: the rendering
+    /// corpus catches a dropped field by the difference it makes to rendered text, and this
+    /// field makes none.
     #[test]
-    fn a_completer_keyed_by_a_flags_value_is_found_too() {
-        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <FILE>\"\n\
-             complete \"file\" type=\"path\"\n"
+    fn a_completer_is_keyed_the_way_the_reference_keys_it() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n\
+             flag \"--out <FILE>\"\n\
+             cmd \"get\" {\n  arg \"<KEY>\"\n  flag \"--to <DEST>\"\n}\n\
+             complete \"key\" type=\"file\"\ncomplete \"file\" type=\"path\"\n\
+             complete \"out\" type=\"dir\"\n"
             .parse()
             .expect("valid spec");
         let built = build_spec(&spec);
+        let get = built.root.subcommands[0];
+
+        // The value's name, not the flag's: the reference completes a flag by handing its value
+        // to the code that completes a positional, so `complete "out"` answers for nothing.
         assert_eq!(built.root.flags[0].complete_type, Some("path"));
+        // `<KEY>` against a node stored as `key`, on a subcommand, from the top level.
+        assert_eq!(get.args[0].complete_type, Some("file"));
+        // And nothing invented for a value no node names.
+        assert_eq!(get.flags[0].complete_type, None);
+    }
+
+    /// The spec's own nodes are consulted before the command's, which is the reference's order
+    /// (`cli/src/cli/complete_word.rs`) and not the intuitive one.
+    #[test]
+    fn a_spec_level_completer_wins_over_a_commands_own() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n\
+             cmd \"get\" {\n  arg \"<KEY>\"\n  complete \"key\" type=\"dir\"\n}\n\
+             complete \"key\" type=\"file\"\n"
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+        assert_eq!(
+            built.root.subcommands[0].args[0].complete_type,
+            Some("file")
+        );
+    }
+
+    /// usage-argv holds a short flag as one byte, so a spec declaring one it cannot hold is
+    /// refused rather than mirrored into a table describing a flag nobody can type.
+    #[test]
+    #[should_panic(expected = "a short flag must be ASCII")]
+    fn a_non_ascii_short_flag_is_refused_rather_than_truncated() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-é --etage\"\n"
+            .parse()
+            .expect("valid spec");
+        build_spec(&spec);
     }
 }

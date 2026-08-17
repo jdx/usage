@@ -58,7 +58,15 @@ pub fn run(vector: &Vector) -> Outcome {
     // hold it. Everything below inherits it, which the parser now does itself rather than
     // this flattening it on the way in — a second implementation of the same rule, and the
     // one that hid the parser not having it.
-    let root = tables::build(&spec.cmd, spec.unknown_flags.map(convert_unknown_flags)).cmd;
+    //
+    // No completers, because this harness binds a line and no completion metadata changes what
+    // binds. `build_spec` resolves a spec's own, for the rendering corpus.
+    let root = tables::build(
+        &spec.cmd,
+        spec.unknown_flags.map(convert_unknown_flags),
+        &[],
+    )
+    .cmd;
     // `default_subcommand` is a property of the spec rather than of a command, so it is
     // resolved once, here, against the root's own subcommands. A name that answers to
     // nothing is left as None: the spec is what it is, and a vector that expects routing
