@@ -642,7 +642,7 @@ impl Spec<'_> {
         }
         // Written only when it is not the default, so an ordinary spec stays quiet
         // about it.
-        if self.root.cmd.unknown_flags == UnknownFlags::Error {
+        if self.root.cmd.unknown_flags == Some(UnknownFlags::Error) {
             prop(out, "unknown_flags", "error")?;
         }
         if let Some(default_subcommand) = self.default_subcommand {
@@ -695,7 +695,14 @@ impl Spec<'_> {
         for example in self.root.examples {
             write_example(out, example, 0)?;
         }
-        write_body(out, self.root, 0, self.bin.unwrap_or(self.name))
+        // Nothing above the root, so what it does not state is the default.
+        write_body(
+            out,
+            self.root,
+            0,
+            UnknownFlags::Value,
+            self.bin.unwrap_or(self.name),
+        )
     }
 }
 
@@ -707,9 +714,12 @@ fn write_body(
     out: &mut String,
     meta: &CommandMeta<'_>,
     depth: usize,
+    inherited_unknown_flags: UnknownFlags,
     bin: &str,
 ) -> core::fmt::Result {
-    let enclosing_unknown_flags = meta.cmd.unknown_flags;
+    // The effective setting for everything inside, which is this command's if it stated one
+    // and otherwise whatever it inherited.
+    let enclosing_unknown_flags = meta.cmd.unknown_flags.unwrap_or(inherited_unknown_flags);
     // Indexing by metadata position below cannot see a table entry with no
     // metadata, which would be silently unwritten. Check the lengths first.
     debug_assert_eq!(
@@ -775,15 +785,16 @@ fn write_command(
     if let Some(effect) = meta.effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
-    // Written only where it changes, since the spec inherits it. The tables hold the
-    // effective value per command, so repeating the enclosing command's answer would
-    // say nothing — but a command that differs has to say so, or the setting is lost
-    // on the way out.
-    if meta.cmd.unknown_flags != inherited_unknown_flags {
+    // Written only where it changes, since the spec inherits it as the tables do: a command
+    // that states nothing has nothing to write, and one that restates what it inherited would
+    // be saying the same thing twice. A command that differs has to say so, or the setting is
+    // lost on the way out.
+    let effective_unknown_flags = meta.cmd.unknown_flags.unwrap_or(inherited_unknown_flags);
+    if effective_unknown_flags != inherited_unknown_flags {
         write!(
             out,
             " unknown_flags={}",
-            quoted(match meta.cmd.unknown_flags {
+            quoted(match effective_unknown_flags {
                 UnknownFlags::Value => "value",
                 UnknownFlags::Error => "error",
             })
@@ -832,7 +843,7 @@ fn write_command(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, bin)?;
+    write_body(out, meta, inner, effective_unknown_flags, bin)?;
 
     indent(out, depth)?;
     out.push_str("}\n");
@@ -1511,27 +1522,35 @@ mod tests {
 
     #[test]
     fn a_subcommand_writes_unknown_flags_only_where_it_differs() {
-        // The tables hold the effective value per command, so repeating the enclosing
-        // command's answer says nothing — but a command that differs has to say so, or
-        // the setting never reaches the spec.
+        // A command that restates what it inherited says nothing — and one that says
+        // nothing at all has nothing to write either — but a command that differs has to
+        // say so, or the setting never reaches the spec.
         static STRICT_SUB: Command = Command {
             name: "build",
-            unknown_flags: UnknownFlags::Error,
+            unknown_flags: Some(UnknownFlags::Error),
+            ..Command::EMPTY
+        };
+        static SILENT_SUB: Command = Command {
+            name: "test",
             ..Command::EMPTY
         };
         static LENIENT_SUB: Command = Command {
             name: "exec",
-            unknown_flags: UnknownFlags::Value,
+            unknown_flags: Some(UnknownFlags::Value),
             ..Command::EMPTY
         };
         static ROOT: Command = Command {
             name: "ex",
-            subcommands: &[&STRICT_SUB, &LENIENT_SUB],
-            unknown_flags: UnknownFlags::Error,
+            subcommands: &[&STRICT_SUB, &SILENT_SUB, &LENIENT_SUB],
+            unknown_flags: Some(UnknownFlags::Error),
             ..Command::EMPTY
         };
         static STRICT_META: CommandMeta = CommandMeta {
             cmd: &STRICT_SUB,
+            ..CommandMeta::EMPTY
+        };
+        static SILENT_META: CommandMeta = CommandMeta {
+            cmd: &SILENT_SUB,
             ..CommandMeta::EMPTY
         };
         static LENIENT_META: CommandMeta = CommandMeta {
@@ -1540,12 +1559,12 @@ mod tests {
         };
         static ROOT_META: CommandMeta = CommandMeta {
             cmd: &ROOT,
-            subcommands: &[&STRICT_META, &LENIENT_META],
+            subcommands: &[&STRICT_META, &SILENT_META, &LENIENT_META],
             ..CommandMeta::EMPTY
         };
 
         let mut out = String::new();
-        write_body(&mut out, &ROOT_META, 0, "ex").unwrap();
+        write_body(&mut out, &ROOT_META, 0, UnknownFlags::Value, "ex").unwrap();
 
         // Counted rather than checked with `contains`, which is how a duplicated
         // write survived review: `unknown_flags="value" unknown_flags="value"` contains
@@ -1563,6 +1582,12 @@ mod tests {
         assert!(
             !build.contains("unknown_flags"),
             "a subcommand matching the enclosing command should not repeat it: {build}"
+        );
+
+        let test = line("test");
+        assert!(
+            !test.contains("unknown_flags"),
+            "a subcommand that declares nothing inherits, and writes nothing: {test}"
         );
 
         let exec = line("exec");

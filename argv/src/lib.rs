@@ -153,9 +153,19 @@ pub struct Command<'a> {
     /// Resolve it with [`find_subcommand`], which turns a name that no subcommand answers to
     /// into a compile error.
     pub default_subcommand: ::core::option::Option<&'a Command<'a>>,
-    /// What an unrecognized flag-like token means here. Already resolved — see
-    /// [`UnknownFlags`].
-    pub unknown_flags: UnknownFlags,
+    /// What an unrecognized flag-like token means here, or `None` to keep whatever the
+    /// enclosing command said. See [`UnknownFlags`].
+    ///
+    /// Inherited rather than resolved per command, which is what usage-lib does — its
+    /// `effective_unknown_flags` walks outward from the command that ran and falls back to
+    /// the spec's. Resolving it in the tables instead was possible only for a builder that
+    /// can see the whole tree: a derive expands one struct at a time and cannot see its
+    /// parent, so `#[usage(unknown_flags = "error")]` on the root reached the root alone and
+    /// a subcommand had no way to say it at all.
+    ///
+    /// The parser carries the effective value down as it descends, so a command that states
+    /// nothing costs nothing.
+    pub unknown_flags: ::core::option::Option<UnknownFlags>,
     /// Whether this command answers to `--version` and `-V`.
     ///
     /// Set on the root, and only when the CLI declares a version: clap adds the flag exactly
@@ -183,7 +193,7 @@ impl Command<'_> {
         args: &[],
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
-        unknown_flags: UnknownFlags::Value,
+        unknown_flags: ::core::option::Option::None,
         version: false,
         key: 0,
     };
@@ -817,6 +827,12 @@ pub struct Parser<'t, 'v> {
     pos: usize,
     /// The command currently in scope.
     cmd: &'t Command<'t>,
+    /// What an unrecognized flag-like token means in the command currently in scope.
+    ///
+    /// Carried rather than looked up, because it is inherited: a command that states
+    /// nothing keeps what the enclosing one said, and walking back up the ancestors on
+    /// every unrecognized token would pay for the inheritance at the wrong moment.
+    unknown_flags: UnknownFlags,
     /// The chain above `cmd`, used to find inherited global flags. Fixed size so
     /// that nothing is allocated.
     ancestors: [Option<&'t Command<'t>>; MAX_DEPTH],
@@ -878,6 +894,11 @@ impl<'t, 'v> Parser<'t, 'v> {
             argv,
             pos: 0,
             cmd: root,
+            unknown_flags: match root.unknown_flags {
+                ::core::option::Option::Some(mode) => mode,
+                // Nothing above the root to inherit from, so the default stands.
+                ::core::option::Option::None => UnknownFlags::Value,
+            },
             ancestors: [None; MAX_DEPTH],
             depth: 0,
             bundle: &[],
@@ -1082,7 +1103,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             match self.check_bundle(token) {
                 Ok(()) => {}
                 // Unrecognized, so it is a word unless this command wants it refused.
-                Err(e) if self.cmd.unknown_flags == UnknownFlags::Error => {
+                Err(e) if self.unknown_flags == UnknownFlags::Error => {
                     return Some(Err(e));
                 }
                 Err(_) => return Some(self.word(token)),
@@ -1149,7 +1170,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             });
         }
 
-        if self.cmd.unknown_flags == UnknownFlags::Error {
+        if self.unknown_flags == UnknownFlags::Error {
             return Err(Error::UnknownFlag { token });
         }
         // Not a flag here, so it is a word like any other.
@@ -1330,6 +1351,10 @@ impl<'t, 'v> Parser<'t, 'v> {
         self.starts[self.depth] = self.cmd_start;
         self.depth += 1;
         self.cmd = sub;
+        // Only a command that says something changes it, which is what inheriting means.
+        if let ::core::option::Option::Some(mode) = sub.unknown_flags {
+            self.unknown_flags = mode;
+        }
         // Where this command's own words start, which is what lets a completion hand a callback
         // the half-parsed struct of the command it was declared on rather than of the root.
         self.cmd_start = self.pos;
@@ -1523,14 +1548,12 @@ mod tests {
         key: 100,
         ..Command::EMPTY
     };
-    /// Same shape as ROOT, but a CLI that owns all of its flags. The subcommand
-    /// carries the setting too: the tables hold it already resolved, because
-    /// inheritance is the table builder's job rather than the parser's.
+    /// Same shape as ROOT, but a CLI that owns all of its flags. The subcommand says
+    /// nothing and inherits it, which is the point: only the root declares the mode.
     static STRICT_INSTALL: Command = Command {
         name: "install",
         aliases: &["i"],
         flags: &[&FORCE],
-        unknown_flags: UnknownFlags::Error,
         key: 100,
         ..Command::EMPTY
     };
@@ -1539,7 +1562,7 @@ mod tests {
         flags: &[&FORCE, &JOBS, &COLOR, &VERBOSE],
         args: &[&FILE, &REST],
         subcommands: &[&STRICT_INSTALL],
-        unknown_flags: UnknownFlags::Error,
+        unknown_flags: Some(UnknownFlags::Error),
         ..Command::EMPTY
     };
     static ROOT: Command = Command {

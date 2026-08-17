@@ -31,12 +31,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
 
-    // Resolved here rather than at parse time: the tables hold the effective value,
-    // and with one command per struct there is nothing above it to inherit from yet.
-    let unknown_flags = match cli.unknown_flags.as_deref() {
-        Some("error") => quote!(::usage_argv::UnknownFlags::Error),
-        _ => quote!(::usage_argv::UnknownFlags::Value),
-    };
+    // Left unset when the struct says nothing, which is what lets the parser inherit it: one
+    // command per struct, and a macro expansion cannot see the command above it. An earlier
+    // version resolved it here and wrote `Value` for every silent command, which made the
+    // root's declaration reach the root alone.
+    let unknown_flags = unknown_flags_tokens(cli);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
@@ -486,6 +485,23 @@ fn flatten_checks(cli: &Cli) -> TokenStream {
         })
     });
     quote!(#(#checks)*)
+}
+
+/// A command's `unknown_flags`, as the table's `Option`.
+///
+/// `None` is not a default so much as a deferral: the parser carries the enclosing command's
+/// answer down, so a struct that declares nothing keeps whatever it was given. Only a struct
+/// that says something writes anything.
+fn unknown_flags_tokens(cli: &Cli) -> TokenStream {
+    match cli.unknown_flags.as_deref() {
+        Some("error") => quote!(::core::option::Option::Some(
+            ::usage_argv::UnknownFlags::Error
+        )),
+        Some(_) => quote!(::core::option::Option::Some(
+            ::usage_argv::UnknownFlags::Value
+        )),
+        None => quote!(::core::option::Option::None),
+    }
 }
 
 /// The completion entry points, for a CLI that asked for them.
@@ -2125,6 +2141,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             }
         )
     });
+    let unknown_flags = unknown_flags_tokens(cli);
     let before_help = option_str(cli.before_help.as_deref());
     let before_long_help = option_str(cli.before_long_help.as_deref());
     let after_help = option_str(cli.after_help.as_deref());
@@ -2211,6 +2228,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             pub static COMMAND: ::usage_argv::Command = ::usage_argv::Command {
                 name: #name,
                 key: #command_key,
+                unknown_flags: #unknown_flags,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands

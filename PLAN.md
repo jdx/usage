@@ -268,6 +268,16 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       flatten leaves behind while the group's `build` still demands one — and is a compile
       error now, asserted during const evaluation in the parent's expansion, where the group
       is only a type.
+- [x] **`unknown_flags`, which reached one command out of a tree** — usage-lib resolves it by
+      walking outward from the command that ran, so a root declaring `error` makes the whole
+      CLI strict. usage-argv held the effective value per command instead, on the theory that
+      whoever built the tables would resolve it — which a derive cannot, since it expands one
+      struct at a time and cannot see the command above. So the attribute reached the root
+      alone, and on an `Args` it parsed and was then ignored: a declaration that compiled and
+      did nothing. Now `None` means inherit, the parser carries the effective value down as it
+      descends, and the corpus's own table builder stops resolving it — one implementation of
+      the rule instead of two, and it was the second one that hid the parser not having it.
+      Costs **160 instructions per parse, 72,272 against 72,112** at mise's scale.
 - [ ] **`subcommand_required` on the root command** — the same restriction as the root
       mount, and found beside it: the spec accepts the property only inside a `cmd` block,
       so a CLI whose _root_ cannot be run alone has no way to say so. The clap bridge could
