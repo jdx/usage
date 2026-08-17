@@ -95,13 +95,28 @@ impl<'a> Emitter<'a> {
     /// Collisions are ordinary rather than exotic: mise has both a `macos-defaults`
     /// command and a `macos defaults` path, and both want to be spelled
     /// `CmdMacosDefaults`.
+    ///
+    /// The suffixed spelling is reserved too, and the loop is what makes that
+    /// safe. Counting alone was not enough: `macos-defaults` and `macos defaults`
+    /// produce `CmdMacosDefaults` and `CmdMacosDefaults2`, and a third command
+    /// named `macos-defaults2` asks for `CmdMacosDefaults2` directly — which was
+    /// unclaimed, so the file declared it twice and did not compile.
     fn unique(&mut self, base: &str) -> String {
-        let n = self.taken.entry(base.to_string()).or_insert(0);
-        *n += 1;
-        if *n == 1 {
-            base.to_string()
-        } else {
-            format!("{base}{n}")
+        let mut n = self.taken.get(base).copied().unwrap_or(0);
+        loop {
+            n += 1;
+            let candidate = if n == 1 {
+                base.to_string()
+            } else {
+                format!("{base}{n}")
+            };
+            if !self.taken.contains_key(&candidate) {
+                self.taken.insert(base.to_string(), n);
+                // The spelling itself, so a later entry that asks for it by name is
+                // suffixed rather than handed a duplicate.
+                self.taken.entry(candidate.clone()).or_insert(0);
+                return candidate;
+            }
         }
     }
 
@@ -554,13 +569,28 @@ const GO_KEYWORDS: &[&str] = &[
     "var",
 ];
 
-/// Whether a string can be written after `package`.
+/// Two more names a table package cannot have, for two different reasons.
+///
+/// `_` is refused where it is written: `invalid package name _`. `init` declares
+/// perfectly well and cannot be *imported* — an import binds the package name as
+/// an identifier in file scope, and `init` may only be a func, so an importer gets
+/// `cannot import package as init - init must be a func`. A table package exists
+/// to be imported, so it is out either way.
+///
+/// Both checked against the compiler rather than taken from a citation. The issue
+/// usually cited for `init` is about the import, and `package init` on its own
+/// does build — so a validator written from the citation would have rejected it
+/// for a reason that is not true.
+const UNUSABLE_PACKAGE_NAMES: &[&str] = &["_", "init"];
+
+/// Whether a string can be written after `package` and then imported.
 ///
 /// Deliberately ASCII-only. Go itself allows a Unicode letter, but a package name
 /// that needs one is a worse problem for an adopter than the restriction is.
 pub fn is_valid_package(name: &str) -> bool {
     !name.is_empty()
         && !GO_KEYWORDS.contains(&name)
+        && !UNUSABLE_PACKAGE_NAMES.contains(&name)
         && !name.starts_with(|c: char| c.is_ascii_digit())
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
@@ -578,13 +608,13 @@ fn package_ident(bin: &str) -> String {
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
         .collect::<String>()
         .to_ascii_lowercase();
-    if lowered.is_empty()
-        || lowered.starts_with(|c: char| c.is_ascii_digit())
-        || GO_KEYWORDS.contains(&lowered.as_str())
-    {
-        format!("cli{lowered}")
-    } else {
+    if is_valid_package(&lowered) {
         lowered
+    } else {
+        // One rule rather than a second copy of the conditions, so the sanitizer
+        // cannot come to disagree with the validator about what is acceptable.
+        // `cli` in front keeps it recognizable: `cligo`, `cli7zip`, `cliinit`.
+        format!("cli{lowered}")
     }
 }
 
@@ -719,6 +749,62 @@ cmd "run" {
         // `package go` does not compile, and `go` is a plausible name for a CLI.
         assert_eq!(package_ident("go"), "cligo");
         assert_eq!(package_ident("type"), "clitype");
+        // `package _` is refused outright; `package init` declares fine and cannot
+        // be imported, which for a table package is the same thing.
+        assert_eq!(package_ident("_"), "cli_");
+        assert_eq!(package_ident("init"), "cliinit");
+        // Two underscores is fine, and only the exact name is reserved.
+        assert_eq!(package_ident("__"), "__");
+        assert_eq!(package_ident("initialize"), "initialize");
+
+        // Whatever it produces must be something the validator accepts, for every
+        // one of these — the sanitizer disagreeing with the check is how a file
+        // that does not compile gets emitted.
+        for bin in [
+            "my-cli", "7zip", "", "go", "type", "_", "init", "__", "MiSe",
+        ] {
+            let out = package_ident(bin);
+            assert!(is_valid_package(&out), "{bin:?} sanitized to {out:?}");
+        }
+    }
+
+    /// Counting alone let a third command collide with a generated suffix.
+    #[test]
+    fn a_name_matching_a_generated_suffix_still_gets_its_own() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "macos-defaults" {}
+cmd "macos" {
+    cmd "defaults" {}
+}
+cmd "macos-defaults2" {}
+"#);
+        // The invariant, not a guess at the spelling. The third command lands on
+        // `CmdMacosDefaults22` rather than `...3`, which is unlovely and correct;
+        // asserting the exact name would pin the suffix scheme instead of the
+        // property that matters, which is that nothing is declared twice.
+        assert_declares_each_constant_once(&out);
+    }
+
+    /// Every constant in the emitted `const` block, in declaration order.
+    fn constant_names(out: &str) -> Vec<&str> {
+        out.lines()
+            .skip_while(|l| !l.starts_with("const ("))
+            .skip(1)
+            .take_while(|l| !l.starts_with(')'))
+            .filter_map(|l| l.split_whitespace().next())
+            .collect()
+    }
+
+    /// Two entries sharing a constant is a file that does not compile.
+    fn assert_declares_each_constant_once(out: &str) {
+        let names = constant_names(out);
+        assert!(!names.is_empty(), "no constants at all:\n{out}");
+        let mut seen = std::collections::HashSet::new();
+        for name in &names {
+            assert!(seen.insert(*name), "{name} is declared twice:\n{out}");
+        }
     }
 
     #[test]
@@ -729,6 +815,9 @@ cmd "run" {
         assert!(!is_valid_package("7zip"));
         assert!(!is_valid_package(""));
         assert!(!is_valid_package("range"));
+        assert!(!is_valid_package("_"));
+        assert!(!is_valid_package("init"));
+        assert!(is_valid_package("__"));
 
         // A library caller that skips the check still gets a file that compiles.
         let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
@@ -785,6 +874,7 @@ cmd "root" {
         };
         assert_eq!(declared("CmdRoot"), 1, "CmdRoot declared twice:\n{out}");
         assert_eq!(declared("CmdRoot2"), 1, "no distinct key for it:\n{out}");
+        assert_declares_each_constant_once(&out);
     }
 
     /// The two `var_max` are different questions, and the corpus pins them apart:
