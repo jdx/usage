@@ -179,6 +179,11 @@ So a global is offered inside a subcommand, a redeclared name shadows the
 inherited one, a hidden flag binds without being advertised, and past a `--`
 nothing is offered at all.
 
+`argv.RenderAnswer` writes the result in the protocol each shell reads — bash
+takes values, fish, nu and PowerShell take a description after a tab, and zsh
+takes a third field with the text to insert, because what it displays and what it
+types are not always the same string.
+
 ## Errors
 
 `argv.Render` turns a failure into what a CLI should print to stderr:

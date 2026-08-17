@@ -310,14 +310,12 @@ func choicesFor(key uint64, meta Metadata) []string {
 }
 
 func describe(key uint64, help HelpTable) string {
-	h := help.Lookup(key)
-	if h == nil {
-		return ""
+	if h := help.Lookup(key); h != nil {
+		// Whole, breaks included. Putting a description on one line is the
+		// renderer's job — see oneLine — because it is the line-based protocols
+		// that need it, and collapsing there keeps both halves of a two-line
+		// description instead of dropping the second.
+		return h.Short
 	}
-	// The first line only: a shell shows one line beside a candidate, and a
-	// description that wraps turns a completion menu into a wall.
-	if at := strings.IndexByte(h.Short, '\n'); at >= 0 {
-		return h.Short[:at]
-	}
-	return h.Short
+	return ""
 }

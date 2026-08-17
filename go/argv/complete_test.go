@@ -145,14 +145,20 @@ func TestAHelpTopicOffersOnlyCommands(t *testing.T) {
 	}
 }
 
-// A description is one line: a shell shows one line beside a candidate, and a
-// wrapped description turns a completion menu into a wall.
-func TestDescriptionsAreOneLine(t *testing.T) {
+// A candidate carries the whole description; putting it on one line is the
+// renderer's job.
+//
+// Collapsing there rather than truncating here keeps both halves of a two-line
+// description — see TestADescriptionIsCollapsedNotTruncated.
+func TestACandidateCarriesTheWholeDescription(t *testing.T) {
 	root, help, meta := completionFixture()
 	help[1].Short = "run it\nand keep running it"
 	for _, c := range Candidates(Walk(root, nil), "run", help, meta) {
-		if strings.Contains(c.Describe, "\n") {
-			t.Errorf("description should be one line: %q", c.Describe)
+		if c.Value != "run" {
+			continue
+		}
+		if !strings.Contains(c.Describe, "and keep running it") {
+			t.Errorf("the second half should survive: %q", c.Describe)
 		}
 	}
 }
