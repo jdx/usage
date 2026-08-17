@@ -1,7 +1,11 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Usage logo">
   <title>Usage</title>
-  <rect x="150" y="70" width="36" height="372" rx="18" fill="#1f2428"/>
-  <path d="M186 92 L438 92 L396 174 L438 256 L186 256 Z" fill="#22c55e"/>
-  <rect x="220" y="163" width="58" height="22" rx="11" fill="#ffffff"/>
-  <rect x="298" y="163" width="58" height="22" rx="11" fill="#ffffff"/>
+  <desc>A flag bearing two dashes, echoed by cyan and purple offset copies — one spec, multiple implementations.</desc>
+  <rect width="512" height="512" rx="104" fill="#0d0221"/>
+  <path d="M196 156 L436 156 L394 232 L436 308 L196 308 Z" fill="#01cdfe" opacity="0.55"/>
+  <path d="M178 142 L418 142 L376 218 L418 294 L178 294 Z" fill="#b967ff" opacity="0.55"/>
+  <path d="M160 128 L400 128 L358 204 L400 280 L160 280 Z" fill="#ff2d95"/>
+  <rect x="196" y="190" width="60" height="26" rx="13" fill="#0d0221"/>
+  <rect x="276" y="190" width="60" height="26" rx="13" fill="#0d0221"/>
+  <line x1="150" y1="112" x2="150" y2="400" stroke="#f5f0ff" stroke-width="24" stroke-linecap="round"/>
 </svg>
