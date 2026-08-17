@@ -14,6 +14,8 @@ struct Ex {
 #[derive(Subcommands)]
 enum Command {
     Show(Show),
+    /// Print version information
+    Version,
 }
 
 /// Show one file
@@ -32,7 +34,15 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
         OsStr::new("input.txt"),
     ];
     let cli = Ex::parse_from(&argv).expect("valid command line");
-    let Command::Show(show) = cli.command;
+    let Command::Show(show) = cli.command else {
+        panic!("show command should be selected");
+    };
     assert_eq!(show.file, Path::new("input.txt"));
     assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+}
+
+#[test]
+fn unit_subcommands_use_the_facade_derive() {
+    let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
+    assert!(matches!(cli.command, Command::Version));
 }
