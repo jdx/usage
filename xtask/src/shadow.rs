@@ -391,7 +391,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             // independent `about` and `long_about`, and skipping the comment without writing
             // them left the clap shadow not describing the program at all — a fixture for
             // comparing two frameworks cannot have one of them missing the CLI's own about.
-            let mut opts = vec![format!("name = {bin:?}")];
+            // The same fallback the usage dialect uses: a spec whose `name` differs from its
+            // `bin` would otherwise give the two shadows different root identities, and they
+            // exist to be the same CLI told to two frameworks.
+            let name = if run.name.is_empty() { bin } else { run.name };
+            let mut opts = vec![format!("name = {name:?}")];
             // clap spells this the same way, so the two shadows describe the same program.
             if let Some(version) = run.version {
                 opts.push(format!("version = {version:?}"));
@@ -1630,6 +1634,17 @@ mod tests {
         let (out, _) = rendered("name \"mise\"\nbin \"mise\"\n");
         assert!(!out.contains("version ="), "{out}");
         assert!(out.contains("name = \"mise\""), "{out}");
+    }
+
+    #[test]
+    fn both_dialects_agree_what_the_program_is_called() {
+        // Reported on #968: the clap root formatted its name from `bin` while the usage root had
+        // moved to the spec's `name`, so a spec where the two differ described two programs.
+        let spec = "name \"Fancy\"\nbin \"fancy\"\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(usage.contains("name = \"Fancy\""), "{usage}");
+        assert!(clap.contains("name = \"Fancy\""), "{clap}");
     }
 
     #[test]
