@@ -41,6 +41,19 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
+    // can. The parser already refuses the invocation from the type — this is so the emitted
+    // spec says it too, since help, docs and completions read that rather than the type.
+    let flatten_checks = flatten_checks(cli);
+    let subcommand_required = cli.fields.iter().any(|f| {
+        matches!(
+            f.kind,
+            Kind::Subcommand {
+                optional: false,
+                ..
+            }
+        )
+    });
     let before_help = option_str(cli.before_help.as_deref());
     let before_long_help = option_str(cli.before_long_help.as_deref());
     let after_help = option_str(cli.after_help.as_deref());
@@ -186,6 +199,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             clippy::needless_update
         )]
         const _: () = {
+            #flatten_checks
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
@@ -214,6 +228,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 about: #about,
                 long_about: #long_about,
                 restart_token: #restart_token,
+                subcommand_required: #subcommand_required,
                 mount: #mount,
                 before_help: #before_help,
                 before_long_help: #before_long_help,
@@ -439,6 +454,38 @@ pub fn emit(cli: &Cli) -> TokenStream {
             }
         };
     }
+}
+
+/// A compile-time refusal of a flattened group that declares subcommands.
+///
+/// Flatten joins one struct's flags and arguments into another's tables. Subcommands are not
+/// joined — the parent's table has no entry for them — but the group's own `build` still
+/// demands one, so the shape compiles into a command that cannot be run and whose emitted
+/// spec says it can: `subcommand_required` reads the parent's own fields and sees none.
+///
+/// Refused rather than supported, as `Option<T>` flatten is: joining two commands' subcommand
+/// sets needs a rule for which enum a word selects from, and nothing in the fleet asks for
+/// one. Checked in the *parent's* expansion, where the group is only a type — its `COMMAND`
+/// is a `const`, so the parent can look at it during const evaluation without the two
+/// expansions ever seeing each other. Written as the user wrote it, like every other use of a
+/// flattened type here: the tables are emitted beside their struct now rather than in a module
+/// above it, so there is no path to rewrite.
+fn flatten_checks(cli: &Cli) -> TokenStream {
+    let checks = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        Some(quote! {
+            const _: () = ::core::assert!(
+                <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.subcommands.is_empty(),
+                "a flattened group cannot declare subcommands: flatten joins flags and \
+                 arguments into the parent's tables and leaves subcommands behind, so the \
+                 command would require one that no word could select. Declare the \
+                 `subcommand` field on the command's own struct instead."
+            );
+        })
+    });
+    quote!(#(#checks)*)
 }
 
 /// The completion entry points, for a CLI that asked for them.
@@ -2065,6 +2112,19 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let command_key = key_ident("COMMAND", None);
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
+    // can. The parser already refuses the invocation from the type — this is so the emitted
+    // spec says it too, since help, docs and completions read that rather than the type.
+    let flatten_checks = flatten_checks(cli);
+    let subcommand_required = cli.fields.iter().any(|f| {
+        matches!(
+            f.kind,
+            Kind::Subcommand {
+                optional: false,
+                ..
+            }
+        )
+    });
     let before_help = option_str(cli.before_help.as_deref());
     let before_long_help = option_str(cli.before_long_help.as_deref());
     let after_help = option_str(cli.after_help.as_deref());
@@ -2142,6 +2202,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             clippy::needless_update
         )]
         const _: () = {
+            #flatten_checks
             #keys
             #(#flag_tables)*
             #(#arg_tables)*
@@ -2166,6 +2227,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 about: #about,
                 long_about: #long_about,
                 restart_token: #restart_token,
+                subcommand_required: #subcommand_required,
                 mount: #mount,
                 before_help: #before_help,
                 before_long_help: #before_long_help,

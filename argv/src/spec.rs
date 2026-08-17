@@ -386,6 +386,15 @@ pub struct CommandMeta<'a> {
     /// A token that starts a fresh invocation of this command, such as mise's
     /// `:::`.
     pub restart_token: Option<&'a str>,
+    /// Whether this command cannot be run on its own: naming it and stopping is an
+    /// error, and one of its subcommands has to follow.
+    ///
+    /// Cold metadata rather than a parse table, because it is not how a word binds —
+    /// the derive already refuses the invocation from the type, a bare `T` subcommand
+    /// field against an `Option<T>`. It is here so the emitted spec can say it, since
+    /// everything reading that spec — help, docs, completions — otherwise describes a
+    /// command as runnable when it is not.
+    pub subcommand_required: bool,
     /// Text printed above the usage line, and below everything else.
     ///
     /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
@@ -415,6 +424,7 @@ impl CommandMeta<'_> {
         effect: None,
         mount: None,
         restart_token: None,
+        subcommand_required: false,
         before_help: None,
         before_long_help: None,
         after_help: None,
@@ -781,6 +791,11 @@ fn write_command(
     }
     if let Some(token) = meta.restart_token {
         write!(out, " restart_token={}", quoted(token))?;
+    }
+    // Only where there is something to require. A command with no subcommands cannot
+    // demand one, and the spec's own reader treats the pair as a mistake.
+    if meta.subcommand_required && !meta.cmd.subcommands.is_empty() {
+        out.push_str(" subcommand_required=#true");
     }
     out.push_str(" {\n");
 

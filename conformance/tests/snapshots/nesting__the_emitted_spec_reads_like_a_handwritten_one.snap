@@ -6,7 +6,7 @@ name "ex"
 bin "ex"
 about "A tool with commands inside commands"
 flag "-v --verbose" help="Say more" global=#true
-cmd "settings" help="Manage settings" {
+cmd "settings" help="Manage settings" subcommand_required=#true {
     flag "--file" help="Which settings file" {
         arg "<FILE>"
     }
