@@ -22,9 +22,11 @@ func TestConversions(t *testing.T) {
 	if d, err := Duration("wait", "1h30m"); err != nil || d != 90*time.Minute {
 		t.Errorf("want 1h30m, got %v %v", d, err)
 	}
-	// Surrounding space is the shell's leftovers, not the user's intent.
-	if n, err := Int("jobs", "  8 "); err != nil || n != 8 {
-		t.Errorf("want 8 from padded text, got %v %v", n, err)
+	// And nothing is trimmed: `" 8 "` is a value the user quoted, and the Rust
+	// sibling refuses it too. Verified against `" 8 ".parse::<i64>()`, which is
+	// false.
+	if _, err := Int("jobs", "  8 "); err == nil {
+		t.Error("padded text should be refused, as it is in Rust")
 	}
 }
 

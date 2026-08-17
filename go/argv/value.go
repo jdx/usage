@@ -2,7 +2,6 @@ package argv
 
 import (
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -20,10 +19,16 @@ import (
 // Every failure carries the text that would not convert and the type it was being
 // converted to. A message that says only "invalid value" makes the user guess
 // which of their words was wrong.
+//
+// Nothing is trimmed on the way in. `" 8 "` is refused, as `" 8 ".parse::<i64>()`
+// is on the Rust side — checked rather than assumed. The parser goes out of its
+// way to hand over the bytes the operating system gave it, and a converter
+// quietly tidying them would mean a quoted argument means one thing in Go and
+// another in Rust from the same spec.
 
 // Int converts a bound value, naming the entry in any failure.
 func Int(name, value string) (int64, *Error) {
-	n, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	n, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		return 0, invalid(name, value, "a whole number")
 	}
@@ -32,7 +37,7 @@ func Int(name, value string) (int64, *Error) {
 
 // Uint is [Int] for a value that may not be negative.
 func Uint(name, value string) (uint64, *Error) {
-	n, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
+	n, err := strconv.ParseUint(value, 10, 64)
 	if err != nil {
 		return 0, invalid(name, value, "a whole number, not negative")
 	}
@@ -41,7 +46,7 @@ func Uint(name, value string) (uint64, *Error) {
 
 // Float converts a bound value to a float.
 func Float(name, value string) (float64, *Error) {
-	n, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	n, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return 0, invalid(name, value, "a number")
 	}
@@ -57,7 +62,7 @@ func Float(name, value string) (float64, *Error) {
 // answer different questions: this converts a value somebody typed, that one
 // decides whether a variable counts as setting a flag at all.
 func Bool(name, value string) (bool, *Error) {
-	b, err := strconv.ParseBool(strings.TrimSpace(value))
+	b, err := strconv.ParseBool(value)
 	if err != nil {
 		return false, invalid(name, value, "true or false")
 	}
@@ -67,7 +72,7 @@ func Bool(name, value string) (bool, *Error) {
 // Duration converts a bound value to a duration, in Go's notation: `1h30m`,
 // `250ms`, `2s`.
 func Duration(name, value string) (time.Duration, *Error) {
-	d, err := time.ParseDuration(strings.TrimSpace(value))
+	d, err := time.ParseDuration(value)
 	if err != nil {
 		return 0, invalid(name, value, "a duration such as 30s or 1h30m")
 	}
