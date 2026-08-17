@@ -28,7 +28,7 @@ const latestVersion = versionMatch?.[1] ?? "0.0.0";
 export default defineConfig({
   title: "--usage",
   description:
-    "A spec and frameworks for building CLIs — define commands, flags, and args once, get parsing, shell completions, docs, and manpages everywhere",
+    "A spec and reference frameworks for building CLIs — define commands, flags, and args once in KDL; get argument parsing, shell completions, docs, and manpages everywhere",
   appearance: "force-dark",
   lastUpdated: true,
   cleanUrls: true,

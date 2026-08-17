@@ -25,7 +25,9 @@ const javascriptPath =
         <p class="usage-hero-desc">
           Usage is a toolkit for building command-line tools. Define your CLI's commands,
           flags, and args once in a KDL spec — get argument parsing, shell completions,
-          <code>--help</code>, docs, and manpages everywhere it runs.
+          <code>--help</code>, docs, and manpages everywhere it runs. Reference frameworks
+          for Rust and Go build your CLI straight from the spec, with Python and JavaScript
+          on the way.
         </p>
 
         <p class="usage-hero-label">Frameworks</p>
