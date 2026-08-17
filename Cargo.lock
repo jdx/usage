@@ -2099,9 +2099,8 @@ dependencies = [
  "tera",
  "thiserror",
  "tokio",
- "usage-argv",
- "usage-derive",
  "usage-lib",
+ "usage-rs",
  "xx",
 ]
 

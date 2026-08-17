@@ -41,12 +41,10 @@ serde_with = "3"
 tera = "2"
 thiserror = "2"
 tokio = { version = "1", features = ["rt", "macros", "io-std"] }
-# The CLI is its own first adopter: `usage` parses its own command line with the
-# parser it ships. `spec` because `--usage-spec` emits this CLI's own KDL, and
-# `diagnostics` because a person types these commands and has to be told what
-# went wrong.
-usage-argv = { workspace = true, features = ["spec", "diagnostics"] }
-usage-derive = { workspace = true }
+# The CLI is the facade's first adopter: `usage` parses its own command line with
+# the parser it ships. `diagnostics` includes spec emission for `--usage-spec` and
+# the errors a person needs when a command line does not parse.
+usage-rs = { workspace = true, features = ["diagnostics"] }
 usage-lib = { workspace = true, features = ["clap", "docs", "unstable_choices_env"] }
 xx = "2"
 

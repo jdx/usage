@@ -5,7 +5,7 @@ use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 use crate::cli::generate::parse_file_or_stdin;
 
 /// Lint a usage spec file for common issues
-#[derive(usage_derive::Args)]
+#[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct Lint {
     /// A usage spec file to lint, use "-" to read from stdin
@@ -35,7 +35,7 @@ pub struct LintOptions {
     pub sorted: bool,
 }
 
-#[derive(Clone, Copy, Default, usage_derive::ValueEnum)]
+#[derive(Clone, Copy, Default, usage_rs::ValueEnum)]
 enum OutputFormat {
     #[default]
     Text,

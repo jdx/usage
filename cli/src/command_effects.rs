@@ -37,7 +37,7 @@ const UNCLASSIFIED: &[(&str, &str)] = &[
 mod tests {
     use super::*;
     use std::collections::HashSet;
-    use usage_argv::spec::{CommandMeta, Effect};
+    use usage_rs::spec::{CommandMeta, Effect};
 
     use crate::cli::Cli;
 

@@ -1,5 +1,5 @@
 use usage::complete::complete_init;
-use usage_derive::Args;
+use usage_rs::Args;
 
 /// Generate a shell init script that auto-completes any usage shebang script on $PATH
 ///

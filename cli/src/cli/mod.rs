@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 
 use miette::Result;
-use usage_derive::{Cli as DeriveCli, Subcommands};
+use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;
 mod exec;
@@ -102,18 +102,18 @@ impl Cli {
         let cli = match Self::parse_from(&words) {
             Ok(cli) => cli,
             // Not failures: someone asked a question, and the answer goes to stdout.
-            Err(usage_argv::Error::Help { cmd, long }) => {
-                if let Some(page) = usage_argv::help::render(Self::spec(), cmd, long) {
+            Err(usage_rs::Error::Help { cmd, long }) => {
+                if let Some(page) = usage_rs::help::render(Self::spec(), cmd, long) {
                     print!("{page}");
                 }
                 return Ok(());
             }
-            Err(usage_argv::Error::Version) => {
+            Err(usage_rs::Error::Version) => {
                 println!("{}", version());
                 return Ok(());
             }
             Err(err) => {
-                eprint!("{}", usage_argv::render_failure(Self::spec(), &words, &err));
+                eprint!("{}", usage_rs::render_failure(Self::spec(), &words, &err));
                 // clap's status for a command line it could not parse, which is what the
                 // scripts that call this have been checking for.
                 std::process::exit(2);
