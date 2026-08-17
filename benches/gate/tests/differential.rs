@@ -22,6 +22,15 @@
 //! replacement may not regress. A disagreement with usage-lib where clap sides with usage-argv is
 //! usage-lib's to fix, and is recorded as such below.
 //!
+//! # A verdict is not enough
+//!
+//! Each class below names the *reason* a parser refused, not only that it did. Three booleans
+//! would allow-list every line of a known shape whatever caused it — and one such line is
+//! `mise -y config ls -y`, where usage-argv alone refuses a global given at two levels. It wore
+//! the same three booleans as the bare-`-` divergence and rode through on them until the reasons
+//! were compared. usage-lib's failures are `miette::Error`, a message with no class behind it,
+//! so it stays a yes-or-no and the narrowing leans on the two parsers that can say why.
+//!
 //! # Mounts are stripped, and must be
 //!
 //! mise's spec carries `mount run="mise tasks --usage"` twice. usage-lib resolves a mount by
@@ -344,17 +353,37 @@ fn explained(o: Outcome) -> Option<&'static str> {
             clap: UnknownFlag | UnexpectedWord,
         } => Some("usage lets an unknown flag fall through where clap refuses it"),
 
+        // Reachable only once a bare `-` binds — so this arm arrived with the commit above that
+        // let it. `mise - bootstrap packages use` fills the root's `[TASK]` with `-`, and usage
+        // reads everything after it as that task's arguments. clap keeps looking for a
+        // subcommand, finds the real `bootstrap packages use`, and reports the required argument
+        // *it* declares.
+        //
+        // Verified rather than assumed: `mise - bootstrap` is accepted by both, and
+        // `mise bootstrap packages use` is refused by both — so the difference is what happens
+        // to words *after* a positional is bound, not the words themselves.
+        // Either verdict, because the cause is the routing and not what the routed command
+        // happened to want: `mise - bootstrap packages use` reaches a command missing a required
+        // argument, `mise - bootstrap dotfiles` reaches one missing a subcommand. Keying on the
+        // first of those alone left the second unexplained, which is the narrowness this arm was
+        // written to avoid in the first place.
+        Outcome {
+            argv: Accept,
+            lib: true,
+            clap: MissingRequired | MissingSubcommand,
+        } => Some("after a positional binds, usage keeps the words; clap still routes them"),
+
         _ => None,
     }
 }
 
 proptest! {
     // Bounded deliberately: this runs in CI beside everything else, and 400 cases take about
-    // three seconds. A local sweep at `PROPTEST_CASES=20000` turned up no cause the arms below
-    // do not already name, which is what says 400 keeps the allow-list honest rather than merely
-    // green. Re-run that sweep after touching the generator: the `head` tokens were added later
-    // and found a class the first sweep could not reach, so a widened generator invalidates the
-    // number rather than inheriting it.
+    // three seconds. A local sweep at `PROPTEST_CASES=20000` — 127 seconds — turned up no cause
+    // the arms below do not already name, which is what says 400 keeps the allow-list honest
+    // rather than merely green. Re-run that sweep after touching the generator: `head` and
+    // `rooted` were added later and found a class the first sweep could not reach, so a widened
+    // generator invalidates the number rather than inheriting it.
     //
     // A failure persists to `differential.proptest-regressions` beside this file and is replayed
     // first on the next run, so a finding does not evaporate with the seed.
@@ -528,6 +557,58 @@ fn a_reason_separates_two_lines_of_the_same_shape() {
         clap: Verdict::UnknownFlag,
     };
     assert!(explained(unheard_of).is_none(), "{unheard_of:?}");
+}
+
+#[test]
+fn words_after_a_bound_positional_stay_values_for_usage() {
+    // The class the `-` fix opened, pinned with the three lines that isolate it.
+    let spec = spec();
+
+    // `bootstrap packages use` is a real command path with a required argument. With `-` in
+    // front of it, usage has already bound the root's `[TASK]` and reads the rest as its
+    // arguments; clap routes into the command and enforces what it declares.
+    let routed = run(
+        &spec,
+        &["-", "bootstrap", "packages", "use"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(routed.clap, Verdict::MissingRequired, "{routed:?}");
+    assert_eq!(routed.accepted(), (true, true, false), "{routed:?}");
+    assert!(explained(routed).is_some(), "{routed:?}");
+
+    // The same cause reaching a command that wants a *subcommand* rather than an argument.
+    // Found by the sweep after the arm was first written for `MissingRequired` alone.
+    let deeper = run(
+        &spec,
+        &["-", "bootstrap", "dotfiles"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(deeper.clap, Verdict::MissingSubcommand, "{deeper:?}");
+    assert!(explained(deeper).is_some(), "{deeper:?}");
+
+    // Not about those words: one of them alone is fine for both.
+    let short = run(
+        &spec,
+        &["-", "bootstrap"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(short.accepted(), (true, true, true), "{short:?}");
+
+    // And not about `-` either: without it, all three refuse the same path.
+    let bare = run(
+        &spec,
+        &["bootstrap", "packages", "use"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert!(!bare.accepted().2, "{bare:?}");
 }
 
 #[test]

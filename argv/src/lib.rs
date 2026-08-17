@@ -1376,7 +1376,12 @@ impl<'t, 'v> Parser<'t, 'v> {
             // added) as easily as an argument of it, without this function having to decide
             // which — and without yielding two events for one word.
             if let Some(default) = self.cmd.default_subcommand {
-                if !self.default_taken && !is_flag_like(token) && token != b"--" {
+                // `-` joins `--` in being excluded, and for the reason already written above:
+                // a value was never a candidate to *select* anything. `is_flag_like` calls a
+                // lone `-` a value — conventionally stdin — so it passed this guard and
+                // descended, where mise's `run` has no positional and the parse failed.
+                // usage-lib and clap both bind it to the root's own `[TASK]` instead.
+                if !self.default_taken && !is_flag_like(token) && token != b"--" && token != b"-" {
                     self.default_taken = true;
                     self.descend(default)?;
                     self.pos -= 1;
