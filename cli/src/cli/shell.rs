@@ -51,7 +51,7 @@ macro_rules! shell_command {
         #[derive(Debug, Args)]
         // The words after the script are the script's, so a flag `usage` does not know is a
         // value to forward rather than a mistake to report — the root's `error` stops here.
-        #[usage(unknown_flags = "value")]
+        #[usage(unknown_flags = "value", verbatim_doc_comment)]
         pub struct $ty {
             #[usage(flatten)]
             pub shell: Shell,

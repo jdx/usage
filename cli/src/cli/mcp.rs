@@ -43,7 +43,7 @@ means unknown — treat it as needing confirmation, not as safe.";
 /// Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
 /// clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
 #[derive(Debug, usage_derive::Args)]
-#[usage(alias = "mcp-server", effect = "read")]
+#[usage(alias = "mcp-server", verbatim_doc_comment, effect = "read")]
 pub struct Mcp {
     // Unlike other subcommands this cannot be "-": stdin is the transport, so
     // reading the spec from it would consume the session.
