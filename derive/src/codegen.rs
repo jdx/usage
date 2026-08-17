@@ -930,6 +930,11 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let overrides = &field.overrides;
     let conflicts = &field.conflicts;
     let requires = &field.requires;
+    let requires_if = field.requires_if.iter().map(|condition| {
+        let value = &condition.value;
+        let requires = &condition.requires;
+        quote!(usage_argv::spec::RequiresIf { value: #value, requires: #requires })
+    });
     let exclusive = field.exclusive;
     let delimiter = match field.delimiter {
         Some(c) => quote!(::std::option::Option::Some(#c)),
@@ -970,6 +975,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
+            requires_if: &[#(#requires_if),*],
             exclusive: #exclusive,
             delimiter: #delimiter,
             required_if: &[#(#required_if),*],
@@ -3699,6 +3705,48 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // Only an explicit matching value activates this form. Defaults are applied above
+    // without setting `__given_*`; argv and environment fallback set it. The partial
+    // still holds bytes, so matching does not parse or otherwise reinterpret a value.
+    let conditional_requirement_checks = cli.fields.iter().flat_map(move |f| {
+        let given = format_ident!("__given_{}", f.ident);
+        let ident = &f.ident;
+        f.requires_if.iter().filter_map(move |condition| {
+            let other = cli.field_for_selector(&condition.requires)?;
+            if !other.default.is_empty() {
+                return None;
+            }
+            let other_given = format_ident!("__given_{}", other.ident);
+            let other_name = &other.name;
+            let value = &condition.value;
+            let matches = match f.shape {
+                Shape::Optional => quote!(
+                    partial.#ident.as_deref().is_some_and(|v| v == #value.as_bytes())
+                ),
+                Shape::Required => quote!(partial.#ident.as_slice() == #value.as_bytes()),
+                Shape::Many => quote!(
+                    partial.#ident.iter().any(|v| v.as_slice() == #value.as_bytes())
+                ),
+                Shape::Bool => match value.as_str() {
+                    "true" => quote!(partial.#ident),
+                    "false" => quote!(!partial.#ident),
+                    _ => quote!(false),
+                },
+                Shape::Count => match value.parse::<usize>() {
+                    Ok(value) => quote!(partial.#ident == #value),
+                    Err(_) => quote!(false),
+                },
+            };
+            Some(quote! {
+                if partial.#given && #matches && !partial.#other_given {
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::MissingRequired { name: #other_name },
+                    );
+                }
+            })
+        })
+    });
+
     // An exclusive flag is a conflict with the whole command rather than with a named
     // flag, so it is written as one check per *other* declaration — positionals included,
     // which is what makes it more than being in a group with every other flag.
@@ -3980,6 +4028,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // and other validation still ran above; only errors about absent siblings are skipped.
         if !__usage_exclusive_present {
             #(#requirement_checks)*
+            #(#conditional_requirement_checks)*
             #(#required_checks)*
             #(#group_required_checks)*
             #(#relationship_required_checks)*

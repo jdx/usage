@@ -625,6 +625,8 @@ pub struct FlagMeta<'a> {
     /// [`required_if`](Self::required_if): the same rule written on the flag that
     /// imposes it rather than on the flag it lands on.
     pub requires: &'a [&'a str],
+    /// Value-triggered requirements declared by this flag.
+    pub requires_if: &'a [RequiresIf<'a>],
     /// Flags that make this one necessary.
     pub required_if: &'a [&'a str],
     /// Flags that make this one unnecessary.
@@ -659,11 +661,19 @@ impl FlagMeta<'_> {
         delimiter: None,
         exclusive: false,
         requires: &[],
+        requires_if: &[],
         required_if: &[],
         required_unless: &[],
         help_heading: None,
         effect: None,
     };
+}
+
+/// A flag required when the declaring flag is explicitly given `value`.
+#[derive(Debug, Clone, Copy)]
+pub struct RequiresIf<'a> {
+    pub value: &'a str,
+    pub requires: &'a str,
 }
 
 /// What a positional argument knows about itself beyond how it parses.
@@ -1181,6 +1191,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         || meta.overrides.len() > 1
         || meta.conflicts.len() > 1
         || meta.requires.len() > 1
+        || !meta.requires_if.is_empty()
         || meta.required_if.len() > 1
         || meta.required_unless.len() > 1;
     if !has_children {
@@ -1198,6 +1209,15 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_many_list(out, "overrides", meta.overrides, inner)?;
     write_many_list(out, "conflicts", meta.conflicts, inner)?;
     write_many_list(out, "requires", meta.requires, inner)?;
+    for condition in meta.requires_if {
+        indent(out, inner)?;
+        writeln!(
+            out,
+            "requires_if {} {}",
+            quoted(condition.value),
+            quoted(condition.requires)
+        )?;
+    }
     write_many_list(out, "required_if", meta.required_if, inner)?;
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
     if meta.flag.takes_value {

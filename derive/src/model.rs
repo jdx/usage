@@ -205,6 +205,8 @@ pub struct Field {
     /// one lives on the flag the rule is about, which is where clap puts it and where a
     /// reader looks for it.
     pub requires: Vec<String>,
+    /// Requirements activated by one of this flag's explicit values.
+    pub requires_if: Vec<ConditionalRequirement>,
     /// The character a value is split on, making one word several values.
     ///
     /// Only where several can land, so the field has to be a collection — checked at
@@ -229,6 +231,12 @@ pub struct Field {
     /// enough to eat a positional — the same mistake the conformance harness made.
     pub repeatable: bool,
     pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConditionalRequirement {
+    pub value: String,
+    pub requires: String,
 }
 
 /// How a positional argument relates to the `--` separator.
@@ -970,6 +978,24 @@ impl Cli {
                     }
                 }
             }
+            for condition in &field.requires_if {
+                let selector = &condition.requires;
+                let Some(target) = self.field_for_selector(selector) else {
+                    return Err(syn::Error::new(
+                        field.span,
+                        format!(
+                            "`requires_if(_, \"{selector}\")` names no flag on this command; \
+                             write it as the spec does, `--long` or `-s`"
+                        ),
+                    ));
+                };
+                if target.ident == field.ident {
+                    return Err(syn::Error::new(
+                        field.span,
+                        format!("`requires_if(_, \"{selector}\")` names its own field"),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1074,6 +1100,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            requires_if: Vec::new(),
             delimiter: None,
             exclusive: false,
             group: None,
@@ -1171,6 +1198,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            requires_if: Vec::new(),
             delimiter: None,
             exclusive: false,
             group: None,
@@ -1231,6 +1259,7 @@ impl Field {
         let mut overrides: Vec<String> = Vec::new();
         let mut conflicts: Vec<String> = Vec::new();
         let mut requires: Vec<String> = Vec::new();
+        let mut requires_if: Vec<ConditionalRequirement> = Vec::new();
         let mut group: Option<String> = None;
         let mut exclusive = false;
         let mut delimiter: Option<char> = None;
@@ -1326,6 +1355,8 @@ impl Field {
                     "overrides" => overrides = selectors(&meta)?,
                     "conflicts" => conflicts = selectors(&meta)?,
                     "requires" => requires = selectors(&meta)?,
+                    "requires_if" => requires_if.push(requirement_if(&meta)?),
+                    "requires_ifs" => requires_if.extend(requirements_if(&meta)?),
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
                     "delimiter" => {
@@ -1663,6 +1694,13 @@ impl Field {
                 ));
             }
         }
+        if !requires_if.is_empty() && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`requires_if` describes a relationship between flags, so the field \
+                 needs a `long` or a `short`",
+            ));
+        }
         // Declared text wins over the comment, which is the point of declaring it. A comment's
         // first paragraph is read the way Rust reads one — line breaks inside it become spaces —
         // so help whose breaks are deliberate has to be given directly.
@@ -1944,6 +1982,7 @@ impl Field {
             overrides,
             conflicts,
             requires,
+            requires_if,
             delimiter,
             exclusive,
             group,
@@ -2237,6 +2276,77 @@ fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
         ));
     }
     Ok(found)
+}
+
+fn requirement_if(meta: &Meta) -> syn::Result<ConditionalRequirement> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`requires_if` takes a value and a flag, as in \
+             `requires_if(\"json\", \"--format\")`",
+        ));
+    };
+    let args = list.parse_args_with(
+        syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+    )?;
+    if args.len() != 2 {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`requires_if` takes exactly a value and a flag, as in \
+             `requires_if(\"json\", \"--format\")`",
+        ));
+    }
+    let mut args = args.into_iter();
+    Ok(ConditionalRequirement {
+        value: args.next().expect("length checked").value(),
+        requires: args.next().expect("length checked").value(),
+    })
+}
+
+fn requirements_if(meta: &Meta) -> syn::Result<Vec<ConditionalRequirement>> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`requires_ifs` takes `(value, flag)` pairs",
+        ));
+    };
+    let pairs = list.parse_args_with(
+        syn::punctuated::Punctuated::<syn::ExprTuple, syn::Token![,]>::parse_terminated,
+    )?;
+    if pairs.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`requires_ifs` needs at least one `(value, flag)` pair",
+        ));
+    }
+    pairs
+        .into_iter()
+        .map(|pair| {
+            if pair.elems.len() != 2 {
+                return Err(syn::Error::new_spanned(
+                    pair,
+                    "each `requires_ifs` entry is `(value, flag)`",
+                ));
+            }
+            let mut elems = pair.elems.into_iter();
+            let value = string_expr(elems.next().expect("length checked"))?;
+            let requires = string_expr(elems.next().expect("length checked"))?;
+            Ok(ConditionalRequirement { value, requires })
+        })
+        .collect()
+}
+
+fn string_expr(expr: Expr) -> syn::Result<String> {
+    match expr {
+        Expr::Lit(ExprLit {
+            lit: Lit::Str(value),
+            ..
+        }) => Ok(value.value()),
+        other => Err(syn::Error::new_spanned(
+            other,
+            "a conditional requirement's value and flag must be string literals",
+        )),
+    }
 }
 
 fn int_value(meta: &Meta) -> syn::Result<usize> {
@@ -2988,6 +3098,41 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, requires_if("json", "--schema"))]
+                format: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn conditional_requirements_need_pairs_and_a_flag() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, requires_if("json"))]
+                format: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("exactly a value and a flag"), "{err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(requires_if("json", "--schema"))]
+                format: Option<String>,
+                #[usage(long)]
+                schema: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("relationship between flags"), "{err}");
     }
 
     #[test]
