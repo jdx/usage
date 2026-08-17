@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -91,16 +92,46 @@ func TestEveryShortPageMatchesTheReference(t *testing.T) {
 
 // firstDiff shows the first line that differs, with a little context — a whole
 // help page twice over is not something anyone reads.
+// firstDiff is where two pages part, with enough around it to see why.
+//
+// One differing line is rarely the story: a page that gained or lost a line reads
+// as a difference at the next line with content, and the cause is above it. So
+// this prints a window either side, and the line counts, which say whether the
+// two pages are the same length or one drifted.
 func firstDiff(ours, theirs string) string {
 	mine, ref := strings.Split(ours, "\n"), strings.Split(theirs, "\n")
 	for i := 0; i < len(mine) && i < len(ref); i++ {
-		if mine[i] != ref[i] {
-			return "  line " + itoa(i+1) + ":\n    ours: " + quote(mine[i]) +
-				"\n     lib: " + quote(ref[i])
+		if mine[i] == ref[i] {
+			continue
 		}
+		var out strings.Builder
+		out.WriteString("  line " + itoa(i+1) + " of " + itoa(len(mine)) +
+			" ours, " + itoa(len(ref)) + " lib:\n")
+		for j := i - 3; j <= i+3; j++ {
+			if j < 0 {
+				continue
+			}
+			mark := "    "
+			if j == i {
+				mark = "  > "
+			}
+			out.WriteString(mark + itoa(j+1) + " ours: " + quote(at(mine, j)) + "\n")
+			out.WriteString(mark + itoa(j+1) + "  lib: " + quote(at(ref, j)) + "\n")
+		}
+		return strings.TrimRight(out.String(), "\n")
 	}
 	return "  same for " + itoa(min(len(mine), len(ref))) + " lines, then ours has " +
 		itoa(len(mine)) + " and the reference " + itoa(len(ref))
+}
+
+// at is a line of a page, or a marker where the page has ended — so a window
+// running past the end says so rather than showing an empty line, which is a
+// different thing entirely on a page laid out with blank lines.
+func at(lines []string, i int) string {
+	if i >= len(lines) {
+		return "<past the end>"
+	}
+	return lines[i]
 }
 
 func quote(s string) string { b, _ := json.Marshal(s); return string(b) }
@@ -155,8 +186,9 @@ func TestEveryLongPageMatchesTheReference(t *testing.T) {
 		if len(shown) > 2 {
 			shown = shown[:2]
 		}
-		t.Fatalf("%d of %d long pages differ from usage-lib:\n%s",
-			len(differences), checked, strings.Join(shown, "\n"))
+		t.Fatalf("%d of %d long pages differ from usage-lib (usage %s, go %s):\n%s",
+			len(differences), checked, usageBin, runtime.Version(),
+			strings.Join(shown, "\n"))
 	}
 	t.Logf("%d long pages match usage-lib exactly", checked)
 }
