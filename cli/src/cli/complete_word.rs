@@ -4,10 +4,10 @@ use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 use std::sync::LazyLock;
+use usage_derive::Args;
 use xx::regex;
 
 use usage::parse::{ParseOutput, ParseValue};
@@ -23,24 +23,28 @@ use crate::cli::generate;
 /// This is used internally by shell completion scripts to provide
 /// intelligent completions for commands, flags, and arguments.
 #[derive(Debug, Args)]
-#[clap(visible_alias = "cw")]
+#[usage(effect = "read")]
 pub struct CompleteWord {
     /// User's input from the command line
     words: Vec<String>,
 
     /// Usage spec file or script with usage shebang, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short = 'f', long)]
     file: Option<PathBuf>,
 
     /// Raw string spec input
-    #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(short = 's', long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 
     /// Current word index
-    #[clap(long, allow_hyphen_values = true)]
+    #[usage(long)]
     cword: Option<usize>,
 
-    #[clap(long, default_value = "bash", value_parser = ["bash", "fish", "nu", "powershell", "zsh"])]
+    #[usage(
+        long,
+        default = "bash",
+        choices("bash", "fish", "nu", "powershell", "zsh")
+    )]
     shell: String,
 }
 

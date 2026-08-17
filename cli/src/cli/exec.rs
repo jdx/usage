@@ -2,35 +2,30 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+use usage_derive::Args;
 
 use usage::Spec;
 
 use crate::env;
 
+/// Execute a script, parsing args and exposing them as environment variables
 #[derive(Debug, Args)]
-#[clap(
-    disable_help_flag = true,
-    visible_alias = "x",
-    about = "Execute a script, parsing args and exposing them as environment variables"
-)]
 pub struct Exec {
     /// command to execute after parsing usage spec
     command: String,
     /// path to script to execute
     bin: PathBuf,
     /// arguments to pass to script
-    #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
 
     /// Show help
-    #[clap(short)]
+    #[usage(short = 'h')]
     h: bool,
 
     /// Show help
-    #[clap(long)]
+    #[usage(long)]
     help: bool,
 }
 

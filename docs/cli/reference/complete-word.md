@@ -9,7 +9,8 @@
 
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+This is used internally by shell completion scripts to provide
+intelligent completions for commands, flags, and arguments.
 
 ## Arguments
 

@@ -2,36 +2,74 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+use usage_derive::Args;
 
 use usage::Spec;
 
 use crate::env;
 
-/// Execute a shell script with the specified shell
+/// What the four shell commands accept, declared once.
 ///
-/// Typically, this will be called by a script's shebang.
-///
-/// If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-/// to properly escape and quote values with spaces in them.
+/// Not a command itself: each of `bash`, `fish`, `powershell` and `zsh` flattens it, so the
+/// emitted spec lists these on all four exactly as a hand-written spec would. They cannot
+/// share one struct instead — a command collects into the struct that declares it, so the
+/// derive refuses two variants wrapping one — and the shell to run is the command that ran.
 #[derive(Debug, Args)]
-#[clap(disable_help_flag = true, verbatim_doc_comment)]
 pub struct Shell {
     script: PathBuf,
+
     /// Arguments to pass to script
-    #[clap(allow_hyphen_values = true)]
+    ///
+    /// Anything `usage` does not recognise is a value rather than a mistake, which is what
+    /// lets a shebang script take flags of its own.
     args: Vec<String>,
 
     /// Show help
-    #[clap(short)]
+    #[usage(short = 'h')]
     h: bool,
 
     /// Show help
-    #[clap(long)]
+    #[usage(long)]
     help: bool,
 }
+
+/// One of the four commands that run a script, which differ only in the shell they name.
+///
+/// The long help is the same paragraph four times over, so it is written here once. A
+/// `concat!` in a `long_about` would not do: the attribute takes a literal, and by the time
+/// the derive reads it a macro call is not one.
+macro_rules! shell_command {
+    ($ty:ident, $program:literal, $about:literal) => {
+        #[doc = $about]
+        #[doc = ""]
+        #[doc = "Typically, this will be called by a script's shebang."]
+        #[doc = ""]
+        #[doc = "If using `var=#true` on args/flags, they will be joined with spaces using"]
+        #[doc = "`shell_words::join()` to properly escape and quote values with spaces in them."]
+        #[derive(Debug, Args)]
+        pub struct $ty {
+            #[usage(flatten)]
+            pub shell: Shell,
+        }
+
+        impl $ty {
+            pub fn run(&mut self) -> miette::Result<()> {
+                self.shell.run($program)
+            }
+        }
+    };
+}
+
+shell_command!(Bash, "bash", "Execute a shell script using bash");
+shell_command!(Fish, "fish", "Execute a shell script using fish");
+shell_command!(
+    PowerShell,
+    "pwsh",
+    "Execute a shell script using PowerShell"
+);
+shell_command!(Zsh, "zsh", "Execute a shell script using zsh");
 
 impl Shell {
     pub fn run(&mut self, shell: &str) -> miette::Result<()> {

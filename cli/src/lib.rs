@@ -13,6 +13,9 @@ pub use cli::complete_word::candidates as complete_candidates;
 pub use cli::Cli;
 
 mod cli;
+// Nothing but coverage now: each command declares its own effect, so what is left is the
+// check that none of them forgot to.
+#[cfg(test)]
 mod command_effects;
 pub mod env;
 mod schema;
