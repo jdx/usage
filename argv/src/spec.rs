@@ -1556,8 +1556,8 @@ pub trait CommandArgs: Sized {
     /// One exclusive flag in this command that was given, if any.
     ///
     /// Like [`CommandArgs::any_given`], this is the composition point for flattened argument
-    /// groups. An exclusive flag in a selected subcommand belongs to that subcommand rather
-    /// than to its parent, so implementations do not propagate it across that boundary.
+    /// groups and selected subcommands. Parents need the latter to apply whole-invocation
+    /// exclusivity and its requiredness escape across a command boundary.
     fn exclusive_given(partial: &Self::Partial) -> Option<&'static str> {
         let _ = partial;
         None
@@ -1671,6 +1671,14 @@ pub trait Subcommands: Sized {
     fn exclusive_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
         let _ = (partial, selected);
         None
+    }
+
+    /// Fill fields in the selected command from their declared environment variables.
+    ///
+    /// A parent calls this before relationships that cross the subcommand boundary, just as
+    /// [`CommandArgs::apply_env`] prepares a flattened argument group.
+    fn apply_env(partial: &mut Self::Partial, selected: Option<usize>) {
+        let _ = (partial, selected);
     }
 
     /// Check the selected command's requirements, and nothing else's.

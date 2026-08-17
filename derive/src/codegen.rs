@@ -2834,6 +2834,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    let apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
+        let field = format_ident!("v{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                <#ty as ::usage_argv::spec::CommandArgs>::apply_env(&mut partial.#field);
+            }
+        }
+    });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let held = format_ident!("V{i}");
         let variant = &v.ident;
@@ -2968,6 +2977,16 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     match selected {
                         #(#exclusive_givens)*
                         _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn apply_env(
+                    partial: &mut Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) {
+                    match selected {
+                        #(#apply_envs)*
+                        _ => {}
                     }
                 }
 
@@ -3204,9 +3223,21 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
             <#ty as ::usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
         })
     });
+    let selected = cli.fields.iter().find_map(|f| {
+        let Kind::Subcommand { ty, .. } = &f.kind else {
+            return None;
+        };
+        Some(quote! {
+            <#ty as ::usage_argv::spec::Subcommands>::apply_env(
+                &mut partial.__usage_sub,
+                partial.__usage_selected,
+            );
+        })
+    });
     quote! {
         #(#own)*
         #(#flattened)*
+        #selected
     }
 }
 

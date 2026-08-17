@@ -1824,6 +1824,17 @@ impl Field {
             ));
         }
 
+        // `exclusive` is represented by flag metadata and enforced for a flag occurrence.
+        // Accepting it on a positional would make the derive enforce a rule that its emitted
+        // spec and documentation silently omit.
+        if exclusive && !matches!(kind, Kind::Flag { .. }) {
+            return Err(syn::Error::new(
+                span,
+                "`exclusive` describes a flag that has to be given on its own; a positional \
+                 argument cannot carry it — add `long` or `short` to make this field a flag",
+            ));
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -2903,6 +2914,30 @@ mod tests {
             Some("FILE"),
             "a value-taking flag keeps it"
         );
+    }
+
+    #[test]
+    fn exclusive_is_refused_on_a_positional() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(exclusive)]
+                target: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("`exclusive` describes a flag"),
+            "unhelpful message: {err}"
+        );
+
+        cli(r#"
+            struct Ex {
+                #[usage(long, exclusive)]
+                dump: bool,
+            }
+        "#)
+        .expect("exclusive remains valid on a flag");
     }
 
     #[test]

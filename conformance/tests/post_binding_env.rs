@@ -9,7 +9,8 @@
 
 use std::ffi::OsStr;
 
-use usage_derive::{Args, Cli};
+use usage_argv::Error;
+use usage_derive::{Args, Cli, Subcommands};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
@@ -173,6 +174,58 @@ fn flattened_environment_values_are_visible_to_cross_boundary_exclusivity() {
     let parsed = EnvAcrossFlattenExclusive::parse_from(&a).expect("alone after cleanup");
     assert!(parsed.out.is_none());
     assert!(parsed.extra.dump);
+}
+
+#[derive(Args)]
+struct ChildEnvExclusive {
+    /// Dump and leave
+    #[usage(long, exclusive, env = "CHILD_EXCLUSIVE_ENV_DUMP")]
+    dump: bool,
+}
+
+#[derive(Subcommands)]
+enum ChildEnvExclusiveCommands {
+    Run(ChildEnvExclusive),
+}
+
+#[derive(Cli)]
+#[usage(bin = "child-exclusive-env")]
+struct ParentOfChildEnvExclusive {
+    /// Print more
+    #[usage(long)]
+    verbose: bool,
+    /// Required unless an exclusive flag ends the invocation
+    #[usage(long)]
+    out: String,
+    #[usage(subcommand)]
+    command: Option<ChildEnvExclusiveCommands>,
+}
+
+#[test]
+fn a_selected_child_environment_value_is_visible_to_parent_exclusivity() {
+    unsafe { std::env::set_var("CHILD_EXCLUSIVE_ENV_DUMP", "1") };
+
+    let a = argv(["run"]);
+    let parsed = ParentOfChildEnvExclusive::parse_from(&a)
+        .expect("the child exclusive environment value bypasses parent requiredness");
+    assert!(!parsed.verbose);
+    assert!(parsed.out.is_empty());
+    let Some(ChildEnvExclusiveCommands::Run(child)) = parsed.command else {
+        panic!("the selected child should be built");
+    };
+    assert!(
+        child.dump,
+        "the environment value should reach the child field"
+    );
+
+    let a = argv(["--verbose", "run"]);
+    assert!(matches!(
+        ParentOfChildEnvExclusive::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+            | Err(Error::ConflictingFlags { name: "dump", .. })
+    ));
+
+    unsafe { std::env::remove_var("CHILD_EXCLUSIVE_ENV_DUMP") };
 }
 
 #[test]
