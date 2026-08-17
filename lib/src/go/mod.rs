@@ -149,6 +149,7 @@ impl<'a> Emitter<'a> {
         self.constants(&commands);
         self.tables(&commands);
         self.metadata(&commands);
+        self.help_table(&commands);
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -627,6 +628,118 @@ fn string_slice(values: &[String]) -> String {
 
 fn key_slice(keys: &[String]) -> String {
     format!("[]uint64{{{}}}", keys.join(", "))
+}
+
+impl Emitter<'_> {
+    /// Emit the help table: what a page prints.
+    ///
+    /// A third table rather than more fields on `Meta`, because Go's linker drops
+    /// an unreferenced package-level symbol whole — folding help text into the
+    /// post-binding table would make every CLI that applies a rule carry mise's
+    /// several hundred kilobytes of help strings too.
+    fn help_table(&mut self, commands: &[Emitted]) {
+        let mut by_key: BTreeMap<u64, String> = BTreeMap::new();
+        for e in commands {
+            by_key.insert(e.named.number, command_help(e));
+            for (flag, named) in &e.flags {
+                by_key.insert(named.number, flag_help(flag, named));
+            }
+            for (arg, named) in &e.args {
+                by_key.insert(named.number, arg_help(arg, named));
+            }
+        }
+
+        let total = commands
+            .iter()
+            .map(|e| 1 + e.flags.len() + e.args.len())
+            .sum::<usize>() as u64;
+
+        let _ = writeln!(
+            self.out,
+            "// HelpText is the third table, read only when a page is rendered. Neither the\n\
+             // parser nor the post-binding rules touch it, and a CLI that never prints help\n\
+             // does not carry it: Go's linker drops an unreferenced table whole.\n\
+             //\n\
+             // Indexed by key, like the others.\n\
+             var HelpText = argv.HelpTable{{"
+        );
+        for key in 1..=total {
+            match by_key.get(&key) {
+                Some(entry) => {
+                    let _ = writeln!(self.out, "\t{entry},");
+                }
+                None => {
+                    let _ = writeln!(self.out, "\t{{}},");
+                }
+            }
+        }
+        let _ = writeln!(self.out, "}}\n");
+    }
+}
+
+/// The help entry for a command: its about text.
+fn command_help(e: &Emitted) -> String {
+    let mut fields = vec![format!("Key: {}", e.named.key)];
+    if e.cmd.hide {
+        fields.push("Hide: true".to_string());
+    }
+    if let Some(help) = e.cmd.help.as_deref().or(e.cmd.help_long.as_deref()) {
+        fields.push(format!("Short: {}", go_string(help)));
+    }
+    if let Some(long) = &e.cmd.help_long {
+        fields.push(format!("Long: {}", go_string(long)));
+    }
+    format!("{{{}}}", fields.join(", "))
+}
+
+fn flag_help(flag: &SpecFlag, named: &Named) -> String {
+    let mut fields = vec![format!("Key: {}", named.key)];
+    if flag.hide {
+        fields.push("Hide: true".to_string());
+    }
+    // Required *and* undefaulted, which is what decides the brackets: a required
+    // flag with a default is one the user never has to type.
+    if flag.required && flag.default.is_empty() {
+        fields.push("Demanded: true".to_string());
+    }
+    if flag.var {
+        fields.push("Repeatable: true".to_string());
+    }
+    if let Some(arg) = &flag.arg {
+        if arg.name != flag.name {
+            fields.push(format!("ValueName: {}", go_string(&arg.name)));
+        }
+    }
+    if let Some(help) = flag.help_first_line.as_deref().or(flag.help.as_deref()) {
+        fields.push(format!("Short: {}", go_string(help)));
+    }
+    if let Some(long) = flag.help_long.as_deref().or(flag.help.as_deref()) {
+        fields.push(format!("Long: {}", go_string(long)));
+    }
+    if let Some(heading) = &flag.help_heading {
+        fields.push(format!("Heading: {}", go_string(heading)));
+    }
+    format!("{{{}}}", fields.join(", "))
+}
+
+fn arg_help(arg: &SpecArg, named: &Named) -> String {
+    let mut fields = vec![format!("Key: {}", named.key)];
+    if arg.hide {
+        fields.push("Hide: true".to_string());
+    }
+    if arg.required && arg.default.is_empty() {
+        fields.push("Demanded: true".to_string());
+    }
+    if let Some(help) = arg.help_first_line.as_deref().or(arg.help.as_deref()) {
+        fields.push(format!("Short: {}", go_string(help)));
+    }
+    if let Some(long) = arg.help_long.as_deref().or(arg.help.as_deref()) {
+        fields.push(format!("Long: {}", go_string(long)));
+    }
+    if let Some(heading) = &arg.help_heading {
+        fields.push(format!("Heading: {}", go_string(heading)));
+    }
+    format!("{{{}}}", fields.join(", "))
 }
 
 /// A line inside a `const` block or a composite literal.

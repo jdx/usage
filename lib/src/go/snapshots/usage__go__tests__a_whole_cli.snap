@@ -106,3 +106,24 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagConfigLsNoHeader, Name: "no-header", Flag: true},
 }
+
+// HelpText is the third table, read only when a page is rendered. Neither the
+// parser nor the post-binding rules touch it, and a CLI that never prints help
+// does not carry it: Go's linker drops an unreferenced table whole.
+//
+// Indexed by key, like the others.
+var HelpText = argv.HelpTable{
+	{Key: CmdRoot},
+	{Key: FlagVerbose, Short: "be loud", Long: "be loud"},
+	{Key: FlagColor},
+	{Key: FlagJobs, ValueName: "n"},
+	{Key: FlagInclude, ValueName: "pattern"},
+	{Key: ArgFile, Demanded: true},
+	{Key: ArgRest},
+	{Key: CmdInstall},
+	{Key: FlagInstallForce},
+	{Key: ArgInstallPkg, Demanded: true},
+	{Key: CmdConfig},
+	{Key: CmdConfigLs},
+	{Key: FlagConfigLsNoHeader},
+}

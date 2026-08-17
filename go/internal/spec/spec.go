@@ -42,6 +42,10 @@ type Spec struct {
 // Cmd is one command in the lowered spec.
 type Cmd struct {
 	Name          string         `json:"name"`
+	Hide          bool           `json:"hide"`
+	Help          string         `json:"help"`
+	HelpLong      string         `json:"help_long"`
+	Usage         string         `json:"usage"`
 	Aliases       []string       `json:"aliases"`
 	HiddenAliases []string       `json:"hidden_aliases"`
 	Subcommands   map[string]Cmd `json:"subcommands"`
@@ -70,10 +74,15 @@ type Flag struct {
 	VarMax int `json:"var_max"`
 	// VarMin is a post-binding check too, and for the same reason: no single
 	// token can tell you a repeatable flag will end up short.
-	VarMin   int      `json:"var_min"`
-	Required bool     `json:"required"`
-	Default  []string `json:"default"`
-	Env      string   `json:"env"`
+	VarMin        int      `json:"var_min"`
+	Required      bool     `json:"required"`
+	Default       []string `json:"default"`
+	Env           string   `json:"env"`
+	Hide          bool     `json:"hide"`
+	Help          string   `json:"help"`
+	HelpFirstLine string   `json:"help_first_line"`
+	HelpLong      string   `json:"help_long"`
+	HelpHeading   string   `json:"help_heading"`
 	// The four that name another flag. They arrive as written, dashes included.
 	Conflicts      []string `json:"conflicts"`
 	Overrides      []string `json:"overrides"`
@@ -117,15 +126,20 @@ func (f *Flag) defaults() []string {
 
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
-	Name       string   `json:"name"`
-	Required   bool     `json:"required"`
-	Var        bool     `json:"var"`
-	VarMax     int      `json:"var_max"`
-	VarMin     int      `json:"var_min"`
-	DoubleDash string   `json:"double_dash"`
-	Choices    *Choices `json:"choices"`
-	Default    []string `json:"default"`
-	Env        string   `json:"env"`
+	Name          string   `json:"name"`
+	Required      bool     `json:"required"`
+	Var           bool     `json:"var"`
+	VarMax        int      `json:"var_max"`
+	VarMin        int      `json:"var_min"`
+	DoubleDash    string   `json:"double_dash"`
+	Choices       *Choices `json:"choices"`
+	Default       []string `json:"default"`
+	Env           string   `json:"env"`
+	Hide          bool     `json:"hide"`
+	Help          string   `json:"help"`
+	HelpFirstLine string   `json:"help_first_line"`
+	HelpLong      string   `json:"help_long"`
+	HelpHeading   string   `json:"help_heading"`
 }
 
 // Choices is the declared set of values, which the lowering nests one level.
@@ -168,6 +182,14 @@ func (s *Spec) Tables() *argv.Command {
 // Inheritance is resolved here rather than in the parser: each command's entry
 // holds the effective value, which is what a generated table would carry.
 func (s *Spec) Build() (*argv.Command, argv.Metadata) {
+	root, meta, _ := s.BuildAll()
+	return root, meta
+}
+
+// BuildAll produces all three tables: the hot one, the post-binding one, and the
+// help one. They share the keys that tie them together, so they are built in one
+// pass for the same reason the first two were.
+func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
 	b := &builder{}
 	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
 
@@ -183,7 +205,7 @@ func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 			}
 		}
 	}
-	return root, b.meta
+	return root, b.meta, b.help
 }
 
 // MultiFlags reports which flags accumulate rather than replace, keyed by the
@@ -224,6 +246,9 @@ type builder struct {
 	// meta grows in step with the keys, so entry `Key` lands at `meta[Key-1]` and
 	// a lookup is an index.
 	meta argv.Metadata
+	// help grows the same way, and is separate for the reason the tables are:
+	// a caller that renders no pages should not carry the strings.
+	help argv.HelpTable
 	// scope is the chain above the command being built, so a relationship can
 	// name an inherited global. Ancestors only: a command cannot see its own
 	// children's flags, and neither can a declaration.
@@ -255,6 +280,23 @@ func (b *builder) record(key uint64, m argv.Meta) {
 	b.meta[key-1] = m
 }
 
+func (b *builder) recordHelp(key uint64, h argv.Help) {
+	h.Key = key
+	for uint64(len(b.help)) < key {
+		b.help = append(b.help, argv.Help{})
+	}
+	b.help[key-1] = h
+}
+
+func first(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (b *builder) next() uint64 {
 	b.key++
 	return b.key
@@ -271,6 +313,11 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		UnknownFlags: unknown,
 		Key:          b.next(),
 	}
+	b.recordHelp(out.Key, argv.Help{
+		Hide:  c.Hide,
+		Short: first(c.Help, c.HelpLong),
+		Long:  first(c.HelpLong, c.Help),
+	})
 
 	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
 		out.Aliases = make([]string, 0, n)
@@ -431,6 +478,21 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 			out.Shorts = append(out.Shorts, s[0])
 		}
 	}
+	valueName := ""
+	if f.Arg != nil && f.Arg.Name != f.Name {
+		valueName = f.Arg.Name
+	}
+	b.recordHelp(out.Key, argv.Help{
+		Hide: f.Hide,
+		// Required *and* undefaulted: a required flag with a default is one the
+		// user never has to type, so the line brackets it.
+		Demanded:   f.Required && len(f.Default) == 0,
+		Repeatable: f.Var,
+		ValueName:  valueName,
+		Short:      first(f.HelpFirstLine, f.Help),
+		Long:       first(f.HelpLong, f.Help),
+		Heading:    f.HelpHeading,
+	})
 	b.record(out.Key, argv.Meta{
 		Name:     f.Name,
 		Flag:     true,
@@ -467,6 +529,13 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	if a.Var {
 		out.VarMax = clampVarMax(a.VarMax)
 	}
+	b.recordHelp(out.Key, argv.Help{
+		Hide:     a.Hide,
+		Demanded: a.Required && len(a.Default) == 0,
+		Short:    first(a.HelpFirstLine, a.Help),
+		Long:     first(a.HelpLong, a.Help),
+		Heading:  a.HelpHeading,
+	})
 	b.record(out.Key, argv.Meta{
 		Name:     a.Name,
 		Required: a.Required,

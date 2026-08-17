@@ -452,9 +452,13 @@ func show(p *Parsed) string {
 }
 
 // lower turns a vector's KDL spec into the JSON the tables are built from.
+func runUsage(usageBin string, args ...string) ([]byte, error) {
+	return exec.Command(usageBin, args...).Output()
+}
+
 func lower(t *testing.T, usageBin, kdl string) *spec.Spec {
 	t.Helper()
-	out, err := exec.Command(usageBin, "generate", "json", "--spec", kdl).Output()
+	out, err := runUsage(usageBin, "generate", "json", "--spec", kdl)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("lowering the spec failed: %v\n%s", err, ee.Stderr)
