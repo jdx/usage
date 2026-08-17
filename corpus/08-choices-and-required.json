@@ -243,6 +243,72 @@
         "error": "var_too_many"
       },
       "layer": "post-binding"
+    },
+    {
+      "id": "requires-if-value-matches",
+      "doc": "A value-conditional requirement is enforced when the declaring flag explicitly has the named value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <format>\" {\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <file>\"\n",
+      "argv": ["--format", "json"],
+      "expect": {
+        "error": "missing_required_flag"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "requires-if-value-does-not-match",
+      "doc": "A different value does not activate the conditional requirement.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <format>\" {\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <file>\"\n",
+      "argv": ["--format", "text"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "format": "text"
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "requires-if-is-satisfied",
+      "doc": "The conditional requirement disappears once the flag it names has a value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <format>\" {\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <file>\"\n",
+      "argv": ["--format", "json", "--schema", "schema.json"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "format": "json",
+            "schema": "schema.json"
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "requires-if-environment-is-explicit",
+      "doc": "An environment value is explicit and activates a matching conditional requirement, as it does in clap.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <format>\" env=\"EX_FORMAT\" {\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <file>\"\n",
+      "argv": [],
+      "env": {
+        "EX_FORMAT": "json"
+      },
+      "expect": {
+        "error": "missing_required_flag"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "requires-if-default-is-not-explicit",
+      "doc": "A default does not activate a value-conditional requirement because nobody supplied it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <format>\" default=\"json\" {\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <file>\"\n",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "flags": {
+            "format": "json"
+          }
+        }
+      },
+      "layer": "post-binding"
     }
   ]
 }

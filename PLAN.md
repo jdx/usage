@@ -181,7 +181,7 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       an unbounded variadic on one side of a flatten and a later positional on the other — and the
       flag-form collision. Both are invisible to either expansion and visible where the tables are
       joined.
-- [ ] **`usage-derive` v1** — everything mise needs. `conflicts`, `overrides`,
+- [x] **`usage-derive` v1** — everything mise needs. `conflicts`, `overrides`,
       `required_if`, `required_unless`, `var`, `count`, `env`, defaults, the four
       `double_dash` modes, global flags, flatten, boxed subcommand variants,
       headings and `cfg`-gated variants have all landed since this was written.
@@ -192,13 +192,11 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       `Arg::requires` as a setter with no getter, so a `Command` cannot be asked
       what it requires. That is a clap limitation, recorded in
       `lib/src/spec/flag.rs`, not an item to close here.
-      What is left is **`requires_if` / `requires_ifs`**, the conditional forms,
-      which need something the spec does not have: a selector that names a
-      _value_ rather than a presence. `selector_is_explicit` answers only "was
-      that flag given", so "required when `--format` is `json`" cannot be said
-      from either end — `required_if` has the same limit. And
-      **delimiters**, where a value's `,` is split at parse time rather than only
-      in a clap default. Both are in the clap-parity list below.
+      **`requires_if` / `requires_ifs` have since landed too**: the spec records
+      repeated value/selector pairs, usage-lib and the derive enforce the same
+      explicit-value rule clap does, and the cold tables emit the relationship
+      without touching binding. Delimiters landed alongside them, so the original
+      v1 list is closed.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
       `var_min`, `conflicts`, `required_if`, `required_unless`, and `overrides` —
       `var_max` moved to the binder, see the decision below. All of them need a value's type, so they belong with the derive
@@ -268,10 +266,8 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       descended into `config ls` when an unrelated `config` happened to have an `ls`. A spec declares
       one name, once, at the top. The corpus vector that recorded the difference is now an ordinary
       agreeing vector — the reference test refused to let the label stay, which is what it is for.
-- [ ] **A mount on the root command** — the spec accepts `mount` only inside a
-      `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
-      something cannot say so. Worth deciding whether that is a gap or a deliberate
-      restriction.
+- [x] **A mount on the root command** — top-level discovery is represented and
+      usage-lib keeps completion and execution consistent about when the mount runs.
 - [x] **`subcommand_required`, which the derive knew and did not say** — a bare `T`
       subcommand field requires a subcommand and an `Option<T>` does not, and the parser
       has always refused the invocation accordingly. `Spec::to_kdl` wrote neither, so the
@@ -293,11 +289,8 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       descends, and the corpus's own table builder stops resolving it — one implementation of
       the rule instead of two, and it was the second one that hid the parser not having it.
       Costs **160 instructions per parse, 72,272 against 72,112** at mise's scale.
-- [ ] **`subcommand_required` on the root command** — the same restriction as the root
-      mount, and found beside it: the spec accepts the property only inside a `cmd` block,
-      so a CLI whose _root_ cannot be run alone has no way to say so. The clap bridge could
-      not say it either, so nothing regressed — but a bare `T` subcommand field on the root
-      is now a thing the derive knows and the spec has nowhere to put.
+- [x] **`subcommand_required` on the root command** — a bare root subcommand field
+      now reaches the spec and both parsers report the missing command consistently.
 
 - [x] **Three things a spec could say that the derive could not** — a flag's value name
       (`--tool <TOOL>` came back as `--tool <tool>`, since the flag's own name was all there
@@ -363,26 +356,21 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 
 **Changes what a CLI does**
 
-- [ ] **`requires` / `requires_if` / `requires_ifs`** — "this flag needs that
-      one". The spec has `conflicts`, `overrides`, `required_if` and
-      `required_unless`, and no way to say the positive form. Nothing in
-      `lib/src/spec/flag.rs` parses it and the derive has no attribute. The one
-      true blocker in the original v1 list. The bridge will not carry it, per the
-      note above, so this is a reason to declare in usage rather than a bridge
-      bug: a CLI that moves its declaration here gains a constraint its generated
-      spec never had.
-- [ ] **`ArgGroup`, and `exclusive`** _(bridge too)_ — "exactly one of these
-      three", "at least one of these". Only pairwise `conflicts` exists, which is
-      O(n²) declarations for what clap says once, and cannot express requiredness
-      across a set at all. Readable from a clap `Command`, so the bridge gains
-      these once the spec can hold them.
-- [ ] **`value_delimiter`** — `--tags a,b,c` as three values. `lib/src/spec/arg.rs`
-      splits a clap _default_ by it and says the spec has a list rather than a
-      delimiter, which is true of a default and not of a command line: nothing
-      splits a value at parse time.
-- [ ] **`default_missing_value`, and optional-value flags** — `--color` versus
-      `--color=always`, which is `Option<Option<T>>` in clap. `Shape` has no
-      variant for it.
+- [x] **`requires` / `requires_if` / `requires_ifs`** — "this flag needs that
+      one". Plain and value-conditional forms now reach the spec, usage-lib and
+      generated checks. The bridge still cannot carry them, per the note above,
+      so this remains a reason to declare in usage rather than a bridge bug.
+- [x] **`ArgGroup`, and `exclusive`** _(bridge too)_ — "exactly one of these
+      three", "at least one of these". Groups cross the clap bridge, spec and
+      derive, and exclusivity is enforced across globals, aliases, flatten and
+      subcommand boundaries.
+- [x] **`value_delimiter`** — `--tags a,b,c` as three values. `lib/src/spec/arg.rs`
+      and both Rust parsers now split typed, environment and default values before
+      checking or converting them.
+- [~] **`default_missing_value`, and optional-value flags** — the metadata and
+  help-rendering half has landed (`--bump [BUMP]`), but binding still requires
+  a value. Accepting bare `--color` as distinct from `--color=always` still
+  needs an `Option<Option<T>>`-shaped partial and default-missing semantics.
 - [ ] **`default_value_if` / `default_value_ifs`** — a default that depends on
       another flag. Ours are unconditional.
 - [ ] **`value_parser`** — clap takes an arbitrary parser function and range
@@ -549,9 +537,9 @@ down and stop. Nothing gets integrated into mise before this point.
       parsers. Adoption is measured by what it lets mise delete, listed below.
 - [ ] **hk, pitchfork, fnox** — smaller, and all three already generate their
       spec from clap, so they are the natural second adopters.
-- [ ] **Other languages** — the grammar and corpus are language-neutral on
-      purpose. A Go, JavaScript, or Python implementation is verified by running
-      the corpus, not by reading this repository's Rust.
+- [~] **Other languages** — Go now parses, validates, renders help and answers
+  completions from generated static tables, verified against the shared corpus.
+  JavaScript and Python implementations remain open.
 
 ### What adoption should let mise delete
 
