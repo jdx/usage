@@ -167,6 +167,18 @@ Note `Bool` and `EnvTruth` are different widths on purpose: `Bool` takes Go's
 spellings for a value somebody typed, `EnvTruth` is the narrower allow-list
 usage-lib uses to decide whether a variable sets a value-less flag at all.
 
+## Completions
+
+`argv.Walk` reads the words before the cursor and reports what it is standing in;
+`argv.Candidates` says what could go there — subcommands and their aliases, the
+flags in scope, and the values a `choices` list allows.
+
+Both ask the parser rather than re-deriving its rules, which is the point: a
+completion advertising a flag the parser would refuse is worse than no completion.
+So a global is offered inside a subcommand, a redeclared name shadows the
+inherited one, a hidden flag binds without being advertised, and past a `--`
+nothing is offered at all.
+
 ## Errors
 
 `argv.Render` turns a failure into what a CLI should print to stderr:
@@ -220,6 +232,6 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 - **A typed front door.** The conversions exist; what is missing is generated
   code that calls them, so a CLI author gets a struct rather than events.
-- **Completions.** The Rust side serves these from the parser's own scope rules so
-  that what is offered and what is accepted cannot disagree; the hooks for it
-  (`Collecting`, `PendingArg`, `FlagsInScope`, `CommandStart`) are already here.
+- **Per-shell completion output.** `Walk` and `Candidates` answer _what_ could go
+  at the cursor; turning that into the text bash, zsh, fish or PowerShell expect
+  is still to do, as is running the `complete` scripts a spec can declare.
