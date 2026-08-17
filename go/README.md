@@ -54,12 +54,15 @@ its error inline; a bound value is a slice of the argv string rather than a copy
 `TestParseAllocatesNothing` measures this with `testing.AllocsPerRun`, on the
 failure paths as well as the success ones. A mise-sized binding runs in 57 ns.
 
-**Binding only.** The parser answers one question — which token becomes which flag
-or argument — and reports each occurrence as an event. Everything that needs to
-know a value's _type_ (`required`, `choices`, `env` fallback, defaults, `var_min`,
-`overrides`) belongs to the layer that owns the target struct, exactly as it does
-in Rust. That is why the corpus's post-binding vectors are skipped here rather
-than failed.
+**Binding stays separate from judging.** The parser answers one question — which
+token becomes which flag or argument — and reports each occurrence as an event.
+The rules that need a value's declared type live in `post.go`, reading a second,
+cold table the parser never touches: `required`, `choices`, the `env`-then-
+`default` fallback, `var_min`, `var_max`. They are pure functions over what
+binding produced rather than a framework, because the caller is the one that knows
+how it accumulated — generated code assigns to a field, a harness with no target
+type appends to a slice, and inventing a value model here would force both through
+it.
 
 ## Using it
 
@@ -114,10 +117,14 @@ an implementation in any language can run it. `go/conformance` runs all of it:
 mise run test:go
 ```
 
-All 122 binding vectors pass; the 30 post-binding ones are skipped with the reason
-recorded. The count is worth watching rather than just quoting: it was 101 when
-this module landed, and grew when the corpus imported the argv questions clap's
-suite answers — which the Go parser then answered without a change. A vector's spec is KDL, and this module deliberately has no KDL parser —
+**145 of 152 vectors pass.** The seven left are relationships _between_ flags —
+`conflicts`, `overrides`, `required_unless` — which need a resolution step turning
+a name into the entry it refers to. They are listed by id in `notYet` with a
+reason, and the count is asserted, so that set cannot quietly grow.
+
+The number is worth watching rather than quoting: 101 when this module landed, 122
+once the corpus imported the argv questions clap's suite answers (which the Go
+parser answered without a change), and 145 once the post-binding rules arrived. A vector's spec is KDL, and this module deliberately has no KDL parser —
 `usage generate json` does the lowering, which is why the suite needs the CLI
 built. That split is the same one an adopter gets: tables are generated once at
 build time by a maintainer who has the usage CLI, and the shipped binary never
@@ -131,9 +138,17 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 ## What is missing
 
-- **The typed layer.** Binding produces events; something has to turn them into a
-  struct with `int` and `time.Duration` fields, and apply the post-binding rules.
-  This is where the corpus's skipped post-binding vectors get answered.
+- **Relationships between flags.** `conflicts`, `overrides`, `required_if` and
+  `required_unless` — the seven corpus vectors still unanswered. Unlike everything
+  in `post.go` they are not a property of one entry: a name has to be resolved to
+  the entry it refers to first.
+- **The cold table in generated code.** `usage generate go` emits the parse tables
+  but not the `Meta` ones yet, so the post-binding rules are reachable today from a
+  spec lowered at run time rather than from a generated package. Proving them
+  against the corpus came first, the way the binder did before the generator.
+- **Typed values.** Binding collects text. Something still has to turn `"8"` into
+  an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
+  convert.
 - **Help and errors.** A cold table of help text, and rendering worth reading.
 - **Completions.** The Rust side serves these from the parser's own scope rules so
   that what is offered and what is accepted cannot disagree; the hooks for it

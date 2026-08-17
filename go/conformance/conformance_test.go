@@ -86,14 +86,9 @@ func TestCorpus(t *testing.T) {
 	for _, v := range vectors {
 		v := v
 		t.Run(v.ID, func(t *testing.T) {
-			// usage-argv answers binding vectors. The rest are decided once the last
-			// token has been read — required, choices, env fallback, defaults, var_min,
-			// overrides — and need to know a value's type, so they belong to the layer
-			// that owns the target struct. The Go parser draws the line in the same
-			// place.
-			if v.Layer == "post-binding" {
+			if reason, unsupported := notYet[v.ID]; unsupported {
 				skipped++
-				t.Skip("post-binding: belongs to the layer that owns the target struct")
+				t.Skip(reason)
 			}
 			ran++
 
@@ -103,7 +98,7 @@ func TestCorpus(t *testing.T) {
 				lowered[v.Spec] = s
 			}
 
-			got, gotErr := run(s, v.Argv)
+			got, gotErr := run(s, v.Argv, v.Env)
 
 			switch {
 			case v.Expect.Error != "":
@@ -127,8 +122,37 @@ func TestCorpus(t *testing.T) {
 		})
 	}
 
-	t.Logf("%d vectors: %d binding, %d post-binding left to the layer above",
-		len(vectors), ran, skipped)
+	t.Logf("%d vectors: %d answered, %d not yet", len(vectors), ran, skipped)
+
+	// Asserted, so the unsupported set cannot quietly grow: a vector added to
+	// `notYet` without this being raised deliberately fails here instead.
+	if skipped != len(notYet) {
+		t.Errorf("skipped %d vectors but `notYet` lists %d; a listed id may have been "+
+			"renamed, which would silently stop excluding anything", skipped, len(notYet))
+	}
+}
+
+// Vectors this implementation does not answer yet, and why.
+//
+// By id rather than by inspecting the spec. Every one of these is a relationship
+// *between* flags, which needs a resolution step the cold table does not have
+// yet: a name in `conflicts` or `overrides` has to be turned into the entry it
+// refers to. Everything else the post-binding layer covers — required, choices,
+// env fallback, defaults, var_min, var_max — is a property of one entry and is
+// answered.
+//
+// Listing ids is deliberately annoying. Inferring "has a `conflicts` in the spec"
+// would exempt vectors nobody meant to exempt — `overrides-loser-is-not-refilled-from-env`
+// is as much an env question as an overrides one — and the count above is asserted
+// so this list cannot rot into a way of hiding failures.
+var notYet = map[string]string{
+	"conflicts-both-given":                     "conflicts: a relationship between flags",
+	"conflicts-either-order":                   "conflicts: a relationship between flags",
+	"conflicts-one-side-from-env":              "conflicts: a relationship between flags",
+	"conflicts-both-sides-from-env":            "conflicts: a relationship between flags",
+	"overrides-last-wins":                      "overrides: a relationship between flags",
+	"overrides-loser-is-not-refilled-from-env": "overrides: a relationship between flags",
+	"required-unless-unsatisfied":              "required_unless: a relationship between flags",
 }
 
 // note quotes the vector's own explanation on failure, and flags the ones where
@@ -149,40 +173,48 @@ func note(v Vector) string {
 // deliberately does not know: it reports each occurrence and lets the caller
 // decide. Generated code assigns to a field or appends to a slice; here the spec
 // says which of the two to do.
-func run(s *spec.Spec, args []string) (*Parsed, *argv.Error) {
+func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Error) {
+	root, meta := s.Build()
 	multi := s.MultiFlags()
-	out := &Parsed{
-		Cmd:   []string{},
-		Flags: map[string]interface{}{},
-		Args:  map[string]interface{}{},
+
+	// Accumulated by key rather than by name, because the post-binding rules are
+	// keyed that way and two commands in one path may declare the same name — a
+	// subcommand redeclaring a global is ordinary.
+	type bound struct {
+		values      []string
+		occurrences int
+		negated     bool
+	}
+	got := map[uint64]*bound{}
+	entry := func(key uint64) *bound {
+		if got[key] == nil {
+			got[key] = &bound{}
+		}
+		return got[key]
 	}
 
-	p := argv.New(s.Tables(), args)
+	// The commands whose declarations are in scope. A required flag on a command
+	// nobody selected is not missing; it is simply not this invocation's.
+	path := []*argv.Command{root}
+
+	p := argv.New(root, args)
 	for p.Next() {
 		ev := p.Event()
 		switch ev.Kind {
 		case argv.KindCommand:
-			out.Cmd = append(out.Cmd, ev.Command.Name)
+			out := ev.Command
+			path = append(path, out)
 		case argv.KindFlag:
-			name := ev.Flag.Name
-			switch {
-			case multi[name] == spec.MultiCount:
-				// A count flag records one entry per occurrence.
-				out.Flags[name] = append(bools(out.Flags[name]), true)
-			case multi[name] == spec.MultiVar && ev.HasValue:
-				out.Flags[name] = append(strs(out.Flags[name]), ev.Value)
-			case ev.HasValue:
-				out.Flags[name] = ev.Value
-			default:
-				out.Flags[name] = !ev.Negated
+			b := entry(ev.Flag.Key)
+			b.occurrences++
+			b.negated = ev.Negated
+			if ev.HasValue {
+				b.values = append(b.values, ev.Value)
 			}
 		case argv.KindArg:
-			name := ev.Arg.Name
-			if ev.Arg.Var {
-				out.Args[name] = append(strs(out.Args[name]), ev.Value)
-			} else {
-				out.Args[name] = ev.Value
-			}
+			b := entry(ev.Arg.Key)
+			b.occurrences++
+			b.values = append(b.values, ev.Value)
 		}
 	}
 	if err := p.Err(); err != nil {
@@ -192,7 +224,122 @@ func run(s *spec.Spec, args []string) (*Parsed, *argv.Error) {
 		}
 		return nil, e
 	}
+
+	out := &Parsed{
+		Cmd:   []string{},
+		Flags: map[string]interface{}{},
+		Args:  map[string]interface{}{},
+	}
+	for _, cmd := range path[1:] {
+		out.Cmd = append(out.Cmd, cmd.Name)
+	}
+
+	lookup := func(name string) (string, bool) {
+		// The vector's own environment, never the process's, so no result can
+		// depend on the machine running the suite.
+		v, ok := env[name]
+		return v, ok
+	}
+
+	for _, cmd := range path {
+		for _, f := range cmd.Flags {
+			b := got[f.Key]
+			m := meta.Lookup(f.Key)
+
+			var given []string
+			if b != nil && (len(b.values) > 0 || !f.TakesValue) {
+				// A value-less flag that was given has no values, and `nil` would
+				// read as "the command line said nothing" — so the empty slice is
+				// the distinction.
+				given = b.values
+				if given == nil {
+					given = []string{}
+				}
+			}
+			values, source := argv.Fill(m, given, lookup)
+			occurrences := 0
+			if b != nil {
+				occurrences = b.occurrences
+			}
+			if err := argv.Check(m, values, occurrences); err != nil {
+				return nil, err
+			}
+			if v, ok := renderFlag(f, m, multi, values, source, b != nil && b.negated,
+				occurrences); ok {
+				out.Flags[f.Name] = v
+			}
+		}
+		for _, a := range cmd.Args {
+			b := got[a.Key]
+			m := meta.Lookup(a.Key)
+			var given []string
+			if b != nil {
+				given = b.values
+			}
+			values, _ := argv.Fill(m, given, lookup)
+			if err := argv.Check(m, values, 0); err != nil {
+				return nil, err
+			}
+			if len(values) == 0 {
+				continue
+			}
+			if a.Var {
+				out.Args[a.Name] = toList(values)
+			} else {
+				out.Args[a.Name] = values[len(values)-1]
+			}
+		}
+	}
 	return out, nil
+}
+
+// renderFlag turns what a flag ended up with into the shape the corpus records,
+// which depends on what the flag is rather than on where the value came from.
+func renderFlag(f *argv.Flag, m *argv.Meta, multi map[string]spec.Multi,
+	values []string, source argv.Source, negated bool, occurrences int) (interface{}, bool) {
+
+	if !f.TakesValue {
+		// A count flag records one entry per occurrence, so it is asked before
+		// anything that collapses the flag to a single answer.
+		if multi[f.Name] == spec.MultiCount {
+			if occurrences == 0 {
+				return nil, false
+			}
+			list := make([]interface{}, occurrences)
+			for i := range list {
+				list[i] = true
+			}
+			return list, true
+		}
+		switch source {
+		case argv.FromArgv:
+			return !negated, true
+		case argv.FromEnv:
+			// The text has nowhere to go, so it is read as a yes or a no.
+			return argv.EnvTruth(values[0]), true
+		case argv.FromDefault:
+			return len(values) > 0 && values[0] == "true", true
+		}
+		return nil, false
+	}
+
+	if len(values) == 0 {
+		return nil, false
+	}
+	if multi[f.Name] == spec.MultiVar {
+		return toList(values), true
+	}
+	// The last one wins for a flag that is not collecting, which is what a field
+	// assignment does.
+	return values[len(values)-1], true
+}
+
+func toList(values []string) []interface{} {
+	out := make([]interface{}, len(values))
+	for i, v := range values {
+		out[i] = v
+	}
+	return out
 }
 
 func strs(v interface{}) []interface{} {

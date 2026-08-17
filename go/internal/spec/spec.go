@@ -67,18 +67,72 @@ type Flag struct {
 	Count bool `json:"count"`
 	// VarMax here bounds occurrences, which is a post-binding check. The bound
 	// binding cares about is the one on Arg.
-	VarMax int  `json:"var_max"`
-	Arg    *Arg `json:"arg"`
+	VarMax int `json:"var_max"`
+	// VarMin is a post-binding check too, and for the same reason: no single
+	// token can tell you a repeatable flag will end up short.
+	VarMin   int      `json:"var_min"`
+	Required bool     `json:"required"`
+	Default  []string `json:"default"`
+	Env      string   `json:"env"`
+	Arg      *Arg     `json:"arg"`
+}
+
+// choices for a flag are declared on the value it takes, not on the flag.
+func (f *Flag) choices() []string {
+	if f.Arg == nil {
+		return nil
+	}
+	return f.Arg.Choices.list()
+}
+
+// defaults reads through to the value a flag takes, which is the other place a
+// default can be written:
+//
+//	flag "--jobs <n>" {
+//	    arg "<n>" default="4"
+//	}
+//
+// usage-lib falls back to it — `lib/src/parse.rs` says so in as many words and a
+// live parse confirms it — so a Go CLI generated from the same spec has to as
+// well, or the two disagree about what `ex` alone means.
+//
+// Only the default. A nested `env` is *not* read, because usage-lib does not read
+// it either: with `arg "<m>" env="EX_MODE"` inside a flag, `EX_MODE=turbo` leaves
+// the flag unset. Following the nesting for one and not the other looks arbitrary
+// until you try it, so it is recorded here rather than rediscovered.
+func (f *Flag) defaults() []string {
+	if len(f.Default) > 0 {
+		return f.Default
+	}
+	if f.Arg != nil {
+		return f.Arg.Default
+	}
+	return nil
 }
 
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
-	Name       string `json:"name"`
-	Required   bool   `json:"required"`
-	Var        bool   `json:"var"`
-	VarMax     int    `json:"var_max"`
-	VarMin     int    `json:"var_min"`
-	DoubleDash string `json:"double_dash"`
+	Name       string   `json:"name"`
+	Required   bool     `json:"required"`
+	Var        bool     `json:"var"`
+	VarMax     int      `json:"var_max"`
+	VarMin     int      `json:"var_min"`
+	DoubleDash string   `json:"double_dash"`
+	Choices    *Choices `json:"choices"`
+	Default    []string `json:"default"`
+	Env        string   `json:"env"`
+}
+
+// Choices is the declared set of values, which the lowering nests one level.
+type Choices struct {
+	Choices []string `json:"choices"`
+}
+
+func (c *Choices) list() []string {
+	if c == nil {
+		return nil
+	}
+	return c.Choices
 }
 
 // Multi is how a flag accumulates when it is given more than once.
@@ -93,11 +147,22 @@ const (
 	MultiVar
 )
 
-// Tables builds the parse tables for a spec.
+// Tables builds the parse tables for a spec, discarding the cold half.
+func (s *Spec) Tables() *argv.Command {
+	root, _ := s.Build()
+	return root
+}
+
+// Build produces both tables: the hot one binding reads, and the cold one the
+// post-binding rules read.
+//
+// Together, because they share the keys that tie them to each other. Building
+// them in separate passes would mean two places assigning identifiers and one
+// bug away from a `Meta` describing a different entry than the one it names.
 //
 // Inheritance is resolved here rather than in the parser: each command's entry
 // holds the effective value, which is what a generated table would carry.
-func (s *Spec) Tables() *argv.Command {
+func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 	b := &builder{}
 	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
 
@@ -113,7 +178,7 @@ func (s *Spec) Tables() *argv.Command {
 			}
 		}
 	}
-	return root
+	return root, b.meta
 }
 
 // MultiFlags reports which flags accumulate rather than replace, keyed by the
@@ -151,6 +216,18 @@ type builder struct {
 	// can simply count where the Rust derive has to hash: two macro expansions
 	// cannot see each other, and two `go generate` runs over one spec can.
 	key uint64
+	// meta grows in step with the keys, so entry `Key` lands at `meta[Key-1]` and
+	// a lookup is an index.
+	meta argv.Metadata
+}
+
+// record files an entry's cold half at the position its key indexes.
+func (b *builder) record(key uint64, m argv.Meta) {
+	m.Key = key
+	for uint64(len(b.meta)) < key {
+		b.meta = append(b.meta, argv.Meta{})
+	}
+	b.meta[key-1] = m
 }
 
 func (b *builder) next() uint64 {
@@ -207,6 +284,19 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 			out.Shorts = append(out.Shorts, s[0])
 		}
 	}
+	b.record(out.Key, argv.Meta{
+		Name:     f.Name,
+		Flag:     true,
+		Required: f.Required,
+		Choices:  f.choices(),
+		Default:  f.defaults(),
+		Env:      f.Env,
+		VarMin:   clampVarMax(f.VarMin),
+		// Occurrences. The per-occurrence value bound is a limit binding applies,
+		// and is set on the parse table below rather than here.
+		VarMax: clampVarMax(f.VarMax),
+	})
+
 	if f.Arg != nil && f.Arg.Var {
 		// Only a variadic argument is greedy. A var flag with a single-value argument
 		// is repeatable instead: one value per occurrence, which the parser gets by
@@ -230,6 +320,17 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	if a.Var {
 		out.VarMax = clampVarMax(a.VarMax)
 	}
+	b.record(out.Key, argv.Meta{
+		Name:     a.Name,
+		Required: a.Required,
+		Choices:  a.Choices.list(),
+		Default:  a.Default,
+		Env:      a.Env,
+		VarMin:   clampVarMax(a.VarMin),
+		// No VarMax: for an argument the bound is a limit binding applies, which
+		// is what makes `[a]… [b]` fillable at all, so judging it again here would
+		// fail an invocation that never broke it.
+	})
 	return out
 }
 
