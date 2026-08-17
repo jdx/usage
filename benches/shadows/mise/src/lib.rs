@@ -6035,6 +6035,7 @@ pub struct WhichArgs {
 #[derive(Cli)]
 #[usage(
     bin = "mise",
+    name = "mise",
     about = "Dev tools, env vars, and tasks in one CLI",
     long_about = "mise prepares your development environment before each command runs. https://github.com/jdx/mise",
     default_subcommand = "run"

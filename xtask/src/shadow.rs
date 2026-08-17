@@ -132,6 +132,8 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
         true,
         &mut Run {
             bin: &spec.bin,
+            name: &spec.name,
+            version: spec.version.as_deref(),
             default_subcommand: spec.default_subcommand.as_deref(),
             about: spec.about.as_deref(),
             about_long: spec.about_long.as_deref(),
@@ -242,6 +244,14 @@ impl Type {
 /// need a clippy exclusion. They belong together: none of them varies per command.
 struct Run<'a> {
     bin: &'a str,
+    /// What the program calls itself, which is not always what it is invoked as.
+    ///
+    /// usage-lib banners the root page `{name} {version}`, falling back to `{bin}` — so a
+    /// shadow that dropped this rendered a different first line than the spec it came from.
+    name: &'a str,
+    /// Only printed where there is one, which is why five of the fleet's seven have a banner
+    /// and mise does not.
+    version: Option<&'a str>,
     /// Only the root has one, and only it declares it.
     default_subcommand: Option<&'a str>,
     /// The spec's own description, which belongs to the root.
@@ -316,6 +326,17 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     let mut usage_opts: Vec<String> = Vec::new();
     if is_root {
         usage_opts.push(format!("bin = {bin:?}"));
+        // The program's own identity, which the shadow used to leave behind: the derive
+        // defaults `name` from the struct it is written on, so a generated `Cli` called itself
+        // `cli`, and a spec's `version` reached nothing at all. Both are on the root page —
+        // `hk 1.55.0` above the description — so dropping them changed the first line a user
+        // reads. mise's spec declares no version, which is why the gate over it never noticed.
+        if !run.name.is_empty() {
+            usage_opts.push(format!("name = {:?}", run.name));
+        }
+        if let Some(version) = run.version {
+            usage_opts.push(format!("version = {version:?}"));
+        }
         usage_opts.extend(declared_about.iter().cloned());
     }
     // Text around the rest of the page. clap spells the long forms the same way, so both
@@ -370,7 +391,15 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             // independent `about` and `long_about`, and skipping the comment without writing
             // them left the clap shadow not describing the program at all — a fixture for
             // comparing two frameworks cannot have one of them missing the CLI's own about.
-            let mut opts = vec![format!("name = {bin:?}")];
+            // The same fallback the usage dialect uses: a spec whose `name` differs from its
+            // `bin` would otherwise give the two shadows different root identities, and they
+            // exist to be the same CLI told to two frameworks.
+            let name = if run.name.is_empty() { bin } else { run.name };
+            let mut opts = vec![format!("name = {name:?}")];
+            // clap spells this the same way, so the two shadows describe the same program.
+            if let Some(version) = run.version {
+                opts.push(format!("version = {version:?}"));
+            }
             opts.extend(declared_about.iter().cloned());
             out.push_str(&format!("#[command({})]\n", opts.join(", ")));
         }
@@ -1584,6 +1613,49 @@ mod tests {
             1,
             "only the root should declare it: {out}"
         );
+    }
+
+    #[test]
+    fn the_program_says_what_it_is_called_and_which_version() {
+        // usage-lib banners the root page `{name} {version}`. The shadow carried neither, so
+        // its first line was the description where the spec's was the banner — on five of the
+        // seven jdx CLIs. It went unseen because mise's spec declares no `version`, and mise's
+        // spec is what the parity gate reads.
+        let (out, _) = rendered("name \"hk\"\nbin \"hk\"\nversion \"1.55.0\"\n");
+        assert!(out.contains("name = \"hk\""), "{out}");
+        assert!(out.contains("version = \"1.55.0\""), "{out}");
+    }
+
+    #[test]
+    fn a_spec_with_no_version_declares_none() {
+        // mise's case, and the reason a missing banner looked correct: with nothing to print,
+        // both renderers agree either way. Emitting `version` regardless would have the shadow
+        // claim one the spec never gave.
+        let (out, _) = rendered("name \"mise\"\nbin \"mise\"\n");
+        assert!(!out.contains("version ="), "{out}");
+        assert!(out.contains("name = \"mise\""), "{out}");
+    }
+
+    #[test]
+    fn both_dialects_agree_what_the_program_is_called() {
+        // Reported on #968: the clap root formatted its name from `bin` while the usage root had
+        // moved to the spec's `name`, so a spec where the two differ described two programs.
+        let spec = "name \"Fancy\"\nbin \"fancy\"\n";
+        let (usage, _) = rendered_as(spec, Dialect::Usage);
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(usage.contains("name = \"Fancy\""), "{usage}");
+        assert!(clap.contains("name = \"Fancy\""), "{clap}");
+    }
+
+    #[test]
+    fn the_clap_dialect_carries_the_version_too() {
+        // Both shadows describe one program, so a fixture comparing them must not differ in
+        // what the program calls itself.
+        let (out, _) = rendered_as(
+            "name \"hk\"\nbin \"hk\"\nversion \"1.55.0\"\n",
+            Dialect::Clap,
+        );
+        assert!(out.contains("version = \"1.55.0\""), "{out}");
     }
 
     #[test]
