@@ -1444,6 +1444,21 @@ impl Field {
         }
 
         let is_flag = !longs.is_empty() || !shorts.is_empty();
+        // Only a flag's value has a say in this. A positional's brackets come from its type
+        // already — `Option<T>` renders `[NAME]` and `T` renders `<NAME>` — so the attribute
+        // would be read by nothing, and a declaration nothing reads is worse than an error: the
+        // page would keep saying the opposite of what was asked for.
+        //
+        // Tested against `is_flag` and not `is_arg`: `is_arg` is only true where `arg` was
+        // written, and a field with no `long`, `short` or `arg` is a positional as well. That
+        // gap let `#[usage(value_optional)] out: Option<String>` compile and be dropped.
+        if value_optional && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`value_optional` is for a flag's value; a positional says this with its \
+                 type, where `Option<T>` is already `[NAME]`",
+            ));
+        }
         if is_flag && is_arg {
             return Err(syn::Error::new(
                 span,
@@ -2623,6 +2638,48 @@ mod tests {
         "#)
         .expect("should compile");
         assert!(cli.fields[0].required_collection);
+    }
+
+    #[test]
+    fn value_optional_is_refused_where_nothing_would_read_it() {
+        // It says a *flag's* value may be left off. `arg_meta` never emits it, and a valueless
+        // flag has no value to make optional — so on a positional or a `bool`/`count` flag the
+        // declaration compiled and was dropped. Worse than an error: a positional's brackets
+        // come from its type, so the page went on saying the opposite of what was asked.
+        for (decl, word) in [
+            (
+                "#[usage(arg, value_optional)]\n                out: Option<String>,",
+                "type",
+            ),
+            // No `arg` either: a field with no `long`, `short` or `arg` is a positional too,
+            // and testing `is_arg` rather than `is_flag` let this one through.
+            (
+                "#[usage(value_optional)]\n                out: Option<String>,",
+                "type",
+            ),
+            (
+                "#[usage(long, value_optional)]\n                out: bool,",
+                "no value",
+            ),
+            (
+                "#[usage(long, count, value_optional)]\n                out: u8,",
+                "no value",
+            ),
+        ] {
+            let err = rejection(&format!(
+                "struct Ex {{\n                {decl}\n            }}"
+            ));
+            assert!(err.contains(word), "unhelpful message for `{decl}`: {err}");
+        }
+        // And where there is a flag value, it still works.
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, value_optional)]
+                bump: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert!(cli.fields[0].value_optional);
     }
 
     #[test]

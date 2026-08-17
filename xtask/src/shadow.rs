@@ -862,6 +862,16 @@ fn clap_flag_opts(
                 Some(max) => opts.push(format!("num_args = {least}..={max}")),
                 None => opts.push(format!("num_args = {least}..")),
             }
+        } else if !arg.required {
+            // Noted, not emitted. `num_args = 0..=1` was the obvious translation and it is the
+            // wrong one: `value_optional` is help-only — usage-lib's parser refuses a bare
+            // `--bump` exactly as it refuses a bare `--port` — so declaring it in clap would
+            // make the clap shadow accept a line the usage shadow rejects, and the pair exists
+            // to be one grammar told to two frameworks.
+            //
+            // A real limitation, then, rather than a gap in this file: clap cannot print
+            // `[BUMP]` without also accepting `--bump` on its own.
+            skipped.note("a flag's value being optional in help only");
         }
         if flag.required {
             opts.push("required = true".into());
@@ -1662,6 +1672,33 @@ mod tests {
             Dialect::Clap,
         );
         assert!(out.contains("version = \"1.55.0\""), "{out}");
+    }
+
+    #[test]
+    fn the_clap_dialect_counts_an_optional_value_as_lost() {
+        // Reported twice on #969, in opposite directions, and the second one was right. Emitting
+        // `num_args = 0..=1` made clap accept `--bump` with no value where usage-lib rejects it,
+        // so the two shadows stopped describing one grammar. clap cannot show `[BUMP]` without
+        // accepting the bare form, which makes this a limitation to record rather than a
+        // translation to make.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag --bump {\n  arg \"[BUMP]\" required=#false\n}\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(
+            !out.contains("num_args"),
+            "the grammar must not change: {out}"
+        );
+        assert_eq!(
+            skipped
+                .counts
+                .get("a flag's value being optional in help only"),
+            Some(&1),
+            "{:?}",
+            skipped.counts
+        );
+
+        // The usage dialect still says it, since that is where it means something.
+        let (out, _) = rendered_as(spec, Dialect::Usage);
+        assert!(out.contains("value_optional"), "{out}");
     }
 
     #[test]
