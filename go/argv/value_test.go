@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +61,33 @@ func TestTheConvertersAgreeWithRustAtTheEdges(t *testing.T) {
 	for _, v := range []string{"1e3", ".5", "5.", "inf", "-inf", "NaN", "infinity"} {
 		if _, err := Float("ratio", v); err != nil {
 			t.Errorf("%q parses in Rust, so it should here: %v", v, err)
+		}
+	}
+
+	// Too large to hold is `inf` in Rust; Go returns the same value beside a range
+	// error, so the value is kept and the error is not.
+	if f, err := Float("ratio", "1e1000"); err != nil || !math.IsInf(f, 1) {
+		t.Errorf("an overflow is +Inf in Rust, got %v %v", f, err)
+	}
+	if f, err := Float("ratio", "-1e1000"); err != nil || !math.IsInf(f, -1) {
+		t.Errorf("an overflow is -Inf in Rust, got %v %v", f, err)
+	}
+	// And an underflow is zero on both sides, without a complaint on either.
+	if f, err := Float("ratio", "1e-1000"); err != nil || f != 0 {
+		t.Errorf("an underflow is 0, got %v %v", f, err)
+	}
+
+	// A signed NaN parses in Rust and not in Go. The sign means nothing either
+	// way.
+	for _, v := range []string{"+nan", "-nan", "+NaN"} {
+		if f, err := Float("ratio", v); err != nil || !math.IsNaN(f) {
+			t.Errorf("%q is NaN in Rust, got %v %v", v, f, err)
+		}
+	}
+	// Not a licence for anything else wearing a sign.
+	for _, v := range []string{"+n", "-nano", "+"} {
+		if _, err := Float("ratio", v); err == nil {
+			t.Errorf("%q is not a number in either language", v)
 		}
 	}
 }

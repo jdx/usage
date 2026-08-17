@@ -1,6 +1,8 @@
 package argv
 
 import (
+	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -57,20 +59,43 @@ func Uint(name, value string) (uint64, *Error) {
 
 // Float converts a bound value to a float.
 //
-// Two of Go's spellings are refused first, because Rust has neither:
-// `strconv.ParseFloat` takes digit separators (`1_5`) and hexadecimal floats
-// (`0x1.8p0`), and `f64::from_str` takes neither. The rest agree, `inf` and `NaN`
-// and a bare `.5` included, which is why this is a check on two characters rather
-// than a reimplementation of the grammar.
+// The two standard libraries disagree at three edges, and each one is settled the
+// way Rust settles it — a spec that means one thing compiled through the derive
+// and another through this is the failure mode the whole port is written against.
+//
+//   - Go takes digit separators (`1_5`) and hexadecimal floats (`0x1.8p0`);
+//     `f64::from_str` takes neither, so they are refused before parsing. Neither
+//     `_` nor `x` appears in any float Rust accepts, which is why this is a check
+//     on two characters rather than a grammar of its own.
+//   - A number too large to hold is `inf` in Rust and a range error in Go, which
+//     hands back the same ±Inf beside it. The value is kept and the error is not.
+//   - A signed NaN — `+nan`, `-NaN` — parses in Rust and not in Go. The sign
+//     means nothing on either side.
+//
+// Everything else agrees: `inf`, `infinity`, a bare `.5` or `5.`, and an
+// underflow to zero.
 func Float(name, value string) (float64, *Error) {
 	if strings.ContainsAny(value, "_xX") {
 		return 0, invalid(name, value, "a number")
 	}
 	n, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return 0, invalid(name, value, "a number")
+	switch {
+	case err == nil:
+		return n, nil
+	case errors.Is(err, strconv.ErrRange):
+		// ±Inf for an overflow, zero for an underflow — the value Go returns is
+		// the one Rust would have.
+		return n, nil
+	case signedNaN(value):
+		return math.NaN(), nil
 	}
-	return n, nil
+	return 0, invalid(name, value, "a number")
+}
+
+// signedNaN reports the one spelling Rust's f64 takes that Go's does not.
+func signedNaN(value string) bool {
+	return len(value) > 1 && (value[0] == '+' || value[0] == '-') &&
+		strings.EqualFold(value[1:], "nan")
 }
 
 // Bool converts a bound value to a bool.
