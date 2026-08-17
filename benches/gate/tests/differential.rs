@@ -7,20 +7,40 @@
 //! # Why three and not two
 //!
 //! usage-lib is the reference for *rendering*, and the gate beside this holds usage-argv to it
-//! byte for byte. It is a poor reference for *accepting*, and the first run of this test is what
-//! showed it. Every disagreement in that run had usage-argv stricter than usage-lib, which reads
-//! as a pile of usage-argv bugs until clap is asked the same questions:
+//! byte for byte. It is a weaker reference for *accepting*: clap is what mise ships today, so
+//! clap is what a replacement may not regress, and a line all three read differently is worth
+//! seeing whichever way it goes. Hence three.
 //!
-//! | line | usage-argv | usage-lib | clap |
-//! |---|---|---|---|
-//! | `mise generate` | refuse | **accept** | refuse |
-//! | `mise bootstrap macos-defaults` | refuse | **accept** | refuse |
-//! | `mise -t --interactive` | refuse | **accept** | refuse |
+//! The first run of this test produced disagreements that all looked the same way round —
+//! usage-argv stricter than usage-lib — and an earlier version of this comment concluded that
+//! usage-lib was lax and had three things to fix. **That was wrong, and the corpus says so.**
+//! Two of the three are the grammar working as specified:
 //!
-//! usage-argv agrees with clap; usage-lib is the outlier, and being lax is how it manages to be.
-//! So the standard here is clap, not usage-lib: clap is what mise ships today, so clap is what a
-//! replacement may not regress. A disagreement with usage-lib where clap sides with usage-argv is
-//! usage-lib's to fix, and is recorded as such below.
+//! | corpus vector | what it specifies |
+//! |---|---|
+//! | `long-repeated-keeps-the-last` | a repeat is a correction, and the later occurrence wins |
+//! | `long-unknown` | an unknown flag is "data in transit", offered to the positionals |
+//!
+//! Acting on that reading got as far as three failing conformance vectors before the mistake
+//! surfaced. The third was real and is fixed: `subcommand_required` was in the spec and no
+//! parser read it (#992).
+//!
+//! So where do the refusals come from? `Error::DuplicateFlag` is constructed in exactly one
+//! place — `derive/src/codegen.rs` — and never by usage-argv's parser. The layers differ, not
+//! the parsers:
+//!
+//! | | a flag given twice |
+//! |---|---|
+//! | usage-argv, the parser | accepts, last wins — conformant |
+//! | usage-lib | accepts, last wins — conformant |
+//! | usage-derive's post-binding check | refuses |
+//! | clap | refuses |
+//!
+//! Both are right in their own domain. A derive-generated binary is what an adopter compares to
+//! clap, and there the two agree. A spec-driven parse is what mise runs *task* arguments
+//! through, and there a wrapper appending `--jobs 2` to a command line it did not write is the
+//! documented case. So a disagreement of this shape is a fact about the layers, not a defect,
+//! and the arm below says so — do not "fix" usage-lib to close it.
 //!
 //! # A verdict is not enough
 //!
@@ -264,9 +284,13 @@ fn explained(o: Outcome) -> Option<&'static str> {
             clap: Question,
         } => Some("a question, which usage-lib answers by accepting rather than by erroring"),
 
-        // usage-argv and clap both refuse; usage-lib accepts. Three of the four classes the
-        // first run found are this shape: a missing subcommand, a flag whose value is missing,
-        // and a repeated flag that may not repeat. usage-lib accepts all three.
+        // usage-argv and clap both refuse; usage-lib accepts.
+        //
+        // Read once as "usage-lib is lax in three ways". It is not — see the header. Two of the
+        // three are specified behaviour (`long-repeated-keeps-the-last`, `long-unknown`), and
+        // the refusals come from usage-derive's post-binding checks, which the grammar does not
+        // require and clap happens to share. The third, a missing subcommand, was real and is
+        // fixed, so lines of that cause no longer reach this arm at all.
         //
         // The narrowing here is on the *set* of reasons rather than on the two matching. A
         // first attempt required `argv == clap` and was wrong: a generated line often carries
@@ -279,14 +303,17 @@ fn explained(o: Outcome) -> Option<&'static str> {
         // The shape an adopter cannot be hurt by, too — usage-argv and clap agree on the
         // answer — which is why a looser rule is the right one here and not in the arms below.
         //
-        // Recorded rather than fixed: tightening usage-lib changes what every spec-driven
-        // consumer accepts, which is its own change with its own blast radius.
+        // Recorded, and not to be "fixed": tightening usage-lib here would break the corpus.
+        // An attempt to do exactly that failed `long-repeated-keeps-the-last`,
+        // `long-boolean-repeated` and `a-bound-counts-one-occurrence` — which is the check that
+        // caught the misreading, and the reason this arm now carries the reasoning rather than a
+        // to-do.
         Outcome {
             argv,
             lib: true,
             clap,
         } if named_refusal(argv) && named_refusal(clap) => {
-            Some("usage-lib is lax where usage-argv and clap agree")
+            Some("the derive and clap add a rule the grammar does not require")
         }
 
         // A word that names no command: `mise build`, and `mise -` for the same reason. Both
@@ -604,6 +631,47 @@ fn words_after_a_bound_positional_stay_values_for_usage() {
             .collect::<Vec<_>>(),
     );
     assert!(!bare.accepted().2, "{bare:?}");
+}
+
+#[test]
+fn usage_lib_accepting_a_repeat_is_the_grammar_not_a_defect() {
+    // The guard on the misreading in the header. An earlier reading of this file called
+    // usage-lib lax for accepting these and set out to tighten it; the corpus specifies both,
+    // and the attempt failed `long-repeated-keeps-the-last`, `long-boolean-repeated` and
+    // `a-bound-counts-one-occurrence`.
+    //
+    // Asserted here rather than left to prose, so that tightening usage-lib fails a test whose
+    // name says why — the corpus vectors are in `corpus/01-long-flags.json`, and this is the
+    // same statement said where someone touching the parser will run it.
+    let spec = spec();
+
+    // A repeat is a correction: the later occurrence wins. mise's `--jobs` is the shape.
+    let repeated = run(
+        &spec,
+        &["--jobs", "1", "--jobs", "2"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert!(
+        repeated.lib,
+        "usage-lib must accept a repeated flag: `long-repeated-keeps-the-last` specifies it. {repeated:?}"
+    );
+
+    // An unknown flag is data in transit, offered to the positionals.
+    let unknown = run(
+        &spec,
+        &["--wat"].iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+    );
+    assert!(
+        unknown.lib,
+        "usage-lib must accept an unknown flag: `long-unknown` specifies it. {unknown:?}"
+    );
+
+    // And the refusal that does exist comes from the layer above the parser: the derive's
+    // post-binding check, which is what an adopter compares against clap.
+    assert_eq!(repeated.argv, Verdict::Conflict, "{repeated:?}");
+    assert_eq!(repeated.clap, Verdict::Conflict, "{repeated:?}");
 }
 
 #[test]
