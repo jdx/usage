@@ -34,6 +34,15 @@ type Help struct {
 	// ValueName is what a flag's value is called. Empty for a flag that takes
 	// none.
 	ValueName string
+	// ValueDemanded is the same required-and-undefaulted test as [Help.Demanded],
+	// applied to the flag's *value* rather than to the flag.
+	//
+	// The two are independent, and usage-lib writes both: `<--v <n>>` is a
+	// required flag whose value must be given, and `<--jobs [n]>` is a required
+	// flag whose value has a default. Angling the value unconditionally — which
+	// is what usage-argv does — is invisible until a spec has a flag whose value
+	// is optional or defaulted, and mise has none.
+	ValueDemanded bool
 	// Short is the one-line help, and Long the fuller text `--help` prefers.
 	Short string
 	Long  string
@@ -183,7 +192,11 @@ func flagUsage(f *Flag, h *Help) string {
 		if h != nil && h.ValueName != "" {
 			name = h.ValueName
 		}
-		out.WriteString(" <" + name + ">")
+		open, close := "[", "]"
+		if h != nil && h.ValueDemanded {
+			open, close = "<", ">"
+		}
+		out.WriteString(" " + open + name + close)
 		if f.Variadic {
 			out.WriteString("…")
 		}

@@ -478,20 +478,24 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 			out.Shorts = append(out.Shorts, s[0])
 		}
 	}
-	valueName := ""
-	if f.Arg != nil && f.Arg.Name != f.Name {
-		valueName = f.Arg.Name
+	valueName, valueDemanded := "", false
+	if f.Arg != nil {
+		if f.Arg.Name != f.Name {
+			valueName = f.Arg.Name
+		}
+		valueDemanded = f.Arg.Required && len(f.Arg.Default) == 0
 	}
 	b.recordHelp(out.Key, argv.Help{
 		Hide: f.Hide,
 		// Required *and* undefaulted: a required flag with a default is one the
 		// user never has to type, so the line brackets it.
-		Demanded:   f.Required && len(f.Default) == 0,
-		Repeatable: f.Var,
-		ValueName:  valueName,
-		Short:      first(f.HelpFirstLine, f.Help),
-		Long:       first(f.HelpLong, f.Help),
-		Heading:    f.HelpHeading,
+		Demanded:      f.Required && len(f.Default) == 0,
+		Repeatable:    f.Var,
+		ValueName:     valueName,
+		ValueDemanded: valueDemanded,
+		Short:         first(f.HelpFirstLine, f.Help),
+		Long:          first(f.HelpLong, f.Help),
+		Heading:       f.HelpHeading,
 	})
 	b.record(out.Key, argv.Meta{
 		Name:     f.Name,

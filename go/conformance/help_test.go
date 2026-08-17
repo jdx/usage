@@ -132,3 +132,37 @@ func lowerFile(t *testing.T, usageBin, path string) *spec.Spec {
 	}
 	return &s
 }
+
+// A flag's value follows the same required-and-undefaulted test as a positional,
+// independently of the flag itself.
+//
+// The four combinations, all checked against usage-lib's own line rather than
+// against what this happens to produce. mise has none of the bracketed cases —
+// every flag value it declares is required and undefaulted — so the parity test
+// over its 211 commands passes either way, which is exactly why these are here.
+//
+// Worth recording that usage-argv angles the value unconditionally and so differs
+// from usage-lib on the last three. This follows usage-lib, since that is the
+// reference the help output is measured against.
+func TestAFlagValueIsBracketedByItsOwnRequiredness(t *testing.T) {
+	usageBin := findUsage(t)
+	for _, c := range []struct{ decl, want string }{
+		{`flag "--tool <TOOL>"`, "ex [--tool <TOOL>]"},
+		{`flag "--v <n>" required=#true`, "ex <--v <n>>"},
+		{`flag "--opt [n]"`, "ex [--opt [n]]"},
+		{"flag \"--jobs <n>\" required=#true {\n  arg \"<n>\" default=\"4\"\n}", "ex <--jobs [n]>"},
+	} {
+		s := lower(t, usageBin, "name \"ex\"\nbin \"ex\"\n"+c.decl+"\n")
+		root, _, help := s.BuildAll()
+
+		got := argv.UsageLine([]string{"ex"}, root, help)
+		if got != c.want {
+			t.Errorf("%s\n  want %s\n  got  %s", c.decl, c.want, got)
+		}
+		// And the reference agrees, which is what makes `want` above more than an
+		// assertion about my own code.
+		if reference := "ex " + s.Cmd.Usage; reference != c.want {
+			t.Errorf("%s: the oracle says %q, not %q", c.decl, reference, c.want)
+		}
+	}
+}

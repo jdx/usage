@@ -709,6 +709,12 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
         if arg.name != flag.name {
             fields.push(format!("ValueName: {}", go_string(&arg.name)));
         }
+        // The value's own requiredness, which is independent of the flag's:
+        // `<--v <n>>` is a required flag whose value must be given, and
+        // `<--jobs [n]>` a required flag whose value has a default.
+        if arg.required && arg.default.is_empty() {
+            fields.push("ValueDemanded: true".to_string());
+        }
     }
     if let Some(help) = flag.help_first_line.as_deref().or(flag.help.as_deref()) {
         fields.push(format!("Short: {}", go_string(help)));
