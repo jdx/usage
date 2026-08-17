@@ -24,8 +24,8 @@
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
-use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
-use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta};
+use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
+use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta, GroupMeta};
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
 /// A command's two tables, built together so the metadata can borrow the parse table.
@@ -144,6 +144,7 @@ pub fn build(
         after_help: opt(&cmd.after_help),
         after_long_help: opt(&cmd.after_help_long),
         examples: examples(&cmd.examples),
+        groups: groups(&cmd.groups),
         flags: Box::leak(flag_metas.into_boxed_slice()),
         args: Box::leak(arg_metas.into_boxed_slice()),
         subcommands: Box::leak(
@@ -411,6 +412,30 @@ fn example(e: &SpecExample) -> Example<'static> {
         header: opt(&e.header),
         help: opt(&e.help),
     }
+}
+
+/// The command's groups, as usage-argv's cold model of them.
+///
+/// Selectors are leaked one at a time rather than joined: a group names flags the way every
+/// other relationship does, and the metadata holds them in that form.
+fn groups(list: &[SpecGroup]) -> &'static [GroupMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|g| GroupMeta {
+                name: leak(&g.name),
+                members: Box::leak(
+                    g.members
+                        .iter()
+                        .map(|m| leak(m))
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice(),
+                ),
+                required: g.required,
+                multiple: g.multiple,
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
 }
 
 fn examples(list: &[SpecExample]) -> &'static [Example<'static>] {
