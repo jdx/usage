@@ -40,6 +40,10 @@ use crate::{Spec, SpecArg, SpecCommand, SpecDoubleDashChoices, SpecFlag};
 pub struct GoOptions {
     /// The Go package clause. Defaults to the spec's `bin`, made into an
     /// identifier.
+    ///
+    /// Must satisfy [`is_valid_package`]. A caller taking this from a user should
+    /// check it and say so; one that does not gets it sanitized, because emitting a
+    /// file that cannot compile helps nobody.
     pub package: Option<String>,
 }
 
@@ -69,10 +73,14 @@ struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     fn new(spec: &'a Spec, opts: &GoOptions) -> Self {
-        let package = opts
-            .package
-            .clone()
-            .unwrap_or_else(|| package_ident(&spec.bin));
+        // An explicit package that is not an identifier is sanitized rather than
+        // emitted: a caller that wants to reject it should ask `is_valid_package`
+        // first, which the CLI does.
+        let package = match opts.package.as_deref() {
+            Some(name) if is_valid_package(name) => name.to_string(),
+            Some(name) => package_ident(name),
+            None => package_ident(&spec.bin),
+        };
         Emitter {
             spec,
             package,
@@ -138,7 +146,11 @@ impl<'a> Emitter<'a> {
         let named = if root {
             self.next_key += 1;
             Named {
-                key: "CmdRoot".to_string(),
+                // Claimed through the same counter as everything else, not just
+                // spelled: a subcommand named `root` would otherwise be handed
+                // `CmdRoot` too, and the file would declare the constant twice and
+                // fail to compile.
+                key: self.unique("CmdRoot"),
                 var: "Root".to_string(),
                 number: self.next_key,
             }
@@ -244,17 +256,21 @@ impl<'a> Emitter<'a> {
     }
 
     fn tables(&mut self, commands: &[Emitted]) {
-        // Resolved once, against the root's own subcommands, because the spec
-        // declares it once at the top. A name nothing answers to is left unset
-        // rather than guessed at.
+        // Resolved once, against the root's *direct* subcommands, because the spec
+        // declares it once at the top and it names one of them. Searching the whole
+        // tree instead is what wired mise's `default_subcommand run` to `oci run`,
+        // which comes first in a depth-first walk — the parser would then have
+        // descended into a command that is not the root's child at all. A name
+        // nothing answers to is left unset rather than guessed at.
         let default_subcommand = self.spec.default_subcommand.as_ref().and_then(|name| {
-            commands
+            commands[0]
+                .subcommands
                 .iter()
+                .map(|at| &commands[*at])
                 .find(|e| {
-                    !e.root
-                        && (&e.cmd.name == name
-                            || e.cmd.aliases.contains(name)
-                            || e.cmd.hidden_aliases.contains(name))
+                    &e.cmd.name == name
+                        || e.cmd.aliases.contains(name)
+                        || e.cmd.hidden_aliases.contains(name)
                 })
                 .map(|e| e.named.var.clone())
         });
@@ -506,14 +522,66 @@ fn clamp_var_max(max: usize) -> u32 {
     u32::try_from(max).unwrap_or(u32::MAX)
 }
 
+/// Go's reserved words, which cannot be a package name.
+///
+/// Not hypothetical: `go`, `range`, `select`, `import` and `package` are all
+/// plausible names for a CLI, and `package go` does not compile.
+const GO_KEYWORDS: &[&str] = &[
+    "break",
+    "case",
+    "chan",
+    "const",
+    "continue",
+    "default",
+    "defer",
+    "else",
+    "fallthrough",
+    "for",
+    "func",
+    "go",
+    "goto",
+    "if",
+    "import",
+    "interface",
+    "map",
+    "package",
+    "range",
+    "return",
+    "select",
+    "struct",
+    "switch",
+    "type",
+    "var",
+];
+
+/// Whether a string can be written after `package`.
+///
+/// Deliberately ASCII-only. Go itself allows a Unicode letter, but a package name
+/// that needs one is a worse problem for an adopter than the restriction is.
+pub fn is_valid_package(name: &str) -> bool {
+    !name.is_empty()
+        && !GO_KEYWORDS.contains(&name)
+        && !name.starts_with(|c: char| c.is_ascii_digit())
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 /// A Go package identifier from a binary name: `my-cli` is not one, `mycli` is.
+///
+/// Only ever applied to a name derived from the spec, which the author did not
+/// choose for this purpose and cannot be asked to fix. A `--package` given
+/// explicitly is checked rather than mangled — see [`is_valid_package`] — because
+/// silently emitting `mypkg` for someone who asked for `my-pkg` is a surprise
+/// waiting in a build script.
 fn package_ident(bin: &str) -> String {
-    let cleaned: String = bin
+    let lowered: String = bin
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-        .collect();
-    let lowered = cleaned.to_ascii_lowercase();
-    if lowered.is_empty() || lowered.starts_with(|c: char| c.is_ascii_digit()) {
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if lowered.is_empty()
+        || lowered.starts_with(|c: char| c.is_ascii_digit())
+        || GO_KEYWORDS.contains(&lowered.as_str())
+    {
         format!("cli{lowered}")
     } else {
         lowered
@@ -648,6 +716,97 @@ cmd "run" {
         assert_eq!(package_ident("my-cli"), "mycli");
         assert_eq!(package_ident("7zip"), "cli7zip");
         assert_eq!(package_ident(""), "cli");
+        // `package go` does not compile, and `go` is a plausible name for a CLI.
+        assert_eq!(package_ident("go"), "cligo");
+        assert_eq!(package_ident("type"), "clitype");
+    }
+
+    #[test]
+    fn a_package_that_would_not_compile_is_refused_rather_than_emitted() {
+        assert!(is_valid_package("mycli"));
+        assert!(is_valid_package("mise_tables"));
+        assert!(!is_valid_package("my-pkg"));
+        assert!(!is_valid_package("7zip"));
+        assert!(!is_valid_package(""));
+        assert!(!is_valid_package("range"));
+
+        // A library caller that skips the check still gets a file that compiles.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
+        let out = generate(
+            &spec,
+            &GoOptions {
+                package: Some("my-pkg".into()),
+            },
+        );
+        assert!(out.contains("package mypkg"), "{out}");
+    }
+
+    /// The bug the checked-in mise tables caught: `default_subcommand run` was
+    /// wired to `oci run`, which a depth-first walk reaches first.
+    ///
+    /// It names a subcommand *of the root*, so nothing deeper is a candidate — and
+    /// the parser would otherwise descend into a command that is not the root's
+    /// child at all.
+    #[test]
+    fn a_default_subcommand_ignores_a_deeper_command_of_the_same_name() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "oci" {
+    cmd "run" {}
+}
+cmd "run" {
+    arg "[args]..." var=#true
+}
+"#);
+        assert!(
+            out.contains("DefaultSubcommand: cmdRun,"),
+            "should point at the root's own `run`, got:\n{out}"
+        );
+    }
+
+    /// A subcommand actually named `root` wants the constant the root has.
+    #[test]
+    fn a_subcommand_named_root_does_not_collide_with_the_root() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "root" {
+    flag "--wat"
+}
+"#);
+        // By first token, because the const block is column-aligned: matching
+        // "CmdRoot uint64" would find nothing and pass for the wrong reason.
+        let declared = |name: &str| {
+            out.lines()
+                .filter(|l| l.split_whitespace().next() == Some(name))
+                .count()
+        };
+        assert_eq!(declared("CmdRoot"), 1, "CmdRoot declared twice:\n{out}");
+        assert_eq!(declared("CmdRoot2"), 1, "no distinct key for it:\n{out}");
+    }
+
+    /// The two `var_max` are different questions, and the corpus pins them apart:
+    /// on a flag's *argument* it bounds one occurrence's values and belongs in the
+    /// binding table, while on the flag it counts occurrences and is checked after
+    /// the parse.
+    #[test]
+    fn only_the_per_occurrence_bound_reaches_the_table() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--include <pattern>..." {
+    arg "<pattern>..." var=#true var_max=2
+}
+flag "--tag <t>" var=#true var_max=1
+"#);
+        assert!(
+            out.contains("Name: \"include\", Longs: []string{\"include\"}, TakesValue: true, Variadic: true, VarMax: 2"),
+            "{out}"
+        );
+        let tag = out.lines().find(|l| l.contains("\"tag\"")).unwrap();
+        assert!(!tag.contains("VarMax"), "occurrence bound leaked: {tag}");
     }
 
     #[test]
