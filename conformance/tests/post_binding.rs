@@ -753,3 +753,46 @@ fn a_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
     assert!(group.required);
     assert_eq!(group.members.len(), 3);
 }
+
+/// Two groups on one command, one required and one exclusive.
+#[derive(Cli)]
+#[usage(bin = "ex4")]
+#[usage(group("input", required))]
+struct TwoGroups {
+    #[usage(long, group = "input")]
+    file: Option<String>,
+    #[usage(long, group = "input")]
+    url: Option<String>,
+    #[usage(long, group = "format")]
+    json: bool,
+    #[usage(long, group = "format")]
+    yaml: bool,
+}
+
+#[test]
+fn a_conflict_answers_before_an_unsatisfied_group_does() {
+    // Both are wrong here: `input` has no member, and `format` has two. The conflict is
+    // the more useful answer — it says which flag not to have typed, where the other
+    // asks for one more — and it is the order the rest of the checks already follow.
+    let a = argv(["--json", "--yaml"]);
+    assert!(
+        matches!(
+            TwoGroups::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the exclusivity of a later group should answer before an earlier group's requiredness"
+    );
+
+    // With the conflict gone, the unsatisfied group is what is left to say.
+    let a = argv(["--json"]);
+    assert!(matches!(
+        TwoGroups::parse_from(&a),
+        Err(Error::MissingGroup { group: "input", .. })
+    ));
+
+    // And with both satisfied, the values land where they were declared.
+    let a = argv(["--file", "f", "--yaml"]);
+    let two = TwoGroups::parse_from(&a).expect("one from each group");
+    assert_eq!(two.file.as_deref(), Some("f"));
+    assert!(two.url.is_none() && two.yaml && !two.json);
+}

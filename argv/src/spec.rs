@@ -78,6 +78,27 @@ fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
         .find_map(|sub| duplicate_flag_form(sub))
 }
 
+/// A group name that two declarations on the same command both claim, if any.
+///
+/// Within one struct the derive catches this, and `#[usage(flatten)]` joins declarations
+/// from two expansions that cannot see each other — so a parent and the struct it
+/// flattens can each declare `input`, and each then checks only its own members. One
+/// member from either side would satisfy neither exclusion, and the emitted KDL would
+/// carry two `group "input"` nodes saying different things.
+///
+/// Checked here for the same reason duplicate flag forms are: this is where the joined
+/// tables are visible.
+fn duplicate_group_name(meta: &CommandMeta<'_>) -> Option<std::string::String> {
+    let mut names: std::vec::Vec<&str> = meta.groups.iter().map(|g| g.name).collect();
+    names.sort_unstable();
+    if let Some(pair) = names.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0].to_string());
+    }
+    meta.subcommands
+        .iter()
+        .find_map(|sub| duplicate_group_name(sub))
+}
+
 /// An argument that no word could ever reach, if any.
 ///
 /// An unbounded variadic takes every remaining word, so what follows it can never be filled —
@@ -714,6 +735,14 @@ impl Spec<'_> {
              be reached. With `flatten` this is the collision neither expansion can see: \
              the parent and the struct it flattens each declared it.",
             duplicate_flag_form(self.root.cmd)
+        );
+        debug_assert!(
+            duplicate_group_name(self.root).is_none(),
+            "two groups on the same command are called {:?}, so each would enforce only \
+             its own members and one from either side would satisfy neither. With \
+             `flatten` this is the collision neither expansion can see: the parent and \
+             the struct it flattens each declared it. Give one of them another name.",
+            duplicate_group_name(self.root)
         );
         debug_assert!(
             unfillable_arg(self.root.cmd).is_none(),

@@ -867,6 +867,16 @@ impl Cli {
                      a `long` or a `short`",
                 ));
             }
+            // `group("")` on the struct is refused as nameless; two fields saying
+            // `group = ""` would otherwise form the same nameless group by the back
+            // door, and it would be emitted and reported with nothing to call it.
+            if name.is_empty() {
+                return Err(syn::Error::new(
+                    field.span,
+                    "a group with no name answers to nothing; give it one, as \
+                     `group = \"input\"`",
+                ));
+            }
             match group_members.iter_mut().find(|(n, _)| *n == name) {
                 Some((_, members)) => members.push(field),
                 None => group_members.push((name, vec![field])),
@@ -3589,6 +3599,19 @@ mod tests {
         "#,
         );
         assert!(err.contains("between flags"), "unhelpful message: {err}");
+
+        // A group with no name answers to nothing, whichever way it is written.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, group = "")]
+                file: Option<String>,
+                #[usage(long, group = "")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("no name"), "unhelpful message: {err}");
     }
 
     #[test]

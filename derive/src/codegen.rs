@@ -3330,12 +3330,18 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     }
                 }
             });
-            quote! {
-                #exclusivity
-                #requiredness
-            }
+            (exclusivity, requiredness)
         })
         .collect::<Vec<_>>();
+    // Two passes rather than one block per group, because the order between *kinds* of
+    // check is the one this function promises: what the user typed wrong before what
+    // they left out. Emitted together, an earlier group's `MissingGroup` would answer
+    // before a later group's `ConflictingFlags` — and before a flattened child's, since
+    // those run later still.
+    let group_exclusivity_checks: Vec<TokenStream> =
+        group_checks.iter().filter_map(|(e, _)| e.clone()).collect();
+    let group_required_checks: Vec<TokenStream> =
+        group_checks.iter().filter_map(|(_, r)| r.clone()).collect();
 
     // `required_if` and `required_unless` are the same question asked two ways: which
     // other flags decide whether this one had to be given. Neither needs to know the
@@ -3402,10 +3408,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
-        #(#group_checks)*
+        #(#group_exclusivity_checks)*
         #(#requirement_checks)*
         #(#flattened_checks)*
         #(#required_checks)*
+        #(#group_required_checks)*
         #(#relationship_required_checks)*
         #(#choice_checks)*
         #(#bound_checks)*
