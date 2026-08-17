@@ -1,7 +1,14 @@
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
+/// Everything that can go wrong reading a spec or a command line against one.
+///
+/// `#[non_exhaustive]`, so a caller matching on it needs a `_` arm. That is the point:
+/// this enum grows every time the spec learns to say something new — `MissingGroup`
+/// arrived with groups, `ArgRequiresDoubleDash` with `double_dash` — and without this
+/// each one is a major release for everyone downstream.
 #[derive(Error, Diagnostic, Debug)]
+#[non_exhaustive]
 pub enum UsageErr {
     #[error("Invalid flag `{token}`: {reason}")]
     InvalidFlag {
@@ -15,6 +22,14 @@ pub enum UsageErr {
 
     #[error("Missing required flag: --{0} <{0}>")]
     MissingFlag(String),
+
+    /// A required group had none of its members given.
+    ///
+    /// Its own variant rather than a [`UsageErr::MissingFlag`] holding a sentence,
+    /// because there is no one flag to name: the group is the thing that was not
+    /// satisfied, and a caller that renders errors itself needs the members as members.
+    #[error("Missing one of the required flags in group {group}: {members}")]
+    MissingGroup { group: String, members: String },
 
     #[error("Invalid usage config")]
     InvalidInput(

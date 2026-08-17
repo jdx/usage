@@ -74,6 +74,9 @@ mistake, and silently honouring one of them hides it.
 A conflict holds in either direction, so declaring it once is enough; it applies to flags
 that were actually given, not to defaults.
 
+For three or more flags that exclude each other, or for "one of these is required", a
+[`group`](/spec/reference/group) says in one node what `conflicts` says once per pair.
+
 ## `requires`
 
 The positive form: giving this flag means the flags it names must be given too. Every

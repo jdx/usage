@@ -83,6 +83,7 @@ export default defineConfig({
               { text: "cmd", link: "/spec/reference/cmd" },
               { text: "complete", link: "/spec/reference/complete" },
               { text: "flag", link: "/spec/reference/flag" },
+              { text: "group", link: "/spec/reference/group" },
               // { text: 'env', link: '/spec/reference/env' },
               { text: "config", link: "/spec/reference/config" }
             ]
