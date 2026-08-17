@@ -849,6 +849,41 @@ fn parse_partial_with_env(
             }
         }
 
+        // A flag declared `allow_hyphen_values` takes the next token whatever it looks
+        // like, and that has to be asked before the separator arm below rather than
+        // after it. Asked after, a `--` was consumed as a separator while the flag
+        // stayed hungry, and the flag then ate the word past it: `ex -a -- -x` bound
+        // `-x` and the separator was simply gone. Asked here, the flag takes the `--`
+        // itself, which is what clap does with the same declaration — and no flag can
+        // still be waiting once the separator has done its job, so the starvation rule
+        // below has no path around it.
+        if enable_flags
+            && w.starts_with('-')
+            && out
+                .flag_awaiting_value
+                .last()
+                .is_some_and(|flag| flag.allow_hyphen_values())
+        {
+            // A variadic argument collects here too: which token supplied its first
+            // value says nothing about how many it takes.
+            let should_return = bind_pending_flag_value(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                &mut input,
+                &mut prefix_bindings,
+                custom_env,
+            )?;
+            if should_return {
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                return Ok((out, overridden_flags));
+            }
+            continue;
+        }
+
         // Only while flags are still being read. Once a `--` has done its job, a
         // second one is an ordinary value: every parser worth comparing against
         // keeps it (POSIX getopt, argparse, clap, commander, yargs), and jdx/usage#229
@@ -895,28 +930,6 @@ fn parse_partial_with_env(
             }
         }
 
-        if w.starts_with('-')
-            && out
-                .flag_awaiting_value
-                .last()
-                .is_some_and(|flag| flag.allow_hyphen_values())
-        {
-            let should_return = drain_pending_flag_values(
-                spec,
-                &out.cmd,
-                &mut out.errors,
-                &mut out.flags,
-                &mut out.flag_awaiting_value,
-                &mut w,
-                custom_env,
-            )?;
-            if should_return {
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok((out, overridden_flags));
-            }
-            continue;
-        }
-
         // long flags
         if enable_flags && w.starts_with("--") {
             grouped_flag = false;
@@ -924,7 +937,7 @@ fn parse_partial_with_env(
             // an empty value while `--jobs` supplies none. Collapsing the two lost
             // the flag entirely.
             let split = w.split_once('=');
-            let (word, val) = split.unwrap_or((&w, ""));
+            let word = split.map(|(word, _)| word).unwrap_or(&w);
             if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
                 apply_flag_overrides(
                     f,
@@ -933,21 +946,39 @@ fn parse_partial_with_env(
                     &mut out.flag_awaiting_value,
                     &mut overridden_flags,
                 );
-                // Only push the embedded value back when the flag is known so that
-                // unknown --flag=value tokens fall through intact to positional arg
-                // handling without also injecting a stray "value" positional.
                 // An attached value only means something to a flag that takes one:
                 // `--jobs=` is an empty string, while `--force=yes` has nothing to
-                // give a flag that holds no value. Queueing it there would re-split
-                // one token into two, and the leftover would be read as a positional
-                // — so `ex --force=yes` would fill an argument the caller never
-                // typed a word for.
-                if split.is_some() && f.arg.is_some() {
-                    input.push_front(val.to_string());
-                    prefix_bindings.push_front(None);
-                }
+                // give a flag that holds no value. Handing that leftover to the
+                // positionals would re-split one token into two, so `ex --force=yes`
+                // would fill an argument the caller never typed a word for.
                 if f.arg.is_some() {
-                    out.flag_awaiting_value.push(Arc::clone(f));
+                    let f = Arc::clone(f);
+                    out.flag_awaiting_value.push(Arc::clone(&f));
+                    // The `=` has already settled that this text is the value, so it
+                    // binds here rather than going back on the queue to be read as a
+                    // token again — where `--jobs=--force` looked like a flag of its
+                    // own and bound `force`, leaving `jobs` unset.
+                    if let Some((_, val)) = split {
+                        // The `=` settles where the *first* value came from and nothing
+                        // more, so a variadic argument goes on collecting from the words
+                        // after it exactly as the detached form does.
+                        let mut val = val.to_string();
+                        let should_return = bind_pending_flag_value(
+                            spec,
+                            &out.cmd,
+                            &mut out.errors,
+                            &mut out.flags,
+                            &mut out.flag_awaiting_value,
+                            &mut val,
+                            &mut input,
+                            &mut prefix_bindings,
+                            custom_env,
+                        )?;
+                        if should_return {
+                            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                            return Ok((out, overridden_flags));
+                        }
+                    }
                 } else if f.count {
                     let arr = out
                         .flags
@@ -1050,14 +1081,23 @@ fn parse_partial_with_env(
             }
         }
 
-        if !out.flag_awaiting_value.is_empty() {
-            let should_return = drain_pending_flag_values(
+        // Only while flags are still being read. A flag still waiting when the separator
+        // was consumed is starved: its value would have to come from after the `--`,
+        // where every token is data. Draining there gave `ex --jobs -- x` the word after
+        // the separator, so the command line quietly meant `ex --jobs=x` and the `--`
+        // was gone. Left waiting, it is reported as the missing value it is.
+        if enable_flags && !out.flag_awaiting_value.is_empty() {
+            // Held before the drain pops it: a flag whose argument is variadic keeps
+            // taking values after this first one.
+            let should_return = bind_pending_flag_value(
                 spec,
                 &out.cmd,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
                 &mut w,
+                &mut input,
+                &mut prefix_bindings,
                 custom_env,
             )?;
             if should_return {
@@ -1089,6 +1129,13 @@ fn parse_partial_with_env(
             )? {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
+            }
+            // `double_dash="automatic"` means the first value this arg takes is the last
+            // token read as anything but data: a wrapper declaring it can forward flags
+            // without its caller typing a `--`. Set before the value is stored, so the
+            // rest of the command line is already past flag parsing.
+            if arg.double_dash == SpecDoubleDashChoices::Automatic {
+                enable_flags = false;
             }
             if arg.var {
                 let arr = out
@@ -1520,6 +1567,134 @@ fn is_number(rest: &str) -> bool {
     }
 }
 
+/// Bind one value to the flag waiting for it, and let a variadic argument go on
+/// collecting from the words that follow.
+///
+/// Every route to a flag's value comes through here — the following word, the text
+/// after an `=`, and the token a `allow_hyphen_values` flag takes whatever it looks
+/// like — so that all three agree on how many values the flag ends up with.
+#[allow(clippy::too_many_arguments)]
+fn bind_pending_flag_value(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    word: &mut String,
+    input: &mut VecDeque<String>,
+    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    // Held before the drain pops it, along with what the flag is already carrying: a
+    // `var_max` bounds the values this occurrence takes, not the list they are appended
+    // to, so a second `--include` starts counting again.
+    let collecting = flag_awaiting_value
+        .last()
+        .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
+        .cloned()
+        .map(|flag| {
+            let carried = flags.get(&flag).map(value_count).unwrap_or(0);
+            (flag, carried)
+        });
+    if drain_pending_flag_values(
+        spec,
+        cmd,
+        errors,
+        flags,
+        flag_awaiting_value,
+        word,
+        custom_env,
+    )? {
+        return Ok(true);
+    }
+    let Some((flag, carried)) = collecting else {
+        return Ok(false);
+    };
+    collect_variadic_flag_values(
+        spec,
+        cmd,
+        errors,
+        flags,
+        flag_awaiting_value,
+        &flag,
+        carried,
+        input,
+        prefix_bindings,
+        custom_env,
+    )
+}
+
+/// Keep feeding a flag whose argument is variadic from the words that follow it.
+///
+/// `--include <pattern>...` collects from a single occurrence, so it takes tokens until
+/// one is flag-like, a `--` arrives, its `var_max` is reached, or the command line ends.
+/// This is greedy by design — a command declaring both such a flag and positionals will
+/// find the flag eating them, and `--` or a `var_max` is how the run is stopped.
+///
+/// `carried` is what the flag already held when this occurrence began, so the bound
+/// counts this run rather than everything the flag has collected across the command
+/// line. Each value goes through the same drain as the first, so choices are checked
+/// and the value lands in the same list rather than by a second route that could
+/// disagree.
+#[allow(clippy::too_many_arguments)]
+fn collect_variadic_flag_values(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    flag: &Arc<SpecFlag>,
+    carried: usize,
+    input: &mut VecDeque<String>,
+    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    let max = flag
+        .arg
+        .as_ref()
+        .and_then(|arg| arg.var_max)
+        .unwrap_or(usize::MAX);
+    while flags
+        .get(flag)
+        .map(value_count)
+        .unwrap_or(0)
+        .saturating_sub(carried)
+        < max
+    {
+        let Some(next) = input.front() else { break };
+        // The separator is left where it is: stopping here hands it to the arm that
+        // knows what it means, rather than reading it as one more value.
+        if next == "--" || is_flag_like(next) {
+            break;
+        }
+        let mut word = input.pop_front().unwrap();
+        // The two queues are read in step, so a word taken here takes its binding with it.
+        prefix_bindings.pop_front();
+        flag_awaiting_value.push(Arc::clone(flag));
+        if drain_pending_flag_values(
+            spec,
+            cmd,
+            errors,
+            flags,
+            flag_awaiting_value,
+            &mut word,
+            custom_env,
+        )? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// How many values a flag is holding, for a bound that counts them.
+fn value_count(value: &ParseValue) -> usize {
+    match value {
+        ParseValue::MultiString(values) => values.len(),
+        ParseValue::MultiBool(values) => values.len(),
+        _ => 1,
+    }
+}
+
 fn drain_pending_flag_values(
     spec: &Spec,
     cmd: &SpecCommand,
@@ -1543,7 +1718,9 @@ fn drain_pending_flag_values(
             return Ok(true);
         }
         let value = std::mem::take(word);
-        if flag.var {
+        // Two ways to hold several values, and both record a list: a `var` flag
+        // collects one per occurrence, a variadic argument collects several from one.
+        if flag.var || arg.var {
             let arr = flags
                 .entry(flag)
                 .or_insert_with(|| ParseValue::MultiString(vec![]))
@@ -4883,6 +5060,55 @@ flag "-a --args <ARGS>" allow_hyphen_values=#true
 
         assert_eq!(parsed.flags.len(), 1);
         assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_takes_the_separator_as_its_value() {
+        // The flag is declared to accept a token that looks like a flag, and `--` looks
+        // like one, so it binds — which is what clap does with the same declaration.
+        // Letting the separator arm run first consumed it and left the flag hungry, and
+        // the flag then ate the word past it: `-a -- -x` bound `-x` with the `--` gone.
+        let spec = r#"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+arg "[rest]..."
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "--", "-x"])).unwrap();
+
+        assert_eq!(flag_string_value(&parsed, "args"), "--");
+        let rest = parsed
+            .args
+            .values()
+            .next()
+            .expect("expected the word after the separator to reach the argument");
+        assert_eq!(rest.to_string(), "-x");
+    }
+
+    #[test]
+    fn test_variadic_allow_hyphen_values_collects_after_a_hyphenated_first_value() {
+        // Which token supplied the first value says nothing about how many the argument
+        // takes, so collection carries on from a hyphenated one exactly as from a plain
+        // one. It still stops at the next flag-like token, which is what keeps a second
+        // occurrence of the flag from being eaten as a value.
+        let spec = r#"
+flag "-a --args <ARGS>..." allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-x", "b", "c"])).unwrap();
+
+        let flag = parsed
+            .flags
+            .keys()
+            .find(|flag| flag.name == "args")
+            .expect("expected args flag");
+        match parsed.flags.get(flag).expect("expected args value") {
+            ParseValue::MultiString(values) => assert_eq!(values, &["-x", "b", "c"]),
+            other => panic!("expected a list of values, got {other:?}"),
+        }
     }
 
     #[test]

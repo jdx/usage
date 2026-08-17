@@ -136,9 +136,6 @@
             "files": ["a", "--force"]
           }
         }
-      },
-      "reference": {
-        "diverges": "usage-lib binds `force` as a flag and gives the argument only `a`. The spec reference documents this mode as not yet enforced by the parser, so this vector describes the intent it will be held to."
       }
     },
     {

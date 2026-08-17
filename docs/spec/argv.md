@@ -10,10 +10,10 @@ second implementation — in Rust, in Go, in a shell completion — had no way t
 know whether it agreed, and no way to prove it. The grammar here is normative,
 and the [conformance corpus](#the-conformance-corpus) makes it executable.
 
-::: warning Being written down changes nothing on its own
+::: tip Both implementations answer every vector
 
-usage-lib does not implement every rule below, and the differences are recorded
-per case in the corpus rather than smoothed over. See
+usage-lib and usage-argv agree with all 154 vectors today. That is a
+measurement, checked on every run rather than asserted here — see
 [Where the reference implementation differs](#where-the-reference-implementation-differs).
 
 :::
@@ -104,7 +104,9 @@ it did not write — so the last word on the subject is the one that counts.
 A flag whose argument is variadic (`--include <pattern>...`) keeps taking values
 from one occurrence: it consumes following tokens until one is flag-like, or a
 `--` arrives, or its `var_max` is reached, or the command line ends. So
-`--include a b` gives it both, while `--include a --force` gives it only `a`.
+`--include a b` gives it both, while `--include a --force` gives it only `a`. The
+attached form settles where the _first_ value came from and nothing more, so
+`--include=a b` collects both as well.
 
 This is greedy, and a command that declares both a variadic flag and positionals
 will find the flag eating them. That is inherent to the feature rather than a
@@ -351,29 +353,23 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-Today usage-lib diverges on 5 of 152 vectors:
+**Today it does not: usage-lib agrees with all 154 vectors.** The list is empty
+for the first time, and the five entries it used to hold were what writing the
+grammar down was for. Each was a real defect that only a second reading found:
 
-**An attached value that looks like a flag is read as one.** `--jobs=--force`
-binds `force` and leaves `jobs` unset, although the `=` has already settled where
-the value came from.
+- `--jobs=--force` bound `force` and left `jobs` unset, because an attached value
+  went back on the token queue and was read a second time as a flag of its own.
+- `ex --jobs -- x` gave `jobs` the word after the separator, so the command line
+  quietly meant `ex --jobs=x` and the `--` was gone.
+- `--include a b` gave a variadic flag argument only `a` and called `b`
+  unexpected, though the [flag reference](/spec/reference/flag) documents
+  `--include <pattern>...` as the form that collects.
+- The same gap made a `var_max` on such a flag unreachable.
+- `double_dash="automatic"` was declared and serialized but never enforced.
 
-**A flag with a variadic argument takes only one value.** `--include a b` gives
-`include` just `a`, and reports `unexpected_arg` for the second, even though the
-[flag reference](/spec/reference/flag) documents `--include <pattern>...` as the
-form that collects. Bounding such a flag with `var_max` diverges for the same
-reason.
-
-**A separator can be eaten as a flag's value.** `ex --jobs -- x` gives `jobs` the
-word after the separator, so the command line silently means `ex --jobs=x` and
-the `--` is lost.
-
-**`double_dash="automatic"` is not enforced**, which the
-[arg reference](/spec/reference/arg) already says outright.
-
-Where the grammar and usage-lib disagree, the grammar is the intent and the
-divergence is a bug to fix or a decision to revisit — not a description of
-settled behavior. Each one is a small, self-contained change to
-`lib/src/parse.rs`, and the corpus is how a fix gets verified.
+An empty list is a state, not a promise. The next rule written here will very
+likely land before the parser does, and the label is how that gets said out loud
+rather than discovered by whoever writes the next implementation.
 
 ## Not yet covered
 

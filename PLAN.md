@@ -533,9 +533,14 @@ Checked against mise rather than assumed, and two of them do not survive contact
 
 ## Known usage-lib divergences
 
-The corpus records these; they are bugs to fix or decisions to revisit, not
-settled behavior. Each is a small change to `lib/src/parse.rs`, and the corpus is
-how a fix gets verified — including telling you to delete the label afterwards.
+**The corpus records none today**: usage-lib answers all 154 vectors, and so do
+usage-argv and the Go runner. What is left below is the history, plus the two
+items marked _needs a decision_ — which are not divergences but questions about
+what the grammar should say.
+
+They were bugs to fix or decisions to revisit, not settled behavior. Each was a
+small change to `lib/src/parse.rs`, and the corpus is how a fix got verified —
+including telling you to delete the label afterwards.
 
 - [x] Help printed everything marked `hide` — hidden flags, hidden arguments, hidden
       subcommands. The usage _line_ filtered them already, through `SpecCommand::usage`, so
@@ -557,11 +562,23 @@ how a fix gets verified — including telling you to delete the label afterwards
       asserts this, and `double_dash="preserve"` is the declared way to keep
       separators, which may make it intentional.
 - [x] `--jobs=` binds nothing rather than the empty string.
-- [ ] A flag with a variadic argument rejects its second value, though
+- [x] A flag with a variadic argument rejects its second value, though
       [the flag reference](https://usage.jdx.dev/spec/reference/flag) documents the
-      form.
-- [ ] `double_dash="automatic"` is not enforced, which
-      [the arg reference](https://usage.jdx.dev/spec/reference/arg) says outright.
+      form. It collects now — until a token is flag-like, a `--` arrives, `var_max` is
+      reached, or the line ends — which also made that bound reachable, and the attached
+      form (`--include=a b`) collects with it.
+- [x] `double_dash="automatic"` is not enforced, which
+      [the arg reference](https://usage.jdx.dev/spec/reference/arg) says outright. The
+      arg's first value now stops flag interpretation, and that note is gone from the
+      reference.
+- [x] An attached value was read a second time as a token, so `--jobs=--force` bound
+      `force` and left `jobs` unset. The `=` has already settled that the text is a
+      value, so it binds where it is read instead of going back on the queue.
+- [x] A flag left waiting when the separator was consumed took the word after it, so
+      `ex --jobs -- x` quietly meant `ex --jobs=x` with the `--` gone. Such a flag is
+      starved — its value could only come from after the `--`, where every token is
+      data — and is reported as the missing value it is. Found by importing clap's
+      `double_hyphen_as_value`.
 
 ## Config
 
