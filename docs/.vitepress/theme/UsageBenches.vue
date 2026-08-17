@@ -20,11 +20,16 @@ const rustRows = [
 
 // Go figures from go/README.md are whole-process wall time and subtract the
 // ~0.95ms a do-nothing Go process costs, so they are deliberately approximate.
+//
+// Ratios read the same way as the Rust card's: what each framework costs against
+// usage-go, on the row that costs it. Whole multiples, because every figure here is
+// a difference between two numbers already rounded to two significant figures — a
+// ratio of those does not deserve a decimal place.
 const goRows = [
-  { name: "usage-go", value: 0.15, label: "~0.15ms", note: "~6× less", us: true },
-  { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", us: false },
-  { name: "cobra", value: 0.85, label: "~0.85ms", us: false },
-  { name: "kong", value: 5.2, label: "~5.2ms", us: false },
+  { name: "usage-go", value: 0.15, label: "~0.15ms", us: true },
+  { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", note: "~5× more", us: false },
+  { name: "cobra", value: 0.85, label: "~0.85ms", note: "~6× more", us: false },
+  { name: "kong", value: 5.2, label: "~5.2ms", note: "~35× more", us: false },
 ];
 
 const rustMax = Math.max(...rustRows.map((r) => r.value));
