@@ -508,6 +508,13 @@ pub fn render(
             );
         }
         Error::MissingSubcommand => {
+            // A bare command that can do nothing on its own is a request for orientation.
+            // clap prints the command's help page here, including the available subcommands,
+            // while keeping exit 2; an error plus only `<SUBCOMMAND>` tells the reader what is
+            // missing and withholds the list they need to fix it.
+            if let Some(help) = crate::help::render_at(spec, &taken, false) {
+                return help;
+            }
             with_usage = true;
             let _ = writeln!(
                 out,
@@ -809,6 +816,15 @@ mod tests {
             .find_map(|l| l.strip_prefix("Usage: "))
             .expect("a usage line");
         assert_eq!(line, crate::help::usage_line(&["ex", "use"], &USE_META));
+    }
+
+    #[test]
+    fn a_missing_subcommand_prints_the_choices() {
+        let message = rendered(&[], Error::MissingSubcommand);
+        assert!(message.contains("Commands:"), "{message}");
+        assert!(message.contains("use"), "{message}");
+        assert!(message.contains("user"), "{message}");
+        assert!(!message.contains("requires a subcommand"), "{message}");
     }
 
     #[test]
