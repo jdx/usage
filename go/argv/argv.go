@@ -242,6 +242,22 @@ const (
 	CodeHelp
 	// CodeVersion means --version or -V was given. Not a failure either.
 	CodeVersion
+
+	// The rest are raised after the parse, by [Check], because they need to know
+	// a value's declared type or its final count. They share this type so a caller
+	// has one error to handle rather than two.
+
+	// CodeMissingRequiredFlag means a required flag never appeared.
+	CodeMissingRequiredFlag
+	// CodeMissingRequiredArg means a required argument was never filled.
+	CodeMissingRequiredArg
+	// CodeInvalidChoice means a value was given that is not among the declared
+	// choices.
+	CodeInvalidChoice
+	// CodeVarTooFew means fewer values than var_min.
+	CodeVarTooFew
+	// CodeVarTooMany means more occurrences than a repeatable flag's var_max.
+	CodeVarTooMany
 )
 
 var codeNames = [...]string{
@@ -252,6 +268,11 @@ var codeNames = [...]string{
 	CodeTooDeep:               "too_deep",
 	CodeHelp:                  "help",
 	CodeVersion:               "version",
+	CodeMissingRequiredFlag:   "missing_required_flag",
+	CodeMissingRequiredArg:    "missing_required_arg",
+	CodeInvalidChoice:         "invalid_choice",
+	CodeVarTooFew:             "var_too_few",
+	CodeVarTooMany:            "var_too_many",
 }
 
 // String gives the code the corpus spells it with.
@@ -290,6 +311,17 @@ type Error struct {
 	Cmd *Command
 	// Long distinguishes --help from -h, which print different amounts.
 	Long bool
+
+	// Name is the flag or argument the post-binding rules rejected, as the spec
+	// spells it.
+	Name string
+	// Choices carries the declared list for CodeInvalidChoice, rather than the
+	// offending value: the value is the caller's to render, and it has it.
+	Choices []string
+	// Bound and Got are the declared limit and what was actually counted, for the
+	// two var codes.
+	Bound uint32
+	Got   int
 }
 
 func (e *Error) Error() string {
@@ -308,6 +340,14 @@ func (e *Error) Error() string {
 		return "help requested"
 	case CodeVersion:
 		return "version requested"
+	case CodeMissingRequiredFlag, CodeMissingRequiredArg:
+		return "missing required: " + e.Name
+	case CodeInvalidChoice:
+		return "invalid value for " + e.Name
+	case CodeVarTooFew:
+		return "too few values for " + e.Name
+	case CodeVarTooMany:
+		return "too many occurrences of " + e.Name
 	}
 	return "parse error"
 }
