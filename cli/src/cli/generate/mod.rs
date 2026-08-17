@@ -16,7 +16,7 @@ mod sdk;
 
 /// Generate completions, documentation, and other artifacts from usage specs
 // Cannot run alone, and every child starts at `read`, so the parent is `read` too.
-#[derive(usage_derive::Args)]
+#[derive(usage_rs::Args)]
 #[usage(alias = "g", effect = "read")]
 pub struct Generate {
     #[usage(subcommand)]
@@ -27,7 +27,7 @@ pub struct Generate {
 ///
 /// Each command's help is its struct's doc comment rather than a second one here, which the
 /// derive would let win: one description, in the file that owns the command.
-#[derive(usage_derive::Subcommands)]
+#[derive(usage_rs::Subcommands)]
 pub enum Command {
     Completion(completion::Completion),
     CompletionInit(completion_init::CompletionInit),

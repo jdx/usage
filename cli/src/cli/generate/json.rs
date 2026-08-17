@@ -4,7 +4,7 @@ use miette::IntoDiagnostic;
 use std::path::PathBuf;
 
 /// Outputs a usage spec in json format
-#[derive(usage_derive::Args)]
+#[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct Json {
     /// A usage spec taken in as a file, use "-" to read from stdin

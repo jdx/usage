@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use usage_derive::Args;
+use usage_rs::Args;
 
 use crate::cli::generate;
 

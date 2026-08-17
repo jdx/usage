@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{parse_file_or_stdin, write_or_stdout};
 use usage::docs::manpage::ManpageRenderer;
-use usage_derive::Args;
+use usage_rs::Args;
 
 /// Generate a manpage from a usage spec
 #[derive(Args)]
@@ -16,7 +16,7 @@ pub struct Manpage {
     #[usage(
         short,
         long,
-        value_hint = usage_argv::ValueHint::FilePath,
+        value_hint = usage_rs::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,
