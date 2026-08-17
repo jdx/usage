@@ -2232,6 +2232,13 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                         .position(|candidate| ::core::ptr::eq(*candidate, *__usage_cmd))
                 {
                     partial.__usage_selected = ::std::option::Option::Some(__usage_at);
+                    // The one place the selection and the storage are tied together: from
+                    // here on, `__usage_selected` naming a position means `__usage_sub`
+                    // holds that variant. Everything downstream relies on it.
+                    <#ty as usage_argv::spec::Subcommands>::begin(
+                        &mut partial.__usage_sub,
+                        __usage_at,
+                    );
                 }
             }
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
@@ -2530,24 +2537,43 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         .collect::<Vec<_>>();
     let unit_structs = unit_structs.into_iter();
 
-    // One partial per variant, since a parse can only fill one but does not know
-    // which until the word arrives.
-    let partial_fields = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+    // One *variant* per subcommand, not one field: a parse fills exactly one of them, and a
+    // struct with room for all of them is the whole CLI's accumulator whichever command ran —
+    // 11KB of it at mise's scale, of which 210 commands' worth is never touched. The variant
+    // comes into being when a command word selects it, in `begin`.
+    let partial_variants = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
-        quote!(pub #field: <#ty as usage_argv::spec::CommandArgs>::Partial,)
+        quote!(#variant(<#ty as usage_argv::spec::CommandArgs>::Partial),)
     });
-    let partial_starts = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+    // Idempotent, as the trait requires: a restart token can re-announce the command that is
+    // already selected, and starting it again there would throw away the parse so far.
+    let begins = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
-        quote!(#field: <#ty as usage_argv::spec::CommandArgs>::start(),)
+        quote! {
+            #i => {
+                if !::std::matches!(partial, Partial::#variant(_)) {
+                    *partial = Partial::#variant(
+                        <#ty as usage_argv::spec::CommandArgs>::start(),
+                    );
+                }
+            }
+        }
     });
     let applies = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#field, event)
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::apply(__usage_p, event)
+                } else {
+                    // `begin` put this variant here on the event that selected it, so the
+                    // partial always matches the selection. An event with nowhere to go was
+                    // not this command's.
+                    false
+                }
             }
         }
     });
@@ -2642,10 +2668,16 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // Matched on the command's key rather than its name, so selecting a variant is
     // an integer comparison and cannot be confused by an alias.
     let checks = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
-            #i => <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#field),
+            #i => match partial {
+                Partial::#variant(__usage_p) => {
+                    <#ty as usage_argv::spec::CommandArgs>::check(__usage_p)
+                }
+                // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                _ => ::std::result::Result::Ok(()),
+            },
         }
     });
     // Every variant's bindings, because a table says what the CLI *can* do and is compared
@@ -2657,21 +2689,25 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     });
     let binding_lens = binding_parts.clone().map(|part| quote!(+ #part.len()));
     let givens = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as usage_argv::spec::CommandArgs>::settings_given(&partial.#field)
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::settings_given(__usage_p)
+                } else {
+                    ::std::vec::Vec::new()
+                }
             }
         }
     });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let held = format_ident!("V{i}");
         let variant = &v.ident;
         let ty = &v.ty;
         // The one place the box matters: everything else — tables, partial, `build` —
         // speaks to the struct itself.
-        let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(partial.#field)?);
+        let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(__usage_p)?);
         let built = if v.boxed {
             quote!(::std::boxed::Box::new(#built))
         } else {
@@ -2688,7 +2724,13 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             quote!(#ident::#variant(#built))
         };
         quote! {
-            #i => ::std::result::Result::Ok(::std::option::Option::Some(#made)),
+            #i => match partial {
+                Partial::#held(__usage_p) => {
+                    ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                }
+                // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                _ => ::std::result::Result::Ok(::std::option::Option::None),
+            },
         }
     });
 
@@ -2710,13 +2752,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         const _: () = {
             use #runtime as usage_argv;
 
-            pub struct Partial {
-                #(#partial_fields)*
+            pub enum Partial {
+                /// No command word has selected a variant yet, so there is nothing to fill.
+                Unselected,
+                #(#partial_variants)*
             }
 
             impl ::std::default::Default for Partial {
                 fn default() -> Self {
-                    Self { #(#partial_starts)* }
+                    Partial::Unselected
                 }
             }
 
@@ -2743,6 +2787,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         // Nothing selected yet, or a position that cannot be produced: the event
                         // is not one of these commands'.
                         _ => false,
+                    }
+                }
+
+                fn begin(partial: &mut Self::Partial, selected: usize) {
+                    match selected {
+                        #(#begins)*
+                        // Not a position `COMMANDS` can produce, so there is no variant to
+                        // make room for.
+                        _ => {}
                     }
                 }
 

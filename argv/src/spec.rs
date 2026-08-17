@@ -1457,6 +1457,23 @@ pub trait Subcommands: Sized {
         event: &crate::Event<'_, '_>,
     ) -> bool;
 
+    /// Make room for the variant at `selected`, if it is not already the one being filled.
+    ///
+    /// Called when a command word selects a variant, before any event reaches it.
+    /// [`Subcommands::Partial`] holds *one* command's values rather than every command's, so
+    /// the storage for a variant comes into being here instead of at the start of the parse:
+    /// an invocation that reached `mise use` never materialises the other 209.
+    ///
+    /// Idempotent by contract. A second call naming the variant already being filled must
+    /// leave what has been collected alone — a restart token can re-announce the command
+    /// that is already selected, and re-starting it there would discard the parse so far.
+    ///
+    /// The default does nothing, which is correct for a `Partial` that has room for every
+    /// variant from the start.
+    fn begin(partial: &mut Self::Partial, selected: usize) {
+        let _ = (partial, selected);
+    }
+
     /// Every flag any of these commands reads into a setting, and the setting it sets.
     ///
     /// Every variant's, not the selected one's: a binding table says what the CLI *can* do, and
