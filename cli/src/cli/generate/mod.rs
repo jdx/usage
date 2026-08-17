@@ -28,14 +28,14 @@ pub struct Generate {
 /// derive would let win: one description, in the file that owns the command.
 #[derive(usage_derive::Subcommands)]
 pub enum Command {
-    Completion(Box<completion::Completion>),
-    CompletionInit(Box<completion_init::CompletionInit>),
-    Fig(Box<fig::Fig>),
-    Json(Box<json::Json>),
-    JsonSchema(Box<json_schema::JsonSchema>),
-    Manpage(Box<manpage::Manpage>),
-    Markdown(Box<markdown::Markdown>),
-    Sdk(Box<sdk::Sdk>),
+    Completion(completion::Completion),
+    CompletionInit(completion_init::CompletionInit),
+    Fig(fig::Fig),
+    Json(json::Json),
+    JsonSchema(json_schema::JsonSchema),
+    Manpage(manpage::Manpage),
+    Markdown(markdown::Markdown),
+    Sdk(sdk::Sdk),
 }
 
 impl Generate {
