@@ -184,6 +184,24 @@
   50% { opacity: 0; }
 }
 
+/* What-is-it description */
+.usage-hero-desc {
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: rgba(245, 240, 255, 0.78);
+  max-width: 540px;
+  margin: 0 0 2rem;
+}
+
+.usage-hero-desc code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.92em;
+  color: var(--vw-mint);
+  background: rgba(5, 255, 161, 0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+
 /* Section labels */
 .usage-hero-label {
   font-family: Orbitron, sans-serif;
@@ -372,8 +390,10 @@
   flex-shrink: 0;
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.25rem;
 }
 
 .usage-hero-art {
@@ -386,6 +406,81 @@
 @keyframes art-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Spec sample card                                                    */
+/* ------------------------------------------------------------------ */
+.usage-spec-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(21, 8, 54, 0.9);
+  border: 1px solid var(--vw-purple-soft);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  text-align: left;
+}
+
+.usage-spec-card-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 0.8rem;
+  background: rgba(13, 2, 33, 0.9);
+  border-bottom: 1px solid var(--vw-purple-soft);
+}
+
+.usage-spec-card-bar span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--vw-purple-soft);
+}
+
+.usage-spec-card-bar span:first-child {
+  background: rgba(255, 45, 149, 0.6);
+}
+
+.usage-spec-card-bar span:nth-child(2) {
+  background: rgba(255, 211, 25, 0.5);
+}
+
+.usage-spec-card-bar span:nth-child(3) {
+  background: rgba(5, 255, 161, 0.5);
+}
+
+.usage-spec-card-bar em {
+  font-style: normal;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.68rem;
+  color: rgba(245, 240, 255, 0.5);
+  margin-left: auto;
+}
+
+.usage-spec-card pre {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+}
+
+.usage-spec-card code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: rgba(245, 240, 255, 0.85);
+}
+
+.usage-spec-card .k {
+  color: var(--vw-magenta-light);
+}
+
+.usage-spec-card .s {
+  color: var(--vw-mint);
+}
+
+.usage-spec-card .p {
+  color: var(--vw-cyan);
 }
 
 /* ------------------------------------------------------------------ */

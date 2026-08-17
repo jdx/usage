@@ -22,6 +22,12 @@ const javascriptPath =
           Fastest frameworks. Most features. One spec.<span class="cursor"></span>
         </p>
 
+        <p class="usage-hero-desc">
+          Usage is a toolkit for building command-line tools. Define your CLI's commands,
+          flags, and args once in a KDL spec — get argument parsing, shell completions,
+          <code>--help</code>, docs, and manpages everywhere it runs.
+        </p>
+
         <p class="usage-hero-label">Frameworks</p>
         <div class="usage-hero-tiles">
           <a
@@ -140,7 +146,7 @@ const javascriptPath =
         </div>
       </div>
 
-      <!-- Right Column: flag mark illustration -->
+      <!-- Right Column: flag mark illustration + spec sample -->
       <div class="usage-hero-art-wrapper">
         <div class="usage-hero-glow"></div>
         <svg
@@ -196,6 +202,17 @@ const javascriptPath =
             <line x1="0" y1="319" x2="360" y2="319" />
           </g>
         </svg>
+
+        <div class="usage-spec-card" aria-label="Example usage spec">
+          <div class="usage-spec-card-bar">
+            <span></span><span></span><span></span>
+            <em>mycli.usage.kdl</em>
+          </div>
+          <pre><code><span class="k">name</span> <span class="s">"mycli"</span>
+<span class="k">flag</span> <span class="s">"-v --verbose"</span> <span class="p">help=</span><span class="s">"Enable verbose output"</span>
+<span class="k">arg</span> <span class="s">"&lt;file&gt;"</span> <span class="p">help=</span><span class="s">"File to process"</span>
+<span class="k">cmd</span> <span class="s">"deploy"</span> { <span class="k">flag</span> <span class="s">"--env &lt;env&gt;"</span> }</code></pre>
+        </div>
       </div>
     </div>
   </section>

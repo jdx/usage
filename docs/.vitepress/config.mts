@@ -27,7 +27,8 @@ const latestVersion = versionMatch?.[1] ?? "0.0.0";
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "--usage",
-  description: "Schema for CLIs",
+  description:
+    "A spec and frameworks for building CLIs — define commands, flags, and args once, get parsing, shell completions, docs, and manpages everywhere",
   appearance: "force-dark",
   lastUpdated: true,
   cleanUrls: true,
