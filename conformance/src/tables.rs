@@ -313,6 +313,9 @@ fn flag_meta(
         hide: f.hide,
         count: f.count,
         repeatable: f.var,
+        // The separator as declared, a `char`: the metadata is the cold model and says what
+        // the spec said, where the binding table beside it holds the byte binding counts by.
+        delimiter: arg.and_then(|a| a.delimiter),
         var_min: f.var_min.or(arg.and_then(|a| a.var_min)),
         var_max: f.var_max.or(arg.and_then(|a| a.var_max)),
         overrides: strs(&f.overrides),
@@ -342,6 +345,7 @@ fn arg_meta(
         choices: a.choices.as_ref().map(|c| strs(&c.choices)).unwrap_or(&[]),
         required: a.required,
         hide: a.hide,
+        delimiter: a.delimiter,
         var_min: a.var_min,
         var_max: a.var_max,
         help_heading: opt(&a.help_heading),
