@@ -522,6 +522,93 @@
             "hidden_aliases": [],
             "examples": []
           },
+          "go": {
+            "full_cmd": ["generate", "go"],
+            "usage": "generate go [FLAGS]",
+            "subcommands": {},
+            "args": [],
+            "flags": [
+              {
+                "name": "file",
+                "usage": "-f --file <FILE>",
+                "help": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "help_first_line": "A usage spec taken in as a file, use \"-\" to read from stdin",
+                "short": ["f"],
+                "long": ["file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FILE",
+                  "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "out-file",
+                "usage": "-o --out-file <OUT_FILE>",
+                "help": "File path where the generated Go source will be saved, or \"-\" for stdout",
+                "help_first_line": "File path where the generated Go source will be saved, or \"-\" for stdout",
+                "short": ["o"],
+                "long": ["out-file"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "OUT_FILE",
+                  "usage": "<OUT_FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                },
+                "effect": "write"
+              },
+              {
+                "name": "package",
+                "usage": "-p --package <PACKAGE>",
+                "help": "Go package clause for the generated file (defaults to the spec's bin name)",
+                "help_first_line": "Go package clause for the generated file (defaults to the spec's bin name)",
+                "short": ["p"],
+                "long": ["package"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "PACKAGE",
+                  "usage": "<PACKAGE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "spec",
+                "usage": "--spec <SPEC>",
+                "help": "Raw string spec input",
+                "help_first_line": "Raw string spec input",
+                "short": [],
+                "long": ["spec"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "SPEC",
+                  "usage": "<SPEC>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              }
+            ],
+            "mounts": [],
+            "effect": "read",
+            "unknown_flags": "error",
+            "hide": false,
+            "help": "Generate Go parse tables from a usage spec",
+            "help_long": "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:\n\n//go:generate usage generate go -f mycli.usage.kdl -o tables.go",
+            "name": "go",
+            "aliases": [],
+            "hidden_aliases": [],
+            "examples": []
+          },
           "json": {
             "full_cmd": ["generate", "json"],
             "usage": "generate json [-f --file <FILE>] [--spec <SPEC>]",

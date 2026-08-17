@@ -342,6 +342,49 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
+          name: "go",
+          description: "Generate Go parse tables from a usage spec",
+          options: [
+            {
+              name: ["-f", "--file"],
+              description:
+                'A usage spec taken in as a file, use "-" to read from stdin',
+              isRepeatable: false,
+              args: {
+                name: "file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: ["-o", "--out-file"],
+              description:
+                'File path where the generated Go source will be saved, or "-" for stdout',
+              isRepeatable: false,
+              args: {
+                name: "out_file",
+                template: "filepaths",
+              },
+            },
+            {
+              name: ["-p", "--package"],
+              description:
+                "Go package clause for the generated file (defaults to the spec's bin name)",
+              isRepeatable: false,
+              args: {
+                name: "package",
+              },
+            },
+            {
+              name: "--spec",
+              description: "Raw string spec input",
+              isRepeatable: false,
+              args: {
+                name: "spec",
+              },
+            },
+          ],
+        },
+        {
           name: "json",
           description: "Outputs a usage spec in json format",
           options: [

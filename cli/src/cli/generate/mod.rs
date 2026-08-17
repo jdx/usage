@@ -7,6 +7,7 @@ use usage::Spec;
 mod completion;
 mod completion_init;
 mod fig;
+mod go;
 mod json;
 mod json_schema;
 mod manpage;
@@ -26,6 +27,7 @@ pub enum Command {
     Completion(completion::Completion),
     CompletionInit(completion_init::CompletionInit),
     Fig(fig::Fig),
+    Go(go::Go),
     Json(json::Json),
     JsonSchema(json_schema::JsonSchema),
     Manpage(manpage::Manpage),
@@ -39,6 +41,7 @@ impl Generate {
             Command::Completion(cmd) => cmd.run(),
             Command::CompletionInit(cmd) => cmd.run(),
             Command::Fig(cmd) => cmd.run(),
+            Command::Go(cmd) => cmd.run(),
             Command::Json(cmd) => cmd.run(),
             Command::JsonSchema(cmd) => cmd.run(),
             Command::Manpage(cmd) => cmd.run(),

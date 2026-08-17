@@ -132,6 +132,27 @@ You may need to set this if you have a different bin named "usage"
             arg <SPEC>
         }
     }
+    cmd go help="Generate Go parse tables from a usage spec" effect=read unknown_flags=error {
+        long_help #"""
+Generate Go parse tables from a usage spec
+
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
+
+//go:generate usage generate go -f mycli.usage.kdl -o tables.go
+"""#
+        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
+            arg <FILE>
+        }
+        flag "-o --out-file" help="File path where the generated Go source will be saved, or \"-\" for stdout" effect=write {
+            arg <OUT_FILE>
+        }
+        flag "-p --package" help="Go package clause for the generated file (defaults to the spec's bin name)" {
+            arg <PACKAGE>
+        }
+        flag --spec help="Raw string spec input" {
+            arg <SPEC>
+        }
+    }
     cmd json help="Outputs a usage spec in json format" effect=read unknown_flags=error {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
