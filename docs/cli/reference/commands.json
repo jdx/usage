@@ -604,6 +604,7 @@
                 "help_first_line": "Raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -612,19 +613,26 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               }
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate Go parse tables from a usage spec",
-            "help_long": "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:\n\n//go:generate usage generate go -f mycli.usage.kdl -o tables.go",
+            "help_long": "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what\na Rust CLI gets from a derive at compile time, a Go CLI gets from this at build\ntime — typically from a `go:generate` line:\n\n  //go:generate usage generate go -f mycli.usage.kdl -o tables.go",
             "name": "go",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "json": {
             "full_cmd": ["generate", "json"],
