@@ -256,6 +256,8 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 - **A typed front door.** The conversions exist; what is missing is generated
   code that calls them, so a CLI author gets a struct rather than events.
-- **Per-shell completion output.** `Walk` and `Candidates` answer _what_ could go
-  at the cursor; turning that into the text bash, zsh, fish or PowerShell expect
-  is still to do, as is running the `complete` scripts a spec can declare.
+- **The shell scripts themselves.** A CLI can now answer a completion request —
+  `mycli __complete_word__ --shell zsh --line "…"` — in the text each shell reads.
+  What is missing is the handful of lines that register that callback with bash,
+  zsh, fish, nushell and PowerShell, and running the `run=` scripts a spec can
+  declare, which needs a subprocess this package has no business starting.

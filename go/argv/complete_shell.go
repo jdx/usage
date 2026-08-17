@@ -21,6 +21,35 @@ const (
 	PowerShell
 )
 
+// doublesQuotes reports whether a quote inside a quoted string is written by
+// doubling it, which is PowerShell's rule and nobody else's.
+func (s Shell) doublesQuotes() bool { return s == PowerShell }
+
+// backtickEscapes reports whether an escape is written with a backtick rather
+// than a backslash — PowerShell again.
+func (s Shell) backtickEscapes() bool { return s == PowerShell }
+
+// ShellNamed is the shell a `--shell` argument names, and whether it named one.
+//
+// A completion request comes from a script this package wrote, so the name is one
+// of five — but it arrives as text off a command line, and a shell that sends
+// something else should get an answer rather than a crash.
+func ShellNamed(name string) (Shell, bool) {
+	switch name {
+	case "bash":
+		return Bash, true
+	case "zsh":
+		return Zsh, true
+	case "fish":
+		return Fish, true
+	case "nu", "nushell":
+		return Nu, true
+	case "powershell", "pwsh":
+		return PowerShell, true
+	}
+	return Bash, false
+}
+
 // Files says whether paths belong at this position as well as the candidates.
 type Files uint8
 

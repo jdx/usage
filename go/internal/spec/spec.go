@@ -41,11 +41,15 @@ type Spec struct {
 	Version           string `json:"version"`
 	About             string `json:"about"`
 	AboutLong         string `json:"about_long"`
-	BeforeHelp        string `json:"before_help"`
-	AfterHelp         string `json:"after_help"`
-	BeforeHelpLong    string `json:"before_help_long"`
-	AfterHelpLong     string `json:"after_help_long"`
-	Usage             string `json:"usage"`
+	// Complete is the completers a spec declares, keyed by the lowercased name of
+	// the argument or flag value they belong to — which is how usage-lib keys
+	// them, and how a lookup has to be spelled.
+	Complete       map[string]Completer `json:"complete"`
+	BeforeHelp     string               `json:"before_help"`
+	AfterHelp      string               `json:"after_help"`
+	BeforeHelpLong string               `json:"before_help_long"`
+	AfterHelpLong  string               `json:"after_help_long"`
+	Usage          string               `json:"usage"`
 }
 
 // HelpSpec is what a page needs from the spec's root rather than from a command.
@@ -61,6 +65,14 @@ func (s *Spec) HelpSpec() argv.HelpSpec {
 		BeforeLongHelp: s.BeforeHelpLong,
 		AfterLongHelp:  s.AfterHelpLong,
 	}
+}
+
+// Completer is one `complete` block. Only the type is read here: running the
+// `run=` script is a completion's job at run time, and needs a subprocess this
+// package has no business starting.
+type Completer struct {
+	Name string `json:"name"`
+	Type string `json:"type_"`
 }
 
 // Cmd is one command in the lowered spec.
@@ -319,7 +331,7 @@ func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 // help one. They share the keys that tie them together, so they are built in one
 // pass for the same reason the first two were.
 func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
-	b := &builder{}
+	b := &builder{complete: s.Complete}
 	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
 
 	// default_subcommand is a property of the spec rather than of a command, so it
@@ -398,6 +410,8 @@ type builder struct {
 	// it needs the original. A spec declaring `negate="-no-color"` is not named
 	// by `--no-color`, and usage-lib does not resolve it either.
 	negation map[uint64]string
+	// complete is the spec's `complete` blocks, keyed as usage-lib keys them.
+	complete map[string]Completer
 }
 
 // record files an entry's cold half at the position its key indexes.
@@ -440,6 +454,26 @@ func visibleAliases(c *Cmd) []string {
 		}
 	}
 	return out
+}
+
+// valueOf is what a flag's value is called, or empty where the flag takes none.
+func valueOf(f *Flag) string {
+	if f.Arg == nil {
+		return ""
+	}
+	return f.Arg.Name
+}
+
+// completeType is the type the spec's `complete` block names for an entry.
+//
+// By lowercased name, which is how usage-lib files them: `complete "FILE"` and an
+// argument written `<file>` are the same position as far as the reference is
+// concerned.
+func (b *builder) completeType(name string) string {
+	if b.complete == nil || name == "" {
+		return ""
+	}
+	return b.complete[strings.ToLower(name)].Type
 }
 
 func first(values ...string) string {
@@ -672,14 +706,16 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Default:       f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
-		Name:     f.Name,
-		Flag:     true,
-		Spelling: spelling(f),
-		Required: f.Required,
-		Choices:  f.choices(),
-		Default:  f.defaults(),
-		Env:      f.Env,
-		VarMin:   clampVarMax(f.VarMin),
+		Name:         f.Name,
+		Flag:         true,
+		Spelling:     spelling(f),
+		ValueName:    valueOf(f),
+		CompleteType: b.completeType(first(valueOf(f), f.Name)),
+		Required:     f.Required,
+		Choices:      f.choices(),
+		Default:      f.defaults(),
+		Env:          f.Env,
+		VarMin:       clampVarMax(f.VarMin),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
 		// and is set on the parse table below rather than here.
 		VarMax: clampVarMax(f.VarMax),
@@ -719,12 +755,13 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		Default:  a.Default,
 	})
 	b.record(out.Key, argv.Meta{
-		Name:     a.Name,
-		Required: a.Required,
-		Choices:  a.Choices.list(),
-		Default:  a.Default,
-		Env:      a.Env,
-		VarMin:   clampVarMax(a.VarMin),
+		Name:         a.Name,
+		Required:     a.Required,
+		CompleteType: b.completeType(a.Name),
+		Choices:      a.Choices.list(),
+		Default:      a.Default,
+		Env:          a.Env,
+		VarMin:       clampVarMax(a.VarMin),
 		// No VarMax: for an argument the bound is a limit binding applies, which
 		// is what makes `[a]… [b]` fillable at all, so judging it again here would
 		// fail an invocation that never broke it.
