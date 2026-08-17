@@ -531,7 +531,13 @@
             "name": "fig",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "go": {
             "full_cmd": ["generate", "go"],
@@ -776,7 +782,13 @@
             "name": "json-schema",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "manpage": {
             "full_cmd": ["generate", "manpage"],
@@ -848,7 +860,13 @@
             "name": "manpage",
             "aliases": ["man"],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "markdown": {
             "full_cmd": ["generate", "markdown"],
@@ -969,7 +987,17 @@
             "name": "markdown",
             "aliases": ["md"],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_dir": {
+                "name": "out_dir",
+                "type_": "dir"
+              },
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "sdk": {
             "full_cmd": ["generate", "sdk"],

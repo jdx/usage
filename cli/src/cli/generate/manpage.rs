@@ -13,7 +13,12 @@ pub struct Manpage {
     file: PathBuf,
 
     /// Output file path, or "-" for stdout (default)
-    #[usage(short, long, effect = "write")]
+    #[usage(
+        short,
+        long,
+        value_hint = clap::ValueHint::FilePath,
+        effect = "write"
+    )]
     out_file: Option<PathBuf>,
 
     /// Manual section number (default: 1)

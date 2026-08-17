@@ -105,6 +105,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         flag "--spec" help="Raw string spec input" overrides="--file" required_unless="--file" {
             arg "<SPEC>"
         }
+        complete "out_file" type="path"
     }
     cmd "json" help="Outputs a usage spec in json format" effect="read" {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
@@ -130,6 +131,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         flag "--url" help="Where the schema is published, for its `$id`" {
             arg "<URL>"
         }
+        complete "out_file" type="path"
     }
     cmd "manpage" help="Generate a manpage from a usage spec" effect="read" {
         alias "man"
@@ -143,6 +145,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
             long_help "Manual section number (default: 1)\n\nCommon sections:\n- 1: User commands\n- 5: File formats\n- 7: Miscellaneous\n- 8: System administration commands"
             arg "<SECTION>"
         }
+        complete "out_file" type="path"
     }
     cmd "markdown" help="Generate markdown documentation from usage specs" effect="read" {
         alias "md"
@@ -161,6 +164,8 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         flag "--url-prefix" help="Prefix to add to all URLs" {
             arg "<URL_PREFIX>"
         }
+        complete "out_dir" type="dir"
+        complete "out_file" type="path"
     }
     cmd "sdk" help="Generate a type-safe SDK from a usage spec" effect="write" {
         flag "-f --file" help="A usage spec taken in as a file" {
