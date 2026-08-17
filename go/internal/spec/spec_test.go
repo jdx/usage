@@ -313,3 +313,53 @@ func TestANegationIsMatchedAsWritten(t *testing.T) {
 		t.Errorf("--no-tint is not the form `-no-tint`, so nothing: got %v", got)
 	}
 }
+
+// The table has to agree with the binder it feeds.
+//
+// The parser tries every long form before any negation, so with `--a` declaring
+// `negate="--zap"` and a separate `--zap`, typing `--zap` binds *zap*. Resolving
+// per candidate handed the relationship to `a`, and the rule would then have been
+// enforced against a flag the command line never binds.
+func TestAnOrdinaryFormBeatsAnotherFlagsNegation(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "a", Long: []string{"a"}, Negate: "--zap"},
+			{Name: "zap", Long: []string{"zap"}},
+			{Name: "p", Long: []string{"p"}, Conflicts: []string{"--zap"}},
+		}},
+	})
+	var zap uint64
+	for _, f := range root.Flags {
+		if f.Name == "zap" {
+			zap = f.Key
+		}
+	}
+	if got := metaFor(t, meta, root, "p").Conflicts; len(got) != 1 || got[0] != zap {
+		t.Errorf("should name the flag --zap binds (%d), got %v", zap, got)
+	}
+}
+
+// A negation is named by the form it was written as, whatever the dashes.
+func TestASingleDashNegationIsNamedByItsOwnForm(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "tint", Long: []string{"tint"}, Negate: "-no-tint"},
+			{Name: "plain", Long: []string{"plain"}, Conflicts: []string{"-no-tint"}},
+			{Name: "other", Long: []string{"other"}, Conflicts: []string{"--no-tint"}},
+		}},
+	})
+	var tint uint64
+	for _, f := range root.Flags {
+		if f.Name == "tint" {
+			tint = f.Key
+		}
+	}
+	if got := metaFor(t, meta, root, "plain").Conflicts; len(got) != 1 || got[0] != tint {
+		t.Errorf("the exact form should resolve to tint (%d), got %v", tint, got)
+	}
+	if got := metaFor(t, meta, root, "other").Conflicts; len(got) != 0 {
+		t.Errorf("--no-tint is not how it was declared, got %v", got)
+	}
+}

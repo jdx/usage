@@ -567,10 +567,19 @@ fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted])
 /// whichever of the two spellings was typed. The relationship is between entries
 /// rather than between tokens, which is what the key model already assumes.
 fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
-    // The form is part of the name. `--q` does not reach the short `-q` and
-    // `-color` does not reach the long `--color`: usage-lib resolves neither, and
-    // resolving them here would have a generated CLI enforcing a rule the
-    // reference does not.
+    // Two passes, in the order the parser itself looks: every ordinary form
+    // first, then negations.
+    //
+    // That order is not a nicety. The parser tries every long form before it
+    // tries any negation, so with `--a` declaring `negate = "--zap"` and a
+    // separate `--zap`, typing `--zap` binds *zap*. A per-candidate search hands
+    // the relationship to `a`, and the table then enforces a rule against a flag
+    // the command line never binds. The table has to agree with the binder it
+    // feeds.
+    let eligible = |flag: &SpecFlag| !globals_only || flag.global;
+
+    // The form is part of the name: `--q` does not reach the short `-q`, and
+    // `-color` does not reach the long `--color`. usage-lib resolves neither.
     let (long, short, bare) = if let Some(rest) = name.strip_prefix("--") {
         (Some(rest), None, None)
     } else if let Some(rest) = name.strip_prefix('-') {
@@ -583,27 +592,30 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
         (None, None, Some(name))
     };
 
+    let ordinary = cmd.flags.iter().find(|(flag, _)| {
+        if !eligible(flag) {
+            return false;
+        }
+        if let Some(bare) = bare {
+            return flag.name == bare;
+        }
+        if let Some(long) = long {
+            return flag.long.iter().any(|l| l == long);
+        }
+        short.is_some_and(|c| flag.short.contains(&c))
+    });
+    if let Some((_, named)) = ordinary {
+        return Some(named.key.clone());
+    }
+
+    // Negations, compared exactly as both sides were written — dashes included.
+    // `negate = "-no-tint"` is named by `-no-tint` and not by `--no-tint`, and
+    // usage-lib resolves it that way round too.
     cmd.flags
         .iter()
-        .find(|(flag, _)| {
-            if globals_only && !flag.global {
-                return false;
-            }
-            if let Some(bare) = bare {
-                return flag.name == bare;
-            }
-            if let Some(long) = long {
-                // The negation is a form of the flag it belongs to and names the
-                // same entry — compared as the spec wrote it, dashes and all, so a
-                // `negate = "-no-color"` is not reached by `--no-color`. usage-lib
-                // does not resolve that either.
-                return flag.negate.as_deref() == Some(name) || flag.long.iter().any(|l| l == long);
-            }
-            short.is_some_and(|c| flag.short.contains(&c))
-        })
+        .find(|(flag, _)| eligible(flag) && flag.negate.as_deref() == Some(name))
         .map(|(_, named)| named.key.clone())
 }
-
 fn string_slice(values: &[String]) -> String {
     let list = values
         .iter()
@@ -1204,6 +1216,48 @@ flag "--d" conflicts="--color"
         assert!(
             out.contains("Name: \"d\", Flag: true, Conflicts: []uint64{FlagColor}"),
             "{out}"
+        );
+    }
+
+    /// The table has to agree with the binder it feeds.
+    ///
+    /// The parser tries every long form before any negation, so with `--a`
+    /// declaring `negate="--zap"` and a separate `--zap`, typing `--zap` binds
+    /// *zap*. A per-candidate search handed the relationship to `a`, which would
+    /// have enforced the rule against a flag the command line never binds.
+    #[test]
+    fn an_ordinary_form_beats_another_flags_negation() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--a" negate="--zap"
+flag "--zap"
+flag "--p" conflicts="--zap"
+"#);
+        assert!(
+            out.contains("Name: \"p\", Flag: true, Conflicts: []uint64{FlagZap}"),
+            "should name the flag `--zap` binds, not the one negating to it:\n{out}"
+        );
+    }
+
+    /// A negation is named by the form it was written as, whatever the dashes.
+    #[test]
+    fn a_single_dash_negation_is_named_by_its_own_form() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--tint" negate="-no-tint"
+flag "--plain" conflicts="-no-tint"
+flag "--other" conflicts="--no-tint"
+"#);
+        assert!(
+            out.contains("Name: \"plain\", Flag: true, Conflicts: []uint64{FlagTint}"),
+            "the exact form should resolve:\n{out}"
+        );
+        // And the form it was not written as does not.
+        assert!(
+            out.contains("{Key: FlagOther, Name: \"other\", Flag: true},"),
+            "`--no-tint` is not how it was declared:\n{out}"
         );
     }
 
