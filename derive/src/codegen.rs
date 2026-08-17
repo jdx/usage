@@ -2919,7 +2919,7 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
             // Named directly, as the flag and argument tables beside this one are: the
             // generated items live in the user's own scope now rather than in a module
             // above it, so there is no path to rewrite.
-            Some(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.groups))
+            Some(quote!(<#ty as usage_argv::spec::CommandArgs>::META.groups))
         })
         .collect();
     if groups.is_empty() && flattened.is_empty() {
@@ -2927,7 +2927,7 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     }
     let entries = groups.iter().map(|(name, required, multiple, members)| {
         quote! {
-            ::usage_argv::spec::GroupMeta {
+            usage_argv::spec::GroupMeta {
                 name: #name,
                 members: &[#(#members),*],
                 required: #required,
@@ -2939,19 +2939,19 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     if flattened.is_empty() {
         return (
             quote! {
-                pub static GROUP_METAS: [::usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+                pub static GROUP_METAS: [usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
             },
             quote!(&GROUP_METAS),
         );
     }
     (
         quote! {
-            pub static OWN_GROUP_METAS: [::usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
-            const GROUP_META_GROUPS: &[&[::usage_argv::spec::GroupMeta<'static>]] =
+            pub static OWN_GROUP_METAS: [usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+            const GROUP_META_GROUPS: &[&[usage_argv::spec::GroupMeta<'static>]] =
                 &[&OWN_GROUP_METAS, #(#flattened),*];
-            static GROUP_METAS: [::usage_argv::spec::GroupMeta<'static>;
-                ::usage_argv::table_len(GROUP_META_GROUPS)] =
-                ::usage_argv::spec::concat_group_metas(GROUP_META_GROUPS);
+            static GROUP_METAS: [usage_argv::spec::GroupMeta<'static>;
+                usage_argv::table_len(GROUP_META_GROUPS)] =
+                usage_argv::spec::concat_group_metas(GROUP_META_GROUPS);
         },
         quote!(&GROUP_METAS),
     )
@@ -3305,7 +3305,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                             quote! {
                                 if #a && #b {
                                     return ::std::result::Result::Err(
-                                        ::usage_argv::Error::ConflictingFlags {
+                                        usage_argv::Error::ConflictingFlags {
                                             name: #name_b,
                                             other: #name_a,
                                         },
@@ -3322,7 +3322,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 quote! {
                     if !(#(#given)||*) {
                         return ::std::result::Result::Err(
-                            ::usage_argv::Error::MissingGroup {
+                            usage_argv::Error::MissingGroup {
                                 group: #name,
                                 members: &[#(#selectors),*],
                             },
