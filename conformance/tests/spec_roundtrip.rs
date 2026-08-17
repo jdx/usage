@@ -325,6 +325,7 @@ static SPEC: Spec = Spec {
     min_usage_version: None,
     about: Some("does things"),
     long_about: Some("Does things, at length."),
+    usage: None,
     default_subcommand: Some("run"),
     root: &ROOT_META,
 };
@@ -755,6 +756,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &META,
     };
@@ -886,6 +888,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &ROOT_META_TWO,
     };
@@ -938,6 +941,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &ROOT_META_THREE,
     };

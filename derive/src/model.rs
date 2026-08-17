@@ -49,6 +49,8 @@ pub struct Cli {
     /// produces a spec claiming to be readable by a `usage` that chokes on it, which is worse
     /// than saying nothing. The CLI knows which consumers it has to keep working.
     pub min_usage_version: Option<String>,
+    /// An exact usage synopsis for shapes with explicit alternatives.
+    pub usage: Option<String>,
     /// What running this command does to the world, when it says.
     ///
     /// Held as the tokens for an `Option<Effect>`, since the only thing it becomes is a field of
@@ -376,6 +378,7 @@ impl Cli {
             completion: false,
             settings: false,
             min_usage_version: None,
+            usage: None,
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
@@ -419,6 +422,7 @@ impl Cli {
                     "alias" => cli.aliases.extend(selectors(&meta)?),
                     "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
+                    "usage" => cli.usage = Some(string_value(&meta)?),
                     "version" => {
                         cli.version = Some(match &meta {
                             // `version` on its own: whatever the adopter's package says.
@@ -468,7 +472,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, `version`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `bin`, `version`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `restart_token`, and `mount` here, \
                                  and the description comes from the doc comment"
                             ),

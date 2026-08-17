@@ -25,6 +25,7 @@ mod sponsors;
     bin = "usage",
     version,
     min_usage_version = "4.0",
+    usage = "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec",
     // Every flag `usage` accepts is one it declares, so an unrecognised one is a mistake and
     // saying so beats offering it to a positional — `usage lint --nope f.kdl` would otherwise
     // make `--nope` the file and call the real file unexpected.

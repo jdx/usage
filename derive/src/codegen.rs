@@ -86,6 +86,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
+    let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
@@ -397,6 +398,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 min_usage_version: #min_usage_version,
                 about: #about,
                 long_about: #long_about,
+                usage: #usage,
                 default_subcommand: #default_subcommand,
                 root: &ROOT_META,
             };
