@@ -1289,17 +1289,19 @@ fn parse_partial_with_env(
         // Identity matters here, not only the canonical name: a parent and child may each
         // declare their own non-global `--clean`. The selected command's flag is still in
         // `available_flags` under the same Arc the parse recorded; a non-global ancestor was
-        // dropped on descent. A child re-declaring an inherited global is the same logical
-        // ancestor flag only when the merged flag kept `global`, hence the declaration check.
+        // dropped on descent. Compare the spellings as well as the canonical name when a
+        // child re-declares an inherited global: the child can replace only one alias while
+        // an invocation through another alias still points at the ancestor declaration.
         let belongs_to_selected_command = out
             .available_flags
             .values()
             .any(|available| Arc::ptr_eq(available, flag))
-            && out
-                .cmd
-                .flags
-                .iter()
-                .any(|declared| declared.name == flag.name && declared.global == flag.global);
+            && out.cmd.flags.iter().any(|declared| {
+                declared.name == flag.name
+                    && declared.global == flag.global
+                    && declared.short == flag.short
+                    && declared.long == flag.long
+            });
         let selected_subcommand =
             (out.cmds.len() > 1 && !belongs_to_selected_command).then(|| out.cmd.name.clone());
         let other = other_flag
@@ -3031,6 +3033,18 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
             "the parent flag still conflicts with selecting the child"
+        );
+    }
+
+    #[test]
+    fn an_inherited_alias_keeps_its_ancestor_exclusivity() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" global=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the inherited short alias still belongs to the ancestor exclusive flag"
         );
     }
 
