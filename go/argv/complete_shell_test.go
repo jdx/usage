@@ -106,29 +106,40 @@ func TestFilesAreAskedForOnTheirOwnLine(t *testing.T) {
 	}
 }
 
-// A candidate carrying a tab or a newline would be read as more fields or more
-// rows. Values normally come from a spec and contain neither, but a `complete`
-// script can produce anything, and rearranging the protocol is a worse failure
-// than a missing candidate.
-func TestACandidateCannotRearrangeTheProtocol(t *testing.T) {
+// A value carrying a tab or a newline would be read as more fields or more rows.
+//
+// Dropped rather than collapsed: a value is what gets typed onto the command
+// line, so a repaired one inserts an argument nobody offered — the shell reports
+// success and the CLI receives something else. Values normally come from a spec
+// and contain none of this, but a `complete` script can produce anything.
+func TestAValueThatCannotTravelIsNotOffered(t *testing.T) {
 	a := Answer{Candidates: []Candidate{
-		{Value: "one\ttwo\nthree", Describe: "a\tb"},
+		{Value: "one\ttwo\nthree"},
+		{Value: "\x01files"}, // would be read as the marker line
+		{Value: "plain"},
 	}}
 	for _, shell := range []Shell{Bash, Zsh, Fish, Nu, PowerShell} {
 		got := RenderAnswer(a, shell)
 		if strings.Count(got, "\n") != 1 {
-			t.Errorf("%v: one candidate is one row, got %q", shell, got)
+			t.Errorf("%v: only the one that travels is offered, got %q", shell, got)
 		}
-		fields := strings.Count(strings.TrimRight(got, "\n"), "\t")
-		want := 0
-		switch shell {
-		case Zsh:
-			want = 2
-		case Fish, Nu, PowerShell:
-			want = 1
+		if !strings.HasPrefix(got, "plain") {
+			t.Errorf("%v: the candidate that travels should survive, got %q", shell, got)
 		}
-		if fields != want {
-			t.Errorf("%v: want %d tabs, got %d in %q", shell, want, fields, got)
+	}
+}
+
+// A description is prose, and prose collapses: nothing is typed from it, and a
+// two-line help still says both halves on one line.
+func TestADescriptionIsCollapsedRatherThanDropped(t *testing.T) {
+	a := Answer{Candidates: []Candidate{{Value: "run", Describe: "does a thing\nand another"}}}
+	got := RenderAnswer(a, Zsh)
+	if strings.Count(got, "\n") != 1 {
+		t.Errorf("one candidate is one row, got %q", got)
+	}
+	for _, want := range []string{"does a thing and another", "run"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("want %q kept in %q", want, got)
 		}
 	}
 }

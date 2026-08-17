@@ -74,9 +74,20 @@ func RenderAnswer(a Answer, shell Shell) string {
 		// The protocols are lines with tab-separated fields, so a value carrying
 		// either would be read as more rows or more fields. A candidate normally
 		// comes from a spec and contains neither, but a `complete` script can
-		// produce anything, and a completion that rearranges the protocol is a
-		// worse failure than a missing candidate.
-		value := oneLine(c.Value)
+		// produce anything.
+		//
+		// Such a candidate is dropped rather than repaired. A value is the text
+		// that gets typed onto the command line, so collapsing a tab inside it
+		// would insert an argument nobody offered — the shell would report success
+		// while the CLI received something else, which is the confusing half of
+		// the two. A missing candidate is the honest failure: the user types the
+		// value themselves and it works.
+		if !travels(c.Value) {
+			continue
+		}
+		value := c.Value
+		// The description is prose, and collapsing prose onto one line is what a
+		// one-line protocol asks for. Nothing is typed from it.
 		description := oneLine(c.Describe)
 		switch shell {
 		case Bash:
@@ -103,17 +114,35 @@ func RenderAnswer(a Answer, shell Shell) string {
 	return out.String()
 }
 
+// travels reports whether a value can be written into these protocols as itself.
+//
+// Every control character, not only the three that delimit: the marker lines
+// that say "files belong here too" open with `\x01`, and a candidate beginning
+// with one would be read as a marker rather than as a candidate. The comment on
+// FilesMarker says no candidate can contain a control character; this is what
+// makes that true.
+func travels(value string) bool {
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
 // oneLine collapses text onto one line, because the protocols are line-based
 // with tab-separated fields: a break or a tab inside either field would be read
 // as another row or another column.
 //
 // Collapsed rather than truncated, so a two-line description still says both
 // halves. A run of breaks becomes one space, and never a leading or trailing one.
+// Every other control character goes the same way: a description is displayed by
+// the shell, and an escape sequence displayed is an escape sequence run.
 func oneLine(text string) string {
 	var out strings.Builder
 	spaced := false
 	for _, r := range text {
-		if r == '\n' || r == '\r' || r == '\t' {
+		if r < 0x20 || r == 0x7f {
 			if !spaced && out.Len() > 0 {
 				out.WriteByte(' ')
 				spaced = true
