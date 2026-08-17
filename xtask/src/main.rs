@@ -15,6 +15,7 @@ use std::path::Path;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
+mod help_pages;
 mod shadow;
 
 fn main() {
@@ -41,14 +42,21 @@ fn main() {
                 fail("gen-shadow needs a spec file, an output directory, and optionally a dialect")
             }
         },
+        // The pages usage-lib renders, as JSON, so an implementation in another
+        // language can be measured against them rather than against itself.
+        "help-pages" => match rest {
+            [spec] => help_pages::dump(Path::new(spec)),
+            _ => fail("help-pages needs a spec file"),
+        },
         other => fail(&format!(
             "unknown task `{other}`; the tasks are: \
-             gen-shadow <spec.kdl> <out-dir> [usage|clap]"
+             gen-shadow <spec.kdl> <out-dir> [usage|clap], \
+             help-pages <spec.kdl>"
         )),
     }
 }
 
-fn fail(message: &str) -> ! {
+pub(crate) fn fail(message: &str) -> ! {
     eprintln!("xtask: {message}");
     std::process::exit(1)
 }
