@@ -197,6 +197,34 @@ mod tests {
     }
 
     #[test]
+    fn a_mount_replacing_the_flags_replaces_the_groups_with_them() {
+        // A mounted spec's root flags *replace* the flags of the command the mount sits
+        // on. Groups name flags, so they have to go with them: keeping the old set would
+        // enforce exclusivity between flags that are no longer here, and a required group
+        // whose members nothing answers to would reject every invocation.
+        let mut base: Spec = "flag \"--file <f>\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\" required=#true\n"
+            .parse()
+            .unwrap();
+        let mounted: Spec = "flag \"--other <o>\"\n".parse().unwrap();
+
+        base.cmd.merge(mounted.cmd);
+        assert!(
+            base.cmd.groups.is_empty(),
+            "a group naming flags that were replaced should not survive them"
+        );
+
+        // A merge that brings no flags leaves the groups alone, which is what makes this
+        // about *replacement* rather than about merging at all.
+        let mut base: Spec =
+            "flag \"--file <f>\"\nflag \"--url <u>\"\ngroup \"input\" \"--file\" \"--url\"\n"
+                .parse()
+                .unwrap();
+        let helpish: Spec = "name \"other\"\n".parse().unwrap();
+        base.cmd.merge(helpish.cmd);
+        assert_eq!(base.cmd.groups.len(), 1);
+    }
+
+    #[test]
     fn a_group_comes_across_from_clap() {
         // Unlike `requires`, this one the bridge can read: `Command::get_groups` and
         // `ArgGroup::get_args` are public, so a clap CLI's groups reach the spec — and

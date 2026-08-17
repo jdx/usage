@@ -529,16 +529,19 @@ impl SpecCommand {
         if !args.is_empty() {
             self.args = args;
         }
-        if !flags.is_empty() {
+        let flags_replaced = !flags.is_empty();
+        if flags_replaced {
             self.flags = flags;
         }
         if !mounts.is_empty() {
             self.mounts = mounts;
         }
-        // Replaced rather than appended, as flags are: a merged command's groups name
-        // that command's flags, and the flags have just been replaced too, so keeping
-        // both sets would leave groups pointing at flags that are no longer here.
-        if !groups.is_empty() {
+        // Groups travel with the flags they name. A mounted spec that replaces this
+        // command's flags replaces its groups too — including with none, which is the
+        // case that matters: keeping the old set would enforce exclusivity between flags
+        // that are no longer here, and a required group whose members nothing answers to
+        // would reject every invocation.
+        if flags_replaced || !groups.is_empty() {
             self.groups = groups;
         }
         if !aliases.is_empty() {
