@@ -291,6 +291,54 @@ func TestAnInheritedNegationSurvivesItsFlagsOtherSpellings(t *testing.T) {
 	}
 }
 
+// A subcommand is offered only while the parser would still descend.
+//
+// Descent stops once a positional of this command has taken a word — after that a
+// word matching a subcommand name is a value, or a failure. Offering one there is
+// the same mistake as offering a flag past a `--`.
+func TestASubcommandIsNotOfferedOnceAPositionalIsFilled(t *testing.T) {
+	sub := &Command{Name: "run", Key: 2}
+	root := &Command{Name: "ex", Key: 1,
+		Args:        []*Arg{{Key: 3, Name: "file"}},
+		Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
+	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}}
+
+	// The premise, from the parser: with the positional filled, `run` is not a
+	// command any more.
+	p := New(root, []string{"a.txt", "run"})
+	for p.Next() {
+		if ev := p.Event(); ev.Kind == KindCommand {
+			t.Fatalf("the parser still descends into %q, so the premise is wrong", ev.Command.Name)
+		}
+	}
+
+	if got := values(Candidates(Walk(root, nil), "", help, meta)); !offered(got, "run") {
+		t.Errorf("nothing has been typed yet, so run should be offered: %v", got)
+	}
+	if got := values(Candidates(Walk(root, []string{"a.txt"}), "", help, meta)); offered(got, "run") {
+		t.Errorf("the positional is filled, so run would not bind: %v", got)
+	}
+}
+
+// A negation spelled the same as its own long form is offered once.
+//
+// `flag "--no-color" negate="--no-color"` is odd and it parses, and usage-lib
+// prints it as `--no-color / --no-color` — so the page says it twice by design,
+// and the check for that lives in the page tests. A completion is a list of
+// things to type, where the same thing twice is a repeated row.
+func TestANegationSpelledLikeItsOwnLongIsOfferedOnce(t *testing.T) {
+	flag := &Flag{Key: 2, Name: "no-color", Longs: []string{"no-color"}, Negate: "no-color"}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}}
+	help := HelpTable{{Key: 1}, {Key: 2}}
+	meta := Metadata{{Key: 1}, {Key: 2}}
+
+	got := values(Candidates(Walk(root, nil), "", help, meta))
+	if n := count(got, "--no-color"); n != 1 {
+		t.Errorf("--no-color should be offered once, got %d: %v", n, got)
+	}
+}
+
 func count(list []string, want string) int {
 	n := 0
 	for _, s := range list {

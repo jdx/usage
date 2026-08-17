@@ -27,6 +27,10 @@ type Position struct {
 	// flag. False past a `--`, and past the first value of an `automatic`
 	// argument — there is no flag of *this* CLI to offer in either place.
 	FlagsPossible bool
+	// SubcommandsPossible is whether a word here could still name a subcommand.
+	// False once a positional of this command has taken a word: the parser stops
+	// descending there, so a later word matching a subcommand name is a value.
+	SubcommandsPossible bool
 	// AwaitingValue is a flag whose value the cursor is standing in, if the last
 	// word was one that takes a value or a variadic still claiming words.
 	AwaitingValue *Flag
@@ -70,6 +74,8 @@ func Walk(root *Command, words []string) Position {
 		// the request. Nothing else can be typed there: a topic takes no flags and
 		// fills no argument.
 		case CodeHelp:
+			// SubcommandsPossible stays false: a topic is not descended into, and
+			// the commands under it are offered by HelpTopic instead.
 			return Position{Cmd: err.Cmd, Chain: chain, HelpTopic: true}
 		}
 	}
@@ -80,10 +86,11 @@ func Walk(root *Command, words []string) Position {
 		// A variadic flag still claiming words stands in the same place as a flag
 		// waiting for its first value: the next word belongs to it, not to the
 		// positional after it.
-		AwaitingValue: firstFlag(awaiting, p.Collecting()),
-		FlagsPossible: !p.FlagsStopped(),
-		NextArg:       p.PendingArg(),
-		SeparatorSeen: p.DoubleDashSeen(),
+		AwaitingValue:       firstFlag(awaiting, p.Collecting()),
+		FlagsPossible:       !p.FlagsStopped(),
+		SubcommandsPossible: p.SubcommandsPossible(),
+		NextArg:             p.PendingArg(),
+		SeparatorSeen:       p.DoubleDashSeen(),
 	}
 }
 
@@ -158,7 +165,12 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		return out
 	}
 
-	commands()
+	// Only while descent is still possible. Once a positional has taken a word the
+	// parser stops matching subcommands, and a name offered there would be bound
+	// as a value or refused outright.
+	if pos.SubcommandsPossible {
+		commands()
+	}
 
 	// Flags, only where one could still be typed, and taken from the parser's own
 	// scope so that shadowing is respected: a subcommand redeclaring an inherited
@@ -224,7 +236,15 @@ func flagsInScope(chain []*Command) []inScope {
 		// A negation is a spelling like any other, and it loses to a long anywhere
 		// in scope rather than only to a nearer one — see negationSurvives, which
 		// the pages use for the same decision.
-		if n := negationOf(f); n != "" && negationSurvives(f, n, takenNegations, everyForm) {
+		//
+		// Not twice, though. A flag may spell its negation the same as its own long
+		// — `flag "--no-color" negate="--no-color"` — and then it is already in the
+		// list. usage-lib prints that flag as `--no-color / --no-color`, so the page
+		// says it twice on purpose and matching the reference means keeping that;
+		// a completion is a list of things to type, and the same thing twice is
+		// just a repeated row.
+		if n := negationOf(f); n != "" && !has(left, n) &&
+			negationSurvives(f, n, takenNegations, everyForm) {
 			left = append(left, n)
 		}
 		// Claimed whether or not anything is left: a spelling this flag answers to
