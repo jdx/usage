@@ -14,7 +14,9 @@
 package spec
 
 import (
-	"sort"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/jdx/usage/go/argv"
@@ -37,21 +39,118 @@ type Spec struct {
 	// the root.
 	DefaultSubcommand string `json:"default_subcommand"`
 	Version           string `json:"version"`
+	About             string `json:"about"`
+	AboutLong         string `json:"about_long"`
+	BeforeHelp        string `json:"before_help"`
+	AfterHelp         string `json:"after_help"`
+}
+
+// HelpSpec is what a page needs from the spec's root rather than from a command.
+func (s *Spec) HelpSpec() argv.HelpSpec {
+	return argv.HelpSpec{
+		Name:       s.Name,
+		Bin:        s.Bin,
+		Version:    s.Version,
+		About:      first(s.About, s.AboutLong),
+		BeforeHelp: s.BeforeHelp,
+		AfterHelp:  s.AfterHelp,
+	}
 }
 
 // Cmd is one command in the lowered spec.
 type Cmd struct {
-	Name          string         `json:"name"`
-	Hide          bool           `json:"hide"`
-	Help          string         `json:"help"`
-	HelpLong      string         `json:"help_long"`
-	Usage         string         `json:"usage"`
-	Aliases       []string       `json:"aliases"`
-	HiddenAliases []string       `json:"hidden_aliases"`
-	Subcommands   map[string]Cmd `json:"subcommands"`
-	Args          []Arg          `json:"args"`
-	Flags         []Flag         `json:"flags"`
-	UnknownFlags  *string        `json:"unknown_flags"`
+	Name          string      `json:"name"`
+	Hide          bool        `json:"hide"`
+	Help          string      `json:"help"`
+	HelpLong      string      `json:"help_long"`
+	Usage         string      `json:"usage"`
+	BeforeHelp    string      `json:"before_help"`
+	AfterHelp     string      `json:"after_help"`
+	Examples      []Example   `json:"examples"`
+	Aliases       []string    `json:"aliases"`
+	HiddenAliases []string    `json:"hidden_aliases"`
+	Subcommands   Subcommands `json:"subcommands"`
+	Args          []Arg       `json:"args"`
+	Flags         []Flag      `json:"flags"`
+	UnknownFlags  *string     `json:"unknown_flags"`
+}
+
+// Subcommands is a command's children, in the order the spec declared them.
+//
+// A slice rather than the map the JSON object suggests, because the order is
+// worth keeping and a Go map does not have one. usage-lib writes its object in
+// declaration order — holding that order is something the CLI does deliberately,
+// so that a spec generated from a clap program lists its commands the way that
+// program does — and `usage generate go` emits its tables in the same order.
+// Sorting here instead would give a run-time lowering a different table from the
+// generated one built out of the same spec, keys included. They are compared
+// against each other, and expected to agree exactly.
+type Subcommands []NamedCmd
+
+// NamedCmd is one entry of a subcommand object: the name it was filed under,
+// and the command itself.
+type NamedCmd struct {
+	Name string
+	Cmd  Cmd
+}
+
+// UnmarshalJSON reads the object a key at a time, which is the only way to see
+// the order the keys were written in.
+func (s *Subcommands) UnmarshalJSON(data []byte) error {
+	// Into a list of its own, assigned at the end. A decoder is allowed to be
+	// handed a value that already holds something — decoding twice into the same
+	// Spec, or a Spec kept around and refilled — and appending to the receiver
+	// would leave the previous spec's commands in the table beside this one's.
+	// Assigning only on success is the other half: a spec that failed to decode
+	// should not have half-replaced the one that did.
+	var out Subcommands
+
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	// `null` is a command with no subcommands, and it replaces whatever was there
+	// rather than leaving it.
+	if tok == nil {
+		*s = nil
+		return nil
+	}
+	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
+		return fmt.Errorf("subcommands: expected an object, got %v", tok)
+	}
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := key.(string)
+		if !ok {
+			return fmt.Errorf("subcommands: expected a name, got %v", key)
+		}
+		var cmd Cmd
+		if err := dec.Decode(&cmd); err != nil {
+			return err
+		}
+		out = append(out, NamedCmd{Name: name, Cmd: cmd})
+	}
+	// The closing brace, so that a truncated object is an error rather than a
+	// short list.
+	if _, err := dec.Token(); err != nil {
+		return err
+	}
+	*s = out
+	return nil
+}
+
+// Get is the command filed under a name, if there is one.
+func (s Subcommands) Get(name string) (Cmd, bool) {
+	for _, sub := range s {
+		if sub.Name == name {
+			return sub.Cmd, true
+		}
+	}
+	return Cmd{}, false
 }
 
 // Flag is one flag in the lowered spec.
@@ -140,6 +239,12 @@ type Arg struct {
 	HelpFirstLine string   `json:"help_first_line"`
 	HelpLong      string   `json:"help_long"`
 	HelpHeading   string   `json:"help_heading"`
+}
+
+// Example is a worked invocation a page prints.
+type Example struct {
+	Header string `json:"header"`
+	Code   string `json:"code"`
 }
 
 // Choices is the declared set of values, which the lowering nests one level.
@@ -243,9 +348,8 @@ func collectMulti(c *Cmd, out map[string]Multi) {
 			out[f.Name] = MultiVar
 		}
 	}
-	for _, name := range sortedKeys(c.Subcommands) {
-		sub := c.Subcommands[name]
-		collectMulti(&sub, out)
+	for i := range c.Subcommands {
+		collectMulti(&c.Subcommands[i].Cmd, out)
 	}
 }
 
@@ -299,6 +403,21 @@ func (b *builder) recordHelp(key uint64, h argv.Help) {
 	b.help[key-1] = h
 }
 
+// visibleAliases is the aliases a page should advertise: those the spec did not
+// also hide.
+//
+// Nil where none survive, rather than an empty slice, so that a command with no
+// visible aliases compares equal to the generated table's zero value.
+func visibleAliases(c *Cmd) []string {
+	var out []string
+	for _, a := range c.Aliases {
+		if !contains(c.HiddenAliases, a) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 func first(values ...string) string {
 	for _, v := range values {
 		if v != "" {
@@ -324,10 +443,26 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		UnknownFlags: unknown,
 		Key:          b.next(),
 	}
+	examples := make([]argv.Example, 0, len(c.Examples))
+	for _, e := range c.Examples {
+		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code})
+	}
 	b.recordHelp(out.Key, argv.Help{
 		Hide:  c.Hide,
 		Short: first(c.Help, c.HelpLong),
-		Long:  first(c.HelpLong, c.Help),
+		// No fallback to the short text, because the emitter does not write one for
+		// a command: the page renderer falls back for itself, so carrying the same
+		// string twice would only put it in the table twice. What matters is that
+		// the two producers of this table agree — see TestTheTwoProducersAgree.
+		Long: c.HelpLong,
+		// Visible only: the parse table merges the hidden ones in beside these,
+		// because binding does not care which is which. A spec may declare the same
+		// alias twice, once hidden, and hiding wins — usage-lib reports it in both
+		// lists, so the visible list has to be filtered rather than taken as it is.
+		VisibleAliases: visibleAliases(c),
+		BeforeHelp:     c.BeforeHelp,
+		AfterHelp:      c.AfterHelp,
+		Examples:       examples,
 	})
 
 	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
@@ -349,9 +484,8 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	b.resolveRelationships(c, out)
 	// In scope for everything below, and out of scope again afterwards.
 	b.scope = append(b.scope, out)
-	for _, name := range sortedKeys(c.Subcommands) {
-		sub := c.Subcommands[name]
-		out.Subcommands = append(out.Subcommands, b.command(&sub, unknown))
+	for i := range c.Subcommands {
+		out.Subcommands = append(out.Subcommands, b.command(&c.Subcommands[i].Cmd, unknown))
 	}
 	b.scope = b.scope[:len(b.scope)-1]
 	return out
@@ -504,9 +638,12 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Repeatable:    f.Var,
 		ValueName:     valueName,
 		ValueDemanded: valueDemanded,
-		Short:         first(f.HelpFirstLine, f.Help),
+		Short:         first(f.Help, f.HelpFirstLine),
 		Long:          first(f.HelpLong, f.Help),
 		Heading:       f.HelpHeading,
+		Choices:       f.choices(),
+		Env:           f.Env,
+		Default:       f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
 		Name:     f.Name,
@@ -547,9 +684,12 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	b.recordHelp(out.Key, argv.Help{
 		Hide:     a.Hide,
 		Demanded: a.Required && len(a.Default) == 0,
-		Short:    first(a.HelpFirstLine, a.Help),
+		Short:    first(a.Help, a.HelpFirstLine),
 		Long:     first(a.HelpLong, a.Help),
 		Heading:  a.HelpHeading,
+		Choices:  a.Choices.list(),
+		Env:      a.Env,
+		Default:  a.Default,
 	})
 	b.record(out.Key, argv.Meta{
 		Name:     a.Name,
@@ -610,16 +750,4 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
-}
-
-// sortedKeys keeps table order stable. Go randomizes map iteration, and a
-// generator whose output reordered itself between runs would produce a diff on
-// every regeneration.
-func sortedKeys(m map[string]Cmd) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

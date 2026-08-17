@@ -676,6 +676,35 @@ impl Emitter<'_> {
             }
         }
         let _ = writeln!(self.out, "}}\n");
+
+        let mut fields = vec![
+            format!("Name: {}", go_string(&self.spec.name)),
+            format!("Bin: {}", go_string(&self.spec.bin)),
+        ];
+        if let Some(version) = &self.spec.version {
+            fields.push(format!("Version: {}", go_string(version)));
+        }
+        if let Some(about) = self
+            .spec
+            .about
+            .as_deref()
+            .or(self.spec.about_long.as_deref())
+        {
+            fields.push(format!("About: {}", go_string(about)));
+        }
+        if let Some(before) = &self.spec.before_help {
+            fields.push(format!("BeforeHelp: {}", go_string(before)));
+        }
+        if let Some(after) = &self.spec.after_help {
+            fields.push(format!("AfterHelp: {}", go_string(after)));
+        }
+        let _ = writeln!(
+            self.out,
+            "// HelpMeta is what a page needs from the spec's root rather than from any one\n\
+             // command: the header, and the text that brackets every page.\n\
+             var HelpMeta = argv.HelpSpec{{{}}}\n",
+            fields.join(", ")
+        );
     }
 }
 
@@ -690,6 +719,41 @@ fn command_help(e: &Emitted) -> String {
     }
     if let Some(long) = &e.cmd.help_long {
         fields.push(format!("Long: {}", go_string(long)));
+    }
+    // Visible only: the parse table merges hidden aliases in beside these,
+    // because binding does not care which is which. A page does.
+    let visible: Vec<String> = e
+        .cmd
+        .aliases
+        .iter()
+        .filter(|a| !e.cmd.hidden_aliases.contains(a))
+        .cloned()
+        .collect();
+    if !visible.is_empty() {
+        fields.push(format!("VisibleAliases: {}", string_slice(&visible)));
+    }
+    if let Some(before) = &e.cmd.before_help {
+        fields.push(format!("BeforeHelp: {}", go_string(before)));
+    }
+    if let Some(after) = &e.cmd.after_help {
+        fields.push(format!("AfterHelp: {}", go_string(after)));
+    }
+    if !e.cmd.examples.is_empty() {
+        let items = e
+            .cmd
+            .examples
+            .iter()
+            .map(|x| {
+                let header = x.header.as_deref().unwrap_or_default();
+                format!(
+                    "{{Header: {}, Code: {}}}",
+                    go_string(header),
+                    go_string(&x.code)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        fields.push(format!("Examples: []argv.Example{{{items}}}"));
     }
     format!("{{{}}}", fields.join(", "))
 }
@@ -718,7 +782,9 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
             fields.push("ValueDemanded: true".to_string());
         }
     }
-    if let Some(help) = flag.help_first_line.as_deref().or(flag.help.as_deref()) {
+    // The whole `help`, not its first line: usage-lib's short page prints the
+    // text as declared, and mise has flags whose help is two lines.
+    if let Some(help) = flag.help.as_deref().or(flag.help_first_line.as_deref()) {
         fields.push(format!("Short: {}", go_string(help)));
     }
     if let Some(long) = flag.help_long.as_deref().or(flag.help.as_deref()) {
@@ -726,6 +792,24 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     }
     if let Some(heading) = &flag.help_heading {
         fields.push(format!("Heading: {}", go_string(heading)));
+    }
+    // Annotations. A flag's choices are declared on the value it takes.
+    if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
+        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+    }
+    if let Some(env) = &flag.env {
+        fields.push(format!("Env: {}", go_string(env)));
+    }
+    let default = if !flag.default.is_empty() {
+        &flag.default
+    } else {
+        flag.arg
+            .as_ref()
+            .map(|a| &a.default)
+            .unwrap_or(&flag.default)
+    };
+    if !default.is_empty() {
+        fields.push(format!("Default: {}", string_slice(default)));
     }
     format!("{{{}}}", fields.join(", "))
 }
@@ -738,7 +822,7 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
     if arg.required && arg.default.is_empty() {
         fields.push("Demanded: true".to_string());
     }
-    if let Some(help) = arg.help_first_line.as_deref().or(arg.help.as_deref()) {
+    if let Some(help) = arg.help.as_deref().or(arg.help_first_line.as_deref()) {
         fields.push(format!("Short: {}", go_string(help)));
     }
     if let Some(long) = arg.help_long.as_deref().or(arg.help.as_deref()) {
@@ -746,6 +830,15 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
     }
     if let Some(heading) = &arg.help_heading {
         fields.push(format!("Heading: {}", go_string(heading)));
+    }
+    if let Some(choices) = &arg.choices {
+        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+    }
+    if let Some(env) = &arg.env {
+        fields.push(format!("Env: {}", go_string(env)));
+    }
+    if !arg.default.is_empty() {
+        fields.push(format!("Default: {}", string_slice(&arg.default)));
     }
     format!("{{{}}}", fields.join(", "))
 }

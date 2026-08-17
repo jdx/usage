@@ -87,3 +87,7 @@ var HelpText = argv.HelpTable{
 	{Key: CmdMacosDefaults2},
 	{Key: FlagMacosDefaultsApply2},
 }
+
+// HelpMeta is what a page needs from the spec's root rather than from any one
+// command: the header, and the text that brackets every page.
+var HelpMeta = argv.HelpSpec{Name: "ex", Bin: "ex"}

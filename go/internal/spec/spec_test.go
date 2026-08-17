@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -106,11 +107,9 @@ func TestMetadataLinesUpWithTheParseTables(t *testing.T) {
 		Cmd: Cmd{Name: "ex",
 			Flags: []Flag{{Name: "verbose", Long: []string{"verbose"}}},
 			Args:  []Arg{{Name: "file", Required: true}},
-			Subcommands: map[string]Cmd{
-				"install": {Name: "install",
-					Flags: []Flag{{Name: "force", Long: []string{"force"}}},
-					Args:  []Arg{{Name: "pkg"}}},
-			},
+			Subcommands: Subcommands{{Name: "install", Cmd: Cmd{Name: "install",
+				Flags: []Flag{{Name: "force", Long: []string{"force"}}},
+				Args:  []Arg{{Name: "pkg"}}}}},
 		},
 	})
 
@@ -151,12 +150,10 @@ func TestARelationshipCanNameAnInheritedGlobal(t *testing.T) {
 				// nothing rather than to something that will never be enforced.
 				{Name: "local", Long: []string{"local"}},
 			},
-			Subcommands: map[string]Cmd{
-				"run": {Name: "run", Flags: []Flag{
-					{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
-					{Name: "solo", Long: []string{"solo"}, Conflicts: []string{"--local"}},
-				}},
-			},
+			Subcommands: Subcommands{{Name: "run", Cmd: Cmd{Name: "run", Flags: []Flag{
+				{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
+				{Name: "solo", Long: []string{"solo"}, Conflicts: []string{"--local"}},
+			}}}},
 		},
 	})
 
@@ -189,12 +186,10 @@ func TestALocalFlagShadowsTheGlobalOfTheSameName(t *testing.T) {
 		Name: "ex", Bin: "ex",
 		Cmd: Cmd{Name: "ex",
 			Flags: []Flag{{Name: "quiet", Long: []string{"quiet"}, Global: true}},
-			Subcommands: map[string]Cmd{
-				"run": {Name: "run", Flags: []Flag{
-					{Name: "quiet", Long: []string{"quiet"}},
-					{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
-				}},
-			},
+			Subcommands: Subcommands{{Name: "run", Cmd: Cmd{Name: "run", Flags: []Flag{
+				{Name: "quiet", Long: []string{"quiet"}},
+				{Name: "loud", Long: []string{"loud"}, Conflicts: []string{"--quiet"}},
+			}}}},
 		},
 	})
 
@@ -361,5 +356,108 @@ func TestASingleDashNegationIsNamedByItsOwnForm(t *testing.T) {
 	}
 	if got := metaFor(t, meta, root, "other").Conflicts; len(got) != 0 {
 		t.Errorf("--no-tint is not how it was declared, got %v", got)
+	}
+}
+
+// A spec may declare the same alias twice, once hidden, and hiding wins.
+//
+// usage-lib reports such an alias in both `aliases` and `hidden_aliases`, so a
+// visible list taken as it arrives advertises something the spec asked to keep
+// out of the page. The emitter filters, and these two tables have to be the same
+// table — see TestTheTwoProducersAgree, which cannot see this one because mise
+// declares no alias twice.
+func TestAnAliasDeclaredBothWaysStaysHidden(t *testing.T) {
+	s := &Spec{Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Subcommands: Subcommands{{Name: "install", Cmd: Cmd{
+			Name:          "install",
+			Aliases:       []string{"i", "add"},
+			HiddenAliases: []string{"i"},
+		}}}},
+	}
+	root, _, help := s.BuildAll()
+
+	install := root.Subcommands[0]
+	// Still bound by both: hiding is about the page, and the parser never reads
+	// which list a name came from.
+	if !reflect.DeepEqual(install.Aliases, []string{"i", "add", "i"}) {
+		t.Errorf("both aliases should bind, got %v", install.Aliases)
+	}
+	if got := help.Lookup(install.Key).VisibleAliases; !reflect.DeepEqual(got, []string{"add"}) {
+		t.Errorf("only the alias that was not also hidden should show, got %v", got)
+	}
+}
+
+// Subcommands keep the order the spec declared them in.
+//
+// The lowering arrives as a JSON object, and a Go map has no order — so this is
+// decoded a key at a time. Order is not cosmetic here: the keys that index the
+// cold tables are handed out in this order, so a lowering that sorted by name
+// would number every entry differently from the generated tables built out of
+// the same spec.
+func TestSubcommandsKeepTheOrderTheyWereDeclaredIn(t *testing.T) {
+	var s Spec
+	const lowered = `{"name":"ex","bin":"ex","cmd":{"name":"ex","subcommands":{
+		"run":{"name":"run"},"add":{"name":"add"},"build":{"name":"build"}}}}`
+	if err := json.Unmarshal([]byte(lowered), &s); err != nil {
+		t.Fatalf("lowered spec should decode: %v", err)
+	}
+
+	var got []string
+	for _, sub := range s.Cmd.Subcommands {
+		got = append(got, sub.Name)
+	}
+	if want := []string{"run", "add", "build"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("declared %v, decoded %v", want, got)
+	}
+
+	root, _ := build(&s)
+	var names []string
+	for _, sub := range root.Subcommands {
+		names = append(names, sub.Name)
+	}
+	if want := []string{"run", "add", "build"}; !reflect.DeepEqual(names, want) {
+		t.Errorf("the table should hold the same order, got %v", names)
+	}
+}
+
+// Decoding into a spec that already holds one replaces its commands.
+//
+// A decoder does not get to assume a fresh value: appending to the receiver would
+// leave the first spec's commands in the second spec's table, which is a parse
+// table describing a CLI that does not exist.
+func TestDecodingASecondSpecReplacesTheFirstsSubcommands(t *testing.T) {
+	var s Spec
+	first := `{"cmd":{"name":"ex","subcommands":{"run":{"name":"run"}}}}`
+	second := `{"cmd":{"name":"ex","subcommands":{"add":{"name":"add"}}}}`
+	if err := json.Unmarshal([]byte(first), &s); err != nil {
+		t.Fatalf("the first spec should decode: %v", err)
+	}
+	if err := json.Unmarshal([]byte(second), &s); err != nil {
+		t.Fatalf("the second spec should decode: %v", err)
+	}
+	var got []string
+	for _, sub := range s.Cmd.Subcommands {
+		got = append(got, sub.Name)
+	}
+	if want := []string{"add"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("the second spec's commands are all there is, got %v", got)
+	}
+
+	// And a command that says it has none says so, rather than keeping the last
+	// answer.
+	if err := json.Unmarshal([]byte(`{"cmd":{"subcommands":null}}`), &s); err != nil {
+		t.Fatalf("null should decode: %v", err)
+	}
+	if len(s.Cmd.Subcommands) != 0 {
+		t.Errorf("null is no subcommands, got %v", s.Cmd.Subcommands)
+	}
+}
+
+// A truncated object is an error rather than a short list: the decoder reads the
+// closing brace itself, so nothing else is there to notice.
+func TestATruncatedSubcommandObjectIsAnError(t *testing.T) {
+	var s Spec
+	if err := json.Unmarshal([]byte(`{"cmd":{"subcommands":{"run":{}`), &s); err == nil {
+		t.Error("a truncated lowering should not decode as a spec")
 	}
 }

@@ -1,6 +1,7 @@
 package mise
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jdx/usage/go/argv"
@@ -203,5 +204,72 @@ func TestATypedBooleanCountsAsGiven(t *testing.T) {
 	}
 	if source != argv.Unset {
 		t.Errorf("untyped, with nothing declared to fill it, should be unset: %v", source)
+	}
+}
+
+// The generated tables render the same pages as the runtime-built ones.
+//
+// `go/conformance` proves the renderer against usage-lib using tables built from
+// a lowered spec at run time. That leaves the emitter's half unchecked, and the
+// help table is where a dropped field is least visible: a missing alias or
+// annotation changes one line of one page. So the whole tree is rendered from
+// what the generator actually wrote.
+func TestGeneratedTablesRenderEveryPage(t *testing.T) {
+	var rendered int
+	var walk func(chain []*argv.Command, path []string)
+	walk = func(chain []*argv.Command, path []string) {
+		page := argv.ShortHelp(HelpMeta, path, chain, HelpText)
+		if page == "" || !strings.Contains(page, "Usage: "+strings.Join(path, " ")) {
+			t.Errorf("%s: page does not lead with its own usage line:\n%s",
+				strings.Join(path, " "), page)
+		}
+		rendered++
+		cmd := chain[len(chain)-1]
+		for _, sub := range cmd.Subcommands {
+			walk(append(append([]*argv.Command{}, chain...), sub),
+				append(append([]string{}, path...), sub.Name))
+		}
+	}
+	walk([]*argv.Command{Root}, []string{"mise"})
+
+	if rendered < 200 {
+		t.Errorf("only %d pages rendered; mise's tree is larger", rendered)
+	}
+}
+
+// One page in full, so a reader can see what the generated tables produce rather
+// than only that something was produced.
+func TestAGeneratedPageReadsAsAPage(t *testing.T) {
+	var configLs, config *argv.Command
+	for _, c := range Root.Subcommands {
+		if c.Name == "config" {
+			config = c
+			for _, s := range c.Subcommands {
+				if s.Name == "ls" {
+					configLs = s
+				}
+			}
+		}
+	}
+	if configLs == nil {
+		t.Fatal("mise has a `config ls`")
+	}
+	page := argv.ShortHelp(HelpMeta,
+		[]string{"mise", "config", "ls"},
+		[]*argv.Command{Root, config, configLs}, HelpText)
+
+	for _, want := range []string{
+		"List config files currently in use",
+		"Usage: mise config ls [FLAGS]",
+		"Flags:",
+		"  -J, --json",
+		"  -h, --help",
+		// The globals come from the root, under a heading that says so.
+		"Global flags:",
+		"  -C, --cd <DIR>",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page is missing %q:\n%s", want, page)
+		}
 	}
 }

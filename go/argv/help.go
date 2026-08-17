@@ -48,6 +48,29 @@ type Help struct {
 	Long  string
 	// Heading groups an entry into a section of the page. Presentational only.
 	Heading string
+
+	// The rest a page prints and the usage line does not.
+
+	// VisibleAliases are the aliases a command advertises. The parse table merges
+	// hidden ones in beside these, because binding does not care which is which;
+	// a page does, and that is the whole of the distinction.
+	VisibleAliases []string
+	// Choices, Env and Default are the annotations a page appends to an entry's
+	// help: `[a, b]`, `[env: X]`, `(default: y)`.
+	//
+	// Duplicated from [Meta] rather than read from it, which is the price of
+	// keeping the two tables separable: a CLI that prints help should not have to
+	// carry the post-binding table, and one that applies the rules should not have
+	// to carry the help strings.
+	Choices []string
+	Env     string
+	Default []string
+	// BeforeHelp and AfterHelp bracket this command's page, overriding the
+	// spec-wide text.
+	BeforeHelp string
+	AfterHelp  string
+	// Examples are worked invocations, printed last.
+	Examples []Example
 }
 
 // HelpTable is the cold help table, indexed by key: entry `Key` sits at
@@ -144,16 +167,23 @@ func UsageLine(path []string, cmd *Command, help HelpTable) string {
 }
 
 // flagUsage is how one flag appears in the usage line: `-f --force`, plus its
-// value if it takes one.
+// value if it takes one. The line always offers every spelling, since nothing on
+// it is competing for a word.
 func flagUsage(f *Flag, h *Help) string {
+	return flagUsageShown(f, allShown(f), h)
+}
+
+// flagUsageShown is the same, restricted to the spellings a page is still
+// offering for this flag — see [shown].
+func flagUsageShown(f *Flag, show shown, h *Help) string {
 	var out strings.Builder
 
 	long, short := "", byte(0)
-	if len(f.Longs) > 0 {
-		long = f.Longs[0]
+	if show.hasLong {
+		long = show.long
 	}
-	if len(f.Shorts) > 0 {
-		short = f.Shorts[0]
+	if show.hasShort {
+		short = show.short
 	}
 
 	// The declared name, when it is not the one the forms would imply. A flag

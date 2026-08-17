@@ -1,0 +1,333 @@
+package argv
+
+import (
+	"sort"
+	"strings"
+)
+
+// The page `-h` prints.
+//
+// Ported from usage-argv's `short_help`, and held to the same standard: every one
+// of mise's 211 pages, byte for byte against usage-lib. Reimplemented rules
+// drift, and help text is the part of a CLI a user actually reads, so a rule
+// reimplemented here is only worth having if something checks it.
+
+// HelpSpec is what a page needs from the CLI as a whole rather than from one
+// command: the parts of the header that come from the spec's root.
+type HelpSpec struct {
+	// Name is what the spec calls the program, and Bin what it is invoked as.
+	// The header prefers Name and falls back to Bin.
+	Name string
+	Bin  string
+	// Version is printed beside the name on the root's page, and only when the
+	// spec declares one — a `--version` that answers with nothing is worse than
+	// one that is not there.
+	Version string
+	// About is the root's description, which the root's page uses in place of the
+	// command's own.
+	About string
+	// BeforeHelp and AfterHelp bracket every page that does not override them.
+	BeforeHelp string
+	AfterHelp  string
+}
+
+// Example is one worked invocation, as a page prints it.
+type Example struct {
+	Header string
+	Code   string
+}
+
+// shortCol is the width the short-flag column is padded to, so that `-J, --json`
+// and `    --no-header` line their long forms up.
+const shortCol = 4
+
+// ShortHelp renders what `-h` prints for the command at the end of `chain`.
+//
+// `path` is the command as invoked, binary first. `chain` is the commands from
+// the root down to this one, which is what a page needs to work out which
+// inherited globals are still this command's to offer.
+func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+	if len(chain) == 0 {
+		return ""
+	}
+	cmd := chain[len(chain)-1]
+	meta := help.Lookup(cmd.Key)
+	var out strings.Builder
+
+	before := spec.BeforeHelp
+	if meta != nil && meta.BeforeHelp != "" {
+		before = meta.BeforeHelp
+	}
+	if before != "" {
+		out.WriteString(before + "\n\n")
+	}
+
+	// The program, then what it is for — on the program's own page. A
+	// subcommand's page says what the subcommand does. usage-lib prints the name
+	// when the spec gives one and the binary otherwise, and only when there is a
+	// version beside it.
+	root := len(path) <= 1
+	if root && spec.Version != "" {
+		name := spec.Name
+		if name == "" {
+			name = spec.Bin
+		}
+		out.WriteString(name + " " + spec.Version + "\n")
+	}
+	about := ""
+	if root {
+		about = spec.About
+	} else if meta != nil {
+		about = meta.Short
+	}
+	if about != "" {
+		out.WriteString(about + "\n\n")
+	}
+
+	out.WriteString("Usage: " + UsageLine(path, cmd, help) + "\n")
+
+	// The path without the binary, which is what a listed subcommand shows:
+	// usage-lib prints the whole path from the root rather than the child's own
+	// name.
+	commandsSection(&out, path[min(1, len(path)):], cmd, help)
+
+	args := visibleArgs(cmd, help)
+	argCol := 0
+	for _, a := range args {
+		if n := width(argUsage(a, help.Lookup(a.Key))); n > argCol {
+			argCol = n
+		}
+	}
+	groupsSection(&out, "Arguments", len(args),
+		func(i int) string { return headingOf(help, args[i].Key) },
+		func(w *strings.Builder, i int) {
+			a := args[i]
+			h := help.Lookup(a.Key)
+			usage := argUsage(a, h)
+			if help := helpText(h); help != "" {
+				w.WriteString("  " + pad(usage, argCol) + "  " + help)
+			} else {
+				w.WriteString("  " + usage)
+			}
+			annotations(w, h, true)
+		})
+
+	own, inherited := ownAndGlobal(chain, help)
+
+	// One column over *both* lists, so the two sections read as one table with a
+	// rule through it rather than two tables that happen to be adjacent.
+	flagCol := 0
+	for _, f := range own {
+		if n := width(f.usage); n > flagCol {
+			flagCol = n
+		}
+	}
+	for _, f := range inherited {
+		if n := width(f.usage); n > flagCol {
+			flagCol = n
+		}
+	}
+	entry := func(w *strings.Builder, f shownFlag) {
+		h := help.Lookup(f.key)
+		if f.supplied != "" {
+			// A flag the parser supplies has no table entry; its help is fixed.
+			if text := f.suppliedHelp; text != "" {
+				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+			} else {
+				w.WriteString("  " + f.usage)
+			}
+			w.WriteString("\n")
+			return
+		}
+		if text := helpText(h); text != "" {
+			w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+		} else {
+			w.WriteString("  " + f.usage)
+		}
+		annotations(w, h, false)
+	}
+	groupsSection(&out, "Flags", len(own),
+		func(i int) string {
+			if own[i].supplied != "" {
+				return ""
+			}
+			return headingOf(help, own[i].key)
+		},
+		func(w *strings.Builder, i int) { entry(w, own[i]) })
+	// After the command's own, and under a heading that says where they came
+	// from: a global belongs to the program, not to this command, and a reader
+	// should be able to see that.
+	groupsSection(&out, "Global flags", len(inherited),
+		func(int) string { return "" },
+		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
+
+	examplesSection(&out, meta)
+
+	after := spec.AfterHelp
+	if meta != nil && meta.AfterHelp != "" {
+		after = meta.AfterHelp
+	}
+	if after != "" {
+		out.WriteString("\n" + after + "\n")
+	}
+
+	// usage-lib trims the whole document and puts back one newline, which keeps
+	// the blank lines between sections from becoming trailing ones.
+	return strings.TrimSpace(out.String()) + "\n"
+}
+
+// commandsSection lists the subcommands, and the `help` command every CLI with
+// subcommands has.
+func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable) {
+	type line struct {
+		usage string
+		sub   *Command
+	}
+	var lines []line
+	for _, sub := range cmd.Subcommands {
+		if h := help.Lookup(sub.Key); h != nil && h.Hide {
+			continue
+		}
+		subPath := append(append([]string{}, path...), sub.Name)
+		lines = append(lines, line{UsageLine(subPath, sub, help), sub})
+	}
+	// Nothing visible, no section — a command may have subcommands and every one
+	// of them hidden. The usage *line* still says `<SUBCOMMAND>`, because
+	// usage-lib computes it before filtering; matching the reference means
+	// matching that too, odd as the pair looks together.
+	if len(lines) == 0 {
+		return
+	}
+	out.WriteString("\nCommands:\n")
+
+	// Sorted by the rendered usage rather than by name, as usage-lib sorts them.
+	sort.SliceStable(lines, func(i, j int) bool { return lines[i].usage < lines[j].usage })
+
+	for _, l := range lines {
+		out.WriteString("  " + l.usage)
+		if h := help.Lookup(l.sub.Key); h != nil {
+			// Visible aliases only: a hidden alias works and is not advertised,
+			// which is the whole of the distinction.
+			if len(h.VisibleAliases) > 0 {
+				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
+			}
+			if h.Short != "" {
+				out.WriteString("  " + h.Short)
+			}
+		}
+		out.WriteString("\n")
+	}
+	out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+}
+
+// groupsSection writes one section per heading, unheaded first, in the order the
+// headings first appear.
+func groupsSection(out *strings.Builder, defaultTitle string, n int,
+	headingOf func(int) string, writeItem func(*strings.Builder, int)) {
+
+	if n == 0 {
+		return
+	}
+	var headings []string
+	seen := map[string]bool{}
+	for i := 0; i < n; i++ {
+		h := headingOf(i)
+		if !seen[h] {
+			seen[h] = true
+			headings = append(headings, h)
+		}
+	}
+	// The unheaded group first, then the rest in first-seen order.
+	sort.SliceStable(headings, func(i, j int) bool {
+		return headings[i] == "" && headings[j] != ""
+	})
+
+	for _, heading := range headings {
+		title := heading
+		if title == "" {
+			title = defaultTitle
+		}
+		out.WriteString("\n" + title + ":\n")
+		for i := 0; i < n; i++ {
+			if headingOf(i) == heading {
+				writeItem(out, i)
+			}
+		}
+	}
+}
+
+func examplesSection(out *strings.Builder, meta *Help) {
+	if meta == nil || len(meta.Examples) == 0 {
+		return
+	}
+	out.WriteString("\nExamples:\n")
+	for _, e := range meta.Examples {
+		if e.Header != "" {
+			out.WriteString("  " + e.Header + ":\n")
+		}
+		out.WriteString("    $ " + e.Code + "\n")
+	}
+}
+
+// annotations writes what a page appends to an entry's help, then the newline.
+//
+// `withDefault` is false for a flag, which is not an oversight: usage-lib prints
+// `(default: …)` for an argument and not for a flag, and the short page follows
+// it. A flag's default shows up in the long page instead.
+func annotations(out *strings.Builder, h *Help, withDefault bool) {
+	if h != nil {
+		if len(h.Choices) > 0 {
+			out.WriteString(" [" + strings.Join(h.Choices, ", ") + "]")
+		}
+		if h.Env != "" {
+			out.WriteString(" [env: " + h.Env + "]")
+		}
+		if withDefault && len(h.Default) > 0 {
+			out.WriteString(" (default: " + strings.Join(h.Default, ", ") + ")")
+		}
+	}
+	out.WriteString("\n")
+}
+
+func helpText(h *Help) string {
+	if h == nil || strings.TrimSpace(h.Short) == "" {
+		return ""
+	}
+	return h.Short
+}
+
+func headingOf(help HelpTable, key uint64) string {
+	if h := help.Lookup(key); h != nil {
+		return h.Heading
+	}
+	return ""
+}
+
+func visibleArgs(cmd *Command, help HelpTable) []*Arg {
+	out := make([]*Arg, 0, len(cmd.Args))
+	for _, a := range cmd.Args {
+		if h := help.Lookup(a.Key); h != nil && h.Hide {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// pad left-justifies to a column measured in characters, not bytes: the usage
+// strings carry `…`.
+func pad(s string, col int) string {
+	if n := width(s); n < col {
+		return s + strings.Repeat(" ", col-n)
+	}
+	return s
+}
+
+func width(s string) int { return len([]rune(s)) }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
