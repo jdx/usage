@@ -212,6 +212,72 @@ struct Verbatim {
     command: Option<Commands>,
 }
 
+/// First root line
+/// second root line
+///
+///     root example
+#[derive(Cli)]
+#[usage(bin = "verbatim-comments", verbatim_doc_comment)]
+struct VerbatimComments {
+    /// First field line
+    /// second field line
+    ///
+    ///     field example
+    #[usage(long, verbatim_doc_comment)]
+    layout: bool,
+    #[usage(subcommand)]
+    command: Option<VerbatimCommands>,
+}
+
+#[derive(Args)]
+struct Paint {}
+
+#[derive(Subcommands)]
+enum VerbatimCommands {
+    /// First command line
+    /// second command line
+    #[usage(verbatim_doc_comment)]
+    Paint(Paint),
+}
+
+#[test]
+fn doc_comments_can_preserve_their_layout() {
+    let spec: LibSpec = VerbatimComments::to_kdl().parse().expect("valid spec");
+    assert_eq!(
+        spec.about.as_deref(),
+        Some("First root line\nsecond root line")
+    );
+    assert_eq!(
+        spec.about_long.as_deref(),
+        Some("First root line\nsecond root line\n\n    root example")
+    );
+
+    let layout = spec.cmd.flags.iter().find(|f| f.name == "layout").unwrap();
+    assert_eq!(
+        layout.help.as_deref(),
+        Some("First field line\nsecond field line")
+    );
+    assert_eq!(
+        layout.help_long.as_deref(),
+        Some("First field line\nsecond field line\n\n    field example")
+    );
+
+    let paint = spec.cmd.subcommands.get("paint").expect("paint");
+    assert_eq!(
+        paint.help.as_deref(),
+        Some("First command line\nsecond command line")
+    );
+    assert!(paint.help_long.is_none());
+
+    let argv = [
+        std::ffi::OsStr::new("--layout"),
+        std::ffi::OsStr::new("paint"),
+    ];
+    let parsed = VerbatimComments::parse_from(&argv).expect("the metadata still parses");
+    assert!(parsed.layout);
+    assert!(matches!(parsed.command, Some(VerbatimCommands::Paint(_))));
+}
+
 #[test]
 fn help_text_can_keep_line_breaks_a_comment_would_flow() {
     // A doc comment's first paragraph is read the way Rust reads one, so a line break inside
