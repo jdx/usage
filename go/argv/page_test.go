@@ -35,3 +35,40 @@ func TestExamplesFallBackToTheRoot(t *testing.T) {
 		t.Errorf("its own examples should win:\n%s", page)
 	}
 }
+
+// A description that ends in a break adds no blank line.
+//
+// clap's `long_about` often ends with one — a `///` block whose last line is
+// empty, an examples section written with a trailing newline — and it reaches the
+// spec verbatim. The blank line under a description belongs to the renderer, so
+// one already in the text was a second one: a stray blank under the about, and in
+// the middle of the `Commands:` list.
+//
+// The rule is usage-lib's and usage-argv's, and mise exercises it — `plugins
+// ls-remote` writes its examples that way. It is pinned here as well because the
+// parity suite says only that some page differs, not which rule was broken.
+func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
+	sub := &Command{Name: "run", Key: 2}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "run it", Long: "run it\n\nExamples:\n\n    $ ex run\n"},
+	}
+	spec := HelpSpec{Name: "ex", Bin: "ex"}
+
+	// On the command's own page, above the usage line.
+	page := LongHelp(spec, []string{"ex", "run"}, []*Command{root, sub}, help)
+	if strings.Contains(page, "$ ex run\n\n\nUsage:") {
+		t.Errorf("the description's own break should not double the blank line:\n%q", page)
+	}
+	if !strings.Contains(page, "$ ex run\n\nUsage:") {
+		t.Errorf("one blank line between the description and the usage:\n%q", page)
+	}
+
+	// And in the list on the parent's page, where it would leave a stray blank in
+	// the middle rather than at the end.
+	parent := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(parent, "$ ex run\n\n\n") {
+		t.Errorf("a listed command's description should not double it either:\n%q", parent)
+	}
+}

@@ -3,6 +3,7 @@ package argv
 import (
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // The page `-h` prints.
@@ -88,7 +89,10 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	} else if meta != nil {
 		about = meta.Short
 	}
-	if about != "" {
+	// Trimmed as the long page trims it, and for the same reason: the blank line
+	// under a description belongs to the renderer, so one already in the text is a
+	// second one.
+	if about := trimEnd(about); about != "" {
 		out.WriteString(about + "\n\n")
 	}
 
@@ -350,6 +354,10 @@ func pad(s string, col int) string {
 }
 
 func width(s string) int { return len([]rune(s)) }
+
+// trimEnd drops trailing whitespace, which is what `str::trim_end` does on the
+// two sides this is ported from.
+func trimEnd(s string) string { return strings.TrimRightFunc(s, unicode.IsSpace) }
 
 // sortLines orders a section's entries by their rendered usage, which is how
 // usage-lib orders them — for a command with no flags or arguments that agrees

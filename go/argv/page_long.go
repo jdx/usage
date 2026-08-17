@@ -50,7 +50,12 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	} else if meta != nil {
 		about = firstOf(meta.Long, meta.Short)
 	}
-	if about != "" {
+	// Trimmed for the same reason the entries below are: the blank line after the
+	// description is written here, so one already in the text doubles it. clap's
+	// `long_about` often ends in a break — a `///` block whose last line is empty,
+	// an examples section written with a trailing newline — and it reaches the spec
+	// verbatim.
+	if about := trimEnd(about); about != "" {
 		out.WriteString(about + "\n\n")
 	}
 
@@ -166,7 +171,10 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 		}
 		out.WriteString("\n")
 		if h != nil {
-			if about := firstOf(h.Long, h.Short); about != "" {
+			// Trailing whitespace trimmed: the blank line after each entry is
+			// written below, and a description that happens to end in a newline
+			// added a second one — a stray blank in the middle of the list.
+			if about := trimEnd(firstOf(h.Long, h.Short)); about != "" {
 				writeIndented(out, about, 4)
 			}
 		}
