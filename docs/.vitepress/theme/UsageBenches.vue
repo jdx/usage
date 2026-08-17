@@ -60,7 +60,8 @@ function width(value: number, max: number): string {
                 process cannot resolve a 200ns parse. Minima and their ratios drift a few
                 percent between runs and machines, hence the <code>~</code>. Instructions
                 for one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
-                agreeing across two machines to 0.15%.
+                agreeing across two machines to 0.15%. For scale, starting a process costs
+                ~1ms, so the first two bars are under anything a user feels.
               </span>
             </span>
           </span>
@@ -83,9 +84,7 @@ function width(value: number, max: number): string {
           </div>
         </div>
         <p class="usage-bench-foot">
-          usage-rs and argh are the two bars you cannot see, and neither is a number anyone
-          could feel — starting a process costs ~1ms. The gap that matters is to clap and
-          bpaf, which
+          clap and bpaf
           <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-build"
             >build a parser before they can use one
             <span class="usage-bench-tip" id="bench-tip-build" role="tooltip">
@@ -96,10 +95,10 @@ function width(value: number, max: number): string {
                 reusing the parser across parses only halves.
               </span>
             </span></span
-          >. Heap allocations for a bare parse: <strong>zero</strong> vs clap's 6,280. argh
-          and bpaf are also doing less: the generator counts
+          >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
+          argh and bpaf also
           <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-express"
-            >what they cannot express
+            >express less
             <span class="usage-bench-tip" id="bench-tip-express" role="tooltip">
               <strong>Missing from the argh and bpaf shadows</strong>
               <span>
@@ -108,8 +107,7 @@ function width(value: number, max: number): string {
                 when it runs.
               </span>
             </span></span
-          >
-          and prints it when it runs.
+          >.
         </p>
       </div>
 
