@@ -224,6 +224,10 @@ type builder struct {
 	// meta grows in step with the keys, so entry `Key` lands at `meta[Key-1]` and
 	// a lookup is an index.
 	meta argv.Metadata
+	// scope is the chain above the command being built, so a relationship can
+	// name an inherited global. Ancestors only: a command cannot see its own
+	// children's flags, and neither can a declaration.
+	scope []*argv.Command
 }
 
 // record files an entry's cold half at the position its key indexes.
@@ -269,10 +273,13 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	// After the flags, because a relationship names a sibling and every sibling
 	// needs a key before any of them can be pointed at.
 	b.resolveRelationships(c, out)
+	// In scope for everything below, and out of scope again afterwards.
+	b.scope = append(b.scope, out)
 	for _, name := range sortedKeys(c.Subcommands) {
 		sub := c.Subcommands[name]
 		out.Subcommands = append(out.Subcommands, b.command(&sub, unknown))
 	}
+	b.scope = b.scope[:len(b.scope)-1]
 	return out
 }
 
@@ -289,21 +296,19 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 	find := func(name string) (uint64, bool) {
 		bare := strings.TrimLeft(name, "-")
-		for _, f := range out.Flags {
-			if f.Name == bare {
-				return f.Key, true
-			}
-			for _, long := range f.Longs {
-				if long == bare {
-					return f.Key, true
-				}
-			}
-			if len(bare) == 1 {
-				for _, short := range f.Shorts {
-					if short == bare[0] {
-						return f.Key, true
-					}
-				}
+		// This command's own flags first, then any ancestor's globals — the same
+		// scope a token has, and in the same order, so a subcommand redeclaring an
+		// inherited name shadows it here exactly as it does at parse time.
+		//
+		// Searching only locally was a silent hole: `conflicts="--quiet"` on a
+		// subcommand flag, where `--quiet` is a root global, resolved to nothing
+		// and the rule was simply never enforced. usage-lib enforces it.
+		if key, ok := matchFlag(out.Flags, bare, false); ok {
+			return key, true
+		}
+		for i := len(b.scope) - 1; i >= 0; i-- {
+			if key, ok := matchFlag(b.scope[i].Flags, bare, true); ok {
+				return key, true
 			}
 		}
 		return 0, false
@@ -327,6 +332,36 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.RequiredUnless = resolve(src.RequiredUnless)
 		m.RequiredIf = resolve(src.RequiredIf)
 	}
+}
+
+// matchFlag finds a flag by any spelling a declaration may use for it.
+//
+// The negation counts, and resolves to the same entry: usage-lib treats
+// `conflicts="--no-color"` as naming the `color` flag, and reports the conflict
+// whichever of the two spellings was typed. The relationship is between entries
+// rather than between tokens, which is what this key model already assumes.
+func matchFlag(flags []*argv.Flag, bare string, globalsOnly bool) (uint64, bool) {
+	for _, f := range flags {
+		if globalsOnly && !f.Global {
+			continue
+		}
+		if f.Name == bare || (f.Negate != "" && f.Negate == bare) {
+			return f.Key, true
+		}
+		for _, long := range f.Longs {
+			if long == bare {
+				return f.Key, true
+			}
+		}
+		if len(bare) == 1 {
+			for _, short := range f.Shorts {
+				if short == bare[0] {
+					return f.Key, true
+				}
+			}
+		}
+	}
+	return 0, false
 }
 
 func (b *builder) flag(f *Flag) *argv.Flag {
