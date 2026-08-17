@@ -163,6 +163,8 @@ pub struct Field {
     /// The counterpart of a spec's `run=`, and the source it is generated from: declaring the
     /// function is the only place a completer is said to exist.
     pub complete: Option<syn::Path>,
+    /// A built-in completion class, in the spec's vocabulary (`path` or `dir`).
+    pub complete_type: Option<String>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// Flags this one displaces. Applied while parsing rather than after it: the
@@ -241,6 +243,38 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
     Ok(quote::quote!(::core::option::Option::Some(
         ::usage_argv::spec::Effect::#variant
     )))
+}
+
+/// Clap's path-oriented `ValueHint`s lowered into the completion types the usage spec has.
+///
+/// The path is consumed syntactically, so accepting `clap::ValueHint::FilePath` does not keep
+/// clap as a dependency after a declaration migrates to `#[usage(...)]`.
+fn value_hint(meta: &Meta) -> syn::Result<String> {
+    let value = &meta.require_name_value()?.value;
+    let Expr::Path(path) = value else {
+        return Err(syn::Error::new_spanned(
+            value,
+            "`value_hint` takes a ValueHint variant, as in \
+             `value_hint = clap::ValueHint::FilePath`",
+        ));
+    };
+    let Some(variant) = path.path.segments.last() else {
+        return Err(syn::Error::new_spanned(
+            value,
+            "`value_hint` needs a variant",
+        ));
+    };
+    match variant.ident.to_string().as_str() {
+        "FilePath" | "AnyPath" => Ok("path".to_string()),
+        "DirPath" => Ok("dir".to_string()),
+        other => Err(syn::Error::new_spanned(
+            value,
+            format!(
+                "`ValueHint::{other}` has no usage completion type yet; supported hints are \
+                 `FilePath`, `AnyPath`, and `DirPath`"
+            ),
+        )),
+    }
 }
 
 /// Whether a field is a flag or a positional, and how it is addressed.
@@ -887,6 +921,7 @@ impl Field {
             // place rather than a command.
             effect: None,
             complete: None,
+            complete_type: None,
             // A flattened field holds declarations, not a value, so none of what describes a
             // value applies — the same as a subcommand field.
             shape: Shape::Bool,
@@ -979,6 +1014,7 @@ impl Field {
             kind: Kind::Subcommand { ty, optional },
             effect: None,
             complete: None,
+            complete_type: None,
             // A subcommand field holds a command, not a value, so none of what
             // describes a value applies to it.
             shape: Shape::Bool,
@@ -1048,6 +1084,7 @@ impl Field {
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
         let mut complete: Option<syn::Path> = None;
+        let mut complete_type: Option<String> = None;
         let mut value_enum = false;
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
@@ -1114,6 +1151,7 @@ impl Field {
                         };
                         complete = Some(path.path.clone());
                     }
+                    "value_hint" => complete_type = Some(value_hint(&meta)?),
                     "choices" => {
                         let Meta::List(list) = &meta else {
                             return Err(syn::Error::new_spanned(
@@ -1183,7 +1221,7 @@ impl Field {
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
-                                 `var_min`, `var_max`, `value_enum`, `overrides`, \
+                                 `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -1338,6 +1376,18 @@ impl Field {
             return Err(syn::Error::new(
                 span,
                 "a `bool` or counting field has no value to check against `choices`",
+            ));
+        }
+        if complete_type.is_some() && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "`value_hint` describes a value to complete, and this field takes no value",
+            ));
+        }
+        if complete_type.is_some() && complete.is_some() {
+            return Err(syn::Error::new(
+                span,
+                "`value_hint` and `complete` both answer completion for this value; use one",
             ));
         }
         if let (Some(min), Some(max)) = (var_min, var_max) {
@@ -1689,6 +1739,7 @@ impl Field {
             required_collection,
             choices,
             complete,
+            complete_type,
             value_enum,
             var_min,
             var_max,

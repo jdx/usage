@@ -428,19 +428,26 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
 
     // The name a value here would have, which is what says whether paths belong, and whether
     // that value declares its own set.
-    let (named, declares_choices) = if let Some(flag) = position.awaiting_value {
+    let (named, declares_choices, complete_type) = if let Some(flag) = position.awaiting_value {
         let meta = flag_meta(spec.root, flag);
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
             meta.is_some_and(|m| !m.choices.is_empty()),
+            meta.and_then(|m| m.complete_type),
         )
     } else if let Some(arg) = at_cursor {
         let meta = arg_meta(spec.root, arg);
-        (Some(arg.name), meta.is_some_and(|m| !m.choices.is_empty()))
+        (
+            Some(arg.name),
+            meta.is_some_and(|m| !m.choices.is_empty()),
+            meta.and_then(|m| m.complete_type),
+        )
     } else {
-        (None, false)
+        (None, false, None)
     };
-    let asked_for = named.and_then(files_for);
+    let asked_for = complete_type
+        .and_then(files_for)
+        .or_else(|| named.and_then(files_for));
 
     // An argument that requires a separator is not fillable yet, so nothing else belongs here —
     // not even a path, which the parser would reject exactly as it rejects a value.

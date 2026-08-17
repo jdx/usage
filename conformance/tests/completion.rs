@@ -59,6 +59,49 @@ fn ask(shell: &str, line: &str) -> String {
     Ex::completion_request(&argv).expect("this is a completion request")
 }
 
+#[derive(Cli)]
+#[usage(bin = "hinted", completion)]
+struct Hinted {
+    /// A file to read
+    #[usage(long, value_hint = clap::ValueHint::FilePath)]
+    file: Option<std::path::PathBuf>,
+    /// A directory to write
+    #[usage(long, value_hint = clap::ValueHint::DirPath)]
+    dir: Option<std::path::PathBuf>,
+}
+
+fn ask_hinted(line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    Hinted::completion_request(&argv).expect("this is a completion request")
+}
+
+#[test]
+fn clap_path_value_hints_reach_native_and_emitted_completions() {
+    assert_eq!(
+        ask_hinted("hinted --file "),
+        format!("{}\n", usage_argv::complete::FILES_MARKER)
+    );
+    assert_eq!(
+        ask_hinted("hinted --dir "),
+        format!("{}\n", usage_argv::complete::DIRS_MARKER)
+    );
+
+    let kdl = Hinted::to_kdl();
+    assert!(kdl.contains("complete \"file\" type=\"path\""), "{kdl}");
+    assert!(kdl.contains("complete \"dir\" type=\"dir\""), "{kdl}");
+
+    let argv = [OsStr::new("--file"), OsStr::new("input.kdl")];
+    let parsed = Hinted::parse_from(&argv).expect("the hinted flag still parses");
+    assert_eq!(
+        parsed.file.as_deref(),
+        Some(std::path::Path::new("input.kdl"))
+    );
+    assert!(parsed.dir.is_none());
+}
+
 #[test]
 fn a_request_is_answered_from_the_same_tables_the_parse_uses() {
     assert_eq!(ask("bash", "ex "), "install\nrm\nrun\nuninstall\n");
