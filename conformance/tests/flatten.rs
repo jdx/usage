@@ -316,34 +316,3 @@ fn a_flattened_structs_group_is_enforced_and_emitted() {
     assert_eq!(spec.cmd.groups.len(), 1);
     assert!(spec.cmd.groups[0].required);
 }
-
-#[derive(Args)]
-#[usage(group("input"))]
-#[allow(dead_code)]
-struct ChildInput {
-    #[usage(long, group = "input")]
-    json: bool,
-    #[usage(long, group = "input")]
-    yaml: bool,
-}
-
-#[derive(Cli)]
-#[usage(bin = "fl", group("input"))]
-#[allow(dead_code)]
-struct DuplicateFlattenedGroup {
-    #[usage(flatten)]
-    child: ChildInput,
-    #[usage(long, group = "input")]
-    file: bool,
-    #[usage(long, group = "input")]
-    url: bool,
-}
-
-#[test]
-#[should_panic(expected = "two groups on the same command are called")]
-fn a_flattened_group_name_collision_is_rejected_in_every_build() {
-    // The two derive expansions cannot see each other's declarations. The joined metadata
-    // can, and emitting it must reject the collision with an ordinary assertion so release
-    // builds cannot write two independent groups with the same name.
-    DuplicateFlattenedGroup::to_kdl();
-}

@@ -288,6 +288,41 @@ fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     name.to_string()
 }
 
+/// A group member is stored as a selector (`--file` or `-f`), not a field name.
+fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String {
+    let Some(meta) = meta else {
+        return selector.to_string();
+    };
+    let found = meta.flags.iter().find(|flag| {
+        flag.flag
+            .longs
+            .iter()
+            .any(|long| selector == format!("--{long}"))
+            || flag
+                .flag
+                .shorts
+                .iter()
+                .any(|short| selector == format!("-{}", *short as char))
+            || flag
+                .flag
+                .negate
+                .is_some_and(|negate| selector == format!("--{negate}"))
+    });
+    found
+        .map(|flag| {
+            let mut shown = crate::help::flag_spelling(flag);
+            if flag.flag.takes_value {
+                let name = flag.value_name.unwrap_or(flag.flag.name);
+                let _ = write!(shown, " <{name}>");
+                if flag.flag.variadic {
+                    shown.push('…');
+                }
+            }
+            shown
+        })
+        .unwrap_or_else(|| selector.to_string())
+}
+
 /// The word that was bound to a named argument, recovered from argv.
 ///
 /// The parse itself does not carry it: an error that owned the offending text would allocate on
@@ -602,7 +637,7 @@ pub fn render(
                 style.error("error:")
             );
             for member in *members {
-                let _ = writeln!(out, "  {}", style.valid(&shown(here, member)));
+                let _ = writeln!(out, "  {}", style.valid(&group_member_shown(here, member)));
             }
         }
         Error::ConflictingFlags { name, other } => {
@@ -830,6 +865,46 @@ mod tests {
             .find_map(|l| l.strip_prefix("Usage: "))
             .expect("a usage line");
         assert_eq!(line, crate::help::usage_line(&["ex", "use"], &USE_META));
+    }
+
+    #[test]
+    fn a_missing_group_lists_value_taking_members_completely() {
+        static FILE: Flag = Flag {
+            name: "file",
+            longs: &["file"],
+            takes_value: true,
+            ..Flag::BOOL
+        };
+        static ROOT: Command = Command {
+            name: "grouped",
+            flags: &[&FILE],
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            flags: &[FlagMeta {
+                flag: &FILE,
+                value_name: Some("PATH"),
+                ..FlagMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static SPEC: Spec = Spec {
+            name: "grouped",
+            bin: Some("grouped"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+        let message = render(
+            &SPEC,
+            &[],
+            &Error::MissingGroup {
+                group: "input",
+                members: &["--file"],
+            },
+            Style::PLAIN,
+        );
+        assert!(message.contains("  --file <PATH>"), "{message}");
     }
 
     #[test]

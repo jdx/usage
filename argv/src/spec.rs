@@ -459,6 +459,17 @@ pub const fn concat_group_metas<const N: usize>(
         let group = groups[g];
         let mut i = 0;
         while i < group.len() {
+            // This function initialises a generated `static`, so a collision across a parent
+            // and a flattened child is rejected while the adopter compiles. Leaving this to
+            // `to_kdl` let direct parsing enforce two independent groups with the same name.
+            let mut seen = 0;
+            while seen < at {
+                assert!(
+                    !crate::str_eq(out[seen].name, group[i].name),
+                    "two flattened groups on one command have the same name"
+                );
+                seen += 1;
+            }
             out[at] = group[i];
             at += 1;
             i += 1;
@@ -1852,4 +1863,21 @@ mod tests {
         assert_eq!(placeholder("pattern", true, false), "<pattern>...");
         assert_eq!(placeholder("BUMP", false, true), "[BUMP]");
     }
+}
+#[test]
+#[should_panic(expected = "two flattened groups on one command have the same name")]
+fn concatenating_group_metadata_rejects_duplicate_names() {
+    static LEFT: [GroupMeta; 1] = [GroupMeta {
+        name: "input",
+        members: &["--file", "--url"],
+        required: false,
+        multiple: false,
+    }];
+    static RIGHT: [GroupMeta; 1] = [GroupMeta {
+        name: "input",
+        members: &["--json", "--yaml"],
+        required: false,
+        multiple: false,
+    }];
+    let _ = concat_group_metas::<2>(&[&LEFT, &RIGHT]);
 }
