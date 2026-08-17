@@ -759,6 +759,44 @@ pub const fn find_subcommand<'a>(
     panic!("`default_subcommand` names a command that this one does not have")
 }
 
+/// Refuse two subcommands that answer to the same name, aliases included.
+///
+/// A derive expansion can validate aliases written on one enum, but aliases may also live on
+/// the independently expanded `Args` structs its variants wrap. This final, joined-table check
+/// is where both declarations are visible.
+pub const fn assert_unique_subcommand_names(subcommands: &[&Command<'_>]) {
+    const fn form<'a>(cmd: &'a Command<'a>, at: usize) -> Option<&'a str> {
+        if at == 0 {
+            Some(cmd.name)
+        } else if at <= cmd.aliases.len() {
+            Some(cmd.aliases[at - 1])
+        } else {
+            None
+        }
+    }
+
+    let mut command = 0;
+    while command < subcommands.len() {
+        let mut at = 0;
+        while let Some(name) = form(subcommands[command], at) {
+            let mut other_command = command;
+            while other_command < subcommands.len() {
+                let mut other_at = if other_command == command { at + 1 } else { 0 };
+                while let Some(other) = form(subcommands[other_command], other_at) {
+                    assert!(
+                        !str_eq(name, other),
+                        "two subcommands answer to the same name, counting aliases"
+                    );
+                    other_at += 1;
+                }
+                other_command += 1;
+            }
+            at += 1;
+        }
+        command += 1;
+    }
+}
+
 /// `==` on strings, in a `const fn`.
 const fn str_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
@@ -2006,6 +2044,17 @@ mod tests {
             BY_ALIAS.default_subcommand.expect("declared"),
             &INSTALL
         ));
+    }
+
+    #[test]
+    #[should_panic(expected = "two subcommands answer to the same name")]
+    fn an_alias_cannot_shadow_a_sibling_command() {
+        static ADD: Command = Command {
+            name: "add",
+            aliases: &["install"],
+            ..Command::EMPTY
+        };
+        assert_unique_subcommand_names(&[&INSTALL, &ADD]);
     }
 
     #[test]

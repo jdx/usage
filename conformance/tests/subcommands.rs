@@ -245,15 +245,15 @@ fn the_emitted_spec_reads_the_way_a_handwritten_one_would() {
 #[derive(Subcommands)]
 enum AliasedCommands {
     /// Install a tool
-    #[usage(alias = "i", alias_hidden = "add")]
     Install(AliasedInstallArgs),
     /// Remove a tool
-    #[usage(alias("rm", "uninstall"))]
+    #[usage(alias = "rm")]
     Remove(AliasedRemoveArgs),
 }
 
 /// Install a tool
 #[derive(Args)]
+#[usage(alias = "i", alias_hidden = "add")]
 struct AliasedInstallArgs {
     /// What to install
     #[usage(arg, name = "TOOL")]
@@ -262,6 +262,7 @@ struct AliasedInstallArgs {
 
 /// Remove a tool
 #[derive(Args)]
+#[usage(alias = "uninstall")]
 struct AliasedRemoveArgs {
     /// Say nothing
     #[usage(long)]
@@ -309,7 +310,7 @@ fn the_spec_says_which_aliases_are_hidden() {
     let remove = spec.cmd.subcommands.get("remove").expect("remove");
     assert_eq!(
         remove.aliases,
-        vec!["rm".to_string(), "uninstall".to_string()]
+        vec!["uninstall".to_string(), "rm".to_string()]
     );
     assert!(remove.hidden_aliases.is_empty());
 
