@@ -12,6 +12,9 @@ use crate::env;
 
 /// Execute a script, parsing args and exposing them as environment variables
 #[derive(Debug, Args)]
+// The words after the script are the script's, so a flag `usage` does not know is a value to
+// forward rather than a mistake to report — the root's `error` stops here.
+#[usage(unknown_flags = "value")]
 pub struct Exec {
     /// command to execute after parsing usage spec
     command: String,

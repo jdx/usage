@@ -49,6 +49,9 @@ macro_rules! shell_command {
         #[doc = "If using `var=#true` on args/flags, they will be joined with spaces using"]
         #[doc = "`shell_words::join()` to properly escape and quote values with spaces in them."]
         #[derive(Debug, Args)]
+        // The words after the script are the script's, so a flag `usage` does not know is a
+        // value to forward rather than a mistake to report — the root's `error` stops here.
+        #[usage(unknown_flags = "value")]
         pub struct $ty {
             #[usage(flatten)]
             pub shell: Shell,

@@ -2,19 +2,17 @@
 
 # `usage`
 
-**Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
+**Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
 **Version**: 5.1.0
 
-- **Usage**: `usage [--usage-spec] [COMPLETIONS] <SUBCOMMAND>`
-
-## Arguments
-
-### `[COMPLETIONS]`
-
-Outputs completions for the specified shell for completing the `usage` CLI itself
+- **Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
 ## Flags
+
+### `--completions <COMPLETIONS>`
+
+Outputs completions for the specified shell for completing the `usage` CLI itself
 
 ### `--usage-spec`
 

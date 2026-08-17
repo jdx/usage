@@ -5,8 +5,10 @@ bin "usage"
 version "5.1.0"
 about "CLI for working with usage-based CLIs"
 unknown_flags "error"
+flag "--completions" help="Outputs completions for the specified shell for completing the `usage` CLI itself" {
+    arg "<COMPLETIONS>"
+}
 flag "--usage-spec" help="Outputs a `usage.kdl` spec for this CLI itself"
-arg "[COMPLETIONS]" help="Outputs completions for the specified shell for completing the `usage` CLI itself"
 cmd "bash" help="Execute a shell script using bash" unknown_flags="value" {
     long_help "Execute a shell script using bash\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
     flag "-h" help="Show help"
@@ -16,7 +18,7 @@ cmd "bash" help="Execute a shell script using bash" unknown_flags="value" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
     }
 }
-cmd "complete-word" help="Generate shell completion candidates for a partial command line" effect="read" unknown_flags="value" {
+cmd "complete-word" help="Generate shell completion candidates for a partial command line" effect="read" {
     alias "cw"
     long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide\nintelligent completions for commands, flags, and arguments."
     flag "-f --file" help="Usage spec file or script with usage shebang, use \"-\" to read from stdin" {
@@ -52,7 +54,7 @@ cmd "fish" help="Execute a shell script using fish" unknown_flags="value" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
     }
 }
-cmd "generate" help="Generate completions, documentation, and other artifacts from usage specs" effect="read" unknown_flags="value" {
+cmd "generate" help="Generate completions, documentation, and other artifacts from usage specs" effect="read" subcommand_required=#true {
     alias "g"
     cmd "completion" help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" effect="read" {
         alias "c"
@@ -180,7 +182,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         }
     }
 }
-cmd "lint" help="Lint a usage spec file for common issues" effect="read" unknown_flags="value" {
+cmd "lint" help="Lint a usage spec file for common issues" effect="read" {
     flag "-f --format" help="Output format" required=#true default="text" {
         arg "<FORMAT>" {
             choices "text" "json"
@@ -192,7 +194,7 @@ cmd "lint" help="Lint a usage spec file for common issues" effect="read" unknown
     }
     arg "<FILE>" help="A usage spec file to lint, use \"-\" to read from stdin"
 }
-cmd "mcp" help="Serve a usage spec over the Model Context Protocol" effect="read" unknown_flags="value" {
+cmd "mcp" help="Serve a usage spec over the Model Context Protocol" effect="read" {
     alias "mcp-server"
     long_help "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`."
     flag "-f --file" help="Usage spec file (not \"-\": stdin is the MCP transport)" {
@@ -211,7 +213,7 @@ cmd "powershell" help="Execute a shell script using PowerShell" unknown_flags="v
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
     }
 }
-cmd "sponsors" help="Show the companies sponsoring usage and the jdx.dev open source tools" effect="read" unknown_flags="value" {
+cmd "sponsors" help="Show the companies sponsoring usage and the jdx.dev open source tools" effect="read" {
 }
 cmd "zsh" help="Execute a shell script using zsh" unknown_flags="value" {
     long_help "Execute a shell script using zsh\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using\n`shell_words::join()` to properly escape and quote values with spaces in them."
