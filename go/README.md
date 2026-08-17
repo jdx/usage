@@ -99,10 +99,21 @@ a derive macro:
 The generated file exports `Root` to pass to `argv.New`, `Meta` for the rules
 decided after the last token, and a key constant per command, flag and argument.
 
-`Meta` costs nothing if you do not use it: Go's linker drops an unreferenced
-package-level table entirely, so a CLI that only binds does not carry it. mise's
-is 217 KB when something does reference it. That is the same split Rust gets from
-a feature flag, without needing one.
+**Three tables, and you pay for the ones you use.** Go's linker drops an
+unreferenced package-level table entirely, so the split is enforced by the linker
+rather than by a feature flag:
+
+| a CLI that…                    | carries          | mise-sized binary |
+| ------------------------------ | ---------------- | ----------------: |
+| only binds                     | the parse tables |           2.60 MB |
+| applies the post-binding rules | `+ Meta`         |           2.82 MB |
+| prints help                    | `+ HelpText`     |           2.82 MB |
+
+None of them has an init function. That is what Rust gets from putting the cold
+half behind a feature flag, except nobody has to remember the flag — which is also
+why help text is a third table rather than more fields on `Meta`: folding them
+together would make every CLI that applies a rule carry every help string in the
+spec.
 
 Dispatch on the key constants rather than on `Name`: it costs no string
 comparison, and a flag renamed in the spec then fails to compile instead of
@@ -117,6 +128,25 @@ var (
     root  = &argv.Command{Name: "ex", Flags: []*argv.Flag{force}}
 )
 ```
+
+## Help
+
+`argv.UsageLine` renders the line a page prints after `Usage: `, from the parse
+tables and `HelpText`:
+
+```go
+argv.UsageLine([]string{"mise"}, mise.Root, mise.HelpText)
+// mise [FLAGS] [TASK] <SUBCOMMAND>
+```
+
+**All 211 of mise's usage lines match usage-lib's byte for byte**, which is the
+test that keeps it honest. usage-lib builds the line from a spec through a
+template over a runtime model; this builds it from static tables. Reimplemented
+rules drift, so both are run over mise's real spec and compared — the same check
+`benches/gate/tests/help.rs` makes for usage-argv, against the same reference.
+
+Two implementations checked against one oracle beats two checked against each
+other.
 
 ## Conformance
 
@@ -153,7 +183,12 @@ claim is measured at real scale rather than against a fixture with four flags:
 - **Typed values.** Binding collects text. Something still has to turn `"8"` into
   an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
   convert.
-- **Help and errors.** A cold table of help text, and rendering worth reading.
+- **The help pages themselves.** The usage line is done and the table behind it
+  carries the text; `-h` and `--help` still need laying out, which on the Rust
+  side is most of `argv/src/help.rs`.
+- **Errors worth reading.** `Error()` returns `unknown flag: --wat`, which names
+  the problem and helps nobody fix it. usage-argv renders these through miette
+  with the offending token underlined.
 - **Completions.** The Rust side serves these from the parser's own scope rules so
   that what is offered and what is accepted cannot disagree; the hooks for it
   (`Collecting`, `PendingArg`, `FlagsInScope`, `CommandStart`) are already here.
