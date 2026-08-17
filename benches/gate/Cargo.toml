@@ -13,12 +13,6 @@ publish = false
 clap = { version = "4", features = ["derive", "env"] }
 shadow-mise = { path = "../shadows/mise" }
 shadow-mise-clap = { path = "../shadows/mise-clap" }
-shadow-hk = { path = "../shadows/hk" }
-shadow-fnox = { path = "../shadows/fnox" }
-shadow-pitchfork = { path = "../shadows/pitchfork" }
-shadow-aube = { path = "../shadows/aube" }
-shadow-tak = { path = "../shadows/tak" }
-shadow-communique = { path = "../shadows/communique" }
 usage-argv = { path = "../../argv", features = ["spec", "complete", "diagnostics"] }
 
 # The oracle for help rendering. A dev-dependency because nothing the gate *builds* needs it:
@@ -26,6 +20,15 @@ usage-argv = { path = "../../argv", features = ["spec", "complete", "diagnostics
 # whole spec, which is the only fixture big enough to be convincing.
 [dev-dependencies]
 usage-lib = { path = "../../lib" }
+# The fleet, for the same reason: only `tests/fleet.rs` names these, so a release or perf build
+# of the gate has no cause to compile six generated crates it never calls. `shadow-mise` and
+# `shadow-mise-clap` stay above because the benchmarks *are* the thing that runs them.
+shadow-hk = { path = "../shadows/hk" }
+shadow-fnox = { path = "../shadows/fnox" }
+shadow-pitchfork = { path = "../shadows/pitchfork" }
+shadow-aube = { path = "../shadows/aube" }
+shadow-tak = { path = "../shadows/tak" }
+shadow-communique = { path = "../shadows/communique" }
 # The oracle for completions, for the same reason: the reference's candidate list is what
 # "the same candidates" is measured against.
 usage-cli = { path = "../../cli" }
