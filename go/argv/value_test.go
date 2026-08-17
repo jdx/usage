@@ -95,3 +95,22 @@ func TestEachStopsAtTheFirstFailure(t *testing.T) {
 		t.Errorf("want the first failure, got %q", err.Value)
 	}
 }
+
+// The rejected value is quoted back, so it goes through the same escaping as the
+// other messages that echo what the user typed — and it is the likeliest of them
+// to carry something strange, since it exists because the text was unexpected.
+func TestARejectedValueIsEscapedBeforeItIsShown(t *testing.T) {
+	_, err := Int("jobs", "\x1b[31m8\r\nerror: forged")
+	if err == nil {
+		t.Fatal("want a failure")
+	}
+	msg := explain(err, nil)
+	for _, forbidden := range []string{"\x1b", "\r", "\n"} {
+		if strings.Contains(msg, forbidden) {
+			t.Errorf("a control character survived into %q", msg)
+		}
+	}
+	if !strings.Contains(msg, `\x1b`) || !strings.Contains(msg, "forged") {
+		t.Errorf("the value should still be legible: %q", msg)
+	}
+}
