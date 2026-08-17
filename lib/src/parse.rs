@@ -1269,11 +1269,7 @@ fn parse_partial_with_env(
     // the child would be here instead. The spec has carried `subcommand_required` since it was
     // added for the derive, and this parser never read it — so `mise generate` parsed as a
     // complete invocation while usage-argv and clap both refused it.
-    //
-    // An exclusive flag escapes it, as it escapes every other requirement: `--version` on a
-    // command that needs a subcommand is the shape the property exists for, and answering it
-    // with "which subcommand?" would make the flag unusable exactly where it is most wanted.
-    if out.cmd.subcommand_required && !out.cmd.subcommands.is_empty() && !exclusive_present {
+    if out.cmd.subcommand_required && !out.cmd.subcommands.is_empty() {
         let mut names: Vec<&str> = out
             .cmd
             .subcommands

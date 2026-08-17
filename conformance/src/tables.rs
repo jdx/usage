@@ -307,6 +307,7 @@ fn flag_meta(
         overrides: strs(&f.overrides),
         conflicts: strs(&f.conflicts),
         requires: strs(&f.requires),
+        exclusive: f.exclusive,
         required_if: strs(&f.required_if),
         required_unless: strs(&f.required_unless),
         help_heading: opt(&f.help_heading),

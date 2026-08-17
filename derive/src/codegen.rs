@@ -2821,30 +2821,42 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    // The partial holds only the selected subcommand's own, so every one of these asks the
+    // variant rather than a field: an unselected arm has nothing to have been given.
     let any_givens = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#field)
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_p)
+                } else {
+                    ::std::option::Option::None
+                }
             }
         }
     });
     let exclusive_givens = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#field)
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::exclusive_given(__usage_p)
+                } else {
+                    ::std::option::Option::None
+                }
             }
         }
     });
     let apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
-        let field = format_ident!("v{i}");
+        let variant = format_ident!("V{i}");
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#field);
+                if let Partial::#variant(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::apply_env(__usage_p);
+                }
             }
         }
     });
