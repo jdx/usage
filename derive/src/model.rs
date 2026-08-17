@@ -883,7 +883,20 @@ impl Cli {
                 ));
             }
         }
-        for decl in &self.groups {
+        for (i, decl) in self.groups.iter().enumerate() {
+            // Two declarations of one group would be read first-match-wins, so the second
+            // one's properties would be silently dropped — a `required` written and not
+            // enforced, which is worse than not being able to write it.
+            if self.groups[..i].iter().any(|d| d.name == decl.name) {
+                return Err(syn::Error::new(
+                    decl.span,
+                    format!(
+                        "group `{}` is declared twice; one declaration carries all of \
+                         its properties",
+                        decl.name
+                    ),
+                ));
+            }
             if !group_members.iter().any(|(n, _)| *n == decl.name) {
                 return Err(syn::Error::new(
                     decl.span,
@@ -3518,6 +3531,64 @@ mod tests {
         "#,
         );
         assert!(err.contains("takes no value"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn a_group_is_declared_once_and_joined_by_at_least_two_flags() {
+        // Two declarations would be read first-match-wins, so the second one's
+        // properties would be silently dropped — a `required` written and not enforced.
+        let err = rejection(
+            r#"
+            #[usage(group("input", required))]
+            #[usage(group("input", multiple))]
+            struct Ex {
+                #[usage(long, group = "input")]
+                file: Option<String>,
+                #[usage(long, group = "input")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("declared twice"), "unhelpful message: {err}");
+
+        // A group of one is a statement about that flag.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, group = "input")]
+                file: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("one flag in it"), "unhelpful message: {err}");
+
+        // And a declaration nothing joins holds for nothing.
+        let err = rejection(
+            r#"
+            #[usage(group("input", required))]
+            struct Ex {
+                #[usage(long)]
+                file: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("no field is in it"),
+            "unhelpful message: {err}"
+        );
+
+        // A positional cannot be in one, as it cannot hold any other relationship.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(group = "input")]
+                target: String,
+                #[usage(long, group = "input")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("between flags"), "unhelpful message: {err}");
     }
 
     #[test]

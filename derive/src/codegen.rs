@@ -2901,9 +2901,28 @@ fn declared_groups(cli: &Cli) -> Vec<(String, bool, bool, Vec<String>)> {
 }
 
 /// The `static` array of group metadata, and the expression referring to it.
+///
+/// A flattened struct's groups are joined in, the way its flags and their metadata are:
+/// the child enforces them through its own `check`, and its flags are in *this* command's
+/// table, so its groups describe this command and belong in this command's emitted KDL.
+/// Leaving them out would enforce a rule the spec does not mention — the drift the
+/// spec-as-definition rule exists to prevent.
 fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     let groups = declared_groups(cli);
-    if groups.is_empty() {
+    let flattened: Vec<TokenStream> = cli
+        .fields
+        .iter()
+        .filter_map(|f| {
+            let Kind::Flatten { ty } = &f.kind else {
+                return None;
+            };
+            // Named directly, as the flag and argument tables beside this one are: the
+            // generated items live in the user's own scope now rather than in a module
+            // above it, so there is no path to rewrite.
+            Some(quote!(<#ty as ::usage_argv::spec::CommandArgs>::META.groups))
+        })
+        .collect();
+    if groups.is_empty() && flattened.is_empty() {
         return (quote!(), quote!(&[]));
     }
     let entries = groups.iter().map(|(name, required, multiple, members)| {
@@ -2917,9 +2936,22 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
         }
     });
     let len = groups.len();
+    if flattened.is_empty() {
+        return (
+            quote! {
+                pub static GROUP_METAS: [::usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+            },
+            quote!(&GROUP_METAS),
+        );
+    }
     (
         quote! {
-            pub static GROUP_METAS: [::usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+            pub static OWN_GROUP_METAS: [::usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+            const GROUP_META_GROUPS: &[&[::usage_argv::spec::GroupMeta<'static>]] =
+                &[&OWN_GROUP_METAS, #(#flattened),*];
+            static GROUP_METAS: [::usage_argv::spec::GroupMeta<'static>;
+                ::usage_argv::table_len(GROUP_META_GROUPS)] =
+                ::usage_argv::spec::concat_group_metas(GROUP_META_GROUPS);
         },
         quote!(&GROUP_METAS),
     )

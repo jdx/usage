@@ -409,6 +409,49 @@ pub struct GroupMeta<'a> {
     pub multiple: bool,
 }
 
+impl GroupMeta<'_> {
+    /// A group with nothing in it, for the array initialiser a const concat needs.
+    pub const EMPTY: GroupMeta<'static> = GroupMeta {
+        name: "",
+        members: &[],
+        required: false,
+        multiple: false,
+    };
+}
+
+/// Join groups of group metadata into one, at compile time.
+///
+/// The same shape as [`concat_flag_metas`], and needed for the same reason: a flattened
+/// struct's groups describe flags that are now in the parent's table, so they belong in
+/// the parent's emitted spec. Without this a group declared on a flattened struct would
+/// be enforced — the child's own `check` runs — and invisible to the KDL, which is
+/// exactly the drift the spec-as-definition rule exists to prevent.
+///
+/// `N` must be [`table_len`](crate::table_len) of the same groups.
+pub const fn concat_group_metas<const N: usize>(
+    groups: &[&[GroupMeta<'static>]],
+) -> [GroupMeta<'static>; N] {
+    let mut out = [GroupMeta::EMPTY; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the metadata would describe a \
+         group that does not exist"
+    );
+    out
+}
+
 /// What a command knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {

@@ -257,3 +257,62 @@ fn flattening_nests() {
     assert!(nested.outer.inner.listing.no_header);
     assert_eq!(nested.outer.inner.listing.what.as_deref(), Some("keys"));
 }
+
+/// A group declared inside a struct that gets flattened somewhere else.
+#[derive(Args)]
+#[usage(group("output", required))]
+struct Emitting {
+    /// Emit JSON
+    #[usage(long, group = "output")]
+    json: bool,
+    /// Emit YAML
+    #[usage(long, group = "output")]
+    yaml: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "fl")]
+struct Flattened {
+    #[usage(flatten)]
+    emitting: Emitting,
+    /// Where to write
+    #[usage(long)]
+    out: Option<String>,
+}
+
+#[test]
+fn a_flattened_structs_group_is_enforced_and_emitted() {
+    // Enforced: the child's own `check` runs, so the group holds on the command that
+    // flattened it.
+    let a = ["--json", "--out", "o"].map(OsStr::new);
+    let fl = Flattened::parse_from(&a).expect("one member");
+    assert!(fl.emitting.json && !fl.emitting.yaml);
+    assert_eq!(fl.out.as_deref(), Some("o"));
+
+    let a = ["--json", "--yaml"].map(OsStr::new);
+    assert!(matches!(
+        Flattened::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+
+    let a: [&OsStr; 0] = [];
+    assert!(matches!(
+        Flattened::parse_from(&a),
+        Err(Error::MissingGroup {
+            group: "output",
+            ..
+        })
+    ));
+
+    // And emitted, which is the half that can silently rot: the flags are joined into
+    // the parent's tables, so the group describing them has to be joined too, or the
+    // spec would describe a CLI without a rule the CLI enforces.
+    let kdl = Flattened::to_kdl();
+    assert!(
+        kdl.contains(r#"group "output" "--json" "--yaml" required=#true"#),
+        "{kdl}"
+    );
+    let spec: LibSpec = kdl.parse().expect("the emitted spec should parse");
+    assert_eq!(spec.cmd.groups.len(), 1);
+    assert!(spec.cmd.groups[0].required);
+}
