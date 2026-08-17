@@ -109,6 +109,16 @@ const (
 	Unset
 )
 
+// Given reports whether a source counts as the flag having been *given*, which
+// is the question the rules comparing two entries ask.
+//
+// A default does not count, and that is the whole reason this exists. usage-lib
+// and clap both treat `env` as a value source and a default as a fallback: with
+// `--file` defaulted and only `--stdin` typed, a declared conflict between them
+// does not fire. Counting the default would make a defaulted flag conflict with
+// every partner anyone types, which is a CLI nobody can use.
+func (s Source) Given() bool { return s == FromArgv || s == FromEnv }
+
 // Fill applies the fallbacks: command line, then environment, then default.
 //
 // `given` is what binding produced, and nil means the command line said nothing —

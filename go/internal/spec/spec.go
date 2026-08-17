@@ -295,7 +295,6 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 // where that should be reported, since it is the one a spec author runs.
 func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 	find := func(name string) (uint64, bool) {
-		bare := strings.TrimLeft(name, "-")
 		// This command's own flags first, then any ancestor's globals — the same
 		// scope a token has, and in the same order, so a subcommand redeclaring an
 		// inherited name shadows it here exactly as it does at parse time.
@@ -303,11 +302,11 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		// Searching only locally was a silent hole: `conflicts="--quiet"` on a
 		// subcommand flag, where `--quiet` is a root global, resolved to nothing
 		// and the rule was simply never enforced. usage-lib enforces it.
-		if key, ok := matchFlag(out.Flags, bare, false); ok {
+		if key, ok := matchFlag(out.Flags, name, false); ok {
 			return key, true
 		}
 		for i := len(b.scope) - 1; i >= 0; i-- {
-			if key, ok := matchFlag(b.scope[i].Flags, bare, true); ok {
+			if key, ok := matchFlag(b.scope[i].Flags, name, true); ok {
 				return key, true
 			}
 		}
@@ -340,22 +339,51 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 // `conflicts="--no-color"` as naming the `color` flag, and reports the conflict
 // whichever of the two spellings was typed. The relationship is between entries
 // rather than between tokens, which is what this key model already assumes.
-func matchFlag(flags []*argv.Flag, bare string, globalsOnly bool) (uint64, bool) {
+func matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (uint64, bool) {
+	// The form is part of the name. `--q` does not reach the short `-q`, and
+	// `-color` does not reach the long `--color`: usage-lib resolves neither, and
+	// resolving them here would have a generated CLI enforcing a rule the
+	// reference does not. A declaration that names a flag by the wrong form is a
+	// typo, and the useful failure is the rule not existing rather than a rule
+	// nobody wrote.
+	long, short, bare := "", byte(0), ""
+	switch {
+	case strings.HasPrefix(name, "--"):
+		long = name[2:]
+	case strings.HasPrefix(name, "-") && len(name) == 2:
+		short = name[1]
+	case !strings.HasPrefix(name, "-"):
+		// Undashed, which is the name the spec gives the flag rather than a form
+		// it can be typed as.
+		bare = name
+	}
+	if long == "" && short == 0 && bare == "" {
+		return 0, false
+	}
+
 	for _, f := range flags {
 		if globalsOnly && !f.Global {
 			continue
 		}
-		if f.Name == bare || (f.Negate != "" && f.Negate == bare) {
+		if bare != "" && f.Name == bare {
 			return f.Key, true
 		}
-		for _, long := range f.Longs {
-			if long == bare {
+		if long != "" {
+			// The negation is a long form of the flag it belongs to, and names the
+			// same entry: usage-lib reports a conflict declared against
+			// `--no-color` whichever of the two spellings was typed.
+			if f.Negate == long {
 				return f.Key, true
 			}
+			for _, l := range f.Longs {
+				if l == long {
+					return f.Key, true
+				}
+			}
 		}
-		if len(bare) == 1 {
-			for _, short := range f.Shorts {
-				if short == bare[0] {
+		if short != 0 {
+			for _, s := range f.Shorts {
+				if s == short {
 					return f.Key, true
 				}
 			}

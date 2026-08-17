@@ -288,12 +288,7 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 			}
 		}
 		r := &resolved{}
-		// A key an override removed stays absent, fallbacks included.
-		if !lost[key] {
-			r.values, r.source = argv.Fill(meta.Lookup(key), given, lookup)
-		} else {
-			r.source = argv.Unset
-		}
+		r.values, r.source = argv.Fill(meta.Lookup(key), given, lookup)
 		if b != nil {
 			r.occurrences = b.occurrences
 			r.negated = b.negated
@@ -305,6 +300,15 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 
 	for _, cmd := range path {
 		for _, f := range cmd.Flags {
+			// A flag that lost an override is out of the running rather than
+			// merely absent: it is not filled from `env` or `default`, and it is
+			// not judged either. A `required` loser reported as missing would undo
+			// the last-one-wins the user asked for by typing the other flag, and
+			// usage-lib skips overridden flags in the requirement pass for exactly
+			// that reason.
+			if lost[f.Key] {
+				continue
+			}
 			fill(f.Key, f.TakesValue).flag = f
 		}
 		for _, a := range cmd.Args {
@@ -327,7 +331,7 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 	// Then the rules that read one entry to judge another.
 	isSet := func(key uint64) bool {
 		r := final[key]
-		return r != nil && r.source != argv.Unset
+		return r != nil && r.source.Given()
 	}
 	if err := argv.CheckRelationships(meta, scope, isSet); err != nil {
 		return nil, err

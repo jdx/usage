@@ -188,3 +188,18 @@ func TestPostBindingIsOffTheHotPath(t *testing.T) {
 		t.Errorf("want 0 allocations, got %v", n)
 	}
 }
+
+// TestSourceGiven pins the asymmetry the relationship rules depend on.
+//
+// The command line and the environment count as the user having said something;
+// a default does not. Counting a default would make a defaulted flag conflict
+// with every partner anyone types, and usage-lib agrees: with `--file` defaulted
+// and only `--stdin` given, a declared conflict between them does not fire.
+func TestSourceGiven(t *testing.T) {
+	if !FromArgv.Given() || !FromEnv.Given() {
+		t.Error("argv and env are both the user supplying a value")
+	}
+	if FromDefault.Given() || Unset.Given() {
+		t.Error("a default is a fallback, not something the user said")
+	}
+}

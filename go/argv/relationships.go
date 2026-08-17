@@ -68,11 +68,19 @@ func ApplyOverrides(meta Metadata, order map[uint64]int) map[uint64]bool {
 // another, once every entry's final state is known.
 //
 // `entries` is every key in scope, so each declaration is visited once, and
-// `isSet` reports whether an entry ended up with a value from any source. That
-// last part is the whole of `conflicts`: a value from the environment counts as
-// given, because the check asks whether a flag has a value rather than how it got
-// one. clap, argparse and usage all agree on that, and the corpus pins both the
-// one-sided and the neither-side-typed case.
+// `isSet` reports whether an entry counts as *given* — see [Source.Given], which
+// is what a caller should use to answer it.
+//
+// The command line and the environment count; a default does not. That asymmetry
+// is the part worth getting right: `conflicts` asks whether a flag has a value
+// rather than how it got one, so an environment variable counts on both sides
+// and the corpus pins the one-sided and neither-side-typed cases. But a default
+// is a fallback rather than something the user said, and counting it would make
+// a defaulted flag conflict with every partner anyone types. usage-lib and clap
+// both draw the line there.
+//
+// A key removed by [ApplyOverrides] should not appear in `entries` at all: it
+// lost, so it is out of the running rather than merely absent.
 func CheckRelationships(meta Metadata, entries []uint64, isSet func(uint64) bool) *Error {
 	for _, key := range entries {
 		m := meta.Lookup(key)

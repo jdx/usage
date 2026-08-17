@@ -239,3 +239,48 @@ func TestARelationshipCanNameANegation(t *testing.T) {
 		t.Errorf("should resolve to the color flag (%d), got %v", color, m.Conflicts)
 	}
 }
+
+// A relationship names a flag by a form that flag actually has.
+//
+// usage-lib resolves neither `--q` for a short `-q` nor `-color` for a long
+// `--color`, so resolving them here would have a generated CLI enforcing a rule
+// the reference does not. A declaration naming the wrong form is a typo, and the
+// useful failure is the rule not existing.
+func TestARelationshipNeedsTheRightForm(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "quiet", Long: []string{"quiet"}, Short: []string{"q"}},
+			{Name: "color", Long: []string{"color"}},
+			{Name: "a", Long: []string{"a"}, Conflicts: []string{"--q"}},
+			{Name: "b", Long: []string{"b"}, Conflicts: []string{"-color"}},
+			{Name: "c", Long: []string{"c"}, Conflicts: []string{"-q"}},
+			{Name: "d", Long: []string{"d"}, Conflicts: []string{"--color"}},
+		}},
+	})
+
+	var quiet, color uint64
+	for _, f := range root.Flags {
+		switch f.Name {
+		case "quiet":
+			quiet = f.Key
+		case "color":
+			color = f.Key
+		}
+	}
+
+	for _, c := range []struct {
+		flag string
+		want []uint64
+	}{
+		{"a", nil},             // --q is not a long form of anything
+		{"b", nil},             // -color is not a short
+		{"c", []uint64{quiet}}, // -q is
+		{"d", []uint64{color}}, // --color is
+	} {
+		got := metaFor(t, meta, root, c.flag).Conflicts
+		if len(got) != len(c.want) || (len(got) == 1 && got[0] != c.want[0]) {
+			t.Errorf("--%s: want %v, got %v", c.flag, c.want, got)
+		}
+	}
+}
