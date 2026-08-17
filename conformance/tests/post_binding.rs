@@ -1020,3 +1020,51 @@ fn a_child_exclusive_flag_counts_parent_flags_as_company() {
             | Err(Error::ConflictingFlags { name: "dump", .. })
     ));
 }
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct RedeclaredClean {
+    /// Clean, as this command means it
+    #[usage(long = "clean")]
+    clean: bool,
+    /// Say more
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RedeclaredCleanCommands {
+    Run(RedeclaredClean),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "orphan-alias-ex")]
+struct OrphanAliasExclusive {
+    /// Clean everything and leave
+    #[usage(short = 'c', long, global, exclusive)]
+    clean: bool,
+    #[usage(subcommand)]
+    command: Option<RedeclaredCleanCommands>,
+}
+
+/// A child that re-declares only the long form of an inherited global leaves the short alias
+/// with the ancestor — and the ancestor's `exclusive` goes with it. The derive keeps the two
+/// declarations as separate fields, so it never had to reconcile them; this holds usage-lib,
+/// which merges them into one flag, to the same answer.
+#[test]
+fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_child_redeclaration() {
+    let a = argv(["run", "-c"]);
+    assert!(
+        matches!(
+            OrphanAliasExclusive::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the ancestor's own spelling is still its exclusive flag"
+    );
+
+    let a = argv(["run", "--clean", "--verbose"]);
+    OrphanAliasExclusive::parse_from(&a)
+        .expect("the child's spelling drops the exclusivity the child did not restate");
+}

@@ -109,11 +109,13 @@ fn merge_subcommand_flags(
                 Some(merged) => merged.clone(),
                 None => {
                     let mut merged = (*global_flag).clone();
-                    // The child declaration owns behavior at the command it belongs to. The
-                    // inherited object is retained only so the merged aliases remain global;
-                    // keeping its exclusivity would silently discard a child's `exclusive`
-                    // redeclaration (or retain one the child explicitly removed).
-                    merged.exclusive = flag.exclusive;
+                    // `exclusive` is deliberately *not* reconciled here, in either direction.
+                    // One object now answers to two alias sets that may disagree: the child
+                    // owns the spellings it declared, the ancestor keeps the ones only it
+                    // declared. A single bool cannot hold both, so the merged flag carries the
+                    // ancestor's and validation resolves the occurrence by the spelling that
+                    // was typed — the ledger it already consults to decide whether selecting
+                    // the child is company.
                     for s in &flag.short {
                         if !merged.short.contains(s) {
                             merged.short.push(*s);
@@ -1191,13 +1193,77 @@ fn parse_partial_with_env(
     let flag_was_parsed =
         |flag: &Arc<SpecFlag>| parsed_flag_spellings.contains_key(&(Arc::as_ptr(flag) as usize));
 
+    // Which declaration an occurrence belongs to: the selected command's own, or an ancestor's.
+    //
+    // Identity matters here, not only the canonical name: a parent and child may each declare
+    // their own non-global `--clean`. The selected command's flag is still in `available_flags`
+    // under the same Arc the parse recorded; a non-global ancestor was dropped on descent.
+    // Compare the spellings as well as the canonical name when a child re-declares an inherited
+    // global: the child can replace only one alias while an invocation through another alias
+    // still points at the ancestor declaration.
+    let owned_by_selected_command = |flag: &Arc<SpecFlag>| {
+        out.available_flags
+            .values()
+            .any(|available| Arc::ptr_eq(available, flag))
+            && if flag_was_parsed(flag) {
+                // Ask about the form that was actually typed. The merged flag may be a
+                // superset of the child's declaration because it also carries an orphan
+                // ancestor alias, so comparing the complete alias sets misattributes both
+                // `--clean` and `-c`.
+                parsed_flag_spellings
+                    .get(&(Arc::as_ptr(flag) as usize))
+                    .is_some_and(|spellings| {
+                        let child_spellings: HashSet<String> = out
+                            .cmd
+                            .flags
+                            .iter()
+                            .filter(|declared| declared.name == flag.name)
+                            .flat_map(flag_keys)
+                            .collect();
+                        // Every occurrence must belong to the child. A merged declaration can
+                        // collect both an ancestor-only `-c` and the child's `--clean`; treating
+                        // one child spelling as ownership of the whole set hid the ancestor's
+                        // exclusivity from the selected subcommand.
+                        spellings
+                            .iter()
+                            .all(|spelling| child_spellings.contains(spelling))
+                    })
+            } else {
+                // An environment value has no typed spelling. Preserve the declaration
+                // identity check for that path.
+                out.cmd.flags.iter().any(|declared| {
+                    declared.name == flag.name
+                        && declared.short == flag.short
+                        && declared.long == flag.long
+                        && declared.negate == flag.negate
+                })
+            }
+    };
+
+    // Exclusivity belongs to the declaration a spelling resolved to, not to the object that
+    // carries it. A merged flag holds the ancestor's `exclusive`, since it is a clone of the
+    // inherited global; when the occurrence is the child's, the child's own declaration is the
+    // one that answers — which is how a child both adds exclusivity the ancestor never had and
+    // drops exclusivity it did not restate, without either answer leaking onto the other's
+    // aliases.
+    let exclusive_occurrence = |flag: &Arc<SpecFlag>| {
+        if owned_by_selected_command(flag) {
+            out.cmd
+                .flags
+                .iter()
+                .any(|declared| declared.name == flag.name && declared.exclusive)
+        } else {
+            flag.exclusive
+        }
+    };
+
     // clap's `exclusive` is also an escape from requiredness: `--version` has to work on a
     // command that otherwise needs an input. Companions are still diagnosed below, but an
     // exclusive occurrence suppresses the missing-value checks that would make it unusable
     // whether it was alone or not.
     let exclusive_present =
         unique_flags(out.available_flags.values().chain(out.flags.keys())).any(|flag| {
-            flag.exclusive
+            exclusive_occurrence(flag)
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
@@ -1313,7 +1379,7 @@ fn parse_partial_with_env(
         // scope. Exclusivity is about the declaration the typed spelling resolved to, so
         // compare the parser's `Arc`s by identity here.
         let given = flag_was_parsed(flag) || flag_has_env(flag, custom_env);
-        if !flag.exclusive || !given || overridden_flags.contains(&flag.name) {
+        if !exclusive_occurrence(flag) || !given || overridden_flags.contains(&flag.name) {
             continue;
         }
         let other_flag = unique_flags(out.available_flags.values().chain(out.flags.keys()))
@@ -1332,54 +1398,10 @@ fn parse_partial_with_env(
         });
         // Selecting a child is company for an exclusive flag declared by an ancestor. An
         // exclusive flag belonging to the child itself does not conflict with the command
-        // word needed to reach that child.
-        //
-        // Identity matters here, not only the canonical name: a parent and child may each
-        // declare their own non-global `--clean`. The selected command's flag is still in
-        // `available_flags` under the same Arc the parse recorded; a non-global ancestor was
-        // dropped on descent. Compare the spellings as well as the canonical name when a
-        // child re-declares an inherited global: the child can replace only one alias while
-        // an invocation through another alias still points at the ancestor declaration.
-        let was_parsed = flag_was_parsed(flag);
-        let belongs_to_selected_command = out
-            .available_flags
-            .values()
-            .any(|available| Arc::ptr_eq(available, flag))
-            && if was_parsed {
-                // Ask about the form that was actually typed. The merged flag may be a
-                // superset of the child's declaration because it also carries an orphan
-                // ancestor alias, so comparing the complete alias sets misattributes both
-                // `--clean` and `-c`.
-                parsed_flag_spellings
-                    .get(&(Arc::as_ptr(flag) as usize))
-                    .is_some_and(|spellings| {
-                        let child_spellings: HashSet<String> = out
-                            .cmd
-                            .flags
-                            .iter()
-                            .filter(|declared| declared.name == flag.name)
-                            .flat_map(flag_keys)
-                            .collect();
-                        // Every occurrence must belong to the child. A merged declaration can
-                        // collect both an ancestor-only `-c` and the child's `--clean`; treating
-                        // one child spelling as ownership of the whole set hid the ancestor's
-                        // exclusivity from the selected subcommand.
-                        spellings
-                            .iter()
-                            .all(|spelling| child_spellings.contains(spelling))
-                    })
-            } else {
-                // An environment value has no typed spelling. Preserve the declaration
-                // identity check for that path.
-                out.cmd.flags.iter().any(|declared| {
-                    declared.name == flag.name
-                        && declared.short == flag.short
-                        && declared.long == flag.long
-                        && declared.negate == flag.negate
-                })
-            };
+        // word needed to reach that child. Same ownership question `exclusive_occurrence`
+        // asked to decide whose `exclusive` applies, so the two cannot drift apart.
         let selected_subcommand =
-            (out.cmds.len() > 1 && !belongs_to_selected_command).then(|| out.cmd.name.clone());
+            (out.cmds.len() > 1 && !owned_by_selected_command(flag)).then(|| out.cmd.name.clone());
         let other = other_flag
             .or_else(|| other_arg.map(|arg| format!("<{}>", arg.name)))
             .or(selected_subcommand);
@@ -3211,6 +3233,35 @@ flag "--file <file>" required_unless="--stdin"
             parse(&spec, &input(&["ex", "run", "--no-clean"])).is_err(),
             "the inherited negated alias still belongs to the ancestor exclusive flag"
         );
+    }
+
+    #[test]
+    fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_plain_child_redeclaration() {
+        // The mirror of `a_local_child_redeclaration_keeps_its_exclusivity_when_merged`: the
+        // child owns `--clean` and says nothing about exclusivity, but `-c` is a spelling only
+        // the ancestor ever declared, so the ancestor's answer still governs it.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\"\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c"])).is_err(),
+            "the orphan ancestor alias is still the ancestor's exclusive flag"
+        );
+        parse(&spec, &input(&["ex", "run", "--clean", "--verbose"]))
+            .expect("the child's own spelling drops the exclusivity the child did not restate");
+    }
+
+    #[test]
+    fn a_merged_child_exclusive_flag_still_escapes_requiredness() {
+        // Exclusivity suppresses missing-value checks, and that has to survive the merge for
+        // the same reason the companion check does.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--out <path>\" required=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("a merged child exclusive flag is still the command's requiredness escape");
     }
 
     #[test]
