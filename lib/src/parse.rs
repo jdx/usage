@@ -1193,68 +1193,64 @@ fn parse_partial_with_env(
     let flag_was_parsed =
         |flag: &Arc<SpecFlag>| parsed_flag_spellings.contains_key(&(Arc::as_ptr(flag) as usize));
 
-    // Which declaration an occurrence belongs to: the selected command's own, or an ancestor's.
+    // The spellings the selected command's own declaration speaks for, on this object.
     //
-    // Identity matters here, not only the canonical name: a parent and child may each declare
-    // their own non-global `--clean`. The selected command's flag is still in `available_flags`
-    // under the same Arc the parse recorded; a non-global ancestor was dropped on descent.
-    // Compare the spellings as well as the canonical name when a child re-declares an inherited
-    // global: the child can replace only one alias while an invocation through another alias
-    // still points at the ancestor declaration.
-    let owned_by_selected_command = |flag: &Arc<SpecFlag>| {
-        out.available_flags
-            .values()
-            .any(|available| Arc::ptr_eq(available, flag))
-            && if flag_was_parsed(flag) {
-                // Ask about the form that was actually typed. The merged flag may be a
-                // superset of the child's declaration because it also carries an orphan
-                // ancestor alias, so comparing the complete alias sets misattributes both
-                // `--clean` and `-c`.
-                parsed_flag_spellings
-                    .get(&(Arc::as_ptr(flag) as usize))
-                    .is_some_and(|spellings| {
-                        let child_spellings: HashSet<String> = out
-                            .cmd
-                            .flags
-                            .iter()
-                            .filter(|declared| declared.name == flag.name)
-                            .flat_map(flag_keys)
-                            .collect();
-                        // Every occurrence must belong to the child. A merged declaration can
-                        // collect both an ancestor-only `-c` and the child's `--clean`; treating
-                        // one child spelling as ownership of the whole set hid the ancestor's
-                        // exclusivity from the selected subcommand.
-                        spellings
-                            .iter()
-                            .all(|spelling| child_spellings.contains(spelling))
-                    })
-            } else {
-                // An environment value has no typed spelling. Preserve the declaration
-                // identity check for that path.
-                out.cmd.flags.iter().any(|declared| {
-                    declared.name == flag.name
-                        && declared.short == flag.short
-                        && declared.long == flag.long
-                        && declared.negate == flag.negate
-                })
-            }
+    // Empty unless that declaration really is this object's: a parent and child may each
+    // declare `--clean` without merging, leaving two flags that share a name, and the
+    // ancestor's must not be read as the child's. The test is whether every spelling the child
+    // declared resolves back here — true of a merged flag, and of a plain local one, but not of
+    // an ancestor whose long form the child took over.
+    let child_spellings = |flag: &Arc<SpecFlag>| -> HashSet<String> {
+        let declared: HashSet<String> = out
+            .cmd
+            .flags
+            .iter()
+            .filter(|declared| declared.name == flag.name)
+            .flat_map(flag_keys)
+            .collect();
+        let speaks_for_this_flag = !declared.is_empty()
+            && declared.iter().all(|spelling| {
+                out.available_flags
+                    .get(spelling)
+                    .is_some_and(|available| Arc::ptr_eq(available, flag))
+            });
+        if speaks_for_this_flag {
+            declared
+        } else {
+            HashSet::new()
+        }
     };
 
-    // Exclusivity belongs to the declaration a spelling resolved to, not to the object that
-    // carries it. A merged flag holds the ancestor's `exclusive`, since it is a clone of the
-    // inherited global; when the occurrence is the child's, the child's own declaration is the
-    // one that answers — which is how a child both adds exclusivity the ancestor never had and
-    // drops exclusivity it did not restate, without either answer leaking onto the other's
-    // aliases.
-    let exclusive_occurrence = |flag: &Arc<SpecFlag>| {
-        if owned_by_selected_command(flag) {
-            out.cmd
+    // Whose `exclusive` an occurrence activates, as `(the child's, an ancestor's)`.
+    //
+    // A child that re-declares an inherited global merges into one object answering to two
+    // alias sets whose declarations may disagree, so there is no single owner to name: the
+    // child owns the spellings it declared and the ancestor keeps the ones only it declared.
+    // Both sides can be in play at once — `run -c --clean` is the ancestor's alias and the
+    // child's in one invocation — and each carries its own declaration's answer.
+    let exclusivity_in_play = |flag: &Arc<SpecFlag>| -> (bool, bool) {
+        let child = child_spellings(flag);
+        let child_exclusive = !child.is_empty()
+            && out
+                .cmd
                 .flags
                 .iter()
-                .any(|declared| declared.name == flag.name && declared.exclusive)
-        } else {
-            flag.exclusive
+                .any(|declared| declared.name == flag.name && declared.exclusive);
+        match parsed_flag_spellings.get(&(Arc::as_ptr(flag) as usize)) {
+            Some(spellings) => (
+                child_exclusive && spellings.iter().any(|s| child.contains(s)),
+                flag.exclusive && spellings.iter().any(|s| !child.contains(s)),
+            ),
+            // An environment value has no spelling to attribute it by. The declaration the
+            // selected command has in scope is the one that answers — which is the child's
+            // when it re-declared the flag, and the ancestor's when it did not.
+            None => (child_exclusive, flag.exclusive && child.is_empty()),
         }
+    };
+
+    let exclusive_occurrence = |flag: &Arc<SpecFlag>| {
+        let (child, ancestor) = exclusivity_in_play(flag);
+        child || ancestor
     };
 
     // clap's `exclusive` is also an escape from requiredness: `--version` has to work on a
@@ -1397,11 +1393,13 @@ fn parse_partial_with_env(
                     .is_some_and(|env| env_contains(custom_env, env))
         });
         // Selecting a child is company for an exclusive flag declared by an ancestor. An
-        // exclusive flag belonging to the child itself does not conflict with the command
-        // word needed to reach that child. Same ownership question `exclusive_occurrence`
-        // asked to decide whose `exclusive` applies, so the two cannot drift apart.
+        // exclusive flag belonging to the child itself does not conflict with the command word
+        // needed to reach that child — so the question is not who owns the flag but whose
+        // exclusivity is the one being enforced, which is what `exclusivity_in_play` already
+        // separated.
+        let (_, ancestor_exclusivity) = exclusivity_in_play(flag);
         let selected_subcommand =
-            (out.cmds.len() > 1 && !owned_by_selected_command(flag)).then(|| out.cmd.name.clone());
+            (out.cmds.len() > 1 && ancestor_exclusivity).then(|| out.cmd.name.clone());
         let other = other_flag
             .or_else(|| other_arg.map(|arg| format!("<{}>", arg.name)))
             .or(selected_subcommand);
@@ -3250,6 +3248,45 @@ flag "--file <file>" required_unless="--stdin"
         );
         parse(&spec, &input(&["ex", "run", "--clean", "--verbose"]))
             .expect("the child's own spelling drops the exclusivity the child did not restate");
+    }
+
+    #[test]
+    fn a_child_spelling_carries_its_exclusivity_even_beside_an_ancestor_spelling() {
+        // Both spellings of one merged flag, typed together. The child's `--clean` is exclusive
+        // whatever else was typed alongside it, so `--verbose` is company; attributing the whole
+        // occurrence to the ancestor because `-c` appeared in it lost that.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse(&spec, &input(&["ex", "run", "-c", "--clean", "--verbose"])).is_err(),
+            "the child spelling is exclusive whatever it was typed beside"
+        );
+        parse(&spec, &input(&["ex", "run", "-c", "--verbose"]))
+            .expect("the ancestor's own spelling was never exclusive");
+    }
+
+    #[test]
+    fn an_environment_value_takes_the_exclusivity_of_the_declaration_in_scope() {
+        // An environment value has no spelling to attribute, so the declaration the selected
+        // command has in scope answers — in both directions. Comparing whole alias sets asked
+        // the ancestor instead, because the merged flag also carries its orphan `-c`.
+        let added: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true env=\"EX_CLEAN\"\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        assert!(
+            parse_with_env(&added, &["ex", "run", "--verbose"], &[("EX_CLEAN", "1")]).is_err(),
+            "the child added exclusivity the environment value has to honor"
+        );
+
+        let dropped: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-c --clean\" global=#true exclusive=#true env=\"EX_CLEAN\"\ncmd \"run\" {\n  flag \"--clean\"\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse_with_env(&dropped, &["ex", "run", "--verbose"], &[("EX_CLEAN", "1")])
+            .expect("the child dropped the exclusivity, and the environment value follows it");
     }
 
     #[test]

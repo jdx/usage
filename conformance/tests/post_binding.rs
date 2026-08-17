@@ -1068,3 +1068,48 @@ fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_child_redeclaration() {
     OrphanAliasExclusive::parse_from(&a)
         .expect("the child's spelling drops the exclusivity the child did not restate");
 }
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct ExclusiveRedeclaredClean {
+    /// Clean, and nothing else
+    #[usage(long = "clean", exclusive)]
+    clean: bool,
+    /// Say more
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum ExclusiveRedeclaredCleanCommands {
+    Run(ExclusiveRedeclaredClean),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "mixed-alias-ex")]
+struct MixedAliasExclusive {
+    /// Clean everything
+    #[usage(short = 'c', long, global)]
+    clean: bool,
+    #[usage(subcommand)]
+    command: Option<ExclusiveRedeclaredCleanCommands>,
+}
+
+/// The other direction, and both aliases at once: the child's spelling is exclusive whatever it
+/// was typed beside, so an ancestor-only alias in the same invocation cannot excuse a companion.
+#[test]
+fn a_child_spelling_stays_exclusive_beside_an_ancestor_spelling() {
+    let a = argv(["run", "-c", "--clean", "--verbose"]);
+    assert!(
+        matches!(
+            MixedAliasExclusive::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the child's exclusive spelling was given, so --verbose is company"
+    );
+
+    let a = argv(["run", "-c", "--verbose"]);
+    MixedAliasExclusive::parse_from(&a).expect("the ancestor's own spelling was never exclusive");
+}
