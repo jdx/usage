@@ -582,12 +582,16 @@
   min-width: 0;
 }
 
+.usage-bench-bararea {
+  flex: 1;
+  min-width: 0;
+}
+
 .usage-bench-bar {
   display: block;
   height: 13px;
   border-radius: 0 4px 4px 0;
   background: rgba(185, 103, 255, 0.45);
-  flex-shrink: 0;
 }
 
 .usage-bench-bar.us {
@@ -596,6 +600,7 @@
 }
 
 .usage-bench-value {
+  flex: 0 0 8.5rem;
   font-family: var(--vp-font-family-mono);
   font-size: 0.75rem;
   color: rgba(245, 240, 255, 0.85);
@@ -674,7 +679,8 @@
     justify-content: center;
   }
 
-  .usage-hero-tiles {
+  .usage-hero-tiles,
+  .usage-hero-desc {
     margin-left: auto;
     margin-right: auto;
   }

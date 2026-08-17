@@ -5,7 +5,7 @@
 // subtract the ~0.95ms a do-nothing Go process costs, so they are
 // deliberately approximate.
 const rustRows = [
-  { name: "usage", value: 2.1, label: "2.1µs", note: "~230× less", us: true },
+  { name: "usage-rs", value: 2.1, label: "2.1µs", note: "~230× less", us: true },
   { name: "clap", value: 490, label: "490µs", us: false },
 ];
 
@@ -20,8 +20,7 @@ const rustMax = Math.max(...rustRows.map((r) => r.value));
 const goMax = Math.max(...goRows.map((r) => r.value));
 
 function width(value: number, max: number): string {
-  // cap at 82% so the longest bar's value label still fits inside the card
-  return `${Math.max((value / max) * 82, 0.4)}%`;
+  return `${Math.max((value / max) * 100, 0.5)}%`;
 }
 </script>
 
@@ -37,16 +36,18 @@ function width(value: number, max: number): string {
 
     <div class="usage-bench-cards">
       <div class="usage-bench-card">
-        <h3>Rust <span>vs clap</span></h3>
+        <h3>usage-rs <span>vs clap</span></h3>
         <div class="usage-bench-rows">
           <div v-for="row in rustRows" :key="row.name" class="usage-bench-row">
             <span class="usage-bench-name">{{ row.name }}</span>
             <span class="usage-bench-track">
-              <span
-                class="usage-bench-bar"
-                :class="{ us: row.us }"
-                :style="{ width: width(row.value, rustMax) }"
-              ></span>
+              <span class="usage-bench-bararea">
+                <span
+                  class="usage-bench-bar"
+                  :class="{ us: row.us }"
+                  :style="{ width: width(row.value, rustMax) }"
+                ></span>
+              </span>
               <span class="usage-bench-value"
                 >{{ row.label }}<em v-if="row.note"> · {{ row.note }}</em></span
               >
@@ -61,16 +62,18 @@ function width(value: number, max: number): string {
       </div>
 
       <div class="usage-bench-card">
-        <h3>Go <span>vs cobra, urfave/cli, kong</span></h3>
+        <h3>usage-go <span>vs cobra, urfave/cli, kong</span></h3>
         <div class="usage-bench-rows">
           <div v-for="row in goRows" :key="row.name" class="usage-bench-row">
             <span class="usage-bench-name">{{ row.name }}</span>
             <span class="usage-bench-track">
-              <span
-                class="usage-bench-bar"
-                :class="{ us: row.us }"
-                :style="{ width: width(row.value, goMax) }"
-              ></span>
+              <span class="usage-bench-bararea">
+                <span
+                  class="usage-bench-bar"
+                  :class="{ us: row.us }"
+                  :style="{ width: width(row.value, goMax) }"
+                ></span>
+              </span>
               <span class="usage-bench-value"
                 >{{ row.label }}<em v-if="row.note"> · {{ row.note }}</em></span
               >
