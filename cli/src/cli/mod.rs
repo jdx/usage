@@ -39,17 +39,16 @@ pub struct Cli {
     command: Command,
 
     /// Outputs completions for the specified shell for completing the `usage` CLI itself
-    // Declaration only: `--completions <shell>` is answered in `crate::run` before a parse
-    // happens, because a shell init script asks for it on every new shell and it does not
-    // need a command line understood to answer. It is declared so that help, the spec and
-    // the completions know it exists.
+    // `--completions <shell>` is normally answered in `crate::run` before a parse happens,
+    // because a shell init script asks for it on every new shell and it does not need a
+    // subcommand to answer. It remains a real parsed field so direct callers of `Cli::run`
+    // and the help, spec, and completions all read the same declaration.
     //
     // A flag, which is how it is typed. The clap declaration made it a *positional* — so the
     // spec, the docs and the generated completions all described a `[COMPLETIONS]` argument
     // that nothing accepts, while the flag that does work went undocumented. Carried over
     // faithfully at first, wrong included; the point of emitting the spec from the
     // declaration is that the two cannot disagree, so the declaration is what changes.
-    #[allow(dead_code)]
     #[usage(long)]
     completions: Option<String>,
 
@@ -120,6 +119,9 @@ impl Cli {
                 std::process::exit(2);
             }
         };
+        if let Some(shell) = cli.completions.as_deref() {
+            return crate::usage_spec::complete(shell);
+        }
         if cli.usage_spec {
             return crate::usage_spec::generate();
         }
