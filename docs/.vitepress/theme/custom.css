@@ -235,6 +235,12 @@
   cursor: pointer;
 }
 
+.usage-tile-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
 .usage-tile:hover {
   transform: translateY(-2px);
   z-index: 10;
