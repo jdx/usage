@@ -65,6 +65,10 @@ func TestTheTwoProducersAgree(t *testing.T) {
 	}
 	walk("mise", root, mise.Root)
 
+	// The header a root page prints comes from the spec rather than from any
+	// command, and it is a table entry like any other.
+	compare(t, "HelpMeta", lowered.HelpSpec(), mise.HelpMeta)
+
 	// And the two cold tables, per entry. Dense from 1 on both sides, which is
 	// what lets a key index them, so a length difference is itself a failure.
 	if len(meta) != len(mise.Meta) {

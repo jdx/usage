@@ -684,19 +684,26 @@ impl Emitter<'_> {
         if let Some(version) = &self.spec.version {
             fields.push(format!("Version: {}", go_string(version)));
         }
-        if let Some(about) = self
-            .spec
-            .about
-            .as_deref()
-            .or(self.spec.about_long.as_deref())
-        {
+        // `about` alone, with no fall back to the long one: usage-lib's short page
+        // prints nothing where a spec wrote only `about_long`, and the long page
+        // is what reads LongAbout.
+        if let Some(about) = &self.spec.about {
             fields.push(format!("About: {}", go_string(about)));
+        }
+        if let Some(long) = &self.spec.about_long {
+            fields.push(format!("LongAbout: {}", go_string(long)));
         }
         if let Some(before) = &self.spec.before_help {
             fields.push(format!("BeforeHelp: {}", go_string(before)));
         }
         if let Some(after) = &self.spec.after_help {
             fields.push(format!("AfterHelp: {}", go_string(after)));
+        }
+        if let Some(before) = &self.spec.before_help_long {
+            fields.push(format!("BeforeLongHelp: {}", go_string(before)));
+        }
+        if let Some(after) = &self.spec.after_help_long {
+            fields.push(format!("AfterLongHelp: {}", go_string(after)));
         }
         let _ = writeln!(
             self.out,
@@ -737,6 +744,15 @@ fn command_help(e: &Emitted) -> String {
     }
     if let Some(after) = &e.cmd.after_help {
         fields.push(format!("AfterHelp: {}", go_string(after)));
+    }
+    // The long page's own brackets, which most of mise's commands use: their
+    // examples are written as `after_long_help`, and a generated CLI that dropped
+    // them printed a page with the examples missing.
+    if let Some(before) = &e.cmd.before_help_long {
+        fields.push(format!("BeforeLongHelp: {}", go_string(before)));
+    }
+    if let Some(after) = &e.cmd.after_help_long {
+        fields.push(format!("AfterLongHelp: {}", go_string(after)));
     }
     if !e.cmd.examples.is_empty() {
         let items = e
@@ -1299,6 +1315,71 @@ cmd "macos-defaults2" {}
     /// It names a subcommand *of the root*, so nothing deeper is a candidate — and
     /// the parser would otherwise descend into a command that is not the root's
     /// child at all.
+    /// The long page's text is a table entry too.
+    ///
+    /// mise writes its examples as `after_long_help`, on 115 of its commands, so a
+    /// generator that dropped them emitted a `--help` with every example missing —
+    /// while the page tests, which build their tables by lowering rather than by
+    /// generating, saw nothing wrong. The two producers are compared against each
+    /// other now; this is the same rule from the emitter's side.
+    #[test]
+    fn the_long_pages_text_reaches_the_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+about "Short."
+about_long "Long."
+before_long_help "ROOT-BEFORE"
+after_long_help "ROOT-AFTER"
+cmd "run" help="Run it" {
+    before_long_help "RUN-BEFORE"
+    after_long_help "RUN-AFTER"
+}
+"#);
+        let meta = out
+            .lines()
+            .find(|l| l.contains("var HelpMeta"))
+            .expect("a root header is emitted");
+        assert!(
+            meta.contains(r#"About: "Short.""#) && meta.contains(r#"LongAbout: "Long.""#),
+            "the two abouts are separate fields: {meta}"
+        );
+        assert!(
+            meta.contains(r#"BeforeLongHelp: "ROOT-BEFORE""#)
+                && meta.contains(r#"AfterLongHelp: "ROOT-AFTER""#),
+            "the root's long brackets are emitted: {meta}"
+        );
+
+        let run = out
+            .lines()
+            .find(|l| l.contains("Short: \"Run it\""))
+            .expect("the command has a help entry");
+        assert!(
+            run.contains(r#"BeforeLongHelp: "RUN-BEFORE""#)
+                && run.contains(r#"AfterLongHelp: "RUN-AFTER""#),
+            "a command's long brackets are emitted: {run}"
+        );
+    }
+
+    /// `about_long` alone leaves the short page's About unset, because usage-lib
+    /// prints nothing there: the long text belongs to the long page.
+    #[test]
+    fn a_long_about_alone_does_not_become_the_short_one() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+about_long "Long only."
+"#);
+        let meta = out
+            .lines()
+            .find(|l| l.contains("var HelpMeta"))
+            .expect("a root header is emitted");
+        assert!(
+            !meta.contains(", About: ") && meta.contains(r#"LongAbout: "Long only.""#),
+            "only the long one is set: {meta}"
+        );
+    }
+
     #[test]
     fn a_default_subcommand_ignores_a_deeper_command_of_the_same_name() {
         let out = go(r#"
