@@ -121,11 +121,13 @@ func filesAt(pos Position, split SplitLine, candidates []Candidate, meta Metadat
 	if pos.FlagsPossible && strings.HasPrefix(split.Prefix, "-") {
 		return NoFiles
 	}
-	// Only when the cursor is *at* that argument. A flag waiting for its value is
-	// a different position that happens to have an unfilled positional behind it,
+	// Only when the cursor is *at* that argument. A flag taking a value is a
+	// different position that happens to have an unfilled positional behind it,
 	// and a rule about the positional has nothing to say about the flag: `ex
-	// --from ⌶` takes a path whatever the argument after it needs.
-	if pos.AwaitingValue == nil && pos.NextArg != nil &&
+	// --from ⌶` takes a path whatever the argument after it needs. A variadic
+	// still collecting is the same position by a weaker claim, and the reference
+	// folds the two together here.
+	if pos.AwaitingValue == nil && pos.Collecting == nil && pos.NextArg != nil &&
 		pos.NextArg.DoubleDash == DoubleDashRequired && !pos.SeparatorSeen {
 		return NoFiles
 	}
@@ -181,7 +183,14 @@ func filesFor(name string) Files {
 
 // atoi is [strconv.Atoi] for a non-negative number, written out because this
 // package takes no imports it can avoid.
+//
+// A number too large to hold is refused rather than wrapped. Wrapping is worse
+// than refusing here: a cursor that came back as a small number would describe a
+// position near the start of the line, and the completion would answer confidently
+// about the wrong word — where a refusal falls back to the end of the line, which
+// is where a shell means when it says nothing.
 func atoi(s string) (int, error) {
+	const maxInt = int(^uint(0) >> 1)
 	if s == "" {
 		return 0, errNotANumber
 	}
@@ -190,10 +199,11 @@ func atoi(s string) (int, error) {
 		if s[i] < '0' || s[i] > '9' {
 			return 0, errNotANumber
 		}
-		n = n*10 + int(s[i]-'0')
-		if n < 0 {
+		digit := int(s[i] - '0')
+		if n > (maxInt-digit)/10 {
 			return 0, errNotANumber
 		}
+		n = n*10 + digit
 	}
 	return n, nil
 }

@@ -143,6 +143,67 @@ func TestWhenPathsBelongAtTheCursor(t *testing.T) {
 	}
 }
 
+// A command having flags does not close the position.
+//
+// `Candidates` offers flags only for a dash-prefixed word, which is what the
+// reference does — and what keeps the file fallback working, since the fallback
+// asks whether *anything* was offered. Offering every flag at a bare cursor made
+// every position on every command with a flag look answered.
+func TestFlagsDoNotCloseThePositionToPaths(t *testing.T) {
+	root := &Command{Key: 1, Name: "ex",
+		Flags: []*Flag{{Key: 2, Name: "verbose", Longs: []string{"verbose"}}},
+		Args:  []*Arg{{Key: 3, Name: "INPUT"}}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
+	meta := Metadata{{Key: 1}, {Key: 2, Name: "verbose", Flag: true}, {Key: 3, Name: "INPUT"}}
+
+	answer := Request{Shell: Bash, Line: "ex ", Cursor: 3}.Answer(root, help, meta)
+	if answer.Files != AnyFile {
+		t.Errorf("nothing describes INPUT, so the shell should offer paths: %v", answer.Files)
+	}
+	if len(answer.Candidates) != 0 {
+		t.Errorf("a bare cursor is not asking for flags: %v", values(answer.Candidates))
+	}
+	// And a dash asks for them, which closes the position — no path starts with
+	// one.
+	dashed := Request{Shell: Bash, Line: "ex -", Cursor: 4}.Answer(root, help, meta)
+	if dashed.Files != NoFiles || len(dashed.Candidates) == 0 {
+		t.Errorf("a dash asks for flags and nothing else: %v %v",
+			dashed.Files, values(dashed.Candidates))
+	}
+}
+
+// A variadic still collecting is on the flag's value, not on the argument behind
+// it — so an argument owing a separator has nothing to say about this position.
+func TestASeparatorOwedBehindACollectingFlag(t *testing.T) {
+	tools := &Flag{Key: 2, Name: "tools", Longs: []string{"tools"},
+		TakesValue: true, Variadic: true}
+	root := &Command{Key: 1, Name: "ex", Flags: []*Flag{tools},
+		Args: []*Arg{{Key: 3, Name: "TASK", DoubleDash: DoubleDashRequired}}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
+	meta := Metadata{{Key: 1}, {Key: 2, Name: "tools", Flag: true, ValueName: "PATH"},
+		{Key: 3, Name: "TASK"}}
+
+	const line = "ex --tools a "
+	if got := (Request{Shell: Bash, Line: line, Cursor: len(line)}).
+		Answer(root, help, meta).Files; got != AnyFile {
+		t.Errorf("the cursor is on the flag's value, which is called PATH: %v", got)
+	}
+}
+
+// A cursor too large to hold falls back to the end of the line.
+//
+// Wrapping would be worse than refusing: a small number describes a position near
+// the start of the line, and the completion would answer confidently about the
+// wrong word.
+func TestACursorTooLargeToHold(t *testing.T) {
+	for _, huge := range []string{"18446744073709551616", "99999999999999999999"} {
+		req, ok := ParseRequest([]string{RequestName, "--line", "ex use", "--cursor", huge})
+		if !ok || req.Cursor != len("ex use") {
+			t.Errorf("%s should fall back to the end of the line, got %d", huge, req.Cursor)
+		}
+	}
+}
+
 // A completer's declared type outranks the name, because the author wrote it.
 func TestADeclaredCompleterTypeDecidesIt(t *testing.T) {
 	root := &Command{Key: 1, Name: "ex", Args: []*Arg{{Key: 2, Name: "INPUT"}}}
