@@ -93,18 +93,18 @@ var cmdConfigLs = &argv.Command{
 // commands take keys too, and have no cold half.
 var Meta = argv.Metadata{
 	{},
-	{Key: FlagVerbose, Name: "verbose", Flag: true},
-	{Key: FlagColor, Name: "color", Flag: true},
-	{Key: FlagJobs, Name: "jobs", Flag: true},
-	{Key: FlagInclude, Name: "include", Flag: true, VarMax: 3},
+	{Key: FlagVerbose, Name: "verbose", Flag: true, Spelling: "--verbose"},
+	{Key: FlagColor, Name: "color", Flag: true, Spelling: "--color"},
+	{Key: FlagJobs, Name: "jobs", Flag: true, Spelling: "--jobs"},
+	{Key: FlagInclude, Name: "include", Flag: true, Spelling: "--include", VarMax: 3},
 	{Key: ArgFile, Name: "file", Required: true},
 	{Key: ArgRest, Name: "rest"},
 	{},
-	{Key: FlagInstallForce, Name: "force", Flag: true},
+	{Key: FlagInstallForce, Name: "force", Flag: true, Spelling: "--force"},
 	{Key: ArgInstallPkg, Name: "pkg", Required: true},
 	{},
 	{},
-	{Key: FlagConfigLsNoHeader, Name: "no-header", Flag: true},
+	{Key: FlagConfigLsNoHeader, Name: "no-header", Flag: true, Spelling: "--no-header"},
 }
 
 // HelpText is the third table, read only when a page is rendered. Neither the

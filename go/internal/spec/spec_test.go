@@ -461,3 +461,26 @@ func TestATruncatedSubcommandObjectIsAnError(t *testing.T) {
 		t.Error("a truncated lowering should not decode as a spec")
 	}
 }
+
+// The tables carry how a flag is typed, because the rules that judge an entry
+// never see one — and a one-character long form and a short form are both one
+// character, so guessing from the name renders `--a` as `-a`.
+func TestTheTableCarriesHowAFlagIsTyped(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "a", Long: []string{"a"}},
+			{Name: "b", Short: []string{"b"}},
+			{Name: "file", Long: []string{"file"}, Short: []string{"f"}},
+		}},
+	})
+	for _, c := range []struct{ name, want string }{
+		{"a", "--a"},       // one character, and a long form
+		{"b", "-b"},        // short only
+		{"file", "--file"}, // the long form wins where there is one
+	} {
+		if got := metaFor(t, meta, root, c.name).Spelling; got != c.want {
+			t.Errorf("%s: want %q, got %q", c.name, c.want, got)
+		}
+	}
+}

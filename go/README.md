@@ -156,6 +156,25 @@ rules drift, so both are run over mise's real spec and compared — the same che
 Two implementations checked against one oracle beats two checked against each
 other.
 
+## Errors
+
+`argv.Render` turns a failure into what a CLI should print to stderr:
+
+```
+error: unknown flag `--wat`
+
+Usage: ex run [-f --force]
+
+For more information, try `--help`.
+```
+
+The one part of this module with **no reference to match**. usage-lib prints a
+one-line message inside miette's frame and usage-argv renders through miette too;
+neither travels, because miette is a Rust library and a Go CLI drawing the same
+ASCII art would be imitating a diagnostic format rather than sharing one. So this
+is judged on whether the message says what went wrong, where, and what to try —
+and tested by asserting those rather than by comparing bytes.
+
 ## Conformance
 
 The [corpus](../corpus) is the definition of correct, and it is plain JSON so that
@@ -191,9 +210,6 @@ claim is measured at real scale rather than against a fixture with four flags:
 - **Typed values.** Binding collects text. Something still has to turn `"8"` into
   an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
   convert.
-- **Errors worth reading.** `Error()` returns `unknown flag: --wat`, which names
-  the problem and helps nobody fix it. usage-argv renders these through miette
-  with the offending token underlined.
 - **Completions.** The Rust side serves these from the parser's own scope rules so
   that what is offered and what is accepted cannot disagree; the hooks for it
   (`Collecting`, `PendingArg`, `FlagsInScope`, `CommandStart`) are already here.

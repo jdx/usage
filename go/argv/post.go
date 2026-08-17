@@ -29,6 +29,14 @@ type Meta struct {
 	Key uint64
 	// Name is what the spec calls it, for the error.
 	Name string
+	// Spelling is how a user types it — `--file`, `-f` — for the errors raised
+	// here, which judge an *entry* and so never see a [Flag].
+	//
+	// Carried rather than derived from the name: a name is a long form wherever
+	// there is one, but `--a` and `-a` are both one character and guessing
+	// between them can name a different flag entirely. Empty for an argument,
+	// which is typed as its value rather than as a form.
+	Spelling string
 	// Flag distinguishes a missing flag from a missing argument, which the
 	// grammar reports as different classes.
 	Flag bool
@@ -175,7 +183,7 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		if m.Flag {
 			code = CodeMissingRequiredFlag
 		}
-		return &Error{Code: code, Name: m.Name}
+		return &Error{Code: code, Name: m.Name, Spelling: m.Spelling}
 	}
 
 	if len(m.Choices) > 0 {
@@ -183,7 +191,8 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		// and a bad one, and so can a repeatable flag across occurrences.
 		for _, v := range values {
 			if !contains(m.Choices, v) {
-				return &Error{Code: CodeInvalidChoice, Name: m.Name, Choices: m.Choices}
+				return &Error{Code: CodeInvalidChoice, Name: m.Name,
+					Spelling: m.Spelling, Choices: m.Choices}
 			}
 		}
 	}
@@ -192,11 +201,13 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 	// its minimum; it simply is not there, and reporting `var_too_few` for it
 	// would make every bounded variadic effectively required.
 	if m.VarMin > 0 && len(values) > 0 && uint32(len(values)) < m.VarMin {
-		return &Error{Code: CodeVarTooFew, Name: m.Name, Bound: m.VarMin, Got: len(values)}
+		return &Error{Code: CodeVarTooFew, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMin, Got: len(values)}
 	}
 
 	if m.VarMax > 0 && occurrences > int(m.VarMax) {
-		return &Error{Code: CodeVarTooMany, Name: m.Name, Bound: m.VarMax, Got: occurrences}
+		return &Error{Code: CodeVarTooMany, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMax, Got: occurrences}
 	}
 
 	return nil
