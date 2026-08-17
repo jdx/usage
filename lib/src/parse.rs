@@ -1302,7 +1302,6 @@ fn parse_partial_with_env(
             .any(|available| Arc::ptr_eq(available, flag))
             && out.cmd.flags.iter().any(|declared| {
                 declared.name == flag.name
-                    && declared.global == flag.global
                     && declared.short == flag.short
                     && declared.long == flag.long
                     && declared.negate == flag.negate
@@ -3042,6 +3041,20 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
             "the parent flag still conflicts with selecting the child"
+        );
+    }
+
+    #[test]
+    fn a_child_local_exclusive_redeclaration_belongs_to_the_child() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true exclusive=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child-local exclusive flag is alone inside the child command");
+        assert!(
+            parse(&spec, &input(&["ex", "--clean", "run"])).is_err(),
+            "the ancestor spelling still conflicts with selecting the child"
         );
     }
 
