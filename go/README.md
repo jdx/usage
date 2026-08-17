@@ -156,6 +156,17 @@ rules drift, so both are run over mise's real spec and compared — the same che
 Two implementations checked against one oracle beats two checked against each
 other.
 
+## Typed values
+
+Binding collects text, deliberately — the grammar decides which token becomes
+which flag, not what it means. `argv.Int`, `Uint`, `Float`, `Bool`, `Duration`
+and `Each` are where that text becomes a value, each failure carrying the word
+that would not convert and the type it was going to.
+
+Note `Bool` and `EnvTruth` are different widths on purpose: `Bool` takes Go's
+spellings for a value somebody typed, `EnvTruth` is the narrower allow-list
+usage-lib uses to decide whether a variable sets a value-less flag at all.
+
 ## Errors
 
 `argv.Render` turns a failure into what a CLI should print to stderr:
@@ -207,9 +218,8 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 ## What is missing
 
-- **Typed values.** Binding collects text. Something still has to turn `"8"` into
-  an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
-  convert.
+- **A typed front door.** The conversions exist; what is missing is generated
+  code that calls them, so a CLI author gets a struct rather than events.
 - **Completions.** The Rust side serves these from the parser's own scope rules so
   that what is offered and what is accepted cannot disagree; the hooks for it
   (`Collecting`, `PendingArg`, `FlagsInScope`, `CommandStart`) are already here.

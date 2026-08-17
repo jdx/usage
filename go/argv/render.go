@@ -101,6 +101,15 @@ func explain(err *Error, help HelpTable) string {
 		return "`" + typedAs(err.Spelling, err.Name) + "` accepts at most " +
 			plural(int(err.Bound), "time") +
 			", given " + itoa(err.Got)
+	case CodeInvalidValue:
+		// Through `safe` like the other two that quote what the user typed. This
+		// one is the likeliest of the three to carry something strange: it exists
+		// precisely because the text was not what the target type expected.
+		msg := "`" + err.Name + "` does not accept `" + safe(err.Value) + "`"
+		if err.Want != "" {
+			msg += " (expected " + err.Want + ")"
+		}
+		return msg
 	case CodeConflictingFlags:
 		other := err.Other
 		if other == "" {

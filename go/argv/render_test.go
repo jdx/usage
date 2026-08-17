@@ -187,6 +187,7 @@ func TestAnErrorValueIsSafeToPrintToo(t *testing.T) {
 	for _, e := range []*Error{
 		{Code: CodeUnknownFlag, Token: "--x\x1b[31m\r\nerror: forged"},
 		{Code: CodeUnexpectedArg, Token: "wat\x1b[31m\r\nerror: forged"},
+		{Code: CodeInvalidValue, Name: "jobs", Value: "8\x1b[31m\r\nerror: forged"},
 	} {
 		got := e.Error()
 		for _, forbidden := range []string{"\x1b", "\r", "\n"} {
