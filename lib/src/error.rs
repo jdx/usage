@@ -41,6 +41,14 @@ pub enum UsageErr {
     #[error("Missing required arg: <{0}>")]
     MissingArg(String),
 
+    /// A command that declares `subcommand_required` was given none.
+    ///
+    /// The spec could say this and the parser did not read it, so `mise generate` — which
+    /// declares it — parsed as though it were a complete invocation. usage-argv and clap both
+    /// refuse it.
+    #[error("`{0}` needs a subcommand: one of {1}")]
+    MissingSubcommand(String, String),
+
     #[error("Argument <{0}> can only be set after a `--` separator")]
     ArgRequiresDoubleDash(String),
 

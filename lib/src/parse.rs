@@ -1166,6 +1166,28 @@ fn parse_partial_with_env(
 
     record_cursor(&mut out, next_arg_idx, seen_double_dash);
 
+    // A command that says it needs a subcommand, given none. Checked on `out.cmd` and nowhere
+    // else, because `out.cmd` *is* the command the words reached: had a subcommand been taken,
+    // the child would be here instead. The spec has carried `subcommand_required` since it was
+    // added for the derive, and this parser never read it — so `mise generate` parsed as a
+    // complete invocation while usage-argv and clap both refused it.
+    if out.cmd.subcommand_required && !out.cmd.subcommands.is_empty() {
+        let mut names: Vec<&str> = out
+            .cmd
+            .subcommands
+            .iter()
+            // Aliases share a map entry with the name they point at; listing both would offer
+            // the same command twice under two spellings.
+            .filter(|(name, sub)| sub.name == **name && !sub.hide)
+            .map(|(name, _)| name.as_str())
+            .collect();
+        names.sort_unstable();
+        out.errors.push(UsageErr::MissingSubcommand(
+            out.cmd.name.clone(),
+            names.join(", "),
+        ));
+    }
+
     // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
     // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
     for arg in out.cmd.args.iter() {
@@ -4947,6 +4969,51 @@ cmd "run" {
     }
 
     #[cfg(feature = "unstable_choices_env")]
+    /// argv as `parse` wants it, program name included.
+    fn words(of: &[&str]) -> Vec<String> {
+        of.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_command_that_needs_a_subcommand_says_so() {
+        // The spec has carried `subcommand_required` since the derive needed it, and this parser
+        // never read it — so `mise generate`, which declares it, parsed as a complete
+        // invocation while usage-argv and clap both refused. Found by the differential fuzzer.
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "gen" subcommand_required=#true {
+    cmd "two" {}
+    cmd "one" {}
+    cmd "secret" hide=#true {}
+    alias "g"
+}
+cmd "open" {
+    cmd "sub" {}
+}
+"#
+        .parse()
+        .unwrap();
+
+        let err = parse(&spec, &words(&["ex", "gen"])).unwrap_err();
+        // Sorted, so the message does not depend on map order; hidden commands left out,
+        // because a message telling someone to type a hidden name is worse than a vague one;
+        // and the alias not listed beside the name it points at.
+        assert_eq!(err.to_string(), "`gen` needs a subcommand: one of one, two");
+
+        // Reached through its alias, and still about the command rather than the spelling.
+        let err = parse(&spec, &words(&["ex", "g"])).unwrap_err();
+        assert!(err.to_string().starts_with("`gen` needs a subcommand"));
+
+        // Given one: fine.
+        parse(&spec, &words(&["ex", "gen", "one"])).unwrap();
+
+        // And a command that has subcommands without declaring them required is untouched —
+        // this is the half that keeps the check from being "any command with children".
+        parse(&spec, &words(&["ex", "open"])).unwrap();
+        parse(&spec, &words(&["ex", "open", "sub"])).unwrap();
+    }
+
     #[test]
     fn test_parser_arg_choices_from_custom_env() {
         let spec = spec_arg_choices_env("DEPLOY_ENVS");
