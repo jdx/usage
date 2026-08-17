@@ -379,7 +379,11 @@ func (e *Error) Error() string {
 	case CodeConflictingFlags:
 		return e.Name + " cannot be given with " + e.Other
 	case CodeInvalidValue:
-		return "invalid value for " + e.Name + ": " + e.Value
+		// Through `safe` for the same reason the tokens are: the rejected text came
+		// off the command line, and this one is likelier than most to hold
+		// something strange — it exists because the text was not what the type
+		// expected.
+		return "invalid value for " + e.Name + ": " + safe(e.Value)
 	}
 	return "parse error"
 }
