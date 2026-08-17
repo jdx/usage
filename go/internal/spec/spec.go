@@ -74,7 +74,12 @@ type Flag struct {
 	Required bool     `json:"required"`
 	Default  []string `json:"default"`
 	Env      string   `json:"env"`
-	Arg      *Arg     `json:"arg"`
+	// The four that name another flag. They arrive as written, dashes included.
+	Conflicts      []string `json:"conflicts"`
+	Overrides      []string `json:"overrides"`
+	RequiredIf     []string `json:"required_if"`
+	RequiredUnless []string `json:"required_unless"`
+	Arg            *Arg     `json:"arg"`
 }
 
 // choices for a flag are declared on the value it takes, not on the flag.
@@ -261,11 +266,67 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	for i := range c.Args {
 		out.Args = append(out.Args, b.arg(&c.Args[i]))
 	}
+	// After the flags, because a relationship names a sibling and every sibling
+	// needs a key before any of them can be pointed at.
+	b.resolveRelationships(c, out)
 	for _, name := range sortedKeys(c.Subcommands) {
 		sub := c.Subcommands[name]
 		out.Subcommands = append(out.Subcommands, b.command(&sub, unknown))
 	}
 	return out
+}
+
+// resolveRelationships turns the names in `conflicts`, `overrides`,
+// `required_if` and `required_unless` into the keys they refer to.
+//
+// Done here, where the whole command is visible, so that nothing downstream has
+// to search by name on a path where it would be repeating the work per parse.
+//
+// The names arrive as they are written — `--stdin`, dashes and all — so they are
+// matched against a flag's long forms, its shorts and the name the spec gives it.
+// A name nothing answers to is dropped rather than guessed at; the generator is
+// where that should be reported, since it is the one a spec author runs.
+func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
+	find := func(name string) (uint64, bool) {
+		bare := strings.TrimLeft(name, "-")
+		for _, f := range out.Flags {
+			if f.Name == bare {
+				return f.Key, true
+			}
+			for _, long := range f.Longs {
+				if long == bare {
+					return f.Key, true
+				}
+			}
+			if len(bare) == 1 {
+				for _, short := range f.Shorts {
+					if short == bare[0] {
+						return f.Key, true
+					}
+				}
+			}
+		}
+		return 0, false
+	}
+	resolve := func(names []string) []uint64 {
+		var out []uint64
+		for _, name := range names {
+			if key, ok := find(name); ok {
+				out = append(out, key)
+			}
+		}
+		return out
+	}
+
+	// `c.Flags` and `out.Flags` are built in step, so the index is the join.
+	for i := range c.Flags {
+		src := &c.Flags[i]
+		m := &b.meta[out.Flags[i].Key-1]
+		m.Conflicts = resolve(src.Conflicts)
+		m.Overrides = resolve(src.Overrides)
+		m.RequiredUnless = resolve(src.RequiredUnless)
+		m.RequiredIf = resolve(src.RequiredIf)
+	}
 }
 
 func (b *builder) flag(f *Flag) *argv.Flag {

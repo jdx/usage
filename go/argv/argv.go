@@ -258,6 +258,8 @@ const (
 	CodeVarTooFew
 	// CodeVarTooMany means more occurrences than a repeatable flag's var_max.
 	CodeVarTooMany
+	// CodeConflictingFlags means two flags declared to conflict were both given.
+	CodeConflictingFlags
 )
 
 var codeNames = [...]string{
@@ -273,6 +275,7 @@ var codeNames = [...]string{
 	CodeInvalidChoice:         "invalid_choice",
 	CodeVarTooFew:             "var_too_few",
 	CodeVarTooMany:            "var_too_many",
+	CodeConflictingFlags:      "conflicting_flags",
 }
 
 // String gives the code the corpus spells it with.
@@ -322,6 +325,10 @@ type Error struct {
 	// two var codes.
 	Bound uint32
 	Got   int
+	// Other is the flag [Name] cannot be given with, for CodeConflictingFlags.
+	// Both are carried because either alone reads as a puzzle: which flag is
+	// unwelcome depends on what else was given.
+	Other string
 }
 
 func (e *Error) Error() string {
@@ -348,6 +355,8 @@ func (e *Error) Error() string {
 		return "too few values for " + e.Name
 	case CodeVarTooMany:
 		return "too many occurrences of " + e.Name
+	case CodeConflictingFlags:
+		return e.Name + " cannot be given with " + e.Other
 	}
 	return "parse error"
 }

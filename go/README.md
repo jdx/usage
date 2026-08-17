@@ -64,6 +64,12 @@ how it accumulated — generated code assigns to a field, a harness with no targ
 type appends to a slice, and inventing a value model here would force both through
 it.
 
+The four rules that compare one entry against another — `conflicts`, `overrides`,
+`required_if`, `required_unless` — live in `relationships.go`, because a name in
+the declaration has to be resolved to the entry it refers to before any of them
+can be checked. `overrides` is the odd one out and is applied first: it asks which
+of two flags came _last_, which only the arriving tokens know.
+
 ## Using it
 
 ```go
@@ -117,14 +123,14 @@ an implementation in any language can run it. `go/conformance` runs all of it:
 mise run test:go
 ```
 
-**145 of 152 vectors pass.** The seven left are relationships _between_ flags —
-`conflicts`, `overrides`, `required_unless` — which need a resolution step turning
-a name into the entry it refers to. They are listed by id in `notYet` with a
-reason, and the count is asserted, so that set cannot quietly grow.
+**All 152 vectors pass** — every one the corpus has, binding and post-binding
+alike. The suite asserts that nothing was skipped, so that stays a measurement
+rather than a claim.
 
 The number is worth watching rather than quoting: 101 when this module landed, 122
 once the corpus imported the argv questions clap's suite answers (which the Go
-parser answered without a change), and 145 once the post-binding rules arrived. A vector's spec is KDL, and this module deliberately has no KDL parser —
+parser answered without a change), 145 once the post-binding rules arrived, and 152
+with the relationships between flags. A vector's spec is KDL, and this module deliberately has no KDL parser —
 `usage generate json` does the lowering, which is why the suite needs the CLI
 built. That split is the same one an adopter gets: tables are generated once at
 build time by a maintainer who has the usage CLI, and the shipped binary never
@@ -138,10 +144,6 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 ## What is missing
 
-- **Relationships between flags.** `conflicts`, `overrides`, `required_if` and
-  `required_unless` — the seven corpus vectors still unanswered. Unlike everything
-  in `post.go` they are not a property of one entry: a name has to be resolved to
-  the entry it refers to first.
 - **The cold table in generated code.** `usage generate go` emits the parse tables
   but not the `Meta` ones yet, so the post-binding rules are reachable today from a
   spec lowered at run time rather than from a generated package. Proving them

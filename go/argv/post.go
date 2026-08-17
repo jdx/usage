@@ -52,6 +52,23 @@ type Meta struct {
 	// binding applies, and lives on [Flag.VarMax] and [Arg.VarMax] instead — a
 	// value bound here would fail an invocation that never broke it.
 	VarMax uint32
+
+	// The four that need a second entry to answer, all resolved to keys rather
+	// than left as the names the spec writes. Resolution happens where the whole
+	// command is visible — the generator, or the table builder — so that nothing
+	// downstream has to search by name, and a declaration naming a flag that does
+	// not exist is caught there rather than silently doing nothing.
+	// See relationships.go.
+
+	// Conflicts names entries this one cannot be given alongside.
+	Conflicts []uint64
+	// Overrides names entries this one is mutually exclusive with, resolved by
+	// whichever was given last rather than reported as a mistake.
+	Overrides []uint64
+	// RequiredUnless makes this required when none of them is present.
+	RequiredUnless []uint64
+	// RequiredIf makes this required when any of them is present.
+	RequiredIf []uint64
 }
 
 // Metadata is the cold table, indexed by key.
