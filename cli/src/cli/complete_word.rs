@@ -7,7 +7,7 @@ use std::sync::Arc;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 use std::sync::LazyLock;
-use usage_derive::Args;
+use usage_rs::Args;
 use xx::regex;
 
 use usage::parse::{ParseOutput, ParseValue};

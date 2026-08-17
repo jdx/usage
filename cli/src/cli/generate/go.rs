@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use miette::Result;
 use usage::go::GoOptions;
-use usage_derive::Args;
+use usage_rs::Args;
 
 use crate::cli::generate;
 
@@ -24,7 +24,7 @@ pub struct Go {
     #[usage(
         short,
         long,
-        value_hint = usage_argv::ValueHint::FilePath,
+        value_hint = usage_rs::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,

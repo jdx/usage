@@ -4,7 +4,7 @@ use std::process::Stdio;
 
 use itertools::Itertools;
 use miette::IntoDiagnostic;
-use usage_derive::Args;
+use usage_rs::Args;
 
 use usage::Spec;
 

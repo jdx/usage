@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{parse_file_or_stdin, write_or_stdout};
 use usage::docs::markdown::MarkdownRenderer;
-use usage_derive::Args;
+use usage_rs::Args;
 
 /// Generate markdown documentation from usage specs
 #[derive(Args)]
@@ -25,7 +25,7 @@ pub struct Markdown {
     /// Output markdown files to this directory (required when using --multi)
     #[usage(
         long,
-        value_hint = usage_argv::ValueHint::DirPath,
+        value_hint = usage_rs::ValueHint::DirPath,
         requires = "--multi",
         required_if = "--multi",
         effect = "write"
@@ -35,7 +35,7 @@ pub struct Markdown {
     /// Output file path for single-file markdown generation, or "-" for stdout (default)
     #[usage(
         long,
-        value_hint = usage_argv::ValueHint::FilePath,
+        value_hint = usage_rs::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,

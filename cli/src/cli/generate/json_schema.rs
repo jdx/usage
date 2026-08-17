@@ -7,7 +7,7 @@ use crate::schema::{config_schema, SchemaOptions};
 use crate::Result;
 
 /// Generate a JSON Schema for a CLI's config file from its usage spec
-#[derive(usage_derive::Args)]
+#[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct JsonSchema {
     /// A usage spec taken in as a file, use "-" to read from stdin
@@ -17,7 +17,7 @@ pub struct JsonSchema {
     /// Write the schema here instead of to stdout
     #[usage(
         long,
-        value_hint = usage_argv::ValueHint::FilePath,
+        value_hint = usage_rs::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,

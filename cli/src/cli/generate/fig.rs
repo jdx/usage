@@ -4,7 +4,7 @@ use std::vec;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use usage::{SpecArg, SpecCommand, SpecComplete, SpecFlag};
-use usage_derive::Args;
+use usage_rs::Args;
 
 use crate::cli::generate;
 use serde::{Deserialize, Serialize, Serializer};
@@ -55,7 +55,7 @@ pub struct Fig {
     /// File path where the generated Fig spec will be saved, or "-" for stdout
     #[usage(
         long,
-        value_hint = usage_argv::ValueHint::FilePath,
+        value_hint = usage_rs::ValueHint::FilePath,
         effect = "write"
     )]
     out_file: Option<PathBuf>,
