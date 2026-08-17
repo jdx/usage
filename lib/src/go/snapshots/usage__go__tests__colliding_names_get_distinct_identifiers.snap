@@ -91,3 +91,139 @@ var HelpText = argv.HelpTable{
 // HelpMeta is what a page needs from the spec's root rather than from any one
 // command: the header, and the text that brackets every page.
 var HelpMeta = argv.HelpSpec{Name: "ex", Bin: "ex"}
+
+// Cli is the whole command line.
+type Cli struct {
+	MacosDefaults *MacosDefaultsCmd // CmdMacosDefaults
+	Macos         *MacosCmd         // CmdMacos
+}
+
+// MacosDefaultsCmd is `macos-defaults`.
+type MacosDefaultsCmd struct {
+	Apply bool // FlagMacosDefaultsApply
+}
+
+// MacosCmd is `macos`.
+type MacosCmd struct {
+	Defaults *MacosDefaults2Cmd // CmdMacosDefaults2
+}
+
+// MacosDefaults2Cmd is `macos defaults`.
+type MacosDefaults2Cmd struct {
+	Apply bool // FlagMacosDefaultsApply2
+}
+
+// Parse binds a command line and fills the structs above.
+//
+// The rules decided once the last token has been read run here too, so a
+// missing required flag or a value outside its choices comes back rather than
+// reaching your code. A returned error is an *argv.Error; render it with
+// argv.Render.
+//
+// Help and version arrive as errors, because a parse that stops to print a page
+// has produced no value. Check the code before treating one as a failure.
+func Parse(args []string) (*Cli, error) {
+	out := &Cli{}
+	var cmdMacosDefaultsV *MacosDefaultsCmd
+	var cmdMacosV *MacosCmd
+	var cmdMacosDefaults2V *MacosDefaults2Cmd
+
+	// Collected by key, so the post-binding rules can judge what arrived
+	// before any of it is handed back.
+	given := map[uint64][]string{}
+	seen := map[uint64]int{}
+	chain := []*argv.Command{Root}
+
+	p := argv.New(Root, args)
+	for p.Next() {
+		ev := p.Event()
+		switch ev.Kind {
+		case argv.KindCommand:
+			chain = append(chain, ev.Command)
+			switch ev.Command.Key {
+			case CmdMacosDefaults:
+				cmdMacosDefaultsV = &MacosDefaultsCmd{}
+				out.MacosDefaults = cmdMacosDefaultsV
+			case CmdMacos:
+				cmdMacosV = &MacosCmd{}
+				out.Macos = cmdMacosV
+			case CmdMacosDefaults2:
+				cmdMacosDefaults2V = &MacosDefaults2Cmd{}
+				cmdMacosV.Defaults = cmdMacosDefaults2V
+			}
+		case argv.KindFlag:
+			seen[ev.Flag.Key]++
+			if ev.HasValue {
+				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+			} else if given[ev.Flag.Key] == nil {
+				// Given without a value is still given, and nil would read as
+				// absent when the fallbacks are applied.
+				given[ev.Flag.Key] = []string{}
+			}
+			switch ev.Flag.Key {
+			case FlagMacosDefaultsApply:
+				cmdMacosDefaultsV.Apply = !ev.Negated
+			case FlagMacosDefaultsApply2:
+				cmdMacosDefaults2V.Apply = !ev.Negated
+			}
+		case argv.KindArg:
+			seen[ev.Arg.Key]++
+			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
+			switch ev.Arg.Key {
+			}
+		}
+	}
+	if err := p.Err(); err != nil {
+		return nil, err
+	}
+
+	// Only the commands the words actually selected are judged: a required
+	// flag on a command nobody ran is not missing.
+	var scope []uint64
+	for _, cmd := range chain {
+		for _, f := range cmd.Flags {
+			scope = append(scope, f.Key)
+		}
+		for _, a := range cmd.Args {
+			scope = append(scope, a.Key)
+		}
+	}
+	sources := map[uint64]argv.Source{}
+	for _, key := range scope {
+		values, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)
+		sources[key] = source
+		if err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {
+			return nil, err
+		}
+		// What the environment or a default supplied has to reach the field
+		// too. A front door that enforces a default and then hands back the
+		// zero value is worse than one that has no defaults at all.
+		//
+		// Written here rather than in a function of its own because a
+		// subcommand's struct is reachable only from inside this one: the
+		// variable holding it is local, and only the keys of commands the
+		// words selected are in scope, so it is never nil when its key is.
+		if source == argv.FromEnv || source == argv.FromDefault {
+			switch key {
+			case FlagMacosDefaultsApply:
+				if source == argv.FromEnv {
+					cmdMacosDefaultsV.Apply = argv.EnvTruth(values[0])
+				} else {
+					cmdMacosDefaultsV.Apply = values[0] == "true"
+				}
+			case FlagMacosDefaultsApply2:
+				if source == argv.FromEnv {
+					cmdMacosDefaults2V.Apply = argv.EnvTruth(values[0])
+				} else {
+					cmdMacosDefaults2V.Apply = values[0] == "true"
+				}
+			}
+		}
+	}
+	if err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {
+		return sources[k]
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

@@ -30,6 +30,8 @@
 //! because `default_subcommand` has to point at a node inside the tree, and a
 //! composite literal cannot refer to its own interior.
 
+mod structs;
+
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 
@@ -150,6 +152,7 @@ impl<'a> Emitter<'a> {
         self.tables(&commands);
         self.metadata(&commands);
         self.help_table(&commands);
+        structs::emit(&mut self.out, &commands);
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -1086,6 +1089,16 @@ pub fn is_valid_package(name: &str) -> bool {
         && !UNUSABLE_PACKAGE_NAMES.contains(&name)
         && !name.starts_with(|c: char| c.is_ascii_digit())
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// A Go field name from a spec name: exported, and an identifier.
+fn field_name(name: &str) -> String {
+    let ident = format!("{}", AsPascalCase(name));
+    if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("X{ident}")
+    } else {
+        ident
+    }
 }
 
 /// A Go package identifier from a binary name: `my-cli` is not one, `mycli` is.

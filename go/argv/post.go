@@ -1,5 +1,7 @@
 package argv
 
+import "os"
+
 // The rules that are decided once the last token has been read.
 //
 // Binding says which token becomes which flag or argument. These say whether
@@ -238,3 +240,10 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// LookupEnv reads the process environment, for callers that want it.
+//
+// [Fill] takes the lookup as a parameter rather than reading the environment
+// itself, so that a test of a parse is not a test of the machine it runs on.
+// Generated code passes this, because a real CLI does want the real environment.
+func LookupEnv(name string) (string, bool) { return os.LookupEnv(name) }
