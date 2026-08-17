@@ -23,37 +23,33 @@ const javascriptPath =
         <p class="usage-hero-desc">
           Usage is a toolkit for building command-line tools. Define your CLI's commands,
           flags, and args once in a KDL spec — get argument parsing, shell completions,
-          <code>--help</code>, docs, and manpages from that one definition. Reference
+          <code>--help</code>, docs, and manpages from that one definition. Experimental reference
           frameworks for Rust and Go build your CLI from the spec, with Python and
           JavaScript planned.
         </p>
 
         <p class="usage-hero-label">Frameworks</p>
         <div class="usage-hero-tiles">
-          <a
-            href="https://github.com/jdx/usage/tree/main/derive"
-            class="usage-tile usage-tile-live"
-          >
+          <a href="/rust/" class="usage-tile usage-tile-live">
             <svg class="usage-tile-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path :d="rustPath" />
             </svg>
             <span>Rust</span>
+            <span class="usage-tile-experimental-pill">experimental</span>
             <div class="usage-tile-tooltip">
               <strong>Rust framework</strong>
-              <p>Derive your CLI from Rust types — parsing, help, and completions generated from the usage spec.</p>
+              <p>Derive your CLI from Rust types — parsing, help, and completions generated from the usage spec. Experimental: APIs may change between releases.</p>
             </div>
           </a>
-          <a
-            href="https://github.com/jdx/usage/tree/main/go"
-            class="usage-tile usage-tile-live"
-          >
+          <a href="/go/" class="usage-tile usage-tile-live">
             <svg class="usage-tile-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path :d="goPath" />
             </svg>
             <span>Go</span>
+            <span class="usage-tile-experimental-pill">experimental</span>
             <div class="usage-tile-tooltip">
               <strong>Go framework</strong>
-              <p>Build Go CLIs on the usage spec, with parsing behavior verified against the same conformance corpus as the Rust implementation.</p>
+              <p>Build Go CLIs on the usage spec, with parsing behavior verified against the same conformance corpus as the Rust implementation. Experimental: APIs may change between releases.</p>
             </div>
           </a>
           <span class="usage-tile usage-tile-soon">
