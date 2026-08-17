@@ -168,6 +168,79 @@ func TestConditionalRequirements(t *testing.T) {
 	}
 }
 
+func TestValueConditionalRequirements(t *testing.T) {
+	meta := pair(nil, nil, "")
+	meta[0].RequiresIf = []ValueRequirement{{Value: "json", Key: keyStdin}}
+	all := []uint64{keyFile, keyStdin, keyURL}
+	values := func(value string) func(uint64) []string {
+		return func(key uint64) []string {
+			if key == keyFile {
+				return []string{value}
+			}
+			return nil
+		}
+	}
+
+	if err := CheckRelationshipsWithValues(meta, all, set(keyFile), values("json")); err == nil {
+		t.Error("the matching value should require stdin")
+	} else if err.Code != CodeMissingRequiredFlag || err.Name != "stdin" {
+		t.Errorf("want missing stdin, got %q %q", err.Code, err.Name)
+	}
+	if err := CheckRelationshipsWithValues(meta, all, set(keyFile), values("text")); err != nil {
+		t.Errorf("a different value should require nothing, got %q", err.Code)
+	}
+	if err := CheckRelationshipsWithValues(meta, all, set(keyFile, keyStdin), values("json")); err != nil {
+		t.Errorf("the required flag satisfies the condition, got %q", err.Code)
+	}
+
+	fromDefault := func(key uint64) Source {
+		if key == keyFile {
+			return FromDefault
+		}
+		return Unset
+	}
+	if err := CheckRelationshipsWithValues(meta, all, fromDefault, values("json")); err != nil {
+		t.Errorf("a default should not activate the condition, got %q", err.Code)
+	}
+
+	defaultSatisfies := func(key uint64) Source {
+		if key == keyFile {
+			return FromArgv
+		}
+		if key == keyStdin {
+			return FromDefault
+		}
+		return Unset
+	}
+	if err := CheckRelationshipsWithValues(meta, all, defaultSatisfies, values("json")); err != nil {
+		t.Errorf("a default on the required flag satisfies it, got %q", err.Code)
+	}
+}
+
+func TestRelationshipValuesNormalizesBooleans(t *testing.T) {
+	m := &Meta{RequiresIfBoolean: true}
+	cases := []struct {
+		name    string
+		values  []string
+		source  Source
+		negated bool
+		want    string
+	}{
+		{"typed flag", nil, FromArgv, false, "true"},
+		{"typed negation", nil, FromArgv, true, "false"},
+		{"truthy environment", []string{"TRUE"}, FromEnv, false, "true"},
+		{"false environment", []string{"0"}, FromEnv, false, "false"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := RelationshipValues(m, c.values, c.source, c.negated)
+			if len(got) != 1 || got[0] != c.want {
+				t.Errorf("want %q, got %v", c.want, got)
+			}
+		})
+	}
+}
+
 // An entry already marked Required has been answered by Check, and saying it
 // twice in two different voices helps nobody.
 func TestAnAlreadyRequiredEntryIsNotReportedTwice(t *testing.T) {

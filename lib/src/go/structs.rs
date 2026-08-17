@@ -100,6 +100,25 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
 
 fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let root = &commands[0];
+    let has_requires_if = commands
+        .iter()
+        .flat_map(|command| command.flags.iter())
+        .any(|(flag, _)| !flag.requires_if.is_empty());
+    let conditional_state = if has_requires_if {
+        "\tnegated := map[uint64]bool{}\n"
+    } else {
+        ""
+    };
+    let conditional_resolved = if has_requires_if {
+        "\tresolved := map[uint64][]string{}\n"
+    } else {
+        ""
+    };
+    let conditional_value = if has_requires_if {
+        "\t\tresolved[key] = values\n"
+    } else {
+        ""
+    };
     let _ = writeln!(
         out,
         "// Parse binds a command line and fills the structs above.\n\
@@ -129,6 +148,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t// before any of it is handed back.\n\
          \tgiven := map[uint64][]string{{}}\n\
          \tseen := map[uint64]int{{}}\n\
+         {conditional_state}\
          \tchain := []*argv.Command{{Root}}\n\
          \n\tp := argv.New(Root, args)\n\
          \tfor p.Next() {{\n\
@@ -153,9 +173,15 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         );
     }
 
+    let conditional_event = if has_requires_if {
+        "\t\t\tnegated[ev.Flag.Key] = ev.Negated\n"
+    } else {
+        ""
+    };
     let _ = writeln!(
         out,
         "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
+         {conditional_event}\
          \t\t\tif ev.HasValue {{\n\
          \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)\n\
          \t\t\t}} else if given[ev.Flag.Key] == nil {{\n\
@@ -207,9 +233,11 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t}}\n\
          \t}}\n\
          \tsources := map[uint64]argv.Source{{}}\n\
+         {conditional_resolved}\
          \tfor _, key := range scope {{\n\
          \t\tvalues, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)\n\
          \t\tsources[key] = source\n\
+         {conditional_value}\
          \t\tif err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {{\n\
          \t\t\treturn nil, err\n\t\t}}\n\
          \t\t// What the environment or a default supplied has to reach the field\n\
@@ -224,13 +252,23 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\t\tswitch key {{"
     );
     fallback_cases(out, commands, assigned);
-    let _ = writeln!(
-        out,
-        "\t\t\t}}\n\t\t}}\n\t}}\n\
-         \tif err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {{\n\
-         \t\treturn sources[k]\n\t}}); err != nil {{\n\t\treturn nil, err\n\t}}\n\
-         \treturn out, nil\n}}\n"
-    );
+    let _ = writeln!(out, "\t\t\t}}\n\t\t}}\n\t}}");
+    if has_requires_if {
+        let _ = writeln!(
+            out,
+            "\tif err := argv.CheckRelationshipsWithValues(Meta, scope, func(k uint64) argv.Source {{\n\
+             \t\treturn sources[k]\n\t}}, func(k uint64) []string {{\n\
+             \t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\
+             \t}}); err != nil {{\n\t\treturn nil, err\n\t}}"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "\tif err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {{\n\
+             \t\treturn sources[k]\n\t}}); err != nil {{\n\t\treturn nil, err\n\t}}"
+        );
+    }
+    let _ = writeln!(out, "\treturn out, nil\n}}\n");
 }
 
 /// The cases that put an `env` or `default` value into its field.

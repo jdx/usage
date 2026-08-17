@@ -182,6 +182,11 @@ func TestRelationshipsPointAtRealEntries(t *testing.T) {
 				}
 			}
 		}
+		for _, condition := range m.RequiresIf {
+			if Meta.Lookup(condition.Key) == nil {
+				t.Errorf("%q conditionally points at key %d, which is not an entry", m.Name, condition.Key)
+			}
+		}
 	}
 }
 

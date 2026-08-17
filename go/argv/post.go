@@ -52,6 +52,9 @@ type Meta struct {
 	// Flag distinguishes a missing flag from a missing argument, which the
 	// grammar reports as different classes.
 	Flag bool
+	// RequiresIfBoolean says this entry's conditional relationships compare a
+	// boolean rather than text, so their explicit values need normalization.
+	RequiresIfBoolean bool
 	// Required means it must end up with a value, from anywhere.
 	Required bool
 	// Choices is the exact set of values allowed. Matching is case-sensitive:
@@ -73,7 +76,7 @@ type Meta struct {
 	// value bound here would fail an invocation that never broke it.
 	VarMax uint32
 
-	// The four that need a second entry to answer, all resolved to keys rather
+	// The relationships that need a second entry to answer, all resolved to keys rather
 	// than left as the names the spec writes. Resolution happens where the whole
 	// command is visible — the generator, or the table builder — so that nothing
 	// downstream has to search by name, and a declaration naming a flag that does
@@ -89,6 +92,15 @@ type Meta struct {
 	RequiredUnless []uint64
 	// RequiredIf makes this required when any of them is present.
 	RequiredIf []uint64
+	// RequiresIf names entries required when this entry explicitly has Value.
+	// Defaults do not activate the condition, but may satisfy the requirement.
+	RequiresIf []ValueRequirement
+}
+
+// ValueRequirement is one value-conditional relationship.
+type ValueRequirement struct {
+	Value string
+	Key   uint64
 }
 
 // Metadata is the cold table, indexed by key.
