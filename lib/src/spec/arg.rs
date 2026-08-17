@@ -390,10 +390,11 @@ impl From<&clap::Arg> for SpecArg {
         let help_long = arg.get_long_help().map(|s| s.to_string());
         let help_first_line = help.as_ref().map(|s| string::first_line(s));
         let hide = arg.is_hide_set();
+        let delimiter = arg.get_value_delimiter();
         let var = matches!(
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
-        );
+        ) || delimiter.is_some();
         let choices = arg
             .get_possible_values()
             .iter()
@@ -425,7 +426,7 @@ impl From<&clap::Arg> for SpecArg {
             var_min: None,
             // clap answers for this one, and the same getter `default_values` already
             // uses just above: a default is split by it, and so is a typed value.
-            delimiter: arg.get_value_delimiter(),
+            delimiter,
             hide,
             default: default_values(arg),
             choices: None,
@@ -513,6 +514,36 @@ mod delimiter_tests {
         // the emitted spec has somewhere to put them and parses back.
         assert!(arg.var, "a delimiter brings `var` with it");
         let _: Spec = spec.to_string().parse().expect("{spec}");
+    }
+
+    #[test]
+    fn a_single_valued_clap_positional_splits_into_stored_values() {
+        // The positional bridge uses `SpecArg::from(&clap::Arg)` directly, unlike a
+        // flag. A delimiter therefore has to make that argument variadic here too or
+        // parsing validates the split parts and then stores the original unsplit word.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .action(clap::ArgAction::Set)
+                .value_delimiter(',')
+                .value_parser(["a", "b"]),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = &spec.cmd.args[0];
+        assert!(arg.var, "a positional delimiter brings `var` with it");
+        assert_eq!(arg.delimiter, Some(','));
+
+        let input = ["ex", "a,b"].map(str::to_string);
+        let parsed = crate::parse(&spec, &input).expect("both split values are choices");
+        let value = parsed
+            .args
+            .values()
+            .next()
+            .expect("the positional was stored");
+        assert!(matches!(
+            value,
+            crate::parse::ParseValue::MultiString(values)
+                if values == &["a".to_string(), "b".to_string()]
+        ));
     }
 
     #[test]
