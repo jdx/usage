@@ -213,6 +213,19 @@ A word is matched against the subcommands of the command in scope, by name and b
 alias. A match descends: parsing continues against the subcommand, and the
 selected path records the canonical name even when an alias was typed.
 
+**A name outranks an alias.** The word is matched against every subcommand's
+name first; only if none answers is it matched against their aliases. So
+declaration order never decides which command a word selects — reordering `cmd`
+blocks cannot change what a command line means — and no command's own name can
+be shadowed by another command's alias.
+
+That precedence only ever comes up in a spec that should not exist: one command's
+alias equal to another's name leaves one of the two unreachable whichever way it
+is resolved. `usage lint` reports it as `duplicate-subcommand`, and a derive
+rejects it at compile time. The rule is stated because a parser handed a spec it
+did not validate still has to answer, and every implementation should answer the
+same way.
+
 **A subcommand name wins over a positional value.** A CLI that declares both
 cannot receive a positional whose text equals one of its subcommand names — mise
 documents exactly this hazard for tasks that share a name with a command.

@@ -278,14 +278,16 @@ impl<'a> Emitter<'a> {
         // descended into a command that is not the root's child at all. A name
         // nothing answers to is left unset rather than guessed at.
         let default_subcommand = self.spec.default_subcommand.as_ref().and_then(|name| {
-            commands[0]
-                .subcommands
-                .iter()
-                .map(|at| &commands[*at])
-                .find(|e| {
-                    &e.cmd.name == name
-                        || e.cmd.aliases.contains(name)
-                        || e.cmd.hidden_aliases.contains(name)
+            let direct = || commands[0].subcommands.iter().map(|at| &commands[*at]);
+            // Names before aliases, as the grammar says: a command's own name outranks
+            // another command's alias, so which one this resolves to does not depend on
+            // the order the spec declares them in.
+            direct()
+                .find(|e| &e.cmd.name == name)
+                .or_else(|| {
+                    direct().find(|e| {
+                        e.cmd.aliases.contains(name) || e.cmd.hidden_aliases.contains(name)
+                    })
                 })
                 .map(|e| e.named.var.clone())
         });
@@ -853,6 +855,31 @@ cmd "run" {
             out.contains("DefaultSubcommand: cmdRun,"),
             "should point at the root's own `run`, got:\n{out}"
         );
+    }
+
+    /// A command's own name outranks another command's alias, so which command the
+    /// emitted `DefaultSubcommand` points at does not depend on declaration order.
+    #[test]
+    fn a_default_subcommand_prefers_a_name_to_another_commands_alias() {
+        let ordered = |first: &str, second: &str| {
+            go(&format!(
+                r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+{first}
+{second}
+"#
+            ))
+        };
+        let alpha = "cmd \"alpha\" {\n    alias \"run\"\n}";
+        let run = "cmd \"run\" {\n    arg \"[args]...\" var=#true\n}";
+        for out in [ordered(alpha, run), ordered(run, alpha)] {
+            assert!(
+                out.contains("DefaultSubcommand: cmdRun,"),
+                "should point at the command named `run`, got:\n{out}"
+            );
+        }
     }
 
     /// A subcommand actually named `root` wants the constant the root has.

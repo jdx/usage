@@ -222,6 +222,29 @@ func TestParseAllocatesNothing(t *testing.T) {
 	}
 }
 
+// A command's own name beats another command's alias, whichever order the table
+// lists them in. Checking each subcommand's name and aliases together made this
+// depend on which came first — and usage-lib, building a map, answered with the
+// last. Neither was a rule anyone had picked, so the grammar picked this one.
+func TestNameOutranksAnotherCommandsAlias(t *testing.T) {
+	alpha := &Command{Name: "alpha", Aliases: []string{"run"}, Key: 300}
+	plainRun := &Command{Name: "run", Key: 301}
+
+	for _, subs := range [][]*Command{
+		{alpha, plainRun},
+		{plainRun, alpha},
+	} {
+		cmd := &Command{Name: "ex", Subcommands: subs}
+		if got := findNamed(cmd, "run"); got != plainRun {
+			t.Errorf("findNamed(%q) = %v, want the command named run", "run", got)
+		}
+		// The alias's own command is still reachable by every name it does not share.
+		if got := findNamed(cmd, "alpha"); got != alpha {
+			t.Errorf("findNamed(%q) = %v, want alpha", "alpha", got)
+		}
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	args := []string{"install", "--verbose", "-f", "a", "b", "c"}
 	b.ReportAllocs()

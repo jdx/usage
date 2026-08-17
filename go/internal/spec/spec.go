@@ -175,11 +175,22 @@ func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 	// is resolved once, here, against the root's own subcommands. A name that
 	// answers to nothing is left unset: the spec is what it is, and a vector or a
 	// build that expects routing should fail loudly rather than have this guess.
+	// Names before aliases, the same precedence a typed word gets: a command's own
+	// name outranks another command's alias, so this does not depend on the order
+	// the spec declares them in.
 	if s.DefaultSubcommand != "" {
 		for _, sub := range root.Subcommands {
-			if sub.Name == s.DefaultSubcommand || contains(sub.Aliases, s.DefaultSubcommand) {
+			if sub.Name == s.DefaultSubcommand {
 				root.DefaultSubcommand = sub
 				break
+			}
+		}
+		if root.DefaultSubcommand == nil {
+			for _, sub := range root.Subcommands {
+				if contains(sub.Aliases, s.DefaultSubcommand) {
+					root.DefaultSubcommand = sub
+					break
+				}
 			}
 		}
 	}

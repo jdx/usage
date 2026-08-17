@@ -42,6 +42,13 @@
       }
     },
     {
+      "id": "default-name-outranks-other-alias",
+      "doc": "`default_subcommand` names a command by the same rule a typed word selects one, so a command's own name outranks another command's alias here too.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"alpha\" {\n  alias \"run\"\n  arg \"[a]\"\n}\ncmd \"run\" {\n  arg \"[b]\"\n}\n",
+      "argv": ["build"],
+      "expect": { "ok": { "cmd": ["run"], "args": { "b": "build" } } }
+    },
+    {
       "id": "default-word-reexamined",
       "doc": "The word is examined again against the command it reached, so it can name one of *its* subcommands. mise's mounted task names arrive this way.",
       "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\" {\n  cmd \"lint\"\n}\n",
