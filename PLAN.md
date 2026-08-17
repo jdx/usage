@@ -2,6 +2,9 @@
 
 Working plan for two related pieces of work. Boxes get ticked as things land, so
 this file is also the status: if a box is unchecked, that thing does not exist.
+A `[~]` box is partly done, and the item says which part — the marker exists
+because two items were reading as "not started" while most of their substance was
+already written, which is the failure mode a status file has to avoid.
 
 1. **A compiled argv parser** — a Rust parser that reads static tables instead of
    building a command tree, with the usage spec as its source of truth.
@@ -9,8 +12,12 @@ this file is also the status: if a box is unchecked, that thing does not exist.
    pitchfork, and fnox have each rebuilt separately, declared once and lowered
    into the spec.
 
-The first is underway. The second is designed but not started, and deliberately
-waits for the first to prove itself.
+The first is underway. The second is **underway too**, which this file said it was
+not: `usage-config` and `usage-config-build` are 8,220 lines, the spec's `config`
+block has a model behind it, and the derive lowers `#[usage(setting = …)]` into
+`SETTINGS_BINDINGS` with a `Registry::drift` check over it. What has _not_
+happened is adoption — none of mise, hk, pitchfork or fnox depends on the crate —
+and the boxes below are written per-item so the two are no longer conflated.
 
 ## Why
 
@@ -178,10 +185,18 @@ manpages, and SDKs — never a runtime dependency of somebody else's program.
       `required_if`, `required_unless`, `var`, `count`, `env`, defaults, the four
       `double_dash` modes, global flags, flatten, boxed subcommand variants,
       headings and `cfg`-gated variants have all landed since this was written.
-      What is left of the original list is **`requires`** — with `requires_if` and
-      `requires_ifs`, the conditional forms, which are their own work rather than
-      a detail of the first — none of which any part of this repository can
-      express: not the derive, not the spec, not the clap bridge. And
+      **`requires` has since landed** — spec, usage-lib's parser, the derive and
+      the argv metadata all carry it, and `#[usage(requires = "--format")]`
+      reports `MissingRequired` when the other flag is absent. The clap _bridge_
+      still cannot read one, and cannot be made to: clap 4.6 exposes
+      `Arg::requires` as a setter with no getter, so a `Command` cannot be asked
+      what it requires. That is a clap limitation, recorded in
+      `lib/src/spec/flag.rs`, not an item to close here.
+      What is left is **`requires_if` / `requires_ifs`**, the conditional forms,
+      which need something the spec does not have: a selector that names a
+      _value_ rather than a presence. `selector_is_explicit` answers only "was
+      that flag given", so "required when `--format` is `json`" cannot be said
+      from either end — `required_if` has the same limit. And
       **delimiters**, where a value's `,` is split at parse time rather than only
       in a clap default. Both are in the clap-parity list below.
 - [x] **The post-binding layer** — `required`, `choices`, `env` fallback, defaults,
@@ -465,12 +480,31 @@ checked-in `mise.usage.kdl` for both parsers.
       everything except parse — measured by `tak`, which gates the counts in CI.
 - [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
       against clap's 5.96M: 117× fewer**, and **2.1µs against 490µs of wall clock**.
+      _Re-measured later, and it moved:_ **60.4k against 5.90M — 97×**. clap is flat;
+      our parse grew about 19% as the derive gained vocabulary, so the headroom under
+      the <100k target went from 2× to 1.65×. Still passing, and nothing watches it:
+      the shadow comparison is reported and never gated, on the grounds that the
+      fixture grows on purpose. That reasoning holds for the absolute number and not
+      for the _ratio_, which is a property of the two parsers. Worth a gate before the
+      margin erodes further.
       Measured by differencing two runs of the _same_ binary over how many parses it
       does, so nothing but the parse varies. clap's 490µs is 305µs building its command
       tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
       parse alone, with the tree already built and paid for, this is 12× faster.
-- [ ] **Differential fuzzing** — proptest over argv against usage-lib on the mise
-      spec, to find disagreements the corpus did not think of.
+- [x] **Differential fuzzing** — proptest over argv on the mise spec, against
+      usage-lib **and clap**. Two parsers was the wrong design and the first run showed
+      it: every disagreement had usage-argv stricter than usage-lib, which reads as a
+      pile of usage-argv bugs until clap is asked the same question and sides with
+      usage-argv. usage-lib is lax — it accepts a missing subcommand, a missing flag
+      value, and a repeated non-repeatable flag. So clap is the standard for
+      _accepting_, being what mise ships, while usage-lib stays the standard for
+      rendering.
+      It found one real usage-argv bug — a lone `-` selecting the root's default
+      subcommand instead of binding as a value — now fixed.
+      It also found that **a fuzzer over a real spec must strip mounts first**:
+      usage-lib resolves `mount run="mise tasks --usage"` by _running_ it, so the first
+      draft spawned real `mise` processes that loaded config, fetched vfox metadata and
+      shelled out to `apt-cache`. See `benches/gate/tests/differential.rs`.
 - [ ] **Perf report** — published honestly, whichever way it goes.
 
 Runtime targets, which gate:
@@ -574,6 +608,13 @@ including telling you to delete the label afterwards.
       manpage rendering filtered too. The help templates were the one place that did not.
       Found while building usage-argv's renderer, which would otherwise have had to reproduce
       it for parity.
+- [ ] **usage-lib accepts three things usage-argv and clap both refuse**, found by the
+      differential fuzzer: a command whose spec says a subcommand is required
+      (`mise generate`), a flag whose value is missing (`mise -t --interactive`), and a
+      non-repeatable flag given twice. usage-argv matches clap in all three, so these
+      are usage-lib's to tighten — with the caveat that doing so changes what every
+      spec-driven consumer accepts, including mise's completions and task parsing.
+      Allow-listed in `differential.rs` until decided.
 - [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. This is the
       root of most of the recorded divergences. **Needs a decision**: mise parses
@@ -649,30 +690,36 @@ Where they differ is instructive, because it is mostly _drift_:
       spec's `config { prop ... }` block so settings documentation flows through
       the same pipeline as command documentation. Same canonicality rule as the
       parser: code authors, the spec defines.
-- [ ] **A prop vocabulary that is the union of the four registries** — `type`
-      (bool, int, string, path, duration, list, map, plus a Rust-type escape
-      hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
-      warn/remove versions, `enum`, `optional`, `aliases`, `merge`
-      (`replace`/`union` — hk needs union for its list settings), `scope`
-      (mise strips `global_only` settings out of project files, which is a
-      security property, not a preference), and per-source bindings in hk's
-      `sources.{cli,env,git,...}` shape.
-- [ ] **Named, ordered, pluggable layers.** The order is CLI flags, then
+- [~] **A prop vocabulary that is the union of the four registries** — `type`
+  (bool, int, string, path, duration, list, map, plus a Rust-type escape
+  hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
+  warn/remove versions, `enum`, `optional`, `aliases`, `merge`
+  (`replace`/`union` — hk needs union for its list settings), `scope`
+  (mise strips `global_only` settings out of project files, which is a
+  security property, not a preference), and per-source bindings in hk's
+  `sources.{cli,env,git,...}` shape.
+- [x] **Named, ordered, pluggable layers.** The order is CLI flags, then
       environment, then env-files, then the project file (found upward, with
       `.local` variants outranking their base), then user-global, then system, then
       defaults. That already matches all four CLIs wherever a layer is present;
       which layers exist stays per-CLI, so hk's git-config layer and mise's `/etc`
       and `conf.d` layers slot in without being universal.
-- [ ] **Generate the CLI binding** rather than hand-writing it. This is the single
+- [x] **Generate the CLI binding** rather than hand-writing it. This is the single
       highest-value piece: it is what all four wrote by hand and all four got
-      subtly wrong.
-- [ ] **Provenance through one merge path**, so `<bin> config explain` comes free
-      everywhere instead of needing a parallel implementation.
-- [ ] **Extend `SpecConfigProp` first.** The spec's `config` block exists and
-      **no CLI emits or consumes it today**; it is also missing `deprecated`,
-      `enum`, `optional`, `aliases`, `merge`, scope, and the per-source lists that
-      are load-bearing in at least one of the four. Spec-first, per the
-      canonicality rule.
+      subtly wrong. `#[usage(setting = "jobs")]` on a flag emits into
+      `Ex::SETTINGS_BINDINGS`, and `Registry::drift` compares the executable
+      bindings against the documented ones — which is what hk's eighteen declared
+      and five read `sources.cli` lines needed and never had.
+- [x] **Provenance through one merge path**, so `<bin> config explain` comes free
+      everywhere instead of needing a parallel implementation. `config/src/explain.rs`
+      — `explain`, `warnings`, `list`.
+- [~] **Extend `SpecConfigProp` first.** Mostly done, and the list of what was
+  missing has shrunk to two: `deprecated`, `merge`, `scope`, the per-source
+  `bindings`, and `choices` (the `enum` case) all exist now, alongside
+  `default`, `data_type`, `value_type`, `env`/`envs`, `cli`, and the help
+  fields. **`optional` and `aliases` are still absent.** The markdown renderer
+  reads the block, so it is no longer true that nothing consumes it — but no
+  _CLI_ emits one yet, which is the adoption half below.
 - [ ] **A registry JSON schema**, so the declaration format validates itself the
       way hk's does.
 
