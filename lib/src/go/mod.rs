@@ -7,12 +7,15 @@
 //!
 //! # What it emits, and what it does not
 //!
-//! Binding tables only — which token becomes which flag or argument. Help text,
-//! choices, defaults, `env`, and every other thing that needs a value's type are
-//! deliberately absent, for the same reason they are absent from the Rust hot
-//! path: a successful parse never touches them, and a table that carried them
-//! would put mise's several hundred kilobytes of help strings in front of the
-//! parser. They belong in a second, cold table, which is a separate piece of work.
+//! Two tables, kept apart on purpose. The hot one is what binding reads: which
+//! token becomes which flag or argument, and nothing else. The cold one — `Meta` —
+//! carries what the rules decided after the last token need: `required`,
+//! `choices`, `default`, `env`, the var bounds, and the four that compare one
+//! entry against another. A parse never touches the second.
+//!
+//! Help text is in neither. mise's runs to several hundred kilobytes, and a table
+//! carrying it would put all of that in front of the parser; rendering help is its
+//! own cold table and its own piece of work.
 //!
 //! # Why package-level `var` and not `const`
 //!
@@ -27,7 +30,7 @@
 //! because `default_subcommand` has to point at a node inside the tree, and a
 //! composite literal cannot refer to its own interior.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 
 use heck::AsPascalCase;
@@ -145,6 +148,7 @@ impl<'a> Emitter<'a> {
         self.header();
         self.constants(&commands);
         self.tables(&commands);
+        self.metadata(&commands);
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -378,6 +382,185 @@ impl<'a> Emitter<'a> {
             let _ = writeln!(self.out, "}}\n");
         }
     }
+}
+
+impl Emitter<'_> {
+    /// Emit the cold table: everything binding deliberately does not know.
+    ///
+    /// Indexed by key, which is what makes a lookup an index rather than a map —
+    /// and a Go map would have to be built at init, which is the one thing these
+    /// tables are for avoiding. Keys are handed out to commands as well as to
+    /// flags and arguments, and a command has no cold half, so its slot is an
+    /// empty entry rather than a gap: `Metadata.Lookup` checks the key it finds
+    /// and reports nothing when it does not match, so an empty slot answers
+    /// correctly and the index stays dense.
+    fn metadata(&mut self, commands: &[Emitted]) {
+        // By key, so the slice can be written in one pass in index order.
+        let mut by_key: BTreeMap<u64, String> = BTreeMap::new();
+        for e in commands {
+            for (flag, named) in &e.flags {
+                by_key.insert(named.number, self.flag_meta(flag, named, e, commands));
+            }
+            for (arg, named) in &e.args {
+                by_key.insert(named.number, arg_meta(arg, named));
+            }
+        }
+
+        let total = commands
+            .iter()
+            .map(|e| 1 + e.flags.len() + e.args.len())
+            .sum::<usize>() as u64;
+
+        let _ = writeln!(
+            self.out,
+            "// Meta is the cold table, read only by the rules that are decided once the\n\
+             // last token has been read: required, choices, the env-then-default fallback,\n\
+             // the var bounds, and the four that compare one entry against another. A parse\n\
+             // never touches it.\n\
+             //\n\
+             // Indexed by key, so entry Key sits at Meta[Key-1]. A command's slot is empty:\n\
+             // commands take keys too, and have no cold half.\n\
+             var Meta = argv.Metadata{{"
+        );
+        for key in 1..=total {
+            match by_key.get(&key) {
+                Some(entry) => {
+                    let _ = writeln!(self.out, "\t{entry},");
+                }
+                None => {
+                    let _ = writeln!(self.out, "\t{{}},");
+                }
+            }
+        }
+        let _ = writeln!(self.out, "}}\n");
+    }
+
+    /// The cold half of a flag.
+    fn flag_meta(
+        &self,
+        flag: &SpecFlag,
+        named: &Named,
+        owner: &Emitted,
+        commands: &[Emitted],
+    ) -> String {
+        let mut fields = vec![
+            format!("Key: {}", named.key),
+            format!("Name: {}", go_string(&flag.name)),
+            "Flag: true".to_string(),
+        ];
+        if flag.required {
+            fields.push("Required: true".to_string());
+        }
+        // Written on the value a flag takes, never on the flag.
+        if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
+            fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+        }
+        // A default can be written in either place, and usage-lib falls back to
+        // the one on the value. `env` deliberately does not follow the same
+        // nesting, because usage-lib does not read it there either.
+        let default = if !flag.default.is_empty() {
+            &flag.default
+        } else {
+            flag.arg
+                .as_ref()
+                .map(|a| &a.default)
+                .unwrap_or(&flag.default)
+        };
+        if !default.is_empty() {
+            fields.push(format!("Default: {}", string_slice(default)));
+        }
+        if let Some(env) = &flag.env {
+            fields.push(format!("Env: {}", go_string(env)));
+        }
+        if let Some(min) = flag.var_min {
+            fields.push(format!("VarMin: {}", clamp_var_max(min)));
+        }
+        // Occurrences. The per-occurrence value bound is a limit binding applies
+        // and lives on the parse table.
+        if let Some(max) = flag.var_max {
+            fields.push(format!("VarMax: {}", clamp_var_max(max)));
+        }
+
+        for (label, names) in [
+            ("Conflicts", &flag.conflicts),
+            ("Overrides", &flag.overrides),
+            ("RequiredUnless", &flag.required_unless),
+            ("RequiredIf", &flag.required_if),
+        ] {
+            let keys = resolve_relationship(names, owner, commands);
+            if !keys.is_empty() {
+                fields.push(format!("{label}: {}", key_slice(&keys)));
+            }
+        }
+
+        format!("{{{}}}", fields.join(", "))
+    }
+}
+
+/// The cold half of a positional argument.
+fn arg_meta(arg: &SpecArg, named: &Named) -> String {
+    let mut fields = vec![
+        format!("Key: {}", named.key),
+        format!("Name: {}", go_string(&arg.name)),
+    ];
+    if arg.required {
+        fields.push("Required: true".to_string());
+    }
+    if let Some(choices) = &arg.choices {
+        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+    }
+    if !arg.default.is_empty() {
+        fields.push(format!("Default: {}", string_slice(&arg.default)));
+    }
+    if let Some(env) = &arg.env {
+        fields.push(format!("Env: {}", go_string(env)));
+    }
+    if let Some(min) = arg.var_min {
+        fields.push(format!("VarMin: {}", clamp_var_max(min)));
+    }
+    // No VarMax: for an argument the bound is a limit binding applies, which is
+    // what makes `[a]… [b]` fillable at all, so judging it again would fail an
+    // invocation that never broke it.
+    format!("{{{}}}", fields.join(", "))
+}
+
+/// Turn the names in a relationship into the keys they refer to.
+///
+/// Resolved here, where the whole command is visible, so that nothing downstream
+/// searches by name on a path it would repeat per parse. The names arrive as
+/// written — `--stdin`, dashes and all — so they are matched against a flag's long
+/// forms, its shorts, and the name the spec gives it.
+///
+/// A name nothing answers to is dropped. That is a spec bug worth reporting, but
+/// this function has no way to; the check belongs beside the duplicate-form and
+/// duplicate-key checks that already run where the whole tree is visible.
+fn resolve_relationship(names: &[String], owner: &Emitted, _commands: &[Emitted]) -> Vec<String> {
+    let mut out = Vec::new();
+    for name in names {
+        let bare = name.trim_start_matches('-');
+        let found = owner.flags.iter().find(|(flag, _)| {
+            flag.name == bare
+                || flag.long.iter().any(|l| l == bare)
+                || (bare.chars().count() == 1 && flag.short.iter().any(|c| c.to_string() == bare))
+        });
+        if let Some((_, named)) = found {
+            out.push(named.key.clone());
+        }
+    }
+    out
+}
+
+fn string_slice(values: &[String]) -> String {
+    let list = values
+        .iter()
+        .map(|v| go_string(v))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[]string{{{list}}}")
+}
+
+fn key_slice(keys: &[String]) -> String {
+    format!("[]uint64{{{}}}", keys.join(", "))
 }
 
 /// A line inside a `const` block or a composite literal.

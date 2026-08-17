@@ -96,9 +96,16 @@ a derive macro:
 //go:generate usage generate go -f mycli.usage.kdl -o tables.go
 ```
 
-The generated file exports `Root` to pass to `argv.New`, and a key constant per
-command, flag and argument. Dispatch on those rather than on `Name`: it costs no
-string comparison, and a flag renamed in the spec then fails to compile instead of
+The generated file exports `Root` to pass to `argv.New`, `Meta` for the rules
+decided after the last token, and a key constant per command, flag and argument.
+
+`Meta` costs nothing if you do not use it: Go's linker drops an unreferenced
+package-level table entirely, so a CLI that only binds does not carry it. mise's
+is 217 KB when something does reference it. That is the same split Rust gets from
+a feature flag, without needing one.
+
+Dispatch on the key constants rather than on `Name`: it costs no string
+comparison, and a flag renamed in the spec then fails to compile instead of
 silently never matching.
 
 Writing tables by hand is supported too, and is what
@@ -110,9 +117,6 @@ var (
     root  = &argv.Command{Name: "ex", Flags: []*argv.Flag{force}}
 )
 ```
-
-Dispatch on `Key` rather than `Name` in generated code: it is what the field
-identifiers are for, and it costs no string comparison.
 
 ## Conformance
 
@@ -146,10 +150,6 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 ## What is missing
 
-- **The cold table in generated code.** `usage generate go` emits the parse tables
-  but not the `Meta` ones yet, so the post-binding rules are reachable today from a
-  spec lowered at run time rather than from a generated package. Proving them
-  against the corpus came first, the way the binder did before the generator.
 - **Typed values.** Binding collects text. Something still has to turn `"8"` into
   an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
   convert.
