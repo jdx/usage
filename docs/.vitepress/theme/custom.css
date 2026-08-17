@@ -16,9 +16,6 @@
   --vw-purple: #b967ff;
   --vw-purple-soft: rgba(185, 103, 255, 0.22);
   --vw-mint: #05ffa1;
-  --vw-sun-top: #ff2d95;
-  --vw-sun-mid: #ff8a5c;
-  --vw-sun-bottom: #ffd319;
   --vw-text-bright: #f5f0ff;
 
   /* VitePress brand + surface overrides (site is force-dark) */
@@ -110,17 +107,6 @@
     transparent 4px
   );
   z-index: 2;
-}
-
-/* full-width grid floor */
-.usage-hero-grid {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 32%;
-  z-index: 0;
-  opacity: 0.5;
 }
 
 /* sun glow behind the illustration */

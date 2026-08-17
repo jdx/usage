@@ -12,31 +12,6 @@ const javascriptPath =
 
 <template>
   <section class="usage-hero">
-    <!-- Grid floor -->
-    <svg
-      class="usage-hero-grid"
-      viewBox="0 0 1200 260"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <line x1="0" y1="1" x2="1200" y2="1" stroke="#ff2d95" stroke-width="2" opacity="0.7" />
-      <g stroke="#b967ff" stroke-width="1" opacity="0.3">
-        <line x1="600" y1="0" x2="-500" y2="260" />
-        <line x1="600" y1="0" x2="-150" y2="260" />
-        <line x1="600" y1="0" x2="150" y2="260" />
-        <line x1="600" y1="0" x2="380" y2="260" />
-        <line x1="600" y1="0" x2="600" y2="260" />
-        <line x1="600" y1="0" x2="820" y2="260" />
-        <line x1="600" y1="0" x2="1050" y2="260" />
-        <line x1="600" y1="0" x2="1350" y2="260" />
-        <line x1="600" y1="0" x2="1700" y2="260" />
-        <line x1="0" y1="30" x2="1200" y2="30" />
-        <line x1="0" y1="70" x2="1200" y2="70" />
-        <line x1="0" y1="125" x2="1200" y2="125" />
-        <line x1="0" y1="195" x2="1200" y2="195" />
-      </g>
-    </svg>
-
     <!-- Hero Content -->
     <div class="usage-hero-content">
       <!-- Left Column: Text -->
@@ -170,10 +145,28 @@ const javascriptPath =
         <div class="usage-hero-glow"></div>
         <svg
           class="usage-hero-art"
-          viewBox="0 0 360 270"
+          viewBox="0 0 360 330"
           role="img"
-          aria-label="A magenta flag bearing two dashes with cyan and purple echoes, floating above a neon grid horizon"
+          aria-label="A magenta flag bearing two dashes with cyan and purple echoes, planted on a neon grid floor"
         >
+          <defs>
+            <linearGradient id="usage-scene-horizon" x1="0" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff2d95" stop-opacity="0" />
+              <stop offset="0.3" stop-color="#ff2d95" stop-opacity="0.8" />
+              <stop offset="0.7" stop-color="#ff2d95" stop-opacity="0.8" />
+              <stop offset="1" stop-color="#ff2d95" stop-opacity="0" />
+            </linearGradient>
+            <linearGradient id="usage-grid-fade" x1="0" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#000" />
+              <stop offset="0.25" stop-color="#fff" />
+              <stop offset="0.75" stop-color="#fff" />
+              <stop offset="1" stop-color="#000" />
+            </linearGradient>
+            <mask id="usage-grid-mask">
+              <rect x="0" y="248" width="360" height="82" fill="url(#usage-grid-fade)" />
+            </mask>
+          </defs>
+
           <!-- ghost echoes -->
           <path d="M146 68 L348 68 L312 140 L348 212 L146 212 Z" fill="#01cdfe" opacity="0.55" />
           <path d="M131 56 L333 56 L297 128 L333 200 L131 200 Z" fill="#b967ff" opacity="0.55" />
@@ -186,6 +179,22 @@ const javascriptPath =
           <!-- pole -->
           <line x1="108" y1="34" x2="108" y2="252" stroke="#f5f0ff" stroke-width="9" stroke-linecap="round" />
           <circle cx="108" cy="28" r="7" fill="#f5f0ff" />
+
+          <!-- grid floor, fading at the scene edges -->
+          <line x1="0" y1="252" x2="360" y2="252" stroke="url(#usage-scene-horizon)" stroke-width="2.5" />
+          <g mask="url(#usage-grid-mask)" stroke="#01cdfe" stroke-width="1" opacity="0.45">
+            <line x1="180" y1="252" x2="-120" y2="330" />
+            <line x1="180" y1="252" x2="20" y2="330" />
+            <line x1="180" y1="252" x2="110" y2="330" />
+            <line x1="180" y1="252" x2="180" y2="330" />
+            <line x1="180" y1="252" x2="250" y2="330" />
+            <line x1="180" y1="252" x2="340" y2="330" />
+            <line x1="180" y1="252" x2="480" y2="330" />
+            <line x1="0" y1="262" x2="360" y2="262" />
+            <line x1="0" y1="276" x2="360" y2="276" />
+            <line x1="0" y1="295" x2="360" y2="295" />
+            <line x1="0" y1="319" x2="360" y2="319" />
+          </g>
         </svg>
       </div>
     </div>
