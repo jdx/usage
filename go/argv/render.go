@@ -101,6 +101,12 @@ func explain(err *Error, help HelpTable) string {
 		return "`" + typedAs(err.Spelling, err.Name) + "` accepts at most " +
 			plural(int(err.Bound), "time") +
 			", given " + itoa(err.Got)
+	case CodeInvalidValue:
+		msg := "`" + err.Name + "` does not accept `" + err.Value + "`"
+		if err.Want != "" {
+			msg += " (expected " + err.Want + ")"
+		}
+		return msg
 	case CodeConflictingFlags:
 		other := err.Other
 		if other == "" {

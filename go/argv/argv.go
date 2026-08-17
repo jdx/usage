@@ -260,6 +260,9 @@ const (
 	CodeVarTooMany
 	// CodeConflictingFlags means two flags declared to conflict were both given.
 	CodeConflictingFlags
+	// CodeInvalidValue means a value was given that the target type could not be
+	// built from.
+	CodeInvalidValue
 )
 
 var codeNames = [...]string{
@@ -276,6 +279,7 @@ var codeNames = [...]string{
 	CodeVarTooFew:             "var_too_few",
 	CodeVarTooMany:            "var_too_many",
 	CodeConflictingFlags:      "conflicting_flags",
+	CodeInvalidValue:          "invalid_value",
 }
 
 // String gives the code the corpus spells it with.
@@ -330,6 +334,11 @@ type Error struct {
 	// two var codes.
 	Bound uint32
 	Got   int
+	// Value is the text that would not convert, and Want the type it was being
+	// converted to, for CodeInvalidValue. The text is carried because the whole
+	// point of the error is to show it back.
+	Value string
+	Want  string
 	// Other is the flag [Name] cannot be given with, for CodeConflictingFlags.
 	// Both are carried because either alone reads as a puzzle: which flag is
 	// unwelcome depends on what else was given.
@@ -369,6 +378,8 @@ func (e *Error) Error() string {
 		return "too many occurrences of " + e.Name
 	case CodeConflictingFlags:
 		return e.Name + " cannot be given with " + e.Other
+	case CodeInvalidValue:
+		return "invalid value for " + e.Name + ": " + e.Value
 	}
 	return "parse error"
 }
