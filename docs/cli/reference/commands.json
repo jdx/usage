@@ -3,7 +3,7 @@
   "bin": "usage",
   "cmd": {
     "full_cmd": [],
-    "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
+    "usage": "[--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>",
     "subcommands": {
       "bash": {
         "full_cmd": ["bash"],
@@ -153,7 +153,7 @@
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
         "help": "Generate shell completion candidates for a partial command line",
         "help_long": "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide\nintelligent completions for commands, flags, and arguments.",
@@ -1084,8 +1084,9 @@
         "flags": [],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
+        "subcommand_required": true,
         "help": "Generate completions, documentation, and other artifacts from usage specs",
         "name": "generate",
         "aliases": ["g"],
@@ -1153,7 +1154,7 @@
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
         "help": "Lint a usage spec file for common issues",
         "name": "lint",
@@ -1206,7 +1207,7 @@
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
         "help": "Serve a usage spec over the Model Context Protocol",
         "help_long": "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.",
@@ -1279,7 +1280,7 @@
         "flags": [],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
         "help": "Show the companies sponsoring usage and the jdx.dev open source tools",
         "name": "sponsors",
@@ -1344,18 +1345,25 @@
         "examples": []
       }
     },
-    "args": [
+    "args": [],
+    "flags": [
       {
-        "name": "COMPLETIONS",
-        "usage": "[COMPLETIONS]",
+        "name": "completions",
+        "usage": "--completions <COMPLETIONS>",
         "help": "Outputs completions for the specified shell for completing the `usage` CLI itself",
         "help_first_line": "Outputs completions for the specified shell for completing the `usage` CLI itself",
-        "required": false,
-        "double_dash": "Optional",
-        "hide": false
-      }
-    ],
-    "flags": [
+        "short": [],
+        "long": ["completions"],
+        "hide": false,
+        "global": false,
+        "arg": {
+          "name": "COMPLETIONS",
+          "usage": "<COMPLETIONS>",
+          "required": true,
+          "double_dash": "Optional",
+          "hide": false
+        }
+      },
       {
         "name": "usage-spec",
         "usage": "--usage-spec",

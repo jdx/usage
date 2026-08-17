@@ -25,15 +25,13 @@ mod sponsors;
     bin = "usage",
     version,
     min_usage_version = "4.0",
-    // Every flag the root accepts is one it declares, so an unrecognised one is a mistake and
-    // saying so beats binding it to `[COMPLETIONS]`.
+    // Every flag `usage` accepts is one it declares, so an unrecognised one is a mistake and
+    // saying so beats offering it to a positional — `usage lint --nope f.kdl` would otherwise
+    // make `--nope` the file and call the real file unexpected.
     //
-    // Only the root, which is as far as the derive carries this today: the attribute is
-    // accepted on an `Args` and then ignored, and a subcommand does not inherit the root's.
-    // So `usage lint --nope f.kdl` still makes `--nope` the file and calls the real file
-    // unexpected, where clap named the flag. The five commands that hand a command line to
-    // somebody else's script want the lenient reading and get it by default, which is why
-    // this is worth fixing in the derive rather than working around here.
+    // Declared once, on the root: every subcommand inherits it. The five that hand a command
+    // line to somebody else's script say `value` for themselves, which is the whole reason
+    // both halves are needed.
     unknown_flags = "error"
 )]
 pub struct Cli {
@@ -41,16 +39,38 @@ pub struct Cli {
     command: Command,
 
     /// Outputs completions for the specified shell for completing the `usage` CLI itself
-    // Declaration only, as it was under clap: `--completions <shell>` is answered in
-    // `crate::run` before a parse happens, because a shell init script asks for it on every
-    // new shell and it does not need a command line understood to answer. It is declared so
-    // that help, the spec and the completions know it exists.
+    // Declaration only: `--completions <shell>` is answered in `crate::run` before a parse
+    // happens, because a shell init script asks for it on every new shell and it does not
+    // need a command line understood to answer. It is declared so that help, the spec and
+    // the completions know it exists.
+    //
+    // A flag, which is how it is typed. The clap declaration made it a *positional* — so the
+    // spec, the docs and the generated completions all described a `[COMPLETIONS]` argument
+    // that nothing accepts, while the flag that does work went undocumented. Carried over
+    // faithfully at first, wrong included; the point of emitting the spec from the
+    // declaration is that the two cannot disagree, so the declaration is what changes.
     #[allow(dead_code)]
+    #[usage(long)]
     completions: Option<String>,
 
     /// Outputs a `usage.kdl` spec for this CLI itself
     #[usage(long)]
     usage_spec: bool,
+}
+
+/// What `--version` and `-v` answer with.
+///
+/// The binary's name, not the crate's. They differ here — `usage-cli` ships `usage` — and
+/// everything else this CLI says about itself now comes from the spec, where the name is
+/// `usage`. Read from the spec rather than written out again, so a rename cannot leave the
+/// version line saying something the help page above it contradicts.
+pub(crate) fn version() -> String {
+    let spec = Cli::spec();
+    format!(
+        "{} {}",
+        spec.bin.unwrap_or(spec.name),
+        spec.version.unwrap_or(env!("CARGO_PKG_VERSION"))
+    )
 }
 
 /// What `usage` can be asked to do.
@@ -94,7 +114,7 @@ impl Cli {
                 return Ok(());
             }
             Err(usage_argv::Error::Version) => {
-                println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+                println!("{}", version());
                 return Ok(());
             }
             Err(err) => {
