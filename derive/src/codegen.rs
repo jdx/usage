@@ -763,6 +763,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::std::option::Option::None),
     };
 
+    let table_delimiter = table_delimiter(field);
     quote! {
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
@@ -773,8 +774,23 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             takes_value: #takes_value,
             variadic: #variadic,
             var_max: #var_max,
+            delimiter: #table_delimiter,
             global: #global,
         };
+    }
+}
+
+/// The delimiter as the parser tables want it: a byte, or nothing.
+///
+/// Validated to one byte where the attribute is read, so a `char` that does not fit is
+/// already impossible here rather than silently truncated.
+fn table_delimiter(field: &Field) -> TokenStream {
+    // ASCII, matching the rule the attribute enforces: splitting is by byte, and a
+    // separator that is one byte as a scalar but two as UTF-8 would match the continuation
+    // bytes inside unrelated characters.
+    match field.delimiter.filter(char::is_ascii).map(|d| d as u8) {
+        Some(byte) => quote!(::std::option::Option::Some(#byte)),
+        None => quote!(::std::option::Option::None),
     }
 }
 
@@ -802,12 +818,14 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::std::option::Option::None),
     };
 
+    let table_delimiter = table_delimiter(field);
     quote! {
         pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
             name: #field_name,
             var: #var,
             var_max: #var_max,
+            delimiter: #table_delimiter,
             double_dash: #double_dash,
         };
     }
@@ -913,6 +931,10 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let conflicts = &field.conflicts;
     let requires = &field.requires;
     let exclusive = field.exclusive;
+    let delimiter = match field.delimiter {
+        Some(c) => quote!(::std::option::Option::Some(#c)),
+        None => quote!(::std::option::Option::None),
+    };
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
 
@@ -949,6 +971,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
             exclusive: #exclusive,
+            delimiter: #delimiter,
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
             ..usage_argv::spec::FlagMeta::EMPTY
@@ -973,6 +996,10 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let required = field.shape == Shape::Required || field.required_collection;
     let choices = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
+    let delimiter = match field.delimiter {
+        Some(c) => quote!(::std::option::Option::Some(#c)),
+        None => quote!(::std::option::Option::None),
+    };
     let (completer_decl, completer) = completer_tokens(i, field, "arg", owner);
 
     quote! {
@@ -991,6 +1018,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             var_min: #var_min,
             var_max: #var_max,
+            delimiter: #delimiter,
             ..usage_argv::spec::ArgMeta::EMPTY
         };
     }
@@ -3436,6 +3464,32 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let declared_defaults = declared_defaults(cli);
 
     let env_fallbacks = env_fallbacks(cli);
+    // One word becomes several values, before anything judges them. Run after the
+    // environment fills what argv left out — a `TAGS=a,b` is one word too — and before
+    // every check, so `choices` sees each value rather than the word that carried them,
+    // and `var_min`/`var_max` count what the user meant rather than what they typed.
+    //
+    // On the cold path deliberately: the binder collects words and knows nothing about
+    // what a value *is*, which is what keeps it free of everything in this function.
+    let delimiter_splits = cli.fields.iter().filter_map(|f| {
+        let delimiter = f.delimiter?;
+        let ident = &f.ident;
+        // A one-byte separator, which every delimiter anyone writes is. Refused at the
+        // attribute otherwise, rather than splitting on half a character.
+        let byte = u8::try_from(u32::from(delimiter)).ok()?;
+        Some(quote! {
+            if !partial.#ident.is_empty() {
+                let mut __usage_split: ::std::vec::Vec<::std::vec::Vec<u8>> =
+                    ::std::vec::Vec::with_capacity(partial.#ident.len());
+                for value in &partial.#ident {
+                    for part in value.split(|b| *b == #byte) {
+                        __usage_split.push(part.to_vec());
+                    }
+                }
+                partial.#ident = __usage_split;
+            }
+        })
+    });
 
     let required_checks = cli.fields.iter().filter_map(|f| {
         // A `String` has nowhere to put "absent", so the type is the declaration; a collection
@@ -3891,6 +3945,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // the order `start` used to give them.
         #declared_defaults
         #env_fallbacks
+        // Splitting before any check that counts or judges values, so `choices` sees a
+        // value rather than the word that carried several, and the bounds count what the
+        // user meant. After the environment, since `TAGS=a,b` is one word too.
+        #(#delimiter_splits)*
         let __usage_exclusive_present = #exclusive_present;
         #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the

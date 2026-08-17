@@ -258,6 +258,16 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             // Saturating rather than truncating: `4294967296 as u32` is zero, which would read
             // as "stop at once" rather than "no real limit".
             .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
+        // A bound counts values, and this is what says how many a word carries. ASCII, not
+        // "fits in a byte": `§` is one byte as a scalar and two as UTF-8, and matching its
+        // low byte would find the continuation bytes inside unrelated characters. The spec
+        // refuses non-ASCII, so this only ever discards something already rejected.
+        delimiter: f
+            .arg
+            .as_ref()
+            .and_then(|a| a.delimiter)
+            .filter(char::is_ascii)
+            .map(|d| d as u8),
         global: f.global,
     }))
 }
@@ -271,6 +281,7 @@ fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
             .var_max
             .filter(|_| a.var)
             .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
+        delimiter: a.delimiter.filter(char::is_ascii).map(|d| d as u8),
         double_dash: double_dash(&a.double_dash),
     }))
 }
@@ -302,6 +313,9 @@ fn flag_meta(
         hide: f.hide,
         count: f.count,
         repeatable: f.var,
+        // The separator as declared, a `char`: the metadata is the cold model and says what
+        // the spec said, where the binding table beside it holds the byte binding counts by.
+        delimiter: arg.and_then(|a| a.delimiter),
         var_min: f.var_min.or(arg.and_then(|a| a.var_min)),
         var_max: f.var_max.or(arg.and_then(|a| a.var_max)),
         overrides: strs(&f.overrides),
@@ -331,6 +345,7 @@ fn arg_meta(
         choices: a.choices.as_ref().map(|c| strs(&c.choices)).unwrap_or(&[]),
         required: a.required,
         hide: a.hide,
+        delimiter: a.delimiter,
         var_min: a.var_min,
         var_max: a.var_max,
         help_heading: opt(&a.help_heading),

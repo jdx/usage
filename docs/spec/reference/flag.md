@@ -33,6 +33,7 @@ flag "--file <file>" overrides="--stdin" // --file and --stdin override each oth
 flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
 flag "--out <path>" requires="--format"  // giving --out means --format must be given too
 flag "--dump" exclusive=#true            // --dump has to be given on its own
+flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -114,6 +115,20 @@ Only what was supplied counts, the same rule `conflicts` follows. A flag with a
 [`default`](/spec/reference/flag) standing beside an exclusive one is nobody saying
 anything, and counting it would make the exclusive flag unusable on any command that has
 a default.
+
+## `delimiter`
+
+One word, several values: `--tags a,b,c` is three. clap spells this `value_delimiter`,
+and a spec generated from a clap command carries it.
+
+The split happens during the parse, before anything judges what it produced, so
+[`choices`](/spec/reference/arg) is asked about each value rather than about the word
+that carried them, and `var_min`/`var_max` count the values the user meant rather than
+the words they typed.
+
+A delimiter needs somewhere to put what it splits, so it goes with `var=#true` — on a
+single-value flag everything after the first separator would be dropped, and that is
+refused where it is written rather than at a prompt.
 
 ## `global`
 

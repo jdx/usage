@@ -74,6 +74,14 @@ pub struct SpecArg {
     /// Maximum number of values for variadic arguments
     #[serde(skip_serializing_if = "Option::is_none")]
     pub var_max: Option<usize>,
+    /// The character a single word is split on to produce several values.
+    ///
+    /// `--tags a,b,c` as three values rather than one, which is clap's
+    /// `value_delimiter`. Only meaningful where several values can land, so it goes with
+    /// [`SpecArg::var`]; declaring it anywhere else is refused rather than silently
+    /// dropping everything after the first separator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delimiter: Option<char>,
     /// Whether to hide this argument from help output
     pub hide: bool,
     /// Default value(s) if the argument is not provided
@@ -112,6 +120,29 @@ impl SpecArg {
                 "required" => arg.required = v.ensure_bool()?,
                 "double_dash" => arg.double_dash = v.ensure_string()?.parse()?,
                 "var" => arg.var = v.ensure_bool()?,
+                "delimiter" => {
+                    let raw = v.ensure_string()?;
+                    let mut chars = raw.chars();
+                    match (chars.next(), chars.next()) {
+                        // ASCII, not merely one character. Splitting is by byte everywhere
+                        // below this — the derive says so where it reads the same property —
+                        // and a non-ASCII separator has no single byte to be. Worse than
+                        // having none: its bytes are continuation bytes, which appear inside
+                        // unrelated characters, so it would split words nobody separated.
+                        (Some(c), None) if c.is_ascii() => arg.delimiter = Some(c),
+                        (Some(c), None) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "a delimiter is one byte, and {c:?} is more than one; use an \
+                             ASCII separator"
+                        ),
+                        _ => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "a delimiter is one character, and {raw:?} is not"
+                        ),
+                    }
+                }
                 "hide" => arg.hide = v.ensure_bool()?,
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
@@ -241,6 +272,9 @@ impl From<&SpecArg> for KdlNode {
         if let Some(max) = arg.var_max {
             node.push(KdlEntry::new_prop("var_max", max as i128));
         }
+        if let Some(delimiter) = arg.delimiter {
+            node.push(string_entry(Some("delimiter"), &delimiter.to_string()));
+        }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
         }
@@ -367,10 +401,15 @@ impl From<&clap::Arg> for SpecArg {
         let help_long = arg.get_long_help().map(|s| s.to_string());
         let help_first_line = help.as_ref().map(|s| string::first_line(s));
         let hide = arg.is_hide_set();
+        // One byte only, for the reason given on the flag: a wider separator cannot be
+        // written back out. `var` below still reads the original, since clap splits on it
+        // either way and the field does collect several values.
+        let delimiter = arg.get_value_delimiter();
+        let recorded_delimiter = delimiter.filter(char::is_ascii);
         let var = matches!(
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
-        );
+        ) || delimiter.is_some();
         let choices = arg
             .get_possible_values()
             .iter()
@@ -400,6 +439,9 @@ impl From<&clap::Arg> for SpecArg {
             var,
             var_max: None,
             var_min: None,
+            // clap answers for this one, and the same getter `default_values` already
+            // uses just above: a default is split by it, and so is a typed value.
+            delimiter: recorded_delimiter,
             hide,
             default: default_values(arg),
             choices: None,
@@ -432,6 +474,152 @@ impl Eq for SpecArg {}
 impl Hash for SpecArg {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod delimiter_tests {
+    use crate::Spec;
+
+    #[test]
+    fn a_delimiter_has_to_be_one_byte() {
+        // Splitting is by byte below the spec. A separator that is one *character* but
+        // several bytes has no byte to be, and picking its low one would match the
+        // continuation bytes inside unrelated characters — `§` would split `aЧb`. Refused
+        // where it is written, which is the derive's rule too.
+        for spec in [
+            "flag \"--tags <tag>\" var=#true delimiter=\"§\"\n",
+            "arg \"[tags]...\" var=#true delimiter=\"、\"\n",
+        ] {
+            let err = spec.parse::<Spec>().unwrap_err();
+            assert!(format!("{err:?}").contains("one byte"), "{err:?}");
+        }
+
+        // A clap command may still declare one; clap splits on it by character. The spec
+        // cannot say so, and drops it rather than recording a separator it could not write
+        // back out — the values still arrive, since `var` is set either way.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .value_delimiter('、')
+                .action(clap::ArgAction::Set),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(
+            arg.delimiter, None,
+            "a separator it cannot write is not recorded"
+        );
+        assert!(arg.var, "clap still splits, so the values still arrive");
+        spec.to_string()
+            .parse::<Spec>()
+            .expect("what the bridge produces has to parse back");
+    }
+
+    #[test]
+    fn a_delimiter_round_trips_and_comes_across_from_clap() {
+        let spec: Spec = "flag \"--tags <tag>\" var=#true delimiter=\",\"\n"
+            .parse()
+            .unwrap();
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','));
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        let arg = reparsed.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','), "{spec}");
+
+        // clap answers for this one, through the same getter the default splitting
+        // already used.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .value_delimiter(',')
+                .num_args(1..)
+                .default_value("a,b"),
+        );
+        let spec = Spec::from(&cmd);
+        let flag = &spec.cmd.flags[0];
+        assert_eq!(flag.arg.as_ref().unwrap().delimiter, Some(','));
+        // And the default is still recorded split, which is the same statement. On the
+        // flag rather than on its argument, which is where the bridge puts a flag's.
+        assert_eq!(flag.default, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn a_single_valued_clap_arg_keeps_its_delimiter() {
+        // clap's parser splits whenever a delimiter is set, whatever `num_args` says, so
+        // `ArgAction::Set` with `value_delimiter(',')` is one word becoming several — the
+        // common spelling. Reading it as single-valued dropped the delimiter and left a
+        // CLI whose defaults split and whose typed values did not.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .long("tags")
+                .action(clap::ArgAction::Set)
+                .value_delimiter(','),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.delimiter, Some(','));
+        // And it says so: a delimiter is the statement that several values can land, so
+        // the emitted spec has somewhere to put them and parses back.
+        assert!(arg.var, "a delimiter brings `var` with it");
+        let _: Spec = spec.to_string().parse().expect("{spec}");
+    }
+
+    #[test]
+    fn a_single_valued_clap_positional_splits_into_stored_values() {
+        // The positional bridge uses `SpecArg::from(&clap::Arg)` directly, unlike a
+        // flag. A delimiter therefore has to make that argument variadic here too or
+        // parsing validates the split parts and then stores the original unsplit word.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("tags")
+                .action(clap::ArgAction::Set)
+                .value_delimiter(',')
+                .value_parser(["a", "b"]),
+        );
+        let spec = Spec::from(&cmd);
+        let arg = &spec.cmd.args[0];
+        assert!(arg.var, "a positional delimiter brings `var` with it");
+        assert_eq!(arg.delimiter, Some(','));
+
+        let input = ["ex", "a,b"].map(str::to_string);
+        let parsed = crate::parse(&spec, &input).expect("both split values are choices");
+        let value = parsed
+            .args
+            .values()
+            .next()
+            .expect("the positional was stored");
+        assert!(matches!(
+            value,
+            crate::parse::ParseValue::MultiString(values)
+                if values == &["a".to_string(), "b".to_string()]
+        ));
+    }
+
+    #[test]
+    fn a_delimiter_needs_somewhere_to_put_what_it_splits() {
+        // Without `var` everything after the first separator would be dropped, silently.
+        let err = "flag \"--tags <tag>\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one value"), "{err:?}");
+
+        let err = "arg \"[tags]\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one value"), "{err:?}");
+
+        // A flag that takes no value has nothing to split at all.
+        let err = "flag \"--quiet\" delimiter=\",\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("takes none"), "{err:?}");
+
+        // One character, or it is not a delimiter.
+        let err = "flag \"--tags <tag>\" var=#true delimiter=\"::\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("one character"), "{err:?}");
     }
 }
 

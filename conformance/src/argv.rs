@@ -167,6 +167,12 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         Error::MissingFlagValue { .. } => ErrorCode::MissingFlagValue,
         Error::UnexpectedArg { .. } => ErrorCode::UnexpectedArg,
         Error::ArgRequiresDoubleDash { .. } => ErrorCode::ArgRequiresDoubleDash,
+        // Binding does raise this one, and only this one of the bounds: a `var_max` stops a
+        // collection rather than judging it, so it can only be *exceeded* when a delimiter
+        // makes one word several values — which is a question about where a word lands, and
+        // so the parser's. `var_min` remains the layer above's, having nothing to do with
+        // where anything landed.
+        Error::VarTooMany { .. } => ErrorCode::VarTooMany,
         Error::TooDeep => panic!("no corpus spec is anywhere near MAX_DEPTH"),
         // The parser cannot raise these — they come from the layer above it, which
         // this harness does not exercise: it builds tables from a spec rather than

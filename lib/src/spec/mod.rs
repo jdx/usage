@@ -223,7 +223,21 @@ impl Spec {
                     schema.after_help_long = Some(node.arg(0)?.ensure_string()?)
                 }
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
-                "arg" => schema.cmd.args.push(SpecArg::parse(ctx, &node)?),
+                "arg" => {
+                    let arg = SpecArg::parse(ctx, &node)?;
+                    // The same rule the `cmd` block applies: a delimiter with nowhere to
+                    // put what it splits drops everything after the first separator.
+                    if arg.delimiter.is_some() && !arg.var {
+                        bail_parse!(
+                            ctx,
+                            node.node.name().span(),
+                            "argument <{}> has a delimiter and holds one value; add \
+                             `var=#true` for the values it splits into",
+                            arg.name
+                        );
+                    }
+                    schema.cmd.args.push(arg);
+                }
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
                 // The root command's groups, as its flags and arguments are: a spec
                 // whose top level declares flags can group them there too.

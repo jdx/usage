@@ -1113,3 +1113,136 @@ fn a_child_spelling_stays_exclusive_beside_an_ancestor_spelling() {
     let a = argv(["run", "-c", "--verbose"]);
     MixedAliasExclusive::parse_from(&a).expect("the ancestor's own spelling was never exclusive");
 }
+
+/// A CLI whose values arrive several to a word.
+#[derive(Cli)]
+#[usage(bin = "ex3")]
+struct Splitting {
+    /// Tags to apply
+    #[usage(long, delimiter = ',', var_max = 3)]
+    tags: Vec<String>,
+    /// Where to look
+    #[usage(long, delimiter = ':', choices("src", "docs"))]
+    paths: Vec<String>,
+    /// Labels to attach
+    #[usage(arg, delimiter = ';')]
+    labels: Vec<String>,
+}
+
+#[test]
+fn a_delimiter_makes_one_word_several_values() {
+    let a = argv(["--tags", "a,b,c"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split").tags,
+        ["a", "b", "c"]
+    );
+
+    // Several occurrences, each split.
+    let a = argv(["--tags", "a,b", "--tags", "c"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split").tags,
+        ["a", "b", "c"]
+    );
+
+    // A word with no separator in it is one value, as it was before.
+    let a = argv(["--tags", "a"]);
+    assert_eq!(Splitting::parse_from(&a).expect("split").tags, ["a"]);
+
+    let a = argv(["one;two"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("split positional").labels,
+        ["one", "two"]
+    );
+}
+
+#[test]
+fn split_values_are_judged_and_counted_as_values() {
+    // The split runs before every check, so `choices` sees each value rather than the
+    // word that carried them, and the bounds count what the user meant.
+    let a = argv(["--paths", "src:docs"]);
+    assert_eq!(
+        Splitting::parse_from(&a).expect("both are choices").paths,
+        ["src", "docs"]
+    );
+
+    let a = argv(["--paths", "src:nowhere"]);
+    assert!(matches!(
+        Splitting::parse_from(&a),
+        Err(Error::InvalidChoice { .. })
+    ));
+
+    let a = argv(["--tags", "a,b,c,d"]);
+    assert!(matches!(
+        Splitting::parse_from(&a),
+        Err(Error::VarTooMany { got: 4, .. })
+    ));
+}
+
+#[test]
+fn a_delimiter_reaches_the_spec() {
+    let kdl = Splitting::to_kdl();
+    assert!(kdl.contains(r#"delimiter=",""#), "{kdl}");
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let tags = spec.cmd.flags.iter().find(|f| f.name == "tags").unwrap();
+    assert_eq!(tags.arg.as_ref().unwrap().delimiter, Some(','));
+    assert_eq!(spec.cmd.args[0].delimiter, Some(';'));
+}
+
+/// A CLI whose bounded collections take their values several to a word.
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "ex4")]
+struct BoundedSplitting {
+    /// Patterns, at most two per occurrence
+    #[usage(long, variadic, delimiter = ',', var_max = 2)]
+    include: Vec<String>,
+    /// Targets, at most two
+    #[usage(delimiter = ':', var_max = 2)]
+    targets: Vec<String>,
+}
+
+#[test]
+fn a_bound_counts_the_values_a_word_carried() {
+    // `var_max` bounds values, and a delimiter is what decides how many values a word is.
+    // Counting words instead let one word carry an occurrence straight past its bound.
+    let a = argv(["--include", "a,b,c"]);
+    assert!(
+        matches!(
+            BoundedSplitting::parse_from(&a),
+            Err(Error::VarTooMany { max: 2, got: 3, .. })
+        ),
+        "three values out of one word is still three values"
+    );
+
+    let a = argv(["x:y:z"]);
+    assert!(
+        matches!(
+            BoundedSplitting::parse_from(&a),
+            Err(Error::VarTooMany { max: 2, got: 3, .. })
+        ),
+        "a positional counts the same way"
+    );
+}
+
+#[test]
+fn a_split_bound_still_counts_one_occurrence_at_a_time() {
+    // The rule the corpus documents for plain words holds for split ones: the bound is on
+    // what one occurrence takes, not on the list the occurrences build up. Reading the
+    // total would make the same declaration mean fewer values the more often it is given.
+    let a = argv(["--include", "a,b", "--include", "c,d"]);
+    assert_eq!(
+        BoundedSplitting::parse_from(&a)
+            .expect("two per occurrence is within the bound")
+            .include,
+        ["a", "b", "c", "d"]
+    );
+
+    // And a word carrying exactly the bound is still allowed.
+    let a = argv(["--include", "a,b"]);
+    assert_eq!(
+        BoundedSplitting::parse_from(&a)
+            .expect("exactly two")
+            .include,
+        ["a", "b"]
+    );
+}

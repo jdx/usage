@@ -845,6 +845,9 @@ fn usage_flag_opts(
     if flag.exclusive {
         opts.push("exclusive = true".into());
     }
+    if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
+        opts.push(format!("delimiter = {delimiter:?}"));
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -962,6 +965,9 @@ fn clap_flag_opts(
     }
     if flag.exclusive {
         opts.push("exclusive = true".into());
+    }
+    if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
+        opts.push(format!("value_delimiter = {delimiter:?}"));
     }
     if flag.global {
         opts.push("global = true".into());

@@ -150,6 +150,7 @@ impl SpecFlag {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         let mut allow_hyphen_values = false;
+        let mut delimiter: Option<String> = None;
         for (k, v) in node.props() {
             match k {
                 "help" => flag.help = Some(v.ensure_string()?),
@@ -186,6 +187,10 @@ impl SpecFlag {
                 "conflicts" => flag.conflicts = vec![v.ensure_string()?],
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
+                // Written on the flag and kept on its argument, as `allow_hyphen_values`
+                // is: the value is what gets split, and `flag "--tags <tag>"` is where a
+                // reader writes something about that value.
+                "delimiter" => delimiter = Some(v.ensure_string()?),
                 "effect" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -317,6 +322,52 @@ impl SpecFlag {
         }
         if allow_hyphen_values {
             flag.set_allow_hyphen_values(ctx, node.node.name().span(), true)?;
+        }
+        if let Some(raw) = delimiter {
+            let mut chars = raw.chars();
+            let Some(delimiter) = chars.next().filter(|_| chars.next().is_none()) else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a delimiter is one character, and {raw:?} is not"
+                );
+            };
+            // And one *byte*, for the reason given where an argument reads the same
+            // property: splitting is by byte below this, and a non-ASCII separator would
+            // match the continuation bytes inside unrelated characters.
+            if !delimiter.is_ascii() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a delimiter is one byte, and {delimiter:?} is more than one; use an \
+                     ASCII separator"
+                );
+            }
+            let Some(arg) = flag.arg.as_mut() else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "`delimiter` splits a value, and flag --{} takes none",
+                    flag.name
+                );
+            };
+            arg.delimiter = Some(delimiter);
+        }
+        // A delimiter with nowhere to put the extra values would drop everything after
+        // the first separator, silently. Refused where it is written instead — and `var`
+        // on either the flag or its argument is somewhere for them to go, since both are
+        // ways of saying the flag holds a list.
+        if flag.arg.as_ref().is_some_and(|a| a.delimiter.is_some()) && !flag.var {
+            let takes_several = flag.arg.as_ref().is_some_and(|a| a.var);
+            if !takes_several {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "flag --{} has a delimiter and holds one value; add `var=#true` for \
+                     the values it splits into",
+                    flag.name
+                );
+            }
         }
         flag.usage = flag.usage();
         flag.help_first_line = flag.help.as_ref().map(|s| string::first_line(s));
@@ -607,6 +658,34 @@ impl From<&clap::Arg> for SpecFlag {
                     choices,
                     ..Default::default()
                 });
+            }
+
+            // The flag's argument is built from its value name rather than from the
+            // clap `Arg`, so what the `Arg` says about the *value* has to be carried
+            // here — the `From<&clap::Arg> for SpecArg` impl never sees this one.
+            //
+            // A delimiter *is* the statement that several values can land, so it brings
+            // `var` with it rather than waiting for one.
+            //
+            // Gating this on the action or on `num_args` was wrong: clap's parser splits
+            // whenever a delimiter is set — `parser.rs` reaches for
+            // `arg.get_value_delimiter()` before it looks at anything else — so
+            // `ArgAction::Set` with `value_delimiter(',')` is one word becoming several,
+            // and that is the common spelling. Reading it as single-valued dropped the
+            // delimiter and left a CLI whose defaults split and whose typed values did
+            // not.
+            if let Some(delimiter) = c.get_value_delimiter() {
+                arg.var = true;
+                // Only if it is one byte. Splitting is by byte everywhere below the spec,
+                // and a spec carrying a wider separator could not be written back out —
+                // `to_kdl` would emit what parsing then refuses. clap still splits on it,
+                // so `var` stays: the values arrive, and only the spec's account of how
+                // they were separated is lost.
+                if delimiter.is_ascii() {
+                    arg.delimiter = Some(delimiter);
+                }
+            } else if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
+                arg.var = true;
             }
 
             Some(arg)
