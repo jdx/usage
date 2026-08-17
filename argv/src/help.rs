@@ -247,7 +247,14 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     }
     if flag.takes_value {
         let name = meta.value_name.unwrap_or(flag.name);
-        let _ = write!(out, " <{name}>");
+        // Angled where the value must be given, squared where it need not — the same brackets
+        // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
+        let (open, close) = if meta.value_optional {
+            ('[', ']')
+        } else {
+            ('<', '>')
+        };
+        let _ = write!(out, " {open}{name}{close}");
         if flag.variadic {
             out.push('…');
         }

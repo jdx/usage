@@ -150,6 +150,13 @@ pub struct Field {
     /// way of saying "one or more" — could not be declared at all, and came back as
     /// `[TARGET]…`. This is the one place it has to be stated rather than inferred.
     pub required_collection: bool,
+    /// Whether the flag's value may be left off: `[BUMP]` rather than `<BUMP>`.
+    ///
+    /// Help and the emitted spec only. usage-lib's parser refuses a bare `--bump` exactly as it
+    /// refuses a bare `--port`, so this binds nothing differently — which is why it is stated
+    /// here and not inferred from the type, where `Option<String>` already means the *flag* is
+    /// optional and says nothing about its value.
+    pub value_optional: bool,
     /// The placeholder for a flag's value in help and in the emitted spec: `n` in
     /// `--jobs <n>`.
     ///
@@ -914,6 +921,7 @@ impl Field {
             ident: ident.clone(),
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
+            value_optional: false,
             kind: Kind::Flatten {
                 ty: field.ty.clone(),
             },
@@ -1012,6 +1020,7 @@ impl Field {
             ident: ident.clone(),
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
+            value_optional: false,
             kind: Kind::Subcommand { ty, optional },
             effect: None,
             complete: None,
@@ -1070,6 +1079,7 @@ impl Field {
         let mut repeatable = false;
         let mut variadic = false;
         let mut count = false;
+        let mut value_optional = false;
         let mut double_dash = DoubleDash::Optional;
         let mut env = None;
         let mut setting = None;
@@ -1130,6 +1140,10 @@ impl Field {
                     "var" => repeatable = flag_value(&meta)?,
                     "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
+                    // Help only: the parser refuses a bare `--bump` either way. What this
+                    // changes is the brackets, which is the whole of what a spec's
+                    // `arg "[BUMP]" required=#false` says.
+                    "value_optional" => value_optional = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
                     "env" => env = Some(string_value(&meta)?),
@@ -1373,6 +1387,13 @@ impl Field {
                 "`value_enum` describes what a value may be, and this field takes no value",
             ));
         }
+        if value_optional && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "`value_optional` describes a value that may be left off, and this field \
+                 takes no value",
+            ));
+        }
         if !choices.is_empty() && matches!(shape, Shape::Bool | Shape::Count) {
             return Err(syn::Error::new(
                 span,
@@ -1423,6 +1444,21 @@ impl Field {
         }
 
         let is_flag = !longs.is_empty() || !shorts.is_empty();
+        // Only a flag's value has a say in this. A positional's brackets come from its type
+        // already — `Option<T>` renders `[NAME]` and `T` renders `<NAME>` — so the attribute
+        // would be read by nothing, and a declaration nothing reads is worse than an error: the
+        // page would keep saying the opposite of what was asked for.
+        //
+        // Tested against `is_flag` and not `is_arg`: `is_arg` is only true where `arg` was
+        // written, and a field with no `long`, `short` or `arg` is a positional as well. That
+        // gap let `#[usage(value_optional)] out: Option<String>` compile and be dropped.
+        if value_optional && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`value_optional` is for a flag's value; a positional says this with its \
+                 type, where `Option<T>` is already `[NAME]`",
+            ));
+        }
         if is_flag && is_arg {
             return Err(syn::Error::new(
                 span,
@@ -1725,6 +1761,7 @@ impl Field {
             ident,
             ty: field.ty.clone(),
             name,
+            value_optional,
             kind,
             shape,
             value_ty,
@@ -2601,6 +2638,48 @@ mod tests {
         "#)
         .expect("should compile");
         assert!(cli.fields[0].required_collection);
+    }
+
+    #[test]
+    fn value_optional_is_refused_where_nothing_would_read_it() {
+        // It says a *flag's* value may be left off. `arg_meta` never emits it, and a valueless
+        // flag has no value to make optional — so on a positional or a `bool`/`count` flag the
+        // declaration compiled and was dropped. Worse than an error: a positional's brackets
+        // come from its type, so the page went on saying the opposite of what was asked.
+        for (decl, word) in [
+            (
+                "#[usage(arg, value_optional)]\n                out: Option<String>,",
+                "type",
+            ),
+            // No `arg` either: a field with no `long`, `short` or `arg` is a positional too,
+            // and testing `is_arg` rather than `is_flag` let this one through.
+            (
+                "#[usage(value_optional)]\n                out: Option<String>,",
+                "type",
+            ),
+            (
+                "#[usage(long, value_optional)]\n                out: bool,",
+                "no value",
+            ),
+            (
+                "#[usage(long, count, value_optional)]\n                out: u8,",
+                "no value",
+            ),
+        ] {
+            let err = rejection(&format!(
+                "struct Ex {{\n                {decl}\n            }}"
+            ));
+            assert!(err.contains(word), "unhelpful message for `{decl}`: {err}");
+        }
+        // And where there is a flag value, it still works.
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, value_optional)]
+                bump: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert!(cli.fields[0].value_optional);
     }
 
     #[test]
