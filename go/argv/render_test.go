@@ -141,6 +141,28 @@ func TestControlCharactersDoNotReachTheTerminal(t *testing.T) {
 	}
 }
 
+// The same for the message Go's error interface hands out.
+//
+// Render is the page a CLI prints, but an error is a value: it gets logged,
+// wrapped, printed by a caller that never calls Render at all. That string
+// reaches a terminal too, and it was quoting the command line raw.
+func TestAnErrorValueIsSafeToPrintToo(t *testing.T) {
+	for _, e := range []*Error{
+		{Code: CodeUnknownFlag, Token: "--x\x1b[31m\r\nerror: forged"},
+		{Code: CodeUnexpectedArg, Token: "wat\x1b[31m\r\nerror: forged"},
+	} {
+		got := e.Error()
+		for _, forbidden := range []string{"\x1b", "\r", "\n"} {
+			if strings.Contains(got, forbidden) {
+				t.Errorf("a control character survived into %q", got)
+			}
+		}
+		if !strings.Contains(got, "forged") {
+			t.Errorf("the token should still be shown: %q", got)
+		}
+	}
+}
+
 // The spelling is carried, not guessed.
 //
 // A one-character *long* form and a short form are both one character, so a

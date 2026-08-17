@@ -336,14 +336,21 @@ type Error struct {
 	Other string
 }
 
+// Error is the message Go's own error interface asks for.
+//
+// The tokens go through `safe` here as they do in [Render]: this string reaches a
+// terminal too, by way of whatever logs or prints it, and a rejected argument
+// carrying an escape sequence can recolour that output or forge a line in it.
+// Where the message quotes the spec — a flag's name, an argument's — there is
+// nothing to escape, because the author wrote it and the parse tables hold it.
 func (e *Error) Error() string {
 	switch e.Code {
 	case CodeUnknownFlag:
-		return "unknown flag: " + e.Token
+		return "unknown flag: " + safe(e.Token)
 	case CodeMissingFlagValue:
 		return "missing value for flag: " + e.Flag.Name
 	case CodeUnexpectedArg:
-		return "unexpected argument: " + e.Token
+		return "unexpected argument: " + safe(e.Token)
 	case CodeArgRequiresDoubleDash:
 		return "argument requires a -- separator: " + e.Arg.Name
 	case CodeTooDeep:

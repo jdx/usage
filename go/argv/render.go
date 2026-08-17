@@ -144,6 +144,12 @@ func typedAs(spelling, name string) string {
 // cursor, or forge lines that look like they came from the program. Rendering a
 // rejected value is not a reason to execute it.
 func safe(s string) string {
+	// The common case is text with nothing to escape, and returning it as it is
+	// keeps this off the allocation budget: a failure allocates its message, and
+	// need not also allocate a copy of every token in it.
+	if !strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		return s
+	}
 	var out strings.Builder
 	for _, r := range s {
 		switch {
