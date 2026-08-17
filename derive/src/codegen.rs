@@ -1416,7 +1416,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         Some(quote! {
             if let ::std::option::Option::Some(name) =
-                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
             {
                 return ::std::option::Option::Some(name);
             }
@@ -1452,7 +1452,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         Some(quote! {
             if let ::std::option::Option::Some(name) =
-                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
+                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
             {
                 return ::std::option::Option::Some(name);
             }
@@ -1464,7 +1464,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         };
         Some(quote! {
             if let ::std::option::Option::Some(name) =
-                <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+                <#ty as usage_argv::spec::Subcommands>::exclusive_given(
                     &partial.__usage_sub,
                     partial.__usage_selected,
                 )
@@ -2821,7 +2821,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#field)
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#field)
             }
         }
     });
@@ -2830,7 +2830,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#field)
+                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#field)
             }
         }
     });
@@ -2839,7 +2839,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let ty = &v.ty;
         quote! {
             ::std::option::Option::Some(#i) => {
-                <#ty as ::usage_argv::spec::CommandArgs>::apply_env(&mut partial.#field);
+                <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#field);
             }
         }
     });
@@ -3220,7 +3220,7 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
         };
         let ident = &f.ident;
         Some(quote! {
-            <#ty as ::usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
+            <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
         })
     });
     let selected = cli.fields.iter().find_map(|f| {
@@ -3228,7 +3228,7 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
             return None;
         };
         Some(quote! {
-            <#ty as ::usage_argv::spec::Subcommands>::apply_env(
+            <#ty as usage_argv::spec::Subcommands>::apply_env(
                 &mut partial.__usage_sub,
                 partial.__usage_selected,
             );
@@ -3262,7 +3262,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         let ident = &field.ident;
         Some(quote! {
-            <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident).is_some()
+            <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident).is_some()
         })
     });
     let selected_exclusive_present = cli.fields.iter().filter_map(|field| {
@@ -3270,7 +3270,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         };
         Some(quote! {
-            <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+            <#ty as usage_argv::spec::Subcommands>::exclusive_given(
                 &partial.__usage_sub,
                 partial.__usage_selected,
             ).is_some()
@@ -3558,7 +3558,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     quote! {
                         if partial.#given && partial.#other_given {
                             return ::std::result::Result::Err(
-                                ::usage_argv::Error::ConflictingFlags {
+                                usage_argv::Error::ConflictingFlags {
                                     name: #other_name,
                                     other: #name,
                                 },
@@ -3605,8 +3605,8 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         Some(quote! {
             (
-                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#ident),
-                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident),
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident),
+                <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident),
             ),
         })
     });
@@ -3618,7 +3618,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         Some(quote! {
             (
                 partial.__usage_selected.map(|_| #name),
-                <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+                <#ty as usage_argv::spec::Subcommands>::exclusive_given(
                     &partial.__usage_sub,
                     partial.__usage_selected,
                 ),
@@ -3644,7 +3644,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                             __usage_exclusive_segments[__usage_j].0
                         {
                             return ::std::result::Result::Err(
-                                ::usage_argv::Error::ConflictingFlags {
+                                usage_argv::Error::ConflictingFlags {
                                     name: other,
                                     other: exclusive,
                                 },
