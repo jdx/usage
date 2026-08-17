@@ -1156,6 +1156,11 @@ mod tests {
     /// The emitted `Meta` line for an entry, so a test can assert about the part
     /// it cares about rather than the whole rendered row — which grows a field
     /// every time the cold table learns something.
+    ///
+    /// Used for what a row *does* say as well as for what it does not. Two
+    /// substring checks over the whole file — one for the name, one for the
+    /// relationship — pass when the relationship is attached to a different flag
+    /// entirely, which is the regression these tests exist to catch.
     fn entry_of(out: &str, name: &str) -> String {
         out.lines()
             .find(|l| l.contains(&format!("Name: \"{name}\", Flag: true")))
@@ -1576,11 +1581,11 @@ flag "--d" conflicts="--color"
         assert!(!entry_of(&out, "b").contains("Conflicts"), "{out}");
         // The forms the flags actually have.
         assert!(
-            out.contains("Name: \"c\"") && out.contains("Conflicts: []uint64{FlagQuiet}"),
+            entry_of(&out, "c").contains("Conflicts: []uint64{FlagQuiet}"),
             "{out}"
         );
         assert!(
-            out.contains("Name: \"d\"") && out.contains("Conflicts: []uint64{FlagColor}"),
+            entry_of(&out, "d").contains("Conflicts: []uint64{FlagColor}"),
             "{out}"
         );
     }
@@ -1601,7 +1606,7 @@ flag "--zap"
 flag "--p" conflicts="--zap"
 "#);
         assert!(
-            out.contains("Name: \"p\"") && out.contains("Conflicts: []uint64{FlagZap}"),
+            entry_of(&out, "p").contains("Conflicts: []uint64{FlagZap}"),
             "should name the flag `--zap` binds, not the one negating to it:\n{out}"
         );
     }
@@ -1617,7 +1622,7 @@ flag "--plain" conflicts="-no-tint"
 flag "--other" conflicts="--no-tint"
 "#);
         assert!(
-            out.contains("Name: \"plain\"") && out.contains("Conflicts: []uint64{FlagTint}"),
+            entry_of(&out, "plain").contains("Conflicts: []uint64{FlagTint}"),
             "the exact form should resolve:\n{out}"
         );
         // And the form it was not written as does not.
@@ -1639,7 +1644,7 @@ flag "--a" conflicts="--no-color"
 flag "--b" conflicts="--no-tint"
 "#);
         assert!(
-            out.contains("Name: \"a\"") && out.contains("Conflicts: []uint64{FlagColor}"),
+            entry_of(&out, "a").contains("Conflicts: []uint64{FlagColor}"),
             "{out}"
         );
         // `--no-tint` is not the form `-no-tint`, so it names nothing — as in

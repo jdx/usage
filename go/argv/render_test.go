@@ -141,6 +141,43 @@ func TestControlCharactersDoNotReachTheTerminal(t *testing.T) {
 	}
 }
 
+// Every failure that names an entry names it the way it is typed.
+//
+// The spelling is carried on the metadata, so the rules that judge an entry after
+// binding can pass it on — they never see a *Flag. Missing this on three of the
+// codes left a short-only flag reported as `j`, which is not something anyone can
+// type, and the whole point of carrying it was to stop printing those.
+func TestEveryPostBindingFailureNamesTheFlagAsTyped(t *testing.T) {
+	short := &Meta{Name: "jobs", Flag: true, Spelling: "-j"}
+	for _, c := range []struct {
+		what string
+		err  *Error
+	}{
+		{"a choice", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
+			Choices: []string{"a"}}, []string{"b"}, 1)},
+		{"too few", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
+			VarMin: 2}, []string{"a"}, 1)},
+		{"too many", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
+			VarMax: 1}, []string{"a", "b"}, 2)},
+		{"required", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
+			Required: true}, nil, 0)},
+	} {
+		if c.err == nil {
+			t.Fatalf("%s should fail", c.what)
+		}
+		if got := explain(c.err, nil); !strings.Contains(got, "`-j`") {
+			t.Errorf("%s should name the flag as `-j`: %s", c.what, got)
+		}
+	}
+
+	// An argument has no spelling to carry, and its bare name is what it is
+	// called: `<file>` is not typed with dashes.
+	arg := Check(&Meta{Name: "file", Choices: []string{"a"}}, []string{"b"}, 0)
+	if got := explain(arg, nil); !strings.Contains(got, "`file`") {
+		t.Errorf("an argument keeps its name: %s", got)
+	}
+}
+
 // The same for the message Go's error interface hands out.
 //
 // Render is the page a CLI prints, but an error is a value: it gets logged,

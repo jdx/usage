@@ -191,7 +191,8 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		// and a bad one, and so can a repeatable flag across occurrences.
 		for _, v := range values {
 			if !contains(m.Choices, v) {
-				return &Error{Code: CodeInvalidChoice, Name: m.Name, Choices: m.Choices}
+				return &Error{Code: CodeInvalidChoice, Name: m.Name,
+					Spelling: m.Spelling, Choices: m.Choices}
 			}
 		}
 	}
@@ -200,11 +201,13 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 	// its minimum; it simply is not there, and reporting `var_too_few` for it
 	// would make every bounded variadic effectively required.
 	if m.VarMin > 0 && len(values) > 0 && uint32(len(values)) < m.VarMin {
-		return &Error{Code: CodeVarTooFew, Name: m.Name, Bound: m.VarMin, Got: len(values)}
+		return &Error{Code: CodeVarTooFew, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMin, Got: len(values)}
 	}
 
 	if m.VarMax > 0 && occurrences > int(m.VarMax) {
-		return &Error{Code: CodeVarTooMany, Name: m.Name, Bound: m.VarMax, Got: occurrences}
+		return &Error{Code: CodeVarTooMany, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMax, Got: occurrences}
 	}
 
 	return nil

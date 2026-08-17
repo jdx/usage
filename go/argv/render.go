@@ -85,16 +85,18 @@ func explain(err *Error, help HelpTable) string {
 	case CodeMissingRequiredArg:
 		return "missing required argument `" + err.Name + "`"
 	case CodeInvalidChoice:
-		msg := "`" + err.Name + "` does not accept that value"
+		msg := "`" + typedAs(err.Spelling, err.Name) + "` does not accept that value"
 		if len(err.Choices) > 0 {
 			msg += " (expected one of: " + strings.Join(err.Choices, ", ") + ")"
 		}
 		return msg
 	case CodeVarTooFew:
-		return "`" + err.Name + "` needs at least " + plural(int(err.Bound), "value") +
+		return "`" + typedAs(err.Spelling, err.Name) + "` needs at least " +
+			plural(int(err.Bound), "value") +
 			", got " + itoa(err.Got)
 	case CodeVarTooMany:
-		return "`" + err.Name + "` accepts at most " + plural(int(err.Bound), "time") +
+		return "`" + typedAs(err.Spelling, err.Name) + "` accepts at most " +
+			plural(int(err.Bound), "time") +
 			", given " + itoa(err.Got)
 	case CodeConflictingFlags:
 		other := err.Other
