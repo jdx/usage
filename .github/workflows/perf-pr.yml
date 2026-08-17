@@ -83,7 +83,7 @@ jobs:
       # parser. `|| true` because an informative table is not worth failing a run over.
       # The script rather than the task: the release build is already done by the step
       # above, and the task exists for running this by hand.
-      - name: Measure the shadow against clap
+      - name: Measure the shadow against clap, argh and bpaf
         run: ./tasks/perf-shadow.sh /tmp/shadow-report.md || true
 
       - name: Find the base commit

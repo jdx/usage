@@ -13,6 +13,10 @@ publish = false
 clap = { version = "4", features = ["derive", "env"] }
 shadow-mise = { path = "../shadows/mise" }
 shadow-mise-clap = { path = "../shadows/mise-clap" }
+shadow-mise-argh = { path = "../shadows/mise-argh" }
+shadow-mise-bpaf = { path = "../shadows/mise-bpaf" }
+argh = "0.1"
+bpaf = { version = "0.9", features = ["derive"] }
 usage-argv = { path = "../../argv", features = ["spec", "complete", "diagnostics"] }
 
 # The oracle for help rendering. A dev-dependency because nothing the gate *builds* needs it:
