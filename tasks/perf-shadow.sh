@@ -66,6 +66,19 @@ verify() {
   fi
 }
 
+# The ratio against clap this file expects to hold, and below which it says so.
+#
+# Not a gate — the workflow runs this with `|| true`, and a shared runner is no place to fail a
+# build on an instruction count. It is an annotation, because the alternative turned out to be
+# nobody noticing: the number went from 117x to 97x across a run of feature work, unremarked,
+# because the only place it appeared was one line of a report nobody diffs. clap is flat, so the
+# movement was ours.
+#
+# 80 rather than 117: the point is to catch a slide, not to pin the current figure. A parse that
+# is only 80x cheaper than clap's has stopped being the thing this project claims, and that is
+# worth a sentence in the log before it is worth an argument about the target.
+CLAP_RATIO_FLOOR=80
+
 # Two significant figures either side of the decimal point, so a framework within a factor
 # of usage reads as 1.5x rather than 1x and one three orders away still reads cleanly.
 ratio() {
@@ -119,3 +132,20 @@ bpaf_cold=$(cold parse-n-bpaf)
 } >"$tmp"
 
 cat "$tmp" >"$out"
+
+# Said after the report is written, so a failure here cannot leave the comment truncated — the
+# same reason the table is built in a temporary file.
+#
+# `::warning::` when running under GitHub Actions, a plain line otherwise, so the same script is
+# useful at a terminal.
+clap_ratio=$(awk -v a="$clap_cold" -v b="$usage_cold" 'BEGIN { printf "%d", a / b }')
+if [ "$clap_ratio" -lt "$CLAP_RATIO_FLOOR" ]; then
+  message="the parse is ${clap_ratio}x cheaper than clap's, under the ${CLAP_RATIO_FLOOR}x this\
+ file expects. clap is flat, so a fall here is usage getting more expensive rather than clap\
+ getting cheaper. See tasks/perf-shadow.sh."
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::warning title=Shadow ratio below floor::$message"
+  else
+    echo "warning: $message" >&2
+  fi
+fi

@@ -1304,10 +1304,6 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     }
 }
 
-/// Whether another occurrence is a command-line mistake rather than another value.
-///
-/// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
-/// into repetition. Every other flag matches clap's default of one occurrence.
 /// Whether a repeat of this flag is only a duplicate *within one command*.
 ///
 /// A `global` flag is in scope for every descendant, and clap lets it be given again on a
@@ -1331,6 +1327,26 @@ fn reset_per_level(cli: &Cli) -> TokenStream {
     quote!(#(#resets)*)
 }
 
+/// Whether another occurrence is a command-line mistake rather than another value.
+///
+/// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
+/// into repetition. Every other flag matches clap's default of one occurrence.
+///
+/// **This is stricter than the grammar, deliberately.** The corpus specifies the opposite for a
+/// *spec-driven* parse — `long-repeated-keeps-the-last` says "a repeat is a correction, typically
+/// a wrapper appending to a command line it did not write" — and usage-argv's parser and
+/// usage-lib both honour that. The rule lives here, in the derive's post-binding layer, and
+/// nowhere else: `Error::DuplicateFlag` is constructed at one call site, in this file.
+///
+/// Kept, because the two cases are not the same case. A spec parsed at run time may well be
+/// describing someone else's command line, which is the wrapper the corpus has in mind. A
+/// derived CLI is an authored, fixed surface, where `--jobs 1 --jobs 2` is far likelier to be a
+/// mistake than an amendment — and it is what clap does, so an adopter replacing clap sees no
+/// change. Dropping it would make a derived binary quietly accept a line clap rejects today,
+/// which is the direction that costs an adopter rather than the one that helps.
+///
+/// Recorded because it looks like an inconsistency and is not one. `differential.rs` in the gate
+/// carries the same note from the other end.
 fn rejects_duplicate(field: &Field) -> bool {
     matches!(field.kind, Kind::Flag { .. })
         && !matches!(field.shape, Shape::Count | Shape::Many)
