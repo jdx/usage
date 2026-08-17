@@ -1987,25 +1987,22 @@ fn drain_pending_flag_values(
             }
         }
         word.clear();
-        let value = parts.join(&arg.delimiter.map(String::from).unwrap_or_default());
         // Two ways to hold several values, and both record a list: a `var` flag
         // collects one per occurrence, a variadic argument collects several from one.
         if flag.var || arg.var {
-            // Read before the flag is moved into the map, and it is only a `char`.
-            let delimiter = arg.delimiter;
             let arr = flags
                 .entry(flag)
                 .or_insert_with(|| ParseValue::MultiString(vec![]))
                 .try_as_multi_string_mut()
                 .unwrap();
-            match delimiter {
-                Some(delimiter) => arr.extend(value.split(delimiter).map(str::to_string)),
-                None => arr.push(value),
-            }
+            arr.extend(parts);
         } else {
             // Nowhere for a second value to go, so the word stands as it was typed. A
             // delimiter on a flag that takes one value is refused where it is written.
-            flags.insert(flag, ParseValue::String(value));
+            flags.insert(
+                flag,
+                ParseValue::String(parts.into_iter().next().unwrap_or_default()),
+            );
         }
     }
     Ok(false)
