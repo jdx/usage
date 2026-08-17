@@ -76,6 +76,23 @@ since the line contains that too and a whole page would bury it.
 `long_help` is rendered at 80 columns, which is what every implementation falls back to when
 `COLUMNS` is unset. Nothing here reads the real environment.
 
+### What usage-argv is not asked
+
+A few words reach usage-lib and cannot reach usage-argv at all. `disable_help` is the one so
+far: it turns the parser's answer to `-h` off, and it is KDL-only — there is no derive spelling,
+so no spec a `#[derive(Cli)]` binary carries can declare one, and the two renderers cannot
+disagree about it in the wild.
+
+This corpus breaks that premise, because it builds usage-argv's tables from KDL rather than from
+a Rust type. So a vector declaring one is answered by the reference alone and skipped for
+usage-argv, rather than being recorded as a divergence: nothing usage-argv rendered would be
+right, because the question never reaches it.
+
+Nothing marks these in the JSON — the harness works it out from the spec, since the exemption is
+a property of the word rather than of the vector. What is asserted is the _count_, in
+`conformance/tests/render.rs`. An exemption is a claim that a question does not reach an
+implementation, and a set that can grow without anybody noticing is a set that will.
+
 ### The `reference` field
 
 Same contract as the argv corpus. usage-lib is one implementation of these rules; where it

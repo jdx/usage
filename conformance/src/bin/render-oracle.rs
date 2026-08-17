@@ -54,6 +54,9 @@ fn main() -> Result<(), String> {
         let lib_diff = lib.difference(&vector.expect);
         let argv_diff = argv.difference(&vector.expect);
         let mark = match (&lib_diff, &argv_diff) {
+            // A vector usage-argv is not asked to answer reports as agreeing, so it is called
+            // what it is rather than being counted as a pass.
+            _ if matches!(argv, Outcome::OutOfScope(_)) => "skip",
             (None, None) => "ok  ",
             (Some(_), Some(_)) => "BOTH",
             (Some(_), None) => "LIB ",
@@ -74,6 +77,7 @@ fn main() -> Result<(), String> {
 fn value(outcome: &Outcome) -> serde_json::Value {
     match outcome {
         Outcome::Bad(why) => serde_json::json!({ "error": why }),
+        Outcome::OutOfScope(why) => serde_json::json!({ "out_of_scope": why }),
         Outcome::Rendered(Rendered {
             usage,
             short_help,

@@ -233,6 +233,88 @@
           "    $ ex --verbose"
         ]
       }
+    },
+    {
+      "id": "a-specs-examples-reach-a-page-that-has-none",
+      "doc": "Top-level `example` nodes are the root's, and every page whose command declares none of its own shows them — the same rule the text around a page follows. They parse onto the spec rather than onto the root command, so an implementation that reads only the command's loses them from every page at once, which is exactly what happened to this corpus's own table builder.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nexample \"ex go --fast\" help=\"the quick way\"\ncmd \"go\" help=\"Go\"\ncmd \"own\" help=\"Own\" {\n    example \"ex own --mine\" header=\"Mine\"\n}\n",
+      "cmd": ["go"],
+      "expect": {
+        "usage": "ex go",
+        "short_help": [
+          "Go",
+          "",
+          "Usage: ex go",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "    $ ex go --fast"
+        ],
+        "long_help": [
+          "Go",
+          "",
+          "Usage: ex go",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "    the quick way",
+          "    $ ex go --fast"
+        ]
+      }
+    },
+    {
+      "id": "a-page-with-its-own-examples-does-not-also-show-the-specs",
+      "doc": "A command declaring examples keeps its own and the spec's are not appended; a header is written above the command it introduces, and the long form puts a description before the command rather than after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nexample \"ex go --fast\" help=\"the quick way\"\ncmd \"go\" help=\"Go\"\ncmd \"own\" help=\"Own\" {\n    example \"ex own --mine\" header=\"Mine\" help=\"the way I like it\"\n}\n",
+      "cmd": ["own"],
+      "expect": {
+        "usage": "ex own",
+        "short_help": [
+          "Own",
+          "",
+          "Usage: ex own",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Mine:",
+          "    $ ex own --mine"
+        ],
+        "long_help": [
+          "Own",
+          "",
+          "Usage: ex own",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Mine:",
+          "    the way I like it",
+          "    $ ex own --mine"
+        ]
+      }
+    },
+    {
+      "id": "disable-help-drops-the-supplied-entry",
+      "doc": "`disable_help` turns the parser's answer to `-h` off, so the page stops offering it: a page describing an action nothing performs is worse than one that stays quiet. Out of usage-argv's scope — the word is KDL-only and has no derive spelling, so its tables cannot carry one — and answered by the reference alone.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ndisable_help #true\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway"
+        ]
+      }
     }
   ]
 }

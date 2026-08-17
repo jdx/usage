@@ -101,8 +101,29 @@ pub enum Reference {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Rendered(Rendered),
+    /// The vector turns on something this implementation deliberately cannot express. The
+    /// string says which.
+    OutOfScope(&'static str),
     /// The spec would not load, or names no such command. A bug in the vector.
     Bad(String),
+}
+
+/// Why a vector is not usage-argv's to answer, if it isn't.
+///
+/// One word so far. `disable_help` turns the parser's answer to `-h` off, and usage-lib drops
+/// the supplied entry accordingly; usage-argv has no equivalent, and `lib/src/docs/cli/mod.rs`
+/// says why — it is a KDL-only word, so no spec *the derive* can produce ever carries one and
+/// the two renderers cannot disagree about it.
+///
+/// This harness breaks that premise, since it builds usage-argv's tables from KDL rather than
+/// from a Rust type. So a vector declaring it is answered by the reference alone and skipped
+/// here, rather than being recorded as a divergence: nothing usage-argv could render would be
+/// right, because the question does not reach it.
+fn out_of_scope(spec: &Spec) -> Option<&'static str> {
+    (spec.disable_help == Some(true)).then_some(
+        "`disable_help` is a KDL-only word with no derive spelling, so usage-argv's tables \
+         cannot carry it",
+    )
 }
 
 /// The three renderings, as an implementation produced them.
@@ -121,6 +142,9 @@ impl Outcome {
     pub fn difference(&self, expect: &Expect) -> Option<String> {
         let got = match self {
             Outcome::Bad(why) => return Some(why.clone()),
+            // Not a difference: the vector was never this implementation's to answer, and a
+            // caller that cares checks for the variant rather than reading it as agreement.
+            Outcome::OutOfScope(_) => return None,
             Outcome::Rendered(got) => got,
         };
         if got.usage != expect.usage {
@@ -186,6 +210,9 @@ pub fn argv(vector: &Vector) -> Outcome {
         Ok(spec) => spec,
         Err(e) => return Outcome::Bad(format!("the spec would not parse: {e}")),
     };
+    if let Some(reason) = out_of_scope(&spec) {
+        return Outcome::OutOfScope(reason);
+    }
     let built = tables::build_spec(&spec);
 
     // The path a user types and the chain of metadata down to it. Both are needed: the path is

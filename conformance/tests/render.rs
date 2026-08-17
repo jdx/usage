@@ -45,6 +45,31 @@ fn usage_argv_renders_what_the_corpus_expects() {
     );
 }
 
+/// How many vectors usage-argv is not asked to answer.
+///
+/// Asserted rather than counted, for the reason the argv corpus asserts its own: an exemption
+/// is a claim that a question does not reach an implementation, and a set that can grow without
+/// anybody noticing is a set that will. Every one of these is a word usage-lib reads and the
+/// derive has no spelling for, so raising this number means the asymmetry got wider.
+const OUT_OF_SCOPE_FOR_ARGV: usize = 1;
+
+#[test]
+fn only_the_declared_vectors_are_out_of_usage_argvs_scope() {
+    let files = corpus();
+    let exempt: Vec<String> = vectors(&files)
+        .filter_map(|v| match render::argv(v) {
+            Outcome::OutOfScope(why) => Some(format!("{}: {why}", v.id)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        exempt.len(),
+        OUT_OF_SCOPE_FOR_ARGV,
+        "the out-of-scope set changed:\n  {}",
+        exempt.join("\n  ")
+    );
+}
+
 #[test]
 fn the_reference_label_is_true_in_both_directions() {
     // The same check `reference.rs` makes of the argv corpus, and for the same reason: a
@@ -105,7 +130,8 @@ fn the_two_implementations_agree_with_each_other() {
         let (Outcome::Rendered(ours), Outcome::Rendered(theirs)) =
             (render::argv(vector), render::reference(vector))
         else {
-            // A spec that will not load is the other tests' complaint to make.
+            // A spec that will not load is the other tests' complaint to make, and a vector
+            // out of usage-argv's scope has nothing for the two to agree or disagree about.
             continue;
         };
         if ours != theirs {
