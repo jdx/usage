@@ -44,6 +44,11 @@ pub fn dump(spec_path: &Path) {
         Err(e) => super::fail(&format!("parsing {}: {e}", spec_path.display())),
     };
 
+    // This JSON is a checked-in oracle, so its wrapping must not depend on the
+    // terminal where a maintainer regenerates it. Keep this in sync with
+    // usage-lib's default width.
+    std::env::set_var("COLUMNS", "80");
+
     let mut out: BTreeMap<String, Pages> = BTreeMap::new();
     walk(&spec, &spec.cmd, &mut Vec::new(), &mut out);
 
