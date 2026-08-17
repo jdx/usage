@@ -135,7 +135,15 @@ fn supplied_flags(
     };
 
     let mut out = Vec::new();
-    out.extend(build("help", "help", 'h', "Print help"));
+    // `disable_help` turns the parser's answer off — `is_help_arg` refuses the spelling
+    // outright — so a page that still listed it would describe an action nothing performs.
+    // The same rule as a claimed or hidden spelling, with the claim made by the spec itself.
+    //
+    // usage-argv has no equivalent: `disable_help` is a KDL-only word, so no spec that crate
+    // can hold ever carries one, and the two renderers cannot disagree about it.
+    if spec.disable_help != Some(true) {
+        out.extend(build("help", "help", 'h', "Print help"));
+    }
     if is_root && spec.version.is_some() {
         out.extend(build("version", "version", 'V', "Print version"));
     }
@@ -752,6 +760,29 @@ flag "--verbose" help="Enable verbose output"
         Flags:
               --verbose  Enable verbose output
           -h, --help     Print help
+          -V, --version  Print version
+        ");
+    }
+
+    #[test]
+    fn test_render_help_omits_help_when_disabled() {
+        // `disable_help` turns the parser's answer off, so the page must not offer it: the same
+        // rule as a spelling the CLI claimed, with the spec doing the claiming. `--version`
+        // stays, because nothing disabled that.
+        let spec = crate::spec! { r#"
+bin "testcli"
+version "1.2.3"
+disable_help #true
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
+        testcli 1.2.3
+        Usage: testcli [--verbose]
+
+        Flags:
+              --verbose  Enable verbose output
           -V, --version  Print version
         ");
     }
