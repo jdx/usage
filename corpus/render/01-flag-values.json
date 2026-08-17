@@ -1,0 +1,95 @@
+{
+  "section": "flag-values",
+  "about": "A flag and its value each carry brackets, and the two are decided separately. The flag's say whether the flag may be left out; the value's say whether a value must follow it. A spec can write either without the other, so there are four pairings — and across all 809 value-taking flags in mise and the fleet, three appear and `<--jobs [n]>` appears nowhere, as does a value carrying a `default`. `[--opt [n]]` was itself rendered `[--opt <n>]` until #969, and pitchfork is the only reason that was visible; the two rows still at zero have nothing but these vectors holding them.",
+  "vectors": [
+    {
+      "id": "flag-optional-value-required",
+      "doc": "The ordinary pairing: the flag may be left out, and a value must follow it if it is not.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--tool <TOOL>\" help=\"Which tool\"\n",
+      "expect": {
+        "usage": "ex [--tool <TOOL>]"
+      }
+    },
+    {
+      "id": "flag-required-value-required",
+      "doc": "Both required. The only pairing mise's spec contains.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--v <n>\" required=#true help=\"How loud\"\n",
+      "expect": {
+        "usage": "ex <--v <n>>"
+      }
+    },
+    {
+      "id": "flag-optional-value-optional",
+      "doc": "A value declared `[n]` is square-bracketed, independently of the flag's own brackets.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--opt [n]\" help=\"A number, or not\"\n",
+      "expect": {
+        "usage": "ex [--opt [n]]"
+      }
+    },
+    {
+      "id": "flag-required-value-defaulted",
+      "doc": "A default on the flag's `arg` node relaxes the value's brackets and leaves the flag's alone.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" required=#true help=\"How many\" {\n    arg \"<n>\" default=\"4\"\n}\n",
+      "expect": {
+        "usage": "ex <--jobs [n]>"
+      }
+    },
+    {
+      "id": "flag-default-on-the-flag",
+      "doc": "The same default written on the flag instead relaxes the other pair: the flag becomes optional and the value stays angled.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" default=\"4\" help=\"How many\"\n",
+      "expect": {
+        "usage": "ex [--jobs <n>]"
+      }
+    },
+    {
+      "id": "flag-value-variadic-optional",
+      "doc": "The ellipsis belongs to the value and sits outside its brackets, whichever pair they are.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inc [pattern]...\" help=\"Patterns to include\"\n",
+      "expect": {
+        "usage": "ex [--inc [pattern]…]"
+      }
+    },
+    {
+      "id": "flag-value-variadic-required",
+      "doc": "A required variadic value, with the flag required too.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inc <pattern>...\" required=#true help=\"Patterns to include\"\n",
+      "expect": {
+        "usage": "ex <--inc <pattern>…>"
+      }
+    },
+    {
+      "id": "flag-repeatable-with-optional-value",
+      "doc": "A repeatable flag's own ellipsis follows the spellings, before the value — so a repeatable flag taking an optional value shows both.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs [n]\" var=#true required=#true help=\"How many\"\n",
+      "expect": {
+        "usage": "ex <--jobs… [n]>"
+      }
+    },
+    {
+      "id": "flag-value-named-differently",
+      "doc": "The value's placeholder is the `arg` node's name, not the flag's; a flag whose spellings do not imply its declared name says the name first.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"jobs: -j [n]\" help=\"How many\"\n",
+      "expect": {
+        "usage": "ex [jobs: -j [n]]"
+      }
+    },
+    {
+      "id": "flag-value-optional-on-the-page",
+      "doc": "The same brackets in the Flags section as in the usage line: three renderers read one function, and a page disagreeing with the line above it is the shape this corpus exists to catch.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--opt [n]\" help=\"A number, or not\"\n",
+      "expect": {
+        "usage": "ex [--opt [n]]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--opt [n]]",
+          "",
+          "Flags:",
+          "      --opt [n]  A number, or not",
+          "  -h, --help     Print help"
+        ]
+      }
+    }
+  ]
+}

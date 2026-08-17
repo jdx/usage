@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 pub mod argv;
 pub mod config;
 pub mod reference;
+pub mod render;
+pub mod tables;
 
 /// One `corpus/*.json` file: a themed group of vectors.
 ///

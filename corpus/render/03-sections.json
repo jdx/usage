@@ -1,0 +1,344 @@
+{
+  "section": "sections",
+  "about": "The body of a page: which sections appear, what goes in each, and how an entry is written down beside its help. These vectors pin whole pages rather than one line, because the failure they are guarding against is a section disagreeing with the usage line above it — and because the column an entry sits in is decided across a whole section, so no single entry can be checked alone.",
+  "vectors": [
+    {
+      "id": "supplied-help-entry",
+      "doc": "A page lists `--help` even though no spec declares it, because a reader looking for how to get help should find it on the page.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "version-entry-only-with-a-version",
+      "doc": "`--version` appears only where the spec declares one, and the banner appears with it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "ex 1.2.3",
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force    Do it anyway",
+          "  -h, --help     Print help",
+          "  -V, --version  Print version"
+        ]
+      }
+    },
+    {
+      "id": "annotations-on-one-line-and-on-their-own",
+      "doc": "Choices, environment and default are bracketed after an entry's help in the short form and each get a line in the long form. The two layouts differ in more than width, which is why both are pinned here.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shell <SHELL>\" help=\"Which shell\" env=\"EX_SHELL\" {\n    arg \"<SHELL>\" default=\"bash\" {\n        choices \"bash\" \"zsh\"\n    }\n}\narg \"[file]\" help=\"Where to write\" default=\"-\"\n",
+      "expect": {
+        "usage": "ex [--shell [SHELL]] [file]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--shell [SHELL]] [file]",
+          "",
+          "Arguments:",
+          "  [file]  Where to write (default: -)",
+          "",
+          "Flags:",
+          "      --shell [SHELL]  Which shell [bash, zsh] [env: EX_SHELL]",
+          "  -h, --help           Print help"
+        ],
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--shell [SHELL]] [file]",
+          "",
+          "Arguments:",
+          "  [file]  Where to write",
+          "    (default: -)",
+          "",
+          "Flags:",
+          "      --shell [SHELL]  Which shell",
+          "    [possible values: bash, zsh]",
+          "    [env: EX_SHELL]",
+          "  -h, --help           Print help"
+        ]
+      }
+    },
+    {
+      "id": "flags-grouped-by-heading",
+      "doc": "A `help_heading` puts a flag in a section of its own; unheaded flags keep the default section and come first, and headings follow in the order they are first seen.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--plain\" help=\"No heading\"\nflag \"--fast\" help=\"Go faster\" help_heading=\"Speed\"\nflag \"--slow\" help=\"Go slower\" help_heading=\"Speed\"\nflag \"--loud\" help=\"Say more\" help_heading=\"Noise\"\n",
+      "expect": {
+        "usage": "ex [FLAGS]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [FLAGS]",
+          "",
+          "Flags:",
+          "      --plain  No heading",
+          "  -h, --help   Print help",
+          "",
+          "Speed:",
+          "      --fast   Go faster",
+          "      --slow   Go slower",
+          "",
+          "Noise:",
+          "      --loud   Say more"
+        ]
+      }
+    },
+    {
+      "id": "global-flags-are-listed-where-they-are-inherited",
+      "doc": "A flag declared `global` on an ancestor is listed on a descendant's page, under a heading that says where it came from — a flag a user can type and cannot discover is the worst way for help to be wrong.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-c --config <FILE>\" global=#true help=\"Config file\"\ncmd \"go\" help=\"Go somewhere\" {\n    flag \"--fast\" help=\"Go faster\"\n}\n",
+      "cmd": ["go"],
+      "expect": {
+        "usage": "ex go [--fast]",
+        "short_help": [
+          "Go somewhere",
+          "",
+          "Usage: ex go [--fast]",
+          "",
+          "Flags:",
+          "      --fast           Go faster",
+          "  -h, --help           Print help",
+          "",
+          "Global flags:",
+          "  -c, --config <FILE>  Config file"
+        ]
+      }
+    },
+    {
+      "id": "commands-list-with-aliases",
+      "doc": "Subcommands are listed by their rendered usage with visible aliases beside them; a hidden alias works and is not advertised. Note the supplied `help` entry, which is written flush rather than into the column the declared commands share — the reference's behaviour, pinned here so that fixing it is a decision rather than an accident.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ncmd \"install\" help=\"Install a tool\" {\n    alias \"i\"\n    alias \"add\" hide=#true\n    arg \"<TOOL>\"\n}\ncmd \"remove\" help=\"Remove a tool\" hide=#true\n",
+      "expect": {
+        "usage": "ex <SUBCOMMAND>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex <SUBCOMMAND>",
+          "",
+          "Commands:",
+          "  install <TOOL> [aliases: i]  Install a tool",
+          "  help  Print this message or the help of the given subcommand(s)",
+          "",
+          "Flags:",
+          "  -h, --help  Print help"
+        ]
+      }
+    },
+    {
+      "id": "a-negation-is-shown-beside-its-flag",
+      "doc": "A flag that declares a negation offers both spellings, since both are things a user may type.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--color\" negate=\"--no-color\" help=\"Colourise output\"\n",
+      "expect": {
+        "usage": "ex [--color]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--color]",
+          "",
+          "Flags:",
+          "      --color / --no-color  Colourise output",
+          "  -h, --help                Print help"
+        ]
+      }
+    },
+    {
+      "id": "a-short-only-flag-does-not-pay-for-the-long-column",
+      "doc": "The short column is only spent where there is a long form to line up with, so a short-only flag is written flush and the section still lines up.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"-j <JOBS>\" help=\"How many\"\nflag \"-n --dry-run\" help=\"Do nothing\"\nflag \"--github-release\" help=\"Use a release\"\n",
+      "expect": {
+        "usage": "ex [FLAGS]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [FLAGS]",
+          "",
+          "Flags:",
+          "  -j <JOBS>             How many",
+          "  -n, --dry-run         Do nothing",
+          "      --github-release  Use a release",
+          "  -h, --help            Print help"
+        ]
+      }
+    },
+    {
+      "id": "long-help-wraps-and-prefers-the-long-text",
+      "doc": "The wide layout prefers each entry's long help and wraps it into the column, at the 80 columns both implementations fall back to.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\" {\n    long_help \"Do it anyway, even when the tool is already installed and the version on disk is the one that was asked for.\"\n}\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway, even when the tool is already installed and the",
+          "               version on disk is the one that was asked for.",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "hidden-entries-are-absent-from-every-section",
+      "doc": "`hide` keeps a flag, an argument and a subcommand out of the page as well as out of the usage line.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shown\" help=\"Visible\"\nflag \"--secret\" help=\"Hidden\" hide=#true\narg \"[shown]\" help=\"Visible\"\narg \"[buried]\" help=\"Hidden\" hide=#true\ncmd \"go\" help=\"Go\"\ncmd \"lurk\" help=\"Hidden\" hide=#true\n",
+      "expect": {
+        "usage": "ex [--shown] [shown] <SUBCOMMAND>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--shown] [shown] <SUBCOMMAND>",
+          "",
+          "Commands:",
+          "  go  Go",
+          "  help  Print this message or the help of the given subcommand(s)",
+          "",
+          "Arguments:",
+          "  [shown]  Visible",
+          "",
+          "Flags:",
+          "      --shown  Visible",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "top-level-examples-reach-root-help",
+      "doc": "Top-level examples belong to the whole CLI and are folded onto the root metadata used by usage-argv's help renderer.",
+      "spec": "name \"ex\"\nbin \"ex\"\nexample \"ex --verbose\" header=\"Verbose\"\n",
+      "expect": {
+        "usage": "ex",
+        "short_help": [
+          "Usage: ex",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Verbose:",
+          "    $ ex --verbose"
+        ]
+      }
+    },
+    {
+      "id": "a-specs-examples-reach-a-page-that-has-none",
+      "doc": "Top-level `example` nodes are the root's, and every page whose command declares none of its own shows them — the same rule the text around a page follows. They parse onto the spec rather than onto the root command, so an implementation that reads only the command's loses them from every page at once, which is exactly what happened to this corpus's own table builder.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nexample \"ex go --fast\" help=\"the quick way\"\ncmd \"go\" help=\"Go\"\ncmd \"own\" help=\"Own\" {\n    example \"ex own --mine\" header=\"Mine\"\n}\n",
+      "cmd": ["go"],
+      "expect": {
+        "usage": "ex go",
+        "short_help": [
+          "Go",
+          "",
+          "Usage: ex go",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "    $ ex go --fast"
+        ],
+        "long_help": [
+          "Go",
+          "",
+          "Usage: ex go",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "    the quick way",
+          "    $ ex go --fast"
+        ]
+      }
+    },
+    {
+      "id": "a-page-with-its-own-examples-does-not-also-show-the-specs",
+      "doc": "A command declaring examples keeps its own and the spec's are not appended; a header is written above the command it introduces, and the long form puts a description before the command rather than after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nexample \"ex go --fast\" help=\"the quick way\"\ncmd \"go\" help=\"Go\"\ncmd \"own\" help=\"Own\" {\n    example \"ex own --mine\" header=\"Mine\" help=\"the way I like it\"\n}\n",
+      "cmd": ["own"],
+      "expect": {
+        "usage": "ex own",
+        "short_help": [
+          "Own",
+          "",
+          "Usage: ex own",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Mine:",
+          "    $ ex own --mine"
+        ],
+        "long_help": [
+          "Own",
+          "",
+          "Usage: ex own",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Examples:",
+          "  Mine:",
+          "    the way I like it",
+          "    $ ex own --mine"
+        ]
+      }
+    },
+    {
+      "id": "disable-help-drops-the-supplied-entry",
+      "doc": "`disable_help` turns the parser's answer to `-h` off, so the page stops offering it: a page describing an action nothing performs is worse than one that stays quiet. Out of usage-argv's scope — the word is KDL-only and has no derive spelling, so its tables cannot carry one — and answered by the reference alone.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ndisable_help #true\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway"
+        ]
+      }
+    },
+    {
+      "id": "an-explicit-synopsis-replaces-the-root-line",
+      "doc": "A spec can declare an exact synopsis, including the `Usage:` prefix, for a CLI whose shape needs alternatives no single command grammar implies. It belongs to the program, so it replaces the root's generated line and leaves every subcommand page deriving its own. The `usage` field below is the *generated* line, which both implementations still compute the same way — the override is applied where the page writes its synopsis, not where the line is built, so the difference shows only in the page.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nusage \"Usage: ex <TOOL>\\n       ex --list\"\nflag \"--list\" help=\"List them instead\"\narg \"[TOOL]\" help=\"Which tool\"\n",
+      "expect": {
+        "usage": "ex [--list] [TOOL]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex <TOOL>",
+          "       ex --list",
+          "",
+          "Arguments:",
+          "  [TOOL]  Which tool",
+          "",
+          "Flags:",
+          "      --list  List them instead",
+          "  -h, --help  Print help"
+        ]
+      },
+      "reference": {
+        "diverges": "usage-lib's help renderer ignores a declared `usage` and writes the generated line; its manpage renderer honours it (`lib/src/docs/manpage/renderer.rs`). usage-argv honours it on the root page, which is what #965 added it for. The fleet gate cannot see this even though six of its seven CLIs declare one, because `xtask gen-shadow` does not carry the node into the shadow it generates — so each shadow's `Spec::usage` is `None` and both sides render the generated line. Recorded rather than fixed here because it is the reference that needs changing, not the expectation."
+      }
+    }
+  ]
+}
