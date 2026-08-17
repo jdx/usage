@@ -34,8 +34,11 @@ fn main() {
                     shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Usage)
                 }
                 "clap" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Clap),
+                "argh" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Argh),
+                "bpaf" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Bpaf),
                 other => fail(&format!(
-                    "unknown dialect `{other}`; the dialects are `usage` and `clap`"
+                    "unknown dialect `{other}`; the dialects are \
+                     `usage`, `clap`, `argh` and `bpaf`"
                 )),
             },
             _ => {
@@ -50,7 +53,7 @@ fn main() {
         },
         other => fail(&format!(
             "unknown task `{other}`; the tasks are: \
-             gen-shadow <spec.kdl> <out-dir> [usage|clap], \
+             gen-shadow <spec.kdl> <out-dir> [usage|clap|argh|bpaf], \
              help-pages <spec.kdl>"
         )),
     }

@@ -43,6 +43,8 @@ impl Skipped {
 pub enum Dialect {
     Usage,
     Clap,
+    Argh,
+    Bpaf,
 }
 
 impl Dialect {
@@ -50,7 +52,17 @@ impl Dialect {
         match self {
             Dialect::Usage => "usage",
             Dialect::Clap => "clap",
+            Dialect::Argh => "argh",
+            Dialect::Bpaf => "bpaf",
         }
+    }
+
+    /// Whether this dialect writes its types the way the prelude spells them.
+    ///
+    /// Every derive but usage's reads the type as it is *written*, looking for the token
+    /// `Option` or `Vec`, so only the usage shadow can use absolute paths.
+    fn plain_types(self) -> bool {
+        !matches!(self, Dialect::Usage)
     }
 
     /// How to spell a field's type.
@@ -60,23 +72,26 @@ impl Dialect {
     /// does, since a generated file that leans on the prelude is one a shadowed `Option`
     /// could break.
     fn option(self) -> &'static str {
-        match self {
-            Dialect::Usage => "::std::option::Option<::std::string::String>",
-            Dialect::Clap => "Option<String>",
+        if self.plain_types() {
+            "Option<String>"
+        } else {
+            "::std::option::Option<::std::string::String>"
         }
     }
 
     fn vec(self) -> &'static str {
-        match self {
-            Dialect::Usage => "::std::vec::Vec<::std::string::String>",
-            Dialect::Clap => "Vec<String>",
+        if self.plain_types() {
+            "Vec<String>"
+        } else {
+            "::std::vec::Vec<::std::string::String>"
         }
     }
 
     fn string(self) -> &'static str {
-        match self {
-            Dialect::Usage => "::std::string::String",
-            Dialect::Clap => "String",
+        if self.plain_types() {
+            "String"
+        } else {
+            "::std::string::String"
         }
     }
 
@@ -85,7 +100,23 @@ impl Dialect {
         match self {
             Dialect::Usage => "usage",
             Dialect::Clap => "arg",
+            Dialect::Argh => "argh",
+            Dialect::Bpaf => "bpaf",
         }
+    }
+
+    /// Whether a description has to begin with a lowercase letter.
+    ///
+    /// argh enforces the Fuchsia CLI spec's house style and rejects a description that
+    /// begins with a capital. Every line of mise's help does, so the argh shadow's are
+    /// rewritten — which is worth knowing about argh rather than hiding.
+    fn lowercase_docs(self) -> bool {
+        matches!(self, Dialect::Argh)
+    }
+
+    /// Whether every field needs a description, empty help or not.
+    fn docs_required(self) -> bool {
+        matches!(self, Dialect::Argh)
     }
 }
 
@@ -158,6 +189,8 @@ fn header(out: &mut String, spec_path: &Path, dialect: Dialect) {
     let imports = match dialect {
         Dialect::Usage => "use usage_derive::{Args, Cli, Subcommands};",
         Dialect::Clap => "use clap::{Args, Parser, Subcommand};",
+        Dialect::Argh => "use argh::FromArgs;",
+        Dialect::Bpaf => "use bpaf::Bpaf;",
     };
     let what = dialect.as_str();
     out.push_str(&format!(
@@ -319,7 +352,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     } else {
         (cmd.help.as_deref(), cmd.help_long.as_deref())
     };
-    doc_comment(out, about, about_long, 0);
+    doc_comment(out, about, about_long, 0, dialect, bin);
     // The command-level properties. The usage dialect declares them; clap has no way to say
     // any of them, so on that side they are counted as dropped — the shadow would otherwise
     // look more faithful than it is.
@@ -377,7 +410,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         }
         match dialect {
             Dialect::Usage => usage_opts.extend(declaration),
-            Dialect::Clap => run.skipped.note(what),
+            Dialect::Clap | Dialect::Argh | Dialect::Bpaf => run.skipped.note(what),
         }
     }
     match (is_root, dialect) {
@@ -410,6 +443,30 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             }
         }
         (false, Dialect::Clap) => out.push_str("#[derive(Args)]\n"),
+        // argh declares the command's *name* on the struct rather than on the variant that
+        // holds it, so this is where a subcommand says what it answers to.
+        (true, Dialect::Argh) => out.push_str("#[derive(FromArgs)]\n"),
+        (false, Dialect::Argh) => {
+            out.push_str("#[derive(FromArgs)]\n");
+            out.push_str(&format!(
+                "#[argh(subcommand, name = {:?})]\n",
+                cmd.name.as_str()
+            ));
+        }
+        // bpaf names the parser function it generates after the type, and `use` snake-cases
+        // into a keyword — so every one is named here instead, and referred to by that name
+        // from whatever holds it.
+        (true, Dialect::Bpaf) => {
+            out.push_str("#[derive(Debug, Clone, Bpaf)]\n");
+            out.push_str(&format!(
+                "#[bpaf(options, generate({}))]\n",
+                bpaf_parser(&ty.args)
+            ));
+        }
+        (false, Dialect::Bpaf) => {
+            out.push_str("#[derive(Debug, Clone, Bpaf)]\n");
+            out.push_str(&format!("#[bpaf(generate({}))]\n", bpaf_parser(&ty.args)));
+        }
     }
     out.push_str(&format!("pub struct {} {{\n", ty.args));
 
@@ -444,9 +501,26 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     for (flag, long, field) in &flags {
         emit_flag(out, flag, long.clone(), field, dialect, &ids, run.skipped);
     }
-    for arg in &cmd.args {
-        let field = fields.claim(&arg.name);
-        emit_arg(out, arg, &field, dialect, run.skipped);
+    // A positional beside a subcommand is a grammar neither argh nor bpaf can express: the
+    // positional wins, so the command word lands in it and the subcommand is never reached.
+    // mise's root is exactly this shape — `default_subcommand run` gives it a `[TASK]` — and
+    // keeping the positional made `mise use` parse as the task named "use". Dropping it is
+    // what lets those two shadows reach the same commands as the other two; the cost is that
+    // they cannot run a bare task, which is why it is counted.
+    let drop_positionals = !ty.subcommands.is_empty()
+        && !cmd.args.is_empty()
+        && matches!(dialect, Dialect::Argh | Dialect::Bpaf);
+    if drop_positionals {
+        for _ in &cmd.args {
+            run.skipped
+                .note("a positional on a command that also has subcommands");
+        }
+    } else {
+        let last_arg = cmd.args.len().saturating_sub(1);
+        for (at, arg) in cmd.args.iter().enumerate() {
+            let field = fields.claim(&arg.name);
+            emit_arg(out, arg, &field, dialect, at == last_arg, run.skipped);
+        }
     }
     if !ty.subcommands.is_empty() {
         // A bare `T` says a subcommand is required and an `Option<T>` says it may be
@@ -457,6 +531,20 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         match dialect {
             Dialect::Usage => out.push_str("    #[usage(subcommand)]\n"),
             Dialect::Clap => out.push_str("    #[command(subcommand)]\n"),
+            Dialect::Argh => out.push_str("    #[argh(subcommand)]\n"),
+            // bpaf reaches a nested parser by naming its function, and infers `optional`
+            // from the field's own type only for the leaf kinds — a command has to say it.
+            Dialect::Bpaf => {
+                let parser = bpaf_parser(&ty.subcommands);
+                if cmd.subcommand_required {
+                    out.push_str(&format!("    #[bpaf(external({parser}))]\n"));
+                } else {
+                    out.push_str(&format!("    #[bpaf(external({parser}), optional)]\n"));
+                }
+            }
+        }
+        if dialect.docs_required() {
+            out.push_str("    /// subcommand\n");
         }
         let field = match (cmd.subcommand_required, dialect) {
             (true, _) => format!("    pub command: {},\n", ty.subcommands),
@@ -464,7 +552,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                 "    pub command: ::std::option::Option<{}>,\n",
                 ty.subcommands
             ),
-            (false, Dialect::Clap) => {
+            (false, Dialect::Clap | Dialect::Argh | Dialect::Bpaf) => {
                 format!("    pub command: Option<{}>,\n", ty.subcommands)
             }
         };
@@ -476,17 +564,34 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         match dialect {
             Dialect::Usage => out.push_str("#[derive(Subcommands)]\n"),
             Dialect::Clap => out.push_str("#[derive(Subcommand)]\n"),
+            Dialect::Argh => {
+                out.push_str("#[derive(FromArgs)]\n");
+                out.push_str("#[argh(subcommand)]\n");
+            }
+            Dialect::Bpaf => {
+                out.push_str("#[derive(Debug, Clone, Bpaf)]\n");
+                out.push_str(&format!(
+                    "#[bpaf(generate({}))]\n",
+                    bpaf_parser(&ty.subcommands)
+                ));
+            }
         }
         out.push_str(&format!("pub enum {} {{\n", ty.subcommands));
         for (name, sub, sub_ty) in &children {
-            doc_comment(out, sub.help.as_deref(), None, 1);
+            doc_comment(out, sub.help.as_deref(), None, 1, dialect, name);
             let variant = camel(name);
             // Written whenever the variant name is not the command name: both derives
             // would otherwise kebab-case the variant and mostly get it right, and
             // "mostly" is not a grammar.
             let mut opts: Vec<String> = Vec::new();
-            if variant != **name {
-                opts.push(format!("name = {name:?}"));
+            match dialect {
+                // argh declares the name on the struct the variant holds, not here.
+                Dialect::Argh => {}
+                Dialect::Bpaf => opts.push(format!("command({name:?})")),
+                Dialect::Usage | Dialect::Clap if variant != **name => {
+                    opts.push(format!("name = {name:?}"));
+                }
+                Dialect::Usage | Dialect::Clap => {}
             }
             // Both frameworks can declare these, so both shadows carry them: 91 of mise's
             // commands answer to a second name, and a shadow that rejected `mise i` would
@@ -526,11 +631,23 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                         many => opts.push(format!("aliases = [{}]", quoted_list(many))),
                     }
                 }
+                // Neither has a spelling for a second name or for hiding a command, so
+                // both shadows answer to one name per command and advertise all of them.
+                Dialect::Argh | Dialect::Bpaf => {
+                    if sub.hide {
+                        run.skipped.note("`hide` on a command");
+                    }
+                    for _ in sub.aliases.iter().chain(sub.hidden_aliases.iter()) {
+                        run.skipped.note("an alias on a command");
+                    }
+                }
             }
             if !opts.is_empty() {
                 let attr = match dialect {
                     Dialect::Usage => "usage",
                     Dialect::Clap => "command",
+                    Dialect::Argh => "argh",
+                    Dialect::Bpaf => "bpaf",
                 };
                 out.push_str(&format!("    #[{attr}({})]\n", opts.join(", ")));
             }
@@ -538,7 +655,29 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             // biggest variant, so one thirty-flag subcommand makes every invocation move
             // that much stack. It is also what keeps `clippy::large_enum_variant` quiet,
             // which is what kept the shadow out of the workspace.
-            out.push_str(&format!("    {variant}(Box<{}>),\n", sub_ty.args));
+            match dialect {
+                Dialect::Usage | Dialect::Clap => {
+                    out.push_str(&format!("    {variant}(Box<{}>),\n", sub_ty.args));
+                }
+                // Neither derive is implemented for `Box<T>`, so these two carry the
+                // struct itself and the enum is as large as its biggest command. That is
+                // stack these two shadows move and the other two do not — recorded, since
+                // it tells against argh and bpaf rather than for them.
+                Dialect::Argh => {
+                    run.skipped
+                        .note("boxing a subcommand (argh needs the struct itself)");
+                    out.push_str(&format!("    {variant}({}),\n", sub_ty.args));
+                }
+                Dialect::Bpaf => {
+                    run.skipped
+                        .note("boxing a subcommand (bpaf needs the struct itself)");
+                    out.push_str(&format!(
+                        "    {variant}(#[bpaf(external({}))] {}),\n",
+                        bpaf_parser(&sub_ty.args),
+                        sub_ty.args
+                    ));
+                }
+            }
         }
         out.push_str("}\n\n");
     }
@@ -578,10 +717,14 @@ impl FieldNames {
 /// `Vec` collects, an `Option` may be absent — so this is where "what kind of flag is
 /// this" is decided, once.
 fn flag_type(flag: &SpecFlag, dialect: Dialect) -> &'static str {
+    // bpaf counts occurrences through `req_flag` rather than into an integer, so its
+    // shadow spells a counted switch as the plain `bool` its `switch` produces — recorded
+    // as dropped where the count is emitted.
+    let counts = flag.count && dialect != Dialect::Bpaf;
     let Some(arg) = flag.arg.as_ref() else {
-        return if flag.count { "u8" } else { "bool" };
+        return if counts { "u8" } else { "bool" };
     };
-    if flag.count {
+    if counts {
         "u8"
     } else if flag.var || arg.var {
         dialect.vec()
@@ -619,11 +762,20 @@ fn emit_flag(
     ids: &BTreeMap<String, String>,
     skipped: &mut Skipped,
 ) {
-    doc_comment(out, flag.help.as_deref(), flag.help_long.as_deref(), 1);
+    doc_comment(
+        out,
+        flag.help.as_deref(),
+        flag.help_long.as_deref(),
+        1,
+        dialect,
+        field,
+    );
     let ty = flag_type(flag, dialect);
     let opts = match dialect {
         Dialect::Usage => usage_flag_opts(flag, long.as_deref(), ty, skipped),
         Dialect::Clap => clap_flag_opts(flag, long.as_deref(), ids, skipped),
+        Dialect::Argh => argh_flag_opts(flag, long.as_deref(), skipped),
+        Dialect::Bpaf => bpaf_flag_opts(flag, long.as_deref(), skipped),
     };
     writeln!(out, "    #[{}({})]", dialect.attr(), opts.join(", ")).expect("writing to a String");
     writeln!(out, "    pub {field}: {ty},").expect("writing to a String");
@@ -882,12 +1034,221 @@ fn clap_flag_opts(
     opts
 }
 
-fn emit_arg(out: &mut String, arg: &SpecArg, field: &str, dialect: Dialect, skipped: &mut Skipped) {
-    doc_comment(out, arg.help.as_deref(), arg.help_long.as_deref(), 1);
-    let ty = arg_type(arg, dialect);
+/// argh's vocabulary for an argument.
+///
+/// `positional`, and nothing else: argh has no spelling for a metavariable, for hiding one,
+/// for a set of choices, for a default, or for anything to do with `--`. All of it is
+/// counted rather than dropped in silence, because the shadow's grammar differs from the
+/// spec's wherever it is.
+fn argh_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
+    // argh takes the name from the field, so the spec's metavariable survives only where the
+    // two happen to agree — which is why this is not a `value_name`.
+    arg_drops(arg, skipped);
+    double_dash(arg, |mode| {
+        skipped.note(match mode {
+            "required" => "`--` before an argument (argh has no `last`)",
+            "automatic" => "`double_dash = \"automatic\"` on an argument",
+            _ => "`double_dash = \"preserve\"` on an argument",
+        })
+    });
+    vec!["positional".to_string()]
+}
+
+/// bpaf's vocabulary for an argument.
+///
+/// A metavariable it can name, and one `double_dash` mode it can express: `strict` is
+/// bpaf's word for a positional that only matches after `--`, which is what the spec's
+/// `double_dash = "required"` says. That one matters beyond bookkeeping — without it
+/// `mise tasks run` has two adjacent variadics, the first swallows everything and the
+/// second is never filled, so the shadow would answer a different grammar while claiming
+/// to answer this one.
+fn bpaf_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
+    let mut opts = vec![format!("positional({:?})", arg.name.to_uppercase())];
+    arg_drops(arg, skipped);
+    let mut strict = false;
+    double_dash(arg, |mode| match mode {
+        "required" => strict = true,
+        "automatic" => skipped.note("`double_dash = \"automatic\"` on an argument"),
+        _ => skipped.note("`double_dash = \"preserve\"` on an argument"),
+    });
+    if strict {
+        opts.push("strict".into());
+        // bpaf's derive reads `Vec` and `Option` off the field and appends `many` or
+        // `optional` for you — but only while the field carries no consumer of its own.
+        // `strict` is one, so with it there the inference stops and the parser produces a
+        // `String` for a `Vec` field. Saying it explicitly is what puts it back.
+        if arg.var {
+            opts.push("many".into());
+        } else if !arg.required {
+            opts.push("optional".into());
+        }
+    }
+    opts
+}
+
+/// What an argument says that neither argh nor bpaf can hear.
+///
+/// Shared because the two lose the same things here, and a property counted by one and not
+/// the other would make their reports incomparable.
+fn arg_drops(arg: &SpecArg, skipped: &mut Skipped) {
+    if arg.hide {
+        skipped.note("`hide` on an argument");
+    }
+    if arg.choices.is_some() {
+        skipped.note("`choices` on an argument");
+    }
+    if arg.env.is_some() {
+        skipped.note("`env` on an argument");
+    }
+    if arg.help_heading.is_some() {
+        skipped.note("`help_heading` on an argument");
+    }
+    if !arg.default.is_empty() {
+        skipped.note("a default on an argument");
+    }
+    // A `Vec` says "any number" in both, so a floor or a ceiling on one goes unsaid — and a
+    // required variadic reads as optional, which is the same loss `usage` and clap declare
+    // their way out of.
+    if arg.var {
+        if arg.required {
+            skipped.note("`required` on a variadic argument");
+        }
+        if arg.var_min.is_some() || arg.var_max.is_some() {
+            skipped.note("`var_min`/`var_max` on an argument");
+        }
+    }
+}
+
+/// argh's vocabulary for a flag.
+///
+/// The smallest of the four: a switch, an option, and one name of each kind. Everything
+/// else a spec can say about a flag is recorded as dropped.
+fn argh_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) -> Vec<String> {
+    let mut opts: Vec<String> = Vec::new();
+    match flag.arg.as_ref() {
+        None => opts.push("switch".into()),
+        Some(arg) => {
+            opts.push("option".into());
+            if arg.choices.is_some() {
+                skipped.note("`choices` on a flag");
+            }
+        }
+    }
+    // Written out rather than left to the field name, which may have been sanitized.
+    match long {
+        Some(long) => opts.push(format!("long = {long:?}")),
+        // argh derives a long name from the field whatever else is declared, so a flag the
+        // spec gave only a short form gains a long one it never asked for.
+        None => skipped.note("a flag with only a short form"),
+    }
+    if let Some(short) = flag.short.first() {
+        opts.push(format!("short = '{short}'"));
+    }
+    let extra = flag.long.len().saturating_sub(1) + flag.short.len().saturating_sub(1);
+    for _ in 0..extra {
+        skipped.note("a second name for a flag");
+    }
+    if flag.hide {
+        skipped.note("`hide` on a flag");
+    }
+    if flag.global {
+        skipped.note("`global` on a flag");
+    }
+    if !flag_defaults(flag).is_empty() {
+        skipped.note("a declared default");
+    }
+    if flag.env.is_some() {
+        skipped.note("`env` on a flag");
+    }
+    if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
+        skipped.note("a relationship between flags");
+    }
+    opts
+}
+
+/// bpaf's vocabulary for a flag.
+///
+/// Names are calls rather than assignments, and `optional`/`many` are inferred from the
+/// field's own type, so a flag says less here than it does to clap.
+fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) -> Vec<String> {
+    let mut opts: Vec<String> = Vec::new();
+    if let Some(long) = long {
+        opts.push(format!("long({long:?})"));
+    }
+    if let Some(short) = flag.short.first() {
+        opts.push(format!("short('{short}')"));
+    }
+    match flag.arg.as_ref() {
+        None => {
+            if flag.count {
+                // Counting in bpaf goes through `req_flag`, which changes what a single
+                // occurrence means, so this stays a plain switch.
+                skipped.note("a counted switch");
+            }
+            opts.push("switch".into());
+        }
+        Some(arg) => {
+            opts.push(format!("argument({:?})", arg.name.to_uppercase()));
+            if arg.choices.is_some() {
+                skipped.note("`choices` on a flag");
+            }
+        }
+    }
+    let extra = flag.long.len().saturating_sub(1) + flag.short.len().saturating_sub(1);
+    for _ in 0..extra {
+        skipped.note("a second name for a flag");
+    }
+    if flag.hide {
+        skipped.note("`hide` on a flag");
+    }
+    if flag.global {
+        skipped.note("`global` on a flag");
+    }
+    if !flag_defaults(flag).is_empty() {
+        skipped.note("a declared default");
+    }
+    if flag.env.is_some() {
+        skipped.note("`env` on a flag");
+    }
+    if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
+        skipped.note("a relationship between flags");
+    }
+    opts
+}
+
+fn emit_arg(
+    out: &mut String,
+    arg: &SpecArg,
+    field: &str,
+    dialect: Dialect,
+    last: bool,
+    skipped: &mut Skipped,
+) {
+    doc_comment(
+        out,
+        arg.help.as_deref(),
+        arg.help_long.as_deref(),
+        1,
+        dialect,
+        field,
+    );
+    // argh allows `Option` or `Vec` in the last position only, so an optional or variadic
+    // positional with another behind it has to be declared required. mise has nine, and the
+    // argh shadow's grammar is stricter than the spec's for each of them.
+    let collapse = dialect == Dialect::Argh && !last && (arg.var || !arg.required);
+    if collapse {
+        skipped.note("an optional or variadic positional before another positional");
+    }
+    let ty = if collapse {
+        dialect.string()
+    } else {
+        arg_type(arg, dialect)
+    };
     let opts = match dialect {
         Dialect::Usage => usage_arg_opts(arg, skipped),
         Dialect::Clap => clap_arg_opts(arg, skipped),
+        Dialect::Argh => argh_arg_opts(arg, skipped),
+        Dialect::Bpaf => bpaf_arg_opts(arg, skipped),
     };
     writeln!(out, "    #[{}({})]", dialect.attr(), opts.join(", ")).expect("writing to a String");
     writeln!(out, "    pub {field}: {ty},").expect("writing to a String");
@@ -1143,7 +1504,47 @@ fn declared_help(help: Option<&str>, long: Option<&str>) -> Vec<String> {
     opts
 }
 
-fn doc_comment(out: &mut String, help: Option<&str>, long: Option<&str>, depth: usize) {
+/// argh's description for one item: one line, lowercase, and never absent.
+///
+/// argh requires a description on every struct and every field and rejects one that begins
+/// with a capital, which is the Fuchsia CLI spec's house style. Every line of mise's help
+/// begins with a capital and 37 of them run to several lines, so the argh shadow's help is
+/// its own thing rather than the spec's — which is worth saying out loud, since it means
+/// the argh shadow carries less text than the other three.
+fn argh_doc(out: &mut String, help: Option<&str>, fallback: &str, depth: usize) {
+    let indent = "    ".repeat(depth);
+    let first = help
+        .and_then(|h| h.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+        .unwrap_or(fallback);
+    // Leading punctuation too: mise has flags whose help opens with "[experimental]", and a
+    // description that does not *begin* with a letter is rejected however it goes on.
+    let trimmed = first.trim_start_matches(|c: char| !c.is_alphabetic());
+    let trimmed = if trimmed.is_empty() {
+        fallback
+    } else {
+        trimmed
+    };
+    let mut chars = trimmed.chars();
+    let text: String = match chars.next() {
+        Some(c) => c.to_lowercase().collect::<String>() + chars.as_str(),
+        None => fallback.to_string(),
+    };
+    writeln!(out, "{indent}/// {}", escape_doc(&text)).expect("writing to a String");
+}
+
+fn doc_comment(
+    out: &mut String,
+    help: Option<&str>,
+    long: Option<&str>,
+    depth: usize,
+    dialect: Dialect,
+    fallback: &str,
+) {
+    if dialect.lowercase_docs() {
+        argh_doc(out, help, fallback, depth);
+        return;
+    }
     let indent = "    ".repeat(depth);
     // Declared instead, by `declared_help`.
     if needs_declaring(help, long) {
@@ -1205,9 +1606,10 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
     let src = dir.join("src");
     std::fs::create_dir_all(&src)
         .unwrap_or_else(|e| fail(&format!("creating {}: {e}", src.display())));
+    let stem = snake(bin).replace('_', "-");
     let name = match dialect {
-        Dialect::Usage => format!("shadow-{}", snake(bin).replace('_', "-")),
-        Dialect::Clap => format!("shadow-{}-clap", snake(bin).replace('_', "-")),
+        Dialect::Usage => format!("shadow-{stem}"),
+        other => format!("shadow-{stem}-{}", other.as_str()),
     };
     let deps = match dialect {
         Dialect::Usage => {
@@ -1217,6 +1619,19 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
         // The features clap's derive needs and nothing more, since anything else would be
         // weight the comparison did not ask for.
         Dialect::Clap => "clap = { version = \"4\", features = [\"derive\", \"env\"] }\n",
+        Dialect::Argh => "argh = \"0.1\"\n",
+        Dialect::Bpaf => "bpaf = { version = \"0.9\", features = [\"derive\"] }\n",
+    };
+    // Neither argh's nor bpaf's derive is implemented for `Box<T>`, so those two shadows hold
+    // the command struct in the variant and the enum is as wide as the widest command. The
+    // other two box it and stay quiet. Silenced rather than fixed because it cannot be fixed
+    // from here: it is a property of those two derives, and it is counted as dropped.
+    let lints = match dialect {
+        Dialect::Argh | Dialect::Bpaf => {
+            "[lints.clippy]\n\
+             large_enum_variant = \"allow\"\n\n"
+        }
+        Dialect::Usage | Dialect::Clap => "",
     };
     let manifest = format!(
         "# Generated by `cargo run -p xtask -- gen-shadow`. Do not edit.\n\
@@ -1231,6 +1646,7 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
          doctest = false\n\n\
          [dependencies]\n\
          {deps}\n\
+         {lints}\
          [lints.rust]\n\
          # The shadow is generated, so a warning here is a message to the generator\n\
          # rather than to a reader of this crate.\n\
@@ -1285,6 +1701,15 @@ fn snake(s: &str) -> String {
         }
     }
     out.trim_end_matches('_').to_string()
+}
+
+/// The name of the parser function bpaf's derive generates for a type.
+///
+/// Named explicitly rather than left to the derive, which would name it after the type and
+/// so produce `fn use()` for the `use` command — not an identifier. The `_p` suffix also
+/// keeps it clear of anything else the shadow declares.
+fn bpaf_parser(ty_name: &str) -> String {
+    format!("{}_p", snake(ty_name))
 }
 
 /// Rust keywords, which a spec is free to use as a flag name — mise has `--type`.

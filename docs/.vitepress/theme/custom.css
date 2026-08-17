@@ -552,9 +552,19 @@
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--vw-text-bright);
-  margin: 0 0 1.2rem;
+  margin: 0 0 0.35rem;
   border: none;
   padding: 0;
+}
+
+/* Which quantity the bars are, since the two cards do not measure the same thing. */
+.usage-bench-metric {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 255, 0.45);
+  margin: 0 0 1.1rem;
 }
 
 .usage-bench-card h3 span {
