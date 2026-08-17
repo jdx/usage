@@ -53,7 +53,7 @@ pub struct Fig {
     file: Option<PathBuf>,
 
     /// File path where the generated Fig spec will be saved, or "-" for stdout
-    #[usage(long, effect = "write")]
+    #[usage(long, value_hint = clap::ValueHint::FilePath, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// Raw string spec input
