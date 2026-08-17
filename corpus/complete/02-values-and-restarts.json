@@ -1,0 +1,70 @@
+{
+  "section": "values-and-restarts",
+  "about": "The positions where the answer is a value rather than a name: a flag's declared choices, a positional's, and the position a restart token puts the cursor back to. `restart_token` is the reason this file exists \u2014 mise declares `:::` on `run`, no other corpus covers it, and it is the one rule that makes the cursor's position depend on a word rather than a count.",
+  "vectors": [
+    {
+      "id": "a-flags-choices-are-its-values",
+      "doc": "After a flag that takes a value, the answer is what that value may be.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <F>\" {\n  arg \"<F>\" {\n    choices \"json\" \"yaml\" \"toml\"\n  }\n}\n",
+      "line": "ex --format ",
+      "expect": {
+        "candidates": ["json", "yaml", "toml"]
+      }
+    },
+    {
+      "id": "a-choice-prefix-narrows",
+      "doc": "The same filtering a name gets.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <F>\" {\n  arg \"<F>\" {\n    choices \"json\" \"yaml\" \"toml\"\n  }\n}\n",
+      "line": "ex --format t",
+      "expect": {
+        "candidates": ["toml"]
+      }
+    },
+    {
+      "id": "a-positionals-choices-are-offered",
+      "doc": "A positional carrying choices answers at command position, alongside the subcommands rather than instead of them \u2014 a word there could be either.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<MODE>\" {\n  choices \"fast\" \"slow\"\n}\ncmd \"go\" {}\n",
+      "line": "ex ",
+      "expect": {
+        "candidates": ["fast", "slow", "go"]
+      }
+    },
+    {
+      "id": "an-unconstrained-argument-defers-to-paths",
+      "doc": "An argument declaring no choices has nothing to offer of its own, so the answer is the shell's own file completion rather than an empty list. Measured on both implementations before being written down: `ex run build ` offers paths, and the restart token is *not* among them \u2014 neither implementation offers `:::` itself, which is a gap rather than a rule, so this vector pins what they agree on.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<TASK>\" {\n    choices \"build\" \"test\"\n  }\n  arg \"[ARGS]...\"\n}\n",
+      "line": "ex run build ",
+      "expect": {
+        "candidates": [],
+        "files": true
+      }
+    },
+    {
+      "id": "past-a-restart-token-the-first-argument-answers-again",
+      "doc": "The point of a restart token: everything after it starts a fresh invocation, so the cursor is back at the *first* argument however many words came before. Without this the answer would be `[ARGS]...` \u2014 the position the count reached \u2014 and completing a second task name would be impossible.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<TASK>\" {\n    choices \"build\" \"test\"\n  }\n  arg \"[ARGS]...\"\n}\n",
+      "line": "ex run build ::: ",
+      "expect": {
+        "candidates": ["build", "test"]
+      }
+    },
+    {
+      "id": "a-restart-token-narrows-like-any-other-position",
+      "doc": "And filtering still applies past it, which is what says the position really was reset rather than special-cased into offering everything.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<TASK>\" {\n    choices \"build\" \"test\"\n  }\n  arg \"[ARGS]...\"\n}\n",
+      "line": "ex run build ::: t",
+      "expect": {
+        "candidates": ["test"]
+      }
+    },
+    {
+      "id": "a-flag-still-completes-past-a-restart-token",
+      "doc": "A restart resets which argument is next, not whether flags are accepted.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  flag \"--dry-run\"\n  arg \"<TASK>\" {\n    choices \"build\"\n  }\n  arg \"[ARGS]...\"\n}\n",
+      "line": "ex run build ::: -",
+      "expect": {
+        "candidates": ["--dry-run"]
+      }
+    }
+  ]
+}

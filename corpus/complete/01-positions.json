@@ -1,0 +1,76 @@
+{
+  "section": "positions",
+  "about": "Where the cursor is decides what could go there. A word beginning with a dash is a flag or nothing; a bare word at command position is a subcommand or the next positional's choices; a word after a flag that takes a value is that value. These are the branches every implementation has to agree on before any of the harder cases matter.",
+  "vectors": [
+    {
+      "id": "empty-word-offers-commands",
+      "doc": "At command position with nothing typed, the subcommands are the answer.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" {}\ncmd \"stop\" {}\n",
+      "line": "ex ",
+      "expect": { "candidates": ["go", "stop"] }
+    },
+    {
+      "id": "a-prefix-narrows-commands",
+      "doc": "A partial word offers only what it could still become. Filtering is the implementation's job, not the shell's: two of the five shells do not filter for you.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" {}\ncmd \"stop\" {}\n",
+      "line": "ex g",
+      "expect": { "candidates": ["go"] }
+    },
+    {
+      "id": "a-dash-offers-flags-only",
+      "doc": "A word beginning with `-` is a flag or nothing: no path and no subcommand starts with one, so offering them would put a word there that cannot be completed.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\nflag \"--quiet\"\ncmd \"go\" {}\n",
+      "line": "ex -",
+      "expect": { "candidates": ["--force", "--quiet"] }
+    },
+    {
+      "id": "hidden-is-never-offered",
+      "doc": "`hide` keeps a thing off the page and out of the answer alike. A completion offering a hidden command teaches it to people the help deliberately did not.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\nflag \"--secret\" hide=#true\ncmd \"go\" {}\ncmd \"internal\" hide=#true {}\n",
+      "line": "ex ",
+      "expect": { "candidates": ["go"] }
+    },
+    {
+      "id": "hidden-flags-are-not-offered-either",
+      "doc": "The same for flags, asked at the position where flags are the answer.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\nflag \"--secret\" hide=#true\n",
+      "line": "ex -",
+      "expect": { "candidates": ["--force"] }
+    },
+    {
+      "id": "an-alias-completes-like-a-name",
+      "doc": "An alias is a way to invoke a command, so it is a way to complete one. Both appear: which a person prefers to type is theirs to choose.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  alias \"i\"\n}\n",
+      "line": "ex ",
+      "expect": { "candidates": ["install", "i"] }
+    },
+    {
+      "id": "a-hidden-alias-is-not-offered",
+      "doc": "`alias \"add\" hide=#true` exists so a spelling can keep working without being advertised, which is exactly a promise about completion.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"install\" {\n  alias \"i\"\n  alias \"add\" hide=#true\n}\n",
+      "line": "ex ",
+      "expect": { "candidates": ["install", "i"] }
+    },
+    {
+      "id": "inside-a-command-offers-its-own",
+      "doc": "Past a command word the answer is that command's, not the root's.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"config\" {\n  cmd \"get\" {}\n  cmd \"set\" {}\n}\ncmd \"go\" {}\n",
+      "line": "ex config ",
+      "expect": { "candidates": ["get", "set"] }
+    },
+    {
+      "id": "a-global-is-offered-below-where-it-was-declared",
+      "doc": "A global is in scope for every descendant, so it is offerable there. The parser accepts it; a completion that hid it would be describing a different CLI.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" global=#true\ncmd \"go\" {\n  flag \"--fast\"\n}\n",
+      "line": "ex go -",
+      "expect": { "candidates": ["--fast", "--verbose"] }
+    },
+    {
+      "id": "a-non-global-does-not-leak-downward",
+      "doc": "The other half: a flag declared on the root without `global` is out of scope inside a subcommand, and offering it would complete a word the parser then refuses.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--local\"\ncmd \"go\" {\n  flag \"--fast\"\n}\n",
+      "line": "ex go -",
+      "expect": { "candidates": ["--fast"] }
+    }
+  ]
+}

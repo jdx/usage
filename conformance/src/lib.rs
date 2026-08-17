@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub mod argv;
+pub mod complete;
 pub mod config;
 pub mod reference;
 pub mod render;
