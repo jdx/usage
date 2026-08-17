@@ -60,12 +60,11 @@ pub fn run(vector: &Vector) -> Outcome {
         return Outcome::OutOfScope(reason);
     }
 
-    // Inheritance is resolved here, not in the parser: usage-argv's tables hold the
-    // effective value per command, which is what a derive would emit.
-    let root = build(
-        &spec.cmd,
-        convert_unknown_flags(spec.unknown_flags.unwrap_or_default()),
-    );
+    // The spec's own setting belongs to the root command, which is where usage-argv's tables
+    // hold it. Everything below inherits it, which the parser now does itself rather than
+    // this flattening it on the way in — a second implementation of the same rule, and the
+    // one that hid the parser not having it.
+    let root = build(&spec.cmd, spec.unknown_flags.map(convert_unknown_flags));
     // `default_subcommand` is a property of the spec rather than of a command, so it is
     // resolved once, here, against the root's own subcommands. A name that answers to
     // nothing is left as None: the spec is what it is, and a vector that expects routing
@@ -225,16 +224,17 @@ fn out_of_scope(vector: &Vector) -> Option<&'static str> {
 
 /// Build leaked tables mirroring a spec command.
 ///
-/// `inherited_unknown_flags` is the effective setting from above, which a command
-/// that states nothing keeps and passes down.
+/// `unknown_flags` is carried through as the spec states it — `None` where a command says
+/// nothing — because the parser inherits it. The root takes the spec-level setting, since
+/// that is the command a spec's own property describes.
 fn build(
     cmd: &SpecCommand,
-    inherited_unknown_flags: ArgvUnknownFlags,
+    root_unknown_flags: Option<ArgvUnknownFlags>,
 ) -> &'static Command<'static> {
     let unknown_flags = cmd
         .unknown_flags
         .map(convert_unknown_flags)
-        .unwrap_or(inherited_unknown_flags);
+        .or(root_unknown_flags);
     let flags: Vec<&'static Flag<'static>> = cmd
         .flags
         .iter()
@@ -295,7 +295,9 @@ fn build(
     let subcommands: Vec<&'static Command<'static>> = cmd
         .subcommands
         .values()
-        .map(|sub| build(sub, unknown_flags))
+        // A subcommand states its own or says nothing; there is no spec-level setting to
+        // hand it, since the root has already taken that.
+        .map(|sub| build(sub, None))
         .collect();
 
     let aliases: Vec<&'static str> = cmd
