@@ -24,7 +24,7 @@
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag};
 use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta};
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -95,13 +95,13 @@ pub fn build(cmd: &SpecCommand, root_unknown_flags: Option<ArgvUnknownFlags>) ->
         .flags
         .iter()
         .zip(&flags)
-        .map(|(f, table)| flag_meta(f, table))
+        .map(|(f, table)| flag_meta(f, table, cmd.complete.values()))
         .collect();
     let arg_metas: Vec<ArgMeta<'static>> = cmd
         .args
         .iter()
         .zip(&args)
-        .map(|(a, table)| arg_meta(a, table))
+        .map(|(a, table)| arg_meta(a, table, cmd.complete.values()))
         .collect();
 
     let meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
@@ -166,6 +166,31 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
     }));
     let mut root_examples = root.meta.examples.to_vec();
     root_examples.extend(spec.examples.iter().map(example));
+    // The third thing a spec writes at the top level and hangs off `Spec` rather than off the
+    // root command. Filled in only where the command's own map had nothing, so a `complete`
+    // inside a `cmd` block still wins for that command.
+    let root_flags: Vec<FlagMeta<'static>> = root
+        .meta
+        .flags
+        .iter()
+        .map(|f| FlagMeta {
+            complete_type: f
+                .complete_type
+                .or_else(|| complete_type(spec.complete.values(), f.flag.name, f.value_name)),
+            ..*f
+        })
+        .collect();
+    let root_args: Vec<ArgMeta<'static>> = root
+        .meta
+        .args
+        .iter()
+        .map(|a| ArgMeta {
+            complete_type: a
+                .complete_type
+                .or_else(|| complete_type(spec.complete.values(), a.arg.name, None)),
+            ..*a
+        })
+        .collect();
     let root_meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
         cmd: root_cmd,
         before_help: root.meta.before_help.or(opt(&spec.before_help)),
@@ -173,6 +198,8 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         after_help: root.meta.after_help.or(opt(&spec.after_help)),
         after_long_help: root.meta.after_long_help.or(opt(&spec.after_help_long)),
         examples: Box::leak(root_examples.into_boxed_slice()),
+        flags: Box::leak(root_flags.into_boxed_slice()),
+        args: Box::leak(root_args.into_boxed_slice()),
         ..*root.meta
     }));
     Box::leak(Box::new(usage_argv::spec::Spec {
@@ -235,7 +262,11 @@ fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
     }))
 }
 
-fn flag_meta(f: &SpecFlag, table: &'static Flag<'static>) -> FlagMeta<'static> {
+fn flag_meta<'a>(
+    f: &SpecFlag,
+    table: &'static Flag<'static>,
+    completers: impl Iterator<Item = &'a SpecComplete>,
+) -> FlagMeta<'static> {
     let arg = f.arg.as_ref();
     FlagMeta {
         flag: table,
@@ -265,11 +296,16 @@ fn flag_meta(f: &SpecFlag, table: &'static Flag<'static>) -> FlagMeta<'static> {
         required_unless: strs(&f.required_unless),
         help_heading: opt(&f.help_heading),
         effect: f.effect.map(effect),
-        ..FlagMeta::EMPTY
+        complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
+        complete: NO_COMPLETER,
     }
 }
 
-fn arg_meta(a: &SpecArg, table: &'static Arg<'static>) -> ArgMeta<'static> {
+fn arg_meta<'a>(
+    a: &SpecArg,
+    table: &'static Arg<'static>,
+    completers: impl Iterator<Item = &'a SpecComplete>,
+) -> ArgMeta<'static> {
     ArgMeta {
         arg: table,
         help: opt(&a.help),
@@ -282,8 +318,40 @@ fn arg_meta(a: &SpecArg, table: &'static Arg<'static>) -> ArgMeta<'static> {
         var_min: a.var_min,
         var_max: a.var_max,
         help_heading: opt(&a.help_heading),
-        ..ArgMeta::EMPTY
+        complete_type: complete_type(completers, &a.name, None),
+        complete: NO_COMPLETER,
     }
+}
+
+/// A spec cannot supply one.
+///
+/// `Completer` is a Rust function the binary calls to answer for a value. A spec says `run=`
+/// instead, which is a shell command — the two are different mechanisms, and the emitted KDL
+/// turns the former into the latter rather than the other way round. Written out rather than
+/// left to `EMPTY` so that the exhaustiveness this file relies on stays real.
+const NO_COMPLETER: Option<usage_argv::spec::Completer> = None;
+
+/// The built-in completion class declared for a flag or argument, if any.
+///
+/// `complete` nodes name the thing they complete rather than living on it, so this is a lookup.
+/// A flag's node may name the flag or its value, and `Spec::to_kdl` writes the value's
+/// lowercased, so both are tried — the flag's own name first, as the more specific of the two.
+///
+/// Taken as an iterator rather than the `IndexMap` it comes from, so that this crate does not
+/// have to depend on `indexmap` to name the type. Each node knows its own name.
+fn complete_type<'a>(
+    completers: impl Iterator<Item = &'a SpecComplete>,
+    name: &str,
+    value_name: Option<&str>,
+) -> Option<&'static str> {
+    let lowered = value_name.map(str::to_ascii_lowercase);
+    let all: Vec<&SpecComplete> = completers.collect();
+    let found = [Some(name), lowered.as_deref()]
+        .into_iter()
+        .flatten()
+        .find_map(|key| all.iter().find(|c| c.name == key))
+        .and_then(|c| c.type_.as_deref());
+    found.map(leak)
 }
 
 fn double_dash(mode: &usage::SpecDoubleDashChoices) -> DoubleDash {
@@ -335,4 +403,44 @@ fn examples(list: &[SpecExample]) -> &'static [Example<'static>] {
 
 pub fn leak(s: &str) -> &'static str {
     Box::leak(s.to_string().into_boxed_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The fields no page shows, which is why they need a test of their own.
+    ///
+    /// `corpus/render` catches a dropped field by the difference it makes to a rendered page,
+    /// which is most of them and was how the missing examples surfaced. These two make no
+    /// difference to any page — they are read by completions and by spec emission — so nothing
+    /// would have noticed them going missing, and `min_usage_version` had.
+    #[test]
+    fn the_fields_that_do_not_reach_a_page_are_carried_too() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nmin_usage_version \"2.1.0\"\n\
+             flag \"--out <FILE>\"\narg \"<dir>\"\n\
+             complete \"out\" type=\"path\"\ncomplete \"dir\" type=\"dir\"\n"
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+
+        assert_eq!(built.min_usage_version, Some("2.1.0"));
+        assert_eq!(built.root.flags[0].complete_type, Some("path"));
+        assert_eq!(built.root.args[0].complete_type, Some("dir"));
+        // A Rust completer is a function the binary calls, which a spec's `run=` is not — so
+        // this stays `None` however a spec is written, and says so rather than defaulting.
+        assert!(built.root.flags[0].complete.is_none());
+    }
+
+    /// A `complete` node may name a flag's *value* rather than the flag, and `Spec::to_kdl`
+    /// writes the value's name lowercased — so the lookup has to try both spellings.
+    #[test]
+    fn a_completer_keyed_by_a_flags_value_is_found_too() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <FILE>\"\n\
+             complete \"file\" type=\"path\"\n"
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+        assert_eq!(built.root.flags[0].complete_type, Some("path"));
+    }
 }
