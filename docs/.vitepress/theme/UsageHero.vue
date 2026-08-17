@@ -18,16 +18,14 @@ const javascriptPath =
       <div class="usage-hero-text">
         <h1 class="usage-hero-title"><span class="accent">--</span>usage</h1>
 
-        <p class="usage-hero-tagline">
-          Fastest frameworks. Most features. One spec.<span class="cursor"></span>
-        </p>
+        <p class="usage-hero-tagline">Define your CLI once.<span class="cursor"></span></p>
 
         <p class="usage-hero-desc">
           Usage is a toolkit for building command-line tools. Define your CLI's commands,
           flags, and args once in a KDL spec — get argument parsing, shell completions,
-          <code>--help</code>, docs, and manpages everywhere it runs. Reference frameworks
-          for Rust and Go build your CLI straight from the spec, with Python and JavaScript
-          on the way.
+          <code>--help</code>, docs, and manpages from that one definition. Reference
+          frameworks for Rust and Go build your CLI from the spec, with Python and
+          JavaScript planned.
         </p>
 
         <p class="usage-hero-label">Frameworks</p>
@@ -42,7 +40,7 @@ const javascriptPath =
             <span>Rust</span>
             <div class="usage-tile-tooltip">
               <strong>Rust framework</strong>
-              <p>Derive your CLI from Rust types — parsing, help, and completions powered by the usage spec.</p>
+              <p>Derive your CLI from Rust types — parsing, help, and completions generated from the usage spec.</p>
             </div>
           </a>
           <a
@@ -55,7 +53,7 @@ const javascriptPath =
             <span>Go</span>
             <div class="usage-tile-tooltip">
               <strong>Go framework</strong>
-              <p>Build Go CLIs on the usage spec with the same parsing and completion behavior everywhere.</p>
+              <p>Build Go CLIs on the usage spec, with parsing behavior verified against the same conformance corpus as the Rust implementation.</p>
             </div>
           </a>
           <span class="usage-tile usage-tile-soon">
@@ -74,7 +72,7 @@ const javascriptPath =
           </span>
         </div>
 
-        <p class="usage-hero-label">Powered by the spec</p>
+        <p class="usage-hero-label">Spec &amp; tooling</p>
         <div class="usage-hero-tiles">
           <a href="/cli/completions" class="usage-tile usage-tile-feature">
             <svg class="usage-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -84,7 +82,7 @@ const javascriptPath =
             <span>Completions</span>
             <div class="usage-tile-tooltip">
               <strong>Shell completions</strong>
-              <p>Tab completions for bash, zsh, fish, PowerShell, and nushell — every shell, one spec.</p>
+              <p>Tab completions for bash, zsh, fish, PowerShell, and nushell, generated from the spec.</p>
             </div>
           </a>
           <a href="/cli/markdown" class="usage-tile usage-tile-feature">
@@ -95,7 +93,7 @@ const javascriptPath =
             <span>Docs &amp; manpages</span>
             <div class="usage-tile-tooltip">
               <strong>Auto-generated docs</strong>
-              <p>--help output, markdown docs, and manpages that stay in sync automatically.</p>
+              <p>--help output, markdown docs, and manpages, all generated from the same spec.</p>
             </div>
           </a>
           <a href="/cli/scripts" class="usage-tile usage-tile-feature">
@@ -108,7 +106,7 @@ const javascriptPath =
             <span>Scripts</span>
             <div class="usage-tile-tooltip">
               <strong>Bash scripts</strong>
-              <p>Write bash scripts with modern arg parsing, validation, and completions built in.</p>
+              <p>Declare a script's interface in a USAGE comment and get arg parsing, validation, and completions.</p>
             </div>
           </a>
           <a href="/spec/" class="usage-tile usage-tile-feature">
@@ -119,7 +117,7 @@ const javascriptPath =
             <span>KDL spec</span>
             <div class="usage-tile-tooltip">
               <strong>KDL specification</strong>
-              <p>Define your CLI once in human-readable KDL. One spec powers everything.</p>
+              <p>Define your CLI once in KDL. Completions, docs, and parsers are all generated from it.</p>
             </div>
           </a>
           <a href="/cli/" class="usage-tile usage-tile-feature">
