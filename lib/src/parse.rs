@@ -1254,6 +1254,35 @@ fn parse_partial_with_env(
         }
     }
 
+    // An exclusive flag is the whole-command form of a conflict: `--version` means the
+    // rest of the line has nothing to act on. Everything the invocation supplied counts,
+    // positionals included, which is what distinguishes it from being in a group with
+    // every other flag.
+    //
+    // Only what was *given*, as `conflicts` reads it: a defaulted flag standing beside an
+    // exclusive one is nobody saying anything, and counting it would make the exclusive
+    // flag unusable on any command that has a default.
+    for flag in unique_flags(out.available_flags.values()) {
+        if !flag.exclusive || !out.flags.contains_key(flag) {
+            continue;
+        }
+        let other_flag = out
+            .flags
+            .keys()
+            .find(|other| other.name != flag.name)
+            .map(|other| format!("--{}", other.name));
+        let other =
+            other_flag.or_else(|| out.args.keys().next().map(|arg| format!("<{}>", arg.name)));
+        if let Some(other) = other {
+            out.errors.push(UsageErr::InvalidFlag {
+                token: format!("--{}", flag.name),
+                reason: format!("must be given on its own, and {other} was given too"),
+                span: (0, 0).into(),
+                input: format!("--{} {other}", flag.name),
+            });
+        }
+    }
+
     // Groups, checked once per group rather than per flag: both questions a group asks —
     // how many members were given, and whether that is enough — are about the set, which
     // is the whole reason a group exists rather than a pile of pairwise conflicts.
@@ -2904,6 +2933,39 @@ flag "--file <file>" required_unless="--stdin"
             let parsed = parse(&spec, &input(&["test"])).unwrap();
             assert_eq!(first_string_value(&parsed), "dev");
         }
+    }
+
+    #[test]
+    fn an_exclusive_flag_has_to_be_alone() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--verbose\"\narg \"[target]\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--dump"])).expect("alone is the point");
+
+        // Any other flag.
+        let err = parse(&spec, &input(&["ex", "--dump", "--verbose"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
+
+        // And a positional, which is what makes this more than a conflict with every
+        // other flag.
+        let err = parse(&spec, &input(&["ex", "--dump", "t"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
+
+        // Not given, so it imposes nothing.
+        parse(&spec, &input(&["ex", "--verbose", "t"])).expect("without it, nothing changes");
+    }
+
+    #[test]
+    fn an_exclusive_flag_is_not_disturbed_by_a_default() {
+        // Only what was supplied counts, as `conflicts` reads it. A default counting as
+        // company would make an exclusive flag unusable on any command that has one.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--jobs <n>\" default=\"4\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--dump"])).expect("a default is nobody saying anything");
+        assert!(parse(&spec, &input(&["ex", "--dump", "--jobs", "8"])).is_err());
     }
 
     #[test]

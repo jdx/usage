@@ -796,3 +796,54 @@ fn a_conflict_answers_before_an_unsatisfied_group_does() {
     assert_eq!(two.file.as_deref(), Some("f"));
     assert!(two.url.is_none() && two.yaml && !two.json);
 }
+
+/// A CLI with a flag that has to be alone.
+#[derive(Cli)]
+#[usage(bin = "ex2")]
+struct Exclusively {
+    /// Dump the spec and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    /// Print more
+    #[usage(short = 'v', long)]
+    verbose: bool,
+    /// What to act on
+    target: Option<String>,
+}
+
+#[test]
+fn an_exclusive_flag_has_to_be_alone() {
+    let a = argv(["--dump"]);
+    let ex = Exclusively::parse_from(&a).expect("alone is the point");
+    assert!(ex.dump && !ex.verbose && ex.target.is_none());
+
+    // Another flag.
+    let a = argv(["--dump", "-v"]);
+    assert!(matches!(
+        Exclusively::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    // And a positional, which is what makes this more than a conflict with every other
+    // flag: `conflicts` has nowhere to name an argument.
+    let a = argv(["--dump", "t"]);
+    assert!(matches!(
+        Exclusively::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    // Without it, nothing changes.
+    let a = argv(["-v", "t"]);
+    let ex = Exclusively::parse_from(&a).expect("the rest of the CLI is unaffected");
+    assert!(ex.verbose);
+    assert_eq!(ex.target.as_deref(), Some("t"));
+}
+
+#[test]
+fn exclusive_reaches_the_spec() {
+    let kdl = Exclusively::to_kdl();
+    assert!(kdl.contains("exclusive=#true"), "{kdl}");
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let dump = spec.cmd.flags.iter().find(|f| f.name == "dump").unwrap();
+    assert!(dump.exclusive);
+}

@@ -611,6 +611,11 @@ pub struct FlagMeta<'a> {
     /// flag win, this reports it: the combination has no meaning, so honouring one
     /// side silently would hide a mistake.
     pub conflicts: &'a [&'a str],
+    /// Whether this flag must be given on its own.
+    ///
+    /// The whole-command form of [`conflicts`](Self::conflicts): everything the command
+    /// declares counts, positionals included.
+    pub exclusive: bool,
     /// Flags that must also be given when this one is.
     ///
     /// The positive form of [`conflicts`](Self::conflicts), and the mirror image of
@@ -648,6 +653,7 @@ impl FlagMeta<'_> {
         var_max: None,
         overrides: &[],
         conflicts: &[],
+        exclusive: false,
         requires: &[],
         required_if: &[],
         required_unless: &[],
@@ -1151,6 +1157,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_default(out, meta.default)?;
     write_single_list(out, "overrides", meta.overrides)?;
     write_single_list(out, "conflicts", meta.conflicts)?;
+    if meta.exclusive {
+        out.push_str(" exclusive=#true");
+    }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;

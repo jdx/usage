@@ -912,6 +912,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let overrides = &field.overrides;
     let conflicts = &field.conflicts;
     let requires = &field.requires;
+    let exclusive = field.exclusive;
     let required_if = &field.required_if;
     let required_unless = &field.required_unless;
 
@@ -947,6 +948,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
+            exclusive: #exclusive,
             required_if: &[#(#required_if),*],
             required_unless: &[#(#required_unless),*],
             ..usage_argv::spec::FlagMeta::EMPTY
@@ -3304,6 +3306,43 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // An exclusive flag is a conflict with the whole command rather than with a named
+    // flag, so it is written as one check per *other* declaration — positionals included,
+    // which is what makes it more than being in a group with every other flag.
+    //
+    // Only what was given counts, as `conflicts` reads it: a defaulted field standing
+    // beside an exclusive flag is nobody saying anything, and counting it would make the
+    // flag unusable on any command that has a default.
+    let exclusive_checks = cli
+        .fields
+        .iter()
+        .filter(|f| f.exclusive)
+        .flat_map(move |f| {
+            let given = format_ident!("__given_{}", f.ident);
+            let name = &f.name;
+            cli.fields
+                .iter()
+                .filter(move |other| other.ident != f.ident)
+                .filter(|other| {
+                    !matches!(other.kind, Kind::Subcommand { .. } | Kind::Flatten { .. })
+                })
+                .map(move |other| {
+                    let other_given = format_ident!("__given_{}", other.ident);
+                    let other_name = &other.name;
+                    quote! {
+                        if partial.#given && partial.#other_given {
+                            return ::std::result::Result::Err(
+                                ::usage_argv::Error::ConflictingFlags {
+                                    name: #other_name,
+                                    other: #name,
+                                },
+                            );
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+        });
+
     // Groups, checked once per group rather than per member: both questions a group asks
     // — how many members were given, and whether that is enough — are about the set.
     //
@@ -3447,6 +3486,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#exclusive_checks)*
         #(#group_exclusivity_checks)*
         #(#requirement_checks)*
         #(#flattened_checks)*

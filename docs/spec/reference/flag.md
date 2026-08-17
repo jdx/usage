@@ -32,6 +32,7 @@ flag "--file <file>" required_unless="--dir" // either --file or --dir must be p
 flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
 flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
 flag "--out <path>" requires="--format"  // giving --out means --format must be given too
+flag "--dump" exclusive=#true            // --dump has to be given on its own
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -98,6 +99,21 @@ A spec generated from a clap command never carries this. clap has `Arg::requires
 setter with no getter, so [the clap integration](/spec/integrations/clap) cannot read it
 back out — a CLI that wants the constraint in its spec has to declare it here.
 :::
+
+## `exclusive`
+
+An exclusive flag has to be given on its own: everything else the command declares is
+refused alongside it, **including its positional arguments**, which is what makes this
+more than [`conflicts`](#conflicts-and-overrides) with every other flag — a conflict has
+nowhere to name an argument.
+
+`--version` and `--dump-config` are the shape it is for: asking for one means the rest of
+the command line has nothing to act on.
+
+Only what was supplied counts, the same rule `conflicts` follows. A flag with a
+[`default`](/spec/reference/flag) standing beside an exclusive one is nobody saying
+anything, and counting it would make the exclusive flag unusable on any command that has
+a default.
 
 ## `global`
 
