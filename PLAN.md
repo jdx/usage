@@ -257,6 +257,22 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       `cmd` block, so a CLI whose _top-level_ subcommands are discovered by running
       something cannot say so. Worth deciding whether that is a gap or a deliberate
       restriction.
+- [x] **`subcommand_required`, which the derive knew and did not say** — a bare `T`
+      subcommand field requires a subcommand and an `Option<T>` does not, and the parser
+      has always refused the invocation accordingly. `Spec::to_kdl` wrote neither, so the
+      emitted KDL described a group command as one a user could run alone — and help, docs,
+      completions and the SDK generators all read that rather than the type. Cold metadata,
+      since it is not how a word binds. Found by converting usage-cli itself to the derive
+      and diffing the spec it prints against the clap bridge's. One shape could have made the
+      answer a lie — a `#[usage(flatten)]` group declaring subcommands of its own, which
+      flatten leaves behind while the group's `build` still demands one — and is a compile
+      error now, asserted during const evaluation in the parent's expansion, where the group
+      is only a type.
+- [ ] **`subcommand_required` on the root command** — the same restriction as the root
+      mount, and found beside it: the spec accepts the property only inside a `cmd` block,
+      so a CLI whose _root_ cannot be run alone has no way to say so. The clap bridge could
+      not say it either, so nothing regressed — but a bare `T` subcommand field on the root
+      is now a thing the derive knows and the spec has nowhere to put.
 
 - [x] **Three things a spec could say that the derive could not** — a flag's value name
       (`--tool <TOOL>` came back as `--tool <tool>`, since the flag's own name was all there
