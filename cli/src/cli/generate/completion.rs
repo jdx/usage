@@ -7,7 +7,7 @@ use super::parse_file_or_stdin;
 
 /// Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 #[derive(Args)]
-#[usage(effect = "read")]
+#[usage(alias = "c", alias_hidden("complete", "completions"), effect = "read")]
 pub struct Completion {
     /// Shell to generate completions for
     #[usage(choices("bash", "fish", "nu", "powershell", "zsh"))]
@@ -17,13 +17,11 @@ pub struct Completion {
     bin: String,
 
     /// A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
-    // clap said `requires = "usage_cmd"`; the spec has no positive form yet, so the same
-    // rule is stated from the other end, on the flag that has to be there.
     /// A cache key to use for storing the results of calling the CLI with --usage-cmd
-    #[usage(long)]
+    #[usage(long, requires = "--usage-cmd")]
     cache_key: Option<String>,
 
     /// Include https://github.com/scop/bash-completion
@@ -41,7 +39,7 @@ pub struct Completion {
     /// A command which generates a usage spec
     /// e.g.: `mycli --usage` or `mycli completion usage`
     /// Defaults to "$bin --usage"
-    #[usage(long, required_unless = "--file", required_if = "--cache-key")]
+    #[usage(long, required_unless = "--file")]
     usage_cmd: Option<String>,
 }
 

@@ -16,7 +16,7 @@ mod sdk;
 /// Generate completions, documentation, and other artifacts from usage specs
 // Cannot run alone, and every child starts at `read`, so the parent is `read` too.
 #[derive(usage_derive::Args)]
-#[usage(effect = "read")]
+#[usage(alias = "g", effect = "read")]
 pub struct Generate {
     #[usage(subcommand)]
     pub command: Command,
@@ -28,16 +28,12 @@ pub struct Generate {
 /// derive would let win: one description, in the file that owns the command.
 #[derive(usage_derive::Subcommands)]
 pub enum Command {
-    #[usage(alias = "c", alias_hidden("complete", "completions"))]
     Completion(Box<completion::Completion>),
-    #[usage(alias = "ci", alias_hidden("init", "completions-init"))]
     CompletionInit(Box<completion_init::CompletionInit>),
     Fig(Box<fig::Fig>),
     Json(Box<json::Json>),
     JsonSchema(Box<json_schema::JsonSchema>),
-    #[usage(alias = "man")]
     Manpage(Box<manpage::Manpage>),
-    #[usage(alias = "md")]
     Markdown(Box<markdown::Markdown>),
     Sdk(Box<sdk::Sdk>),
 }

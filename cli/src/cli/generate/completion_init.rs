@@ -7,7 +7,11 @@ use usage_derive::Args;
 /// tab-completion for any executable whose first line is a `usage` shebang —
 /// no per-script `usage g completion` step required.
 #[derive(Args)]
-#[usage(effect = "read")]
+#[usage(
+    alias = "ci",
+    alias_hidden("init", "completions-init"),
+    effect = "read"
+)]
 pub struct CompletionInit {
     /// Shell to generate the init script for
     #[usage(choices("bash", "fish", "zsh"))]

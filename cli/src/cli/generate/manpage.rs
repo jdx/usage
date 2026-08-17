@@ -6,14 +6,14 @@ use usage_derive::Args;
 
 /// Generate a manpage from a usage spec
 #[derive(Args)]
-#[usage(effect = "read")]
+#[usage(alias = "man", effect = "read")]
 pub struct Manpage {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: PathBuf,
 
     /// Output file path, or "-" for stdout (default)
-    #[usage(short = 'o', long, effect = "write")]
+    #[usage(short, long, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// Manual section number (default: 1)
@@ -23,7 +23,7 @@ pub struct Manpage {
     /// - 5: File formats
     /// - 7: Miscellaneous
     /// - 8: System administration commands
-    #[usage(short = 's', long, default = "1")]
+    #[usage(short, long, default = "1")]
     section: u8,
 }
 

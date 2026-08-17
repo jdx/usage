@@ -11,7 +11,7 @@ use crate::Result;
 #[usage(effect = "read")]
 pub struct JsonSchema {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// Write the schema here instead of to stdout

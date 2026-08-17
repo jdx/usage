@@ -49,7 +49,7 @@ mod description_format {
 #[usage(effect = "read")]
 pub struct Fig {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// File path where the generated Fig spec will be saved, or "-" for stdout
