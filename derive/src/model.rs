@@ -336,7 +336,7 @@ impl Cli {
         }
 
         let mut name_given = false;
-        let (about, long_about) = doc_comment(&input.attrs)?;
+        let mut verbatim_doc_comment = false;
         let mut cli = Cli {
             ident: input.ident.clone(),
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
@@ -354,8 +354,8 @@ impl Cli {
                 .find(|a| a.path().is_ident("usage"))
                 .map(|a| a.path().span()),
             version: None,
-            about,
-            long_about,
+            about: None,
+            long_about: None,
             unknown_flags: None,
             default_subcommand: None,
             about_attr: None,
@@ -383,6 +383,7 @@ impl Cli {
                     // decorative after it.
                     "completion" => cli.completion = flag_value(&meta)?,
                     "settings" => cli.settings = flag_value(&meta)?,
+                    "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
                     "alias" => cli.aliases.extend(selectors(&meta)?),
                     "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
@@ -436,7 +437,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, `version`, `unknown_flags`, \
+                                 `name`, `bin`, `version`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `restart_token`, and `mount` here, \
                                  and the description comes from the doc comment"
                             ),
@@ -445,6 +446,8 @@ impl Cli {
                 }
             }
         }
+
+        (cli.about, cli.long_about) = doc_comment(&input.attrs, verbatim_doc_comment)?;
 
         // Declared descriptions win over the comment, which is the point of declaring them.
         if let Some(about) = cli.about_attr.take() {
@@ -1010,8 +1013,6 @@ impl Field {
             .clone()
             .expect("named fields were checked by the caller");
         let span = field.span();
-        let (help, long_help) = doc_comment(&field.attrs)?;
-
         // A subcommand field is neither a flag nor an argument, and shares none of
         // their options, so it is recognized before any of them are read.
         if let Some(subcommand) = Self::subcommand(field, &ident, span)? {
@@ -1042,6 +1043,7 @@ impl Field {
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
+        let mut verbatim_doc_comment = false;
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
@@ -1153,6 +1155,7 @@ impl Field {
                     // help whose breaks are meant literally has to be given directly.
                     "help" => help_attr = Some(string_value(&meta)?),
                     "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "required" => required_collection = flag_value(&meta)?,
                     "double_dash" => {
                         let mode = string_value(&meta)?;
@@ -1183,6 +1186,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `overrides`, \
                                  `conflicts`, `requires`, `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
+                                 `verbatim_doc_comment`, \
                                  `required`, and `double_dash`"
                             ),
                         ));
@@ -1190,6 +1194,8 @@ impl Field {
                 }
             }
         }
+
+        let (help, long_help) = doc_comment(&field.attrs, verbatim_doc_comment)?;
 
         // A bare `long` or `short` written before `name` would have captured the
         // field name rather than the renamed one, so resolve both once everything
@@ -1971,10 +1977,13 @@ fn flag_value(meta: &Meta) -> syn::Result<bool> {
 
 /// Split a doc comment into the short help and the long help.
 ///
-/// The first paragraph is the short form, matching what every Rust CLI framework
-/// does and what an author expects from writing one; the whole comment is the long
-/// form, and is only reported when it says more than the short one.
-fn doc_comment(attrs: &[Attribute]) -> syn::Result<(Option<String>, Option<String>)> {
+/// The first paragraph is the short form; the whole comment is the long form and is only
+/// reported when it says more than the short one. Prose is flowed by default, while
+/// `verbatim` keeps line breaks and whitespace for tables, examples, and ASCII art.
+fn doc_comment(
+    attrs: &[Attribute],
+    verbatim: bool,
+) -> syn::Result<(Option<String>, Option<String>)> {
     let mut lines: Vec<String> = Vec::new();
     for attr in attrs.iter().filter(|a| a.path().is_ident("doc")) {
         if let Meta::NameValue(nv) = &attr.meta {
@@ -1987,12 +1996,37 @@ fn doc_comment(attrs: &[Attribute]) -> syn::Result<(Option<String>, Option<Strin
                 // mise's help is full of them, since an indented block is how a spec shows a
                 // command to type.
                 let raw = s.value();
-                lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
+                if verbatim {
+                    let mut raw_lines = raw.split('\n');
+                    if let Some(first) = raw_lines.next() {
+                        lines.push(first.strip_prefix(' ').unwrap_or(first).to_string());
+                    }
+                    lines.extend(raw_lines.map(str::to_string));
+                } else {
+                    // Preserve the pre-verbatim behaviour for an explicitly written,
+                    // multiline `#[doc = "..."]`: only `///` contributes one leading
+                    // space per attribute. A newline inside one attribute does not.
+                    lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
+                }
             }
         }
     }
+    while lines.first().is_some_and(|line| line.trim().is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|line| line.trim().is_empty()) {
+        lines.pop();
+    }
     if lines.is_empty() {
         return Ok((None, None));
+    }
+
+    if verbatim {
+        let first_blank = lines.iter().position(|line| line.trim().is_empty());
+        let short_lines = first_blank.map_or(lines.as_slice(), |i| &lines[..i]);
+        let short = short_lines.join("\n");
+        let long = first_blank.map(|_| lines.join("\n"));
+        return Ok(((!short.is_empty()).then_some(short), long));
     }
 
     let full = lines.join("\n").trim().to_string();
@@ -2216,7 +2250,7 @@ impl Subcommands {
 
 impl Variant {
     fn from_variant(variant: &syn::Variant, enum_ident: &syn::Ident) -> syn::Result<Self> {
-        let (help, long_help) = doc_comment(&variant.attrs)?;
+        let mut verbatim_doc_comment = false;
         // `unraw` first: `r#type` is how a variant named after a keyword prints, and a command
         // called `r#type` is one no user could type. `type` is what they meant.
         let mut name = to_kebab(&variant.ident.unraw().to_string());
@@ -2247,12 +2281,14 @@ impl Variant {
                     // breaks matter is declared instead.
                     "help" => help_attr = Some(string_value(&meta)?),
                     "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias` and `alias_hidden` here, \
+                                 variant takes `name`, `alias`, `alias_hidden` and \
+                                 `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));
@@ -2260,6 +2296,7 @@ impl Variant {
                 }
             }
         }
+        let (help, long_help) = doc_comment(&variant.attrs, verbatim_doc_comment)?;
         for alias in aliases.iter().chain(&hidden_aliases) {
             if alias.is_empty() {
                 return Err(syn::Error::new_spanned(

@@ -179,6 +179,7 @@
 //! here the declaration simply wins and the other spelling still answers.
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
+//! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `min_usage_version` — the oldest `usage` that can read the emitted
 //! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
@@ -201,6 +202,7 @@
 //! | `env = "X"` | an environment variable that can supply the value |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
+//! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |
 //! | `hide` | keep it out of help and completions |
 //! | `effect = "write"` | what supplying this flag does to the world: `read`, `write` or `destructive`. Also goes on an `Args`, where it says what *running* the command does |
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
