@@ -213,6 +213,7 @@
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
+//! | `group = "input"` | the group this flag is one of; see below |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!
@@ -220,6 +221,28 @@
 //! as a list: `conflicts("--file", "--url")`. A selector naming no flag on the command
 //! is a compile error, which is the advantage of declaring a relationship in code: in a
 //! hand-written spec a typo'd selector is a relationship that quietly does not hold.
+//!
+//! A **group** is the one relationship that is not written flag-to-flag, because what it
+//! says is about the set: `required` means one of them is needed, and no rule on an
+//! individual flag expresses that. Membership goes on the fields and the properties on the
+//! struct, which may be left out entirely when the group is a plain "at most one":
+//!
+//! ```ignore
+//! #[derive(Cli)]
+//! #[usage(bin = "ex")]
+//! #[usage(group("input", required))]
+//! struct Ex {
+//!     #[usage(long, group = "input")]
+//!     file: Option<String>,
+//!     #[usage(long, group = "input")]
+//!     url: Option<String>,
+//! }
+//! ```
+//!
+//! `required` means at least one member is needed and `multiple` means more than one may
+//! be given, so a bare group is "at most one", `required` alone is "exactly one", and the
+//! two together are "at least one" — clap's two properties, read the same way. A group
+//! with one member, or a declaration no field joins, is a compile error.
 //!
 //! They describe relationships *between flags*, so a positional cannot declare one —
 //! the spec records them on a flag and has nowhere to put them on an argument, and a

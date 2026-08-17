@@ -123,6 +123,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let tables = tables(cli);
     let table_decls = &tables.decls;
     let meta_table_decls = &tables.meta_decls;
+    let (group_meta_decl, group_meta_table_ref) = group_meta_table(cli);
     let flag_table_ref = &tables.flags;
     let arg_table_ref = &tables.args;
     let flag_meta_table_ref = &tables.flag_metas;
@@ -274,6 +275,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #(#arg_metas)*
             #meta_table_decls
 
+            #group_meta_decl
+
             pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
                 about: #about,
@@ -287,6 +290,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 after_long_help: #after_long_help,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
+                groups: #group_meta_table_ref,
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
@@ -2399,6 +2403,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let tables = tables(cli);
     let table_decls = &tables.decls;
     let meta_table_decls = &tables.meta_decls;
+    let (group_meta_decl, group_meta_table_ref) = group_meta_table(cli);
     let flag_table_ref = &tables.flags;
     let arg_table_ref = &tables.args;
     let flag_meta_table_ref = &tables.flag_metas;
@@ -2470,6 +2475,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             #(#arg_metas)*
             #meta_table_decls
 
+            #group_meta_decl
+
             pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
                 effect: #effect,
@@ -2485,6 +2492,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 after_long_help: #after_long_help,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
+                groups: #group_meta_table_ref,
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
@@ -2919,6 +2927,135 @@ fn displaced_guard(cli: &Cli, field: &Field) -> TokenStream {
     quote!(&& !partial.#overridden)
 }
 
+/// The groups a command declares, in the order their first member is written.
+///
+/// Membership lives on the fields and properties on the struct, so this is where the two
+/// are joined — and it is the only place both are visible, which is why the emitted
+/// metadata is built here rather than in the model.
+fn declared_groups(cli: &Cli) -> Vec<(String, bool, bool, Vec<String>)> {
+    let mut groups: Vec<(String, bool, bool, Vec<String>)> = Vec::new();
+    for field in &cli.fields {
+        let Some(name) = field.group.as_deref() else {
+            continue;
+        };
+        let Some(selector) = Cli::selector_for_field(field) else {
+            continue;
+        };
+        match groups.iter_mut().find(|(n, _, _, _)| n == name) {
+            Some((_, _, _, members)) => members.push(selector),
+            None => {
+                // An undeclared group takes the defaults, which is the common case: "at
+                // most one of these" needs no properties, and making it say so anyway
+                // would be ceremony.
+                let decl = cli.groups.iter().find(|d| d.name == name);
+                groups.push((
+                    name.to_string(),
+                    decl.is_some_and(|d| d.required),
+                    decl.is_some_and(|d| d.multiple),
+                    vec![selector],
+                ));
+            }
+        }
+    }
+    groups
+}
+
+/// The `static` array of group metadata, and the expression referring to it.
+///
+/// A flattened struct's groups are joined in, the way its flags and their metadata are:
+/// the child enforces them through its own `check`, and its flags are in *this* command's
+/// table, so its groups describe this command and belong in this command's emitted KDL.
+/// Leaving them out would enforce a rule the spec does not mention — the drift the
+/// spec-as-definition rule exists to prevent.
+fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
+    let groups = declared_groups(cli);
+    // Where each group's first member was written, which is the position `declared_groups`
+    // already orders them by. A group whose members straddle a flattened field still belongs
+    // where it *starts*, so it keeps its whole member list rather than being split in two.
+    let first_member_at: Vec<usize> = groups
+        .iter()
+        .map(|(name, _, _, _)| {
+            cli.fields
+                .iter()
+                .position(|f| {
+                    f.group.as_deref() == Some(name.as_str())
+                        && Cli::selector_for_field(f).is_some()
+                })
+                .unwrap_or(usize::MAX)
+        })
+        .collect();
+    let entry = |(name, required, multiple, members): &(String, bool, bool, Vec<String>)| {
+        quote! {
+            usage_argv::spec::GroupMeta {
+                name: #name,
+                members: &[#(#members),*],
+                required: #required,
+                multiple: #multiple,
+            }
+        }
+    };
+
+    // One walk over the fields, so a flattened struct's groups land where the field was
+    // written rather than after everything this struct declares — the same interleaving the
+    // flag and argument tables are built with, and visible in the same places their order is.
+    let mut parts: Vec<TokenStream> = Vec::new();
+    let mut run: Vec<TokenStream> = Vec::new();
+    let mut emitted = vec![false; groups.len()];
+    let mut any_flattened = false;
+    for (i, field) in cli.fields.iter().enumerate() {
+        let Kind::Flatten { ty } = &field.kind else {
+            continue;
+        };
+        any_flattened = true;
+        for (g, group) in groups.iter().enumerate() {
+            if !emitted[g] && first_member_at[g] < i {
+                emitted[g] = true;
+                run.push(entry(group));
+            }
+        }
+        if !run.is_empty() {
+            let entries = std::mem::take(&mut run);
+            parts.push(quote!(&[#(#entries),*]));
+        }
+        // Named directly, as the flag and argument tables beside this one are: the
+        // generated items live in the user's own scope now rather than in a module
+        // above it, so there is no path to rewrite.
+        parts.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.groups));
+    }
+    for (g, group) in groups.iter().enumerate() {
+        if !emitted[g] {
+            run.push(entry(group));
+        }
+    }
+    if !run.is_empty() {
+        parts.push(quote!(&[#(#run),*]));
+    }
+
+    if parts.is_empty() {
+        return (quote!(), quote!(&[]));
+    }
+    if !any_flattened {
+        let len = groups.len();
+        let entries = groups.iter().map(entry);
+        return (
+            quote! {
+                pub static GROUP_METAS: [usage_argv::spec::GroupMeta; #len] = [#(#entries),*];
+            },
+            quote!(&GROUP_METAS),
+        );
+    }
+    (
+        quote! {
+            const GROUP_META_GROUPS: &[&[usage_argv::spec::GroupMeta<'static>]] =
+                &[#(#parts),*];
+            static GROUP_METAS: [usage_argv::spec::GroupMeta<'static>;
+                usage_argv::table_len(GROUP_META_GROUPS)] =
+                usage_argv::spec::concat_group_metas(GROUP_META_GROUPS);
+        },
+        quote!(&GROUP_METAS),
+    )
+}
+
 /// Everything decided once the last token has been read.
 ///
 /// Ordered deliberately. The environment fills what argv left out, so it runs
@@ -3227,6 +3364,84 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    // Groups, checked once per group rather than per member: both questions a group asks
+    // — how many members were given, and whether that is enough — are about the set.
+    //
+    // The two halves read a default differently, deliberately, and the same way
+    // usage-lib does. Exclusivity counts what was supplied, or a defaulted member would
+    // collide with the sibling the user typed; requiredness asks whether a member ended
+    // up with a value, and a default is a value.
+    let group_checks = declared_groups(cli)
+        .into_iter()
+        .map(|(name, required, multiple, members)| {
+            let fields: Vec<&Field> = members
+                .iter()
+                .filter_map(|selector| cli.field_for_selector(selector))
+                .collect();
+            let given: Vec<TokenStream> = fields
+                .iter()
+                .map(|f| {
+                    let given = format_ident!("__given_{}", f.ident);
+                    quote!(partial.#given)
+                })
+                .collect();
+            // A member with a default always has a value, so the group can never be
+            // unsatisfied. Decided here rather than at run time, as `requires` is.
+            let always_filled = fields.iter().any(|f| !f.default.is_empty());
+            let exclusivity = (!multiple).then(|| {
+                // Reported as the first two that were given, which is the pair the user has
+                // to choose between. `ConflictingFlags` rather than a group-shaped error:
+                // what went wrong is that two flags were given together, which is exactly
+                // what that error says.
+                let names: Vec<&String> = fields.iter().map(|f| &f.name).collect();
+                let pairs = (0..fields.len()).flat_map(|i| {
+                    let (later, earlier) = (given.clone(), given.clone());
+                    let (later_names, earlier_names) = (names.clone(), names.clone());
+                    ((i + 1)..fields.len())
+                        .map(move |j| {
+                            let (a, b) = (&earlier[i], &later[j]);
+                            let (name_a, name_b) = (earlier_names[i], later_names[j]);
+                            quote! {
+                                if #a && #b {
+                                    return ::std::result::Result::Err(
+                                        usage_argv::Error::ConflictingFlags {
+                                            name: #name_b,
+                                            other: #name_a,
+                                        },
+                                    );
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                });
+                quote!(#(#pairs)*)
+            });
+            let requiredness = (required && !always_filled).then(|| {
+                let selectors = &members;
+                quote! {
+                    if !(#(#given)||*) {
+                        return ::std::result::Result::Err(
+                            usage_argv::Error::MissingGroup {
+                                group: #name,
+                                members: &[#(#selectors),*],
+                            },
+                        );
+                    }
+                }
+            });
+            (exclusivity, requiredness)
+        })
+        .collect::<Vec<_>>();
+    // Two passes rather than one block per group, because the order between *kinds* of
+    // check is the one this function promises: what the user typed wrong before what
+    // they left out. Emitted together, an earlier group's `MissingGroup` would answer
+    // before a later group's `ConflictingFlags` — and before a flattened child's, since
+    // those run later still.
+    let group_exclusivity_checks: Vec<TokenStream> =
+        group_checks.iter().filter_map(|(e, _)| e.clone()).collect();
+    let group_required_checks: Vec<TokenStream> =
+        group_checks.iter().filter_map(|(_, r)| r.clone()).collect();
+
     // `required_if` and `required_unless` are the same question asked two ways: which
     // other flags decide whether this one had to be given. Neither needs to know the
     // order they arrived in — only whether they arrived — so both are answered here,
@@ -3292,9 +3507,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
+        #(#group_exclusivity_checks)*
         #(#requirement_checks)*
         #(#flattened_checks)*
         #(#required_checks)*
+        #(#group_required_checks)*
         #(#relationship_required_checks)*
         #(#choice_checks)*
         #(#bound_checks)*

@@ -314,6 +314,14 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             run.skipped.note("a command's second and later mounts");
         }
     }
+    // Counted rather than emitted, in *both* dialects. Both can express a group — the
+    // derive with `group(…)` and clap with `ArgGroup` — so this is a gap in the shadow
+    // generator rather than in either target, and no spec in the fleet declares one yet
+    // for it to matter to. It is counted so the report cannot claim the shadow expressed
+    // a whole spec that it did not.
+    if !cmd.groups.is_empty() {
+        run.skipped.note("a `group` on a command");
+    }
     for (_, sub, sub_ty) in &children {
         // `run` travels down unchanged; `default_subcommand` is read under an `is_root`
         // guard, so a child cannot pick up the root's.

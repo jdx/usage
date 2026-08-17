@@ -96,7 +96,21 @@ pub struct Cli {
     /// Carried into the spec and nowhere else. The parser never runs it: a mount costs a
     /// subprocess, and completions are the cold path where that is affordable.
     pub mount: Option<String>,
+    /// Groups declared on this command, with their properties.
+    ///
+    /// Membership is on the field — `#[usage(group = "input")]` — and only the two
+    /// properties live here, because a group that says nothing but "these three are
+    /// exclusive" should not need declaring twice.
+    pub groups: Vec<GroupDecl>,
     pub fields: Vec<Field>,
+}
+
+/// A `#[usage(group("input", required))]` on the struct.
+pub struct GroupDecl {
+    pub name: String,
+    pub required: bool,
+    pub multiple: bool,
+    pub span: Span,
 }
 
 /// One field, resolved to the thing it declares.
@@ -191,6 +205,10 @@ pub struct Field {
     /// one lives on the flag the rule is about, which is where clap puts it and where a
     /// reader looks for it.
     pub requires: Vec<String>,
+    /// The group this flag belongs to, if any. Properties live on the group's own
+    /// declaration; membership lives here, because a field is where a reader looks to
+    /// see what a flag is part of.
+    pub group: Option<String>,
     /// Flags whose presence makes this one necessary.
     pub required_if: Vec<String>,
     /// Flags whose presence makes this one unnecessary.
@@ -407,6 +425,7 @@ impl Cli {
             after_long_help: None,
             restart_token: None,
             mount: None,
+            groups: Vec::new(),
             fields: Vec::new(),
         };
 
@@ -474,14 +493,16 @@ impl Cli {
                     }
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
+                    "group" => cli.groups.push(group_decl(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `bin`, `version`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `restart_token`, and `mount` here, \
-                                 and the description comes from the doc comment"
+                                 `default_subcommand`, `restart_token`, `mount` and \
+                                 `group` here, and the description comes from the doc \
+                                 comment"
                             ),
                         ));
                     }
@@ -668,6 +689,20 @@ impl Cli {
         Ok(())
     }
 
+    /// How a group names one of its member fields in the emitted spec.
+    ///
+    /// The long form when there is one, since that is how a spec refers to a flag
+    /// everywhere else; a short form otherwise, which selectors accept just as readily.
+    pub fn selector_for_field(field: &Field) -> Option<String> {
+        let Kind::Flag { longs, shorts, .. } = &field.kind else {
+            return None;
+        };
+        longs
+            .first()
+            .map(|long| format!("--{long}"))
+            .or_else(|| shorts.first().map(|short| format!("-{short}")))
+    }
+
     pub fn field_for_selector(&self, selector: &str) -> Option<&Field> {
         self.fields.iter().find(|field| {
             let Kind::Flag {
@@ -817,6 +852,73 @@ impl Cli {
             }
         }
 
+        // Groups: every member is a flag, every declared group has members, and a group
+        // holds at least two of them — the same floor the spec enforces, checked here so
+        // it fails where it is written rather than when the spec is emitted.
+        let mut group_members: Vec<(&str, Vec<&Field>)> = Vec::new();
+        for field in &self.fields {
+            let Some(name) = field.group.as_deref() else {
+                continue;
+            };
+            if !matches!(field.kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    field.span,
+                    "`group` describes a relationship between flags, so the field needs \
+                     a `long` or a `short`",
+                ));
+            }
+            // `group("")` on the struct is refused as nameless; two fields saying
+            // `group = ""` would otherwise form the same nameless group by the back
+            // door, and it would be emitted and reported with nothing to call it.
+            if name.is_empty() {
+                return Err(syn::Error::new(
+                    field.span,
+                    "a group with no name answers to nothing; give it one, as \
+                     `group = \"input\"`",
+                ));
+            }
+            match group_members.iter_mut().find(|(n, _)| *n == name) {
+                Some((_, members)) => members.push(field),
+                None => group_members.push((name, vec![field])),
+            }
+        }
+        for (name, members) in &group_members {
+            if members.len() < 2 {
+                return Err(syn::Error::new(
+                    members[0].span,
+                    format!(
+                        "group `{name}` has one flag in it; a rule about a single flag \
+                         belongs on that flag, as `required` or `requires`"
+                    ),
+                ));
+            }
+        }
+        for (i, decl) in self.groups.iter().enumerate() {
+            // Two declarations of one group would be read first-match-wins, so the second
+            // one's properties would be silently dropped — a `required` written and not
+            // enforced, which is worse than not being able to write it.
+            if self.groups[..i].iter().any(|d| d.name == decl.name) {
+                return Err(syn::Error::new(
+                    decl.span,
+                    format!(
+                        "group `{}` is declared twice; one declaration carries all of \
+                         its properties",
+                        decl.name
+                    ),
+                ));
+            }
+            if !group_members.iter().any(|(n, _)| *n == decl.name) {
+                return Err(syn::Error::new(
+                    decl.span,
+                    format!(
+                        "group `{}` is declared and no field is in it; a field joins a \
+                         group with `#[usage(group = \"{}\")]`",
+                        decl.name, decl.name
+                    ),
+                ));
+            }
+        }
+
         // Every relationship names a flag that exists. Resolving these at compile time
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
@@ -951,6 +1053,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            group: None,
             required_if: Vec::new(),
             required_unless: Vec::new(),
             hide: false,
@@ -1045,6 +1148,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            group: None,
             required_if: Vec::new(),
             required_unless: Vec::new(),
             hide: false,
@@ -1102,6 +1206,7 @@ impl Field {
         let mut overrides: Vec<String> = Vec::new();
         let mut conflicts: Vec<String> = Vec::new();
         let mut requires: Vec<String> = Vec::new();
+        let mut group: Option<String> = None;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1194,6 +1299,7 @@ impl Field {
                     "overrides" => overrides = selectors(&meta)?,
                     "conflicts" => conflicts = selectors(&meta)?,
                     "requires" => requires = selectors(&meta)?,
+                    "group" => group = Some(string_value(&meta)?),
                     "required_if" => required_if = selectors(&meta)?,
                     "required_unless" => required_unless = selectors(&meta)?,
                     "value_enum" => value_enum = flag_value(&meta)?,
@@ -1237,7 +1343,7 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
-                                 `conflicts`, `requires`, `required_if`, \
+                                 `conflicts`, `requires`, `group`, `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
                                  `required`, and `double_dash`"
@@ -1784,6 +1890,7 @@ impl Field {
             overrides,
             conflicts,
             requires,
+            group,
             required_if,
             required_unless,
             hide,
@@ -1976,6 +2083,80 @@ fn string_value(meta: &Meta) -> syn::Result<String> {
 /// than as field names, so a declaration reads the same in Rust as it does in KDL.
 /// Which flag each one names is resolved in [`Cli::check`], where every field is in
 /// view.
+/// `group("input", required, multiple)` — a name, then any of the two properties.
+///
+/// Hand-parsed rather than reusing [`selectors`], because the list is mixed: a string
+/// literal for the name and bare idents for the properties. Spelling the properties as
+/// idents rather than as `required = true` matches how `long`, `global` and `count` are
+/// already written on a field — a property that is only ever on or off is said by naming
+/// it.
+fn group_decl(meta: &Meta) -> syn::Result<GroupDecl> {
+    let span = meta.path().span();
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta.path(),
+            "a group is declared as `group(\"name\")`, with `required` and `multiple` \
+             after the name if it needs them",
+        ));
+    };
+    let mut name: Option<String> = None;
+    let mut decl = GroupDecl {
+        name: String::new(),
+        required: false,
+        multiple: false,
+        span,
+    };
+    list.parse_args_with(|input: syn::parse::ParseStream| {
+        while !input.is_empty() {
+            if input.peek(syn::LitStr) {
+                let lit: syn::LitStr = input.parse()?;
+                if name.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        &lit,
+                        "a group takes one name; its members are declared on the fields, \
+                         with `#[usage(group = \"…\")]`",
+                    ));
+                }
+                name = Some(lit.value());
+            } else {
+                let ident: syn::Ident = input.parse()?;
+                match ident.to_string().as_str() {
+                    "required" => decl.required = true,
+                    "multiple" => decl.multiple = true,
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            &ident,
+                            format!(
+                                "unknown group property `{other}`; a group takes \
+                                 `required` and `multiple`"
+                            ),
+                        ));
+                    }
+                }
+            }
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<syn::Token![,]>()?;
+        }
+        Ok(())
+    })?;
+    let Some(name) = name else {
+        return Err(syn::Error::new(
+            span,
+            "a group needs a name, as in `group(\"input\", required)`",
+        ));
+    };
+    if name.is_empty() {
+        return Err(syn::Error::new(
+            span,
+            "a group with no name answers to nothing",
+        ));
+    }
+    decl.name = name;
+    Ok(decl)
+}
+
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
     let Meta::List(list) = meta else {
         return Ok(vec![string_value(meta)?]);
@@ -3360,6 +3541,77 @@ mod tests {
         "#,
         );
         assert!(err.contains("takes no value"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn a_group_is_declared_once_and_joined_by_at_least_two_flags() {
+        // Two declarations would be read first-match-wins, so the second one's
+        // properties would be silently dropped — a `required` written and not enforced.
+        let err = rejection(
+            r#"
+            #[usage(group("input", required))]
+            #[usage(group("input", multiple))]
+            struct Ex {
+                #[usage(long, group = "input")]
+                file: Option<String>,
+                #[usage(long, group = "input")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("declared twice"), "unhelpful message: {err}");
+
+        // A group of one is a statement about that flag.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, group = "input")]
+                file: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("one flag in it"), "unhelpful message: {err}");
+
+        // And a declaration nothing joins holds for nothing.
+        let err = rejection(
+            r#"
+            #[usage(group("input", required))]
+            struct Ex {
+                #[usage(long)]
+                file: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("no field is in it"),
+            "unhelpful message: {err}"
+        );
+
+        // A positional cannot be in one, as it cannot hold any other relationship.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(group = "input")]
+                target: String,
+                #[usage(long, group = "input")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("between flags"), "unhelpful message: {err}");
+
+        // A group with no name answers to nothing, whichever way it is written.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, group = "")]
+                file: Option<String>,
+                #[usage(long, group = "")]
+                url: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("no name"), "unhelpful message: {err}");
     }
 
     #[test]

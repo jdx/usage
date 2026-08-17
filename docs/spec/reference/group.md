@@ -84,6 +84,25 @@ Members are counted by the flag they name, not by the selector, so a group listi
 `-f` and `--file` holds one member and not two. Listing both is redundant rather than
 wrong, and a flag is never in conflict with itself.
 
+## From the derive
+
+`#[derive(usage::Cli)]` writes the same group with membership on the fields and the
+properties on the struct:
+
+```rust
+#[usage(group("input", required))]
+struct Ex {
+    #[usage(long, group = "input")]
+    file: Option<String>,
+    #[usage(long, group = "input")]
+    url: Option<String>,
+}
+```
+
+The `#[usage(group(...))]` line can be left out when the group is a plain "at most one".
+A group with fewer than two members, or a declaration no field joins, is a compile error
+rather than a rule that quietly holds for nothing.
+
 ## Coming from clap
 
 `ArgGroup` carries across, with `required` and `multiple` read the same way. A group that

@@ -651,3 +651,148 @@ fn an_optional_collection_with_defaults_is_never_none() {
     // And one that declares no default still tells "never given" from "given nothing".
     assert_eq!(d.plain, None);
 }
+
+/// A CLI whose flags are grouped.
+///
+/// `--file`/`--url`/`--stdin` are one exclusive, required group — exactly one source —
+/// and `--json`/`--yaml` are an ordinary exclusive one, where saying nothing is fine.
+#[derive(Cli)]
+#[usage(bin = "grp")]
+#[usage(group("input", required))]
+struct Grp {
+    /// Read from a file
+    #[usage(long, group = "input")]
+    file: Option<String>,
+    /// Read from a URL
+    #[usage(long, group = "input")]
+    url: Option<String>,
+    /// Read from standard input
+    #[usage(short = 's', long, group = "input")]
+    stdin: bool,
+    /// Emit JSON
+    #[usage(long, group = "format")]
+    json: bool,
+    /// Emit YAML
+    #[usage(long, group = "format")]
+    yaml: bool,
+}
+
+#[test]
+fn a_required_group_needs_one_of_its_members() {
+    let a = argv([]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::MissingGroup {
+            group: "input",
+            members: ["--file", "--url", "--stdin"]
+        })
+    ));
+
+    let a = argv(["--url", "u"]);
+    assert_eq!(
+        Grp::parse_from(&a).expect("one member").url.as_deref(),
+        Some("u")
+    );
+}
+
+#[test]
+fn two_members_of_an_exclusive_group_cannot_both_be_given() {
+    let a = argv(["--file", "f", "--stdin"]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            name: "stdin",
+            other: "file"
+        })
+    ));
+
+    // By its short form too, since the group is between flags rather than spellings.
+    let a = argv(["--url", "u", "-s"]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::ConflictingFlags { name: "stdin", .. })
+    ));
+
+    // One member alone still parses, and lands where it was declared.
+    let a = argv(["--file", "f"]);
+    let grp = Grp::parse_from(&a).expect("one member");
+    assert_eq!(grp.file.as_deref(), Some("f"));
+    assert!(!grp.stdin);
+}
+
+#[test]
+fn a_group_that_is_not_required_may_be_left_alone() {
+    // `--json`/`--yaml` exclude each other and neither is needed.
+    let a = argv(["--url", "u"]);
+    let grp = Grp::parse_from(&a).expect("saying nothing about format is fine");
+    assert!(!grp.json && !grp.yaml);
+
+    let a = argv(["--url", "u", "--json"]);
+    assert!(Grp::parse_from(&a).expect("one of them").json);
+
+    let a = argv(["--url", "u", "--json", "--yaml"]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+}
+
+#[test]
+fn a_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
+    let kdl = Grp::to_kdl();
+    assert!(
+        kdl.contains(r#"group "input" "--file" "--url" "--stdin" required=#true"#),
+        "{kdl}"
+    );
+    assert!(kdl.contains(r#"group "format" "--json" "--yaml""#), "{kdl}");
+
+    // The reference implementation reads what the derive wrote, and enforces the same
+    // rule — which is the point of the spec being the definition rather than a summary.
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let group = spec.cmd.groups.iter().find(|g| g.name == "input").unwrap();
+    assert!(group.required);
+    assert_eq!(group.members.len(), 3);
+}
+
+/// Two groups on one command, one required and one exclusive.
+#[derive(Cli)]
+#[usage(bin = "ex4")]
+#[usage(group("input", required))]
+struct TwoGroups {
+    #[usage(long, group = "input")]
+    file: Option<String>,
+    #[usage(long, group = "input")]
+    url: Option<String>,
+    #[usage(long, group = "format")]
+    json: bool,
+    #[usage(long, group = "format")]
+    yaml: bool,
+}
+
+#[test]
+fn a_conflict_answers_before_an_unsatisfied_group_does() {
+    // Both are wrong here: `input` has no member, and `format` has two. The conflict is
+    // the more useful answer — it says which flag not to have typed, where the other
+    // asks for one more — and it is the order the rest of the checks already follow.
+    let a = argv(["--json", "--yaml"]);
+    assert!(
+        matches!(
+            TwoGroups::parse_from(&a),
+            Err(Error::ConflictingFlags { .. })
+        ),
+        "the exclusivity of a later group should answer before an earlier group's requiredness"
+    );
+
+    // With the conflict gone, the unsatisfied group is what is left to say.
+    let a = argv(["--json"]);
+    assert!(matches!(
+        TwoGroups::parse_from(&a),
+        Err(Error::MissingGroup { group: "input", .. })
+    ));
+
+    // And with both satisfied, the values land where they were declared.
+    let a = argv(["--file", "f", "--yaml"]);
+    let two = TwoGroups::parse_from(&a).expect("one from each group");
+    assert_eq!(two.file.as_deref(), Some("f"));
+    assert!(two.url.is_none() && two.yaml && !two.json);
+}

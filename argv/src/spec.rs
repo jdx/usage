@@ -78,6 +78,27 @@ fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
         .find_map(|sub| duplicate_flag_form(sub))
 }
 
+/// A group name that two declarations on the same command both claim, if any.
+///
+/// Within one struct the derive catches this, and `#[usage(flatten)]` joins declarations
+/// from two expansions that cannot see each other — so a parent and the struct it
+/// flattens can each declare `input`, and each then checks only its own members. One
+/// member from either side would satisfy neither exclusion, and the emitted KDL would
+/// carry two `group "input"` nodes saying different things.
+///
+/// Checked here for the same reason duplicate flag forms are: this is where the joined
+/// tables are visible.
+fn duplicate_group_name(meta: &CommandMeta<'_>) -> Option<std::string::String> {
+    let mut names: std::vec::Vec<&str> = meta.groups.iter().map(|g| g.name).collect();
+    names.sort_unstable();
+    if let Some(pair) = names.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Some(pair[0].to_string());
+    }
+    meta.subcommands
+        .iter()
+        .find_map(|sub| duplicate_group_name(sub))
+}
+
 /// An argument that no word could ever reach, if any.
 ///
 /// An unbounded variadic takes every remaining word, so what follows it can never be filled —
@@ -390,6 +411,79 @@ pub const fn concat_aliases<const N: usize>(groups: &[&[&'static str]]) -> [&'st
     out
 }
 
+/// A set of one command's flags that relate to one another as a set.
+///
+/// Pairwise `conflicts` can say "at most one of these", once per pair; what it cannot
+/// say is that one of them is *needed*, which is a statement about the set.
+#[derive(Debug, Clone, Copy)]
+pub struct GroupMeta<'a> {
+    /// What the group is called. It appears in the message a failed check produces, and
+    /// it is how a reader tells two groups on one command apart.
+    pub name: &'a str,
+    /// The flags in the group, as selectors — `--long` or `-s`, the way every other
+    /// relationship names a flag.
+    pub members: &'a [&'a str],
+    /// Whether at least one member has to be given.
+    pub required: bool,
+    /// Whether more than one member may be given. False is what makes a bare group
+    /// mutual exclusion, as it does in clap.
+    pub multiple: bool,
+}
+
+impl GroupMeta<'_> {
+    /// A group with nothing in it, for the array initialiser a const concat needs.
+    pub const EMPTY: GroupMeta<'static> = GroupMeta {
+        name: "",
+        members: &[],
+        required: false,
+        multiple: false,
+    };
+}
+
+/// Join groups of group metadata into one, at compile time.
+///
+/// The same shape as [`concat_flag_metas`], and needed for the same reason: a flattened
+/// struct's groups describe flags that are now in the parent's table, so they belong in
+/// the parent's emitted spec. Without this a group declared on a flattened struct would
+/// be enforced — the child's own `check` runs — and invisible to the KDL, which is
+/// exactly the drift the spec-as-definition rule exists to prevent.
+///
+/// `N` must be [`table_len`](crate::table_len) of the same groups.
+pub const fn concat_group_metas<const N: usize>(
+    groups: &[&[GroupMeta<'static>]],
+) -> [GroupMeta<'static>; N] {
+    let mut out = [GroupMeta::EMPTY; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            // This function initialises a generated `static`, so a collision across a parent
+            // and a flattened child is rejected while the adopter compiles. Leaving this to
+            // `to_kdl` let direct parsing enforce two independent groups with the same name.
+            let mut seen = 0;
+            while seen < at {
+                assert!(
+                    !crate::str_eq(out[seen].name, group[i].name),
+                    "two flattened groups on one command have the same name"
+                );
+                seen += 1;
+            }
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or the metadata would describe a \
+         group that does not exist"
+    );
+    out
+}
+
 /// What a command knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {
@@ -441,6 +535,11 @@ pub struct CommandMeta<'a> {
     pub args: &'a [ArgMeta<'a>],
     /// Metadata for `cmd.subcommands`, in the same order.
     pub subcommands: &'a [&'a CommandMeta<'a>],
+    /// Sets of this command's flags that relate to one another as a set.
+    ///
+    /// Cold like everything else here: a group is checked once the last token has been
+    /// read, by code the derive generates, and a successful parse never reads this.
+    pub groups: &'a [GroupMeta<'a>],
 }
 
 impl CommandMeta<'_> {
@@ -460,6 +559,7 @@ impl CommandMeta<'_> {
         after_help: None,
         after_long_help: None,
         examples: &[],
+        groups: &[],
         flags: &[],
         args: &[],
         subcommands: &[],
@@ -647,6 +747,14 @@ impl Spec<'_> {
              the parent and the struct it flattens each declared it.",
             duplicate_flag_form(self.root.cmd)
         );
+        assert!(
+            duplicate_group_name(self.root).is_none(),
+            "two groups on the same command are called {:?}, so each would enforce only \
+             its own members and one from either side would satisfy neither. With \
+             `flatten` this is the collision neither expansion can see: the parent and \
+             the struct it flattens each declared it. Give one of them another name.",
+            duplicate_group_name(self.root)
+        );
         debug_assert!(
             unfillable_arg(self.root.cmd).is_none(),
             "no word could ever reach the argument {:?}, because an unbounded variadic before \
@@ -807,6 +915,11 @@ fn write_body(
         write_arg(out, arg, depth)?;
     }
     write_completion_types(out, meta, depth)?;
+    // After the flags and arguments they name, so a reader meets the members before the
+    // rule about them — the order usage-lib writes, so a round trip reads the same way.
+    for group in meta.groups {
+        write_group(out, group, depth)?;
+    }
     #[cfg(feature = "complete")]
     write_completers(out, meta, bin, depth)?;
     for sub in meta.subcommands {
@@ -925,6 +1038,22 @@ fn write_command(
 
     indent(out, depth)?;
     out.push_str("}\n");
+    Ok(())
+}
+
+fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::fmt::Result {
+    indent(out, depth)?;
+    write!(out, "group {}", quoted(group.name))?;
+    for member in group.members {
+        write!(out, " {}", quoted(member))?;
+    }
+    if group.required {
+        out.push_str(" required=#true");
+    }
+    if group.multiple {
+        out.push_str(" multiple=#true");
+    }
+    out.push('\n');
     Ok(())
 }
 
@@ -1734,4 +1863,21 @@ mod tests {
         assert_eq!(placeholder("pattern", true, false), "<pattern>...");
         assert_eq!(placeholder("BUMP", false, true), "[BUMP]");
     }
+}
+#[test]
+#[should_panic(expected = "two flattened groups on one command have the same name")]
+fn concatenating_group_metadata_rejects_duplicate_names() {
+    static LEFT: [GroupMeta; 1] = [GroupMeta {
+        name: "input",
+        members: &["--file", "--url"],
+        required: false,
+        multiple: false,
+    }];
+    static RIGHT: [GroupMeta; 1] = [GroupMeta {
+        name: "input",
+        members: &["--json", "--yaml"],
+        required: false,
+        multiple: false,
+    }];
+    let _ = concat_group_metas::<2>(&[&LEFT, &RIGHT]);
 }
