@@ -1140,9 +1140,22 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     });
     let duplicate = rejects_duplicate(field).then(|| {
         let duplicated = format_ident!("__duplicated_{}", ident);
-        quote! {
-            if partial.#given {
-                partial.#duplicated = true;
+        if has_negate(field) {
+            let negated = format_ident!("__negated_{}", ident);
+            quote! {
+                if partial.#given {
+                    // The positive and negative spellings override one another: the
+                    // last of `--color --no-color` wins just like an explicit
+                    // `overrides` pair. Repeating the same spelling is still an error.
+                    partial.#duplicated = partial.#negated == negated;
+                }
+                partial.#negated = negated;
+            }
+        } else {
+            quote! {
+                if partial.#given {
+                    partial.#duplicated = true;
+                }
             }
         }
     });
@@ -1191,6 +1204,17 @@ fn rejects_duplicate(field: &Field) -> bool {
         && !field.repeatable
 }
 
+/// Whether a boolean flag has a negative spelling that overrides its positive one.
+fn has_negate(field: &Field) -> bool {
+    matches!(
+        &field.kind,
+        Kind::Flag {
+            negate: Some(_),
+            ..
+        }
+    )
+}
+
 /// Undoing the flags a flag displaces, as statements to run once it has been bound.
 ///
 /// Both directions. `overrides` is declared on one flag and holds between the two:
@@ -1203,9 +1227,14 @@ fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
             let reset = reset_to_default(other);
             let given = format_ident!("__given_{}", other.ident);
             let overridden = format_ident!("__overridden_{}", other.ident);
+            let duplicated = rejects_duplicate(other).then(|| {
+                let duplicated = format_ident!("__duplicated_{}", other.ident);
+                quote!(partial.#duplicated = false;)
+            });
             quote! {
                 #reset
                 partial.#given = false;
+                #duplicated
                 // Remembered, not just cleared: without this the environment fallback
                 // would refill the flag that lost and mark it given again, and a
                 // displaced `String` would be reported missing. usage-lib keeps the
@@ -1320,7 +1349,11 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(pub #duplicated: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated))
+        let negated = has_negate(f).then(|| {
+            let negated = format_ident!("__negated_{}", ident);
+            quote!(pub #negated: bool,)
+        });
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #negated))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -1644,11 +1677,16 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(#duplicated: false,)
         });
+        let negated = has_negate(f).then(|| {
+            let negated = format_ident!("__negated_{}", ident);
+            quote!(#negated: false,)
+        });
         Some(quote! {
             #ident: ::std::default::Default::default(),
             #given: false,
             #overridden
             #duplicated
+            #negated
         })
     });
     // Only the fields that declare one: `Partial`'s own initializer has already put

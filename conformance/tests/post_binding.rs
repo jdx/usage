@@ -373,7 +373,7 @@ struct Ovr {
     #[usage(long)]
     url: Option<String>,
     /// Colorize output, unless told otherwise
-    #[usage(long, default = "true", overrides = "--plain")]
+    #[usage(long, negate = "--no-color", default = "true", overrides = "--plain")]
     color: bool,
     /// No decoration at all
     #[usage(long)]
@@ -399,6 +399,37 @@ fn the_last_of_two_overriding_flags_wins() {
     let ovr = Ovr::parse_from(&a).expect("should parse");
     assert_eq!(ovr.file.as_deref(), Some("f"));
     assert!(!ovr.stdin, "displaced by the flag that came after it");
+}
+
+#[test]
+fn a_later_override_clears_an_earlier_duplicate() {
+    let a = argv(["--file", "a", "--file", "b", "--stdin"]);
+    let ovr = Ovr::parse_from(&a).expect("the final overriding flag should win");
+    assert!(ovr.stdin);
+    assert_eq!(ovr.file, None);
+}
+
+#[test]
+fn positive_and_negative_spellings_override_instead_of_duplicate() {
+    let a = argv(["--color", "--no-color"]);
+    assert!(
+        !Ovr::parse_from(&a)
+            .expect("the negative form should win")
+            .color
+    );
+
+    let a = argv(["--no-color", "--color"]);
+    assert!(
+        Ovr::parse_from(&a)
+            .expect("the positive form should win")
+            .color
+    );
+
+    let a = argv(["--no-color", "--no-color"]);
+    assert!(matches!(
+        Ovr::parse_from(&a),
+        Err(usage_argv::Error::DuplicateFlag { name: "color" })
+    ));
 }
 
 #[test]
