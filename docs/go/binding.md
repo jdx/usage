@@ -1,5 +1,10 @@
 # Binding and Values
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 Generated `Parse` does everything on this page for you. It's documented separately because the
 pieces are public — custom binding loops use them directly — and because the _rules_ matter even
 when you never call the functions: they define what your users' command lines mean.

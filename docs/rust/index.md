@@ -1,8 +1,9 @@
 # Rust Framework
 
-::: warning Experimental
+::: warning Experimental — draft docs
 The Rust framework is experimental. It is complete enough that `usage-cli` itself is built with it,
-but attribute names and APIs may still change between releases.
+but attribute names and APIs may still change between releases. These docs are a draft: some of
+what they document is still in open pull requests, and details may change before release.
 :::
 
 The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as

@@ -1,5 +1,10 @@
 # Generated Code
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 `usage generate go` lowers a KDL spec into one Go file. The output is `gofmt`-clean and carries
 the standard `// Code generated … DO NOT EDIT.` header.
 

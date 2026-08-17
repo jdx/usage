@@ -1,5 +1,10 @@
 # Help and Errors
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 ## Help pages
 
 Three renderers cover the usage line, the `-h` page, and the `--help` page:

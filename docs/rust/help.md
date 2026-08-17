@@ -1,5 +1,10 @@
 # Help, Version, and Errors
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 ## Help
 
 `-h` and `--help` are supplied by the parser — you never declare them. They aren't written into

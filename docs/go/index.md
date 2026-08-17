@@ -1,8 +1,10 @@
 # Go Framework
 
-::: warning Experimental
+::: warning Experimental — draft docs
 The Go framework is experimental. Its parsing behavior is verified against the same conformance
-corpus as the Rust implementation, but APIs may still change between releases.
+corpus as the Rust implementation, but APIs may still change between releases. These docs are a
+draft: some of what they document is still in open pull requests, and details may change before
+release.
 :::
 
 The Go framework builds your CLI from a usage spec — but unlike most Go CLI libraries, your

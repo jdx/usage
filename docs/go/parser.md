@@ -1,5 +1,10 @@
 # The Parser
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 Generated `Parse` is the front door, but the event-level API underneath is public and stable —
 use it when you need custom binding, a REPL, or completion positions.
 

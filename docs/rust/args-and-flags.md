@@ -1,5 +1,10 @@
 # Args and Flags
 
+::: warning Draft
+This page is a draft. Some of what it documents is still in open pull requests, and details may
+change before release.
+:::
+
 A field on a `#[derive(Cli)]` or `#[derive(Args)]` struct becomes a flag when it carries `long`
 or `short`, and a positional argument otherwise (or explicitly with `#[usage(arg)]`).
 
