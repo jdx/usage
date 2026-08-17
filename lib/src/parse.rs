@@ -849,6 +849,61 @@ fn parse_partial_with_env(
             }
         }
 
+        // A flag declared `allow_hyphen_values` takes the next token whatever it looks
+        // like, and that has to be asked before the separator arm below rather than
+        // after it. Asked after, a `--` was consumed as a separator while the flag
+        // stayed hungry, and the flag then ate the word past it: `ex -a -- -x` bound
+        // `-x` and the separator was simply gone. Asked here, the flag takes the `--`
+        // itself, which is what clap does with the same declaration — and no flag can
+        // still be waiting once the separator has done its job, so the starvation rule
+        // below has no path around it.
+        if enable_flags
+            && w.starts_with('-')
+            && out
+                .flag_awaiting_value
+                .last()
+                .is_some_and(|flag| flag.allow_hyphen_values())
+        {
+            let collecting = out
+                .flag_awaiting_value
+                .last()
+                .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
+                .cloned();
+            let should_return = drain_pending_flag_values(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                custom_env,
+            )?;
+            if should_return {
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                return Ok((out, overridden_flags));
+            }
+            // A variadic argument collects here too. Which token supplied its first
+            // value says nothing about how many it takes.
+            if let Some(flag) = collecting {
+                let should_return = collect_variadic_flag_values(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    &mut out.flags,
+                    &mut out.flag_awaiting_value,
+                    &flag,
+                    &mut input,
+                    &mut prefix_bindings,
+                    custom_env,
+                )?;
+                if should_return {
+                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    return Ok((out, overridden_flags));
+                }
+            }
+            continue;
+        }
+
         // Only while flags are still being read. Once a `--` has done its job, a
         // second one is an ordinary value: every parser worth comparing against
         // keeps it (POSIX getopt, argparse, clap, commander, yargs), and jdx/usage#229
@@ -893,28 +948,6 @@ fn parse_partial_with_env(
                 }
                 continue;
             }
-        }
-
-        if w.starts_with('-')
-            && out
-                .flag_awaiting_value
-                .last()
-                .is_some_and(|flag| flag.allow_hyphen_values())
-        {
-            let should_return = drain_pending_flag_values(
-                spec,
-                &out.cmd,
-                &mut out.errors,
-                &mut out.flags,
-                &mut out.flag_awaiting_value,
-                &mut w,
-                custom_env,
-            )?;
-            if should_return {
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                return Ok((out, overridden_flags));
-            }
-            continue;
         }
 
         // long flags
@@ -5015,6 +5048,55 @@ flag "-a --args <ARGS>" allow_hyphen_values=#true
 
         assert_eq!(parsed.flags.len(), 1);
         assert_eq!(flag_string_value(&parsed, "args"), "-destroy");
+    }
+
+    #[test]
+    fn test_allow_hyphen_values_takes_the_separator_as_its_value() {
+        // The flag is declared to accept a token that looks like a flag, and `--` looks
+        // like one, so it binds — which is what clap does with the same declaration.
+        // Letting the separator arm run first consumed it and left the flag hungry, and
+        // the flag then ate the word past it: `-a -- -x` bound `-x` with the `--` gone.
+        let spec = r#"
+flag "-a --args <ARGS>" allow_hyphen_values=#true
+arg "[rest]..."
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "--", "-x"])).unwrap();
+
+        assert_eq!(flag_string_value(&parsed, "args"), "--");
+        let rest = parsed
+            .args
+            .values()
+            .next()
+            .expect("expected the word after the separator to reach the argument");
+        assert_eq!(rest.to_string(), "-x");
+    }
+
+    #[test]
+    fn test_variadic_allow_hyphen_values_collects_after_a_hyphenated_first_value() {
+        // Which token supplied the first value says nothing about how many the argument
+        // takes, so collection carries on from a hyphenated one exactly as from a plain
+        // one. It still stops at the next flag-like token, which is what keeps a second
+        // occurrence of the flag from being eaten as a value.
+        let spec = r#"
+flag "-a --args <ARGS>..." allow_hyphen_values=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "-a", "-x", "b", "c"])).unwrap();
+
+        let flag = parsed
+            .flags
+            .keys()
+            .find(|flag| flag.name == "args")
+            .expect("expected args flag");
+        match parsed.flags.get(flag).expect("expected args value") {
+            ParseValue::MultiString(values) => assert_eq!(values, &["-x", "b", "c"]),
+            other => panic!("expected a list of values, got {other:?}"),
+        }
     }
 
     #[test]
