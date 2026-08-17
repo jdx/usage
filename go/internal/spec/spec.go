@@ -56,7 +56,6 @@ func (s *Spec) HelpSpec() argv.HelpSpec {
 		Version:        s.Version,
 		About:          s.About,
 		LongAbout:      s.AboutLong,
-		Usage:          s.Usage,
 		BeforeHelp:     s.BeforeHelp,
 		AfterHelp:      s.AfterHelp,
 		BeforeLongHelp: s.BeforeHelpLong,

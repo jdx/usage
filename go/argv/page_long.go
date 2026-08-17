@@ -111,9 +111,9 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) })
 
-	if meta != nil && len(meta.Examples) > 0 {
+	if examples := pageExamples(chain, help, meta); len(examples) > 0 {
 		out.WriteString("\nExamples:\n")
-		for _, e := range meta.Examples {
+		for _, e := range examples {
 			if e.Header != "" {
 				out.WriteString("  " + e.Header + ":\n")
 			}

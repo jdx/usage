@@ -28,9 +28,6 @@ type HelpSpec struct {
 	About string
 	// LongAbout is what `--help` prefers over About.
 	LongAbout string
-	// Usage replaces the computed usage line on the root's long page, where a CLI
-	// writes its own.
-	Usage string
 	// BeforeHelp and AfterHelp bracket every page that does not override them,
 	// and the long variants are what `--help` prefers.
 	BeforeHelp     string
@@ -172,7 +169,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
 
-	examplesSection(&out, meta)
+	examplesSection(&out, pageExamples(chain, help, meta))
 
 	after := spec.AfterHelp
 	if meta != nil && meta.AfterHelp != "" {
@@ -267,12 +264,30 @@ func groupsSection(out *strings.Builder, defaultTitle string, n int,
 	}
 }
 
-func examplesSection(out *strings.Builder, meta *Help) {
-	if meta == nil || len(meta.Examples) == 0 {
+// pageExamples is a command's own examples, or the root's where it has none.
+//
+// The same fallback `BeforeHelp` and `AfterHelp` get, and for the same reason: a
+// CLI writing examples once at the top means them to appear. mise declares none
+// at its root, so the 211-page parity test cannot see this either way — it is
+// checked against the reference's rule rather than against the fixture.
+func pageExamples(chain []*Command, help HelpTable, meta *Help) []Example {
+	if meta != nil && len(meta.Examples) > 0 {
+		return meta.Examples
+	}
+	if len(chain) > 0 {
+		if root := help.Lookup(chain[0].Key); root != nil {
+			return root.Examples
+		}
+	}
+	return nil
+}
+
+func examplesSection(out *strings.Builder, examples []Example) {
+	if len(examples) == 0 {
 		return
 	}
 	out.WriteString("\nExamples:\n")
-	for _, e := range meta.Examples {
+	for _, e := range examples {
 		if e.Header != "" {
 			out.WriteString("  " + e.Header + ":\n")
 		}
