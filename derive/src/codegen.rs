@@ -42,6 +42,28 @@ fn runtime_path() -> TokenStream {
     }
 }
 
+/// The derive package as the adopter depended on it.
+///
+/// Most emitted code only needs the runtime path. Unit subcommands synthesize an empty `Args`
+/// struct, though, so that derive must come through the facade too when it is the application's
+/// only dependency.
+fn derive_path() -> TokenStream {
+    match crate_name("usage-rs") {
+        Ok(FoundCrate::Itself) => quote!(::usage_rs),
+        Ok(FoundCrate::Name(name)) => {
+            let facade = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#facade)
+        }
+        Err(_) => match crate_name("usage-derive") {
+            Ok(FoundCrate::Name(name)) => {
+                let derive = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#derive)
+            }
+            _ => quote!(::usage_derive),
+        },
+    }
+}
+
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
@@ -2442,6 +2464,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
     let runtime = runtime_path();
+    let derive = derive_path();
 
     // The structs the bare variants imply, written here so everything downstream keeps
     // speaking to a struct. `Args` is derived on them rather than the impl being written out:
@@ -2461,7 +2484,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .map(|word| quote!(#[usage(effect = #word)]));
             quote! {
                 #[doc(hidden)]
-                #[derive(::usage_derive::Args)]
+                #[derive(#derive::Args)]
                 #effect
                 pub struct #name {}
             }
