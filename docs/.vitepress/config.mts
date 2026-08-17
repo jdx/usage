@@ -41,7 +41,7 @@ export default defineConfig({
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
-    logo: "/logo-nav.png",
+    logo: "/icon.svg",
     nav: [
       { text: "Home", link: "/" },
       { text: "Spec", link: "/spec/" },
@@ -132,7 +132,7 @@ export default defineConfig({
     ["link", { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" }],
     ["link", { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" }],
     ["link", { rel: "manifest", href: "/site.webmanifest" }],
-    ["meta", { name: "theme-color", content: "#22c55e" }],
+    ["meta", { name: "theme-color", content: "#0d0221" }],
     // OpenGraph
     ["meta", { property: "og:site_name", content: "--usage" }],
     ["meta", { property: "og:type", content: "website" }],
