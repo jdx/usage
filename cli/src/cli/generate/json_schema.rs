@@ -15,7 +15,7 @@ pub struct JsonSchema {
     file: Option<PathBuf>,
 
     /// Write the schema here instead of to stdout
-    #[usage(long, effect = "write")]
+    #[usage(long, value_hint = clap::ValueHint::FilePath, effect = "write")]
     out_file: Option<PathBuf>,
 
     /// raw string spec input
