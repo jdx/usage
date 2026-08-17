@@ -279,7 +279,8 @@
   box-shadow: 0 0 14px rgba(185, 103, 255, 0.3);
 }
 
-.usage-tile-soon-pill {
+.usage-tile-soon-pill,
+.usage-tile-experimental-pill {
   font-family: Orbitron, sans-serif;
   font-size: 0.55rem;
   font-weight: 700;
@@ -290,6 +291,11 @@
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
   margin-left: 0.15rem;
+}
+
+.usage-tile-experimental-pill {
+  color: var(--vw-cyan);
+  border-color: var(--vw-cyan);
 }
 
 /* Tooltips */

@@ -46,12 +46,42 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "Spec", link: "/spec/" },
+      {
+        text: "Frameworks",
+        items: [
+          { text: "Rust", link: "/rust/" },
+          { text: "Go", link: "/go/" }
+        ]
+      },
       { text: "CLI", link: "/cli/" },
       { text: `v${latestVersion}`, link: "https://github.com/jdx/usage/releases" }
     ],
 
     sidebar: [
       { text: "Contributing", link: "/contributing" },
+      {
+        text: "Rust Framework",
+        link: "/rust/",
+        items: [
+          { text: "Args and Flags", link: "/rust/args-and-flags" },
+          { text: "Subcommands", link: "/rust/subcommands" },
+          { text: "Validation", link: "/rust/validation" },
+          { text: "Help and Errors", link: "/rust/help" },
+          { text: "Completions", link: "/rust/completions" },
+          { text: "Spec Output", link: "/rust/spec" }
+        ]
+      },
+      {
+        text: "Go Framework",
+        link: "/go/",
+        items: [
+          { text: "Generated Code", link: "/go/generated-code" },
+          { text: "The Parser", link: "/go/parser" },
+          { text: "Binding and Values", link: "/go/binding" },
+          { text: "Help and Errors", link: "/go/help" },
+          { text: "Completions", link: "/go/completions" }
+        ]
+      },
       {
         text: "CLI",
         link: "/cli/",
