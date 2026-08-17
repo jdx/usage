@@ -179,6 +179,12 @@ dir = "{{config_root}}"
 run = [
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise usage",
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/hk.usage.kdl benches/shadows/hk usage",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/fnox.usage.kdl benches/shadows/fnox usage",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/pitchfork.usage.kdl benches/shadows/pitchfork usage",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/aube.usage.kdl benches/shadows/aube usage",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/tak.usage.kdl benches/shadows/tak usage",
+    "cargo run -q -p xtask -- gen-shadow benches/fleet/communique.usage.kdl benches/shadows/communique usage",
 ]
 
 # The Go tables the shadow test parses against, from the same spec and for the same

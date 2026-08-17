@@ -781,8 +781,14 @@ name = "gate"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "shadow-aube",
+ "shadow-communique",
+ "shadow-fnox",
+ "shadow-hk",
  "shadow-mise",
  "shadow-mise-clap",
+ "shadow-pitchfork",
+ "shadow-tak",
  "usage-argv",
  "usage-cli",
  "usage-lib",
@@ -1641,6 +1647,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadow-aube"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
+name = "shadow-communique"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
+name = "shadow-fnox"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
+name = "shadow-hk"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
 name = "shadow-mise"
 version = "0.0.0"
 dependencies = [
@@ -1653,6 +1691,22 @@ name = "shadow-mise-clap"
 version = "0.0.0"
 dependencies = [
  "clap",
+]
+
+[[package]]
+name = "shadow-pitchfork"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
+name = "shadow-tak"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
 ]
 
 [[package]]
