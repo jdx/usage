@@ -1658,6 +1658,21 @@ pub trait Subcommands: Sized {
         Vec::new()
     }
 
+    /// One declaration in the selected command that was given, if any.
+    fn any_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
+        let _ = (partial, selected);
+        None
+    }
+
+    /// One exclusive flag in the selected command that was given, if any.
+    ///
+    /// This lets the parent compare its own fields with the selected child's without
+    /// exposing the child's generated partial type.
+    fn exclusive_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
+        let _ = (partial, selected);
+        None
+    }
+
     /// Check the selected command's requirements, and nothing else's.
     ///
     /// A flag that `install` requires says nothing about an invocation that ran

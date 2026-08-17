@@ -1458,6 +1458,21 @@ fn presence_methods(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let selected_exclusive = cli.fields.iter().find_map(|field| {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+                    &partial.__usage_sub,
+                    partial.__usage_selected,
+                )
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
 
     quote! {
         fn any_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
@@ -1470,6 +1485,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         fn exclusive_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
             #(#direct_exclusive)*
             #(#flattened_exclusive)*
+            #selected_exclusive
             ::std::option::Option::None
         }
     }
@@ -2800,6 +2816,24 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    let any_givens = subs.variants.iter().enumerate().map(|(i, v)| {
+        let field = format_ident!("v{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#field)
+            }
+        }
+    });
+    let exclusive_givens = subs.variants.iter().enumerate().map(|(i, v)| {
+        let field = format_ident!("v{i}");
+        let ty = &v.ty;
+        quote! {
+            ::std::option::Option::Some(#i) => {
+                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#field)
+            }
+        }
+    });
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let held = format_ident!("V{i}");
         let variant = &v.ident;
@@ -2914,6 +2948,26 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         #(#givens)*
                         // No subcommand was reached, so none of them was given anything.
                         _ => ::std::vec::Vec::new(),
+                    }
+                }
+
+                fn any_given(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) -> ::std::option::Option<&'static str> {
+                    match selected {
+                        #(#any_givens)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn exclusive_given(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                ) -> ::std::option::Option<&'static str> {
+                    match selected {
+                        #(#exclusive_givens)*
+                        _ => ::std::option::Option::None,
                     }
                 }
 
@@ -3164,6 +3218,39 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
+    let direct_exclusive_present = cli.fields.iter().filter_map(|field| {
+        if !field.exclusive {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        Some(quote!(partial.#given))
+    });
+    let flattened_exclusive_present = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident).is_some()
+        })
+    });
+    let selected_exclusive_present = cli.fields.iter().filter_map(|field| {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+                &partial.__usage_sub,
+                partial.__usage_selected,
+            ).is_some()
+        })
+    });
+    let exclusive_present = quote! {
+        false
+            #(|| #direct_exclusive_present)*
+            #(|| #flattened_exclusive_present)*
+            #(|| #selected_exclusive_present)*
+    };
     // A flattened struct declares its own required-ness and choices, and only it knows them.
     //
     // Run before this command's own required-ness, on the same principle that puts conflicts
@@ -3180,7 +3267,12 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         let ident = &f.ident;
         Some(quote! {
-            <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+            if !__usage_exclusive_present
+                || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
+                    .is_some()
+            {
+                <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+            }
         })
     });
     let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
@@ -3475,7 +3567,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
         .fields
         .iter()
         .any(|field| matches!(field.kind, Kind::Flatten { .. }));
-    let has_direct_exclusive = cli.fields.iter().any(|field| field.exclusive);
     let flattened_segments = cli.fields.iter().filter_map(|field| {
         let Kind::Flatten { ty } = &field.kind else {
             return None;
@@ -3489,48 +3580,50 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
     let subcommand_segment = cli.fields.iter().find_map(|field| {
-        if !matches!(field.kind, Kind::Subcommand { .. }) {
+        let Kind::Subcommand { ty, .. } = &field.kind else {
             return None;
-        }
+        };
         let name = &field.name;
         Some(quote! {
             (
                 partial.__usage_selected.map(|_| #name),
-                ::std::option::Option::None,
+                <#ty as ::usage_argv::spec::Subcommands>::exclusive_given(
+                    &partial.__usage_sub,
+                    partial.__usage_selected,
+                ),
             ),
         })
     });
-    let exclusive_cross_checks =
-        (has_flatten || (has_direct_exclusive && subcommand_segment.is_some())).then(|| {
-            quote! {
-                let __usage_exclusive_segments = [
-                    (#direct_given, #direct_exclusive),
-                    #(#flattened_segments)*
-                    #subcommand_segment
-                ];
-                for __usage_i in 0..__usage_exclusive_segments.len() {
-                    if let ::std::option::Option::Some(exclusive) =
-                        __usage_exclusive_segments[__usage_i].1
-                    {
-                        for __usage_j in 0..__usage_exclusive_segments.len() {
-                            if __usage_i == __usage_j {
-                                continue;
-                            }
-                            if let ::std::option::Option::Some(other) =
-                                __usage_exclusive_segments[__usage_j].0
-                            {
-                                return ::std::result::Result::Err(
-                                    ::usage_argv::Error::ConflictingFlags {
-                                        name: other,
-                                        other: exclusive,
-                                    },
-                                );
-                            }
+    let exclusive_cross_checks = (has_flatten || subcommand_segment.is_some()).then(|| {
+        quote! {
+            let __usage_exclusive_segments = [
+                (#direct_given, #direct_exclusive),
+                #(#flattened_segments)*
+                #subcommand_segment
+            ];
+            for __usage_i in 0..__usage_exclusive_segments.len() {
+                if let ::std::option::Option::Some(exclusive) =
+                    __usage_exclusive_segments[__usage_i].1
+                {
+                    for __usage_j in 0..__usage_exclusive_segments.len() {
+                        if __usage_i == __usage_j {
+                            continue;
+                        }
+                        if let ::std::option::Option::Some(other) =
+                            __usage_exclusive_segments[__usage_j].0
+                        {
+                            return ::std::result::Result::Err(
+                                ::usage_argv::Error::ConflictingFlags {
+                                    name: other,
+                                    other: exclusive,
+                                },
+                            );
                         }
                     }
                 }
             }
-        });
+        }
+    });
 
     // Groups, checked once per group rather than per member: both questions a group asks
     // — how many members were given, and whether that is enough — are about the set.
@@ -3670,6 +3763,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // the order `start` used to give them.
         #(#declared_defaults)*
         #env_fallbacks
+        let __usage_exclusive_present = #exclusive_present;
         #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the
         // more useful of the two answers when a conflict has also left something
@@ -3678,11 +3772,16 @@ fn post_binding(cli: &Cli) -> TokenStream {
         #(#exclusive_checks)*
         #exclusive_cross_checks
         #(#group_exclusivity_checks)*
-        #(#requirement_checks)*
         #(#flattened_checks)*
-        #(#required_checks)*
-        #(#group_required_checks)*
-        #(#relationship_required_checks)*
+        // An exclusive occurrence is the command's escape from requiredness, just as in clap:
+        // `--version` remains usable on a command that otherwise requires an input. Conflicts
+        // and other validation still ran above; only errors about absent siblings are skipped.
+        if !__usage_exclusive_present {
+            #(#requirement_checks)*
+            #(#required_checks)*
+            #(#group_required_checks)*
+            #(#relationship_required_checks)*
+        }
         #(#choice_checks)*
         #(#bound_checks)*
         #sub_check

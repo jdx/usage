@@ -839,6 +839,26 @@ fn an_exclusive_flag_has_to_be_alone() {
     assert_eq!(ex.target.as_deref(), Some("t"));
 }
 
+#[derive(Cli)]
+#[usage(bin = "required-ex")]
+struct ExclusiveWithRequiredSiblings {
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(long)]
+    output: String,
+    target: String,
+}
+
+#[test]
+fn an_exclusive_flag_bypasses_required_siblings() {
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveWithRequiredSiblings::parse_from(&a)
+        .expect("exclusive is the command's requiredness escape");
+    assert!(parsed.dump);
+    assert!(parsed.output.is_empty());
+    assert!(parsed.target.is_empty());
+}
+
 #[test]
 fn exclusive_reaches_the_spec() {
     let kdl = Exclusively::to_kdl();
@@ -937,5 +957,40 @@ fn selecting_a_subcommand_counts_as_company_for_a_parent_exclusive_flag() {
             other: "version",
             ..
         })
+    ));
+}
+#[allow(dead_code)]
+#[derive(Args)]
+struct ChildExclusive {
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum ChildExclusiveCommands {
+    Run(ChildExclusive),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "child-ex")]
+struct ParentBesideChildExclusive {
+    #[usage(long)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Option<ChildExclusiveCommands>,
+}
+
+#[test]
+fn a_child_exclusive_flag_counts_parent_flags_as_company() {
+    let a = argv(["run", "--dump"]);
+    ParentBesideChildExclusive::parse_from(&a).expect("the child flag is alone");
+
+    let a = argv(["--verbose", "run", "--dump"]);
+    assert!(matches!(
+        ParentBesideChildExclusive::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+            | Err(Error::ConflictingFlags { name: "dump", .. })
     ));
 }
