@@ -54,6 +54,12 @@ pub struct Cli {
     /// Held as the tokens for an `Option<Effect>`, since the only thing it becomes is a field of
     /// a generated `static` — a second enum here would be a copy of the spec's to keep in step.
     pub effect: Option<proc_macro2::TokenStream>,
+    /// Other names this command answers to.
+    ///
+    /// Declared on an `Args` struct so clap command attributes can migrate in place. A
+    /// `Subcommands` variant may still add aliases for the particular route mounting it.
+    pub aliases: Vec<String>,
+    pub hidden_aliases: Vec<String>,
     /// Where `#[usage(...)]` was written on the struct, when it was.
     ///
     /// Every position rule in [`Cli::check_position`] is about an attribute in the wrong place,
@@ -340,6 +346,8 @@ impl Cli {
             settings: false,
             min_usage_version: None,
             effect: None,
+            aliases: Vec::new(),
+            hidden_aliases: Vec::new(),
             attr_span: input
                 .attrs
                 .iter()
@@ -376,6 +384,8 @@ impl Cli {
                     "completion" => cli.completion = flag_value(&meta)?,
                     "settings" => cli.settings = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
+                    "alias" => cli.aliases.extend(selectors(&meta)?),
+                    "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "version" => {
                         cli.version = Some(match &meta {
@@ -442,6 +452,25 @@ impl Cli {
         }
         if let Some(long) = cli.long_about_attr.take() {
             cli.long_about = Some(long);
+        }
+
+        let alias_span = cli.attr_span.unwrap_or_else(Span::call_site);
+        let mut seen_aliases: Vec<(&str, Span)> = Vec::new();
+        for alias in cli.aliases.iter().chain(&cli.hidden_aliases) {
+            if alias.is_empty() {
+                return Err(syn::Error::new(
+                    alias_span,
+                    "an alias with no name would answer to nothing",
+                ));
+            }
+            if let Some((_, first)) = seen_aliases.iter().find(|(name, _)| *name == alias) {
+                return Err(dup(
+                    alias_span,
+                    *first,
+                    &format!("`{alias}` is declared twice as an alias for this command"),
+                ));
+            }
+            seen_aliases.push((alias, alias_span));
         }
 
         for field in &named.named {
@@ -564,6 +593,8 @@ impl Cli {
             // writer asserts the root carries none, so declaring one here would trip a
             // `debug_assert!` in the writer rather than say anything.
             (self.effect.is_some(), "effect"),
+            (!self.aliases.is_empty(), "alias"),
+            (!self.hidden_aliases.is_empty(), "alias_hidden"),
         ] {
             if present {
                 return Err(self.misplaced(

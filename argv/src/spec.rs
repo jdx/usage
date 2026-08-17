@@ -360,6 +360,32 @@ pub const fn concat_arg_metas<const N: usize>(
     out
 }
 
+/// Join command alias lists at compile time.
+///
+/// An `Args` struct can declare aliases belonging to the command itself, while the
+/// `Subcommands` variant mounting it can add aliases belonging to that route. The derive joins
+/// both without building a command at runtime.
+pub const fn concat_aliases<const N: usize>(groups: &[&[&'static str]]) -> [&'static str; N] {
+    let mut out = [""; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be `table_len` of the same groups, or an alias would be empty"
+    );
+    out
+}
+
 /// What a command knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {

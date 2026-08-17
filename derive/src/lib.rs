@@ -229,9 +229,10 @@
 //! invocation move that much stack. Nothing else changes — the box is how the variant
 //! holds the struct, not something the CLI has, and the spec cannot tell.
 //!
-//! A `Subcommands` variant takes `name`, and the two ways to give a command another
-//! name: `alias = "i"` for one it should advertise, `alias_hidden = "add"` for one it
-//! should answer to quietly, each accepting several as a list. The parser matches both;
+//! A command takes `alias = "i"` for a name it should advertise and
+//! `alias_hidden = "add"` for one it should answer to quietly, each accepting several as a
+//! list. They may be written on the `Args` struct that owns the command or on its
+//! `Subcommands` variant; when both say some, the lists are joined. The parser matches both;
 //! the difference is only whether help and completions mention them.
 //!
 //! # Settings and the flags that set them

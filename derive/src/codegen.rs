@@ -2179,6 +2179,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let arg_meta_table_ref = &tables.arg_metas;
 
     let name = &cli.name;
+    let aliases = cli.aliases.iter().chain(&cli.hidden_aliases);
+    let hidden_aliases = &cli.hidden_aliases;
     let about = option_str(cli.about.as_deref());
     let long_about = option_str(cli.long_about.as_deref());
     let partial = partial_struct(cli);
@@ -2227,6 +2229,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             pub static COMMAND: ::usage_argv::Command = ::usage_argv::Command {
                 name: #name,
+                aliases: &[#(#aliases),*],
                 key: #command_key,
                 unknown_flags: #unknown_flags,
                 flags: #flag_table_ref,
@@ -2244,6 +2247,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 effect: #effect,
                 about: #about,
                 long_about: #long_about,
+                hidden_aliases: &[#(#hidden_aliases),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
                 mount: #mount,
@@ -2390,20 +2394,32 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // only looks right when the two happen to match.
     let command_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
         let name = format_ident!("COMMAND_{i}");
+        let alias_groups = format_ident!("ALIAS_GROUPS_{i}");
+        let aliases_name = format_ident!("ALIASES_{i}");
         let ty = &v.ty;
         let cmd_name = &v.name;
         // Both kinds of alias go in the table, because the parser matches both; which of
         // them help and completions mention is the metadata's business, below.
         let aliases = v.aliases.iter().chain(&v.hidden_aliases);
         quote! {
+            const #alias_groups: &[&[&str]] = &[
+                <#ty as ::usage_argv::spec::CommandArgs>::COMMAND.aliases,
+                &[#(#aliases),*],
+            ];
+            static #aliases_name: [&str; ::usage_argv::table_len(#alias_groups)] =
+                ::usage_argv::spec::concat_aliases(#alias_groups);
             pub static #name: ::usage_argv::Command = ::usage_argv::Command {
                 name: #cmd_name,
-                aliases: &[#(#aliases),*],
+                aliases: &#aliases_name,
                 ..*<#ty as ::usage_argv::spec::CommandArgs>::COMMAND
             };
         }
     });
     let commands = (0..subs.variants.len()).map(|i| {
+        let name = format_ident!("COMMAND_{i}");
+        quote!(&#name)
+    });
+    let unique_commands = (0..subs.variants.len()).map(|i| {
         let name = format_ident!("COMMAND_{i}");
         quote!(&#name)
     });
@@ -2414,6 +2430,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let meta_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
         let name = format_ident!("META_{i}");
         let cmd = format_ident!("COMMAND_{i}");
+        let hidden_groups = format_ident!("HIDDEN_ALIAS_GROUPS_{i}");
+        let hidden_name = format_ident!("HIDDEN_ALIASES_{i}");
         let ty = &v.ty;
         // A doc comment on the variant wins over the struct's, since that is where a
         // reader of the enum expects to describe the command. Absent one, the
@@ -2437,13 +2455,19 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         // the variant, which is where the command itself is declared.
         let hide = v.hide;
         quote! {
+            const #hidden_groups: &[&[&str]] = &[
+                <#ty as ::usage_argv::spec::CommandArgs>::META.hidden_aliases,
+                &[#(#hidden),*],
+            ];
+            static #hidden_name: [&str; ::usage_argv::table_len(#hidden_groups)] =
+                ::usage_argv::spec::concat_aliases(#hidden_groups);
             pub static #name: ::usage_argv::spec::CommandMeta =
                 ::usage_argv::spec::CommandMeta {
                     cmd: &#cmd,
                     about: #about,
                     long_about: #long_about,
                     hide: #hide,
-                    hidden_aliases: &[#(#hidden),*],
+                    hidden_aliases: &#hidden_name,
                     ..*<#ty as ::usage_argv::spec::CommandArgs>::META
                 };
         }
@@ -2533,6 +2557,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
 
             #(#command_overrides)*
             #(#meta_overrides)*
+
+            const _: () = ::usage_argv::assert_unique_subcommand_names(&[#(#unique_commands),*]);
 
             impl ::usage_argv::spec::Subcommands for #ident {
                 type Partial = Partial;
