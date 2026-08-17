@@ -506,6 +506,28 @@ struct Defaulted {
 }
 
 #[test]
+fn a_plain_flag_cannot_be_given_twice() {
+    let a = argv(["--jobs", "2", "--jobs", "3"]);
+    assert!(matches!(
+        Defaulted::parse_from(&a),
+        Err(usage_argv::Error::DuplicateFlag { name: "jobs" })
+    ));
+
+    let a = argv(["--all-events", "--all-events"]);
+    assert!(matches!(
+        Defaulted::parse_from(&a),
+        Err(usage_argv::Error::DuplicateFlag { name: "all-events" })
+    ));
+}
+
+#[test]
+fn a_repeatable_flag_still_accepts_several_occurrences() {
+    let a = argv(["--fs-events", "access", "--fs-events", "remove"]);
+    let parsed = Defaulted::parse_from(&a).expect("var permits another occurrence");
+    assert_eq!(parsed.fs_events, ["access", "remove"]);
+}
+
+#[test]
 fn a_collecting_flag_starts_out_holding_its_defaults() {
     // Absent: all of them, in the order written. A `Vec` is the one shape that can hold
     // several, so it is the one shape that may be given several.

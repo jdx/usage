@@ -1138,6 +1138,14 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         let overridden = format_ident!("__overridden_{}", ident);
         quote!(partial.#overridden = false;)
     });
+    let duplicate = rejects_duplicate(field).then(|| {
+        let duplicated = format_ident!("__duplicated_{}", ident);
+        quote! {
+            if partial.#given {
+                partial.#duplicated = true;
+            }
+        }
+    });
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool => quote!(partial.#ident = !negated;),
@@ -1158,6 +1166,7 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         // without this, one command's flag would fill another's field. `static` items
         // have distinct addresses, so this is exact.
         #key if ::core::ptr::eq(*flag, &#table) => {
+            #duplicate
             #body
             partial.#given = true;
             // Given again after having lost: it is standing once more, which matters
@@ -1170,6 +1179,16 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
             true
         }
     }
+}
+
+/// Whether another occurrence is a command-line mistake rather than another value.
+///
+/// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
+/// into repetition. Every other flag matches clap's default of one occurrence.
+fn rejects_duplicate(field: &Field) -> bool {
+    matches!(field.kind, Kind::Flag { .. })
+        && !matches!(field.shape, Shape::Count | Shape::Many)
+        && !field.repeatable
 }
 
 /// Undoing the flags a flag displaces, as statements to run once it has been bound.
@@ -1297,7 +1316,11 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let overridden = format_ident!("__overridden_{}", ident);
             quote!(pub #overridden: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden))
+        let duplicated = rejects_duplicate(f).then(|| {
+            let duplicated = format_ident!("__duplicated_{}", ident);
+            quote!(pub #duplicated: bool,)
+        });
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -1617,10 +1640,15 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let overridden = format_ident!("__overridden_{}", ident);
             quote!(#overridden: false,)
         });
+        let duplicated = rejects_duplicate(f).then(|| {
+            let duplicated = format_ident!("__duplicated_{}", ident);
+            quote!(#duplicated: false,)
+        });
         Some(quote! {
             #ident: ::std::default::Default::default(),
             #given: false,
             #overridden
+            #duplicated
         })
     });
     // Only the fields that declare one: `Partial`'s own initializer has already put
@@ -2668,6 +2696,17 @@ fn post_binding(cli: &Cli) -> TokenStream {
             <#ty as ::usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
         })
     });
+    let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
+        let duplicated = format_ident!("__duplicated_{}", f.ident);
+        let name = &f.name;
+        quote! {
+            if partial.#duplicated {
+                return ::std::result::Result::Err(
+                    ::usage_argv::Error::DuplicateFlag { name: #name },
+                );
+            }
+        }
+    });
     // Applied here rather than in `start`, and this is not a detail: `start` builds the
     // partial for *every* command in the CLI, selected or not, so a declared default was
     // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
@@ -2998,6 +3037,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // the order `start` used to give them.
         #(#declared_defaults)*
         #(#env_fallbacks)*
+        #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the
         // more useful of the two answers when a conflict has also left something
         // unfilled, and it is the one usage-lib reports.

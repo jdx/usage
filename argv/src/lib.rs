@@ -394,6 +394,11 @@ pub enum Error<'t, 'v> {
         /// The flag or argument's name, as the spec calls it.
         name: &'t str,
     },
+    /// A flag that is not repeatable was given more than once.
+    DuplicateFlag {
+        /// The flag's name, as the spec calls it.
+        name: &'t str,
+    },
     /// A value was given that is not among the declared choices.
     ///
     /// Carries the choices rather than the offending value: rendering the value means
