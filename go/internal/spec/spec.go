@@ -37,6 +37,22 @@ type Spec struct {
 	// the root.
 	DefaultSubcommand string `json:"default_subcommand"`
 	Version           string `json:"version"`
+	About             string `json:"about"`
+	AboutLong         string `json:"about_long"`
+	BeforeHelp        string `json:"before_help"`
+	AfterHelp         string `json:"after_help"`
+}
+
+// HelpSpec is what a page needs from the spec's root rather than from a command.
+func (s *Spec) HelpSpec() argv.HelpSpec {
+	return argv.HelpSpec{
+		Name:       s.Name,
+		Bin:        s.Bin,
+		Version:    s.Version,
+		About:      first(s.About, s.AboutLong),
+		BeforeHelp: s.BeforeHelp,
+		AfterHelp:  s.AfterHelp,
+	}
 }
 
 // Cmd is one command in the lowered spec.
@@ -46,6 +62,9 @@ type Cmd struct {
 	Help          string         `json:"help"`
 	HelpLong      string         `json:"help_long"`
 	Usage         string         `json:"usage"`
+	BeforeHelp    string         `json:"before_help"`
+	AfterHelp     string         `json:"after_help"`
+	Examples      []Example      `json:"examples"`
 	Aliases       []string       `json:"aliases"`
 	HiddenAliases []string       `json:"hidden_aliases"`
 	Subcommands   map[string]Cmd `json:"subcommands"`
@@ -140,6 +159,12 @@ type Arg struct {
 	HelpFirstLine string   `json:"help_first_line"`
 	HelpLong      string   `json:"help_long"`
 	HelpHeading   string   `json:"help_heading"`
+}
+
+// Example is a worked invocation a page prints.
+type Example struct {
+	Header string `json:"header"`
+	Code   string `json:"code"`
 }
 
 // Choices is the declared set of values, which the lowering nests one level.
@@ -324,10 +349,20 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		UnknownFlags: unknown,
 		Key:          b.next(),
 	}
+	examples := make([]argv.Example, 0, len(c.Examples))
+	for _, e := range c.Examples {
+		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code})
+	}
 	b.recordHelp(out.Key, argv.Help{
 		Hide:  c.Hide,
 		Short: first(c.Help, c.HelpLong),
 		Long:  first(c.HelpLong, c.Help),
+		// Visible only: the parse table merges the hidden ones in beside these,
+		// because binding does not care which is which.
+		VisibleAliases: c.Aliases,
+		BeforeHelp:     c.BeforeHelp,
+		AfterHelp:      c.AfterHelp,
+		Examples:       examples,
 	})
 
 	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
@@ -504,9 +539,12 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Repeatable:    f.Var,
 		ValueName:     valueName,
 		ValueDemanded: valueDemanded,
-		Short:         first(f.HelpFirstLine, f.Help),
+		Short:         first(f.Help, f.HelpFirstLine),
 		Long:          first(f.HelpLong, f.Help),
 		Heading:       f.HelpHeading,
+		Choices:       f.choices(),
+		Env:           f.Env,
+		Default:       f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
 		Name:     f.Name,
@@ -547,9 +585,12 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	b.recordHelp(out.Key, argv.Help{
 		Hide:     a.Hide,
 		Demanded: a.Required && len(a.Default) == 0,
-		Short:    first(a.HelpFirstLine, a.Help),
+		Short:    first(a.Help, a.HelpFirstLine),
 		Long:     first(a.HelpLong, a.Help),
 		Heading:  a.HelpHeading,
+		Choices:  a.Choices.list(),
+		Env:      a.Env,
+		Default:  a.Default,
 	})
 	b.record(out.Key, argv.Meta{
 		Name:     a.Name,

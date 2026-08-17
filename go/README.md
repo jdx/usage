@@ -139,8 +139,12 @@ argv.UsageLine([]string{"mise"}, mise.Root, mise.HelpText)
 // mise [FLAGS] [TASK] <SUBCOMMAND>
 ```
 
-**All 211 of mise's usage lines match usage-lib's byte for byte**, which is the
-test that keeps it honest. usage-lib builds the line from a spec through a
+`argv.ShortHelp` renders the whole page `-h` prints — header, `Commands`,
+`Arguments`, `Flags` and `Global flags`, with the columns lined up and the
+inherited globals worked out the way the parser resolves them.
+
+**All 211 of mise's usage lines and all 211 of its pages match usage-lib's byte
+for byte**, which is the test that keeps both honest. usage-lib builds the line from a spec through a
 template over a runtime model; this builds it from static tables. Reimplemented
 rules drift, so both are run over mise's real spec and compared — the same check
 `benches/gate/tests/help.rs` makes for usage-argv, against the same reference.
@@ -183,9 +187,9 @@ claim is measured at real scale rather than against a fixture with four flags:
 - **Typed values.** Binding collects text. Something still has to turn `"8"` into
   an `int` and `"1m"` into a `time.Duration`, and report the ones that will not
   convert.
-- **The help pages themselves.** The usage line is done and the table behind it
-  carries the text; `-h` and `--help` still need laying out, which on the Rust
-  side is most of `argv/src/help.rs`.
+- **The long page.** `-h` is done; `--help` wraps long descriptions and switches
+  to a two-line layout for entries that have a longer form, which `ShortHelp`
+  does not do.
 - **Errors worth reading.** `Error()` returns `unknown flag: --wat`, which names
   the problem and helps nobody fix it. usage-argv renders these through miette
   with the offending token underlined.
