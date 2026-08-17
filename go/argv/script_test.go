@@ -22,7 +22,7 @@ func TestEveryScriptCallsTheBinaryAndRegistersIt(t *testing.T) {
 		{Bash, "--shell bash", "complete -F _usage_complete_mise 'mise'"},
 		{Zsh, "--shell zsh", "compdef _mise 'mise'"},
 		{Fish, "--shell fish", "complete -c 'mise' -f -a '(__usage_complete_mise)'"},
-		{Nu, "--shell nu", "def --env __usage_complete_mise"},
+		{Nu, "--shell nu", "$env.config.completions.external.completer = {|spans|"},
 		{PowerShell, "--shell powershell", "Register-ArgumentCompleter -Native -CommandName 'mise'"},
 	} {
 		out := Script("mise", c.shell)
@@ -69,6 +69,26 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	}
 	if !strings.Contains(Script("mise", PowerShell), "[char]1") {
 		t.Error("PowerShell builds it from the code point")
+	}
+}
+
+// nushell has one external completer for the whole shell, so the script chains
+// rather than replaces.
+//
+// A config that completes several tools should keep completing all of them, and
+// a script that defined a function without installing it would be a no-op —
+// sourced, sourced correctly, and doing nothing at all.
+func TestTheNushellScriptChainsTheCompleterItFound(t *testing.T) {
+	out := Script("mise", Nu)
+	for _, want := range []string{
+		"let __usage_previous_mise = ($env.config.completions.external.completer? | default null)",
+		"$env.config.completions.external.completer = {|spans|",
+		`if ($spans | get 0) == "mise"`,
+		"do $__usage_previous_mise $spans",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("want %q:\n%s", want, out)
+		}
 	}
 }
 

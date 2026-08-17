@@ -295,6 +295,19 @@ def --env __usage_complete_{ident} [spans: list<string>] {
     # nushell's completer interface rather than a decision of this design.
     if ($candidates | is-empty) and $wants_files { null } else { $candidates }
 }
+
+# Slot this into the external completer nushell already has, if any, rather than replacing it:
+# a config that completes several tools should keep completing all of them.
+let __usage_previous_{ident} = ($env.config.completions.external.completer? | default null)
+$env.config.completions.external.completer = {|spans|
+    if ($spans | get 0) == "{bin}" {
+        __usage_complete_{ident} $spans
+    } else if $__usage_previous_{ident} != null {
+        do $__usage_previous_{ident} $spans
+    } else {
+        null
+    }
+}
 `
 
 const powershellScript = `
