@@ -269,6 +269,9 @@ pub struct Spec<'a> {
     pub min_usage_version: Option<&'a str>,
     pub about: Option<&'a str>,
     pub long_about: Option<&'a str>,
+    /// An exact usage synopsis, including the `Usage:` prefix, when the generated
+    /// shape needs alternatives that cannot be inferred from one command grammar.
+    pub usage: Option<&'a str>,
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
@@ -293,6 +296,7 @@ impl Spec<'_> {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &CommandMeta::EMPTY,
     };
@@ -671,6 +675,9 @@ impl Spec<'_> {
         }
         if let Some(long_about) = self.long_about.or(self.root.long_about) {
             prop(out, "long_about", long_about)?;
+        }
+        if let Some(usage) = self.usage {
+            prop(out, "usage", usage)?;
         }
         // Written only when it is not the default, so an ordinary spec stays quiet
         // about it.

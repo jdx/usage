@@ -195,6 +195,18 @@ impl ManpageRenderer {
     fn render_synopsis(&self, roff: &mut Roff) {
         roff.control("SH", ["SYNOPSIS"]);
 
+        if !self.spec.usage.trim().is_empty() {
+            for line in self.spec.usage.lines() {
+                let line = line.trim().strip_prefix("Usage: ").unwrap_or(line.trim());
+                if let Some(rest) = line.strip_prefix(&self.spec.bin) {
+                    roff.text([bold(&self.spec.bin), roman(rest)]);
+                } else {
+                    roff.text([roman(line)]);
+                }
+            }
+            return;
+        }
+
         let synopsis = self.build_synopsis(&self.spec.cmd, &self.spec.bin);
         roff.text([bold(&self.spec.bin), roman(" "), roman(&synopsis)]);
     }
@@ -595,6 +607,22 @@ config {
         let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
         let page = ManpageRenderer::new(spec).render().unwrap();
         assert!(!page.contains("CONFIGURATION"), "{page}");
+    }
+
+    #[test]
+    fn an_explicit_usage_renders_each_alternative_in_the_synopsis() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+usage "Usage: ex <COMMAND>\n       ex --print-spec"
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+        assert!(page.contains("\\fBex\\fR <COMMAND>"), "{page}");
+        assert!(page.contains("\\fBex\\fR \\-\\-print\\-spec"), "{page}");
+        assert!(!page.contains("[COMMAND]"), "{page}");
     }
 
     #[test]
