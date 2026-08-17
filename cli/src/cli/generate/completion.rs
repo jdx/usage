@@ -27,7 +27,7 @@ pub struct Completion {
     /// Include https://github.com/scop/bash-completion
     ///
     /// This is required for usage completions to work in bash, but the user may already provide it
-    #[usage(long)]
+    #[usage(long, verbatim_doc_comment)]
     include_bash_completion_lib: bool,
 
     /// Override the bin used for calling back to usage-cli
