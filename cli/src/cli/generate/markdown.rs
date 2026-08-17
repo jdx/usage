@@ -25,7 +25,7 @@ pub struct Markdown {
     /// Output markdown files to this directory (required when using --multi)
     #[usage(
         long,
-        value_hint = clap::ValueHint::DirPath,
+        value_hint = usage_argv::ValueHint::DirPath,
         requires = "--multi",
         required_if = "--multi",
         effect = "write"
@@ -33,7 +33,11 @@ pub struct Markdown {
     out_dir: Option<PathBuf>,
 
     /// Output file path for single-file markdown generation, or "-" for stdout (default)
-    #[usage(long, value_hint = clap::ValueHint::FilePath, effect = "write")]
+    #[usage(
+        long,
+        value_hint = usage_argv::ValueHint::FilePath,
+        effect = "write"
+    )]
     out_file: Option<PathBuf>,
 
     /// Replace `<pre>` tags with markdown code fences
