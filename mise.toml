@@ -181,6 +181,18 @@ run = [
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
 ]
 
+# The Go tables the shadow test parses against, from the same spec and for the same
+# reasons: checked in so a reviewer sees the diff when the emitter's vocabulary
+# changes, and so CI can assert that regenerating produces none.
+#
+# No formatter afterwards, unlike `render:fig`. `usage generate go` emits
+# gofmt-clean output, which `lint:go` then checks — a generated file an adopter has
+# to reformat before committing is one the generator is not finished with.
+[tasks."gen-go"]
+dir = "{{config_root}}"
+depends = ['build']
+run = "usage generate go -f benches/mise.usage.kdl --package mise -o go/internal/shadow/mise/tables.go"
+
 # The shadow comparison: usage against clap, at mise's scale. Reported, never gated — see
 # the note in tak.toml. Takes an optional path to write the markdown to.
 [tasks."perf:shadow"]
