@@ -1,9 +1,8 @@
 <script setup lang="ts">
-// Measured numbers, not marketing: Rust figures from PLAN.md's gated perf
-// report; Go figures from go/README.md. Wall time is parser overhead — what
-// the framework adds on top of a process that parses nothing. The Go values
-// subtract the ~0.95ms a do-nothing Go process costs, so they are
-// deliberately approximate.
+// Rust figures from PLAN.md's gated perf report; Go figures from
+// go/README.md. Wall time is parser overhead — what the framework adds on
+// top of a process that parses nothing. The Go values subtract the ~0.95ms
+// a do-nothing Go process costs, so they are deliberately approximate.
 const rustRows = [
   { name: "usage-rs", value: 2.1, label: "2.1µs", note: "~230× less", us: true },
   { name: "clap", value: 490, label: "490µs", us: false },
@@ -27,10 +26,10 @@ function width(value: number, max: number): string {
 <template>
   <section class="usage-bench">
     <p class="usage-hero-label">Benchmarks</p>
-    <h2 class="usage-bench-title">Measured, not claimed.</h2>
+    <h2 class="usage-bench-title">Parser overhead</h2>
     <p class="usage-bench-sub">
-      Parser overhead — wall time the framework adds on top of a process that parses
-      nothing — for <code>mise use -g node@20</code> against a shadow of
+      Wall time each framework adds to a process that parses nothing, measured on
+      <code>mise use -g node@20</code> against a shadow of
       <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags, cold.
     </p>
 

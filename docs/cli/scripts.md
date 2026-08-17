@@ -1,6 +1,6 @@
 # Usage Scripts
 
-Scripts can be used with the Usage CLI to display help, powerful arg parsing, and autocompletion in
+Scripts can be used with the Usage CLI to display help, parse args, and autocomplete in
 any language.
 For this to work, we add comments to the script that describe the flags and arguments that the
 script accepts.
