@@ -119,7 +119,12 @@ mod tests {
         // The four generators that print to stdout unless told otherwise. Kept as one list
         // because the risk is a new `--out-file` arriving without an effect, which reads to
         // an agent as a command that only ever prints.
-        for path in ["generate fig", "generate json-schema", "generate manpage"] {
+        for path in [
+            "generate fig",
+            "generate go",
+            "generate json-schema",
+            "generate manpage",
+        ] {
             let cmd = find(path).unwrap_or_else(|| panic!("no such command: {path}"));
             let out_file = cmd
                 .flags
