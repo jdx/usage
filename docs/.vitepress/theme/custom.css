@@ -46,7 +46,7 @@
 /* Chrome: navbar, sidebar, docs                                       */
 /* ------------------------------------------------------------------ */
 .VPNavBarTitle .title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   font-weight: 700;
   font-size: 1.05rem;
   letter-spacing: 0.08em;
@@ -61,7 +61,7 @@
 }
 
 .vp-doc h1 {
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   font-weight: 700;
   letter-spacing: 0.03em;
 }
@@ -85,7 +85,9 @@
 .usage-hero {
   position: relative;
   padding: 4rem 1.5rem 5rem;
-  overflow: hidden;
+  /* clip the glow horizontally without cutting off tile tooltips below */
+  overflow-x: clip;
+  overflow-y: visible;
   min-height: 72vh;
   display: flex;
   flex-direction: column;
@@ -136,7 +138,7 @@
 .usage-hero-content {
   position: relative;
   z-index: 3;
-  animation: heroFadeIn 0.6s ease-out;
+  animation: hero-fade-in 0.6s ease-out;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,14 +152,14 @@
   text-align: left;
 }
 
-@keyframes heroFadeIn {
+@keyframes hero-fade-in {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* Title — Orbitron with chromatic split */
 .usage-hero-title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   font-weight: 900;
   font-size: 4.4rem;
   margin: 0 0 0.75rem;
@@ -189,16 +191,16 @@
   margin-left: 0.15em;
   vertical-align: text-bottom;
   background: var(--vw-cyan);
-  animation: cursorBlink 1.1s steps(1) infinite;
+  animation: cursor-blink 1.1s steps(1) infinite;
 }
 
-@keyframes cursorBlink {
+@keyframes cursor-blink {
   50% { opacity: 0; }
 }
 
 /* Section labels */
 .usage-hero-label {
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.28em;
@@ -274,7 +276,7 @@
 }
 
 .usage-tile-soon-pill {
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -308,7 +310,8 @@
   pointer-events: none;
 }
 
-.usage-tile:hover .usage-tile-tooltip {
+.usage-tile:hover .usage-tile-tooltip,
+.usage-tile:focus-visible .usage-tile-tooltip {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
@@ -348,7 +351,7 @@
   font-weight: 700;
   text-decoration: none;
   transition: all 0.2s ease;
-  font-family: 'Orbitron', sans-serif;
+  font-family: Orbitron, sans-serif;
   letter-spacing: 0.04em;
 }
 
@@ -390,13 +393,35 @@
 .usage-hero-art {
   width: 340px;
   height: auto;
-  animation: artFloat 7s ease-in-out infinite;
+  animation: art-float 7s ease-in-out infinite;
   filter: drop-shadow(0 10px 40px rgba(255, 45, 149, 0.3));
 }
 
-@keyframes artFloat {
+@keyframes art-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced motion                                                      */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .usage-hero-content,
+  .usage-hero-tagline .cursor,
+  .usage-hero-art {
+    animation: none;
+  }
+
+  .usage-tile,
+  .usage-hero-btn {
+    transition: none;
+  }
+
+  .usage-tile:hover,
+  .usage-hero-btn-primary:hover,
+  .usage-hero-btn-secondary:hover {
+    transform: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */
