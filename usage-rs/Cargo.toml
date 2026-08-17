@@ -1,0 +1,28 @@
+[package]
+name = "usage-rs"
+description = "A compiled CLI parser for Rust, built on usage specs"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.91"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+usage-argv = { workspace = true }
+usage-derive = { workspace = true, optional = true }
+
+[features]
+default = ["spec", "help"]
+spec = ["usage-argv/spec", "dep:usage-derive"]
+help = ["spec"]
+completions = ["spec", "usage-argv/complete"]
+# Kept as a spelling close to the runtime feature for low-level adopters.
+complete = ["completions"]
+diagnostics = ["spec", "usage-argv/diagnostics"]
+
+[package.metadata.release]
+shared-version = true
+release = true

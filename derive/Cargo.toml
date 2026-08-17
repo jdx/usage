@@ -19,6 +19,7 @@ release = true
 
 [dependencies]
 proc-macro2 = "1"
+proc-macro-crate = "3"
 quote = "1"
 # syn 2 rather than 3, which is already in the tree via clap_derive: nothing here
 # needs the newer API, and matching what is there avoids a second copy.
