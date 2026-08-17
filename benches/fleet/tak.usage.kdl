@@ -1,0 +1,92 @@
+name tak
+bin tak
+about "CLI performance, tracked"
+usage "Usage: tak [OPTIONS] <COMMAND>"
+flag --env-deny help="Remove a variable from the environment of measured commands. Repeatable. Replaces the default list rather than adding to it" var=#true global=#true {
+    arg <VAR>
+}
+flag --env-allow help="Keep a variable that --env-deny would remove. Repeatable" var=#true global=#true {
+    arg <VAR>
+}
+flag --gate-pct help="Percentage an instruction count may rise before `compare` fails" global=#true {
+    arg <PCT>
+}
+flag --no-credit help="Leave the line naming tak off the end of generated reports" global=#true
+flag --runner help="Machine class to record under. Overrides the derived name" global=#true {
+    arg <CLASS>
+}
+flag --dedicated help="Trust wall time because this machine is dedicated to the benchmark" global=#true
+cmd run help="Benchmark a command, or everything declared in tak.toml" {
+    flag --bench help="Name to record this measurement under. With no command, selects a single benchmark from tak.toml instead of running all of them" {
+        arg <BENCH>
+    }
+    flag --runs help="Timed runs. Overrides tak.toml when both are given" {
+        arg <RUNS>
+    }
+    flag --warmup help="Untimed warmup runs. Overrides tak.toml when both are given" {
+        arg <WARMUP>
+    }
+    flag --no-counters help="Skip instruction counting even where valgrind is available"
+    flag --record help="Append the result to refs/notes/tak for the current commit"
+    arg "[-- CMD]…" help="Command to benchmark, after `--`. Omit to run what tak.toml declares" required=#false var=#true
+}
+cmd history help="Show recorded history for a commit" {
+    flag --remote help="Remote to refresh notes from" default=origin {
+        arg <REMOTE>
+    }
+    arg "[REV]" help="Revision to read. Defaults to HEAD" required=#false default=HEAD
+}
+cmd push help="Push recorded measurements to the remote" {
+    flag --remote default=origin {
+        arg <REMOTE>
+    }
+}
+cmd init help="Teach plain `git fetch` about the notes ref" {
+    flag --remote default=origin {
+        arg <REMOTE>
+    }
+}
+cmd backfill help="Benchmark published release binaries to bootstrap history" {
+    long_help #"""
+Benchmark published release binaries to bootstrap history.
+
+A new adopter's first chart is empty. Rather than rebuilding a project at a hundred historical commits, download what it already published.
+"""#
+    flag --repo help="Repository to pull releases from, as \"owner/name\". Defaults to the `origin` remote of the current repository" {
+        arg <REPO>
+    }
+    flag --bin help="Executable name to look for inside each release archive. Defaults to the repository name" {
+        arg <BIN>
+    }
+    flag --bench help="Name to record measurements under" default=release {
+        arg <BENCH>
+    }
+    flag --limit help="Most recent releases to measure" default="20" {
+        arg <LIMIT>
+    }
+    flag --runs help="Timed runs per release" default="10" {
+        arg <RUNS>
+    }
+    flag --dry-run help="Measure but do not write to refs/notes/tak"
+    arg "[-- ARGS]…" help="Arguments passed to the downloaded binary, after `--`. Defaults to `--version`, which every CLI answers cheaply" required=#false var=#true
+}
+cmd compare help="Compare this commit's measurements against another's" {
+    long_help #"""
+Compare this commit's measurements against another's.
+
+Fails when a gated metric has risen by more than `gate_pct`. Wall clock gates only for measurements recorded on dedicated hardware.
+"""#
+    flag --rev help="Revision to compare. Defaults to HEAD" default=HEAD {
+        arg <REV>
+    }
+    flag --remote help="Remote to refresh notes from" default=origin {
+        arg <REMOTE>
+    }
+    flag --no-gate help="Report without failing, whatever the numbers say"
+    arg "[BASE]" help="Revision to compare against" required=#false default="origin/main"
+}
+cmd doctor help="Diagnose the git-notes plumbing"
+cmd settings help="Show every setting, its resolved value, and where that value came from" {
+    flag --docs help="Include the full description of each setting"
+}
+cmd usage hide=#true help="Generate the CLI specification used to build the documentation"
