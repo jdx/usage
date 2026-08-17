@@ -255,6 +255,14 @@ pub struct Flag<'a> {
     /// `var=#true` — is bounded on how many times it was *given*, which no single token
     /// can decide, so that bound stays with the metadata and is checked after the parse.
     pub var_max: ::core::option::Option<u32>,
+    /// The byte that makes one word several values, if the flag declares one.
+    ///
+    /// Here rather than with the metadata for the same reason [`var_max`](Self::var_max)
+    /// is: it decides *where* a word lands. A bound counts values, and a delimiter is what
+    /// makes a word stop being one of them — `--include a,b,c` is three, so a `var_max` of
+    /// two is already past its bound on the single word it was entitled to take. Binding
+    /// cannot count without it.
+    pub delimiter: ::core::option::Option<u8>,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -271,6 +279,7 @@ impl Flag<'_> {
         takes_value: false,
         variadic: false,
         var_max: ::core::option::Option::None,
+        delimiter: ::core::option::Option::None,
         global: false,
     };
 
@@ -297,6 +306,11 @@ pub struct Arg<'a> {
     /// command. `u32` rather than `usize` because a CLI that bounds a variadic above four
     /// billion has other problems, and this table is read on the hot path.
     pub var_max: ::core::option::Option<u32>,
+    /// The byte that makes one word several values, if the argument declares one.
+    ///
+    /// See [`Flag::delimiter`]: a bound counts values, and only this says how many values a
+    /// word carries.
+    pub delimiter: ::core::option::Option<u8>,
     /// This argument's relationship to the `--` separator.
     pub double_dash: DoubleDash,
     /// Unused by binding, kept so a table entry can carry its own name for
@@ -310,6 +324,7 @@ impl Arg<'_> {
         key: 0,
         var: false,
         var_max: ::core::option::Option::None,
+        delimiter: ::core::option::Option::None,
         double_dash: DoubleDash::Optional,
         name: "",
     };
@@ -1119,11 +1134,22 @@ impl<'t, 'v> Parser<'t, 'v> {
             match self.argv.get(self.pos) {
                 Some(next) if !is_flag_like(bytes(next)) && bytes(next) != b"--" => {
                     self.pos += 1;
-                    self.collected += 1;
+                    self.collected += values_in(bytes(next), flag.delimiter);
                     // Same rule as a positional: a bounded occurrence takes that many and
                     // leaves the rest to whatever follows.
                     if flag.var_max.is_some_and(|max| self.collected >= max) {
                         self.collecting = None;
+                    }
+                    // Stopping is only the same as staying within the bound while one word
+                    // is one value. A delimited word can carry the occurrence past it in a
+                    // single step, and that word cannot be split between two owners, so the
+                    // overshoot is an error rather than a place to stop.
+                    if let Some(max) = flag.var_max.filter(|max| self.collected > *max) {
+                        return Some(Err(Error::VarTooMany {
+                            name: flag.name,
+                            max: max as usize,
+                            got: self.collected as usize,
+                        }));
                     }
                     return Some(Ok(Event::Flag {
                         flag,
@@ -1215,7 +1241,7 @@ impl<'t, 'v> Parser<'t, 'v> {
                 None
             };
             if flag.variadic {
-                self.start_collecting(flag);
+                self.start_collecting(flag, value.unwrap_or(b""))?;
             }
             return Ok(Event::Flag {
                 flag,
@@ -1310,7 +1336,7 @@ impl<'t, 'v> Parser<'t, 'v> {
             rest
         };
         if flag.variadic {
-            self.start_collecting(flag);
+            self.start_collecting(flag, value)?;
         }
         Ok(Event::Flag {
             flag,
@@ -1420,7 +1446,17 @@ impl<'t, 'v> Parser<'t, 'v> {
         // bound, at which point the words after it belong to whatever comes next. That is
         // what makes `[a]… [b]` expressible at all.
         if arg.var {
-            self.arg_taken += 1;
+            self.arg_taken += values_in(token, arg.delimiter);
+            // Before advancing, which resets the count: as with a variadic flag, reaching
+            // the bound and passing it are the same event once a word can carry several
+            // values, and only the second is a mistake.
+            if let Some(max) = arg.var_max.filter(|max| self.arg_taken > *max) {
+                return Err(Error::VarTooMany {
+                    name: arg.name,
+                    max: max as usize,
+                    got: self.arg_taken as usize,
+                });
+            }
             if arg.var_max.is_some_and(|max| self.arg_taken >= max) {
                 self.advance_arg();
             }
@@ -1459,15 +1495,24 @@ impl<'t, 'v> Parser<'t, 'v> {
 
     /// A variadic flag occurrence begins, counting from zero.
     ///
-    /// The value it was given on the same token counts, which is why this starts at one:
-    /// `--include a b` with `var_max=2` takes `a` and `b`, not three words.
-    fn start_collecting(&mut self, flag: &'t Flag<'t>) {
-        self.collected = 1;
-        self.collecting = if flag.var_max.is_some_and(|max| max <= 1) {
+    /// The value it was given on the same token counts, which is why this starts at what
+    /// that value holds: `--include a b` with `var_max=2` takes `a` and `b`, not three
+    /// words — and `--include a,b` has already taken both on the one token.
+    fn start_collecting(&mut self, flag: &'t Flag<'t>, first: &[u8]) -> Result<(), Error<'t, 'v>> {
+        self.collected = values_in(first, flag.delimiter);
+        if let Some(max) = flag.var_max.filter(|max| self.collected > *max) {
+            return Err(Error::VarTooMany {
+                name: flag.name,
+                max: max as usize,
+                got: self.collected as usize,
+            });
+        }
+        self.collecting = if flag.var_max.is_some_and(|max| self.collected >= max) {
             None
         } else {
             Some(flag)
         };
+        Ok(())
     }
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
@@ -1528,6 +1573,19 @@ impl<'t, 'v> Parser<'t, 'v> {
 /// which is why values come back as bytes.
 fn bytes<'v>(s: &'v &'v OsStr) -> &'v [u8] {
     s.as_encoded_bytes()
+}
+
+/// How many values one word carries.
+///
+/// One, until a delimiter is declared — and then one per separator, counting the same way
+/// splitting on it does: `a,b` is two, `a,` is two with an empty second, and `` is one.
+/// Counted rather than split because binding only needs the number, and the split itself
+/// belongs to the layer that owns the values.
+fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
+    match delimiter {
+        Some(d) => 1 + word.iter().filter(|b| **b == d).count() as u32,
+        None => 1,
+    }
 }
 
 /// Whether a token should be read as a flag.

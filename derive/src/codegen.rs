@@ -763,6 +763,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::std::option::Option::None),
     };
 
+    let table_delimiter = table_delimiter(field);
     quote! {
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
@@ -773,8 +774,23 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             takes_value: #takes_value,
             variadic: #variadic,
             var_max: #var_max,
+            delimiter: #table_delimiter,
             global: #global,
         };
+    }
+}
+
+/// The delimiter as the parser tables want it: a byte, or nothing.
+///
+/// Validated to one byte where the attribute is read, so a `char` that does not fit is
+/// already impossible here rather than silently truncated.
+fn table_delimiter(field: &Field) -> TokenStream {
+    match field
+        .delimiter
+        .and_then(|d| u8::try_from(u32::from(d)).ok())
+    {
+        Some(byte) => quote!(::std::option::Option::Some(#byte)),
+        None => quote!(::std::option::Option::None),
     }
 }
 
@@ -802,12 +818,14 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::std::option::Option::None),
     };
 
+    let table_delimiter = table_delimiter(field);
     quote! {
         pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
             name: #field_name,
             var: #var,
             var_max: #var_max,
+            delimiter: #table_delimiter,
             double_dash: #double_dash,
         };
     }

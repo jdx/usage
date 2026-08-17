@@ -1943,6 +1943,26 @@ fn collect_variadic_flag_values(
             return Ok(true);
         }
     }
+    // The loop stops once the occurrence has reached its bound, which without a delimiter is
+    // exactly when it has taken `max` words. A delimiter breaks that: one word can carry
+    // several values, so the run can end up *past* the bound rather than on it, and stopping
+    // is no longer the same as staying within it. `--include a,b,c` under `var_max=2` is the
+    // case — three values out of the one word the loop was entitled to take.
+    //
+    // Counted against `carried` like the loop itself, so this stays a statement about the
+    // occurrence rather than about the list the occurrences build up.
+    let taken = flags
+        .get(flag)
+        .map(value_count)
+        .unwrap_or(0)
+        .saturating_sub(carried);
+    if taken > max {
+        errors.push(UsageErr::VarFlagTooMany {
+            name: flag.name.clone(),
+            max,
+            got: taken,
+        });
+    }
     Ok(false)
 }
 
@@ -3159,6 +3179,30 @@ flag "--file <file>" required_unless="--stdin"
             parse(&spec, &input(&["ex", "--env", "dev,prod,dev"])).is_err(),
             "three values should breach var_max=2"
         );
+    }
+
+    #[test]
+    fn a_split_bound_counts_one_occurrence_at_a_time() {
+        // The bound on a variadic flag *argument* is what one occurrence may take. Without a
+        // delimiter the collection simply stops at it, so it could never be exceeded; a word
+        // carrying several values can carry an occurrence past it in one step, and that is
+        // the only way this bound is ever breached.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>...\" delimiter=\",\" {\n  arg \"<pattern>...\" var=#true var_max=2\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--include", "a,b"])).expect("exactly the bound is fine");
+        assert!(
+            parse(&spec, &input(&["ex", "--include", "a,b,c"])).is_err(),
+            "three values out of one word is still three values"
+        );
+        // The rule the corpus documents for plain words, on split ones: a second occurrence
+        // starts counting again rather than adding to the first.
+        parse(
+            &spec,
+            &input(&["ex", "--include", "a,b", "--include", "c,d"]),
+        )
+        .expect("two per occurrence, twice, is within the bound");
     }
 
     #[test]
