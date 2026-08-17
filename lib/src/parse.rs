@@ -1640,8 +1640,8 @@ fn explicit_flag_has_value(
         ParseValue::MultiBool(values) => values.iter().any(|value| value.to_string() == expected),
         ParseValue::MultiString(values) => values.iter().any(|value| value == expected),
     });
-    if parsed_matches {
-        return true;
+    if out.flags.contains_key(flag) {
+        return parsed_matches;
     }
 
     let Some(env) = flag.env.as_ref() else {
@@ -1654,6 +1654,9 @@ fn explicit_flag_has_value(
     value.is_some_and(
         |value| match flag.arg.as_ref().and_then(|arg| arg.delimiter) {
             Some(delimiter) => value.split(delimiter).any(|value| value == expected),
+            None if flag.arg.is_none() => {
+                matches!(value.as_str(), "1" | "true" | "True" | "TRUE").to_string() == expected
+            }
             None => value == expected,
         },
     )
@@ -3678,6 +3681,34 @@ flag "--file <file>" required_unless="--stdin"
             .unwrap();
         parse(&from_default, &input(&["ex"]))
             .expect("a default is not an explicit conditional value");
+    }
+
+    #[test]
+    fn command_line_values_override_env_for_conditional_requirements() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--config <file>\" env=\"EX_CONFIG\" {\n  requires_if \"special.toml\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+
+        parse_with_env(
+            &spec,
+            &["ex", "--config", "ordinary.toml"],
+            &[("EX_CONFIG", "special.toml")],
+        )
+        .expect("the command-line value takes precedence over the environment");
+    }
+
+    #[test]
+    fn conditional_requirements_normalize_boolean_env_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--feature\" env=\"EX_FEATURE\" {\n  requires_if \"true\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+
+        for value in ["1", "true", "True", "TRUE"] {
+            let err = parse_with_env(&spec, &["ex"], &[("EX_FEATURE", value)]).unwrap_err();
+            assert!(err.to_string().contains("key"), "{value}: {err}");
+        }
+        parse_with_env(&spec, &["ex"], &[("EX_FEATURE", "false")])
+            .expect("a false environment value does not activate a true condition");
     }
 
     #[test]
