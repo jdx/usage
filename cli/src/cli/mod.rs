@@ -1,6 +1,7 @@
-use crate::usage_spec;
-use clap::{Parser, Subcommand};
+use std::ffi::OsStr;
+
 use miette::Result;
+use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;
 mod exec;
@@ -10,55 +11,132 @@ mod mcp;
 mod shell;
 mod sponsors;
 
-#[derive(Parser)]
-#[clap(author, version, about)]
+/// CLI for working with usage-based CLIs
+// `usage` parses its own command line with the parser it ships: the tables below are the same
+// ones an adopter's CLI compiles into, and `--usage-spec` prints the spec they emit rather
+// than a transcription of a clap command. Said here rather than in the doc comment, which is
+// the help page a user reads.
+//
+// 3.6 added `effect=` and 4.0 added it on flags and args; older `usage` CLIs reject the spec
+// outright with "unsupported cmd prop effect", so this moves in lockstep with the fields the
+// spec actually carries.
+#[derive(DeriveCli)]
+#[usage(
+    bin = "usage",
+    version,
+    min_usage_version = "4.0",
+    usage = "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec",
+    // Every flag `usage` accepts is one it declares, so an unrecognised one is a mistake and
+    // saying so beats offering it to a positional — `usage lint --nope f.kdl` would otherwise
+    // make `--nope` the file and call the real file unexpected.
+    //
+    // Declared once, on the root: every subcommand inherits it. The five that hand a command
+    // line to somebody else's script say `value` for themselves, which is the whole reason
+    // both halves are needed.
+    unknown_flags = "error"
+)]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[usage(subcommand)]
     command: Command,
 
     /// Outputs completions for the specified shell for completing the `usage` CLI itself
+    // `--completions <shell>` is normally answered in `crate::run` before a parse happens,
+    // because a shell init script asks for it on every new shell and it does not need a
+    // subcommand to answer. It remains a real parsed field so direct callers of `Cli::run`
+    // and the help, spec, and completions all read the same declaration.
+    //
+    // A flag, which is how it is typed. The clap declaration made it a *positional* — so the
+    // spec, the docs and the generated completions all described a `[COMPLETIONS]` argument
+    // that nothing accepts, while the flag that does work went undocumented. Carried over
+    // faithfully at first, wrong included; the point of emitting the spec from the
+    // declaration is that the two cannot disagree, so the declaration is what changes.
+    #[usage(long)]
     completions: Option<String>,
 
     /// Outputs a `usage.kdl` spec for this CLI itself
-    #[clap(long)]
+    #[usage(long)]
     usage_spec: bool,
 }
 
-#[derive(Subcommand)]
+/// What `--version` and `-v` answer with.
+///
+/// The binary's name, not the crate's. They differ here — `usage-cli` ships `usage` — and
+/// everything else this CLI says about itself now comes from the spec, where the name is
+/// `usage`. Read from the spec rather than written out again, so a rename cannot leave the
+/// version line saying something the help page above it contradicts.
+pub(crate) fn version() -> String {
+    let spec = Cli::spec();
+    format!(
+        "{} {}",
+        spec.bin.unwrap_or(spec.name),
+        spec.version.unwrap_or(env!("CARGO_PKG_VERSION"))
+    )
+}
+
+/// What `usage` can be asked to do.
+///
+/// Each command's description is its struct's doc comment, in the file that owns it, except
+/// where a variant holds nothing and there is no struct to carry one.
+#[derive(Subcommands)]
 enum Command {
-    #[clap(about = "Execute a shell script using bash")]
-    Bash(shell::Shell),
+    Bash(shell::Bash),
     CompleteWord(complete_word::CompleteWord),
     Exec(exec::Exec),
-    #[clap(about = "Execute a shell script using fish")]
-    Fish(shell::Shell),
+    Fish(shell::Fish),
     Generate(generate::Generate),
     Lint(lint::Lint),
     Mcp(mcp::Mcp),
-    #[clap(name = "powershell", about = "Execute a shell script using PowerShell")]
-    PowerShell(shell::Shell),
-    Sponsors(sponsors::Sponsors),
-    #[clap(about = "Execute a shell script using zsh")]
-    Zsh(shell::Shell),
+    #[usage(name = "powershell")]
+    PowerShell(shell::PowerShell),
+    /// Show the companies sponsoring usage and the jdx.dev open source tools
+    #[usage(effect = "read")]
+    Sponsors,
+    Zsh(shell::Zsh),
 }
 
 impl Cli {
     pub fn run(argv: &[String]) -> Result<()> {
-        let cli = Self::parse_from(argv);
+        // `parse_from` takes the command line without the program name, and hands back what
+        // went wrong instead of ending the process — which is what lets the error come out
+        // through the same path as every other failure here.
+        let words: Vec<&OsStr> = argv.iter().skip(1).map(OsStr::new).collect();
+        let cli = match Self::parse_from(&words) {
+            Ok(cli) => cli,
+            // Not failures: someone asked a question, and the answer goes to stdout.
+            Err(usage_rs::Error::Help { cmd, long }) => {
+                if let Some(page) = usage_rs::help::render(Self::spec(), cmd, long) {
+                    print!("{page}");
+                }
+                return Ok(());
+            }
+            Err(usage_rs::Error::Version) => {
+                println!("{}", version());
+                return Ok(());
+            }
+            Err(err) => {
+                eprint!("{}", usage_rs::render_failure(Self::spec(), &words, &err));
+                // clap's status for a command line it could not parse, which is what the
+                // scripts that call this have been checking for.
+                std::process::exit(2);
+            }
+        };
+        if let Some(shell) = cli.completions.as_deref() {
+            return crate::usage_spec::complete(shell);
+        }
         if cli.usage_spec {
-            return usage_spec::generate();
+            return crate::usage_spec::generate();
         }
         match cli.command {
-            Command::Bash(mut cmd) => cmd.run("bash"),
-            Command::Fish(mut cmd) => cmd.run("fish"),
-            Command::PowerShell(mut cmd) => cmd.run("pwsh"),
-            Command::Zsh(mut cmd) => cmd.run("zsh"),
+            Command::Bash(mut cmd) => cmd.run(),
+            Command::Fish(mut cmd) => cmd.run(),
+            Command::PowerShell(mut cmd) => cmd.run(),
+            Command::Zsh(mut cmd) => cmd.run(),
             Command::Generate(cmd) => cmd.run(),
             Command::Exec(mut cmd) => cmd.run(),
             Command::CompleteWord(cmd) => cmd.run(),
             Command::Lint(cmd) => cmd.run(),
             Command::Mcp(cmd) => cmd.run(),
-            Command::Sponsors(cmd) => cmd.run(),
+            Command::Sponsors => sponsors::run(),
         }
     }
 }

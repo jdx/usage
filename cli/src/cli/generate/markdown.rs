@@ -1,41 +1,51 @@
 use std::path::PathBuf;
 
 use super::{parse_file_or_stdin, write_or_stdout};
-use clap::Args;
 use usage::docs::markdown::MarkdownRenderer;
+use usage_rs::Args;
 
 /// Generate markdown documentation from usage specs
 #[derive(Args)]
-#[clap(visible_alias = "md")]
+#[usage(alias = "md", effect = "read")]
 pub struct Markdown {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short, long)]
     file: PathBuf,
     // /// Pass a usage spec in an argument instead of a file
-    // #[clap(short, long, required_unless_present = "file", overrides_with = "file")]
+    // #[usage(short, long, required_unless = "--file", overrides = "--file")]
     // spec: Option<String>,
     /// Render each subcommand as a separate markdown file
-    #[clap(short, long, requires = "out_dir", conflicts_with = "out_file")]
+    #[usage(short, long, conflicts = "--out-file")]
     multi: bool,
 
     /// Escape HTML in markdown
-    #[clap(long)]
+    #[usage(long)]
     html_encode: bool,
 
     /// Output markdown files to this directory (required when using --multi)
-    #[clap(long, value_hint = clap::ValueHint::DirPath, requires = "multi")]
+    #[usage(
+        long,
+        value_hint = usage_rs::ValueHint::DirPath,
+        requires = "--multi",
+        required_if = "--multi",
+        effect = "write"
+    )]
     out_dir: Option<PathBuf>,
 
     /// Output file path for single-file markdown generation, or "-" for stdout (default)
-    #[clap(long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(
+        long,
+        value_hint = usage_rs::ValueHint::FilePath,
+        effect = "write"
+    )]
     out_file: Option<PathBuf>,
 
     /// Replace `<pre>` tags with markdown code fences
-    #[clap(long)]
+    #[usage(long)]
     replace_pre_with_code_fences: bool,
 
     /// Prefix to add to all URLs
-    #[clap(long)]
+    #[usage(long)]
     url_prefix: Option<String>,
 }
 

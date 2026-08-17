@@ -1,32 +1,36 @@
 use std::path::PathBuf;
 
-use clap::Args;
+use usage_rs::Args;
 
 use crate::cli::generate;
 
 use usage::sdk::{SdkLanguage, SdkOptions};
 
+/// Generate a type-safe SDK from a usage spec
+// The only generator whose output flag is required: it cannot print an SDK to stdout, so
+// every invocation writes a directory, and the effect belongs on the command rather than on
+// a flag that raises it.
 #[derive(Args)]
-#[clap(about = "Generate a type-safe SDK from a usage spec")]
+#[usage(effect = "write")]
 pub struct Sdk {
     /// A usage spec taken in as a file
-    #[clap(short, long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// Target language for the SDK
-    #[clap(short, long, value_parser = ["typescript", "python"])]
+    #[usage(short, long, choices("typescript", "python"))]
     language: String,
 
     /// Output directory for generated SDK files
-    #[clap(short, long)]
+    #[usage(short, long)]
     output: PathBuf,
 
     /// Override the package/module name (defaults to spec bin name)
-    #[clap(short, long)]
+    #[usage(short, long)]
     package_name: Option<String>,
 
     /// Raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }
 

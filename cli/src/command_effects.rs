@@ -1,60 +1,21 @@
 //! What each `usage` command does to the world.
 //!
-//! clap has no way to express this, so it is applied to the derived spec on the
-//! way out. The same shape mise, hk, pitchfork, aube and communique use.
+//! Declared where the command is, as `#[usage(effect = "…")]`. It used to be a table applied
+//! to the spec on the way out, because clap had no way to express it; the derive does, so the
+//! table is gone and what is left here is the coverage that kept it honest.
 //!
-//! The rule is what the command does to *state the user would miss*, not how
-//! much work it does. Reading a spec file and printing a manpage is `read` no
-//! matter how much parsing happens in between; writing that manpage to a path
-//! the user named is `write`, because something on disk changed.
+//! The rule is what the command does to *state the user would miss*, not how much work it
+//! does. Reading a spec file and printing a manpage is `read` no matter how much parsing
+//! happens in between; writing that manpage to a path the user named is `write`, because
+//! something on disk changed.
 //!
-//! Most commands here print to stdout and take an optional flag to write to a
-//! file instead, so they are `read` with the flag raising them — which is the
-//! composition rule doing its job: the effect of an invocation is the highest
-//! of the command's and those of the flags and args actually supplied.
+//! Most commands print to stdout and take an optional flag to write to a file instead, so
+//! they are `read` with the flag raising them — which is the composition rule doing its job:
+//! the effect of an invocation is the highest of the command's and those of the flags and
+//! args actually supplied.
 //!
-//! A command that runs code the user supplied is left unset rather than
-//! guessed at. See [`UNCLASSIFIED`].
-
-use usage::SpecCommandEffect::{self, Read, Write};
-
-/// Commands whose effect is fixed, keyed by their full path under `usage`.
-const EFFECTS: &[(&str, SpecCommandEffect)] = &[
-    ("complete-word", Read),
-    // Cannot run alone (`subcommand_required`), and every child starts at
-    // `read`, so the parent is `read` too.
-    ("generate", Read),
-    ("generate completion", Read),
-    ("generate completion-init", Read),
-    ("generate fig", Read),
-    ("generate go", Read),
-    ("generate json", Read),
-    ("generate json-schema", Read),
-    ("generate manpage", Read),
-    ("generate markdown", Read),
-    // The only generator whose output flag is required: it cannot print an SDK
-    // to stdout, so every invocation writes a directory.
-    ("generate sdk", Write),
-    ("lint", Read),
-    // Long-running, but every tool it serves only reads the spec it was given.
-    // Unlike `mise mcp`, which is unclassified because it serves a tool that
-    // runs tasks, nothing here can act on the CLI it describes.
-    ("mcp", Read),
-    ("sponsors", Read),
-];
-
-/// Flags that raise the effect of the command they are passed to, keyed by
-/// `<command path>` and the flag's name.
-///
-/// All of these redirect output that would otherwise go to stdout.
-const FLAG_EFFECTS: &[(&str, &str, SpecCommandEffect)] = &[
-    ("generate fig", "out-file", Write),
-    ("generate go", "out-file", Write),
-    ("generate json-schema", "out-file", Write),
-    ("generate manpage", "out-file", Write),
-    ("generate markdown", "out-dir", Write),
-    ("generate markdown", "out-file", Write),
-];
+//! A command that runs code the user supplied is left unset rather than guessed at. See
+//! [`UNCLASSIFIED`].
 
 /// Commands with no fixed effect, and why.
 ///
@@ -72,50 +33,23 @@ const UNCLASSIFIED: &[(&str, &str)] = &[
     ("zsh", "runs a user-supplied script"),
 ];
 
-/// Apply the tables above to a derived spec.
-///
-/// A path that no longer exists is skipped rather than panicking — the stale
-/// entry is caught by the test below, where a failure is readable, instead of
-/// at runtime in a user's shell.
-pub(crate) fn apply(spec: &mut usage::Spec) {
-    for (path, effect) in EFFECTS {
-        if let Some(cmd) = find_mut(spec, path) {
-            cmd.effect = Some(*effect);
-        }
-    }
-    for (path, flag_name, effect) in FLAG_EFFECTS {
-        if let Some(cmd) = find_mut(spec, path) {
-            if let Some(flag) = cmd.flags.iter_mut().find(|f| f.name == *flag_name) {
-                flag.effect = Some(*effect);
-            }
-        }
-    }
-}
-
-fn find_mut<'a>(spec: &'a mut usage::Spec, path: &str) -> Option<&'a mut usage::SpecCommand> {
-    let mut cmd = &mut spec.cmd;
-    for segment in path.split(' ') {
-        cmd = cmd.subcommands.get_mut(segment)?;
-    }
-    Some(cmd)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    use usage_rs::spec::{CommandMeta, Effect};
 
-    fn spec() -> usage::Spec {
-        let mut cli = <crate::cli::Cli as clap::CommandFactory>::command();
-        let mut spec = clap_usage::spec(&mut cli, "usage");
-        apply(&mut spec);
-        spec
+    use crate::cli::Cli;
+
+    /// The static metadata the derive compiled, which is what `--usage-spec` prints.
+    fn root() -> &'static CommandMeta<'static> {
+        Cli::spec().root
     }
 
-    /// Every command path in the spec, deepest-first order irrelevant.
-    fn walk(cmd: &usage::SpecCommand, path: &mut Vec<String>, out: &mut Vec<(String, bool)>) {
-        for (name, sub) in &cmd.subcommands {
-            path.push(name.clone());
+    /// Every command path under the root, with whether it declares an effect.
+    fn walk(cmd: &CommandMeta, path: &mut Vec<String>, out: &mut Vec<(String, bool)>) {
+        for sub in cmd.subcommands {
+            path.push(sub.cmd.name.to_string());
             out.push((path.join(" "), sub.effect.is_some()));
             walk(sub, path, out);
             path.pop();
@@ -123,38 +57,31 @@ mod tests {
     }
 
     fn commands() -> Vec<(String, bool)> {
-        let spec = spec();
         let mut out = vec![];
-        walk(&spec.cmd, &mut vec![], &mut out);
+        walk(root(), &mut vec![], &mut out);
         out
     }
 
-    #[test]
-    fn no_entry_points_at_a_command_that_does_not_exist() {
-        // `apply` skips a stale path silently so a rename cannot break the CLI.
-        // This is where that shows up instead.
-        let real: HashSet<_> = commands().into_iter().map(|(path, _)| path).collect();
-        let stale: Vec<_> = EFFECTS
-            .iter()
-            .map(|(path, _)| *path)
-            .chain(FLAG_EFFECTS.iter().map(|(path, _, _)| *path))
-            .chain(UNCLASSIFIED.iter().map(|(path, _)| *path))
-            .filter(|path| !real.contains(*path))
-            .collect();
-        assert!(stale.is_empty(), "no such commands: {stale:?}");
+    fn find(path: &str) -> Option<&'static CommandMeta<'static>> {
+        let mut cmd = root();
+        for segment in path.split(' ') {
+            cmd = cmd.subcommands.iter().find(|s| s.cmd.name == segment)?;
+        }
+        Some(cmd)
     }
 
     #[test]
-    fn no_flag_entry_points_at_a_flag_that_does_not_exist() {
-        let spec = spec();
-        let missing: Vec<_> = FLAG_EFFECTS
+    fn nothing_names_a_command_that_does_not_exist() {
+        // The effects themselves can no longer go stale — a `#[usage(effect)]` on a command
+        // that was renamed moves with it, and one on a command that was deleted is deleted
+        // too. `UNCLASSIFIED` is a list of names again, so this is where it reports itself.
+        let real: HashSet<_> = commands().into_iter().map(|(path, _)| path).collect();
+        let stale: Vec<_> = UNCLASSIFIED
             .iter()
-            .filter(|(path, flag_name, _)| {
-                find(&spec, path).is_none_or(|cmd| !cmd.flags.iter().any(|f| f.name == *flag_name))
-            })
-            .map(|(path, flag_name, _)| format!("{path} --{flag_name}"))
+            .map(|(path, _)| *path)
+            .filter(|path| !real.contains(*path))
             .collect();
-        assert!(missing.is_empty(), "no such flags: {missing:?}");
+        assert!(stale.is_empty(), "no such commands: {stale:?}");
     }
 
     #[test]
@@ -178,31 +105,45 @@ mod tests {
         // The composition rule is the reason flags carry effects at all:
         // `usage g markdown -f x.kdl` only reads, the same command with
         // `--out-file` writes.
-        let spec = spec();
-        let md = find(&spec, "generate markdown").unwrap();
-        assert_eq!(md.effect, Some(Read));
-        let out_file = md.flags.iter().find(|f| f.name == "out-file").unwrap();
-        assert_eq!(out_file.effect, Some(Write));
+        let md = find("generate markdown").unwrap();
+        assert_eq!(md.effect, Some(Effect::Read));
+        let flag = |name: &str| md.flags.iter().find(|f| f.flag.name == name).unwrap();
+        assert_eq!(flag("out-file").effect, Some(Effect::Write));
+        assert_eq!(flag("out-dir").effect, Some(Effect::Write));
         // A flag that changes only the rendering stays unset.
-        let html = md.flags.iter().find(|f| f.name == "html-encode").unwrap();
-        assert_eq!(html.effect, None);
+        assert_eq!(flag("html-encode").effect, None);
+    }
+
+    #[test]
+    fn every_generator_that_can_redirect_its_output_says_so() {
+        // The four generators that print to stdout unless told otherwise. Kept as one list
+        // because the risk is a new `--out-file` arriving without an effect, which reads to
+        // an agent as a command that only ever prints.
+        for path in [
+            "generate fig",
+            "generate go",
+            "generate json-schema",
+            "generate manpage",
+        ] {
+            let cmd = find(path).unwrap_or_else(|| panic!("no such command: {path}"));
+            let out_file = cmd
+                .flags
+                .iter()
+                .find(|f| f.flag.name == "out-file")
+                .unwrap_or_else(|| panic!("{path} has no --out-file"));
+            assert_eq!(out_file.effect, Some(Effect::Write), "{path} --out-file");
+        }
     }
 
     #[test]
     fn a_required_output_flag_makes_the_command_write() {
         // `generate sdk` cannot print to stdout, so there is no read-only way
         // to invoke it and the effect belongs on the command.
-        let spec = spec();
-        let sdk = find(&spec, "generate sdk").unwrap();
-        assert_eq!(sdk.effect, Some(Write));
-        assert!(sdk.flags.iter().any(|f| f.name == "output" && f.required));
-    }
-
-    fn find<'a>(spec: &'a usage::Spec, path: &str) -> Option<&'a usage::SpecCommand> {
-        let mut cmd = &spec.cmd;
-        for segment in path.split(' ') {
-            cmd = cmd.subcommands.get(segment)?;
-        }
-        Some(cmd)
+        let sdk = find("generate sdk").unwrap();
+        assert_eq!(sdk.effect, Some(Effect::Write));
+        assert!(sdk
+            .flags
+            .iter()
+            .any(|f| f.flag.name == "output" && f.required));
     }
 }

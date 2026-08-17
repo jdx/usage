@@ -4,15 +4,15 @@ use miette::IntoDiagnostic;
 use std::path::PathBuf;
 
 /// Outputs a usage spec in json format
-#[derive(clap::Args)]
-#[clap()]
+#[derive(usage_rs::Args)]
+#[usage(effect = "read")]
 pub struct Json {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }
 

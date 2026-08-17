@@ -15,14 +15,19 @@ mod markdown;
 mod sdk;
 
 /// Generate completions, documentation, and other artifacts from usage specs
-#[derive(clap::Args)]
-#[clap(visible_alias = "g")]
+// Cannot run alone, and every child starts at `read`, so the parent is `read` too.
+#[derive(usage_rs::Args)]
+#[usage(alias = "g", effect = "read")]
 pub struct Generate {
-    #[clap(subcommand)]
+    #[usage(subcommand)]
     pub command: Command,
 }
 
-#[derive(clap::Subcommand)]
+/// The generators.
+///
+/// Each command's help is its struct's doc comment rather than a second one here, which the
+/// derive would let win: one description, in the file that owns the command.
+#[derive(usage_rs::Subcommands)]
 pub enum Command {
     Completion(completion::Completion),
     CompletionInit(completion_init::CompletionInit),

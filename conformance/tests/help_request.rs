@@ -39,6 +39,13 @@ struct Ex {
     command: Option<Commands>,
 }
 
+#[derive(Debug, Cli)]
+#[usage(
+    bin = "alternate",
+    usage = "Usage: alternate <COMMAND>\n       alternate --version"
+)]
+struct Alternate {}
+
 fn ask(tokens: &[&str]) -> (bool, String) {
     let argv: Vec<&OsStr> = tokens.iter().map(OsStr::new).collect();
     match Ex::parse_from(&argv) {
@@ -63,6 +70,24 @@ fn the_long_and_short_forms_ask_for_different_pages() {
         page, short_page,
         "the two forms differ, or there was no reason to tell them apart"
     );
+}
+
+#[test]
+fn root_help_uses_an_explicit_multiline_synopsis() {
+    for token in ["-h", "--help"] {
+        let argv = [OsStr::new(token)];
+        let err = Alternate::parse_from(&argv).expect_err("help was requested");
+        let Error::Help { cmd, long } = err else {
+            panic!("expected help, got {err:?}");
+        };
+        let page = usage_argv::help::render(Alternate::spec(), cmd, long)
+            .expect("the command is this CLI's");
+        assert!(
+            page.contains("Usage: alternate <COMMAND>\n       alternate --version"),
+            "{page}"
+        );
+        assert!(!page.contains("Usage: alternate <SUBCOMMAND>"), "{page}");
+    }
 }
 
 #[test]

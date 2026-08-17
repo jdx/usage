@@ -1,19 +1,20 @@
-.TH USAGE-CLI 1
+.TH USAGE 1
 .SH NAME
-usage\-cli \- CLI for working with usage\-based CLIs
+usage \- CLI for working with usage\-based CLIs
 .SH SYNOPSIS
-\fBusage\fR [OPTIONS] [<COMPLETIONS>] [COMMAND]
+\fBusage\fR <COMMAND>
+\fBusage\fR \-\-completions <COMPLETIONS>
+\fBusage\fR \-\-usage\-spec
 .SH DESCRIPTION
 CLI for working with usage\-based CLIs
 .PP
 .SH OPTIONS
 .TP
+\fB\-\-completions\fR \fI<COMPLETIONS>\fR
+Outputs completions for the specified shell for completing the `usage` CLI itself
+.TP
 \fB\-\-usage\-spec\fR
 Outputs a `usage.kdl` spec for this CLI itself
-.SH ARGUMENTS
-.TP
-\fB<COMPLETIONS>\fR
-Outputs completions for the specified shell for completing the `usage` CLI itself
 .SH COMMANDS
 .TP
 \fBbash\fR
@@ -65,6 +66,7 @@ Outputs a usage spec in json format
 Generate a JSON Schema for a CLI's config file from its usage spec
 .TP
 \fBgenerate manpage\fR
+Generate a manpage from a usage spec
 .RS
 \fIAliases: \fRman
 .RE
@@ -118,10 +120,14 @@ Show help
 .TP
 \fB<ARGS>\fR
 Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what
+lets a shebang script take flags of its own.
 .SH "USAGE COMPLETE-WORD"
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+This is used internally by shell completion scripts to provide
+intelligent completions for commands, flags, and arguments.
 .PP
 \fBUsage:\fR usage complete\-word [OPTIONS] [<WORDS>] ...
 .PP
@@ -193,6 +199,9 @@ Show help
 .TP
 \fB<ARGS>\fR
 Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what
+lets a shebang script take flags of its own.
 .SH "USAGE GENERATE COMPLETION"
 Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 .PP
@@ -219,9 +228,14 @@ You may need to set this if you have a different bin named "usage"
 .RS
 \fIDefault: \fRusage
 .RE
+.RS
+\fIEnvironment: \fR\fBJDX_USAGE_BIN\fR
+.RE
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
-A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
+A command which generates a usage spec
+e.g.: `mycli \-\-usage` or `mycli completion usage`
+Defaults to "$bin \-\-usage"
 \fBArguments:\fR
 .PP
 .TP
@@ -233,7 +247,9 @@ The CLI which we're generating completions for
 .SH "USAGE GENERATE COMPLETION-INIT"
 Generate a shell init script that auto\-completes any usage shebang script on $PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab\-completion for any executable whose first line is a `usage` shebang — no per\-script `usage g completion` step required.
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable
+tab\-completion for any executable whose first line is a `usage` shebang —
+no per\-script `usage g completion` step required.
 .PP
 \fBUsage:\fR usage generate completion\-init [OPTIONS] <SHELL>
 .PP
@@ -246,6 +262,9 @@ Override the bin used for calling back to usage\-cli
 You may need to set this if you have a different bin named "usage"
 .RS
 \fIDefault: \fRusage
+.RE
+.RS
+\fIEnvironment: \fR\fBJDX_USAGE_BIN\fR
 .RE
 \fBArguments:\fR
 .PP
@@ -271,9 +290,11 @@ Raw string spec input
 .SH "USAGE GENERATE GO"
 Generate Go parse tables from a usage spec
 
-The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what
+a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build
+time — typically from a `go:generate` line:
 
-//go:generate usage generate go \-f mycli.usage.kdl \-o tables.go
+  //go:generate usage generate go \-f mycli.usage.kdl \-o tables.go
 .PP
 \fBUsage:\fR usage generate go [OPTIONS]
 .PP
@@ -327,6 +348,8 @@ The schema's title, shown by editors
 \fB\-\-url\fR \fI<URL>\fR
 Where the schema is published, for its `$id`
 .SH "USAGE GENERATE MANPAGE"
+Generate a manpage from a usage spec
+.PP
 \fBUsage:\fR usage generate manpage [OPTIONS]
 .PP
 \fBOptions:\fR
@@ -341,7 +364,11 @@ Output file path, or "\-" for stdout (default)
 \fB\-s, \-\-section\fR \fI<SECTION>\fR
 Manual section number (default: 1)
 
-Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8: System administration commands
+Common sections:
+\- 1: User commands
+\- 5: File formats
+\- 7: Miscellaneous
+\- 8: System administration commands
 .RS
 \fIDefault: \fR1
 .RE
@@ -415,7 +442,9 @@ Treat warnings as errors
 \fB\-\-sorted\fR
 Also check that subcommands and flags are declared in sorted order
 
-Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with \-\-warnings\-as\-errors to hold the order in CI.
+Off by default: declaration order is a house convention rather than a
+correctness question, so a spec that keeps a different order is not wrong.
+Pair it with \-\-warnings\-as\-errors to hold the order in CI.
 \fBArguments:\fR
 .PP
 .TP
@@ -460,6 +489,9 @@ Show help
 .TP
 \fB<ARGS>\fR
 Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what
+lets a shebang script take flags of its own.
 .SH "USAGE ZSH"
 Execute a shell script with the specified shell
 
@@ -483,3 +515,6 @@ Show help
 .TP
 \fB<ARGS>\fR
 Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what
+lets a shebang script take flags of its own.

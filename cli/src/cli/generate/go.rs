@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use clap::Args;
 use miette::Result;
 use usage::go::GoOptions;
+use usage_rs::Args;
 
 use crate::cli::generate;
 
@@ -14,22 +14,27 @@ use crate::cli::generate;
 ///
 ///   //go:generate usage generate go -f mycli.usage.kdl -o tables.go
 #[derive(Args)]
-#[clap()]
+#[usage(effect = "read")]
 pub struct Go {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[clap(short, long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// File path where the generated Go source will be saved, or "-" for stdout
-    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    #[usage(
+        short,
+        long,
+        value_hint = usage_rs::ValueHint::FilePath,
+        effect = "write"
+    )]
     out_file: Option<PathBuf>,
 
     /// Go package clause for the generated file (defaults to the spec's bin name)
-    #[clap(short, long)]
+    #[usage(short, long)]
     package: Option<String>,
 
     /// Raw string spec input
-    #[clap(long, required_unless_present = "file", overrides_with = "file")]
+    #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }
 

@@ -1,9 +1,9 @@
 {
-  "name": "usage-cli",
+  "name": "usage",
   "bin": "usage",
   "cmd": {
     "full_cmd": [],
-    "usage": "[--usage-spec] [COMPLETIONS] <SUBCOMMAND>",
+    "usage": "[--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>",
     "subcommands": {
       "bash": {
         "full_cmd": ["bash"],
@@ -21,6 +21,7 @@
             "name": "ARGS",
             "usage": "[ARGS]…",
             "help": "Arguments to pass to script",
+            "help_long": "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to script",
             "required": false,
             "double_dash": "Optional",
@@ -101,6 +102,7 @@
             "help_first_line": "Raw string spec input",
             "short": ["s"],
             "long": ["spec"],
+            "required_unless": ["--file"],
             "hide": false,
             "global": false,
             "arg": {
@@ -109,7 +111,8 @@
               "required": true,
               "double_dash": "Optional",
               "hide": false
-            }
+            },
+            "overrides": ["--file"]
           },
           {
             "name": "cword",
@@ -124,7 +127,7 @@
               "name": "CWORD",
               "usage": "<CWORD>",
               "required": true,
-              "double_dash": "Automatic",
+              "double_dash": "Optional",
               "hide": false
             }
           },
@@ -150,10 +153,10 @@
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "value",
+        "unknown_flags": null,
         "hide": false,
         "help": "Generate shell completion candidates for a partial command line",
-        "help_long": "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.",
+        "help_long": "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide\nintelligent completions for commands, flags, and arguments.",
         "name": "complete-word",
         "aliases": ["cw"],
         "hidden_aliases": [],
@@ -240,6 +243,7 @@
             "name": "ARGS",
             "usage": "[ARGS]…",
             "help": "Arguments to pass to script",
+            "help_long": "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to script",
             "required": false,
             "double_dash": "Optional",
@@ -343,7 +347,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "requires": ["--usage-cmd"]
               },
               {
                 "name": "include-bash-completion-lib",
@@ -373,15 +378,18 @@
                   "double_dash": "Optional",
                   "hide": false
                 },
-                "default": ["usage"]
+                "default": ["usage"],
+                "env": "JDX_USAGE_BIN"
               },
               {
                 "name": "usage-cmd",
                 "usage": "--usage-cmd <USAGE_CMD>",
                 "help": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",
+                "help_long": "A command which generates a usage spec\ne.g.: `mycli --usage` or `mycli completion usage`\nDefaults to \"$bin --usage\"",
                 "help_first_line": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",
                 "short": [],
                 "long": ["usage-cmd"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -395,7 +403,7 @@
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
             "name": "completion",
@@ -439,15 +447,16 @@
                   "double_dash": "Optional",
                   "hide": false
                 },
-                "default": ["usage"]
+                "default": ["usage"],
+                "env": "JDX_USAGE_BIN"
               }
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate a shell init script that auto-completes any usage shebang script on $PATH",
-            "help_long": "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.",
+            "help_long": "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable\ntab-completion for any executable whose first line is a `usage` shebang —\nno per-script `usage g completion` step required.",
             "name": "completion-init",
             "aliases": ["ci"],
             "hidden_aliases": ["init", "completions-init"],
@@ -501,6 +510,7 @@
                 "help_first_line": "Raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -509,18 +519,25 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               }
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate Fig completion spec for Amazon Q / Fig",
             "name": "fig",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "go": {
             "full_cmd": ["generate", "go"],
@@ -587,6 +604,7 @@
                 "help_first_line": "Raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -595,19 +613,26 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               }
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate Go parse tables from a usage spec",
-            "help_long": "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:\n\n//go:generate usage generate go -f mycli.usage.kdl -o tables.go",
+            "help_long": "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what\na Rust CLI gets from a derive at compile time, a Go CLI gets from this at build\ntime — typically from a `go:generate` line:\n\n  //go:generate usage generate go -f mycli.usage.kdl -o tables.go",
             "name": "go",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "json": {
             "full_cmd": ["generate", "json"],
@@ -639,6 +664,7 @@
                 "help_first_line": "raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -647,12 +673,13 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               }
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Outputs a usage spec in json format",
             "name": "json",
@@ -708,6 +735,7 @@
                 "help_first_line": "raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -716,7 +744,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               },
               {
                 "name": "title",
@@ -755,13 +784,19 @@
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate a JSON Schema for a CLI's config file from its usage spec",
             "name": "json-schema",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "manpage": {
             "full_cmd": ["generate", "manpage"],
@@ -809,7 +844,7 @@
                 "name": "section",
                 "usage": "-s --section <SECTION>",
                 "help": "Manual section number (default: 1)",
-                "help_long": "Manual section number (default: 1)\n\nCommon sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands",
+                "help_long": "Manual section number (default: 1)\n\nCommon sections:\n- 1: User commands\n- 5: File formats\n- 7: Miscellaneous\n- 8: System administration commands",
                 "help_first_line": "Manual section number (default: 1)",
                 "short": ["s"],
                 "long": ["section"],
@@ -827,12 +862,19 @@
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
+            "help": "Generate a manpage from a usage spec",
             "name": "manpage",
             "aliases": ["man"],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "markdown": {
             "full_cmd": ["generate", "markdown"],
@@ -886,6 +928,7 @@
                 "help_first_line": "Output markdown files to this directory (required when using --multi)",
                 "short": [],
                 "long": ["out-dir"],
+                "required_if": ["--multi"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -895,6 +938,7 @@
                   "double_dash": "Optional",
                   "hide": false
                 },
+                "requires": ["--multi"],
                 "effect": "write"
               },
               {
@@ -945,13 +989,23 @@
             ],
             "mounts": [],
             "effect": "read",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate markdown documentation from usage specs",
             "name": "markdown",
             "aliases": ["md"],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "complete": {
+              "out_dir": {
+                "name": "out_dir",
+                "type_": "dir"
+              },
+              "out_file": {
+                "name": "out_file",
+                "type_": "path"
+              }
+            }
           },
           "sdk": {
             "full_cmd": ["generate", "sdk"],
@@ -1039,6 +1093,7 @@
                 "help_first_line": "Raw string spec input",
                 "short": [],
                 "long": ["spec"],
+                "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
                 "arg": {
@@ -1047,12 +1102,13 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "overrides": ["--file"]
               }
             ],
             "mounts": [],
             "effect": "write",
-            "unknown_flags": "error",
+            "unknown_flags": null,
             "hide": false,
             "help": "Generate a type-safe SDK from a usage spec",
             "name": "sdk",
@@ -1065,7 +1121,7 @@
         "flags": [],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "error",
+        "unknown_flags": null,
         "hide": false,
         "subcommand_required": true,
         "help": "Generate completions, documentation, and other artifacts from usage specs",
@@ -1125,7 +1181,7 @@
             "name": "sorted",
             "usage": "--sorted",
             "help": "Also check that subcommands and flags are declared in sorted order",
-            "help_long": "Also check that subcommands and flags are declared in sorted order\n\nOff by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.",
+            "help_long": "Also check that subcommands and flags are declared in sorted order\n\nOff by default: declaration order is a house convention rather than a\ncorrectness question, so a spec that keeps a different order is not wrong.\nPair it with --warnings-as-errors to hold the order in CI.",
             "help_first_line": "Also check that subcommands and flags are declared in sorted order",
             "short": [],
             "long": ["sorted"],
@@ -1135,7 +1191,7 @@
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "error",
+        "unknown_flags": null,
         "hide": false,
         "help": "Lint a usage spec file for common issues",
         "name": "lint",
@@ -1173,6 +1229,7 @@
             "help_first_line": "Raw string spec input",
             "short": ["s"],
             "long": ["spec"],
+            "required_unless": ["--file"],
             "hide": false,
             "global": false,
             "arg": {
@@ -1181,12 +1238,13 @@
               "required": true,
               "double_dash": "Optional",
               "hide": false
-            }
+            },
+            "overrides": ["--file"]
           }
         ],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "error",
+        "unknown_flags": null,
         "hide": false,
         "help": "Serve a usage spec over the Model Context Protocol",
         "help_long": "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.",
@@ -1211,6 +1269,7 @@
             "name": "ARGS",
             "usage": "[ARGS]…",
             "help": "Arguments to pass to script",
+            "help_long": "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to script",
             "required": false,
             "double_dash": "Optional",
@@ -1258,7 +1317,7 @@
         "flags": [],
         "mounts": [],
         "effect": "read",
-        "unknown_flags": "error",
+        "unknown_flags": null,
         "hide": false,
         "help": "Show the companies sponsoring usage and the jdx.dev open source tools",
         "name": "sponsors",
@@ -1282,6 +1341,7 @@
             "name": "ARGS",
             "usage": "[ARGS]…",
             "help": "Arguments to pass to script",
+            "help_long": "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to script",
             "required": false,
             "double_dash": "Optional",
@@ -1322,18 +1382,25 @@
         "examples": []
       }
     },
-    "args": [
+    "args": [],
+    "flags": [
       {
-        "name": "COMPLETIONS",
-        "usage": "[COMPLETIONS]",
+        "name": "completions",
+        "usage": "--completions <COMPLETIONS>",
         "help": "Outputs completions for the specified shell for completing the `usage` CLI itself",
         "help_first_line": "Outputs completions for the specified shell for completing the `usage` CLI itself",
-        "required": false,
-        "double_dash": "Optional",
-        "hide": false
-      }
-    ],
-    "flags": [
+        "short": [],
+        "long": ["completions"],
+        "hide": false,
+        "global": false,
+        "arg": {
+          "name": "COMPLETIONS",
+          "usage": "<COMPLETIONS>",
+          "required": true,
+          "double_dash": "Optional",
+          "hide": false
+        }
+      },
       {
         "name": "usage-spec",
         "usage": "--usage-spec",
@@ -1359,7 +1426,7 @@
     "files": []
   },
   "version": "5.1.0",
-  "usage": "Usage: usage-cli [OPTIONS] [COMPLETIONS] <COMMAND>",
+  "usage": "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec",
   "complete": {},
   "source_code_link_template": "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}",
   "repository": "https://github.com/jdx/usage",

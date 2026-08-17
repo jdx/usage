@@ -325,6 +325,7 @@ static SPEC: Spec = Spec {
     min_usage_version: None,
     about: Some("does things"),
     long_about: Some("Does things, at length."),
+    usage: Some("Usage: ex <COMMAND>\n       ex --version \"quoted\""),
     default_subcommand: Some("run"),
     root: &ROOT_META,
 };
@@ -344,6 +345,10 @@ fn the_program_itself_survives() {
     assert_eq!(spec.about.as_deref(), Some("does things"));
     assert_eq!(spec.about_long.as_deref(), Some("Does things, at length."));
     assert_eq!(spec.default_subcommand.as_deref(), Some("run"));
+    assert_eq!(
+        spec.usage,
+        "Usage: ex <COMMAND>\n       ex --version \"quoted\""
+    );
 }
 
 #[test]
@@ -755,6 +760,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &META,
     };
@@ -886,6 +892,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &ROOT_META_TWO,
     };
@@ -938,6 +945,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         min_usage_version: None,
         about: None,
         long_about: None,
+        usage: None,
         default_subcommand: None,
         root: &ROOT_META_THREE,
     };

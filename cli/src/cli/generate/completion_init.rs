@@ -1,5 +1,5 @@
-use clap::Args;
 use usage::complete::complete_init;
+use usage_rs::Args;
 
 /// Generate a shell init script that auto-completes any usage shebang script on $PATH
 ///
@@ -7,16 +7,20 @@ use usage::complete::complete_init;
 /// tab-completion for any executable whose first line is a `usage` shebang —
 /// no per-script `usage g completion` step required.
 #[derive(Args)]
-#[clap(visible_alias = "ci", aliases = ["init", "completions-init"])]
+#[usage(
+    alias = "ci",
+    alias_hidden("init", "completions-init"),
+    effect = "read"
+)]
 pub struct CompletionInit {
     /// Shell to generate the init script for
-    #[clap(value_parser = ["bash", "fish", "zsh"])]
+    #[usage(choices("bash", "fish", "zsh"))]
     shell: String,
 
     /// Override the bin used for calling back to usage-cli
     ///
     /// You may need to set this if you have a different bin named "usage"
-    #[clap(long, default_value = "usage", env = "JDX_USAGE_BIN")]
+    #[usage(long, default = "usage", env = "JDX_USAGE_BIN")]
     usage_bin: String,
 }
 

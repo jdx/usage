@@ -2,35 +2,33 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use clap::Args;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+use usage_rs::Args;
 
 use usage::Spec;
 
 use crate::env;
 
+/// Execute a script, parsing args and exposing them as environment variables
 #[derive(Debug, Args)]
-#[clap(
-    disable_help_flag = true,
-    visible_alias = "x",
-    about = "Execute a script, parsing args and exposing them as environment variables"
-)]
+// The words after the script are the script's, so a flag `usage` does not know is a value to
+// forward rather than a mistake to report — the root's `error` stops here.
+#[usage(alias = "x", unknown_flags = "value")]
 pub struct Exec {
     /// command to execute after parsing usage spec
     command: String,
     /// path to script to execute
     bin: PathBuf,
     /// arguments to pass to script
-    #[clap(allow_hyphen_values = true)]
     args: Vec<String>,
 
     /// Show help
-    #[clap(short)]
+    #[usage(short)]
     h: bool,
 
     /// Show help
-    #[clap(long)]
+    #[usage(long)]
     help: bool,
 }
 

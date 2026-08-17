@@ -7,6 +7,8 @@
 - **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/manpage.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/manpage.rs)
 
+Generate a manpage from a usage spec
+
 ## Flags
 
 ### `-f --file <FILE>`
@@ -23,6 +25,11 @@ Output file path, or "-" for stdout (default)
 
 Manual section number (default: 1)
 
-Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
+Common sections:
+
+- 1: User commands
+- 5: File formats
+- 7: Miscellaneous
+- 8: System administration commands
 
 **Default:** `1`

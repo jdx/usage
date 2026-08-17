@@ -6,7 +6,7 @@ expression: stdout
 .SH NAME
 mise \- The front\-end to your dev env
 .SH SYNOPSIS
-\fBmise\fR [OPTIONS] [<TASK>] [<TASK_ARGS>] ... [<TASK_ARGS_LAST>] ... [COMMAND]
+\fBmise\fR [OPTIONS] [TASK] [COMMAND]
 .SH DESCRIPTION
 mise is a tool for managing runtime versions. https://github.com/jdx/mise
 .PP

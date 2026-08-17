@@ -460,6 +460,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["manpage", "man"],
+          description: "Generate a manpage from a usage spec",
           options: [
             {
               name: ["-f", "--file"],
@@ -716,17 +717,20 @@ const completionSpec: Fig.Spec = {
   ],
   options: [
     {
+      name: "--completions",
+      description:
+        "Outputs completions for the specified shell for completing the `usage` CLI itself",
+      isRepeatable: false,
+      args: {
+        name: "completions",
+      },
+    },
+    {
       name: "--usage-spec",
       description: "Outputs a `usage.kdl` spec for this CLI itself",
       isRepeatable: false,
     },
   ],
-  args: {
-    name: "completions",
-    description:
-      "Outputs completions for the specified shell for completing the `usage` CLI itself",
-    isOptional: true,
-  },
 };
 
 export default completionSpec;
