@@ -207,6 +207,19 @@
           }
         }
       }
+    },
+    {
+      "id": "a-bound-counts-one-occurrence",
+      "doc": "The bound is on what one occurrence takes, not on the list the occurrences build up, so a second `--include` starts counting again. Reading it as a total would make the same declaration mean fewer values per occurrence the more often the flag is given.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pattern>…\" {\n  arg \"<pattern>…\" var=#true var_max=2\n}\n",
+      "argv": ["--include", "a", "b", "--include", "c", "d"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "include": ["a", "b", "c", "d"]
+          }
+        }
+      }
     }
   ]
 }

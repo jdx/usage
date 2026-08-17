@@ -864,42 +864,22 @@ fn parse_partial_with_env(
                 .last()
                 .is_some_and(|flag| flag.allow_hyphen_values())
         {
-            let collecting = out
-                .flag_awaiting_value
-                .last()
-                .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
-                .cloned();
-            let should_return = drain_pending_flag_values(
+            // A variadic argument collects here too: which token supplied its first
+            // value says nothing about how many it takes.
+            let should_return = bind_pending_flag_value(
                 spec,
                 &out.cmd,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
                 &mut w,
+                &mut input,
+                &mut prefix_bindings,
                 custom_env,
             )?;
             if should_return {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
-            }
-            // A variadic argument collects here too. Which token supplied its first
-            // value says nothing about how many it takes.
-            if let Some(flag) = collecting {
-                let should_return = collect_variadic_flag_values(
-                    spec,
-                    &out.cmd,
-                    &mut out.errors,
-                    &mut out.flags,
-                    &mut out.flag_awaiting_value,
-                    &flag,
-                    &mut input,
-                    &mut prefix_bindings,
-                    custom_env,
-                )?;
-                if should_return {
-                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                    return Ok((out, overridden_flags));
-                }
             }
             continue;
         }
@@ -979,39 +959,24 @@ fn parse_partial_with_env(
                     // token again — where `--jobs=--force` looked like a flag of its
                     // own and bound `force`, leaving `jobs` unset.
                     if let Some((_, val)) = split {
+                        // The `=` settles where the *first* value came from and nothing
+                        // more, so a variadic argument goes on collecting from the words
+                        // after it exactly as the detached form does.
                         let mut val = val.to_string();
-                        let should_return = drain_pending_flag_values(
+                        let should_return = bind_pending_flag_value(
                             spec,
                             &out.cmd,
                             &mut out.errors,
                             &mut out.flags,
                             &mut out.flag_awaiting_value,
                             &mut val,
+                            &mut input,
+                            &mut prefix_bindings,
                             custom_env,
                         )?;
                         if should_return {
                             record_cursor(&mut out, next_arg_idx, seen_double_dash);
                             return Ok((out, overridden_flags));
-                        }
-                        // The `=` settles where the *first* value came from, nothing
-                        // more, so a variadic argument goes on collecting from the
-                        // words after it exactly as the detached form does.
-                        if f.arg.as_ref().is_some_and(|arg| arg.var) {
-                            let should_return = collect_variadic_flag_values(
-                                spec,
-                                &out.cmd,
-                                &mut out.errors,
-                                &mut out.flags,
-                                &mut out.flag_awaiting_value,
-                                &f,
-                                &mut input,
-                                &mut prefix_bindings,
-                                custom_env,
-                            )?;
-                            if should_return {
-                                record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                                return Ok((out, overridden_flags));
-                            }
                         }
                     }
                 } else if f.count {
@@ -1124,40 +1089,20 @@ fn parse_partial_with_env(
         if enable_flags && !out.flag_awaiting_value.is_empty() {
             // Held before the drain pops it: a flag whose argument is variadic keeps
             // taking values after this first one.
-            let collecting = out
-                .flag_awaiting_value
-                .last()
-                .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
-                .cloned();
-            let should_return = drain_pending_flag_values(
+            let should_return = bind_pending_flag_value(
                 spec,
                 &out.cmd,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
                 &mut w,
+                &mut input,
+                &mut prefix_bindings,
                 custom_env,
             )?;
             if should_return {
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
-            }
-            if let Some(flag) = collecting {
-                let should_return = collect_variadic_flag_values(
-                    spec,
-                    &out.cmd,
-                    &mut out.errors,
-                    &mut out.flags,
-                    &mut out.flag_awaiting_value,
-                    &flag,
-                    &mut input,
-                    &mut prefix_bindings,
-                    custom_env,
-                )?;
-                if should_return {
-                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
-                    return Ok((out, overridden_flags));
-                }
             }
             continue;
         }
@@ -1622,6 +1567,63 @@ fn is_number(rest: &str) -> bool {
     }
 }
 
+/// Bind one value to the flag waiting for it, and let a variadic argument go on
+/// collecting from the words that follow.
+///
+/// Every route to a flag's value comes through here — the following word, the text
+/// after an `=`, and the token a `allow_hyphen_values` flag takes whatever it looks
+/// like — so that all three agree on how many values the flag ends up with.
+#[allow(clippy::too_many_arguments)]
+fn bind_pending_flag_value(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    errors: &mut Vec<UsageErr>,
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    word: &mut String,
+    input: &mut VecDeque<String>,
+    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    // Held before the drain pops it, along with what the flag is already carrying: a
+    // `var_max` bounds the values this occurrence takes, not the list they are appended
+    // to, so a second `--include` starts counting again.
+    let collecting = flag_awaiting_value
+        .last()
+        .filter(|flag| flag.arg.as_ref().is_some_and(|arg| arg.var))
+        .cloned()
+        .map(|flag| {
+            let carried = flags.get(&flag).map(value_count).unwrap_or(0);
+            (flag, carried)
+        });
+    if drain_pending_flag_values(
+        spec,
+        cmd,
+        errors,
+        flags,
+        flag_awaiting_value,
+        word,
+        custom_env,
+    )? {
+        return Ok(true);
+    }
+    let Some((flag, carried)) = collecting else {
+        return Ok(false);
+    };
+    collect_variadic_flag_values(
+        spec,
+        cmd,
+        errors,
+        flags,
+        flag_awaiting_value,
+        &flag,
+        carried,
+        input,
+        prefix_bindings,
+        custom_env,
+    )
+}
+
 /// Keep feeding a flag whose argument is variadic from the words that follow it.
 ///
 /// `--include <pattern>...` collects from a single occurrence, so it takes tokens until
@@ -1629,8 +1631,11 @@ fn is_number(rest: &str) -> bool {
 /// This is greedy by design — a command declaring both such a flag and positionals will
 /// find the flag eating them, and `--` or a `var_max` is how the run is stopped.
 ///
-/// Each value goes through the same drain as the first, so choices are checked and the
-/// value lands in the same list rather than by a second route that could disagree.
+/// `carried` is what the flag already held when this occurrence began, so the bound
+/// counts this run rather than everything the flag has collected across the command
+/// line. Each value goes through the same drain as the first, so choices are checked
+/// and the value lands in the same list rather than by a second route that could
+/// disagree.
 #[allow(clippy::too_many_arguments)]
 fn collect_variadic_flag_values(
     spec: &Spec,
@@ -1639,6 +1644,7 @@ fn collect_variadic_flag_values(
     flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     flag: &Arc<SpecFlag>,
+    carried: usize,
     input: &mut VecDeque<String>,
     prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
     custom_env: Option<&HashMap<String, String>>,
@@ -1648,7 +1654,13 @@ fn collect_variadic_flag_values(
         .as_ref()
         .and_then(|arg| arg.var_max)
         .unwrap_or(usize::MAX);
-    while flags.get(flag).map(value_count).unwrap_or(0) < max {
+    while flags
+        .get(flag)
+        .map(value_count)
+        .unwrap_or(0)
+        .saturating_sub(carried)
+        < max
+    {
         let Some(next) = input.front() else { break };
         // The separator is left where it is: stopping here hands it to the arm that
         // knows what it means, rather than reading it as one more value.

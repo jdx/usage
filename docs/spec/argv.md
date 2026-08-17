@@ -12,7 +12,7 @@ and the [conformance corpus](#the-conformance-corpus) makes it executable.
 
 ::: tip Both implementations answer every vector
 
-usage-lib and usage-argv agree with all 153 vectors today. That is a
+usage-lib and usage-argv agree with all 154 vectors today. That is a
 measurement, checked on every run rather than asserted here — see
 [Where the reference implementation differs](#where-the-reference-implementation-differs).
 
@@ -353,7 +353,7 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-**Today it does not: usage-lib agrees with all 153 vectors.** The list is empty
+**Today it does not: usage-lib agrees with all 154 vectors.** The list is empty
 for the first time, and the five entries it used to hold were what writing the
 grammar down was for. Each was a real defect that only a second reading found:
 

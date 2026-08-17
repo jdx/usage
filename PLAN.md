@@ -533,7 +533,7 @@ Checked against mise rather than assumed, and two of them do not survive contact
 
 ## Known usage-lib divergences
 
-**The corpus records none today**: usage-lib answers all 153 vectors, and so do
+**The corpus records none today**: usage-lib answers all 154 vectors, and so do
 usage-argv and the Go runner. What is left below is the history, plus the two
 items marked _needs a decision_ — which are not divergences but questions about
 what the grammar should say.
