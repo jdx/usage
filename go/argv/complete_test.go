@@ -339,6 +339,70 @@ func TestANegationSpelledLikeItsOwnLongIsOfferedOnce(t *testing.T) {
 	}
 }
 
+// A variadic still collecting does not hide the flags that would end it.
+//
+// `--tools a ⌶` is not the same position as `--tools ⌶`: the parser refuses a
+// flag-like token where a value is owed, but a variadic that already has one
+// stops collecting when it meets a flag, and that flag binds. Treating the two
+// the same offered only the variadic's values, so the flags were invisible in a
+// place they still work.
+func TestAVariadicStillCollectingOffersFlagsToo(t *testing.T) {
+	tools := &Flag{Key: 2, Name: "tools", Longs: []string{"tools"},
+		TakesValue: true, Variadic: true}
+	force := &Flag{Key: 3, Name: "force", Longs: []string{"force"}}
+	sub := &Command{Name: "run", Key: 4}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{tools, force},
+		Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+	meta := Metadata{{Key: 1}, {Key: 2, Choices: []string{"node", "python"}}, {Key: 3}, {Key: 4}}
+
+	// The premise: the flag binds after a value has been collected.
+	if f := binds(t, root, []string{"--tools", "a", "--force"}); f != force {
+		t.Fatalf("--force should bind after a collected value, got %v", f)
+	}
+
+	got := values(Candidates(Walk(root, []string{"--tools", "a"}), "", help, meta))
+	if !offered(got, "--force") {
+		t.Errorf("a flag ends the collection and binds, so it belongs here: %v", got)
+	}
+	if !offered(got, "node") {
+		t.Errorf("the variadic's own values belong here too: %v", got)
+	}
+	// A plain word goes to the variadic, so nothing a plain word cannot be.
+	if offered(got, "run") {
+		t.Errorf("a subcommand name would be collected as a value, not bound: %v", got)
+	}
+
+	// And a flag still owed its first value keeps the position to itself.
+	owed := values(Candidates(Walk(root, []string{"--tools"}), "", help, meta))
+	if offered(owed, "--force") {
+		t.Errorf("a flag-like token is refused where a value is owed: %v", owed)
+	}
+}
+
+// A nearer flag claiming a spelling takes it from an inherited negation as well.
+//
+// The exemption that lets a flag spelled `--x` still offer a negation spelled
+// `--x` is about its *own* forms; it must not reach past a child that has taken
+// the word. The parser binds `--x` to the child, and the global was offering it
+// again.
+func TestANearerFlagTakesTheSpellingFromAnInheritedNegation(t *testing.T) {
+	global := &Flag{Key: 3, Name: "x", Longs: []string{"x"}, Negate: "x", Global: true}
+	local := &Flag{Key: 4, Name: "x", Longs: []string{"x"}}
+	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+
+	if f := binds(t, root, []string{"run", "--x"}); f != local {
+		t.Fatalf("the parser binds --x to the nearer flag, got %v", f)
+	}
+	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	if n := count(got, "--x"); n != 1 {
+		t.Errorf("--x should be offered once, by the flag that binds it, got %d: %v", n, got)
+	}
+}
+
 func count(list []string, want string) int {
 	n := 0
 	for _, s := range list {

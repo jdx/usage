@@ -31,9 +31,14 @@ type Position struct {
 	// False once a positional of this command has taken a word: the parser stops
 	// descending there, so a later word matching a subcommand name is a value.
 	SubcommandsPossible bool
-	// AwaitingValue is a flag whose value the cursor is standing in, if the last
-	// word was one that takes a value or a variadic still claiming words.
+	// AwaitingValue is a flag whose value the cursor is standing in, because the
+	// last word was a flag that takes one and has not been given it. Nothing else
+	// belongs here: the parser refuses a flag-like token in that place.
 	AwaitingValue *Flag
+	// Collecting is a variadic flag still claiming words. The next word would be
+	// another of its values — so the positional after it is not offered — but a
+	// flag-like token ends the collection and binds, so flags are.
+	Collecting *Flag
 	// NextArg is the positional a word here would fill, if any are left.
 	NextArg *Arg
 	// SeparatorSeen is whether a `--` has been typed. Narrower than
@@ -86,7 +91,8 @@ func Walk(root *Command, words []string) Position {
 		// A variadic flag still claiming words stands in the same place as a flag
 		// waiting for its first value: the next word belongs to it, not to the
 		// positional after it.
-		AwaitingValue:       firstFlag(awaiting, p.Collecting()),
+		AwaitingValue:       awaiting,
+		Collecting:          p.Collecting(),
 		FlagsPossible:       !p.FlagsStopped(),
 		SubcommandsPossible: p.SubcommandsPossible(),
 		NextArg:             p.PendingArg(),
@@ -129,7 +135,8 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 	}
 
 	// A value the cursor is standing in takes the position entirely: nothing else
-	// belongs where a flag is waiting for its argument.
+	// belongs where a flag is waiting for its argument, because the parser refuses
+	// a flag-like token there.
 	if pos.AwaitingValue != nil {
 		for _, c := range choicesFor(pos.AwaitingValue.Key, meta) {
 			add(CandidateValue, c, "")
@@ -165,10 +172,22 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		return out
 	}
 
+	// A variadic flag that has already taken a value is a weaker claim than a flag
+	// waiting for its first: another word goes to the variadic, but a flag-like
+	// one ends the collection and binds. So its values are offered here *and* the
+	// flags below are — what is not offered is anything a plain word could not be:
+	// a subcommand, or the positional the variadic is standing in front of.
+	collecting := pos.Collecting != nil
+	if collecting {
+		for _, c := range choicesFor(pos.Collecting.Key, meta) {
+			add(CandidateValue, c, "")
+		}
+	}
+
 	// Only while descent is still possible. Once a positional has taken a word the
 	// parser stops matching subcommands, and a name offered there would be bound
 	// as a value or refused outright.
-	if pos.SubcommandsPossible {
+	if pos.SubcommandsPossible && !collecting {
 		commands()
 	}
 
@@ -193,7 +212,7 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 	// produces a command line the parser answers with
 	// `arg_requires_double_dash`, which is the exact failure this design exists
 	// to prevent.
-	if pos.NextArg != nil &&
+	if pos.NextArg != nil && !collecting &&
 		!(pos.NextArg.DoubleDash == DoubleDashRequired && !pos.SeparatorSeen) {
 		for _, c := range choicesFor(pos.NextArg.Key, meta) {
 			add(CandidateValue, c, "")
@@ -243,7 +262,12 @@ func flagsInScope(chain []*Command) []inScope {
 		// says it twice on purpose and matching the reference means keeping that;
 		// a completion is a list of things to type, and the same thing twice is
 		// just a repeated row.
-		if n := negationOf(f); n != "" && !has(left, n) &&
+		// `!has(taken, n)` before the exemption inside negationSurvives: that
+		// exemption is for a flag whose *own* long is spelled like its negation,
+		// and it must not reach past something nearer that has claimed the word.
+		// A child declaring `--x` takes it from an inherited global that answers to
+		// `--x` both ways.
+		if n := negationOf(f); n != "" && !has(left, n) && !has(taken, n) &&
 			negationSurvives(f, n, takenNegations, everyForm) {
 			left = append(left, n)
 		}
@@ -296,13 +320,4 @@ func describe(key uint64, help HelpTable) string {
 		return h.Short[:at]
 	}
 	return h.Short
-}
-
-func firstFlag(flags ...*Flag) *Flag {
-	for _, f := range flags {
-		if f != nil {
-			return f
-		}
-	}
-	return nil
 }
