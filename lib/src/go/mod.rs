@@ -537,18 +537,17 @@ fn arg_meta(arg: &SpecArg, named: &Named) -> String {
 fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted]) -> Vec<String> {
     let mut out = Vec::new();
     for name in names {
-        let bare = name.trim_start_matches('-');
         // The declaring command's own flags first, then any ancestor's globals —
         // the scope a token has, in the order a token gets it, so a subcommand
         // redeclaring an inherited name shadows it here as it does at parse time.
-        let mut found = match_flag(owner, bare, false);
+        let mut found = match_flag(owner, name, false);
         if found.is_none() {
             let path = &owner.cmd.full_cmd;
             for depth in (0..path.len()).rev() {
                 let ancestor = commands
                     .iter()
                     .find(|e| e.cmd.full_cmd.len() == depth && e.cmd.full_cmd[..] == path[..depth]);
-                if let Some(key) = ancestor.and_then(|a| match_flag(a, bare, true)) {
+                if let Some(key) = ancestor.and_then(|a| match_flag(a, name, true)) {
                     found = Some(key);
                     break;
                 }
@@ -567,20 +566,42 @@ fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted])
 /// `conflicts = "--no-color"` as naming the `color` flag and reports the conflict
 /// whichever of the two spellings was typed. The relationship is between entries
 /// rather than between tokens, which is what the key model already assumes.
-fn match_flag(cmd: &Emitted, bare: &str, globals_only: bool) -> Option<String> {
+fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
+    // The form is part of the name. `--q` does not reach the short `-q` and
+    // `-color` does not reach the long `--color`: usage-lib resolves neither, and
+    // resolving them here would have a generated CLI enforcing a rule the
+    // reference does not.
+    let (long, short, bare) = if let Some(rest) = name.strip_prefix("--") {
+        (Some(rest), None, None)
+    } else if let Some(rest) = name.strip_prefix('-') {
+        let mut chars = rest.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => (None, Some(c), None),
+            _ => (None, None, None),
+        }
+    } else {
+        (None, None, Some(name))
+    };
+
     cmd.flags
         .iter()
         .find(|(flag, _)| {
             if globals_only && !flag.global {
                 return false;
             }
-            flag.name == bare
-                || flag
+            if let Some(bare) = bare {
+                return flag.name == bare;
+            }
+            if let Some(long) = long {
+                // The negation is a long form of the flag it belongs to and names
+                // the same entry.
+                return flag
                     .negate
                     .as_deref()
-                    .is_some_and(|n| n.trim_start_matches('-') == bare)
-                || flag.long.iter().any(|l| l == bare)
-                || (bare.chars().count() == 1 && flag.short.iter().any(|c| c.to_string() == bare))
+                    .is_some_and(|n| n.trim_start_matches('-') == long)
+                    || flag.long.iter().any(|l| l == long);
+            }
+            short.is_some_and(|c| flag.short.contains(&c))
         })
         .map(|(_, named)| named.key.clone())
 }
@@ -1150,6 +1171,41 @@ cmd "run" {
         assert!(
             out.contains("{Key: FlagRunSolo, Name: \"solo\", Flag: true},"),
             "a non-global should not resolve from below:\n{out}"
+        );
+    }
+
+    /// The form is part of the name, and usage-lib resolves neither of the
+    /// mismatched ones — so resolving them would have a generated CLI enforcing a
+    /// rule the reference does not.
+    #[test]
+    fn a_relationship_needs_the_right_form() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "-q --quiet"
+flag "--color"
+flag "--a" conflicts="--q"
+flag "--b" conflicts="-color"
+flag "--c" conflicts="-q"
+flag "--d" conflicts="--color"
+"#);
+        // `--q` is not a long form of anything, and `-color` is not a short.
+        assert!(
+            out.contains("{Key: FlagA, Name: \"a\", Flag: true},"),
+            "{out}"
+        );
+        assert!(
+            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
+            "{out}"
+        );
+        // The forms the flags actually have.
+        assert!(
+            out.contains("Name: \"c\", Flag: true, Conflicts: []uint64{FlagQuiet}"),
+            "{out}"
+        );
+        assert!(
+            out.contains("Name: \"d\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
         );
     }
 

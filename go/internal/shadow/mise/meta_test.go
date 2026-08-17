@@ -19,8 +19,12 @@ func resolve(t *testing.T, name string, args []string,
 	environ map[string]string) (values []string, source argv.Source, err *argv.Error) {
 	t.Helper()
 
+	// A value-less flag that was given has no values, and nil would read as "the
+	// command line said nothing" — so it is recorded as an empty slice, which is
+	// the distinction Fill draws. Getting this wrong makes a typed boolean fall
+	// through to env and default.
 	given := map[uint64][]string{}
-	seen := map[uint64]bool{}
+	occurrences := map[uint64]int{}
 	path := []*argv.Command{Root}
 
 	p := argv.New(Root, args)
@@ -30,12 +34,14 @@ func resolve(t *testing.T, name string, args []string,
 		case argv.KindCommand:
 			path = append(path, ev.Command)
 		case argv.KindFlag:
-			seen[ev.Flag.Key] = true
+			occurrences[ev.Flag.Key]++
 			if ev.HasValue {
 				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+			} else if given[ev.Flag.Key] == nil {
+				given[ev.Flag.Key] = []string{}
 			}
 		case argv.KindArg:
-			seen[ev.Arg.Key] = true
+			occurrences[ev.Arg.Key]++
 			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
 		}
 	}
@@ -48,7 +54,7 @@ func resolve(t *testing.T, name string, args []string,
 	for _, cmd := range path {
 		for _, f := range cmd.Flags {
 			v, src := argv.Fill(Meta.Lookup(f.Key), given[f.Key], lookup)
-			if e := argv.Check(Meta.Lookup(f.Key), v, len(given[f.Key])); e != nil && err == nil {
+			if e := argv.Check(Meta.Lookup(f.Key), v, occurrences[f.Key]); e != nil && err == nil {
 				err = e
 			}
 			if f.Name == name {
@@ -175,5 +181,27 @@ func TestRelationshipsPointAtRealEntries(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// A value-less flag typed on the command line must not fall through to the
+// fallbacks. mise's `--quiet` is one, and the distinction is invisible unless
+// something asks: `Fill` reads a nil `given` as "the command line said nothing",
+// so a helper that only records values reports a typed boolean as unset.
+func TestATypedBooleanCountsAsGiven(t *testing.T) {
+	_, source, err := resolve(t, "quiet", []string{"--quiet"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if source != argv.FromArgv {
+		t.Errorf("a typed boolean should come from argv, got %v", source)
+	}
+
+	_, source, err = resolve(t, "quiet", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if source != argv.Unset {
+		t.Errorf("untyped, with nothing declared to fill it, should be unset: %v", source)
 	}
 }
