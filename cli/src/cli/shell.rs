@@ -27,7 +27,7 @@ pub struct Shell {
     args: Vec<String>,
 
     /// Show help
-    #[usage(short = 'h')]
+    #[usage(short)]
     h: bool,
 
     /// Show help

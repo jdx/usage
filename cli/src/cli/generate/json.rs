@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[usage(effect = "read")]
 pub struct Json {
     /// A usage spec taken in as a file, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// raw string spec input

@@ -23,17 +23,17 @@ use crate::cli::generate;
 /// This is used internally by shell completion scripts to provide
 /// intelligent completions for commands, flags, and arguments.
 #[derive(Debug, Args)]
-#[usage(effect = "read")]
+#[usage(alias = "cw", effect = "read")]
 pub struct CompleteWord {
     /// User's input from the command line
     words: Vec<String>,
 
     /// Usage spec file or script with usage shebang, use "-" to read from stdin
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// Raw string spec input
-    #[usage(short = 's', long, required_unless = "--file", overrides = "--file")]
+    #[usage(short, long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 
     /// Current word index

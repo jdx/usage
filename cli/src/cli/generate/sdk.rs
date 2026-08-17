@@ -14,19 +14,19 @@ use usage::sdk::{SdkLanguage, SdkOptions};
 #[usage(effect = "write")]
 pub struct Sdk {
     /// A usage spec taken in as a file
-    #[usage(short = 'f', long)]
+    #[usage(short, long)]
     file: Option<PathBuf>,
 
     /// Target language for the SDK
-    #[usage(short = 'l', long, choices("typescript", "python"))]
+    #[usage(short, long, choices("typescript", "python"))]
     language: String,
 
     /// Output directory for generated SDK files
-    #[usage(short = 'o', long)]
+    #[usage(short, long)]
     output: PathBuf,
 
     /// Override the package/module name (defaults to spec bin name)
-    #[usage(short = 'p', long)]
+    #[usage(short, long)]
     package_name: Option<String>,
 
     /// Raw string spec input

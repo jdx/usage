@@ -347,7 +347,8 @@
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false
-                }
+                },
+                "requires": ["--usage-cmd"]
               },
               {
                 "name": "include-bash-completion-lib",
@@ -388,7 +389,6 @@
                 "help_first_line": "A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"",
                 "short": [],
                 "long": ["usage-cmd"],
-                "required_if": ["--cache-key"],
                 "required_unless": ["--file"],
                 "hide": false,
                 "global": false,
@@ -912,6 +912,7 @@
                   "double_dash": "Optional",
                   "hide": false
                 },
+                "requires": ["--multi"],
                 "effect": "write"
               },
               {
