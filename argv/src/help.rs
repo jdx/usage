@@ -1189,8 +1189,9 @@ pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> 
 /// The parse is deterministic, so walking the same argv reaches the same place.
 ///
 /// `ex help config set` asks about a command *deeper* than the parse reached, so the route is
-/// extended by matching each remaining word among the children of where it got to — the same
-/// descent the parser made, and unambiguous at every step.
+/// extended over [`Parser::help_span`](crate::Parser::help_span) — the words the parser itself
+/// resolved as a command path, which is the only reading that cannot mistake a flag's value for
+/// a command name.
 ///
 /// `None` where the command is not below this spec at all, which a caller should treat as a
 /// reason to fall back rather than a failure.
@@ -1205,34 +1206,31 @@ pub fn route_to<'t>(
             break;
         }
     }
-    let walked = parser.command_path();
-    let from = walked.last().map(|(_, start)| *start).unwrap_or(0);
-    let mut route: Vec<&Command<'_>> = walked.into_iter().map(|(c, _)| c).collect();
+    let (help_from, help_to) = parser.help_span();
+    let mut route: Vec<&Command<'_>> = parser.command_path().into_iter().map(|(c, _)| c).collect();
     if route.is_empty() {
         route.push(root);
     }
 
-    // Already there for `--help`. For the `help` word the parse stopped at the command that
-    // *saw* it, so the rest of the way is walked the way the parser walked it: by name, over
-    // the words that follow, among the children of wherever it has got to.
+    // Already there for `--help`, whose span is empty. For the `help` word the parse stopped at
+    // the command that *saw* it, and the words naming the one being asked about are exactly the
+    // span — which the parser resolved itself, one subcommand at a time.
     //
-    // By name and not by address, because the address is exactly what cannot be trusted here:
-    // looking for a child that *contains* the target picked whichever mount came first, which
-    // is the bug this function exists for.
-    if !core::ptr::eq(*route.last()?, cmd) {
-        for token in argv.iter().skip(from) {
-            let here = *route.last()?;
-            let word = token.as_encoded_bytes();
-            let Some(next) = here.subcommands.iter().copied().find(|sub| {
-                sub.name.as_bytes() == word || sub.aliases.iter().any(|a| a.as_bytes() == word)
-            }) else {
-                continue;
-            };
-            route.push(next);
-            if core::ptr::eq(next, cmd) {
-                break;
-            }
-        }
+    // Taken from the parser rather than re-scanned out of `argv`, because only the parser knows
+    // which tokens were in command position. Scanning every token from where the parse stopped
+    // read `ex --config alpha help beta shared` as a descent into `alpha`, since a flag's
+    // detached value is just a word — and the wrong mount's page passed the arrival check
+    // below, both mounts being one address.
+    //
+    // By name and not by address for the same reason: looking for a child that *contains* the
+    // target picks whichever mount comes first, which is the bug this function exists for.
+    for token in argv.get(help_from..help_to).unwrap_or_default() {
+        let here = *route.last()?;
+        let word = token.as_encoded_bytes();
+        let next = here.subcommands.iter().copied().find(|sub| {
+            sub.name.as_bytes() == word || sub.aliases.iter().any(|a| a.as_bytes() == word)
+        })?;
+        route.push(next);
     }
     // Only if the walk actually arrived: a caller should fall back rather than be handed a
     // page about some other command.

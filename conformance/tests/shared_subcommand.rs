@@ -59,6 +59,9 @@ enum Top {
 #[derive(Cli)]
 #[usage(bin = "ex", unknown_flags = "error")]
 struct Ex {
+    /// Takes a value, which may be spelled like a subcommand
+    #[usage(long, global)]
+    config: Option<String>,
     #[usage(subcommand)]
     command: Option<Top>,
 }
@@ -206,4 +209,51 @@ fn the_first_mount_is_still_its_own() {
     let page = usage_argv::help::render_at(Ex::spec(), &route, long).expect("a page");
     assert!(page.contains("Usage: ex alpha shared"), "{page}");
     assert!(page.contains("--alphaglobal"), "{page}");
+}
+
+#[test]
+fn a_flag_value_is_not_a_step_on_the_route() {
+    // `route_to` first extended the route by scanning every token after the parse stopped and
+    // skipping what did not match. A flag's detached value is just a word, so
+    // `--config alpha help beta shared` descended into `alpha` on the way past — and the wrong
+    // page passed the arrival check, both mounts being one address.
+    //
+    // The words that name the command asked about are the ones the *parser* resolved, and it is
+    // the only thing that knows which tokens were in command position. Both directions, so a
+    // fix that simply preferred the later match would not pass.
+    for (words, want_usage, want_global, not_global) in [
+        (
+            vec!["--config", "alpha", "help", "beta", "shared"],
+            "Usage: ex beta shared",
+            "--betaglobal",
+            "alphaglobal",
+        ),
+        (
+            vec!["--config", "beta", "help", "alpha", "shared"],
+            "Usage: ex alpha shared",
+            "--alphaglobal",
+            "betaglobal",
+        ),
+    ] {
+        let owned: Vec<&OsStr> = words.iter().map(|s| OsStr::new(*s)).collect();
+        let Err(usage_argv::Error::Help { cmd, long }) = Ex::parse_from(&owned) else {
+            panic!("{words:?} should ask for help")
+        };
+        let route = usage_argv::help::route_to(Ex::command(), &owned, cmd)
+            .unwrap_or_else(|| panic!("{words:?}: no route"));
+        let page = usage_argv::help::render_at(Ex::spec(), &route, long).expect("a page");
+
+        assert!(page.contains(want_usage), "{words:?}: {page}");
+        assert!(page.contains(want_global), "{words:?}: {page}");
+        assert!(!page.contains(not_global), "{words:?}: {page}");
+    }
+
+    // And the flag really does take that word as its value — which is what made it a hazard,
+    // and what keeps the field read.
+    let argv: Vec<&OsStr> = ["--config", "alpha", "beta", "shared"]
+        .iter()
+        .map(|s| OsStr::new(*s))
+        .collect();
+    let parsed = Ex::parse_from(&argv).expect("parses");
+    assert_eq!(parsed.config.as_deref(), Some("alpha"));
 }
