@@ -85,6 +85,31 @@ func (f *Flag) choices() []string {
 	return f.Arg.Choices.list()
 }
 
+// defaults reads through to the value a flag takes, which is the other place a
+// default can be written:
+//
+//	flag "--jobs <n>" {
+//	    arg "<n>" default="4"
+//	}
+//
+// usage-lib falls back to it — `lib/src/parse.rs` says so in as many words and a
+// live parse confirms it — so a Go CLI generated from the same spec has to as
+// well, or the two disagree about what `ex` alone means.
+//
+// Only the default. A nested `env` is *not* read, because usage-lib does not read
+// it either: with `arg "<m>" env="EX_MODE"` inside a flag, `EX_MODE=turbo` leaves
+// the flag unset. Following the nesting for one and not the other looks arbitrary
+// until you try it, so it is recorded here rather than rediscovered.
+func (f *Flag) defaults() []string {
+	if len(f.Default) > 0 {
+		return f.Default
+	}
+	if f.Arg != nil {
+		return f.Arg.Default
+	}
+	return nil
+}
+
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
 	Name       string   `json:"name"`
@@ -264,7 +289,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Flag:     true,
 		Required: f.Required,
 		Choices:  f.choices(),
-		Default:  f.Default,
+		Default:  f.defaults(),
 		Env:      f.Env,
 		VarMin:   clampVarMax(f.VarMin),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
