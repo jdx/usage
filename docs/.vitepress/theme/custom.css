@@ -484,6 +484,156 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Benchmarks                                                          */
+/* ------------------------------------------------------------------ */
+.usage-bench {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 4.5rem;
+  text-align: center;
+}
+
+.usage-bench-title {
+  font-family: Orbitron, sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  color: var(--vw-text-bright);
+  margin: 0 0 0.75rem;
+  border: none;
+  padding: 0;
+}
+
+.usage-bench-sub {
+  font-size: 0.95rem;
+  color: rgba(245, 240, 255, 0.65);
+  max-width: 620px;
+  margin: 0 auto 2.25rem;
+  line-height: 1.6;
+}
+
+.usage-bench-sub code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.9em;
+  color: var(--vw-mint);
+  background: rgba(5, 255, 161, 0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+
+.usage-bench-sub a,
+.usage-bench-method a {
+  color: var(--vw-cyan);
+  text-decoration: underline;
+  text-decoration-color: rgba(1, 205, 254, 0.4);
+}
+
+.usage-bench-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  text-align: left;
+}
+
+.usage-bench-card {
+  background: rgba(21, 8, 54, 0.7);
+  border: 1px solid var(--vw-purple-soft);
+  border-radius: 12px;
+  padding: 1.4rem 1.5rem 1.2rem;
+}
+
+.usage-bench-card h3 {
+  font-family: Orbitron, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--vw-text-bright);
+  margin: 0 0 1.2rem;
+  border: none;
+  padding: 0;
+}
+
+.usage-bench-card h3 span {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: rgba(245, 240, 255, 0.5);
+  margin-left: 0.5rem;
+}
+
+.usage-bench-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.usage-bench-name {
+  flex: 0 0 105px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+  color: rgba(245, 240, 255, 0.75);
+  text-align: right;
+}
+
+.usage-bench-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.usage-bench-bar {
+  display: block;
+  height: 13px;
+  border-radius: 0 4px 4px 0;
+  background: rgba(185, 103, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.usage-bench-bar.us {
+  background: var(--vw-magenta);
+  box-shadow: 0 0 10px var(--vw-magenta-glow);
+}
+
+.usage-bench-value {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
+  color: rgba(245, 240, 255, 0.85);
+  white-space: nowrap;
+}
+
+.usage-bench-value em {
+  font-style: normal;
+  color: var(--vw-mint);
+}
+
+.usage-bench-foot {
+  font-size: 0.78rem;
+  color: rgba(245, 240, 255, 0.55);
+  line-height: 1.6;
+  margin: 1.1rem 0 0;
+  border-top: 1px solid var(--vw-purple-soft);
+  padding-top: 0.9rem;
+}
+
+.usage-bench-foot strong {
+  color: var(--vw-mint);
+  font-weight: 600;
+}
+
+.usage-bench-method {
+  font-size: 0.75rem;
+  color: rgba(245, 240, 255, 0.45);
+  margin: 1.75rem 0 0;
+}
+
+@media (max-width: 860px) {
+  .usage-bench-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
