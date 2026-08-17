@@ -1544,6 +1544,25 @@ pub trait CommandArgs: Sized {
         Vec::new()
     }
 
+    /// One declaration in this command that ended up being given, if any.
+    ///
+    /// Used to enforce relationships across a flattened `CommandArgs` boundary, where the
+    /// parent can see the nested partial only through this trait.
+    fn any_given(partial: &Self::Partial) -> Option<&'static str> {
+        let _ = partial;
+        None
+    }
+
+    /// One exclusive flag in this command that was given, if any.
+    ///
+    /// Like [`CommandArgs::any_given`], this is the composition point for flattened argument
+    /// groups. An exclusive flag in a selected subcommand belongs to that subcommand rather
+    /// than to its parent, so implementations do not propagate it across that boundary.
+    fn exclusive_given(partial: &Self::Partial) -> Option<&'static str> {
+        let _ = partial;
+        None
+    }
+
     /// Everything this command decides after the last token: required-ness,
     /// choices, and how many values a variadic got.
     ///

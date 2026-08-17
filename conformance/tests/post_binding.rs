@@ -847,3 +847,95 @@ fn exclusive_reaches_the_spec() {
     let dump = spec.cmd.flags.iter().find(|f| f.name == "dump").unwrap();
     assert!(dump.exclusive);
 }
+
+#[derive(Args)]
+struct ExtraOutput {
+    /// Write somewhere
+    #[usage(long)]
+    output: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-ex")]
+struct ExclusiveBesideFlatten {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: ExtraOutput,
+}
+
+#[derive(Args)]
+struct FlattenedExclusive {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-ex-reverse")]
+struct FlattenBesideOther {
+    /// Print more
+    #[usage(long)]
+    verbose: bool,
+    #[usage(flatten)]
+    extra: FlattenedExclusive,
+}
+
+#[test]
+fn flattening_does_not_hide_either_side_of_exclusivity() {
+    let a = argv(["--dump", "--output", "somewhere"]);
+    assert!(matches!(
+        ExclusiveBesideFlatten::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    let a = argv(["--dump", "--verbose"]);
+    assert!(matches!(
+        FlattenBesideOther::parse_from(&a),
+        Err(Error::ConflictingFlags { other: "dump", .. })
+    ));
+
+    let a = argv(["--output", "somewhere"]);
+    let parsed = ExclusiveBesideFlatten::parse_from(&a).expect("without --dump");
+    assert!(!parsed.dump);
+    assert_eq!(parsed.extra.output.as_deref(), Some("somewhere"));
+
+    let a = argv(["--dump"]);
+    let parsed = FlattenBesideOther::parse_from(&a).expect("the flattened flag is alone");
+    assert!(!parsed.verbose);
+    assert!(parsed.extra.dump);
+}
+
+#[derive(Cli)]
+#[usage(bin = "sub-ex")]
+struct ExclusiveBesideSubcommand {
+    /// Print the version and leave
+    #[usage(long, global, exclusive)]
+    version: bool,
+    #[usage(subcommand)]
+    command: Option<ExclusiveCommands>,
+}
+
+#[derive(Subcommands)]
+enum ExclusiveCommands {
+    /// Run something
+    Run,
+}
+
+#[test]
+fn selecting_a_subcommand_counts_as_company_for_a_parent_exclusive_flag() {
+    let a = argv(["--version"]);
+    let parsed = ExclusiveBesideSubcommand::parse_from(&a).expect("alone is allowed");
+    assert!(parsed.version);
+    assert!(parsed.command.is_none());
+
+    let a = argv(["--version", "run"]);
+    assert!(matches!(
+        ExclusiveBesideSubcommand::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            other: "version",
+            ..
+        })
+    ));
+}

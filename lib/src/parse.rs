@@ -1261,18 +1261,40 @@ fn parse_partial_with_env(
     //
     // Only what was *given*, as `conflicts` reads it: a defaulted flag standing beside an
     // exclusive one is nobody saying anything, and counting it would make the exclusive
-    // flag unusable on any command that has a default.
-    for flag in unique_flags(out.available_flags.values()) {
-        if !flag.exclusive || !out.flags.contains_key(flag) {
+    // flag unusable on any command that has a default. Environment values do count, also as
+    // `conflicts` reads them, so the spec parser and the derive agree.
+    for flag in unique_flags(out.available_flags.values().chain(out.flags.keys())) {
+        let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
+        if !flag.exclusive || !given || overridden_flags.contains(&flag.name) {
             continue;
         }
-        let other_flag = out
-            .flags
-            .keys()
-            .find(|other| other.name != flag.name)
+        let other_flag = unique_flags(out.available_flags.values().chain(out.flags.keys()))
+            .find(|other| {
+                other.name != flag.name
+                    && !overridden_flags.contains(&other.name)
+                    && (out.flags.contains_key(*other) || flag_has_env(other, custom_env))
+            })
             .map(|other| format!("--{}", other.name));
-        let other =
-            other_flag.or_else(|| out.args.keys().next().map(|arg| format!("<{}>", arg.name)));
+        let other_arg = out.cmd.args.iter().find(|arg| {
+            out.args.keys().any(|given| given.name == arg.name)
+                || arg
+                    .env
+                    .as_ref()
+                    .is_some_and(|env| env_contains(custom_env, env))
+        });
+        // Selecting a child is company for an exclusive flag declared by an ancestor. An
+        // exclusive flag belonging to the child itself does not conflict with the command
+        // word needed to reach that child.
+        let selected_subcommand = (out.cmds.len() > 1
+            && out.cmds[..out.cmds.len() - 1].iter().any(|cmd| {
+                cmd.flags
+                    .iter()
+                    .any(|declared| declared.name == flag.name && declared.exclusive)
+            }))
+        .then(|| out.cmd.name.clone());
+        let other = other_flag
+            .or_else(|| other_arg.map(|arg| format!("<{}>", arg.name)))
+            .or(selected_subcommand);
         if let Some(other) = other {
             out.errors.push(UsageErr::InvalidFlag {
                 token: format!("--{}", flag.name),
@@ -2966,6 +2988,26 @@ flag "--file <file>" required_unless="--stdin"
 
         parse(&spec, &input(&["ex", "--dump"])).expect("a default is nobody saying anything");
         assert!(parse(&spec, &input(&["ex", "--dump", "--jobs", "8"])).is_err());
+    }
+
+    #[test]
+    fn an_environment_value_counts_for_an_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--dump\" exclusive=#true\nflag \"--out <path>\" env=\"EX_OUT\"\n"
+            .parse()
+            .unwrap();
+
+        assert!(parse_with_env(&spec, &["ex", "--dump"], &[("EX_OUT", "somewhere")]).is_err());
+        parse_with_env(&spec, &["ex", "--dump"], &[]).expect("without the value it is alone");
+    }
+
+    #[test]
+    fn a_selected_subcommand_counts_for_an_ancestor_exclusive_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--version\" global=#true exclusive=#true\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--version"])).expect("alone is allowed");
+        assert!(parse(&spec, &input(&["ex", "--version", "run"])).is_err());
     }
 
     #[test]

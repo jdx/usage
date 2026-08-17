@@ -96,6 +96,30 @@ struct Ovr {
     quiet: bool,
 }
 
+/// An exclusive flag beside a value supplied by the environment.
+#[derive(Cli)]
+#[usage(bin = "exclusive-env")]
+struct ExclusiveEnv {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    /// Where to write
+    #[usage(long, env = "EXCLUSIVE_ENV_OUT")]
+    out: Option<String>,
+}
+
+#[test]
+fn an_environment_value_counts_for_exclusivity() {
+    unsafe { std::env::set_var("EXCLUSIVE_ENV_OUT", "from-env") };
+    let a = argv(["--dump"]);
+    assert!(ExclusiveEnv::parse_from(&a).is_err());
+    unsafe { std::env::remove_var("EXCLUSIVE_ENV_OUT") };
+
+    let parsed = ExclusiveEnv::parse_from(&a).expect("without the environment it is alone");
+    assert!(parsed.dump);
+    assert!(parsed.out.is_none());
+}
+
 #[test]
 fn a_displaced_flag_is_not_revived_by_its_environment_variable() {
     // The command line says `--stdin` came last, so `--file` lost. Filling it from the

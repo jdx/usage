@@ -1394,6 +1394,87 @@ fn option_str(value: Option<&str>) -> TokenStream {
     }
 }
 
+/// The presence summaries a parent needs to enforce exclusivity across a flattened
+/// `CommandArgs` boundary.
+fn presence_methods(cli: &Cli) -> TokenStream {
+    let direct_given = cli.fields.iter().filter_map(|field| {
+        if matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }) {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        let name = &field.name;
+        Some(quote! {
+            if partial.#given {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let flattened_given = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
+    let selected = cli.fields.iter().find_map(|field| {
+        if !matches!(field.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let name = &field.name;
+        Some(quote! {
+            if partial.__usage_selected.is_some() {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let direct_exclusive = cli.fields.iter().filter_map(|field| {
+        if !field.exclusive {
+            return None;
+        }
+        let given = format_ident!("__given_{}", field.ident);
+        let name = &field.name;
+        Some(quote! {
+            if partial.#given {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    let flattened_exclusive = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(name) =
+                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
+            {
+                return ::std::option::Option::Some(name);
+            }
+        })
+    });
+
+    quote! {
+        fn any_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
+            #(#direct_given)*
+            #(#flattened_given)*
+            #selected
+            ::std::option::Option::None
+        }
+
+        fn exclusive_given(partial: &Self::Partial) -> ::std::option::Option<&'static str> {
+            #(#direct_exclusive)*
+            #(#flattened_exclusive)*
+            ::std::option::Option::None
+        }
+    }
+}
+
 /// The struct that collects values while parsing.
 ///
 /// One field per declared field, of the type that accumulates it: a `bool` for a
@@ -2275,6 +2356,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let presence = presence_methods(cli);
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -2498,6 +2580,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                     check(partial)
                 }
+
+                #presence
 
                 #settings_impl
 
@@ -3343,6 +3427,92 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 .collect::<Vec<_>>()
         });
 
+    // A flattened partial is intentionally opaque to its parent. Ask through
+    // `CommandArgs` whether either side of an exclusive relationship was given, so the
+    // relationship does not disappear merely because the declarations live in reusable
+    // `Args`. A selected subcommand is itself another declaration in this command; its
+    // contents remain in the child command's own scope.
+    let direct_given = cli
+        .fields
+        .iter()
+        .filter(|field| !matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }))
+        .rev()
+        .fold(quote!(::std::option::Option::None), |rest, field| {
+            let given = format_ident!("__given_{}", field.ident);
+            let name = &field.name;
+            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+        });
+    let direct_exclusive = cli
+        .fields
+        .iter()
+        .filter(|field| field.exclusive)
+        .rev()
+        .fold(quote!(::std::option::Option::None), |rest, field| {
+            let given = format_ident!("__given_{}", field.ident);
+            let name = &field.name;
+            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+        });
+    let has_flatten = cli
+        .fields
+        .iter()
+        .any(|field| matches!(field.kind, Kind::Flatten { .. }));
+    let has_direct_exclusive = cli.fields.iter().any(|field| field.exclusive);
+    let flattened_segments = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            (
+                <#ty as ::usage_argv::spec::CommandArgs>::any_given(&partial.#ident),
+                <#ty as ::usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident),
+            ),
+        })
+    });
+    let subcommand_segment = cli.fields.iter().find_map(|field| {
+        if !matches!(field.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let name = &field.name;
+        Some(quote! {
+            (
+                partial.__usage_selected.map(|_| #name),
+                ::std::option::Option::None,
+            ),
+        })
+    });
+    let exclusive_cross_checks =
+        (has_flatten || (has_direct_exclusive && subcommand_segment.is_some())).then(|| {
+            quote! {
+                let __usage_exclusive_segments = [
+                    (#direct_given, #direct_exclusive),
+                    #(#flattened_segments)*
+                    #subcommand_segment
+                ];
+                for __usage_i in 0..__usage_exclusive_segments.len() {
+                    if let ::std::option::Option::Some(exclusive) =
+                        __usage_exclusive_segments[__usage_i].1
+                    {
+                        for __usage_j in 0..__usage_exclusive_segments.len() {
+                            if __usage_i == __usage_j {
+                                continue;
+                            }
+                            if let ::std::option::Option::Some(other) =
+                                __usage_exclusive_segments[__usage_j].0
+                            {
+                                return ::std::result::Result::Err(
+                                    ::usage_argv::Error::ConflictingFlags {
+                                        name: other,
+                                        other: exclusive,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
     // Groups, checked once per group rather than per member: both questions a group asks
     // — how many members were given, and whether that is enough — are about the set.
     //
@@ -3487,6 +3657,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // unfilled, and it is the one usage-lib reports.
         #(#conflict_checks)*
         #(#exclusive_checks)*
+        #exclusive_cross_checks
         #(#group_exclusivity_checks)*
         #(#requirement_checks)*
         #(#flattened_checks)*
