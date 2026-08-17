@@ -130,20 +130,21 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		return out
 	}
 
-	// A help topic is a question, not an invocation: only command names belong.
-	if pos.HelpTopic {
+	// Commands, and their aliases: the parser accepts either, and a completion
+	// that hides an alias makes it undiscoverable. A hidden command binds and is
+	// not advertised — the same rule the help pages follow, and the reason `hide`
+	// exists at all.
+	//
+	// The same list after `help`, because `findNamed` resolves a topic by name or
+	// alias exactly as it resolves a command to run.
+	commands := func() {
 		for _, sub := range subcommandsOf(pos.Cmd) {
+			h := help.Lookup(sub.Key)
+			if h != nil && h.Hide {
+				continue
+			}
 			add(CandidateCommand, sub.Name, describe(sub.Key, help))
-		}
-		return out
-	}
-
-	if pos.Cmd != nil {
-		for _, sub := range subcommandsOf(pos.Cmd) {
-			add(CandidateCommand, sub.Name, describe(sub.Key, help))
-			// Aliases too: a completion that hides them makes them undiscoverable,
-			// and the parser accepts them either way. Hidden ones stay hidden.
-			if h := help.Lookup(sub.Key); h != nil {
+			if h != nil {
 				for _, alias := range h.VisibleAliases {
 					add(CandidateCommand, alias, describe(sub.Key, help))
 				}
@@ -151,28 +152,41 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		}
 	}
 
+	// A help topic is a question, not an invocation: only command names belong.
+	if pos.HelpTopic {
+		commands()
+		return out
+	}
+
+	commands()
+
 	// Flags, only where one could still be typed, and taken from the parser's own
 	// scope so that shadowing is respected: a subcommand redeclaring an inherited
 	// name offers its own.
 	if pos.FlagsPossible {
-		for _, f := range flagsInScope(pos.Chain) {
-			if h := help.Lookup(f.Key); h != nil && h.Hide {
+		for _, s := range flagsInScope(pos.Chain) {
+			if h := help.Lookup(s.flag.Key); h != nil && h.Hide {
 				continue
 			}
-			for _, long := range f.Longs {
-				add(CandidateFlag, "--"+long, describe(f.Key, help))
+			for _, form := range s.forms {
+				add(CandidateFlag, form, describe(s.flag.Key, help))
 			}
-			for _, short := range f.Shorts {
-				add(CandidateFlag, "-"+string(short), describe(f.Key, help))
-			}
-			if f.Negate != "" {
-				add(CandidateFlag, "--"+f.Negate, describe(f.Key, help))
+			// A negation is a spelling like any other, and it is claimed the same
+			// way — but a long anywhere in scope beats it, which is what the
+			// parser does and what `taken` already records.
+			if s.flag.Negate != "" {
+				add(CandidateFlag, "--"+s.flag.Negate, describe(s.flag.Key, help))
 			}
 		}
 	}
 
-	// And the values a positional will only accept.
-	if pos.NextArg != nil {
+	// And the values a positional will only accept — unless it is one that reads
+	// only after a `--` and no separator has been typed. Offering them there
+	// produces a command line the parser answers with
+	// `arg_requires_double_dash`, which is the exact failure this design exists
+	// to prevent.
+	if pos.NextArg != nil &&
+		!(pos.NextArg.DoubleDash == DoubleDashRequired && !pos.SeparatorSeen) {
 		for _, c := range choicesFor(pos.NextArg.Key, meta) {
 			add(CandidateValue, c, "")
 		}
@@ -180,18 +194,31 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 	return out
 }
 
-// flagsInScope is this command's own flags, then any ancestor's globals — the
-// order the parser looks in, so a redeclared name shadows the inherited one.
-func flagsInScope(chain []*Command) []*Flag {
+// inScope is a flag a page or a completion may offer, and the spellings still
+// left to it.
+type inScope struct {
+	flag  *Flag
+	forms []string
+}
+
+// flagsInScope is this command's own flags, then any ancestor's globals, each
+// with the spellings nothing nearer has taken.
+//
+// Per spelling, not per flag. A flag answers to several forms, and a nearer
+// command reclaiming `--jobs` leaves an inherited `-j` and `--workers` binding —
+// dropping the whole inherited flag would hide spellings the parser still
+// accepts. That is the same rule the help pages follow, for the same reason.
+func flagsInScope(chain []*Command) []inScope {
 	if len(chain) == 0 {
 		return nil
 	}
 	here := chain[len(chain)-1]
-	out := append([]*Flag{}, here.Flags...)
-	seen := map[string]bool{}
+	taken := map[string]bool{}
+	var out []inScope
 	for _, f := range here.Flags {
+		out = append(out, inScope{flag: f, forms: formsOf(f)})
 		for _, form := range formsOf(f) {
-			seen[form] = true
+			taken[form] = true
 		}
 	}
 	for i := len(chain) - 2; i >= 0; i-- {
@@ -199,19 +226,20 @@ func flagsInScope(chain []*Command) []*Flag {
 			if !f.Global {
 				continue
 			}
-			taken := false
+			var left []string
 			for _, form := range formsOf(f) {
-				if seen[form] {
-					taken = true
+				if !taken[form] {
+					left = append(left, form)
 				}
 			}
-			if taken {
-				continue
-			}
+			// Claimed whether or not anything is left: a spelling this flag
+			// answers to is not available to something farther away either.
 			for _, form := range formsOf(f) {
-				seen[form] = true
+				taken[form] = true
 			}
-			out = append(out, f)
+			if len(left) > 0 {
+				out = append(out, inScope{flag: f, forms: left})
+			}
 		}
 	}
 	return out

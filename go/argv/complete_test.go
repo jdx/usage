@@ -19,20 +19,21 @@ func completionFixture() (*Command, HelpTable, Metadata) {
 
 	run := &Command{Name: "run", Key: 2, Flags: []*Flag{shell}, Args: []*Arg{mode}}
 	list := &Command{Name: "list", Key: 3}
+	buried := &Command{Name: "buried", Key: 9}
 	root := &Command{Name: "ex", Key: 1,
 		Flags:       []*Flag{verbose, color, hidden},
-		Subcommands: []*Command{run, list},
+		Subcommands: []*Command{run, list, buried},
 	}
 
 	help := HelpTable{
 		{Key: 1}, {Key: 2, Short: "run it", VisibleAliases: []string{"r"}},
 		{Key: 3, Short: "list them"}, {Key: 4, Short: "be loud"}, {Key: 5},
-		{Key: 6}, {Key: 7, Hide: true}, {Key: 8},
+		{Key: 6}, {Key: 7, Hide: true}, {Key: 8}, {Key: 9, Hide: true},
 	}
 	meta := Metadata{
 		{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}, {Key: 5},
 		{Key: 6, Name: "shell", Flag: true, Choices: []string{"bash", "zsh"}},
-		{Key: 7}, {Key: 8, Name: "MODE", Choices: []string{"fast", "slow"}},
+		{Key: 7}, {Key: 8, Name: "MODE", Choices: []string{"fast", "slow"}}, {Key: 9},
 	}
 	return root, help, meta
 }
@@ -154,4 +155,77 @@ func TestDescriptionsAreOneLine(t *testing.T) {
 			t.Errorf("description should be one line: %q", c.Describe)
 		}
 	}
+}
+
+// A hidden command binds and is not advertised — the rule `hide` exists for, and
+// the one the help pages already follow.
+func TestAHiddenCommandIsNotOffered(t *testing.T) {
+	if got := complete(nil, ""); offered(got, "buried") {
+		t.Errorf("a hidden command should not be offered: %v", got)
+	}
+	// Including after `help`, where it would otherwise be most discoverable.
+	if got := complete([]string{"help"}, ""); offered(got, "buried") {
+		t.Errorf("a hidden command is not a topic either: %v", got)
+	}
+}
+
+// `findNamed` resolves a topic by name or alias, so a topic completion that hides
+// aliases makes accepted spellings undiscoverable where they are most useful.
+func TestAHelpTopicOffersAliasesToo(t *testing.T) {
+	got := complete([]string{"help"}, "")
+	if !offered(got, "r") {
+		t.Errorf("`run`'s alias should be a topic too: %v", got)
+	}
+}
+
+// An argument that reads only after a `--` must not be advertised before one:
+// those words come back as `arg_requires_double_dash`, which is the exact failure
+// this design exists to prevent.
+func TestAnArgumentNeedingASeparatorWaitsForIt(t *testing.T) {
+	after := &Arg{Key: 2, Name: "REST", DoubleDash: DoubleDashRequired}
+	root := &Command{Name: "ex", Key: 1, Args: []*Arg{after}}
+	help := HelpTable{{Key: 1}, {Key: 2}}
+	meta := Metadata{{Key: 1}, {Key: 2, Name: "REST", Choices: []string{"one", "two"}}}
+
+	if got := values(Candidates(Walk(root, nil), "", help, meta)); offered(got, "one") {
+		t.Errorf("nothing should be offered before the separator: %v", got)
+	}
+	if got := values(Candidates(Walk(root, []string{"--"}), "", help, meta)); !offered(got, "one") {
+		t.Errorf("after the separator it is the argument's turn: %v", got)
+	}
+}
+
+// A nearer flag reclaiming one spelling leaves the inherited flag's others
+// binding, so they stay offered. Dropping the whole flag hid spellings the parser
+// still accepts.
+func TestOnlyTheClaimedSpellingIsWithdrawn(t *testing.T) {
+	global := &Flag{Key: 3, Name: "jobs", Longs: []string{"jobs", "workers"},
+		Shorts: []byte{'j'}, Global: true}
+	local := &Flag{Key: 4, Name: "jobs", Longs: []string{"jobs"}}
+	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
+	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
+
+	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	// `--jobs` is the subcommand's now, and still offered once.
+	if n := count(got, "--jobs"); n != 1 {
+		t.Errorf("--jobs should appear once, got %d: %v", n, got)
+	}
+	// The spellings the nearer flag did not take still bind, so they stay.
+	for _, want := range []string{"--workers", "-j"} {
+		if !offered(got, want) {
+			t.Errorf("%s still binds, so it should be offered: %v", want, got)
+		}
+	}
+}
+
+func count(list []string, want string) int {
+	n := 0
+	for _, s := range list {
+		if s == want {
+			n++
+		}
+	}
+	return n
 }
