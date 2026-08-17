@@ -736,7 +736,7 @@ impl Spec<'_> {
              the parent and the struct it flattens each declared it.",
             duplicate_flag_form(self.root.cmd)
         );
-        debug_assert!(
+        assert!(
             duplicate_group_name(self.root).is_none(),
             "two groups on the same command are called {:?}, so each would enforce only \
              its own members and one from either side would satisfy neither. With \
