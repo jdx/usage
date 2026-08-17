@@ -58,13 +58,18 @@ func explain(err *Error, help HelpTable) string {
 			return "missing value for a flag"
 		}
 		// The likeliest cause, said out loud: a flag-like token following the flag
-		// is refused as its value, and attaching it is how to force it. The
-		// example is spelled in the form the flag actually has — telling someone
-		// with a short-only `-j` to write `--j=-1` sends them to an unknown-flag
-		// error.
+		// is refused as its value, and attaching it is how to force it.
+		//
+		// The example is `-x` rather than `-1`, because a negative number is the
+		// one dash-prefixed token the parser *does* take detached — `--jobs -1`
+		// binds. Illustrating the rule with the case that is exempt from it was
+		// advice that contradicted itself.
+		//
+		// And it is spelled in the form the flag actually has: telling someone
+		// with a short-only `-j` to write `--j=-x` sends them to an unknown flag.
 		spelling := spell(err.Flag)
 		return "missing value for `" + spelling + "`" +
-			" (a value beginning with `-` has to be attached: `" + spelling + "=-1`)"
+			" (a value beginning with `-` has to be attached: `" + spelling + "=-x`)"
 	case CodeUnexpectedArg:
 		return "unexpected argument `" + safe(err.Token) + "`"
 	case CodeArgRequiresDoubleDash:

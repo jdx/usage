@@ -102,7 +102,7 @@ func TestAShortOnlyFlagIsNamedAsItIsTyped(t *testing.T) {
 	if strings.Contains(got, "--j") {
 		t.Errorf("a short-only flag should not be named `--j`: %s", got)
 	}
-	for _, want := range []string{"`-j`", "`-j=-1`"} {
+	for _, want := range []string{"`-j`", "`-j=-x`"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("want %s in: %s", want, got)
 		}
