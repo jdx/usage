@@ -688,11 +688,15 @@ pub static HELP_SHORT: Flag<'static> = Flag {
 ///
 /// Free rather than a method because `help` resolves a path *without* descending: the words
 /// after it are a question about a command rather than a walk into one.
-fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
-    cmd.subcommands
-        .iter()
-        .copied()
-        .find(|c| c.name.as_bytes() == name || c.aliases.iter().any(|a| a.as_bytes() == name))
+///
+/// Names across every subcommand before any alias, the precedence the grammar states — and
+/// the reason this is the only implementation of it on argv's side. `ex run` and `ex help run`
+/// selecting different commands would be exactly the divergence this rule was written to end.
+pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
+    let subcommands = || cmd.subcommands.iter().copied();
+    subcommands()
+        .find(|c| c.name.as_bytes() == name)
+        .or_else(|| subcommands().find(|c| c.aliases.iter().any(|a| a.as_bytes() == name)))
 }
 
 /// What a caller should print for a parse failure, and what to exit with.
@@ -1494,12 +1498,9 @@ impl<'t, 'v> Parser<'t, 'v> {
     }
 
     fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
-        // Names before aliases, for the reason given on the `find_subcommand` free function:
-        // a command's own name is never shadowed by another command's alias.
-        let subcommands = || self.cmd.subcommands.iter().copied();
-        subcommands()
-            .find(|c| c.name.as_bytes() == name)
-            .or_else(|| subcommands().find(|c| c.aliases.iter().any(|a| a.as_bytes() == name)))
+        // Shared with `help` rather than spelled out again, so descending into a command and
+        // asking about one cannot drift apart.
+        find_named(self.cmd, name)
     }
 }
 
@@ -2108,6 +2109,20 @@ mod tests {
             // The alias still reaches its own command by every name it does not share.
             let a = argv(["alpha"]);
             assert_eq!(parse(&root, &a).unwrap(), vec![Event::Command(&ALPHA)]);
+            // `ex help run` asks about the command `ex run` selects. These are separate
+            // lookups — help resolves a path without descending — and answering differently
+            // for a colliding word is the divergence this rule exists to end.
+            let a = argv(["help", "run"]);
+            match parse(&root, &a) {
+                Err(Error::Help { cmd, .. }) => {
+                    assert!(
+                        ::core::ptr::eq(cmd, &PLAIN_RUN),
+                        "got help for {}",
+                        cmd.name
+                    )
+                }
+                other => panic!("expected a help request, got {other:?}"),
+            }
         }
     }
 

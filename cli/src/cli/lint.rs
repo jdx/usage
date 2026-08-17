@@ -151,7 +151,11 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
 
     // Check default_subcommand reference
     if let Some(default_subcmd) = &spec.default_subcommand {
-        if !spec.cmd.subcommands.contains_key(default_subcmd) {
+        // Resolved the way a typed word is, rather than by canonical key alone: the name may
+        // be any the command answers to, aliases and hidden aliases included, so a spec
+        // declaring `default_subcommand "r"` against `cmd "run" { alias "r" }` is valid and
+        // was being reported as naming a command that does not exist.
+        if spec.cmd.find_subcommand(default_subcmd).is_none() {
             let valid: Vec<&str> = spec.cmd.subcommands.keys().map(|s| s.as_str()).collect();
             let valid_list = if valid.is_empty() {
                 "no subcommands defined".to_string()
@@ -566,6 +570,33 @@ flag "-v --very" help="very"
 
         let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "duplicate-flag"));
+    }
+
+    #[test]
+    fn test_lint_default_subcommand_may_name_an_alias() {
+        // `default_subcommand` is resolved the way a typed word is, so any name the command
+        // answers to is valid. Checking canonical keys alone called this spec broken.
+        for alias in [r#"alias "r""#, r#"alias "r" hide=#true"#] {
+            let spec: Spec = format!(
+                r#"
+name "test"
+default_subcommand "r"
+cmd "run" help="run" {{
+    {alias}
+}}
+"#
+            )
+            .parse()
+            .unwrap();
+
+            let issues = lint_spec(&spec, LintOptions::default());
+            assert!(
+                !issues
+                    .iter()
+                    .any(|i| i.code == "invalid-default-subcommand"),
+                "{alias}: {issues:?}"
+            );
+        }
     }
 
     #[test]
