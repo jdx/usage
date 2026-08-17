@@ -379,7 +379,9 @@ impl From<crate::Spec> for Spec {
             source_code_link_template: spec.source_code_link_template,
             repository: spec.repository,
             about: spec.about,
-            about_long: spec.about_long,
+            // The program's own description, trimmed for the reason a command's is: the blank
+            // line under it is the renderer's to write.
+            about_long: spec.about_long.as_deref().map(|a| a.trim_end().to_string()),
             about_md: spec.about_md,
             author: spec.author,
             license: spec.license,
@@ -507,7 +509,13 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_required: *subcommand_required,
             restart_token: restart_token.clone(),
             help: help.clone(),
-            help_long: help_long.clone(),
+            // Trailing whitespace trimmed, matching `long_commands_section` in usage-argv.
+            // Never intent, and it showed: pitchfork's `daemons add` ends its examples block
+            // with a newline, which put a stray blank line in the middle of `Commands:`.
+            //
+            // A decision, recorded: both renderers move together, so the page loses whitespace
+            // no one wrote on purpose rather than one side reproducing it faithfully.
+            help_long: help_long.as_deref().map(|h| h.trim_end().to_string()),
             help_md: help_md.clone(),
             name: name.clone(),
             aliases: aliases.clone(),
