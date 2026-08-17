@@ -126,12 +126,18 @@ func TestEveryLongPageMatchesTheReference(t *testing.T) {
 	var walk func(chain []*argv.Command, path []string)
 	walk = func(chain []*argv.Command, path []string) {
 		key := strings.Join(path[1:], " ")
-		if want, ok := reference[key]; ok {
-			if got := argv.LongHelp(spec, path, chain, help); got != want.Long {
-				differences = append(differences, key+"\n"+firstDiff(got, want.Long))
-			}
-			checked++
+		want, ok := reference[key]
+		if !ok {
+			// A page the reference does not have is a difference, not a page to
+			// skip: a comparison that quietly drops what it cannot compare passes
+			// loudest when the oracle is empty.
+			differences = append(differences, key+": no reference page")
+			return
 		}
+		if got := argv.LongHelp(spec, path, chain, help); got != want.Long {
+			differences = append(differences, key+"\n"+firstDiff(got, want.Long))
+		}
+		checked++
 		for _, sub := range chain[len(chain)-1].Subcommands {
 			walk(append(append([]*argv.Command{}, chain...), sub),
 				append(append([]string{}, path...), sub.Name))
@@ -139,6 +145,11 @@ func TestEveryLongPageMatchesTheReference(t *testing.T) {
 	}
 	walk([]*argv.Command{root}, []string{"mise"})
 
+	// The floor the short page's test has, for the same reason: "every page
+	// matched" means nothing without a count of what every page was.
+	if checked < 200 {
+		t.Errorf("only %d pages checked; mise's tree is larger", checked)
+	}
 	if len(differences) > 0 {
 		shown := differences
 		if len(shown) > 2 {

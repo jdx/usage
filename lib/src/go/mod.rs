@@ -760,12 +760,18 @@ fn command_help(e: &Emitted) -> String {
             .examples
             .iter()
             .map(|x| {
-                let header = x.header.as_deref().unwrap_or_default();
-                format!(
-                    "{{Header: {}, Code: {}}}",
-                    go_string(header),
-                    go_string(&x.code)
-                )
+                let mut parts = Vec::new();
+                if let Some(header) = &x.header {
+                    parts.push(format!("Header: {}", go_string(header)));
+                }
+                parts.push(format!("Code: {}", go_string(&x.code)));
+                // The line the long page prints above the command. It introduces
+                // the invocation rather than commenting on it, and a generated CLI
+                // that dropped it printed the command with nothing to say why.
+                if let Some(help) = &x.help {
+                    parts.push(format!("Help: {}", go_string(help)));
+                }
+                format!("{{{}}}", parts.join(", "))
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -1358,6 +1364,40 @@ cmd "run" help="Run it" {
             run.contains(r#"BeforeLongHelp: "RUN-BEFORE""#)
                 && run.contains(r#"AfterLongHelp: "RUN-AFTER""#),
             "a command's long brackets are emitted: {run}"
+        );
+    }
+
+    /// An example's help line reaches the tables.
+    ///
+    /// The long page prints it above the command, where it introduces the
+    /// invocation; a generated CLI that dropped it printed the command with
+    /// nothing to say why. mise cannot show this — it writes its examples as
+    /// `after_long_help` text rather than as `example` nodes — so the producer
+    /// comparison over mise's spec cannot see it either.
+    #[test]
+    fn an_examples_help_line_reaches_the_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "run" help="Run it" {
+    example "ex run --fast" header="Speed" help="When you are in a hurry"
+    example "ex run"
+}
+"#);
+        let run = out
+            .lines()
+            .find(|l| l.contains("Examples: []argv.Example"))
+            .expect("the command's examples are emitted");
+        assert!(
+            run.contains(
+                r#"{Header: "Speed", Code: "ex run --fast", Help: "When you are in a hurry"}"#
+            ),
+            "all three fields are emitted: {run}"
+        );
+        // And a bare example says only what it has, rather than an empty header.
+        assert!(
+            run.contains(r#"{Code: "ex run"}"#),
+            "an example with no header emits no header: {run}"
         );
     }
 
