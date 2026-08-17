@@ -886,6 +886,23 @@ struct ExclusiveBesideFlatten {
 }
 
 #[derive(Args)]
+struct FlattenedDefault {
+    /// How many jobs to run
+    #[usage(long, default = "4")]
+    jobs: u8,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flat-default-ex")]
+struct ExclusiveBesideFlattenedDefault {
+    /// Dump and leave
+    #[usage(long, exclusive)]
+    dump: bool,
+    #[usage(flatten)]
+    extra: FlattenedDefault,
+}
+
+#[derive(Args)]
 struct FlattenedExclusive {
     /// Dump and leave
     #[usage(long, exclusive)]
@@ -925,6 +942,15 @@ fn flattening_does_not_hide_either_side_of_exclusivity() {
     let parsed = FlattenBesideOther::parse_from(&a).expect("the flattened flag is alone");
     assert!(!parsed.verbose);
     assert!(parsed.extra.dump);
+}
+
+#[test]
+fn an_exclusive_flag_does_not_skip_flattened_defaults() {
+    let a = argv(["--dump"]);
+    let parsed = ExclusiveBesideFlattenedDefault::parse_from(&a)
+        .expect("exclusive suppresses requiredness, not declared defaults");
+    assert!(parsed.dump);
+    assert_eq!(parsed.extra.jobs, 4);
 }
 
 #[derive(Cli)]

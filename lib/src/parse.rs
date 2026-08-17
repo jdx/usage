@@ -109,6 +109,11 @@ fn merge_subcommand_flags(
                 Some(merged) => merged.clone(),
                 None => {
                     let mut merged = (*global_flag).clone();
+                    // The child declaration owns behavior at the command it belongs to. The
+                    // inherited object is retained only so the merged aliases remain global;
+                    // keeping its exclusivity would silently discard a child's `exclusive`
+                    // redeclaration (or retain one the child explicitly removed).
+                    merged.exclusive = flag.exclusive;
                     for s in &flag.short {
                         if !merged.short.contains(s) {
                             merged.short.push(*s);
@@ -3147,6 +3152,20 @@ flag "--file <file>" required_unless="--stdin"
         assert!(
             parse(&spec, &input(&["ex", "--clean", "run", "--clean"])).is_err(),
             "the distinct parent declaration is still company despite sharing a name"
+        );
+    }
+
+    #[test]
+    fn a_local_child_redeclaration_keeps_its_exclusivity_when_merged() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" exclusive=#true\n  flag \"--verbose\"\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "run", "--clean"]))
+            .expect("the child exclusive flag is valid alone");
+        assert!(
+            parse(&spec, &input(&["ex", "run", "--clean", "--verbose"])).is_err(),
+            "merging with the inherited global must not discard child exclusivity"
         );
     }
 

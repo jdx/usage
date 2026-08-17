@@ -2373,6 +2373,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
     let presence = presence_methods(cli);
+    let apply_defaults = declared_defaults(cli);
     let apply_env = env_fallbacks(cli);
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
@@ -2599,6 +2600,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 }
 
                 #presence
+
+                fn apply_defaults(partial: &mut Self::Partial) {
+                    #apply_defaults
+                }
 
                 fn apply_env(partial: &mut Self::Partial) {
                     #apply_env
@@ -3160,6 +3165,39 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     )
 }
 
+/// Apply declared defaults to this command and every argument group flattened into it.
+///
+/// Separate from the rest of `check` because exclusivity suppresses requiredness, not values a
+/// CLI promised to provide by default. A parent can therefore prepare an opaque flattened partial
+/// without also asking it to report a missing sibling.
+fn declared_defaults(cli: &Cli) -> TokenStream {
+    let own = cli.fields.iter().filter_map(|f| {
+        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. }) {
+            return None;
+        }
+        let given = format_ident!("__given_{}", f.ident);
+        let assign = reset_to_default(f);
+        Some(quote! {
+            if !partial.#given {
+                #assign
+            }
+        })
+    });
+    let flattened = cli.fields.iter().filter_map(|f| {
+        let Kind::Flatten { ty } = &f.kind else {
+            return None;
+        };
+        let ident = &f.ident;
+        Some(quote! {
+            <#ty as usage_argv::spec::CommandArgs>::apply_defaults(&mut partial.#ident);
+        })
+    });
+    quote! {
+        #(#own)*
+        #(#flattened)*
+    }
+}
+
 /// Environment fallbacks for this command and every argument group flattened into it.
 ///
 /// Kept separate from the rest of post-binding validation because a parent must apply these
@@ -3321,22 +3359,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // partial for *every* command in the CLI, selected or not, so a declared default was
     // costing a `String` per default per command — 60 allocations to parse a bare `mise`,
     // which is the CLI's size leaking into the invocation. `check` runs for the selected
-    // command only.
-    //
-    // Guarded on `__given_*`, which is what makes this safe to move: a negation that set a
-    // defaulted `bool` to false during the parse must not be undone here.
-    let declared_defaults = cli.fields.iter().filter_map(|f| {
-        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. }) {
-            return None;
-        }
-        let given = format_ident!("__given_{}", f.ident);
-        let assign = reset_to_default(f);
-        Some(quote! {
-            if !partial.#given {
-                #assign
-            }
-        })
-    });
+    // command only. The helper also prepares flattened defaults before an exclusive flag can
+    // suppress those groups' requiredness checks.
+    let declared_defaults = declared_defaults(cli);
 
     let env_fallbacks = env_fallbacks(cli);
 
@@ -3792,7 +3817,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     quote! {
         // Before the environment, which overrides a default when the flag was not given —
         // the order `start` used to give them.
-        #(#declared_defaults)*
+        #declared_defaults
         #env_fallbacks
         let __usage_exclusive_present = #exclusive_present;
         #(#duplicate_checks)*

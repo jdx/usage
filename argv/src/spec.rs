@@ -1563,6 +1563,15 @@ pub trait CommandArgs: Sized {
         None
     }
 
+    /// Fill fields in this command from their declared defaults.
+    ///
+    /// Kept separate from [`CommandArgs::check`] so a parent can preserve defaults in a
+    /// flattened argument group while an unrelated exclusive flag suppresses only that
+    /// group's missing-value checks.
+    fn apply_defaults(partial: &mut Self::Partial) {
+        let _ = partial;
+    }
+
     /// Fill fields in this command from their declared environment variables.
     ///
     /// A parent calls this before relationships that cross a flattened `CommandArgs`
