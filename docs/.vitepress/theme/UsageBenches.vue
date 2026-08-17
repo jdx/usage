@@ -56,11 +56,11 @@ function width(value: number, max: number): string {
             <span class="usage-bench-tip" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                In-process and warmed, the fastest of many short rounds — a fresh process
-                cannot resolve a 200ns parse. Minima and their ratios move a few percent
-                between runs and machines, which is why the ratios are approximate. The
-                deterministic measure is instructions for one cold parse: 4,155 · 6,295 ·
-                5.89M · 21.9M, which two machines agreed on to within 0.15%.
+                In-process and warmed — the fastest of many short rounds, since a fresh
+                process cannot resolve a 200ns parse. Minima and their ratios drift a few
+                percent between runs and machines, hence the <code>~</code>. Instructions
+                for one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
+                agreeing across two machines to 0.15%.
               </span>
             </span>
           </span>

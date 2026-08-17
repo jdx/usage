@@ -541,6 +541,7 @@
 }
 
 .usage-bench-card {
+  position: relative;
   background: rgba(21, 8, 54, 0.7);
   border: 1px solid var(--vw-purple-soft);
   border-radius: 12px;
@@ -664,7 +665,9 @@
   left: 50%;
   transform: translateX(-50%) translateY(6px);
   width: max-content;
-  max-width: min(300px, 74vw);
+  /* 280 rather than 300: at the widths where a card is ~650px, a wider tip
+     centred on the first footnote phrase hangs off the card's left edge. */
+  max-width: 280px;
   margin-top: 0.5rem;
   padding: 0.8rem 1rem;
   background: rgba(13, 2, 33, 0.97);
@@ -688,6 +691,8 @@
 }
 
 .usage-bench-hint:hover .usage-bench-tip,
+/* :focus as well as :focus-visible, so a tap on a touch screen opens the tip. */
+.usage-bench-hint:focus .usage-bench-tip,
 .usage-bench-hint:focus-visible .usage-bench-tip {
   opacity: 1;
   visibility: visible;
@@ -701,12 +706,42 @@
   margin-bottom: 0.35rem;
 }
 
+.usage-bench-tip code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.9em;
+  color: var(--vw-mint);
+}
+
 /* A span rather than a p: the tips live inside paragraphs, and a nested p would
    be closed early by the browser parsing the server-rendered HTML. */
 .usage-bench-tip span {
   display: block;
   color: rgba(245, 240, 255, 0.75);
   line-height: 1.55;
+}
+
+/* Narrow enough that a 300px tip centred on a phrase would hang off the card, and
+   which side it hangs off depends on where the line wrapped. Pin it to the card
+   instead: the hint stops being the positioning context, so the tip lands under the
+   card at its full width and cannot be clipped wherever the phrase ended up. */
+@media (max-width: 620px) {
+  .usage-bench-hint {
+    position: static;
+  }
+
+  .usage-bench-tip {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: none;
+    transform: translateY(6px);
+  }
+
+  .usage-bench-hint:hover .usage-bench-tip,
+  .usage-bench-hint:focus .usage-bench-tip,
+  .usage-bench-hint:focus-visible .usage-bench-tip {
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 860px) {
