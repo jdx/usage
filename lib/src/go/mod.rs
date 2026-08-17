@@ -593,13 +593,11 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
                 return flag.name == bare;
             }
             if let Some(long) = long {
-                // The negation is a long form of the flag it belongs to and names
-                // the same entry.
-                return flag
-                    .negate
-                    .as_deref()
-                    .is_some_and(|n| n.trim_start_matches('-') == long)
-                    || flag.long.iter().any(|l| l == long);
+                // The negation is a form of the flag it belongs to and names the
+                // same entry — compared as the spec wrote it, dashes and all, so a
+                // `negate = "-no-color"` is not reached by `--no-color`. usage-lib
+                // does not resolve that either.
+                return flag.negate.as_deref() == Some(name) || flag.long.iter().any(|l| l == long);
             }
             short.is_some_and(|c| flag.short.contains(&c))
         })
@@ -1205,6 +1203,29 @@ flag "--d" conflicts="--color"
         );
         assert!(
             out.contains("Name: \"d\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+    }
+
+    /// A negation is matched as the spec wrote it, dashes and all.
+    #[test]
+    fn a_negation_is_matched_as_written() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--color" negate="--no-color"
+flag "--tint" negate="-no-tint"
+flag "--a" conflicts="--no-color"
+flag "--b" conflicts="--no-tint"
+"#);
+        assert!(
+            out.contains("Name: \"a\", Flag: true, Conflicts: []uint64{FlagColor}"),
+            "{out}"
+        );
+        // `--no-tint` is not the form `-no-tint`, so it names nothing — as in
+        // usage-lib, which does not resolve it either.
+        assert!(
+            out.contains("{Key: FlagB, Name: \"b\", Flag: true},"),
             "{out}"
         );
     }
