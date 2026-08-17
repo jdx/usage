@@ -498,6 +498,15 @@ pub fn render(
             );
             let _ = writeln!(out, "  {}", style.valid(&shown(here, name)));
         }
+        Error::DuplicateFlag { name } => {
+            with_usage = true;
+            let _ = writeln!(
+                out,
+                "{} the argument '{}' cannot be used multiple times",
+                style.error("error:"),
+                style.invalid(&shown(here, name))
+            );
+        }
         Error::MissingSubcommand => {
             with_usage = true;
             let _ = writeln!(
@@ -905,6 +914,12 @@ mod tests {
         // `--jobs`.
         let message = rendered(&["use"], Error::MissingRequired { name: "jobs" });
         assert!(message.contains("  --jobs"), "{message}");
+
+        let message = rendered(&["use"], Error::DuplicateFlag { name: "jobs" });
+        assert!(
+            message.contains("the argument '--jobs' cannot be used multiple times"),
+            "{message}"
+        );
 
         // Every variant, not most of them. These two printed the spec's name while the ones
         // directly above and below them did not, so one argument could appear two ways in two
