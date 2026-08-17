@@ -608,13 +608,21 @@ including telling you to delete the label afterwards.
       manpage rendering filtered too. The help templates were the one place that did not.
       Found while building usage-argv's renderer, which would otherwise have had to reproduce
       it for parity.
-- [ ] **usage-lib accepts three things usage-argv and clap both refuse**, found by the
-      differential fuzzer: a command whose spec says a subcommand is required
-      (`mise generate`), a flag whose value is missing (`mise -t --interactive`), and a
-      non-repeatable flag given twice. usage-argv matches clap in all three, so these
-      are usage-lib's to tighten — with the caveat that doing so changes what every
-      spec-driven consumer accepts, including mise's completions and task parsing.
-      Allow-listed in `differential.rs` until decided.
+- [x] **usage-lib accepts three things usage-argv and clap both refuse** — _withdrawn as
+      stated, and the correction is the useful part._ The differential fuzzer found three, and
+      this entry called all three usage-lib's to tighten. One was: `subcommand_required` was
+      in the spec and no parser read it, fixed in #992. **The other two are the grammar working
+      as specified**, and the corpus says so in its own words — `long-repeated-keeps-the-last`
+      ("a repeat is a correction… the later occurrence wins") and `long-unknown` ("more likely
+      data in transit than a mistake", with `unknown_flags "error"` as the opt-in). Acting on
+      the wrong reading got as far as three failing conformance vectors.
+      The refusals come from a different layer: `Error::DuplicateFlag` is constructed only in
+      `derive/src/codegen.rs`, never by usage-argv's parser. So a derive-generated binary is
+      strict and agrees with clap, which is what an adopter compares; a spec-driven parse is
+      conformant and lax, which is what mise runs _task_ arguments through, where a wrapper
+      appending to a command line it did not write is the documented case. Both correct in
+      their own domain, and `differential.rs` now carries a named test so tightening usage-lib
+      fails with the reason attached.
 - [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. This is the
       root of most of the recorded divergences. **Needs a decision**: mise parses
