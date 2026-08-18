@@ -38,7 +38,7 @@ use std::fmt::Write as _;
 use heck::AsPascalCase;
 
 use crate::spec::unknown_flags::UnknownFlags;
-use crate::{Spec, SpecArg, SpecCommand, SpecDoubleDashChoices, SpecFlag};
+use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecDoubleDashChoices, SpecFlag};
 
 /// How to emit.
 #[derive(Debug, Clone, Default)]
@@ -487,7 +487,17 @@ impl Emitter<'_> {
         }
         // Written on the value a flag takes, never on the flag.
         if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
-            fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+            fields.push(format!(
+                "Choices: {}",
+                string_slice(&visible_choices(choices))
+            ));
+            fields.push(format!(
+                "AcceptedChoices: {}",
+                string_slice(&accepted_choices(choices))
+            ));
+            if choices.ignore_case {
+                fields.push("IgnoreCase: true".to_string());
+            }
         }
         // A default can be written in either place, and usage-lib falls back to
         // the one on the value. `env` deliberately does not follow the same
@@ -598,7 +608,17 @@ fn arg_meta(spec: &Spec, arg: &SpecArg, named: &Named) -> String {
         fields.push(format!("CompleteType: {}", go_string(kind)));
     }
     if let Some(choices) = &arg.choices {
-        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+        fields.push(format!(
+            "Choices: {}",
+            string_slice(&visible_choices(choices))
+        ));
+        fields.push(format!(
+            "AcceptedChoices: {}",
+            string_slice(&accepted_choices(choices))
+        ));
+        if choices.ignore_case {
+            fields.push("IgnoreCase: true".to_string());
+        }
     }
     if !arg.default.is_empty() {
         fields.push(format!("Default: {}", string_slice(&arg.default)));
@@ -714,6 +734,41 @@ fn string_slice(values: &[String]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!("[]string{{{list}}}")
+}
+
+fn accepted_choices(choices: &SpecChoices) -> Vec<String> {
+    choices
+        .choices
+        .iter()
+        .chain(
+            choices
+                .details
+                .iter()
+                .flat_map(|choice| choice.aliases.iter().map(|alias| &alias.value)),
+        )
+        .cloned()
+        .collect()
+}
+
+fn visible_choices(choices: &SpecChoices) -> Vec<String> {
+    choices
+        .choices
+        .iter()
+        .filter(|value| {
+            !choices
+                .details
+                .iter()
+                .any(|choice| choice.value == value.as_str() && choice.hide)
+        })
+        .chain(choices.details.iter().flat_map(|choice| {
+            choice
+                .aliases
+                .iter()
+                .filter(|alias| !alias.hide)
+                .map(|alias| &alias.value)
+        }))
+        .cloned()
+        .collect()
 }
 
 fn key_slice(keys: &[String]) -> String {
@@ -905,7 +960,10 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     }
     // Annotations. A flag's choices are declared on the value it takes.
     if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
-        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+        fields.push(format!(
+            "Choices: {}",
+            string_slice(&visible_choices(choices))
+        ));
     }
     if let Some(env) = &flag.env {
         fields.push(format!("Env: {}", go_string(env)));
@@ -942,7 +1000,10 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
         fields.push(format!("Heading: {}", go_string(heading)));
     }
     if let Some(choices) = &arg.choices {
-        fields.push(format!("Choices: {}", string_slice(&choices.choices)));
+        fields.push(format!(
+            "Choices: {}",
+            string_slice(&visible_choices(choices))
+        ));
     }
     if let Some(env) = &arg.env {
         fields.push(format!("Env: {}", go_string(env)));
@@ -1296,6 +1357,33 @@ cmd "config" {
 }
 "#);
         insta::assert_snapshot!(out);
+    }
+
+    #[test]
+    fn rich_choices_keep_acceptance_and_visibility_separate() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--color <when>" {
+    choices ignore_case=#true {
+        choice "always" {
+            alias "yes"
+            alias "on" hide=#true
+        }
+        choice "never" hide=#true
+    }
+}
+"#);
+        let entry = entry_of(&out, "color");
+        assert!(
+            entry.contains(r#"Choices: []string{"always", "yes"}"#),
+            "{entry}"
+        );
+        assert!(
+            entry.contains(r#"AcceptedChoices: []string{"always", "never", "yes", "on"}"#),
+            "{entry}"
+        );
+        assert!(entry.contains("IgnoreCase: true"), "{entry}");
     }
 
     /// Inheritance is resolved here so the parser reads one field per command.
