@@ -66,9 +66,6 @@ constraint. `Arg::default_value_if` is the same hole: a generated spec never car
 [`multicall`](/spec/reference/#multicall) is one clap _does_ expose:
 `Command::is_multicall_set` reaches the spec as `multicall #true`.
 
-Declaring it in the spec is the way to have it. A CLI that keeps its source of truth in
-clap can add the node to a hand-written overlay spec merged with the generated one.
-
 ## Links
 
 - [crate on crates.io](https://crates.io/crates/clap_usage)

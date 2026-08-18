@@ -99,6 +99,13 @@ pub struct Spec {
     /// are stripped.
     #[serde(default, skip_serializing_if = "is_false")]
     pub multicall: bool,
+    /// Whether the source explicitly declared [`Self::multicall`].
+    ///
+    /// This distinguishes an omitted node from `multicall #false` while includes
+    /// are merged. It is parsing bookkeeping rather than part of the JSON model.
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub multicall_set: bool,
     /// What to do with a flag-like token that names no declared flag, for the whole
     /// CLI. A command may override it; see [`SpecCommand::unknown_flags`].
     pub unknown_flags: Option<crate::spec::unknown_flags::UnknownFlags>,
@@ -284,7 +291,10 @@ impl Spec {
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
                 }
-                "multicall" => schema.multicall = node.arg(0)?.ensure_bool()?,
+                "multicall" => {
+                    schema.multicall = node.arg(0)?.ensure_bool()?;
+                    schema.multicall_set = true;
+                }
                 "external_subcommand" => {
                     schema.cmd.external_subcommand = node.arg(0)?.ensure_bool()?;
                 }
@@ -381,8 +391,9 @@ impl Spec {
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
-        if other.multicall {
-            self.multicall = true;
+        if other.multicall_set {
+            self.multicall = other.multicall;
+            self.multicall_set = true;
         }
         merge_opt!(unknown_flags);
         merge_extend!(complete);
@@ -555,9 +566,9 @@ impl Display for Spec {
             node.push(string_entry(None, default_subcommand));
             nodes.push(node);
         }
-        if self.multicall {
+        if self.multicall_set {
             let mut node = KdlNode::new("multicall");
-            node.push(KdlEntry::new(true));
+            node.push(KdlEntry::new(self.multicall));
             nodes.push(node);
         }
         if self.cmd.external_subcommand {
@@ -627,6 +638,7 @@ impl From<&clap::Command> for Spec {
             // this at the top level, which is the field a reader puts it back into.
             unknown_flags: crate::spec::cmd::SpecCommand::from(cmd).unknown_flags,
             multicall: cmd.is_multicall_set(),
+            multicall_set: cmd.is_multicall_set(),
             ..Default::default()
         };
         // The same pass the KDL parser makes, and for the same reason: a command has to know
@@ -819,6 +831,33 @@ cmd "cat"
         );
         let again: Spec = emitted.parse().unwrap();
         assert!(again.multicall);
+    }
+
+    #[test]
+    fn an_included_spec_can_enable_or_disable_multicall() {
+        let dir = tempfile::tempdir().unwrap();
+        let included = dir.path().join("included.usage.kdl");
+        let root = dir.path().join("root.usage.kdl");
+
+        std::fs::write(&included, "multicall #false\n").unwrap();
+        std::fs::write(
+            &root,
+            "multicall #true\ninclude file=\"./included.usage.kdl\"\n",
+        )
+        .unwrap();
+        let spec = Spec::parse_file(&root).unwrap();
+        assert!(!spec.multicall);
+        assert!(spec.to_string().contains("multicall #false"));
+
+        std::fs::write(&included, "multicall #true\n").unwrap();
+        std::fs::write(
+            &root,
+            "multicall #false\ninclude file=\"./included.usage.kdl\"\n",
+        )
+        .unwrap();
+        let spec = Spec::parse_file(&root).unwrap();
+        assert!(spec.multicall);
+        assert!(spec.to_string().contains("multicall #true"));
     }
 
     #[test]

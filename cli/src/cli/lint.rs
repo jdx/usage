@@ -174,7 +174,8 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
         }
     }
 
-    if spec.multicall && spec.cmd.subcommands.is_empty() {
+    let has_named_multicall_target = !spec.cmd.subcommands.is_empty();
+    if spec.multicall && !has_named_multicall_target {
         issues.push(LintIssue {
             severity: Severity::Error,
             code: "multicall-no-subcommands".to_string(),
@@ -733,6 +734,21 @@ cmd "undocumented"
 name "busybox"
 bin "busybox"
 multicall #true
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues.iter().any(|i| i.code == "multicall-no-subcommands"));
+    }
+
+    #[test]
+    fn test_lint_multicall_external_only_has_no_named_target() {
+        let spec: Spec = r#"
+name "busybox"
+bin "busybox"
+multicall #true
+external_subcommand #true
         "#
         .parse()
         .unwrap();

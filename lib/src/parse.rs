@@ -565,11 +565,11 @@ pub fn multicall_basename(argv0: &str) -> &str {
 /// rest. `Some` is a symlink invocation (`ls -l`): inject the basename.
 pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Option<&'a str> {
     let base = multicall_basename(argv0);
-    if !name.is_empty() && base == name {
+    if !name.is_empty() && base == multicall_basename(name) {
         return None;
     }
     if let Some(bin) = bin {
-        if !bin.is_empty() && base == bin {
+        if !bin.is_empty() && base == multicall_basename(bin) {
             return None;
         }
     }
@@ -6150,6 +6150,13 @@ cmd "cat"
 
         // A dispatcher invocation still skips argv[0].
         let parsed = parse(&spec, &input(&["/usr/bin/busybox", "ls", "-l"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+
+        // Configured dispatcher values receive the same path and extension normalization.
+        let mut configured = spec.clone();
+        configured.name = "BusyBox".to_string();
+        configured.bin = "/opt/bin/busybox.exe".to_string();
+        let parsed = parse(&configured, &input(&["/usr/bin/busybox.exe", "ls", "-l"])).unwrap();
         assert_eq!(parsed.cmd.name, "ls");
 
         // `.exe` is stripped so Windows and Unix agree.

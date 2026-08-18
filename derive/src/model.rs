@@ -760,6 +760,9 @@ impl Cli {
                  subcommands to select",
             ));
         }
+        // The subcommand enum is a separate macro expansion, so its external variants
+        // are not visible here. Code generation also asserts that the enum's COMMANDS
+        // table contains a named subcommand; external catch-alls are absent from it.
         Ok(())
     }
 
