@@ -1616,26 +1616,17 @@ fn parse_partial_with_env(
         }
     }
 
-    // Validate var_min/var_max constraints for variadic flags. A flag's own bounds
-    // count repeated occurrences; the nested argument's bounds count the values one
-    // non-repeatable occurrence takes. The latter is clap's `num_args` shape and must
-    // not make the flag itself repeatable merely to reach this check.
+    // Validate var_min/var_max constraints for variadic flags. These are bounds on
+    // repeated occurrences of the flag itself. Bounds on its nested argument are enforced
+    // by binding once per occurrence, where the per-occurrence count is still available.
     for (flag, value) in &out.flags {
-        let bounds = if flag.var {
-            Some((flag.var_min, flag.var_max))
-        } else {
-            flag.arg
-                .as_ref()
-                .filter(|arg| arg.var)
-                .map(|arg| (arg.var_min, arg.var_max))
-        };
-        if let Some((var_min, var_max)) = bounds {
+        if flag.var {
             let count = match value {
                 ParseValue::MultiString(values) => values.len(),
                 ParseValue::MultiBool(values) => values.len(),
                 _ => continue,
             };
-            if let Some(min) = var_min {
+            if let Some(min) = flag.var_min {
                 if count < min {
                     out.errors.push(UsageErr::VarFlagTooFew {
                         name: flag.name.clone(),
@@ -1644,7 +1635,7 @@ fn parse_partial_with_env(
                     });
                 }
             }
-            if let Some(max) = var_max {
+            if let Some(max) = flag.var_max {
                 if count > max {
                     out.errors.push(UsageErr::VarFlagTooMany {
                         name: flag.name.clone(),
@@ -2172,6 +2163,15 @@ fn collect_variadic_flag_values(
         .map(value_count)
         .unwrap_or(0)
         .saturating_sub(carried);
+    if let Some(min) = flag.arg.as_ref().and_then(|arg| arg.var_min) {
+        if taken < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: taken,
+            });
+        }
+    }
     if taken > max {
         errors.push(UsageErr::VarFlagTooMany {
             name: flag.name.clone(),
@@ -3459,6 +3459,27 @@ flag "--file <file>" required_unless="--stdin"
             &input(&["ex", "--include", "a,b", "--include", "c,d"]),
         )
         .expect("two per occurrence, twice, is within the bound");
+    }
+
+    #[test]
+    fn a_nested_minimum_is_checked_once_per_flag_occurrence() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--pair <value>...\" {\n  arg \"<value>...\" var=#true var_min=2 var_max=2\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(
+            &spec,
+            &input(&["ex", "--pair", "a", "b", "--pair", "c", "d"]),
+        )
+        .expect("each occurrence satisfies the bound independently");
+
+        let error = parse(&spec, &input(&["ex", "--pair", "a", "--pair", "b", "c"])).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires at least 2 value(s), got 1"),
+            "{error:?}"
+        );
     }
 
     #[test]
