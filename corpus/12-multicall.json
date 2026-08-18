@@ -87,6 +87,14 @@
       }
     },
     {
+      "id": "multicall-present-empty-argv0-is-not-omitted",
+      "doc": "An explicitly empty argv[0] remains an empty applet name; only an omitted argv0 defaults to the dispatcher.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n",
+      "argv0": "",
+      "argv": ["ls"],
+      "expect": { "error": "unexpected_arg" }
+    },
+    {
       "id": "multicall-empty-dispatcher-stays-at-root",
       "doc": "Invoking the dispatcher with no further words stays at the root; it does not invent an applet.",
       "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n",

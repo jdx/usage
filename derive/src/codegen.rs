@@ -282,6 +282,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ..usage_argv::Command::EMPTY
             };
 
+            // The model can see that the root has a subcommand field, but the enum is
+            // expanded separately. Its COMMANDS table is the point where an
+            // external-only enum becomes distinguishable from one with named applets.
+            const _: () = assert!(
+                !#multicall || !ROOT.subcommands.is_empty(),
+                "`multicall` needs at least one named subcommand to select",
+            );
+
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
