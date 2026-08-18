@@ -1180,6 +1180,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if let Some(delimiter) = meta.delimiter {
         write!(out, " delimiter={}", quoted(&delimiter.to_string()))?;
     }
+    if meta.flag.allow_hyphen_values {
+        out.push_str(" allow_hyphen_values=#true");
+    }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;

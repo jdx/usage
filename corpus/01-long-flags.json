@@ -221,6 +221,36 @@
       "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
       "argv": ["-1"],
       "expect": { "ok": { "args": { "offset": "-1" } } }
+    },
+    {
+      "id": "long-value-allow-hyphen-takes-flaglike",
+      "doc": "A flag declared `allow_hyphen_values` takes a detached value that looks like a flag, which is the only way `--args -destroy` can bind `-destroy` rather than reading `-d` as a short.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-d --working-dir <DIR>\"\nflag \"-a --args <ARGS>\" allow_hyphen_values=#true\n",
+      "argv": ["--args", "-destroy"],
+      "expect": { "ok": { "flags": { "args": "-destroy" } } }
+    },
+    {
+      "id": "long-value-allow-hyphen-takes-the-separator",
+      "doc": "A `--` is flag-like too, so an `allow_hyphen_values` flag takes it as the value rather than ending flag interpretation. `ex -a -- -x` then binds `--` and leaves `-x` for the argument, matching clap.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--args <ARGS>\" allow_hyphen_values=#true\narg \"[rest]...\"\n",
+      "argv": ["--args", "--", "-x"],
+      "expect": {
+        "ok": { "flags": { "args": "--" }, "args": { "rest": ["-x"] } }
+      }
+    },
+    {
+      "id": "long-variadic-allow-hyphen-first-value",
+      "doc": "A variadic flag's first value may be hyphenated when `allow_hyphen_values` is set. Later values still stop at a flag-like token, so a second occurrence of the flag is not eaten.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--args <ARGS>...\" allow_hyphen_values=#true\n",
+      "argv": ["--args", "-x", "b", "c"],
+      "expect": { "ok": { "flags": { "args": ["-x", "b", "c"] } } }
+    },
+    {
+      "id": "long-repeatable-allow-hyphen-each-occurrence",
+      "doc": "A repeatable flag takes one hyphenated value per occurrence, so `-a -val1 -a -val2` is two values rather than one occurrence eating the second `-a`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --args <ARGS>\" var=#true allow_hyphen_values=#true\n",
+      "argv": ["-a", "-val1", "-a", "-val2"],
+      "expect": { "ok": { "flags": { "args": ["-val1", "-val2"] } } }
     }
   ]
 }

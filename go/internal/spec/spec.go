@@ -690,7 +690,11 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Longs:      f.Long,
 		Negate:     strings.TrimLeft(f.Negate, "-"),
 		TakesValue: f.Arg != nil,
-		Global:     f.Global,
+		// Stored on the nested arg as double_dash=automatic, the same place
+		// usage-lib keeps allow_hyphen_values. Trailing positionals use Arg.DoubleDash
+		// on the command, not here.
+		AllowHyphenValues: f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
+		Global:            f.Global,
 	}
 	b.recordNegation(out.Key, f.Negate)
 	for _, s := range f.Short {

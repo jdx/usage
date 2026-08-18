@@ -37,6 +37,7 @@ flag "--config <file>" {
 }
 flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
+flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -146,6 +147,21 @@ the words they typed.
 A delimiter needs somewhere to put what it splits, so it goes with `var=#true` — on a
 single-value flag everything after the first separator would be dropped, and that is
 refused where it is written rather than at a prompt.
+
+## `allow_hyphen_values`
+
+A flag's detached value may look like a flag: `--args -destroy` binds `-destroy`
+instead of reading `-d` as a short. clap spells this `allow_hyphen_values`, and a spec
+generated from a clap command carries it.
+
+The attached form already binds a dash-prefixed value (`--args=-destroy`), so this is
+only about the following word. A `--` is flag-like too, so a flag declared this way
+takes the separator as its value rather than ending flag interpretation —
+`ex -a -- -x` binds `--` and leaves `-x` for whatever follows. A variadic occurrence
+still stops collecting at a later flag-like token, so a second occurrence of the same
+flag is not eaten as a value.
+
+A flag that takes no value cannot declare it: there is nothing to take.
 
 ## `global`
 

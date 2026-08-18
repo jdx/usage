@@ -92,7 +92,6 @@ help pages through both.
 A few spec nodes have no derive attribute yet:
 
 - `example` nodes — declare examples in `after_long_help` instead
-- `allow_hyphen_values`
 - `forwards` / external subcommands
 
 If you need these today, maintain a KDL spec alongside the derive or generate docs from a

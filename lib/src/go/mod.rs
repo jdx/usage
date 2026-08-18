@@ -1046,6 +1046,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
             fields.push(format!("VarMax: {}", clamp_var_max(max)));
         }
     }
+    if flag.allow_hyphen_values() {
+        fields.push("AllowHyphenValues: true".to_string());
+    }
     if flag.global {
         fields.push("Global: true".to_string());
     }
@@ -1592,6 +1595,19 @@ flag "--tag <t>" var=#true var_max=1
         );
         let tag = out.lines().find(|l| l.contains("\"tag\"")).unwrap();
         assert!(!tag.contains("VarMax"), "occurrence bound leaked: {tag}");
+    }
+
+    #[test]
+    fn allow_hyphen_values_reaches_the_table() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--args <ARGS>" allow_hyphen_values=#true
+"#);
+        assert!(
+            out.contains("Name: \"args\", Longs: []string{\"args\"}, TakesValue: true, AllowHyphenValues: true"),
+            "{out}"
+        );
     }
 
     /// A relationship names a flag by any spelling that reaches it, and from

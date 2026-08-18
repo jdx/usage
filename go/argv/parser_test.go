@@ -245,6 +245,22 @@ func TestNameOutranksAnotherCommandsAlias(t *testing.T) {
 	}
 }
 
+func TestAllowHyphenValues(t *testing.T) {
+	args := &Flag{Key: 6, Name: "args", Longs: []string{"args"}, Shorts: []byte{'a'},
+		TakesValue: true, AllowHyphenValues: true}
+	dir := &Flag{Key: 7, Name: "working-dir", Longs: []string{"working-dir"}, Shorts: []byte{'d'},
+		TakesValue: true}
+	rest := &Arg{Key: 11, Name: "rest", Var: true}
+	cmd := &Command{Name: "ex", Flags: []*Flag{args, dir}, Args: []*Arg{rest}}
+
+	if got := collect(cmd, "-a", "-destroy"); got != "flag:args=-destroy" {
+		t.Errorf("-a -destroy: got %s", got)
+	}
+	if got := collect(cmd, "--args", "--", "-x"); got != "flag:args=-- arg:rest=-x" {
+		t.Errorf("--args -- -x: got %s", got)
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	args := []string{"install", "--verbose", "-f", "a", "b", "c"}
 	b.ReportAllocs()

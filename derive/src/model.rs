@@ -213,6 +213,11 @@ pub struct Field {
     /// compile time, since a delimiter on a single-value field would drop everything
     /// after the first separator.
     pub delimiter: Option<char>,
+    /// Whether a detached value may itself look like a flag.
+    ///
+    /// clap's `allow_hyphen_values`, and the spec's property of the same name. Only
+    /// a flag that takes a value can declare it: there is nothing to take otherwise.
+    pub allow_hyphen_values: bool,
     /// Whether this flag must be given on its own — clap's `exclusive`.
     pub exclusive: bool,
     /// The group this flag belongs to, if any. Properties live on the group's own
@@ -1091,6 +1096,7 @@ impl Field {
             requires: Vec::new(),
             requires_if: Vec::new(),
             delimiter: None,
+            allow_hyphen_values: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1195,6 +1201,7 @@ impl Field {
             requires: Vec::new(),
             requires_if: Vec::new(),
             delimiter: None,
+            allow_hyphen_values: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1293,6 +1300,7 @@ impl Field {
             requires: Vec::new(),
             requires_if: Vec::new(),
             delimiter: None,
+            allow_hyphen_values: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1362,6 +1370,7 @@ impl Field {
         let mut group: Option<String> = None;
         let mut exclusive = false;
         let mut delimiter: Option<char> = None;
+        let mut allow_hyphen_values = false;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1458,6 +1467,7 @@ impl Field {
                     "requires_ifs" => requires_if.extend(requirements_if(&meta)?),
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
+                    "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
                     "delimiter" => {
                         let c = char_value(&meta)?;
                         if !c.is_ascii() {
@@ -1515,7 +1525,7 @@ impl Field {
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
-                                 `delimiter`, \
+                                 `delimiter`, `allow_hyphen_values`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -2008,6 +2018,28 @@ impl Field {
             ));
         }
 
+        // clap's `allow_hyphen_values`: a flag's detached value may look like a flag.
+        // A positional that needs the same thing already has `double_dash = "automatic"`,
+        // which is how trailing argv is spelled. A flag that takes no value has nothing
+        // to take, matching the spec's refusal.
+        if allow_hyphen_values {
+            if !matches!(kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    span,
+                    "`allow_hyphen_values` is for a flag's detached value; a positional \
+                     that should take flag-like words after it declares \
+                     `double_dash = \"automatic\"` instead",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count) {
+                return Err(syn::Error::new(
+                    span,
+                    "`allow_hyphen_values` takes the next token as a value, and this flag \
+                     takes none",
+                ));
+            }
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -2083,6 +2115,7 @@ impl Field {
             requires,
             requires_if,
             delimiter,
+            allow_hyphen_values,
             exclusive,
             group,
             required_if,
@@ -3785,6 +3818,50 @@ mod tests {
         assert!(
             err.contains("cannot be combined with `long`"),
             "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn allow_hyphen_values_is_a_flag_that_takes_a_value() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, allow_hyphen_values)]
+                args: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert!(
+            cli.fields.iter().any(|f| f.allow_hyphen_values),
+            "the attribute has to reach the field the table is built from"
+        );
+    }
+
+    #[test]
+    fn allow_hyphen_values_cannot_sit_on_a_switch() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, allow_hyphen_values)]
+                force: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("takes none"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn allow_hyphen_values_cannot_sit_on_a_positional() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg, allow_hyphen_values)]
+                rest: Vec<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("double_dash"),
+            "should point at the positional spelling: {err}"
         );
     }
 

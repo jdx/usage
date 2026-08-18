@@ -218,6 +218,7 @@
 //! | `group = "input"` | the group this flag is one of; see below |
 //! | `exclusive` | this flag has to be given on its own, positionals included |
 //! | `delimiter = ','` | one word becomes several values; the field has to be a `Vec` |
+//! | `allow_hyphen_values` | a flag's detached value may look like a flag, including `--` |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!

@@ -116,6 +116,15 @@ type Flag struct {
 	// was given, which no single token can decide, so that bound stays with the
 	// metadata and is checked after the parse.
 	VarMax uint32
+	// AllowHyphenValues is whether a detached value may itself look like a flag.
+	//
+	// The default is to refuse: `--jobs --force` is far more likely a forgotten
+	// value than a jobs of `"--force"`. Declared, the next token is taken
+	// whatever it looks like — including `--` — which is clap's
+	// allow_hyphen_values and the spec's property of the same name. A variadic
+	// occurrence still stops collecting at a later flag-like token, so a second
+	// occurrence of the flag is not eaten as a value.
+	AllowHyphenValues bool
 	// Global is whether the flag is recognized by every command beneath the one
 	// that declares it.
 	Global bool

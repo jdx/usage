@@ -268,6 +268,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .and_then(|a| a.delimiter)
             .filter(char::is_ascii)
             .map(|d| d as u8),
+        allow_hyphen_values: f.allow_hyphen_values(),
         global: f.global,
     }))
 }

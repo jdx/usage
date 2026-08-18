@@ -12,7 +12,7 @@ and the [conformance corpus](#the-conformance-corpus) makes it executable.
 
 ::: tip Both implementations answer every vector
 
-usage-lib and usage-argv agree with all 154 vectors today. That is a
+usage-lib and usage-argv agree with all 162 vectors today. That is a
 measurement, checked on every run rather than asserted here — see
 [Where the reference implementation differs](#where-the-reference-implementation-differs).
 
@@ -83,13 +83,19 @@ A value attached to a flag that takes none is dropped: `--force=yes` sets `force
 and nothing else. Handing the leftover to the positionals would re-split one
 token into two and fill an argument the caller never typed a word for.
 
-A detached value **must not be flag-like**. `--jobs --force` is a missing value,
-not a `jobs` of `"--force"`, because the overwhelmingly likely reading is that
-the value was forgotten. To pass a value that begins with a dash, attach it:
-`--jobs=--force`. The negative-number exception means `--offset -1` still works,
-and a lone `-` is a value too, so `--file -` reaches the flag. A `--` is
-flag-like, so it stays the separator rather than becoming the value of whatever
-flag precedes it.
+A detached value **must not be flag-like**, unless the flag declares
+`allow_hyphen_values`. `--jobs --force` is a missing value, not a `jobs` of
+`"--force"`, because the overwhelmingly likely reading is that the value was
+forgotten. To pass a value that begins with a dash, attach it: `--jobs=--force`.
+The negative-number exception means `--offset -1` still works, and a lone `-` is
+a value too, so `--file -` reaches the flag. A `--` is flag-like, so it stays the
+separator rather than becoming the value of whatever flag precedes it.
+
+A flag declared `allow_hyphen_values` takes the following token whatever it looks
+like, including `--` and tokens that name other flags. The attached form is then
+no longer the only way to pass a dash-prefixed value. A variadic occurrence still
+stops collecting at a later flag-like token, so a second occurrence of the same
+flag is not eaten as a value.
 
 A flag needing a value that ends the command line is an error.
 
@@ -366,7 +372,7 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-**Today it does not: usage-lib agrees with all 154 vectors.** The list is empty
+**Today it does not: usage-lib agrees with all 162 vectors.** The list is empty
 for the first time, and the five entries it used to hold were what writing the
 grammar down was for. Each was a real defect that only a second reading found:
 

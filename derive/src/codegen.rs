@@ -764,6 +764,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     };
 
     let table_delimiter = table_delimiter(field);
+    let allow_hyphen_values = field.allow_hyphen_values;
     quote! {
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
@@ -775,6 +776,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             variadic: #variadic,
             var_max: #var_max,
             delimiter: #table_delimiter,
+            allow_hyphen_values: #allow_hyphen_values,
             global: #global,
         };
     }

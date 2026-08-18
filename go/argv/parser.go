@@ -395,11 +395,13 @@ func (p *Parser) shortFlag() bool {
 
 // takeDetachedValue takes the following token as a flag's value.
 //
-// It refuses a flag-like token: `--jobs --force` is far more likely a forgotten
-// value than a deliberate one, and the attached form is available for the
-// deliberate case. The negative-number exception means `--offset -1` still works.
+// It refuses a flag-like token unless AllowHyphenValues is set: `--jobs --force`
+// is far more likely a forgotten value than a deliberate one, and the attached
+// form is available for the deliberate case. Declared, the next token is taken
+// whatever it looks like, including `--`. The negative-number exception means
+// `--offset -1` still works.
 func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool) {
-	if p.pos < len(p.argv) && !isFlagLike(p.argv[p.pos]) {
+	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos])) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true
