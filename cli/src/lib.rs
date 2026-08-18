@@ -9,7 +9,9 @@ use miette::Result;
 ///
 /// Re-exported rather than the whole `cli` module: the conformance comparison needs this one
 /// answer, and nothing else in here is a promise to anybody.
-pub use cli::complete_word::candidates as complete_candidates;
+pub use cli::complete_word::{
+    answer as complete_answer, candidates as complete_candidates, CandidateAnswer,
+};
 pub use cli::Cli;
 
 mod cli;

@@ -2382,6 +2382,7 @@ dependencies = [
  "serde",
  "serde_json",
  "usage-argv",
+ "usage-cli",
  "usage-config",
  "usage-derive",
  "usage-lib",
