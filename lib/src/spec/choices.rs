@@ -157,6 +157,10 @@ impl SpecChoices {
     }
 
     pub fn matches(&self, value: &str) -> bool {
+        self.matches_static(value) || self.matches_values(value, self.values_with_env(None))
+    }
+
+    fn matches_static(&self, value: &str) -> bool {
         let equals = |candidate: &str| {
             if self.ignore_case {
                 candidate.eq_ignore_ascii_case(value)
@@ -177,14 +181,17 @@ impl SpecChoices {
         value: &str,
         env: Option<&HashMap<String, String>>,
     ) -> bool {
-        self.matches(value)
-            || self.values_with_env(env).iter().any(|candidate| {
-                if self.ignore_case {
-                    candidate.eq_ignore_ascii_case(value)
-                } else {
-                    candidate == value
-                }
-            })
+        self.matches_static(value) || self.matches_values(value, self.values_with_env(env))
+    }
+
+    fn matches_values(&self, value: &str, values: impl IntoIterator<Item = String>) -> bool {
+        values.into_iter().any(|candidate| {
+            if self.ignore_case {
+                candidate.eq_ignore_ascii_case(value)
+            } else {
+                candidate == value
+            }
+        })
     }
 
     pub(crate) fn values_with_env(&self, env: Option<&HashMap<String, String>>) -> Vec<String> {
@@ -376,5 +383,21 @@ arg "<color>" {
             choices.values_with_env(Some(&HashMap::new())),
             vec!["local"]
         );
+    }
+
+    #[cfg(feature = "unstable_choices_env")]
+    #[test]
+    fn matches_resolves_env_backed_choices() {
+        const KEY: &str = "USAGE_TEST_MATCHES_CHOICES_ENV_9C47C3C5";
+        let mut choices = SpecChoices {
+            ignore_case: true,
+            ..Default::default()
+        };
+        choices.set_env(Some(KEY.into()));
+        std::env::set_var(KEY, "staging");
+
+        assert!(choices.matches("STAGING"));
+
+        std::env::remove_var(KEY);
     }
 }
