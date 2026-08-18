@@ -5,7 +5,7 @@ extern crate log;
 pub use crate::parse::{available_flags, parse, Parser};
 pub use crate::spec::arg::{SpecArg, SpecDoubleDashChoices};
 pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
-pub use crate::spec::choices::SpecChoices;
+pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};
 pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
 pub use crate::spec::effect::SpecCommandEffect;

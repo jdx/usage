@@ -10,7 +10,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecChoices};
+use crate::{string, SpecChoice, SpecChoiceAlias, SpecChoices};
 
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "snake_case")]
@@ -394,6 +394,45 @@ pub(crate) fn default_values(arg: &clap::Arg) -> Vec<String> {
 }
 
 #[cfg(feature = "clap")]
+pub(crate) fn choices_from_clap(arg: &clap::Arg) -> Option<SpecChoices> {
+    let possible = arg.get_possible_values();
+    if possible.is_empty() {
+        return None;
+    }
+    let choices = possible
+        .iter()
+        .map(|value| value.get_name().to_string())
+        .collect();
+    let details = possible
+        .iter()
+        .filter_map(|value| {
+            let aliases: Vec<_> = value
+                .get_name_and_aliases()
+                .skip(1)
+                .map(|alias| SpecChoiceAlias {
+                    value: alias.to_string(),
+                    // clap PossibleValue aliases are always hidden.
+                    hide: true,
+                })
+                .collect();
+            let detail = SpecChoice {
+                value: value.get_name().to_string(),
+                help: value.get_help().map(ToString::to_string),
+                hide: value.is_hide_set(),
+                aliases,
+            };
+            (detail.help.is_some() || detail.hide || !detail.aliases.is_empty()).then_some(detail)
+        })
+        .collect();
+    Some(SpecChoices {
+        choices,
+        details,
+        ignore_case: arg.is_ignore_case_set(),
+        ..Default::default()
+    })
+}
+
+#[cfg(feature = "clap")]
 impl From<&clap::Arg> for SpecArg {
     fn from(arg: &clap::Arg) -> Self {
         let required = arg.is_required_set();
@@ -410,11 +449,7 @@ impl From<&clap::Arg> for SpecArg {
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
         ) || delimiter.is_some();
-        let choices = arg
-            .get_possible_values()
-            .iter()
-            .flat_map(|v| v.get_name_and_aliases().map(|s| s.to_string()))
-            .collect::<Vec<_>>();
+        let choices = choices_from_clap(arg);
         let mut arg = Self {
             name: arg
                 .get_value_names()
@@ -449,12 +484,7 @@ impl From<&clap::Arg> for SpecArg {
             env: None,
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
         };
-        if !choices.is_empty() {
-            arg.choices = Some(SpecChoices {
-                choices,
-                ..Default::default()
-            });
-        }
+        arg.choices = choices;
 
         arg
     }
@@ -620,6 +650,32 @@ mod delimiter_tests {
             .parse::<Spec>()
             .unwrap_err();
         assert!(format!("{err:?}").contains("one character"), "{err:?}");
+    }
+}
+
+#[cfg(test)]
+mod possible_value_tests {
+    use clap::builder::PossibleValue;
+
+    #[test]
+    fn clap_possible_value_metadata_survives_the_bridge() {
+        let command = clap::Command::new("ex").arg(
+            clap::Arg::new("color").ignore_case(true).value_parser([
+                PossibleValue::new("always")
+                    .help("Always use color")
+                    .alias("yes"),
+                PossibleValue::new("never").hide(true),
+            ]),
+        );
+        let spec = crate::Spec::from(&command);
+        let choices = spec.cmd.args[0].choices.as_ref().unwrap();
+        assert_eq!(choices.choices, ["always", "never"]);
+        assert!(choices.ignore_case);
+        assert!(choices.matches("YES"));
+        assert_eq!(choices.values(), ["always"]);
+        assert_eq!(choices.details[0].help.as_deref(), Some("Always use color"));
+        assert!(choices.details[0].aliases[0].hide);
+        assert!(choices.details[1].hide);
     }
 }
 
