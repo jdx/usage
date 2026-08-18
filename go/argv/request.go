@@ -157,7 +157,7 @@ func filesAt(pos Position, split SplitLine, candidates []Candidate, meta Metadat
 		return asked
 	}
 
-	declaresChoices := m != nil && len(m.Choices) > 0
+	declaresChoices := m != nil && (len(m.Choices) > 0 || len(m.AcceptedChoices) > 0)
 	if len(candidates) > 0 || declaresChoices || pos.HelpTopic {
 		return NoFiles
 	}
