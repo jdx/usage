@@ -385,6 +385,13 @@ impl SpecFlag {
                 "flag must have value to have a default when missing"
             );
         }
+        // `--color` is a complete invocation, so help shows the value as optional.
+        // The same folding a nested `default` already does for `required`.
+        if flag.default_missing.is_some() {
+            if let Some(arg) = flag.arg.as_mut() {
+                arg.required = false;
+            }
+        }
         if let Some(raw) = delimiter {
             let mut chars = raw.chars();
             let Some(delimiter) = chars.next().filter(|_| chars.next().is_none()) else {
@@ -1022,6 +1029,16 @@ mod tests {
             .parse()
             .unwrap();
         assert_eq!(spec.cmd.flags[0].default_missing.as_deref(), Some("always"));
+        assert!(
+            !spec.cmd.flags[0].arg.as_ref().unwrap().required,
+            "a missing value is optional, so help should not demand it"
+        );
+        assert!(
+            spec.cmd.flags[0].usage.contains("[WHEN]")
+                && !spec.cmd.flags[0].usage.contains("<WHEN>"),
+            "help should show an optional value: {}",
+            spec.cmd.flags[0].usage
+        );
 
         let reparsed: Spec = spec.to_string().parse().unwrap();
         assert_eq!(

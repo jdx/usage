@@ -352,6 +352,11 @@ impl SpecFlagBuilder {
                 arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
             }
         }
+        if self.inner.default_missing.is_some() {
+            if let Some(arg) = &mut self.inner.arg {
+                arg.required = false;
+            }
+        }
         self.inner.usage = self.inner.usage();
         if self.inner.name.is_empty() {
             // Derive name from long or short flags
