@@ -8,6 +8,14 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Default to a UTF-8 locale. The base image boots with the C/POSIX locale, under
+# which bash reports the completion cursor (COMP_POINT) in bytes rather than
+# characters; usage-argv has a test that asserts character-based cutting and
+# fails without UTF-8. C.UTF-8 is built into glibc, so no locale generation is
+# needed.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
 # System packages:
 # - ca-certificates/curl/git/xz-utils/unzip: fetch + unpack toolchains and tools
 # - build-essential/pkg-config/libssl-dev: compile cargo-installed tools (cargo-edit)
