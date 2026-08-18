@@ -50,28 +50,21 @@ instructions() {
     sed -n 's/.*I *refs: *//p' | tr -d ','
 }
 
-# A clock with nanoseconds, from whatever this machine has.
+# How the wall column is measured, decided once.
 #
-# `date +%s%N` is GNU's; BSD `date` prints a literal `N`, which arithmetic under `set -u`
+# `date +%s%N` is GNU's. BSD `date` prints a literal `N`, which arithmetic under `set -u`
 # then fails on — and it failed *before* the valgrind check below, so the wall-clock-only
 # path meant for machines without cachegrind was the one path that could not run on a Mac.
-# Checked once rather than per call, and reported as unavailable rather than guessed at.
-now_ns() {
-  case $clock in
-  gnu) date +%s%N ;;
-  py) python3 -c 'import time; print(time.time_ns())' ;;
-  esac
-}
-
-# Which clock to read, detected once. Overridable so the fallbacks can be exercised: a path
-# that only runs on a machine nobody here has is a path nobody has run.
 #
-#   PERF_GO_CLOCK=gnu   `date +%s%N`, which is GNU's
-#   PERF_GO_CLOCK=py    python3, for a BSD `date` that has no %N
-#   PERF_GO_CLOCK=none  neither, which reports the wall column as unavailable
+#   PERF_GO_CLOCK=gnu   two reads of `date +%s%N` around the loop
+#   PERF_GO_CLOCK=py    python times the loop itself
+#   PERF_GO_CLOCK=none  neither, and the column says so
+#
+# Overridable so the fallbacks can be exercised: a path that only runs on a machine nobody
+# here has is a path nobody has run.
 if [ -n "${PERF_GO_CLOCK:-}" ]; then
   clock=$PERF_GO_CLOCK
-elif [ "$(date +%s%N 2>/dev/null | tr -d '0-9')" = "" ] && [ -n "$(date +%s%N 2>/dev/null)" ]; then
+elif [ -n "$(date +%s%N 2>/dev/null)" ] && [ "$(date +%s%N 2>/dev/null | tr -d '0-9')" = "" ]; then
   clock=gnu
 elif command -v python3 >/dev/null 2>&1; then
   clock=py
@@ -79,22 +72,61 @@ else
   clock=none
 fi
 
-# The whole process, which is what a user waits for — measured from outside, because a timer
-# inside the program cannot see the runtime starting up, and that is most of what is being
-# reported here.
+case $clock in
+gnu | py | none) ;;
+*)
+  echo "PERF_GO_CLOCK=$clock is not one of gnu, py, none" >&2
+  exit 2
+  ;;
+esac
+
+runs=10
+
+# Ten whole processes, timed from outside: a timer inside the program cannot see the runtime
+# starting up, and that is most of what is being reported here.
 wall_ms() {
-  local n=$1 start end
-  if [ "$clock" = none ]; then
-    echo "unavailable"
-    return
-  fi
-  start=$(now_ns)
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
+  local n=$1
+  case $clock in
+  gnu)
+    local start end
+    start=$(date +%s%N 2>/dev/null) || start=
+    for _ in $(seq "$runs"); do
+      # shellcheck disable=SC2086
+      PARSE_N="$n" "$bin" $ARGV >/dev/null
+    done
+    end=$(date +%s%N 2>/dev/null) || end=
+    # Validated rather than trusted: a `date` that answers with anything else would
+    # otherwise be reported as 0.00 ms, which reads as a measurement.
+    case $start$end in
+    '' | *[!0-9]*)
+      echo "unavailable"
+      return
+      ;;
+    esac
+    awk -v ns="$((end - start))" -v runs="$runs" \
+      'BEGIN { printf "%.2f", ns / runs / 1000000 }'
+    ;;
+  py)
+    # Timed inside python, not around two `python3` invocations. Reading the clock that way
+    # put a whole interpreter startup — tens of milliseconds — inside an interval measuring
+    # ten runs of about one millisecond each, so the fallback reported python rather than
+    # the program it was pointed at.
     # shellcheck disable=SC2086
-    PARSE_N="$n" "$bin" $ARGV >/dev/null
-  done
-  end=$(now_ns)
-  awk -v ns="$((end - start))" 'BEGIN { printf "%.2f", ns / 10 / 1000000 }'
+    python3 - "$bin" "$n" "$runs" $ARGV <<'PYTHON' 2>/dev/null || echo "unavailable"
+import os, subprocess, sys, time
+
+binary, parse_n, runs, *argv = sys.argv[1:]
+env = dict(os.environ, PARSE_N=parse_n)
+with open(os.devnull, "wb") as quiet:
+    started = time.perf_counter_ns()
+    for _ in range(int(runs)):
+        subprocess.run([binary, *argv], stdout=quiet, env=env, check=False)
+    elapsed = time.perf_counter_ns() - started
+print("%.2f" % (elapsed / int(runs) / 1e6))
+PYTHON
+    ;;
+  none) echo "unavailable" ;;
+  esac
 }
 
 # `ms` on a number, the word alone when there was no clock to read.
