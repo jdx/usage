@@ -66,6 +66,7 @@ jobs:
           MISE_LOCKED: "1"
 
       - name: Install valgrind
+        timeout-minutes: 3
         run: |
           command -v valgrind || {
             sudo apt-get update
