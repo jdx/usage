@@ -213,6 +213,8 @@
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
+//! | `requires_if("value", "--other")` | a flag required when this one explicitly has `value` |
+//! | `requires_ifs(("a", "--x"), ("b", "--y"))` | several value-conditional requirements |
 //! | `group = "input"` | the group this flag is one of; see below |
 //! | `exclusive` | this flag has to be given on its own, positionals included |
 //! | `delimiter = ','` | one word becomes several values; the field has to be a `Vec` |
