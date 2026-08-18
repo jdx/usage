@@ -368,11 +368,14 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// #[derive(usage::ValueEnum)]
 /// enum Shell {
 ///     Bash,
+///     #[usage(alias = "shell-z")]
 ///     Zsh,
 ///     #[usage(name = "pwsh")]
 ///     PowerShell,
 /// }
 /// ```
+///
+/// `#[usage(ignore_case)]` on the enum applies to canonical words and aliases.
 ///
 /// A variant cannot be `cfg`-ed out: the words are a `const` list, and a list with holes
 /// in it would either offer a word nothing answers to or name a variant that is not there.

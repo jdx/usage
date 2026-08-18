@@ -255,8 +255,10 @@ fn a_conversion_failure_on_a_subcommand_names_the_field() {
 /// mise has nine of these. What matters is that the list reaches the spec — so help and
 /// completions offer it — without being written a second time on the field.
 #[derive(Debug, PartialEq, usage_derive::ValueEnum)]
+#[usage(ignore_case)]
 enum Interpreter {
     Bash,
+    #[usage(alias = "shell-z")]
     Zsh,
     Fish,
     /// Not `power-shell`, which is what the variant name would have given
@@ -282,6 +284,14 @@ fn a_word_becomes_the_variant_it_names() {
     let e = Enumerated::parse_from(&a).expect("should parse");
     assert_eq!(e.shell, Some(Interpreter::Zsh));
     assert_eq!(e.also, [Interpreter::Bash, Interpreter::PowerShell]);
+}
+
+#[test]
+fn value_enum_aliases_and_case_matching_are_accepted() {
+    let a = argv(["--shell", "SHELL-Z", "--also", "BASH"]);
+    let e = Enumerated::parse_from(&a).expect("aliases use the enum's case policy");
+    assert_eq!(e.shell, Some(Interpreter::Zsh));
+    assert_eq!(e.also, [Interpreter::Bash]);
 }
 
 #[test]
