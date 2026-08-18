@@ -32,7 +32,9 @@
 
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
-use crate::{spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecFlag};
+use crate::{
+    spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecFlag, SpecRequiresIf,
+};
 
 /// Builder for SpecFlag
 #[derive(Debug, Default, Clone)]
@@ -262,6 +264,35 @@ impl SpecFlagBuilder {
         self.inner
             .requires
             .extend(flags.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add a flag required when this flag is explicitly given `value`
+    pub fn requires_if(mut self, value: impl Into<String>, flag: impl Into<String>) -> Self {
+        self.inner.requires_if.push(SpecRequiresIf {
+            value: value.into(),
+            requires: flag.into(),
+        });
+        self
+    }
+
+    /// Add value-conditional flag requirements
+    pub fn requires_ifs<I, V, S>(mut self, requirements: I) -> Self
+    where
+        I: IntoIterator<Item = (V, S)>,
+        V: Into<String>,
+        S: Into<String>,
+    {
+        self.inner
+            .requires_if
+            .extend(
+                requirements
+                    .into_iter()
+                    .map(|(value, requires)| SpecRequiresIf {
+                        value: value.into(),
+                        requires: requires.into(),
+                    }),
+            );
         self
     }
 
@@ -727,6 +758,33 @@ mod tests {
         assert!(flag.var);
         assert_eq!(flag.var_min, Some(1));
         assert_eq!(flag.var_max, Some(10));
+    }
+
+    #[test]
+    fn test_flag_builder_conditional_requirements() {
+        let flag = SpecFlagBuilder::new()
+            .long("config")
+            .requires_if("special.toml", "--key")
+            .requires_ifs([("remote.toml", "--token"), ("signed.toml", "--identity")])
+            .build();
+
+        assert_eq!(
+            flag.requires_if,
+            [
+                SpecRequiresIf {
+                    value: "special.toml".into(),
+                    requires: "--key".into(),
+                },
+                SpecRequiresIf {
+                    value: "remote.toml".into(),
+                    requires: "--token".into(),
+                },
+                SpecRequiresIf {
+                    value: "signed.toml".into(),
+                    requires: "--identity".into(),
+                },
+            ]
+        );
     }
 
     #[test]

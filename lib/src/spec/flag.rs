@@ -15,6 +15,19 @@ use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices};
 
+/// A requirement activated by one of a flag's values.
+///
+/// `flag "--config <file>" { requires_if "special.toml" "--key" }`
+/// means `--key` is required only when `--config` was explicitly given the
+/// value `special.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SpecRequiresIf {
+    /// The declaring flag's value that activates the requirement.
+    pub value: String,
+    /// The flag selector that must then be satisfied.
+    pub requires: String,
+}
+
 /// A CLI flag/option specification.
 ///
 /// Flags are optional arguments that start with `-` (short) or `--` (long).
@@ -116,6 +129,12 @@ pub struct SpecFlag {
     /// had.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<String>,
+    /// Flags required when this flag is explicitly given a particular value.
+    ///
+    /// Defaults do not activate the condition; command-line and environment
+    /// values do. This matches clap's `requires_if`/`requires_ifs` semantics.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub requires_if: Vec<SpecRequiresIf>,
     /// Whether this flag must be given on its own.
     ///
     /// The whole-command form of [`SpecFlag::conflicts`]: `--version` and `--help` are
@@ -305,6 +324,13 @@ impl SpecFlag {
                         .args()
                         .map(|arg| arg.ensure_string())
                         .collect::<Result<Vec<_>>>()?;
+                }
+                "requires_if" => {
+                    child.ensure_arg_len(2..=2)?;
+                    flag.requires_if.push(SpecRequiresIf {
+                        value: child.arg(0)?.ensure_string()?,
+                        requires: child.arg(1)?.ensure_string()?,
+                    });
                 }
                 "choices" => {
                     if let Some(arg) = &mut flag.arg {
@@ -509,6 +535,13 @@ impl From<&SpecFlag> for KdlNode {
             }
             children.nodes_mut().push(requires);
         }
+        for condition in &flag.requires_if {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut requires_if = KdlNode::new("requires_if");
+            requires_if.push(string_entry(None, &condition.value));
+            requires_if.push(string_entry(None, &condition.requires));
+            children.nodes_mut().push(requires_if);
+        }
         if flag.exclusive {
             node.push(KdlEntry::new_prop("exclusive", true));
         }
@@ -706,6 +739,8 @@ impl From<&clap::Arg> for SpecFlag {
             // than guessed at, and counted by `gen-shadow` as a thing the clap dialect
             // cannot carry.
             requires: vec![],
+            // The conditional forms are hidden behind the same clap API boundary.
+            requires_if: vec![],
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             help,
@@ -863,6 +898,33 @@ mod tests {
         let reparsed: Spec = spec.to_string().parse().unwrap();
         assert_eq!(reparsed.cmd.flags[0].requires, vec!["--format".to_string()]);
         assert_eq!(reparsed.cmd.flags[1].requires.len(), 2, "{spec}");
+    }
+
+    #[test]
+    fn conditional_requirements_round_trip_in_order() {
+        let spec: Spec = "flag \"--config <file>\" {\n  requires_if \"special.toml\" \"--key\"\n  requires_if \"remote.toml\" \"--token\"\n}\nflag \"--key <key>\"\nflag \"--token <token>\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(
+            spec.cmd.flags[0].requires_if,
+            [
+                SpecRequiresIf {
+                    value: "special.toml".into(),
+                    requires: "--key".into(),
+                },
+                SpecRequiresIf {
+                    value: "remote.toml".into(),
+                    requires: "--token".into(),
+                },
+            ]
+        );
+
+        let emitted = spec.to_string();
+        let reparsed: Spec = emitted.parse().unwrap();
+        assert_eq!(
+            reparsed.cmd.flags[0].requires_if,
+            spec.cmd.flags[0].requires_if
+        );
     }
 
     #[test]

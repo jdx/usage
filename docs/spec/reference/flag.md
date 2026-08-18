@@ -32,6 +32,9 @@ flag "--file <file>" required_unless="--dir" // either --file or --dir must be p
 flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
 flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
 flag "--out <path>" requires="--format"  // giving --out means --format must be given too
+flag "--config <file>" {
+  requires_if "special.toml" "--key" // this value also needs --key
+}
 flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 
@@ -94,6 +97,20 @@ is about, which is usually where a reader looks for it.
 A value from the environment or a default satisfies a requirement, on the same principle
 `conflicts` follows: the question is whether the other flag ended up with a value, not
 how it got one.
+
+`requires_if VALUE FLAG` makes the requirement conditional on the declaring flag's
+value. The node may be repeated when different values require different flags:
+
+```kdl
+flag "--config <file>" {
+  requires_if "special.toml" "--key"
+  requires_if "remote.toml" "--token"
+}
+```
+
+Command-line and environment values activate a conditional requirement; a default does
+not. If a flag collects several values, any matching value activates its requirement.
+This is the same source distinction clap's `requires_if` and `requires_ifs` make.
 
 ::: warning
 A spec generated from a clap command never carries this. clap has `Arg::requires` as a

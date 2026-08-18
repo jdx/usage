@@ -1379,6 +1379,20 @@ fn parse_partial_with_env(
                     out.errors.push(UsageErr::MissingFlag(name));
                 }
             }
+            for condition in &flag.requires_if {
+                if explicit_flag_has_value(flag, &condition.value, &out, custom_env)
+                    && !selector_is_satisfied(
+                        &condition.requires,
+                        &out,
+                        &overridden_flags,
+                        custom_env,
+                    )
+                {
+                    let name = selector_flag_name(&condition.requires, &out)
+                        .unwrap_or_else(|| condition.requires.clone());
+                    out.errors.push(UsageErr::MissingFlag(name));
+                }
+            }
         }
     }
 
@@ -1607,6 +1621,45 @@ fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -
     flag.env
         .as_ref()
         .is_some_and(|env_var| env_contains(custom_env, env_var))
+}
+
+/// Whether an explicitly supplied value of `flag` equals `expected`.
+///
+/// clap treats command-line and environment values as explicit for `requires_if`, but
+/// not defaults. Keep that source distinction here instead of consulting the flag's
+/// defaults through `selector_is_satisfied`.
+fn explicit_flag_has_value(
+    flag: &SpecFlag,
+    expected: &str,
+    out: &ParseOutput,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    let parsed_matches = out.flags.get(flag).is_some_and(|value| match value {
+        ParseValue::Bool(value) => value.to_string() == expected,
+        ParseValue::String(value) => value == expected,
+        ParseValue::MultiBool(values) => values.iter().any(|value| value.to_string() == expected),
+        ParseValue::MultiString(values) => values.iter().any(|value| value == expected),
+    });
+    if out.flags.contains_key(flag) {
+        return parsed_matches;
+    }
+
+    let Some(env) = flag.env.as_ref() else {
+        return false;
+    };
+    let value = match custom_env {
+        Some(values) => values.get(env).cloned(),
+        None => std::env::var(env).ok(),
+    };
+    value.is_some_and(
+        |value| match flag.arg.as_ref().and_then(|arg| arg.delimiter) {
+            Some(delimiter) => value.split(delimiter).any(|value| value == expected),
+            None if flag.arg.is_none() => {
+                matches!(value.as_str(), "1" | "true" | "True" | "TRUE").to_string() == expected
+            }
+            None => value == expected,
+        },
+    )
 }
 
 fn selector_is_explicit(
@@ -3592,6 +3645,70 @@ flag "--file <file>" required_unless="--stdin"
         // Nothing happens when the flag that imposes the rule is absent: a requirement
         // is a consequence of using the flag, not a rule about the command line.
         parse(&spec, &input(&["ex"])).expect("a bare invocation requires nothing");
+    }
+
+    #[test]
+    fn a_value_activates_only_its_conditional_requirement() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--config <file>\" {\n  requires_if \"special.toml\" \"--key\"\n  requires_if \"remote.toml\" \"--token\"\n}\nflag \"--key <key>\"\nflag \"--token <token>\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--config", "ordinary.toml"]))
+            .expect("an unrelated value requires nothing");
+
+        let key = parse(&spec, &input(&["ex", "--config", "special.toml"])).unwrap_err();
+        assert!(key.to_string().contains("key"), "{key}");
+        parse(
+            &spec,
+            &input(&["ex", "--config", "special.toml", "--key", "secret"]),
+        )
+        .expect("the matching requirement is satisfied");
+
+        let token = parse(&spec, &input(&["ex", "--config", "remote.toml"])).unwrap_err();
+        assert!(token.to_string().contains("token"), "{token}");
+    }
+
+    #[test]
+    fn conditional_requirements_read_explicit_env_but_not_defaults() {
+        let from_env: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--config <file>\" env=\"EX_CONFIG\" {\n  requires_if \"special.toml\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+        let err = parse_with_env(&from_env, &["ex"], &[("EX_CONFIG", "special.toml")]).unwrap_err();
+        assert!(err.to_string().contains("key"), "{err}");
+
+        let from_default: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--config <file>\" default=\"special.toml\" {\n  requires_if \"special.toml\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+        parse(&from_default, &input(&["ex"]))
+            .expect("a default is not an explicit conditional value");
+    }
+
+    #[test]
+    fn command_line_values_override_env_for_conditional_requirements() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--config <file>\" env=\"EX_CONFIG\" {\n  requires_if \"special.toml\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+
+        parse_with_env(
+            &spec,
+            &["ex", "--config", "ordinary.toml"],
+            &[("EX_CONFIG", "special.toml")],
+        )
+        .expect("the command-line value takes precedence over the environment");
+    }
+
+    #[test]
+    fn conditional_requirements_normalize_boolean_env_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--feature\" env=\"EX_FEATURE\" {\n  requires_if \"true\" \"--key\"\n}\nflag \"--key <key>\"\n"
+            .parse()
+            .unwrap();
+
+        for value in ["1", "true", "True", "TRUE"] {
+            let err = parse_with_env(&spec, &["ex"], &[("EX_FEATURE", value)]).unwrap_err();
+            assert!(err.to_string().contains("key"), "{value}: {err}");
+        }
+        parse_with_env(&spec, &["ex"], &[("EX_FEATURE", "false")])
+            .expect("a false environment value does not activate a true condition");
     }
 
     #[test]
