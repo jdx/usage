@@ -9,6 +9,7 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// Bootstrap aube's cached node-gyp and print the executable path
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct NodeGypBootstrapArgs {
     #[usage(arg, name = "PROJECT_DIR")]
     pub project_dir: ::std::string::String,
@@ -16,6 +17,7 @@ pub struct NodeGypBootstrapArgs {
 
 /// Get a package's public or restricted status
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessGetStatusArgs {
     /// Package name
     #[usage(arg, name = "PACKAGE")]
@@ -24,6 +26,7 @@ pub struct AccessGetStatusArgs {
 
 /// Get package visibility status
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessGetArgs {
     #[usage(subcommand)]
     pub command: AccessGetCommands,
@@ -38,6 +41,7 @@ pub enum AccessGetCommands {
 
 /// Grant a team read-only or read-write access to a package
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct AccessGrantArgs {
     /// `read-only` or `read-write`
     #[usage(arg, name = "PERMISSIONS")]
@@ -52,6 +56,7 @@ pub struct AccessGrantArgs {
 
 /// List collaborators for a package, optionally filtering to one user
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessListCollaboratorsArgs {
     /// Package name
     #[usage(arg, name = "PACKAGE")]
@@ -63,6 +68,7 @@ pub struct AccessListCollaboratorsArgs {
 
 /// List packages visible to the current user or an optional entity
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessListPackagesArgs {
     /// User, `@organization`, or `@scope:team`
     #[usage(arg, name = "ENTITY")]
@@ -71,6 +77,7 @@ pub struct AccessListPackagesArgs {
 
 /// List packages visible to a user, organization, or team
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessListArgs {
     #[usage(subcommand)]
     pub command: AccessListCommands,
@@ -88,6 +95,7 @@ pub enum AccessListCommands {
 
 /// Alias for `list packages`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessLsArgs {
     /// User, `@organization`, or `@scope:team`. Also accepts pnpm's `packages [ENTITY]` compatibility form. Accepted forms are `aube access ls [ENTITY]` and `aube access ls packages [ENTITY]`
     #[usage(arg, name = "ENTITIES")]
@@ -96,6 +104,7 @@ pub struct AccessLsArgs {
 
 /// Revoke a team's access to a package
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct AccessRevokeArgs {
     /// Team in `@scope:team` form
     #[usage(arg, name = "TEAM")]
@@ -107,6 +116,7 @@ pub struct AccessRevokeArgs {
 
 /// Set package visibility or a publish MFA requirement
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct AccessSetArgs {
     /// `status=public|private|restricted` or `mfa=none|publish|automation`
     #[usage(arg, name = "SETTING")]
@@ -118,6 +128,7 @@ pub struct AccessSetArgs {
 
 /// Manage package access and visibility on the registry
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AccessArgs {
     /// Emit registry responses as JSON when the subcommand has a result
     #[usage(long = "json")]
@@ -195,6 +206,7 @@ pub enum AccessCommands {
 
 /// Emit shell activation code for runtime tool shims
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ActivateArgs {
     /// Shell to emit activation code for
     #[usage(arg, name = "SHELL", choices("bash", "fish", "zsh"))]
@@ -203,6 +215,7 @@ pub struct ActivateArgs {
 
 /// Add a dependency
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct AddArgs {
     /// Add as dev dependency
     #[usage(long = "save-dev", short = 'D')]
@@ -373,6 +386,7 @@ pub struct AddArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ApproveBuildsArgs {
     /// Approve every pending ignored build without prompting
     #[usage(long = "all")]
@@ -392,7 +406,8 @@ pub struct ApproveBuildsArgs {
 /// Check installed packages against the registry advisory DB
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube audit\n  Severity  Package    Vulnerable  Title\n  moderate  minimatch  <3.0.5      Regular Expression Denial of Service\n                                   https://github.com/advisories/GHSA-f8q6-p94x\n\n  1 vulnerability found\n\n  # Only fail on high and above\n  $ aube audit --audit-level high\n\n  # Skip optional deps and dev deps\n  $ aube audit --prod --no-optional\n\n  # Pipe into jq\n  $ aube audit --json | jq '.advisories | length'\n\n  # Clean\n  $ aube audit\n  No known vulnerabilities found"
+    after_long_help = "Examples:\n\n  $ aube audit\n  Severity  Package    Vulnerable  Title\n  moderate  minimatch  <3.0.5      Regular Expression Denial of Service\n                                   https://github.com/advisories/GHSA-f8q6-p94x\n\n  1 vulnerability found\n\n  # Only fail on high and above\n  $ aube audit --audit-level high\n\n  # Skip optional deps and dev deps\n  $ aube audit --prod --no-optional\n\n  # Pipe into jq\n  $ aube audit --json | jq '.advisories | length'\n\n  # Clean\n  $ aube audit\n  No known vulnerabilities found",
+    effect = "read"
 )]
 pub struct AuditArgs {
     #[usage(
@@ -493,7 +508,8 @@ pub struct AuditArgs {
 /// Print the path to `node_modules/.bin`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube bin\n  /home/user/project/node_modules/.bin\n\n  $ aube bin -g\n  /home/user/.local/share/aube/global/node_modules/.bin\n\n  # From a workspace package, -w prints the workspace-root bin directory\n  $ cd packages/app\n  $ aube bin\n  /home/user/project/packages/app/node_modules/.bin\n  $ aube bin -w\n  /home/user/project/node_modules/.bin\n\n  # Extend PATH with the project bin directory\n  $ export PATH=\"$(aube bin):$PATH\""
+    after_long_help = "Examples:\n\n  $ aube bin\n  /home/user/project/node_modules/.bin\n\n  $ aube bin -g\n  /home/user/.local/share/aube/global/node_modules/.bin\n\n  # From a workspace package, -w prints the workspace-root bin directory\n  $ cd packages/app\n  $ aube bin\n  /home/user/project/packages/app/node_modules/.bin\n  $ aube bin -w\n  /home/user/project/node_modules/.bin\n\n  # Extend PATH with the project bin directory\n  $ export PATH=\"$(aube bin):$PATH\"",
+    effect = "read"
 )]
 pub struct BinArgs {
     /// Print the global bin directory instead of the project's
@@ -512,7 +528,8 @@ pub struct BinArgs {
 /// Open package bug tracker URLs
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube bugs\n\n  $ aube bugs react\n\n  $ aube issues react react-dom"
+    after_long_help = "Examples:\n\n  $ aube bugs\n\n  $ aube bugs react\n\n  $ aube issues react react-dom",
+    effect = "read"
 )]
 pub struct BugsArgs {
     #[usage(
@@ -563,6 +580,7 @@ pub struct BugsArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CacheDeleteArgs {
     #[usage(
         arg,
@@ -575,6 +593,7 @@ pub struct CacheDeleteArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheListArgs {
     #[usage(
         arg,
@@ -586,10 +605,12 @@ pub struct CacheListArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheListRegistriesArgs {}
 
 /// Remove stale extracted primer files from the metadata cache
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CachePruneArgs {
     /// Minimum age in days before an old primer file is removed
     #[usage(long = "age-days", value_name = "AGE_DAYS", default = "30")]
@@ -600,6 +621,7 @@ pub struct CachePruneArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheViewArgs {
     /// Dump the raw on-disk cache JSON instead of a summary
     #[usage(long = "json")]
@@ -611,6 +633,7 @@ pub struct CacheViewArgs {
 
 /// Inspect and manage the packument metadata cache
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheArgs {
     #[usage(subcommand)]
     pub command: CacheCommands,
@@ -653,6 +676,7 @@ pub enum CacheCommands {
 
 /// Print a file from the global store by integrity or hex hash
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CatFileArgs {
     #[usage(
         arg,
@@ -665,6 +689,7 @@ pub struct CatFileArgs {
 
 /// Print the cached package index JSON for `<name>@<version>`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CatIndexArgs {
     #[usage(
         arg,
@@ -677,7 +702,8 @@ pub struct CatIndexArgs {
 
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube check\n  node_modules symlink tree is consistent (checked 248 packages).\n\n  # With issues\n  $ aube check\n  2 broken dependency links found:\n\n    vscode-languageserver@9.0.1\n      ✕ cannot resolve: vscode-languageserver-protocol@3.17.5\n\n    vscode-languageserver-protocol@3.17.5\n      ✕ cannot resolve: vscode-languageserver-types@3.17.5\n      ✕ cannot resolve: vscode-jsonrpc@8.2.1\n\n  # Machine-readable\n  $ aube check --json"
+    after_long_help = "Examples:\n\n  $ aube check\n  node_modules symlink tree is consistent (checked 248 packages).\n\n  # With issues\n  $ aube check\n  2 broken dependency links found:\n\n    vscode-languageserver@9.0.1\n      ✕ cannot resolve: vscode-languageserver-protocol@3.17.5\n\n    vscode-languageserver-protocol@3.17.5\n      ✕ cannot resolve: vscode-languageserver-types@3.17.5\n      ✕ cannot resolve: vscode-jsonrpc@8.2.1\n\n  # Machine-readable\n  $ aube check --json",
+    effect = "read"
 )]
 pub struct CheckArgs {
     /// Emit a JSON report instead of the human-readable list
@@ -686,6 +712,7 @@ pub struct CheckArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CiArgs {
     /// Skip lifecycle scripts (no-op; aube already skips by default)
     #[usage(long = "ignore-scripts")]
@@ -761,6 +788,7 @@ pub struct CiArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CleanArgs {
     #[usage(
         help = "Also remove lockfiles at the workspace root",
@@ -773,6 +801,7 @@ pub struct CleanArgs {
 
 /// Generate shell completions (bash, zsh, fish)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CompletionArgs {
     /// Emit dynamic candidates for the shell completion engine
     #[usage(
@@ -792,6 +821,7 @@ pub struct CompletionArgs {
 
 /// Delete a key from aube config or the selected `.npmrc` file
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct ConfigDeleteArgs {
     /// Shortcut for `--location project`
     #[usage(long = "local")]
@@ -816,6 +846,7 @@ pub struct ConfigDeleteArgs {
 
 /// Explain a known setting, including defaults and supported config sources
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigExplainArgs {
     /// Setting key, `.npmrc` alias, env var, workspace YAML key, or CLI flag
     #[usage(arg, name = "KEY")]
@@ -824,6 +855,7 @@ pub struct ConfigExplainArgs {
 
 /// Search known settings by name, source key, or description
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigFindArgs {
     /// Words to search for
     #[usage(arg, name = "QUERY", required)]
@@ -832,6 +864,7 @@ pub struct ConfigFindArgs {
 
 /// Print the effective value of a key
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigGetArgs {
     #[usage(
         help = "Emit the value as JSON",
@@ -862,6 +895,7 @@ pub struct ConfigGetArgs {
 
 /// Print every key/value from aube config and selected `.npmrc` file(s)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigListArgs {
     #[usage(
         help = "Also list settings that have no value set",
@@ -893,6 +927,7 @@ pub struct ConfigListArgs {
 
 /// Write a key=value pair to aube config or the selected `.npmrc` file
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ConfigSetArgs {
     /// Shortcut for `--location project`
     #[usage(long = "local")]
@@ -916,10 +951,12 @@ pub struct ConfigSetArgs {
 
 /// Browse known settings in an interactive terminal UI
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ConfigTuiArgs {}
 
 /// Read and write settings in `.npmrc`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigArgs {
     #[usage(
         help = "Also list settings that have no value set",
@@ -1033,6 +1070,7 @@ pub struct CreateArgs {
 
 /// Re-resolve the lockfile to collapse duplicate versions
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DedupeArgs {
     #[usage(
         help = "Check whether dedupe would change the lockfile; don't write anything",
@@ -1109,6 +1147,7 @@ pub struct DedupeArgs {
 
 /// Deploy a workspace package into a target directory with deps inlined
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DeployArgs {
     #[usage(
         help = "Install only `devDependencies`",
@@ -1219,6 +1258,7 @@ pub struct DeployArgs {
 
 /// Mark published versions of a package as deprecated on the registry
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DeprecateArgs {
     /// Don't PUT anything — print which versions would be touched and exit
     #[usage(long = "dry-run")]
@@ -1286,6 +1326,7 @@ pub struct DeprecateArgs {
 
 /// Report deprecated packages in the resolved dependency graph
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DeprecationsArgs {
     /// Exit with a non-zero status if any deprecations are found
     #[usage(long = "exit-code")]
@@ -1342,6 +1383,7 @@ pub struct DeprecationsArgs {
 
 /// Show critical path / starvation / per-pkg lifecycle from a saved trace
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DiagAnalyzeArgs {
     /// Trace JSONL
     #[usage(arg, name = "PATH")]
@@ -1350,6 +1392,7 @@ pub struct DiagAnalyzeArgs {
 
 /// Diff two diag JSONL traces and surface per-operation regressions
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DiagCompareArgs {
     /// Minimum |Δsum_ms| to surface (default 50)
     #[usage(long = "min-delta-ms", value_name = "MIN_DELTA_MS", default = "50")]
@@ -1367,6 +1410,7 @@ pub struct DiagCompareArgs {
 
 /// Diagnostic trace analysis (compare/analyze JSONL traces)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DiagArgs {
     #[usage(subcommand)]
     pub command: DiagCommands,
@@ -1383,6 +1427,7 @@ pub enum DiagCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DistTagAddArgs {
     /// One-time password from a 2FA authenticator; sent as `npm-otp`
     #[usage(long = "otp", value_name = "OTP")]
@@ -1396,6 +1441,7 @@ pub struct DistTagAddArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DistTagLsArgs {
     #[usage(
         arg,
@@ -1408,6 +1454,7 @@ pub struct DistTagLsArgs {
 
 /// Remove a dist-tag from a package
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct DistTagRmArgs {
     /// One-time password from a 2FA authenticator; sent as `npm-otp`
     #[usage(long = "otp", value_name = "OTP")]
@@ -1422,6 +1469,7 @@ pub struct DistTagRmArgs {
 
 /// Manage package distribution tags on the registry
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DistTagArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -1595,7 +1643,8 @@ pub struct DlxArgs {
 /// Run broad install-health diagnostics
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube doctor\n  version: 1.0.0-beta.4\n  node: v22.11.0\n  ...\n  No problems found\n\n  $ aube doctor --json | jq .warnings"
+    after_long_help = "Examples:\n\n  $ aube doctor\n  version: 1.0.0-beta.4\n  node: v22.11.0\n  ...\n  No problems found\n\n  $ aube doctor --json | jq .warnings",
+    effect = "read"
 )]
 pub struct DoctorArgs {
     /// Emit a machine-readable JSON report instead of the grouped text
@@ -1737,6 +1786,7 @@ pub struct ExecArgs {
 
 /// Download lockfile dependencies into the store without linking node_modules
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct FetchArgs {
     /// Only fetch devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -1814,7 +1864,8 @@ pub struct FetchArgs {
 /// List packages whose cached index references a given file hash
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  # Accepts integrity strings\n  $ aube find-hash sha512-abc123...\n  lodash@4.17.21\tpackage/lodash.js\n  express@4.19.2\tnode_modules/lodash/lodash.js\n\n  # ...or raw hex digests\n  $ aube find-hash 5d41402abc4b2a76b9719d911017c592...\n\n  # Machine-readable\n  $ aube find-hash --json sha512-abc123..."
+    after_long_help = "Examples:\n\n  # Accepts integrity strings\n  $ aube find-hash sha512-abc123...\n  lodash@4.17.21\tpackage/lodash.js\n  express@4.19.2\tnode_modules/lodash/lodash.js\n\n  # ...or raw hex digests\n  $ aube find-hash 5d41402abc4b2a76b9719d911017c592...\n\n  # Machine-readable\n  $ aube find-hash --json sha512-abc123...",
+    effect = "read"
 )]
 pub struct FindHashArgs {
     #[usage(
@@ -1876,6 +1927,7 @@ pub struct FindHashArgs {
 
 /// Alias for `config get` (hidden; prefer `config get`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct GetArgs {
     #[usage(
         help = "Emit the value as JSON",
@@ -1907,7 +1959,8 @@ pub struct GetArgs {
 /// Print packages whose install scripts were skipped by `pnpm.allowBuilds`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube ignored-builds\n  The following builds were ignored during install:\n    esbuild@0.20.2\n    puppeteer@22.8.0\n\n  # When nothing was skipped\n  $ aube ignored-builds\n  No ignored builds.\n\n  # Approve them for this project\n  $ aube approve-builds"
+    after_long_help = "Examples:\n\n  $ aube ignored-builds\n  The following builds were ignored during install:\n    esbuild@0.20.2\n    puppeteer@22.8.0\n\n  # When nothing was skipped\n  $ aube ignored-builds\n  No ignored builds.\n\n  # Approve them for this project\n  $ aube approve-builds",
+    effect = "read"
 )]
 pub struct IgnoredBuildsArgs {
     /// Operate on globally-installed packages instead of the current project
@@ -1917,6 +1970,7 @@ pub struct IgnoredBuildsArgs {
 
 /// Convert a supported lockfile into aube-lock.yaml
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ImportArgs {
     /// Overwrite an existing aube-lock.yaml
     #[usage(long = "force")]
@@ -1938,6 +1992,7 @@ pub struct ImportArgs {
 
 /// Create a `package.json` in the current directory
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct InitArgs {
     /// Create a `package.json` with only the bare minimum of required fields
     #[usage(long = "bare")]
@@ -2001,6 +2056,7 @@ pub struct InitArgs {
 
 /// Install all dependencies
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct InstallArgs {
     /// Install only devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -2294,6 +2350,7 @@ pub struct InstallTestArgs {
 
 /// Alias for `list --long` (hidden; prefer `list --long`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct LaArgs {
     /// Show only devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -2349,7 +2406,8 @@ pub struct LaArgs {
 /// Report the licenses of installed dependencies
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube licenses\n  ├─ Apache-2.0\n  │  └─ typescript@5.4.5\n  ├─ ISC\n  │  └─ semver@7.6.0\n  └─ MIT\n     ├─ express@4.19.2\n     ├─ lodash@4.17.21\n     └─ zod@3.23.8\n\n  # Only production deps\n  $ aube licenses --prod\n\n  # Include each package's store path\n  $ aube licenses --long\n\n  # JSON array, one object per package\n  $ aube licenses --json"
+    after_long_help = "Examples:\n\n  $ aube licenses\n  ├─ Apache-2.0\n  │  └─ typescript@5.4.5\n  ├─ ISC\n  │  └─ semver@7.6.0\n  └─ MIT\n     ├─ express@4.19.2\n     ├─ lodash@4.17.21\n     └─ zod@3.23.8\n\n  # Only production deps\n  $ aube licenses --prod\n\n  # Include each package's store path\n  $ aube licenses --long\n\n  # JSON array, one object per package\n  $ aube licenses --json",
+    effect = "read"
 )]
 pub struct LicensesArgs {
     /// Show only devDependencies
@@ -2419,6 +2477,7 @@ pub struct LicensesArgs {
 
 /// Link a local package globally, or into the current project
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct LinkArgs {
     #[usage(
         help = "Register into (or resolve from) the global link registry",
@@ -2435,7 +2494,8 @@ pub struct LinkArgs {
 /// Print the resolved dependency tree
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube list\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├── express 4.19.2\n  ├── lodash 4.17.21\n  └── zod 3.23.8\n\n  devDependencies:\n  ├── typescript 5.4.5\n  └── vitest 1.6.0\n\n  # Show the full transitive tree\n  $ aube list --depth Infinity\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├─┬ express 4.19.2\n  │ ├── accepts 1.3.8\n  │ ├── body-parser 1.20.2\n  │ └── ...\n\n  # Only direct production deps\n  $ aube list --prod\n\n  # Machine-readable: one path per line (real store locations)\n  $ aube list --parseable\n  /home/user/project\n  /home/user/project/node_modules/.aube/express@4.19.2/node_modules/express\n  /home/user/project/node_modules/.aube/lodash@4.17.21/node_modules/lodash\n\n  # Filter to a single package\n  $ aube list express"
+    after_long_help = "Examples:\n\n  $ aube list\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├── express 4.19.2\n  ├── lodash 4.17.21\n  └── zod 3.23.8\n\n  devDependencies:\n  ├── typescript 5.4.5\n  └── vitest 1.6.0\n\n  # Show the full transitive tree\n  $ aube list --depth Infinity\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├─┬ express 4.19.2\n  │ ├── accepts 1.3.8\n  │ ├── body-parser 1.20.2\n  │ └── ...\n\n  # Only direct production deps\n  $ aube list --prod\n\n  # Machine-readable: one path per line (real store locations)\n  $ aube list --parseable\n  /home/user/project\n  /home/user/project/node_modules/.aube/express@4.19.2/node_modules/express\n  /home/user/project/node_modules/.aube/lodash@4.17.21/node_modules/lodash\n\n  # Filter to a single package\n  $ aube list express",
+    effect = "read"
 )]
 pub struct ListArgs {
     /// Show only devDependencies
@@ -2491,6 +2551,7 @@ pub struct ListArgs {
 
 /// Alias for `list --long` (hidden; prefer `list --long`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct LlArgs {
     /// Show only devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -2545,6 +2606,7 @@ pub struct LlArgs {
 
 /// Store a registry auth token in the user's ~/.npmrc
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct LoginArgs {
     /// Authentication flow: `legacy` (token paste; default) or `web` (OAuth flow against `{registry}/-/v1/login`)
     #[usage(long = "auth-type", value_name = "TYPE", default = "legacy")]
@@ -2602,6 +2664,7 @@ pub struct LoginArgs {
 
 /// Remove a registry auth token from the user's ~/.npmrc
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct LogoutArgs {
     /// Scope whose registry mapping should also be removed (e.g. `@myorg`)
     #[usage(long = "scope", value_name = "SCOPE")]
@@ -2661,7 +2724,8 @@ pub struct NodeArgs {
 /// Report dependencies whose installed version lags behind the registry
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube outdated\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n  zod         3.22.4   3.22.4   3.23.8\n\n  # Also print the package.json specifier and dep type\n  $ aube outdated --long\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n\n    lodash (dependencies): ^4.17.20\n    typescript (devDependencies): ^5.3.0\n\n  # Filter by prefix\n  $ aube outdated '@babel/*'\n\n  # Machine-readable (pnpm-compatible shape)\n  $ aube outdated --json\n  {\n    \"lodash\": {\n      \"current\": \"4.17.20\",\n      \"wanted\": \"4.17.21\",\n      \"latest\": \"4.17.21\"\n    }\n  }\n\n  # Nothing to report exits 0\n  $ aube outdated\n  All dependencies up to date."
+    after_long_help = "Examples:\n\n  $ aube outdated\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n  zod         3.22.4   3.22.4   3.23.8\n\n  # Also print the package.json specifier and dep type\n  $ aube outdated --long\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n\n    lodash (dependencies): ^4.17.20\n    typescript (devDependencies): ^5.3.0\n\n  # Filter by prefix\n  $ aube outdated '@babel/*'\n\n  # Machine-readable (pnpm-compatible shape)\n  $ aube outdated --json\n  {\n    \"lodash\": {\n      \"current\": \"4.17.20\",\n      \"wanted\": \"4.17.21\",\n      \"latest\": \"4.17.21\"\n    }\n  }\n\n  # Nothing to report exits 0\n  $ aube outdated\n  All dependencies up to date.",
+    effect = "read"
 )]
 pub struct OutdatedArgs {
     /// Show only devDependencies
@@ -2736,6 +2800,7 @@ pub struct OutdatedArgs {
 
 /// Manage package owners (not implemented — use `npm owner`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct OwnerArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -2786,6 +2851,7 @@ pub struct OwnerArgs {
 
 /// Create a publishable `.tgz` tarball from the current project
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct PackArgs {
     /// Don't write the tarball; print what would be packed
     #[usage(long = "dry-run")]
@@ -2845,6 +2911,7 @@ pub struct PackArgs {
 
 /// Extract a package into an edit directory so it can be patched
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct PatchArgs {
     #[usage(
         help = "Directory to extract the writable copy into",
@@ -2870,6 +2937,7 @@ pub struct PatchArgs {
 
 /// Generate a `.patch` file from a `aube patch` edit directory
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct PatchCommitArgs {
     #[usage(
         help = "Where to write the generated `.patch` file, relative to the project root",
@@ -2890,6 +2958,7 @@ pub struct PatchCommitArgs {
 
 /// Remove patch entries from `pnpm.patchedDependencies`
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct PatchRemoveArgs {
     #[usage(
         arg,
@@ -2902,7 +2971,8 @@ pub struct PatchRemoveArgs {
 
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube peers check\n  All peer dependencies are satisfied.\n\n  # With issues\n  $ aube peers check\n  1 unmet, 1 missing peer dependencies:\n\n  ├─┬ @emotion/react@11.11.4\n  │ └── ✕ unmet peer react@>=16.8: found 17.0.2\n  └─┬ react-dom@18.2.0\n    └── ✕ missing peer react@^18.0.0\n\n  # Machine-readable\n  $ aube peers check --json"
+    after_long_help = "Examples:\n\n  $ aube peers check\n  All peer dependencies are satisfied.\n\n  # With issues\n  $ aube peers check\n  1 unmet, 1 missing peer dependencies:\n\n  ├─┬ @emotion/react@11.11.4\n  │ └── ✕ unmet peer react@>=16.8: found 17.0.2\n  └─┬ react-dom@18.2.0\n    └── ✕ missing peer react@^18.0.0\n\n  # Machine-readable\n  $ aube peers check --json",
+    effect = "read"
 )]
 pub struct PeersCheckArgs {
     /// Emit a JSON report instead of the human-readable tree
@@ -2912,6 +2982,7 @@ pub struct PeersCheckArgs {
 
 /// Inspect peer-dependency resolution from the lockfile
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct PeersArgs {
     #[usage(subcommand)]
     pub command: PeersCommands,
@@ -2930,6 +3001,7 @@ pub enum PeersCommands {
 
 /// Manage package.json entries (not implemented — use `npm pkg`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct PkgArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -2981,7 +3053,8 @@ pub struct PkgArgs {
 /// Print the current package prefix directory
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube prefix\n  /home/user/project\n\n  $ aube prefix -g\n  /home/user/.local/share/pnpm"
+    after_long_help = "Examples:\n\n  $ aube prefix\n  /home/user/project\n\n  $ aube prefix -g\n  /home/user/.local/share/pnpm",
+    effect = "read"
 )]
 pub struct PrefixArgs {
     /// Print the global prefix directory instead of the project's root
@@ -2991,7 +3064,8 @@ pub struct PrefixArgs {
 
 #[derive(Args)]
 #[usage(
-    after_long_help = "Global store cleanup: use `aube store prune` to clean unreferenced files from the global\ncontent-addressable store."
+    after_long_help = "Global store cleanup: use `aube store prune` to clean unreferenced files from the global\ncontent-addressable store.",
+    effect = "write"
 )]
 pub struct PruneArgs {
     /// Remove devDependencies from node_modules
@@ -3004,6 +3078,7 @@ pub struct PruneArgs {
 
 /// Publish the current package to the registry
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct PublishArgs {
     #[usage(
         help = "Publish as `public` or `restricted`",
@@ -3100,6 +3175,7 @@ pub struct PublishArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct PurgeArgs {
     #[usage(
         help = "Also remove lockfiles at the workspace root",
@@ -3113,7 +3189,8 @@ pub struct PurgeArgs {
 /// Query packages in the resolved dependency graph
 #[derive(Args)]
 #[usage(
-    after_long_help = "Inspired by vlt's dependency selector model, but currently local-only:\nselectors read aube's lockfile graph without registry or security-service calls.\n\nExamples:\n\n  # Every reachable package\n  $ aube query '*'\n\n  # Exact package name\n  $ aube query '[name=react]'\n\n  # Direct prod dependencies with install scripts\n  $ aube query ':prod:scripts'\n\n  # Local file/link/git/tarball dependencies\n  $ aube query ':type(file), :type(link), :type(git), :type(remote)'\n\n  # Machine-readable\n  $ aube query ':bin' --json"
+    after_long_help = "Inspired by vlt's dependency selector model, but currently local-only:\nselectors read aube's lockfile graph without registry or security-service calls.\n\nExamples:\n\n  # Every reachable package\n  $ aube query '*'\n\n  # Exact package name\n  $ aube query '[name=react]'\n\n  # Direct prod dependencies with install scripts\n  $ aube query ':prod:scripts'\n\n  # Local file/link/git/tarball dependencies\n  $ aube query ':type(file), :type(link), :type(git), :type(remote)'\n\n  # Machine-readable\n  $ aube query ':bin' --json",
+    effect = "read"
 )]
 pub struct QueryArgs {
     /// Only match devDependency roots and their transitive deps
@@ -3139,6 +3216,7 @@ pub struct QueryArgs {
 
 /// Re-run root lifecycle scripts and allowlisted dependency builds
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct RebuildArgs {
     /// Optional package names. When supplied, only matching deps' scripts run; the root lifecycle hooks (preinstall, install, postinstall, prepare) are skipped. Match is by graph `name`, not by `dep_path`. The active `allowBuilds` / `onlyBuiltDependencies` policy is bypassed for the named deps — naming the package is the explicit opt-in
     #[usage(arg, name = "PACKAGE")]
@@ -3155,6 +3233,7 @@ pub struct RecursiveArgs {
 
 /// Remove a dependency
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct RemoveArgs {
     /// Remove only from devDependencies
     #[usage(long = "save-dev", short = 'D')]
@@ -3321,7 +3400,8 @@ pub struct RestartArgs {
 /// Print the path to `node_modules`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube root\n  /home/user/project/node_modules\n\n  $ aube root -g\n  /home/user/.local/share/aube/global/node_modules"
+    after_long_help = "Examples:\n\n  $ aube root\n  /home/user/project/node_modules\n\n  $ aube root -g\n  /home/user/.local/share/aube/global/node_modules",
+    effect = "read"
 )]
 pub struct RootArgs {
     /// Print the global package directory instead of the project's
@@ -3492,10 +3572,12 @@ pub struct RunArgs {
 
 /// Show the resolved runtime and installed versions
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct RuntimeListArgs {}
 
 /// Pin a runtime in package.json devEngines.runtime and install it
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct RuntimeSetArgs {
     /// Install for the user instead of the project (delegates to `mise use -g node@<version>` when mise manages installs)
     #[usage(long = "global", short = 'g')]
@@ -3516,6 +3598,7 @@ pub struct RuntimeSetArgs {
 
 /// Manage the project's Node.js runtime (pin, install, inspect)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct RuntimeArgs {
     #[usage(subcommand)]
     pub command: RuntimeCommands,
@@ -3533,6 +3616,7 @@ pub enum RuntimeCommands {
 
 /// Generate a Software Bill of Materials (CycloneDX or SPDX)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SbomArgs {
     /// Show only devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -3555,6 +3639,7 @@ pub struct SbomArgs {
 
 /// Search the registry for packages (not implemented — use `npm search`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SearchArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -3605,6 +3690,7 @@ pub struct SearchArgs {
 
 /// Alias for `config set` (hidden; prefer `config set`)
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct SetArgs {
     /// Shortcut for `--location project`
     #[usage(long = "local")]
@@ -3628,6 +3714,7 @@ pub struct SetArgs {
 
 /// Set a `package.json` script (not implemented — use `npm set-script`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SetScriptArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -3678,10 +3765,12 @@ pub struct SetScriptArgs {
 
 /// Show the companies sponsoring aube and the jdx.dev open source tools
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SponsorsArgs {}
 
 /// Stage packages for publishing (not implemented — use `npm stage`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct StageArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -3883,6 +3972,7 @@ pub struct StopArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct StoreAddArgs {
     /// Package specs to fetch into the store
     #[usage(arg, name = "PACKAGES", required)]
@@ -3891,16 +3981,20 @@ pub struct StoreAddArgs {
 
 /// Show the store path
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct StorePathArgs {}
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct StorePruneArgs {}
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct StoreStatusArgs {}
 
 /// Manage the global store
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct StoreArgs {
     #[usage(subcommand)]
     pub command: StoreCommands,
@@ -4012,6 +4106,7 @@ pub struct TestArgs {
 
 /// Manage registry auth tokens (not implemented — use `npm token`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct TokenArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -4063,7 +4158,8 @@ pub struct TokenArgs {
 /// Check one package version for a publishing-trust downgrade
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube trust check @hono/node-server@1.19.17\n  @hono/node-server@1.19.17: pass\n  published: 2026-07-27T03:07:48.993Z\n  current evidence: trusted publisher\n  strongest earlier evidence: trusted publisher (2.0.10)\n\n  # Evaluate the underlying policy even when aube has a built-in exception\n  $ aube trust check @hono/node-server@1.19.15 --ignore-default-excludes\n\n  # Machine-readable report\n  $ aube trust check @hono/node-server@1.19.17 --json"
+    after_long_help = "Examples:\n\n  $ aube trust check @hono/node-server@1.19.17\n  @hono/node-server@1.19.17: pass\n  published: 2026-07-27T03:07:48.993Z\n  current evidence: trusted publisher\n  strongest earlier evidence: trusted publisher (2.0.10)\n\n  # Evaluate the underlying policy even when aube has a built-in exception\n  $ aube trust check @hono/node-server@1.19.15 --ignore-default-excludes\n\n  # Machine-readable report\n  $ aube trust check @hono/node-server@1.19.17 --json",
+    effect = "read"
 )]
 pub struct TrustCheckArgs {
     /// Evaluate the policy without aube's built-in package exceptions
@@ -4123,6 +4219,7 @@ pub struct TrustCheckArgs {
 
 /// Inspect npm package publishing trust
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct TrustArgs {
     #[usage(subcommand)]
     pub command: TrustCommands,
@@ -4137,6 +4234,7 @@ pub enum TrustCommands {
 
 /// Clear an existing deprecation on the registry
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UndeprecateArgs {
     /// Don't PUT anything — print which versions would be touched and exit
     #[usage(long = "dry-run")]
@@ -4197,6 +4295,7 @@ pub struct UndeprecateArgs {
 
 /// Unlink a package (remove linked entries from node_modules)
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UnlinkArgs {
     #[usage(
         help = "Operate on the global link registry instead of the current project",
@@ -4212,6 +4311,7 @@ pub struct UnlinkArgs {
 
 /// Remove a package (or a single version) from the registry
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct UnpublishArgs {
     /// Don't talk to the registry; print what the command would do
     #[usage(long = "dry-run")]
@@ -4279,6 +4379,7 @@ pub struct UnpublishArgs {
 
 /// Update dependencies
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UpdateArgs {
     /// Update only devDependencies
     #[usage(long = "dev", short = 'D')]
@@ -4436,6 +4537,7 @@ pub struct UpdateArgs {
 
 /// Bump the version in package.json (and optionally create a git commit + tag)
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct VersionArgs {
     /// Allow setting the version to its current value without erroring
     #[usage(long = "allow-same-version")]
@@ -4481,7 +4583,8 @@ pub struct VersionArgs {
 /// Print package metadata from the registry
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube view\n  my-package@1.0.0 | MIT | deps: 0 | versions: 1\n\n  $ aube view react\n  react@18.3.1 | MIT | deps: 1 | versions: 2037\n  React is a JavaScript library for building user interfaces.\n  https://react.dev/\n\n  keywords: react\n\n  dist\n  .tarball: https://registry.npmjs.org/react/-/react-18.3.1.tgz\n  .shasum:  a0b2eb79...\n  .integrity: sha512-...\n\n  # A specific version\n  $ aube view react@17.0.2\n\n  # A single field\n  $ aube view react version\n  18.3.1\n\n  $ aube view react dist.tarball\n  https://registry.npmjs.org/react/-/react-18.3.1.tgz\n\n  # All versions ever published\n  $ aube view react versions --json\n\n  # Raw JSON for the resolved version\n  $ aube view react@next --json"
+    after_long_help = "Examples:\n\n  $ aube view\n  my-package@1.0.0 | MIT | deps: 0 | versions: 1\n\n  $ aube view react\n  react@18.3.1 | MIT | deps: 1 | versions: 2037\n  React is a JavaScript library for building user interfaces.\n  https://react.dev/\n\n  keywords: react\n\n  dist\n  .tarball: https://registry.npmjs.org/react/-/react-18.3.1.tgz\n  .shasum:  a0b2eb79...\n  .integrity: sha512-...\n\n  # A specific version\n  $ aube view react@17.0.2\n\n  # A single field\n  $ aube view react version\n  18.3.1\n\n  $ aube view react dist.tarball\n  https://registry.npmjs.org/react/-/react-18.3.1.tgz\n\n  # All versions ever published\n  $ aube view react versions --json\n\n  # Raw JSON for the resolved version\n  $ aube view react@next --json",
+    effect = "read"
 )]
 pub struct ViewArgs {
     #[usage(
@@ -4550,6 +4653,7 @@ pub struct ViewArgs {
 
 /// Report the current registry user (not implemented — use `npm whoami`)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct WhoamiArgs {
     #[usage(
         help = "Number of retry attempts for failed registry fetches",
@@ -4601,7 +4705,8 @@ pub struct WhoamiArgs {
 /// Print reverse dependency chains explaining why a package is installed
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube why debug\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  express 4.19.2\n  └── debug 2.6.9\n  body-parser 1.20.2\n  └── debug 2.6.9\n\n  # Only follow chains starting at a devDependency\n  $ aube why --dev typescript\n\n  # Include each node's store path\n  $ aube why --long debug\n\n  # Tab-separated, one chain per line (pipe-friendly)\n  $ aube why --parseable debug\n\n  # JSON: an array of chain objects\n  $ aube why --json debug"
+    after_long_help = "Examples:\n\n  $ aube why debug\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  express 4.19.2\n  └── debug 2.6.9\n  body-parser 1.20.2\n  └── debug 2.6.9\n\n  # Only follow chains starting at a devDependency\n  $ aube why --dev typescript\n\n  # Include each node's store path\n  $ aube why --long debug\n\n  # Tab-separated, one chain per line (pipe-friendly)\n  $ aube why --parseable debug\n\n  # JSON: an array of chain objects\n  $ aube why --json debug",
+    effect = "read"
 )]
 pub struct WhyArgs {
     /// Only follow chains that start at a devDependency

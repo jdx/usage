@@ -25,7 +25,8 @@ use usage_derive::{Args, Cli, Subcommands};
 /// Customize status output with `status` settings.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ eval \"$(mise activate bash)\"\n    $ eval \"$(mise activate zsh)\"\n    $ mise activate fish | source\n    $ execx($(mise activate xonsh))\n    $ (&mise activate pwsh) | Out-String | Invoke-Expression"
+    after_long_help = "Examples:\n\n    $ eval \"$(mise activate bash)\"\n    $ eval \"$(mise activate zsh)\"\n    $ mise activate fish | source\n    $ execx($(mise activate xonsh))\n    $ (&mise activate pwsh) | Out-String | Invoke-Expression",
+    effect = "read"
 )]
 pub struct ActivateArgs {
     /// Suppress non-error messages
@@ -67,7 +68,10 @@ pub struct ActivateArgs {
 ///
 /// This is the contents of a tool_alias.<TOOL> entry in ~/.config/mise/config.toml
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise tool-alias get node lts-hydrogen\n    20.0.0")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise tool-alias get node lts-hydrogen\n    20.0.0",
+    effect = "read"
+)]
 pub struct ToolAliasGetArgs {
     /// The tool to show the alias for
     #[usage(arg, name = "TOOL")]
@@ -78,7 +82,10 @@ pub struct ToolAliasGetArgs {
 }
 
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise tool-alias ls\n    node  lts-jod      22")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise tool-alias ls\n    node  lts-jod      22",
+    effect = "read"
+)]
 pub struct ToolAliasLsArgs {
     /// Don't show table header
     #[usage(long = "no-header")]
@@ -93,7 +100,8 @@ pub struct ToolAliasLsArgs {
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tool-alias set maven asdf:mise-plugins/mise-maven\n    $ mise tool-alias set node lts-jod 22.0.0"
+    after_long_help = "Examples:\n\n    $ mise tool-alias set maven asdf:mise-plugins/mise-maven\n    $ mise tool-alias set node lts-jod 22.0.0",
+    effect = "write"
 )]
 pub struct ToolAliasSetArgs {
     /// The tool/backend to set the alias for
@@ -112,7 +120,8 @@ pub struct ToolAliasSetArgs {
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tool-alias unset maven\n    $ mise tool-alias unset node lts-jod"
+    after_long_help = "Examples:\n\n    $ mise tool-alias unset maven\n    $ mise tool-alias unset node lts-jod",
+    effect = "write"
 )]
 pub struct ToolAliasUnsetArgs {
     /// The tool/backend to remove the alias from
@@ -125,6 +134,7 @@ pub struct ToolAliasUnsetArgs {
 
 /// Manage tool version aliases.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ToolAliasArgs {
     /// Filter aliases by tool
     #[usage(long = "tool", short = 'p', value_name = "TOOL")]
@@ -167,14 +177,16 @@ pub struct AsdfArgs {
 /// List built-in backends
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise backends ls\n    aqua\n    asdf\n    cargo\n    core\n    dotnet\n    gem\n    go\n    npm\n    pipx\n    spm\n    ubi\n    vfox"
+    after_long_help = "Examples:\n\n    $ mise backends ls\n    aqua\n    asdf\n    cargo\n    core\n    dotnet\n    gem\n    go\n    npm\n    pipx\n    spm\n    ubi\n    vfox",
+    effect = "read"
 )]
 pub struct BackendsLsArgs {}
 
 /// Manage backends
 #[derive(Args)]
 #[usage(
-    after_long_help = "Deprecation:\n\nThe `mise b` alias is deprecated and will be removed in mise 2027.4.0.\nUse `mise backends` instead."
+    after_long_help = "Deprecation:\n\nThe `mise b` alias is deprecated and will be removed in mise 2027.4.0.\nUse `mise backends` instead.",
+    effect = "read"
 )]
 pub struct BackendsArgs {
     #[usage(subcommand)]
@@ -190,6 +202,7 @@ pub enum BackendsCommands {
 
 /// List all the active runtime bin paths
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BinPathsArgs {
     /// Output executable names instead of bin directories
     #[usage(long = "bin-names")]
@@ -202,25 +215,32 @@ pub struct BinPathsArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapApplyAccountPlanArgs {}
 
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapApplyServicePlanArgs {}
 
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapApplyFirewallPlanArgs {}
 
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapApplySystemPlanArgs {}
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapInspectSystemFilesArgs {}
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapInspectFirewallPlanArgs {}
 
 /// Apply configured Linux users and groups
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapAccountsApplyArgs {
     /// Print what would change without changing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -232,6 +252,7 @@ pub struct BootstrapAccountsApplyArgs {
 
 /// Show configured Linux user and group state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapAccountsStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -243,6 +264,7 @@ pub struct BootstrapAccountsStatusArgs {
 
 /// Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapAccountsArgs {
     #[usage(subcommand)]
     pub command: BootstrapAccountsCommands,
@@ -260,6 +282,7 @@ pub enum BootstrapAccountsCommands {
 
 /// Apply configured Docker Compose project state
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapComposeApplyArgs {
     /// Print what would change without changing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -271,6 +294,7 @@ pub struct BootstrapComposeApplyArgs {
 
 /// Show configured Docker Compose project state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapComposeStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -282,6 +306,7 @@ pub struct BootstrapComposeStatusArgs {
 
 /// Manage Docker Compose projects from `[bootstrap.compose]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapComposeArgs {
     #[usage(subcommand)]
     pub command: BootstrapComposeCommands,
@@ -304,7 +329,8 @@ pub enum BootstrapComposeCommands {
 /// under `dotfiles.root` unless `--source` is provided.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig",
+    effect = "write"
 )]
 pub struct BootstrapDotfilesAddArgs {
     /// Overwrite existing sources without prompting
@@ -347,7 +373,8 @@ pub struct BootstrapDotfilesAddArgs {
 /// mise doesn't otherwise own.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes",
+    effect = "write"
 )]
 pub struct BootstrapDotfilesApplyArgs {
     /// Overwrite existing files that conflict with whole-file dotfile entries
@@ -367,7 +394,8 @@ pub struct BootstrapDotfilesApplyArgs {
 /// Edit a managed dotfile source
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml",
+    effect = "write"
 )]
 pub struct BootstrapDotfilesEditArgs {
     /// Apply this target after the editor exits
@@ -390,7 +418,8 @@ pub struct BootstrapDotfilesEditArgs {
 /// Show the status of dotfiles from `[dotfiles]`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync",
+    effect = "read"
 )]
 pub struct BootstrapDotfilesStatusArgs {
     /// Output in JSON format
@@ -413,7 +442,8 @@ pub struct BootstrapDotfilesStatusArgs {
 /// edits require `--force`.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes",
+    effect = "destructive"
 )]
 pub struct BootstrapDotfilesUnapplyArgs {
     /// Remove modified or otherwise ambiguous managed files and lines
@@ -432,6 +462,7 @@ pub struct BootstrapDotfilesUnapplyArgs {
 
 /// Manage dotfiles from `[dotfiles]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapDotfilesArgs {
     #[usage(subcommand)]
     pub command: BootstrapDotfilesCommands,
@@ -458,6 +489,7 @@ pub enum BootstrapDotfilesCommands {
 
 /// Apply configured privileged files and directories
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapFilesApplyArgs {
     /// Print what would change without changing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -472,6 +504,7 @@ pub struct BootstrapFilesApplyArgs {
 
 /// Show configured privileged file and directory state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapFilesStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -486,6 +519,7 @@ pub struct BootstrapFilesStatusArgs {
 
 /// Manage privileged files and directories from `[bootstrap.files]` and `[bootstrap.directories]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapFilesArgs {
     #[usage(subcommand)]
     pub command: BootstrapFilesCommands,
@@ -503,6 +537,7 @@ pub enum BootstrapFilesCommands {
 
 /// Apply the configured Linux host firewall
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapFirewallApplyArgs {
     /// Print what would change without changing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -514,6 +549,7 @@ pub struct BootstrapFirewallApplyArgs {
 
 /// Show configured Linux host firewall state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapFirewallStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -525,6 +561,7 @@ pub struct BootstrapFirewallStatusArgs {
 
 /// Manage the Linux host firewall from `[bootstrap.linux.firewall]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapFirewallArgs {
     #[usage(subcommand)]
     pub command: BootstrapFirewallCommands,
@@ -541,6 +578,7 @@ pub enum BootstrapFirewallCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapLaunchdApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -551,6 +589,7 @@ pub struct BootstrapLaunchdApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapLaunchdStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -562,6 +601,7 @@ pub struct BootstrapLaunchdStatusArgs {
 
 /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapLaunchdArgs {
     #[usage(subcommand)]
     pub command: BootstrapLaunchdCommands,
@@ -576,6 +616,7 @@ pub enum BootstrapLaunchdCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapLinuxSystemdUnitsApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -586,6 +627,7 @@ pub struct BootstrapLinuxSystemdUnitsApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapLinuxSystemdUnitsStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -597,6 +639,7 @@ pub struct BootstrapLinuxSystemdUnitsStatusArgs {
 
 /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapLinuxSystemdUnitsArgs {
     #[usage(subcommand)]
     pub command: BootstrapLinuxSystemdUnitsCommands,
@@ -612,6 +655,7 @@ pub enum BootstrapLinuxSystemdUnitsCommands {
 
 /// Manage Linux bootstrap config from `[bootstrap.linux]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapLinuxArgs {
     #[usage(subcommand)]
     pub command: BootstrapLinuxCommands,
@@ -625,6 +669,7 @@ pub enum BootstrapLinuxCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapMacosDefaultsApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -635,6 +680,7 @@ pub struct BootstrapMacosDefaultsApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosDefaultsStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -646,6 +692,7 @@ pub struct BootstrapMacosDefaultsStatusArgs {
 
 /// Manage macOS defaults from `[bootstrap.macos.defaults]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosDefaultsArgs2 {
     #[usage(subcommand)]
     pub command: BootstrapMacosDefaultsCommands2,
@@ -660,6 +707,7 @@ pub enum BootstrapMacosDefaultsCommands2 {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapMacosLaunchdAgentsApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -670,6 +718,7 @@ pub struct BootstrapMacosLaunchdAgentsApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosLaunchdAgentsStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -681,6 +730,7 @@ pub struct BootstrapMacosLaunchdAgentsStatusArgs {
 
 /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosLaunchdAgentsArgs {
     #[usage(subcommand)]
     pub command: BootstrapMacosLaunchdAgentsCommands,
@@ -696,6 +746,7 @@ pub enum BootstrapMacosLaunchdAgentsCommands {
 
 /// Manage macOS bootstrap config from `[bootstrap.macos]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosArgs {
     #[usage(subcommand)]
     pub command: BootstrapMacosCommands,
@@ -712,6 +763,7 @@ pub enum BootstrapMacosCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapMacosDefaultsApplyArgs2 {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -722,6 +774,7 @@ pub struct BootstrapMacosDefaultsApplyArgs2 {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosDefaultsStatusArgs2 {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -733,6 +786,7 @@ pub struct BootstrapMacosDefaultsStatusArgs2 {
 
 /// Manage macOS defaults from `[bootstrap.macos.defaults]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMacosDefaultsArgs {
     #[usage(subcommand)]
     pub command: BootstrapMacosDefaultsCommands,
@@ -747,6 +801,7 @@ pub enum BootstrapMacosDefaultsCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapMiseShellActivateApplyArgs {
     /// Print the actions that would run without writing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -757,6 +812,7 @@ pub struct BootstrapMiseShellActivateApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMiseShellActivateStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -768,6 +824,7 @@ pub struct BootstrapMiseShellActivateStatusArgs {
 
 /// Manage mise shell activation from `[bootstrap.mise_shell_activate]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapMiseShellActivateArgs {
     #[usage(subcommand)]
     pub command: BootstrapMiseShellActivateCommands,
@@ -793,7 +850,8 @@ pub enum BootstrapMiseShellActivateCommands {
 /// only. `install` is accepted as an alias for this command.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages apply\n    $ mise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages apply --dry-run\n    $ mise bootstrap packages apply --manager apt --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages apply\n    $ mise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages apply --dry-run\n    $ mise bootstrap packages apply --manager apt --yes",
+    effect = "write"
 )]
 pub struct BootstrapPackagesApplyArgs {
     /// Only install packages for this built-in or plugin manager
@@ -816,7 +874,8 @@ pub struct BootstrapPackagesApplyArgs {
 /// Add a Homebrew tap URL to [bootstrap.brew.taps]
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages brew tap railwaycat/emacsmacport\n    $ mise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages brew tap railwaycat/emacsmacport\n    $ mise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git",
+    effect = "write"
 )]
 pub struct BootstrapPackagesBrewTapArgs {
     /// Write to the local config instead of the global config
@@ -839,7 +898,8 @@ pub struct BootstrapPackagesBrewTapArgs {
 /// Remove Homebrew tap URLs from [bootstrap.brew.taps]
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages brew untap railwaycat/emacsmacport"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages brew untap railwaycat/emacsmacport",
+    effect = "write"
 )]
 pub struct BootstrapPackagesBrewUntapArgs {
     /// Write to the local config instead of the global config
@@ -861,6 +921,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
 /// These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks
 /// can be fetched directly by mise without a Homebrew installation.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapPackagesBrewArgs {
     #[usage(subcommand)]
     pub command: BootstrapPackagesBrewCommands,
@@ -883,7 +944,8 @@ pub enum BootstrapPackagesBrewCommands {
 /// Pass `--all` to import every linked formula, including dependencies.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages import --manager brew\n    $ mise bootstrap packages import --manager brew --all\n    $ mise bootstrap packages import --manager brew --global\n    $ mise bootstrap packages import --manager brew --dry-run"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages import --manager brew\n    $ mise bootstrap packages import --manager brew --all\n    $ mise bootstrap packages import --manager brew --global\n    $ mise bootstrap packages import --manager brew --dry-run",
+    effect = "write"
 )]
 pub struct BootstrapPackagesImportArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
@@ -919,7 +981,8 @@ pub struct BootstrapPackagesImportArgs {
 /// configs.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages prune --manager brew\n    $ mise bootstrap packages prune --manager brew --dry-run\n    $ mise bootstrap packages prune --manager brew --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages prune --manager brew\n    $ mise bootstrap packages prune --manager brew --dry-run\n    $ mise bootstrap packages prune --manager brew --yes",
+    effect = "destructive"
 )]
 pub struct BootstrapPackagesPruneArgs {
     /// Only prune packages for this manager. Currently only `brew` is supported
@@ -942,7 +1005,8 @@ pub struct BootstrapPackagesPruneArgs {
 /// Show the status of system packages from `[bootstrap.packages]`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages status\n    $ mise bootstrap packages status --json\n    $ mise bootstrap packages status --missing # exit 1 if anything is out of sync"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages status\n    $ mise bootstrap packages status --json\n    $ mise bootstrap packages status --missing # exit 1 if anything is out of sync",
+    effect = "read"
 )]
 pub struct BootstrapPackagesStatusArgs {
     /// Output in JSON format
@@ -966,7 +1030,8 @@ pub struct BootstrapPackagesStatusArgs {
 /// Packages can also be given explicitly in `manager:package` form.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages upgrade\n    $ mise bootstrap packages upgrade brew:postgresql@17\n    $ mise bootstrap packages upgrade --manager brew-cask\n    $ mise bootstrap packages upgrade --manager mas\n    $ mise bootstrap packages upgrade --manager apt --yes\n    $ mise bootstrap packages upgrade --dry-run"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages upgrade\n    $ mise bootstrap packages upgrade brew:postgresql@17\n    $ mise bootstrap packages upgrade --manager brew-cask\n    $ mise bootstrap packages upgrade --manager mas\n    $ mise bootstrap packages upgrade --manager apt --yes\n    $ mise bootstrap packages upgrade --dry-run",
+    effect = "write"
 )]
 pub struct BootstrapPackagesUpgradeArgs {
     /// Only upgrade packages for this built-in or plugin manager
@@ -996,7 +1061,8 @@ pub struct BootstrapPackagesUpgradeArgs {
 /// a mise version selector. mas uses numeric ADAM IDs and does not support pins.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages use -g brew:postgresql@17\n    $ mise bootstrap packages use apt:curl@8.5.0-2"
+    after_long_help = "Examples:\n\n    $ mise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages use -g brew:postgresql@17\n    $ mise bootstrap packages use apt:curl@8.5.0-2",
+    effect = "write"
 )]
 pub struct BootstrapPackagesUseArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
@@ -1021,6 +1087,7 @@ pub struct BootstrapPackagesUseArgs {
 
 /// Manage bootstrap system packages from `[bootstrap.packages]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapPackagesArgs {
     #[usage(subcommand)]
     pub command: BootstrapPackagesCommands,
@@ -1053,6 +1120,7 @@ pub enum BootstrapPackagesCommands {
 
 /// Show the changes declarative bootstrap resources would make
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapPlanArgs {
     /// Output a stable machine-readable plan in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1066,6 +1134,7 @@ pub struct BootstrapPlanArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapPluginsApplyArgs {
     /// Print what would happen without installing plugins
     #[usage(long = "dry-run", short = 'n')]
@@ -1073,6 +1142,7 @@ pub struct BootstrapPluginsApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapPluginsStatusArgs {
     /// Exit with code 1 if a declared plugin is missing
     #[usage(long = "missing")]
@@ -1081,6 +1151,7 @@ pub struct BootstrapPluginsStatusArgs {
 
 /// Manage package manager plugins declared in `[bootstrap.plugins]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapPluginsArgs {
     #[usage(subcommand)]
     pub command: BootstrapPluginsCommands,
@@ -1096,6 +1167,7 @@ pub enum BootstrapPluginsCommands {
 
 /// Bootstrap one or more machines over OpenSSH
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapRemoteArgs {
     /// Select every configured inventory host
     #[usage(long = "all")]
@@ -1224,6 +1296,7 @@ pub struct BootstrapRemoteArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapReposApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -1250,6 +1323,7 @@ pub struct BootstrapReposExecArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapReposStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1260,6 +1334,7 @@ pub struct BootstrapReposStatusArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapReposUpdateArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -1274,6 +1349,7 @@ pub struct BootstrapReposUpdateArgs {
 
 /// Manage git repo checkouts from `[bootstrap.repos]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapReposArgs {
     #[usage(subcommand)]
     pub command: BootstrapReposCommands,
@@ -1293,6 +1369,7 @@ pub enum BootstrapReposCommands {
 
 /// Show whether declared bootstrap secret inputs are available
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapSecretsStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1304,6 +1381,7 @@ pub struct BootstrapSecretsStatusArgs {
 
 /// Inspect bootstrap secret inputs without revealing their values
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapSecretsArgs {
     #[usage(subcommand)]
     pub command: BootstrapSecretsCommands,
@@ -1318,6 +1396,7 @@ pub enum BootstrapSecretsCommands {
 
 /// Apply configured Linux system service state
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct BootstrapServicesApplyArgs {
     /// Print what would change without changing anything
     #[usage(long = "dry-run", short = 'n')]
@@ -1329,6 +1408,7 @@ pub struct BootstrapServicesApplyArgs {
 
 /// Show configured Linux system service state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapServicesStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1340,6 +1420,7 @@ pub struct BootstrapServicesStatusArgs {
 
 /// Manage Linux system services from `[bootstrap.services]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapServicesArgs {
     #[usage(subcommand)]
     pub command: BootstrapServicesCommands,
@@ -1357,6 +1438,7 @@ pub enum BootstrapServicesCommands {
 
 /// Show the aggregate bootstrap status
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1370,6 +1452,7 @@ pub struct BootstrapStatusArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapSystemdApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -1380,6 +1463,7 @@ pub struct BootstrapSystemdApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapSystemdStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1391,6 +1475,7 @@ pub struct BootstrapSystemdStatusArgs {
 
 /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapSystemdArgs {
     #[usage(subcommand)]
     pub command: BootstrapSystemdCommands,
@@ -1405,6 +1490,7 @@ pub enum BootstrapSystemdCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootstrapUserApplyArgs {
     /// Print the commands that would run without running them
     #[usage(long = "dry-run", short = 'n')]
@@ -1415,6 +1501,7 @@ pub struct BootstrapUserApplyArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapUserStatusArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1426,6 +1513,7 @@ pub struct BootstrapUserStatusArgs {
 
 /// Manage current-user bootstrap settings from `[bootstrap.user]`
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootstrapUserArgs {
     #[usage(subcommand)]
     pub command: BootstrapUserCommands,
@@ -1490,7 +1578,8 @@ pub enum BootstrapUserCommands {
 /// cannot be used together.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap                    # packages + repos + dotfiles + tools + bootstrap task\n    $ mise bootstrap --force-dotfiles   # replace conflicting dotfile targets\n    $ mise bootstrap --skip tools,task  # skip tool installation and the bootstrap task\n    $ mise bootstrap --only tools       # run just tool installation\n    $ mise bootstrap status --missing\n    $ mise bootstrap packages apply --yes\n    $ mise bootstrap repos status\n    $ mise bootstrap repos apply --dry-run\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap mise-shell-activate apply --dry-run\n    $ mise bootstrap macos defaults status\n    $ mise bootstrap macos launchd-agents apply --dry-run\n    $ mise bootstrap linux systemd-units apply --dry-run\n    $ mise bootstrap user apply --dry-run"
+    after_long_help = "Examples:\n\n    $ mise bootstrap                    # packages + repos + dotfiles + tools + bootstrap task\n    $ mise bootstrap --force-dotfiles   # replace conflicting dotfile targets\n    $ mise bootstrap --skip tools,task  # skip tool installation and the bootstrap task\n    $ mise bootstrap --only tools       # run just tool installation\n    $ mise bootstrap status --missing\n    $ mise bootstrap packages apply --yes\n    $ mise bootstrap repos status\n    $ mise bootstrap repos apply --dry-run\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap mise-shell-activate apply --dry-run\n    $ mise bootstrap macos defaults status\n    $ mise bootstrap macos launchd-agents apply --dry-run\n    $ mise bootstrap linux systemd-units apply --dry-run\n    $ mise bootstrap user apply --dry-run",
+    effect = "destructive"
 )]
 pub struct BootstrapArgs {
     /// Print what would happen without installing anything
@@ -1654,6 +1743,7 @@ pub enum BootstrapCommands {
 
 /// Deletes all cache files in mise
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CacheClearArgs {
     /// Mark all cache files as old
     #[usage(long = "outdate", hide)]
@@ -1668,6 +1758,7 @@ pub struct CacheClearArgs {
 
 /// Show the cache directory path
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CachePathArgs {}
 
 /// Removes stale mise cache files
@@ -1675,6 +1766,7 @@ pub struct CachePathArgs {}
 /// By default, this command will remove files that have not been accessed in 30 days.
 /// Change this with the MISE_CACHE_PRUNE_AGE environment variable.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CachePruneArgs {
     /// Show pruned files
     #[usage(long = "verbose", short = 'v', count)]
@@ -1689,6 +1781,7 @@ pub struct CachePruneArgs {
 
 /// Inspect output cache entries for a task
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheTaskArgs {
     /// Output in JSON format
     #[usage(long = "json", short = 'J')]
@@ -1702,6 +1795,7 @@ pub struct CacheTaskArgs {
 ///
 /// Run `mise cache` with no args to view the current cache directory.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheArgs {
     #[usage(subcommand)]
     pub command: ::std::option::Option<CacheCommands>,
@@ -1726,7 +1820,8 @@ pub enum CacheCommands {
 /// Generate shell completions
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise\n    $ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise\n    $ mise completion fish > ~/.config/fish/completions/mise.fish\n    $ mise completion powershell >> $PROFILE"
+    after_long_help = "Examples:\n\n    $ mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise\n    $ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise\n    $ mise completion fish > ~/.config/fish/completions/mise.fish\n    $ mise completion powershell >> $PROFILE",
+    effect = "read"
 )]
 pub struct CompletionArgs {
     /// Shell type to generate completions for
@@ -1758,7 +1853,10 @@ pub struct CompletionArgs {
 
 /// Display the value of a setting in a mise.toml file
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise toml get tools.python\n    3.12")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise toml get tools.python\n    3.12",
+    effect = "read"
+)]
 pub struct ConfigGetArgs {
     /// The path to the mise.toml file to read
     ///
@@ -1775,7 +1873,8 @@ pub struct ConfigGetArgs {
 /// List config files currently in use
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta"
+    after_long_help = "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta",
+    effect = "read"
 )]
 pub struct ConfigLsArgs {
     /// Output in JSON format
@@ -1792,7 +1891,8 @@ pub struct ConfigLsArgs {
 /// Set the value of a setting in a mise.toml file
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise config set tools.python 3.12\n    $ mise config set settings.always_keep_download true\n    $ mise config set env.TEST_ENV_VAR ABC\n    $ mise config set settings.disable_tools node,rust\n\n    # Type for `settings` is inferred\n    $ mise config set settings.jobs 4"
+    after_long_help = "Examples:\n\n    $ mise config set tools.python 3.12\n    $ mise config set settings.always_keep_download true\n    $ mise config set env.TEST_ENV_VAR ABC\n    $ mise config set settings.disable_tools node,rust\n\n    # Type for `settings` is inferred\n    $ mise config set settings.jobs 4",
+    effect = "write"
 )]
 pub struct ConfigSetArgs {
     /// The path to the mise.toml file to edit
@@ -1821,7 +1921,8 @@ pub struct ConfigSetArgs {
 /// Manage config files
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta"
+    after_long_help = "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta",
+    effect = "read"
 )]
 pub struct ConfigArgs {
     /// Output in JSON format
@@ -1856,7 +1957,8 @@ pub enum ConfigCommands {
 /// and/or version. It's designed to fit into scripts more easily.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # outputs `.tool-versions` compatible format\n    $ mise current\n    python 3.11.0 3.10.0\n    shfmt 3.6.0\n    shellcheck 0.9.0\n    node 20.0.0\n\n    $ mise current node\n    20.0.0\n\n    # can output multiple versions\n    $ mise current python\n    3.11.0 3.10.0"
+    after_long_help = "Examples:\n\n    # outputs `.tool-versions` compatible format\n    $ mise current\n    python 3.11.0 3.10.0\n    shfmt 3.6.0\n    shellcheck 0.9.0\n    node 20.0.0\n\n    $ mise current node\n    20.0.0\n\n    # can output multiple versions\n    $ mise current python\n    3.11.0 3.10.0",
+    effect = "read"
 )]
 pub struct CurrentArgs {
     /// Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
@@ -1868,7 +1970,10 @@ pub struct CurrentArgs {
 ///
 /// This can be used to temporarily disable mise in a shell session.
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise deactivate")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise deactivate",
+    effect = "read"
+)]
 pub struct DeactivateArgs {}
 
 /// Output direnv function to use mise inside direnv
@@ -1880,11 +1985,13 @@ pub struct DeactivateArgs {}
 /// direnv may not know to update environment variables when idiomatic file versions change.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise direnv activate > ~/.config/direnv/lib/use_mise.sh\n    $ echo 'use mise' > .envrc\n    $ direnv allow"
+    after_long_help = "Examples:\n\n    $ mise direnv activate > ~/.config/direnv/lib/use_mise.sh\n    $ echo 'use mise' > .envrc\n    $ direnv allow",
+    effect = "read"
 )]
 pub struct DirenvActivateArgs {}
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DirenvEnvrcArgs {}
 
 #[derive(Args)]
@@ -1898,6 +2005,7 @@ pub struct DirenvExecArgs {}
 /// you should run this command after installing new plugins. Otherwise
 /// direnv may not know to update environment variables when idiomatic file versions change.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DirenvArgs {
     #[usage(subcommand)]
     pub command: ::std::option::Option<DirenvCommands>,
@@ -1929,7 +2037,8 @@ pub enum DirenvCommands {
 /// under `dotfiles.root` unless `--source` is provided.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig",
+    effect = "write"
 )]
 pub struct DotfilesAddArgs {
     /// Overwrite existing sources without prompting
@@ -1972,7 +2081,8 @@ pub struct DotfilesAddArgs {
 /// mise doesn't otherwise own.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes",
+    effect = "write"
 )]
 pub struct DotfilesApplyArgs {
     /// Overwrite existing files that conflict with whole-file dotfile entries
@@ -1992,7 +2102,8 @@ pub struct DotfilesApplyArgs {
 /// Edit a managed dotfile source
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml",
+    effect = "write"
 )]
 pub struct DotfilesEditArgs {
     /// Apply this target after the editor exits
@@ -2015,7 +2126,8 @@ pub struct DotfilesEditArgs {
 /// Show the status of dotfiles from `[dotfiles]`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync",
+    effect = "read"
 )]
 pub struct DotfilesStatusArgs {
     /// Output in JSON format
@@ -2038,7 +2150,8 @@ pub struct DotfilesStatusArgs {
 /// edits require `--force`.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes"
+    after_long_help = "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes",
+    effect = "destructive"
 )]
 pub struct DotfilesUnapplyArgs {
     /// Remove modified or otherwise ambiguous managed files and lines
@@ -2059,6 +2172,7 @@ pub struct DotfilesUnapplyArgs {
 ///
 /// Use `mise bootstrap dotfiles` instead.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DotfilesArgs {
     #[usage(subcommand)]
     pub command: DotfilesCommands,
@@ -2086,7 +2200,8 @@ pub enum DotfilesCommands {
 /// Print the current PATH entries mise is providing
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    Get the current PATH entries mise is providing\n    $ mise doctor path\n    /home/user/.local/share/mise/installs/node/24.0.0/bin\n    /home/user/.local/share/mise/installs/rust/1.90.0/bin\n    /home/user/.local/share/mise/installs/python/3.10.0/bin"
+    after_long_help = "Examples:\n\n    Get the current PATH entries mise is providing\n    $ mise doctor path\n    /home/user/.local/share/mise/installs/node/24.0.0/bin\n    /home/user/.local/share/mise/installs/rust/1.90.0/bin\n    /home/user/.local/share/mise/installs/python/3.10.0/bin",
+    effect = "read"
 )]
 pub struct DoctorPathArgs {
     /// Print all entries including those not provided by mise
@@ -2097,7 +2212,8 @@ pub struct DoctorPathArgs {
 /// Check mise installation for possible problems
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise doctor\n    [WARN] plugin node is not installed"
+    after_long_help = "Examples:\n\n    $ mise doctor\n    [WARN] plugin node is not installed",
+    effect = "read"
 )]
 pub struct DoctorArgs {
     #[usage(long = "json", short = 'J')]
@@ -2139,7 +2255,8 @@ pub struct EnArgs {
 /// use this if you have `mise activate` in your shell rc file.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ eval \"$(mise env -s bash)\"\n    $ eval \"$(mise env -s zsh)\"\n    $ mise env -s fish | source\n    $ execx($(mise env -s xonsh))"
+    after_long_help = "Examples:\n\n    $ eval \"$(mise env -s bash)\"\n    $ eval \"$(mise env -s zsh)\"\n    $ mise env -s fish | source\n    $ execx($(mise env -s xonsh))",
+    effect = "read"
 )]
 pub struct EnvArgs {
     /// Output in dotenv format
@@ -2250,7 +2367,7 @@ pub struct ExecArgs {
 ///
 /// Sorts keys and cleans up whitespace in mise.toml
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise fmt")]
+#[usage(after_long_help = "Examples:\n\n    $ mise fmt", effect = "write")]
 pub struct FmtArgs {
     /// Format all files from the current directory
     #[usage(long = "all", short = 'a')]
@@ -2268,7 +2385,8 @@ pub struct FmtArgs {
 /// This is designed to be used in a project where contributors may not have mise installed.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise generate bootstrap >./bin/mise\n    $ chmod +x ./bin/mise\n    $ ./bin/mise install – automatically downloads mise to .mise if not already installed"
+    after_long_help = "Examples:\n\n    $ mise generate bootstrap >./bin/mise\n    $ chmod +x ./bin/mise\n    $ ./bin/mise install – automatically downloads mise to .mise if not already installed",
+    effect = "write"
 )]
 pub struct GenerateBootstrapArgs {
     /// Sandboxes mise internal directories like MISE_DATA_DIR and MISE_CACHE_DIR into a `.mise` directory in the project
@@ -2294,7 +2412,8 @@ pub struct GenerateBootstrapArgs {
 /// Generate a mise.toml file
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise generate config             # generate mise.toml interactively\n    $ mise generate config .mise.toml  # generate a specific file\n    $ mise generate config -g          # generate the global config file\n    $ mise generate config -y          # skip interactive editor\n    $ mise generate config -n          # preview without writing"
+    after_long_help = "Examples:\n\n    $ mise generate config             # generate mise.toml interactively\n    $ mise generate config .mise.toml  # generate a specific file\n    $ mise generate config -g          # generate the global config file\n    $ mise generate config -y          # skip interactive editor\n    $ mise generate config -n          # preview without writing",
+    effect = "write"
 )]
 pub struct GenerateConfigArgs {
     /// Generate the global config file (~/.config/mise/config.toml)
@@ -2313,7 +2432,10 @@ pub struct GenerateConfigArgs {
 
 /// Generate a devcontainer to execute mise
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise generate devcontainer")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise generate devcontainer",
+    effect = "write"
+)]
 pub struct GenerateDevcontainerArgs {
     /// The image to use for the devcontainer
     #[usage(long = "image", short = 'i', value_name = "IMAGE")]
@@ -2339,7 +2461,8 @@ pub struct GenerateDevcontainerArgs {
 /// For more advanced pre-commit functionality, see mise's sister project: https://hk.jdx.dev/
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise generate git-pre-commit --write --task=pre-commit\n    $ git commit -m \"feat: add new feature\" # runs `mise run pre-commit`"
+    after_long_help = "Examples:\n\n    $ mise generate git-pre-commit --write --task=pre-commit\n    $ git commit -m \"feat: add new feature\" # runs `mise run pre-commit`",
+    effect = "write"
 )]
 pub struct GenerateGitPreCommitArgs {
     /// The task to run when the pre-commit hook is triggered
@@ -2364,7 +2487,8 @@ pub struct GenerateGitPreCommitArgs {
 /// when you push changes to your repository.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise generate github-action --write --task=ci\n    $ git commit -m \"feat: add new feature\"\n    $ git push # runs `mise run ci` on GitHub"
+    after_long_help = "Examples:\n\n    $ mise generate github-action --write --task=ci\n    $ git commit -m \"feat: add new feature\"\n    $ git push # runs `mise run ci` on GitHub",
+    effect = "write"
 )]
 pub struct GenerateGithubActionArgs {
     /// The task to run when the workflow is triggered
@@ -2380,7 +2504,10 @@ pub struct GenerateGithubActionArgs {
 
 /// Generate documentation for tasks in a project
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise generate task-docs")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise generate task-docs",
+    effect = "write"
+)]
 pub struct GenerateTaskDocsArgs {
     /// inserts the documentation into an existing file
     ///
@@ -2418,7 +2545,8 @@ pub struct GenerateTaskDocsArgs {
 /// so contributors to a project can execute mise tasks without installing mise into their system.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tasks add test -- echo 'running tests'\n    $ mise generate task-stubs\n    $ ./bin/test\n    running tests"
+    after_long_help = "Examples:\n\n    $ mise tasks add test -- echo 'running tests'\n    $ mise generate task-stubs\n    $ ./bin/test\n    running tests",
+    effect = "write"
 )]
 pub struct GenerateTaskStubsArgs {
     /// Directory to create task stubs inside of
@@ -2447,7 +2575,8 @@ pub struct GenerateTaskStubsArgs {
 /// to incrementally build cross-platform tool stubs.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    Generate a tool stub for a single URL:\n    $ mise generate tool-stub ./bin/gh --url \"https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz\"\n\n    Generate a tool stub with platform-specific URLs:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \\\n        --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz\n\n    Append additional platforms to an existing stub:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://example.com/rg-linux.tar.gz\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz\n    # The stub now contains both platforms\n\n    Use auto-detection for platform from URL:\n    $ mise generate tool-stub ./bin/node \\\n        --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz\n    # Platform 'macos-arm64' will be auto-detected from the URL\n\n    Generate with platform-specific binary paths:\n    $ mise generate tool-stub ./bin/tool \\\n        --platform-url linux-x64:https://example.com/tool-linux.tar.gz \\\n        --platform-url windows-x64:https://example.com/tool-windows.zip \\\n        --platform-bin windows-x64:tool.exe\n\n    Generate without downloading (faster):\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --skip-download\n\n    Fetch checksums for an existing stub:\n    $ mise generate tool-stub ./bin/jq --fetch\n    # This will read the existing stub and download files to fill in any missing checksums/sizes\n\n    Generate a bootstrap stub that installs mise if needed:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap\n    # The stub will check for mise and install it automatically before running the tool\n\n    Generate a bootstrap stub with a pinned mise version:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap --bootstrap-version 2025.1.0\n\n    Lock an existing tool stub with pinned version and platform URLs/checksums:\n    $ mise generate tool-stub ./bin/node --lock\n\n    Bump the version in a locked stub:\n    $ mise generate tool-stub ./bin/node --lock --version 22\n    # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums"
+    after_long_help = "Examples:\n\n    Generate a tool stub for a single URL:\n    $ mise generate tool-stub ./bin/gh --url \"https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz\"\n\n    Generate a tool stub with platform-specific URLs:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \\\n        --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz\n\n    Append additional platforms to an existing stub:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://example.com/rg-linux.tar.gz\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz\n    # The stub now contains both platforms\n\n    Use auto-detection for platform from URL:\n    $ mise generate tool-stub ./bin/node \\\n        --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz\n    # Platform 'macos-arm64' will be auto-detected from the URL\n\n    Generate with platform-specific binary paths:\n    $ mise generate tool-stub ./bin/tool \\\n        --platform-url linux-x64:https://example.com/tool-linux.tar.gz \\\n        --platform-url windows-x64:https://example.com/tool-windows.zip \\\n        --platform-bin windows-x64:tool.exe\n\n    Generate without downloading (faster):\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --skip-download\n\n    Fetch checksums for an existing stub:\n    $ mise generate tool-stub ./bin/jq --fetch\n    # This will read the existing stub and download files to fill in any missing checksums/sizes\n\n    Generate a bootstrap stub that installs mise if needed:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap\n    # The stub will check for mise and install it automatically before running the tool\n\n    Generate a bootstrap stub with a pinned mise version:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap --bootstrap-version 2025.1.0\n\n    Lock an existing tool stub with pinned version and platform URLs/checksums:\n    $ mise generate tool-stub ./bin/node --lock\n\n    Bump the version in a locked stub:\n    $ mise generate tool-stub ./bin/node --lock --version 22\n    # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums",
+    effect = "write"
 )]
 pub struct GenerateToolStubArgs {
     /// Binary path within the extracted archive
@@ -2512,6 +2641,7 @@ pub struct GenerateToolStubArgs {
 
 /// Generate files for various tools/services
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct GenerateArgs {
     #[usage(subcommand)]
     pub command: GenerateCommands,
@@ -2551,7 +2681,8 @@ pub enum GenerateCommands {
 /// authentication issues. The token is masked by default.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise github token\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise github token --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise github token github.mycompany.com\n    github.mycompany.com: (none)"
+    after_long_help = "Examples:\n\n    $ mise github token\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise github token --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise github token github.mycompany.com\n    github.mycompany.com: (none)",
+    effect = "read"
 )]
 pub struct GithubTokenArgs {
     /// Force native GitHub OAuth device flow instead of normal token resolution
@@ -2573,6 +2704,7 @@ pub struct GithubTokenArgs {
 
 /// GitHub related commands
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct GithubArgs {
     #[usage(subcommand)]
     pub command: GithubCommands,
@@ -2597,7 +2729,8 @@ pub enum GithubCommands {
 /// Use `mise local` to set a tool version locally in the current directory.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n    # set the current version of node to 20.x\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise global --fuzzy node@20\n\n    # set the current version of node to 20.x\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise global --pin node@20\n\n    # show the current version of node in ~/.tool-versions\n    $ mise global node\n    20.0.0"
+    after_long_help = "Examples:\n    # set the current version of node to 20.x\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise global --fuzzy node@20\n\n    # set the current version of node to 20.x\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise global --pin node@20\n\n    # show the current version of node in ~/.tool-versions\n    $ mise global node\n    20.0.0",
+    effect = "write"
 )]
 pub struct GlobalArgs {
     #[usage(
@@ -2626,6 +2759,7 @@ pub struct GlobalArgs {
 
 /// [internal] called by activate hook to update env vars directory change
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct HookEnvArgs {
     /// Skip early exit check
     #[usage(long = "force", short = 'f')]
@@ -2656,6 +2790,7 @@ pub struct HookEnvArgs {
 
 /// [internal] called by shell when a command is not found
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct HookNotFoundArgs {
     /// Shell type to generate script for
     #[usage(
@@ -2674,6 +2809,7 @@ pub struct HookNotFoundArgs {
 ///
 /// Skips config directory by default.
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct ImplodeArgs {
     /// List directories that would be removed without actually removing them
     #[usage(long = "dry-run", short = 'n')]
@@ -2686,7 +2822,8 @@ pub struct ImplodeArgs {
 /// Edit mise.toml interactively
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise edit             # edit mise.toml interactively\n    $ mise edit .mise.toml  # edit a specific file\n    $ mise edit -g          # edit the global config file\n    $ mise edit -y          # skip interactive editor\n    $ mise edit -n          # preview without writing"
+    after_long_help = "Examples:\n\n    $ mise edit             # edit mise.toml interactively\n    $ mise edit .mise.toml  # edit a specific file\n    $ mise edit -g          # edit the global config file\n    $ mise edit -y          # skip interactive editor\n    $ mise edit -n          # preview without writing",
+    effect = "write"
 )]
 pub struct EditArgs {
     /// Edit the global config file (~/.config/mise/config.toml)
@@ -2714,7 +2851,8 @@ pub struct EditArgs {
 /// Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise install node@20.0.0  # install specific node version\n    $ mise install node@20      # install fuzzy node version\n    $ mise install node         # install version specified in mise.toml\n    $ mise install              # installs everything specified in mise.toml"
+    after_long_help = "Examples:\n\n    $ mise install node@20.0.0  # install specific node version\n    $ mise install node@20      # install fuzzy node version\n    $ mise install node         # install version specified in mise.toml\n    $ mise install              # installs everything specified in mise.toml",
+    effect = "write"
 )]
 pub struct InstallArgs {
     /// Force reinstall even if already installed
@@ -2776,7 +2914,8 @@ pub struct InstallArgs {
 /// Used for building a tool to a directory for use outside of mise
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # install node@20.0.0 into ./mynode\n    $ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v\n    20.0.0"
+    after_long_help = "Examples:\n\n    # install node@20.0.0 into ./mynode\n    $ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v\n    20.0.0",
+    effect = "write"
 )]
 pub struct InstallIntoArgs {
     /// Tool to install e.g.: node@20
@@ -2792,7 +2931,8 @@ pub struct InstallIntoArgs {
 /// Supports prefixes such as `node@20` to get the latest version of node 20.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise latest node@20  # get the latest version of node 20\n    20.0.0\n\n    $ mise latest node     # get the latest stable version of node\n    20.0.0\n\n    $ mise latest node --minimum-release-age 2024-01-01  # latest stable node released before 2024-01-01"
+    after_long_help = "Examples:\n\n    $ mise latest node@20  # get the latest version of node 20\n    20.0.0\n\n    $ mise latest node     # get the latest stable version of node\n    20.0.0\n\n    $ mise latest node --minimum-release-age 2024-01-01  # latest stable node released before 2024-01-01",
+    effect = "read"
 )]
 pub struct LatestArgs {
     /// Show latest installed instead of available version
@@ -2817,7 +2957,8 @@ pub struct LatestArgs {
 /// Use this for adding installs either custom compiled outside mise or built with a different tool.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # build node-20.0.0 with node-build and link it into mise\n    $ node-build 20.0.0 ~/.nodes/20.0.0\n    $ mise link node@20.0.0 ~/.nodes/20.0.0\n\n    # have mise use the node version provided by Homebrew\n    $ brew install node\n    $ mise link node@brew $(brew --prefix node)\n    $ mise use node@brew"
+    after_long_help = "Examples:\n\n    # build node-20.0.0 with node-build and link it into mise\n    $ node-build 20.0.0 ~/.nodes/20.0.0\n    $ mise link node@20.0.0 ~/.nodes/20.0.0\n\n    # have mise use the node version provided by Homebrew\n    $ brew install node\n    $ mise link node@brew $(brew --prefix node)\n    $ mise use node@brew",
+    effect = "write"
 )]
 pub struct LinkArgs {
     /// Overwrite an existing tool version if it exists
@@ -2842,7 +2983,8 @@ pub struct LinkArgs {
 /// is set. A future v2 release of mise will default to using `mise.toml`.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n    # set the current version of node to 20.x for the current directory\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise local node@20\n\n    # set node to 20.x for the current project (recurses up to find .tool-versions)\n    $ mise local -p node@20\n\n    # set the current version of node to 20.x for the current directory\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise local --fuzzy node@20\n\n    # removes node from .tool-versions\n    $ mise local --remove=node\n\n    # show the current version of node in .tool-versions\n    $ mise local node\n    20.0.0"
+    after_long_help = "Examples:\n    # set the current version of node to 20.x for the current directory\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise local node@20\n\n    # set node to 20.x for the current project (recurses up to find .tool-versions)\n    $ mise local -p node@20\n\n    # set the current version of node to 20.x for the current directory\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise local --fuzzy node@20\n\n    # removes node from .tool-versions\n    $ mise local --remove=node\n\n    # show the current version of node in .tool-versions\n    $ mise local node\n    20.0.0",
+    effect = "write"
 )]
 pub struct LocalArgs {
     #[usage(
@@ -2881,7 +3023,8 @@ pub struct LocalArgs {
 /// Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise lock                       # update lockfile for all common platforms\n    $ mise lock node python           # update only node and python\n    $ mise lock --platform linux-x64  # update only linux-x64 platform\n    $ mise lock --dry-run             # show what would be updated\n    $ mise lock --bump                # re-resolve selectors like \"latest\" or \"20\" to the latest matching versions\n    $ mise lock --bump --dry-run --json   # list available updates as JSON without writing\n    $ mise lock --minimum-release-age 2024-01-01   # lock latest/fuzzy versions released before 2024-01-01\n    $ mise lock --local               # update mise.local.lock for local configs\n    $ mise lock --global              # update only global config lockfiles"
+    after_long_help = "Examples:\n\n    $ mise lock                       # update lockfile for all common platforms\n    $ mise lock node python           # update only node and python\n    $ mise lock --platform linux-x64  # update only linux-x64 platform\n    $ mise lock --dry-run             # show what would be updated\n    $ mise lock --bump                # re-resolve selectors like \"latest\" or \"20\" to the latest matching versions\n    $ mise lock --bump --dry-run --json   # list available updates as JSON without writing\n    $ mise lock --minimum-release-age 2024-01-01   # lock latest/fuzzy versions released before 2024-01-01\n    $ mise lock --local               # update mise.local.lock for local configs\n    $ mise lock --global              # update only global config lockfiles",
+    effect = "write"
 )]
 pub struct LockArgs {
     #[usage(
@@ -2956,7 +3099,8 @@ pub struct LockArgs {
 /// It's a useful command to get the current state of your tools.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise ls\n    node    20.0.0 ~/src/myapp/.tool-versions latest\n    python  3.11.0 ~/.tool-versions           3.10\n    python  3.10.0\n\n    $ mise ls --current\n    node    20.0.0 ~/src/myapp/.tool-versions 20\n    python  3.11.0 ~/.tool-versions           3.11.0\n\n    $ mise ls --json\n    {\n      \"node\": [\n        {\n          \"version\": \"20.0.0\",\n          \"install_path\": \"/Users/jdx/.mise/installs/node/20.0.0\",\n          \"source\": {\n            \"type\": \"mise.toml\",\n            \"path\": \"/Users/jdx/mise.toml\"\n          }\n        }\n      ],\n      \"python\": [...]\n    }\n\n    $ mise ls --all-sources\n    node    20.0.0  ~/src/myapp/mise.toml  20\n                    ~/.config/mise/config.toml  latest"
+    after_long_help = "Examples:\n\n    $ mise ls\n    node    20.0.0 ~/src/myapp/.tool-versions latest\n    python  3.11.0 ~/.tool-versions           3.10\n    python  3.10.0\n\n    $ mise ls --current\n    node    20.0.0 ~/src/myapp/.tool-versions 20\n    python  3.11.0 ~/.tool-versions           3.11.0\n\n    $ mise ls --json\n    {\n      \"node\": [\n        {\n          \"version\": \"20.0.0\",\n          \"install_path\": \"/Users/jdx/.mise/installs/node/20.0.0\",\n          \"source\": {\n            \"type\": \"mise.toml\",\n            \"path\": \"/Users/jdx/mise.toml\"\n          }\n        }\n      ],\n      \"python\": [...]\n    }\n\n    $ mise ls --all-sources\n    node    20.0.0  ~/src/myapp/mise.toml  20\n                    ~/.config/mise/config.toml  latest",
+    effect = "read"
 )]
 pub struct LsArgs {
     /// Only show tool versions currently specified in a mise.toml
@@ -3013,7 +3157,8 @@ pub struct LsArgs {
 /// Note that the results may be cached, run `mise cache clean` to clear the cache and get fresh results.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise ls-remote node\n    18.0.0\n    20.0.0\n\n    $ mise ls-remote node@20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node 20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node --minimum-release-age 2024-01-01\n    20.0.0\n\n    $ mise ls-remote github:cli/cli --json\n    [{\"version\":\"2.62.0\",\"created_at\":\"2024-11-14T15:40:35Z\",\"prerelease\":false},{\"version\":\"2.61.0\",\"created_at\":\"2024-10-23T19:22:15Z\",\"prerelease\":false}]"
+    after_long_help = "Examples:\n\n    $ mise ls-remote node\n    18.0.0\n    20.0.0\n\n    $ mise ls-remote node@20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node 20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node --minimum-release-age 2024-01-01\n    20.0.0\n\n    $ mise ls-remote github:cli/cli --json\n    [{\"version\":\"2.62.0\",\"created_at\":\"2024-11-14T15:40:35Z\",\"prerelease\":false},{\"version\":\"2.61.0\",\"created_at\":\"2024-10-23T19:22:15Z\",\"prerelease\":false}]",
+    effect = "read"
 )]
 pub struct LsRemoteArgs {
     /// Show all installed plugins and versions
@@ -3096,7 +3241,8 @@ pub struct McpArgs {}
 /// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    Build with defaults (debian:bookworm-slim base):\n    $ mise oci build\n\n    Build with a specific base image and tag:\n    $ mise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img\n\n    Inspect the result with skopeo:\n    $ skopeo inspect oci:./mise-oci\n\n    Push to a registry:\n    $ mise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest\n\nNotes:\n\n    - The image only contains tools from the project's mise config (and\n      any configs at-or-below the project root). Tools from\n      `~/.config/mise/config.toml` are not included; pass --include-global\n      to package them too.\n    - asdf and vfox plugins are not supported in v1; use a different backend\n      (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.\n    - The host mise binary is embedded at /usr/local/bin/mise by default;\n      build on the same OS/arch as your target image (or pass --no-mise)."
+    after_long_help = "Examples:\n\n    Build with defaults (debian:bookworm-slim base):\n    $ mise oci build\n\n    Build with a specific base image and tag:\n    $ mise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img\n\n    Inspect the result with skopeo:\n    $ skopeo inspect oci:./mise-oci\n\n    Push to a registry:\n    $ mise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest\n\nNotes:\n\n    - The image only contains tools from the project's mise config (and\n      any configs at-or-below the project root). Tools from\n      `~/.config/mise/config.toml` are not included; pass --include-global\n      to package them too.\n    - asdf and vfox plugins are not supported in v1; use a different backend\n      (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.\n    - The host mise binary is embedded at /usr/local/bin/mise by default;\n      build on the same OS/arch as your target image (or pass --no-mise).",
+    effect = "write"
 )]
 pub struct OciBuildArgs {
     /// Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)
@@ -3155,7 +3301,8 @@ pub struct OciBuildArgs {
 /// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    Build and push to GHCR:\n    $ mise oci push ghcr.io/me/devenv:latest\n\n    Push an image built earlier:\n    $ mise oci build -o ./img\n    $ mise oci push --image-dir ./img ghcr.io/me/devenv:v1\n\nAuth:\n\n    Credentials are resolved the same way docker/podman resolve them:\n    $REGISTRY_AUTH_FILE, $XDG_RUNTIME_DIR/containers/auth.json,\n    ~/.config/containers/auth.json, then ~/.docker/config.json\n    (inline auths and credential helpers). Log in with either:\n    $ docker login ghcr.io\n    $ podman login ghcr.io"
+    after_long_help = "Examples:\n\n    Build and push to GHCR:\n    $ mise oci push ghcr.io/me/devenv:latest\n\n    Push an image built earlier:\n    $ mise oci build -o ./img\n    $ mise oci push --image-dir ./img ghcr.io/me/devenv:v1\n\nAuth:\n\n    Credentials are resolved the same way docker/podman resolve them:\n    $REGISTRY_AUTH_FILE, $XDG_RUNTIME_DIR/containers/auth.json,\n    ~/.config/containers/auth.json, then ~/.docker/config.json\n    (inline auths and credential helpers). Log in with either:\n    $ docker login ghcr.io\n    $ podman login ghcr.io",
+    effect = "write"
 )]
 pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
@@ -3279,6 +3426,7 @@ pub struct OciRunArgs {
 /// (or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change
 /// in future releases.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct OciArgs {
     #[usage(subcommand)]
     pub command: OciCommands,
@@ -3302,7 +3450,8 @@ pub enum OciCommands {
 /// See `mise upgrade` to upgrade these versions.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise outdated\n    Plugin  Requested  Current  Latest\n    python  3.11       3.11.0   3.11.1\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated node\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated --json\n    {\"python\": {\"requested\": \"3.11\", \"current\": \"3.11.0\", \"latest\": \"3.11.1\"}, ...}\n\n    $ mise outdated --local\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0"
+    after_long_help = "Examples:\n\n    $ mise outdated\n    Plugin  Requested  Current  Latest\n    python  3.11       3.11.0   3.11.1\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated node\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated --json\n    {\"python\": {\"requested\": \"3.11\", \"current\": \"3.11.0\", \"latest\": \"3.11.1\"}, ...}\n\n    $ mise outdated --local\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0",
+    effect = "read"
 )]
 pub struct OutdatedArgs {
     /// Output in JSON format
@@ -3350,7 +3499,8 @@ pub struct OutdatedArgs {
 /// To appear here, become a patron at <https://jdx.dev/sponsors.html>.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise patrons\n    $ mise patrons -J\n    $ mise patrons --refresh"
+    after_long_help = "Examples:\n\n    $ mise patrons\n    $ mise patrons -J\n    $ mise patrons --refresh",
+    effect = "read"
 )]
 pub struct PatronsArgs {
     /// Output in JSON format
@@ -3369,7 +3519,8 @@ pub struct PatronsArgs {
 /// This behavior can be modified in ~/.config/mise/config.toml
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # install the poetry via shorthand\n    $ mise plugins install poetry\n\n    # install the poetry plugin using a specific git url\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using the git url only\n    # (poetry is inferred from the url)\n    $ mise plugins install https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using a specific ref\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e"
+    after_long_help = "Examples:\n\n    # install the poetry via shorthand\n    $ mise plugins install poetry\n\n    # install the poetry plugin using a specific git url\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using the git url only\n    # (poetry is inferred from the url)\n    $ mise plugins install https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using a specific ref\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e",
+    effect = "write"
 )]
 pub struct PluginsInstallArgs {
     #[usage(
@@ -3405,7 +3556,8 @@ pub struct PluginsInstallArgs {
 /// This is used for developing a plugin.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`\n    $ mise plugins link cmake ./vfox-cmake\n\n    # infer plugin name as \"cmake\"\n    $ mise plugins link ./vfox-cmake"
+    after_long_help = "Examples:\n\n    # essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`\n    $ mise plugins link cmake ./vfox-cmake\n\n    # infer plugin name as \"cmake\"\n    $ mise plugins link ./vfox-cmake",
+    effect = "write"
 )]
 pub struct PluginsLinkArgs {
     /// Overwrite existing plugin
@@ -3430,7 +3582,8 @@ pub struct PluginsLinkArgs {
 /// Can also show remotely available plugins to install.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise plugins ls\n    cmake\n    poetry\n\n    $ mise plugins ls --urls\n    cmake     https://github.com/mise-plugins/vfox-cmake.git\n    poetry    https://github.com/mise-plugins/vfox-poetry.git"
+    after_long_help = "Examples:\n\n    $ mise plugins ls\n    cmake\n    poetry\n\n    $ mise plugins ls --urls\n    cmake     https://github.com/mise-plugins/vfox-cmake.git\n    poetry    https://github.com/mise-plugins/vfox-poetry.git",
+    effect = "read"
 )]
 pub struct PluginsLsArgs {
     #[usage(
@@ -3471,6 +3624,7 @@ pub struct PluginsLsArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct PluginsLsRemoteArgs {
     /// Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git
     #[usage(long = "urls", short = 'u')]
@@ -3482,7 +3636,10 @@ pub struct PluginsLsRemoteArgs {
 
 /// Removes a plugin
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise plugins uninstall cmake")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise plugins uninstall cmake",
+    effect = "destructive"
+)]
 pub struct PluginsUninstallArgs {
     /// Remove all plugins
     #[usage(long = "all", short = 'a')]
@@ -3500,7 +3657,8 @@ pub struct PluginsUninstallArgs {
 /// note: this updates the plugin itself, not the runtime versions
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise plugins update              # update all plugins\n    $ mise plugins update cmake       # update only cmake\n    $ mise plugins update cmake#beta  # specify a ref"
+    after_long_help = "Examples:\n\n    $ mise plugins update              # update all plugins\n    $ mise plugins update cmake       # update only cmake\n    $ mise plugins update cmake#beta  # specify a ref",
+    effect = "write"
 )]
 pub struct PluginsUpdateArgs {
     #[usage(
@@ -3517,6 +3675,7 @@ pub struct PluginsUpdateArgs {
 
 /// Manage plugins
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct PluginsArgs {
     /// list all available remote plugins
     ///
@@ -3583,6 +3742,7 @@ pub enum PluginsCommands {
 /// Adds one or more packages to the project using the appropriate package manager.
 /// Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DepsAddArgs {
     /// Add as a development dependency
     #[usage(long = "dev", short = 'D')]
@@ -3597,6 +3757,7 @@ pub struct DepsAddArgs {
 /// Checks if dependency lockfiles are newer than installed outputs
 /// and runs install commands if needed.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DepsInstallArgs {
     /// Show why a provider is fresh or stale (requires a provider argument)
     #[usage(long = "explain")]
@@ -3632,6 +3793,7 @@ pub struct DepsInstallArgs {
 /// Removes one or more packages from the project using the appropriate package manager.
 /// Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct DepsRemoveArgs {
     /// Package(s) to remove (e.g., npm:lodash)
     #[usage(arg, name = "PACKAGES", required)]
@@ -3649,7 +3811,8 @@ pub struct DepsRemoveArgs {
 /// unless skipped with the --no-deps flag.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise deps                    # Install all project dependencies\n    $ mise deps install            # Same as bare `mise deps`\n    $ mise deps install --force    # Force reinstall even if fresh\n    $ mise deps install --dry-run  # Show what would run\n    $ mise deps --monorepo         # Install deps from explicit monorepo config roots\n    $ mise deps add npm:react      # Add a dependency\n    $ mise deps add -D npm:vitest  # Add a dev dependency\n    $ mise deps remove npm:lodash  # Remove a dependency\n\nConfiguration:\n\n```toml\n# Built-in npm provider (auto-detects lockfile)\n[deps.npm]\nauto = true              # Auto-run before mise x/run\n\n# Custom provider\n[deps.codegen]\nauto = true\nsources = [\"schema/*.graphql\"]\noutputs = [\"src/generated/\"]\nrun = \"npm run codegen\"\n\n[deps]\ndisable = [\"npm\"]        # Disable specific providers at runtime\n```"
+    after_long_help = "Examples:\n\n    $ mise deps                    # Install all project dependencies\n    $ mise deps install            # Same as bare `mise deps`\n    $ mise deps install --force    # Force reinstall even if fresh\n    $ mise deps install --dry-run  # Show what would run\n    $ mise deps --monorepo         # Install deps from explicit monorepo config roots\n    $ mise deps add npm:react      # Add a dependency\n    $ mise deps add -D npm:vitest  # Add a dev dependency\n    $ mise deps remove npm:lodash  # Remove a dependency\n\nConfiguration:\n\n```toml\n# Built-in npm provider (auto-detects lockfile)\n[deps.npm]\nauto = true              # Auto-run before mise x/run\n\n# Custom provider\n[deps.codegen]\nauto = true\nsources = [\"schema/*.graphql\"]\noutputs = [\"src/generated/\"]\nrun = \"npm run codegen\"\n\n[deps]\ndisable = [\"npm\"]        # Disable specific providers at runtime\n```",
+    effect = "write"
 )]
 pub struct DepsArgs {
     /// Show why a provider is fresh or stale (requires a provider argument)
@@ -3709,7 +3872,8 @@ pub enum DepsCommands {
 /// You can list prunable tools with `mise ls --prunable`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise prune --dry-run\n    rm -rf ~/.local/share/mise/versions/node/20.0.0\n    rm -rf ~/.local/share/mise/versions/node/20.0.1"
+    after_long_help = "Examples:\n\n    $ mise prune --dry-run\n    rm -rf ~/.local/share/mise/versions/node/20.0.0\n    rm -rf ~/.local/share/mise/versions/node/20.0.1",
+    effect = "destructive"
 )]
 pub struct PruneArgs {
     /// Do not actually delete anything
@@ -3741,7 +3905,8 @@ pub struct PruneArgs {
 /// For example, `poetry` is shorthand for `asdf:mise-plugins/mise-poetry`.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise registry\n    node    core:node\n    poetry  asdf:mise-plugins/mise-poetry\n    ubi     cargo:ubi-cli\n\n    $ mise registry poetry\n    asdf:mise-plugins/mise-poetry"
+    after_long_help = "Examples:\n\n    $ mise registry\n    node    core:node\n    poetry  asdf:mise-plugins/mise-poetry\n    ubi     cargo:ubi-cli\n\n    $ mise registry poetry\n    asdf:mise-plugins/mise-poetry",
+    effect = "read"
 )]
 pub struct RegistryArgs {
     /// Show only tools for this backend
@@ -3769,6 +3934,7 @@ pub struct RegistryArgs {
 
 /// internal command to generate markdown from help
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct RenderHelpArgs {}
 
 /// Creates new shims based on bin paths from currently installed tools.
@@ -3791,7 +3957,8 @@ pub struct RenderHelpArgs {}
 /// currently active in mise.toml.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise reshim\n    $ ~/.local/share/mise/shims/node -v\n    v20.0.0"
+    after_long_help = "Examples:\n\n    $ mise reshim\n    $ ~/.local/share/mise/shims/node -v\n    v20.0.0",
+    effect = "write"
 )]
 pub struct ReshimArgs {
     /// Removes all shims before reshimming
@@ -4006,7 +4173,8 @@ pub struct RunArgs {
 /// non-fuzzy matches, use the `--match-type` flag.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise search jq\n    Tool  Description\n    jq    Command-line JSON processor. https://github.com/jqlang/jq\n    jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n    jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n    gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n\n    $ mise search --interactive\n    Tool\n    Search a tool\n    ❯ jq    Command-line JSON processor. https://github.com/jqlang/jq\n      jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n      jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n      gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n    /jq \n    esc clear filter • enter confirm"
+    after_long_help = "Examples:\n\n    $ mise search jq\n    Tool  Description\n    jq    Command-line JSON processor. https://github.com/jqlang/jq\n    jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n    jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n    gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n\n    $ mise search --interactive\n    Tool\n    Search a tool\n    ❯ jq    Command-line JSON processor. https://github.com/jqlang/jq\n      jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n      jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n      gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n    /jq \n    esc clear filter • enter confirm",
+    effect = "read"
 )]
 pub struct SearchArgs {
     /// Show interactive search
@@ -4039,6 +4207,7 @@ pub struct SearchArgs {
 /// package manager instead. See
 /// https://mise.jdx.dev/contributing.html#packaging-and-self-update-instructions
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct SelfUpdateArgs {
     /// Update even if already up to date
     #[usage(long = "force", short = 'f')]
@@ -4064,7 +4233,8 @@ pub struct SelfUpdateArgs {
 /// Use `-E <env>` to create/modify environment-specific config files like `mise.<env>.toml`.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise set NODE_ENV=production\n\n    $ mise set NODE_ENV\n    production\n\n    $ mise set -E staging NODE_ENV=staging\n    # creates or modifies mise.staging.toml\n\n    $ mise set\n    key       value       source\n    NODE_ENV  production  ~/.config/mise/config.toml\n\n    $ mise set --prompt PASSWORD\n    Enter value for PASSWORD: [hidden input]\n\n    Multiline Values (--stdin):\n\n    $ cat private.key | mise set --stdin MY_KEY\n\n    $ printf \"line1\\nline2\" | mise set --stdin MY_KEY\n\n    [experimental] Age Encryption:\n\n    $ mise set --age-encrypt API_KEY=secret\n\n    $ mise set --age-encrypt --prompt API_KEY\n    Enter value for API_KEY: [hidden input]"
+    after_long_help = "Examples:\n\n    $ mise set NODE_ENV=production\n\n    $ mise set NODE_ENV\n    production\n\n    $ mise set -E staging NODE_ENV=staging\n    # creates or modifies mise.staging.toml\n\n    $ mise set\n    key       value       source\n    NODE_ENV  production  ~/.config/mise/config.toml\n\n    $ mise set --prompt PASSWORD\n    Enter value for PASSWORD: [hidden input]\n\n    Multiline Values (--stdin):\n\n    $ cat private.key | mise set --stdin MY_KEY\n\n    $ printf \"line1\\nline2\" | mise set --stdin MY_KEY\n\n    [experimental] Age Encryption:\n\n    $ mise set --age-encrypt API_KEY=secret\n\n    $ mise set --age-encrypt --prompt API_KEY\n    Enter value for API_KEY: [hidden input]",
+    effect = "write"
 )]
 pub struct SetArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
@@ -4137,7 +4307,10 @@ pub struct SetArgs {
 /// Used with an array setting, this will append the value to the array.
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise settings add disable_hints python_multi")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise settings add disable_hints python_multi",
+    effect = "write"
+)]
 pub struct SettingsAddArgs {
     /// Use the local config file instead of the global one
     #[usage(long = "local", short = 'l')]
@@ -4157,7 +4330,10 @@ pub struct SettingsAddArgs {
 /// Note that aliases are also stored in this file
 /// but managed separately with `mise tool-alias get`
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise settings get idiomatic_version_file\n    true")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise settings get idiomatic_version_file\n    true",
+    effect = "read"
+)]
 pub struct SettingsGetArgs {
     /// Use the local config file instead of the global one
     #[usage(long = "local", short = 'l')]
@@ -4175,7 +4351,8 @@ pub struct SettingsGetArgs {
 /// but managed separately with `mise tool-alias`
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise settings ls\n    idiomatic_version_file = false\n    ...\n\n    $ mise settings ls python\n    default_packages_file = \"~/.default-python-packages\"\n    ..."
+    after_long_help = "Examples:\n\n    $ mise settings ls\n    idiomatic_version_file = false\n    ...\n\n    $ mise settings ls python\n    default_packages_file = \"~/.default-python-packages\"\n    ...",
+    effect = "read"
 )]
 pub struct SettingsLsArgs {
     /// List all settings
@@ -4207,7 +4384,10 @@ pub struct SettingsLsArgs {
 /// With `--local`, modifies the local config file instead.
 /// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise settings idiomatic_version_file=true")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise settings idiomatic_version_file=true",
+    effect = "write"
+)]
 pub struct SettingsSetArgs {
     /// Use the local config file instead of the global one
     #[usage(long = "local", short = 'l')]
@@ -4224,7 +4404,10 @@ pub struct SettingsSetArgs {
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise settings unset idiomatic_version_file")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise settings unset idiomatic_version_file",
+    effect = "write"
+)]
 pub struct SettingsUnsetArgs {
     /// Use the local config file instead of the global one
     #[usage(long = "local", short = 'l')]
@@ -4236,7 +4419,8 @@ pub struct SettingsUnsetArgs {
 
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n    # list all settings\n    $ mise settings\n\n    # get the value of the setting \"always_keep_download\"\n    $ mise settings always_keep_download\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ mise settings always_keep_download=true\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ mise settings node.mirror_url https://npmmirror.com/mirrors/node/"
+    after_long_help = "Examples:\n    # list all settings\n    $ mise settings\n\n    # get the value of the setting \"always_keep_download\"\n    $ mise settings always_keep_download\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ mise settings always_keep_download=true\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ mise settings node.mirror_url https://npmmirror.com/mirrors/node/",
+    effect = "write"
 )]
 pub struct SettingsArgs {
     /// List all settings
@@ -4293,7 +4477,10 @@ pub enum SettingsCommands {
 /// This works by setting environment variables for the current shell session
 /// such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise shell node@20\n    $ node -v\n    v20.0.0")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise shell node@20\n    $ node -v\n    v20.0.0",
+    effect = "read"
+)]
 pub struct ShellArgs {
     #[usage(
         help = "Number of jobs to run in parallel\n[default: 4]",
@@ -4315,7 +4502,10 @@ pub struct ShellArgs {
 
 /// Show the command for a shell alias
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise shell-alias get ll\n    ls -la")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise shell-alias get ll\n    ls -la",
+    effect = "read"
+)]
 pub struct ShellAliasGetArgs {
     /// The alias to show
     #[usage(arg, name = "shell_alias")]
@@ -4328,7 +4518,8 @@ pub struct ShellAliasGetArgs {
 /// These are defined in `mise.toml` under the `[shell_alias]` section.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise shell-alias ls\n    alias    command\n    ll       ls -la\n    gs       git status"
+    after_long_help = "Examples:\n\n    $ mise shell-alias ls\n    alias    command\n    ll       ls -la\n    gs       git status",
+    effect = "read"
 )]
 pub struct ShellAliasLsArgs {
     /// Don't show table header
@@ -4341,7 +4532,8 @@ pub struct ShellAliasLsArgs {
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise shell-alias set ll \"ls -la\"\n    $ mise shell-alias set gs \"git status\""
+    after_long_help = "Examples:\n\n    $ mise shell-alias set ll \"ls -la\"\n    $ mise shell-alias set gs \"git status\"",
+    effect = "write"
 )]
 pub struct ShellAliasSetArgs {
     /// The alias name
@@ -4356,7 +4548,10 @@ pub struct ShellAliasSetArgs {
 ///
 /// This modifies the contents of ~/.config/mise/config.toml
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise shell-alias unset ll")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise shell-alias unset ll",
+    effect = "write"
+)]
 pub struct ShellAliasUnsetArgs {
     /// The alias to remove
     #[usage(arg, name = "shell_alias")]
@@ -4365,6 +4560,7 @@ pub struct ShellAliasUnsetArgs {
 
 /// Manage shell aliases.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ShellAliasArgs {
     /// Don't show table header
     #[usage(long = "no-header")]
@@ -4391,6 +4587,7 @@ pub enum ShellAliasCommands {
 
 /// Show the companies sponsoring mise and the jdx.dev open source tools
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SponsorsArgs {}
 
 /// Symlinks all tool versions from an external tool into mise
@@ -4400,7 +4597,8 @@ pub struct SponsorsArgs {}
 /// This won't overwrite any existing installs but will overwrite any existing symlinks
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ brew install node@18 node@20\n    $ mise sync node --brew\n    $ mise use -g node@18 - uses Homebrew-provided node"
+    after_long_help = "Examples:\n\n    $ brew install node@18 node@20\n    $ mise sync node --brew\n    $ mise use -g node@18 - uses Homebrew-provided node",
+    effect = "write"
 )]
 pub struct SyncNodeArgs {
     /// Get tool versions from Homebrew
@@ -4421,7 +4619,8 @@ pub struct SyncNodeArgs {
 /// This won't overwrite any existing installs but will overwrite any existing symlinks
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ pyenv install 3.11.0\n    $ mise sync python --pyenv\n    $ mise use -g python@3.11.0 - uses pyenv-provided python\n\n    $ uv python install 3.11.0\n    $ mise install python@3.10.0\n    $ mise sync python --uv\n    $ mise x python@3.11.0 -- python -V - uses uv-provided python\n    $ uv run -p 3.10.0 -- python -V - uses mise-provided python"
+    after_long_help = "Examples:\n\n    $ pyenv install 3.11.0\n    $ mise sync python --pyenv\n    $ mise use -g python@3.11.0 - uses pyenv-provided python\n\n    $ uv python install 3.11.0\n    $ mise install python@3.10.0\n    $ mise sync python --uv\n    $ mise x python@3.11.0 -- python -V - uses uv-provided python\n    $ uv run -p 3.10.0 -- python -V - uses mise-provided python",
+    effect = "write"
 )]
 pub struct SyncPythonArgs {
     /// Get tool versions from pyenv
@@ -4435,7 +4634,8 @@ pub struct SyncPythonArgs {
 /// Symlinks all ruby tool versions from an external tool into mise
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ brew install ruby\n    $ mise sync ruby --brew\n    $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew"
+    after_long_help = "Examples:\n\n    $ brew install ruby\n    $ mise sync ruby --brew\n    $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew",
+    effect = "write"
 )]
 pub struct SyncRubyArgs {
     /// Get tool versions from Homebrew
@@ -4445,6 +4645,7 @@ pub struct SyncRubyArgs {
 
 /// Synchronize tools from other version managers with mise
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SyncArgs {
     #[usage(subcommand)]
     pub command: SyncCommands,
@@ -4469,7 +4670,8 @@ pub enum SyncCommands {
 /// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tasks add pre-commit --depends \"test\" --depends \"render\" -- echo pre-commit"
+    after_long_help = "Examples:\n\n    $ mise tasks add pre-commit --depends \"test\" --depends \"render\" -- echo pre-commit",
+    effect = "write"
 )]
 pub struct TasksAddArgs {
     /// Other names for the task
@@ -4527,7 +4729,8 @@ pub struct TasksAddArgs {
 /// Display a tree visualization of a dependency graph
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Show dependencies for all tasks\n    $ mise tasks deps\n\n    # Show dependencies for the \"lint\", \"test\" and \"check\" tasks\n    $ mise tasks deps lint test check\n\n    # Show dependencies in DOT format\n    $ mise tasks deps --dot\n\n    # Collapse repeated dependencies\n    $ mise tasks deps --compact"
+    after_long_help = "Examples:\n\n    # Show dependencies for all tasks\n    $ mise tasks deps\n\n    # Show dependencies for the \"lint\", \"test\" and \"check\" tasks\n    $ mise tasks deps lint test check\n\n    # Show dependencies in DOT format\n    $ mise tasks deps --dot\n\n    # Collapse repeated dependencies\n    $ mise tasks deps --compact",
+    effect = "read"
 )]
 pub struct TasksDepsArgs {
     /// Collapse repeated dependencies after their first occurrence
@@ -4551,7 +4754,10 @@ pub struct TasksDepsArgs {
 ///
 /// The task will be created as a standalone script if it does not already exist.
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise tasks edit build\n    $ mise tasks edit test")]
+#[usage(
+    after_long_help = "Examples:\n\n    $ mise tasks edit build\n    $ mise tasks edit test",
+    effect = "write"
+)]
 pub struct TasksEditArgs {
     /// Display the path to the task instead of editing it
     #[usage(long = "path", short = 'p')]
@@ -4564,7 +4770,8 @@ pub struct TasksEditArgs {
 /// [experimental] Inspect the workspace project graph
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Inspect projects and their dependency edges\n    $ mise tasks graph\n\n    # Emit the project graph as JSON\n    $ mise tasks graph --json\n\n    # Explain where inferred projects and task fields came from\n    $ mise tasks graph --explain"
+    after_long_help = "Examples:\n\n    # Inspect projects and their dependency edges\n    $ mise tasks graph\n\n    # Emit the project graph as JSON\n    $ mise tasks graph --json\n\n    # Explain where inferred projects and task fields came from\n    $ mise tasks graph --explain",
+    effect = "read"
 )]
 pub struct TasksGraphArgs {
     /// Output the project graph as JSON
@@ -4581,7 +4788,8 @@ pub struct TasksGraphArgs {
 /// Get information about a task
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tasks info\n    Name: test\n    Aliases: t\n    Description: Test the application\n    Source: ~/src/myproj/mise.toml\n\n    $ mise tasks info test --json\n    {\n      \"name\": \"test\",\n      \"aliases\": \"t\",\n      \"description\": \"Test the application\",\n      \"source\": \"~/src/myproj/mise.toml\",\n      \"config_sources\": [\"~/src/myproj/mise.toml\"],\n      \"depends\": [],\n      \"env\": {},\n      \"dir\": null,\n      \"hide\": false,\n      \"raw\": false,\n      \"sources\": [],\n      \"outputs\": [],\n      \"run\": [\n        \"echo \\\"testing!\\\"\"\n      ],\n      \"file\": null,\n      \"usage_spec\": {}\n    }"
+    after_long_help = "Examples:\n\n    $ mise tasks info\n    Name: test\n    Aliases: t\n    Description: Test the application\n    Source: ~/src/myproj/mise.toml\n\n    $ mise tasks info test --json\n    {\n      \"name\": \"test\",\n      \"aliases\": \"t\",\n      \"description\": \"Test the application\",\n      \"source\": \"~/src/myproj/mise.toml\",\n      \"config_sources\": [\"~/src/myproj/mise.toml\"],\n      \"depends\": [],\n      \"env\": {},\n      \"dir\": null,\n      \"hide\": false,\n      \"raw\": false,\n      \"sources\": [],\n      \"outputs\": [],\n      \"run\": [\n        \"echo \\\"testing!\\\"\"\n      ],\n      \"file\": null,\n      \"usage_spec\": {}\n    }",
+    effect = "read"
 )]
 pub struct TasksInfoArgs {
     /// Output in JSON format
@@ -4593,7 +4801,7 @@ pub struct TasksInfoArgs {
 }
 
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise tasks ls")]
+#[usage(after_long_help = "Examples:\n\n    $ mise tasks ls", effect = "read")]
 pub struct TasksLsArgs {
     /// Only show global tasks
     #[usage(long = "global", short = 'g')]
@@ -4849,7 +5057,8 @@ pub struct TasksRunArgs {
 /// Validate tasks for common errors and issues
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Validate all tasks\n    $ mise tasks validate\n\n    # Validate specific tasks\n    $ mise tasks validate build test\n\n    # Output results as JSON\n    $ mise tasks validate --json\n\n    # Only show errors (skip warnings)\n    $ mise tasks validate --errors-only\n\nValidation Checks:\n\nThe validate command performs the following checks:\n\n  • Circular Dependencies: Detects dependency cycles\n  • Missing References: Finds references to nonexistent tasks\n  • Usage Spec Parsing: Validates #USAGE directives and specs\n  • Timeout Format: Checks timeout values are valid durations\n  • Alias Conflicts: Detects duplicate aliases across tasks\n  • File Existence: Verifies file-based tasks exist\n  • Directory Templates: Validates directory paths and templates\n  • Shell Commands: Checks shell executables exist\n  • Glob Patterns: Validates source and output patterns\n  • Run Entries: Ensures tasks reference valid dependencies"
+    after_long_help = "Examples:\n\n    # Validate all tasks\n    $ mise tasks validate\n\n    # Validate specific tasks\n    $ mise tasks validate build test\n\n    # Output results as JSON\n    $ mise tasks validate --json\n\n    # Only show errors (skip warnings)\n    $ mise tasks validate --errors-only\n\nValidation Checks:\n\nThe validate command performs the following checks:\n\n  • Circular Dependencies: Detects dependency cycles\n  • Missing References: Finds references to nonexistent tasks\n  • Usage Spec Parsing: Validates #USAGE directives and specs\n  • Timeout Format: Checks timeout values are valid durations\n  • Alias Conflicts: Detects duplicate aliases across tasks\n  • File Existence: Verifies file-based tasks exist\n  • Directory Templates: Validates directory paths and templates\n  • Shell Commands: Checks shell executables exist\n  • Glob Patterns: Validates source and output patterns\n  • Run Entries: Ensures tasks reference valid dependencies",
+    effect = "read"
 )]
 pub struct TasksValidateArgs {
     /// Only show errors (skip warnings)
@@ -4868,7 +5077,7 @@ pub struct TasksValidateArgs {
 
 /// Manage tasks
 #[derive(Args)]
-#[usage(after_long_help = "Examples:\n\n    $ mise tasks ls")]
+#[usage(after_long_help = "Examples:\n\n    $ mise tasks ls", effect = "read")]
 pub struct TasksArgs {
     /// Only show global tasks
     #[usage(long = "global", short = 'g')]
@@ -4980,7 +5189,8 @@ pub struct TestToolArgs {
 /// Forgejo token
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise token forgejo\n    codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo --unmask\n    codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo forgejo.mycompany.com\n    forgejo.mycompany.com: (none)"
+    after_long_help = "Examples:\n\n    $ mise token forgejo\n    codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo --unmask\n    codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo forgejo.mycompany.com\n    forgejo.mycompany.com: (none)",
+    effect = "read"
 )]
 pub struct TokenForgejoArgs {
     /// Show the full unmasked token
@@ -4994,7 +5204,8 @@ pub struct TokenForgejoArgs {
 /// GitHub token
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise token github\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise token github --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise token github github.mycompany.com\n    github.mycompany.com: (none)\n\n    $ mise token github --oauth --refresh\n    github.com: gho_…xxxx (source: GitHub OAuth)"
+    after_long_help = "Examples:\n\n    $ mise token github\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise token github --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise token github github.mycompany.com\n    github.mycompany.com: (none)\n\n    $ mise token github --oauth --refresh\n    github.com: gho_…xxxx (source: GitHub OAuth)",
+    effect = "read"
 )]
 pub struct TokenGithubArgs {
     /// Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources
@@ -5017,7 +5228,8 @@ pub struct TokenGithubArgs {
 /// GitLab token
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise token gitlab\n    gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab --unmask\n    gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab gitlab.mycompany.com\n    gitlab.mycompany.com: (none)"
+    after_long_help = "Examples:\n\n    $ mise token gitlab\n    gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab --unmask\n    gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab gitlab.mycompany.com\n    gitlab.mycompany.com: (none)",
+    effect = "read"
 )]
 pub struct TokenGitlabArgs {
     /// Show the full unmasked token
@@ -5030,6 +5242,7 @@ pub struct TokenGitlabArgs {
 
 /// Display git provider tokens mise will use
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct TokenArgs {
     #[usage(subcommand)]
     pub command: TokenCommands,
@@ -5051,7 +5264,8 @@ pub enum TokenCommands {
 /// Gets information about a tool
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise tool node\n    Backend:            core\n    Installed Versions: 20.0.0 22.0.0\n    Active Version:     20.0.0\n    Requested Version:  20\n    Config Source:      ~/.config/mise/mise.toml\n    Tool Options:       [none]"
+    after_long_help = "Examples:\n\n    $ mise tool node\n    Backend:            core\n    Installed Versions: 20.0.0 22.0.0\n    Active Version:     20.0.0\n    Requested Version:  20\n    Config Source:      ~/.config/mise/mise.toml\n    Tool Options:       [none]",
+    effect = "read"
 )]
 pub struct ToolArgs {
     /// Output in JSON format
@@ -5131,7 +5345,8 @@ pub struct ToolStubArgs {
 /// worktrees can check out branches with different config contents.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # trusts ~/some_dir/mise.toml\n    $ mise trust ~/some_dir/mise.toml\n\n    # trusts mise.toml in the current or parent directory\n    $ mise trust"
+    after_long_help = "Examples:\n\n    # trusts ~/some_dir/mise.toml\n    $ mise trust ~/some_dir/mise.toml\n\n    # trusts mise.toml in the current or parent directory\n    $ mise trust",
+    effect = "write"
 )]
 pub struct TrustArgs {
     /// Trust all config files in the current directory, its parents, and its subdirectories
@@ -5161,7 +5376,8 @@ pub struct TrustArgs {
 /// This only removes the installed version, it does not modify mise.toml.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # will uninstall specific version\n    $ mise uninstall node@18.0.0\n\n    # will uninstall the current node version (if only one version is installed)\n    $ mise uninstall node\n\n    # will uninstall all installed versions of node\n    $ mise uninstall --all node@18.0.0 # will uninstall all node versions"
+    after_long_help = "Examples:\n\n    # will uninstall specific version\n    $ mise uninstall node@18.0.0\n\n    # will uninstall the current node version (if only one version is installed)\n    $ mise uninstall node\n\n    # will uninstall all installed versions of node\n    $ mise uninstall --all node@18.0.0 # will uninstall all node versions",
+    effect = "destructive"
 )]
 pub struct UninstallArgs {
     /// Delete all installed versions
@@ -5185,7 +5401,8 @@ pub struct UninstallArgs {
 /// By default, this command modifies `mise.toml` in the current directory.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Remove NODE_ENV from the current directory's config\n    $ mise unset NODE_ENV\n\n    # Remove NODE_ENV from the global config\n    $ mise unset NODE_ENV -g"
+    after_long_help = "Examples:\n\n    # Remove NODE_ENV from the current directory's config\n    $ mise unset NODE_ENV\n\n    # Remove NODE_ENV from the global config\n    $ mise unset NODE_ENV -g",
+    effect = "write"
 )]
 pub struct UnsetArgs {
     /// Specify a file to use instead of `mise.toml`
@@ -5208,6 +5425,7 @@ pub struct UnsetArgs {
 
 /// No longer trust a config, will prompt in the future
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UntrustArgs {
     /// The config file to untrust
     #[usage(arg, name = "CONFIG_FILE")]
@@ -5234,7 +5452,8 @@ pub struct UntrustArgs {
 /// Will also prune the installed version if no other configurations are using it.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # will uninstall specific version\n    $ mise unuse node@18.0.0\n\n    # will uninstall specific version from global config\n    $ mise unuse -g node@18.0.0\n\n    # will uninstall specific version from .mise.local.toml\n    $ mise unuse --env local node@20\n\n    # will uninstall specific version from .mise.staging.toml\n    $ mise unuse --env staging node@20"
+    after_long_help = "Examples:\n\n    # will uninstall specific version\n    $ mise unuse node@18.0.0\n\n    # will uninstall specific version from global config\n    $ mise unuse -g node@18.0.0\n\n    # will uninstall specific version from .mise.local.toml\n    $ mise unuse --env local node@20\n\n    # will uninstall specific version from .mise.staging.toml\n    $ mise unuse --env staging node@20",
+    effect = "destructive"
 )]
 pub struct UnuseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
@@ -5265,7 +5484,8 @@ pub struct UnuseArgs {
 /// This will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Upgrades node to the latest version matching the range in mise.toml\n    $ mise upgrade node\n\n    # Upgrades node to the latest version and bumps the version in mise.toml\n    $ mise upgrade node --bump\n\n    # Upgrades all tools to the latest versions\n    $ mise upgrade\n\n    # Upgrades all tools to the latest versions and bumps the version in mise.toml\n    $ mise upgrade --bump\n\n    # Just print what would be done, don't actually do it\n    $ mise upgrade --dry-run\n\n    # Upgrades node and python to the latest versions\n    $ mise upgrade node python\n\n    # Upgrade all tools except go\n    $ mise upgrade --exclude go\n\n    # Show a multiselect menu to choose which tools to upgrade\n    $ mise upgrade --interactive\n\n    # Only upgrade tools defined in local mise.toml, not global ones\n    $ mise upgrade --local"
+    after_long_help = "Examples:\n\n    # Upgrades node to the latest version matching the range in mise.toml\n    $ mise upgrade node\n\n    # Upgrades node to the latest version and bumps the version in mise.toml\n    $ mise upgrade node --bump\n\n    # Upgrades all tools to the latest versions\n    $ mise upgrade\n\n    # Upgrades all tools to the latest versions and bumps the version in mise.toml\n    $ mise upgrade --bump\n\n    # Just print what would be done, don't actually do it\n    $ mise upgrade --dry-run\n\n    # Upgrades node and python to the latest versions\n    $ mise upgrade node python\n\n    # Upgrade all tools except go\n    $ mise upgrade --exclude go\n\n    # Show a multiselect menu to choose which tools to upgrade\n    $ mise upgrade --interactive\n\n    # Only upgrade tools defined in local mise.toml, not global ones\n    $ mise upgrade --local",
+    effect = "write"
 )]
 pub struct UpgradeArgs {
     /// Display multiselect menu to choose which tools to upgrade
@@ -5346,6 +5566,7 @@ pub struct UpgradeArgs {
 ///
 /// See https://usage.jdx.dev for more information on this specification.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UsageArgs {}
 
 /// Installs a tool and adds the version to mise.toml.
@@ -5369,7 +5590,8 @@ pub struct UsageArgs {}
 /// Use the `--global` flag to use the global config file instead.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # run with no arguments to use the interactive selector\n    $ mise use\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n    $ mise use node@20\n\n    # set the current version of node to 20.x in ~/.config/mise/config.toml\n    # will write the precise version (e.g.: 20.0.0)\n    $ mise use -g --pin node@20\n\n    # sets .mise.local.toml (which is intended not to be committed to a project)\n    $ mise use --env local node@20\n\n    # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n    $ mise use --env staging node@20"
+    after_long_help = "Examples:\n\n    # run with no arguments to use the interactive selector\n    $ mise use\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n    $ mise use node@20\n\n    # set the current version of node to 20.x in ~/.config/mise/config.toml\n    # will write the precise version (e.g.: 20.0.0)\n    $ mise use -g --pin node@20\n\n    # sets .mise.local.toml (which is intended not to be committed to a project)\n    $ mise use --env local node@20\n\n    # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n    $ mise use --env staging node@20",
+    effect = "write"
 )]
 pub struct UseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
@@ -5443,7 +5665,8 @@ pub struct UseArgs {
 /// If the version is out of date, it will display a warning.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise version\n    $ mise --version\n    $ mise -v\n    $ mise -V"
+    after_long_help = "Examples:\n\n    $ mise version\n    $ mise --version\n    $ mise -v\n    $ mise -V",
+    effect = "read"
 )]
 pub struct VersionArgs {
     /// Print the version information in JSON format
@@ -5986,7 +6209,8 @@ pub struct WatchArgs {
 /// The tool must be installed for this to work.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Show the latest installed version of node\n    # If it is is not installed, errors\n    $ mise where node@20\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n\n    # Show the current, active install directory of node\n    # Errors if node is not referenced in any .tool-version file\n    $ mise where node\n    /home/jdx/.local/share/mise/installs/node/20.0.0"
+    after_long_help = "Examples:\n\n    # Show the latest installed version of node\n    # If it is is not installed, errors\n    $ mise where node@20\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n\n    # Show the current, active install directory of node\n    # Errors if node is not referenced in any .tool-version file\n    $ mise where node\n    /home/jdx/.local/share/mise/installs/node/20.0.0",
+    effect = "read"
 )]
 pub struct WhereArgs {
     #[usage(
@@ -6009,7 +6233,8 @@ pub struct WhereArgs {
 /// Use this to figure out what version of a tool is currently active.
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    $ mise which node\n    /home/username/.local/share/mise/installs/node/20.0.0/bin/node\n\n    $ mise which node --plugin\n    node\n\n    $ mise which node --version\n    20.0.0"
+    after_long_help = "Examples:\n\n    $ mise which node\n    /home/username/.local/share/mise/installs/node/20.0.0/bin/node\n\n    $ mise which node --plugin\n    node\n\n    $ mise which node --version\n    20.0.0",
+    effect = "read"
 )]
 pub struct WhichArgs {
     #[usage(

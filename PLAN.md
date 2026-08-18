@@ -322,14 +322,12 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       tables. Same dispatch shape usage-cli uses today, without requiring `usage`
       on the end user's machine. bash, zsh, fish and PowerShell, behind the
       `complete` feature and asked for with `#[usage(completion)]`.
-- [ ] **Docs and manpages** — no new code: confirm the emitted KDL feeds
-      `usage g markdown|manpage` exactly as a clap-derived spec does today, so an
-      adopter's docs pipeline does not change. **usage-cli already does this for
-      itself** (`mise run render:usage-cli-completions` regenerates
-      `docs/cli/reference` and `cli/assets/usage.1` from the derive's spec). What
-      has not been confirmed is a fleet spec: the same generators over a
-      shadow-emitted KDL versus the checked-in `.usage.kdl`. That confirmation
-      lives under **Trying the fleet**.
+- [x] **Docs and manpages** — the emitted KDL feeds `usage g markdown|manpage`
+      the same way a clap-derived spec does. usage-cli already regenerates
+      `docs/cli/reference` and `cli/assets/usage.1` from the derive's spec
+      (`mise run render:usage-cli-completions`). The gate now asks the same of
+      a clap CLI: `benches/gate/tests/fleet.rs` holds communique's markdown
+      and manpage to the checked-in spec.
 - [x] **Diagnostics** — rich errors behind the `diagnostics` feature. The hot path returns a
       compact code; rendering re-examines the command line only once it has
       already failed, and says what clap would have said, colour included, down to
@@ -595,11 +593,11 @@ looking at the clap surface, not only at the spec.
       shadows cannot see delimiter-split flags that mise, hk, pitchfork and aube
       all declare. tak currently has no `usage` subcommand at all, so it cannot
       even produce a fresh spec without one.
-- [ ] **Docs and manpages on a fleet spec.** Render markdown and a manpage from
-      a shadow-emitted KDL and from the checked-in spec; they should match.
-      usage-cli's own `render:usage-cli-completions` already does this for
-      `usage`. One of the smaller CLIs — communique is five commands — is enough
-      to catch a generator that only agrees on usage-cli's shape.
+- [x] **Docs and manpages on a fleet spec.** communique's checked-in spec and
+      the KDL its shadow emits render the same markdown (index and every
+      command) and the same manpage. usage-cli's own
+      `render:usage-cli-completions` already does this for `usage`; the gate
+      now asks it of a clap CLI.
 - [ ] **A typed rewrite of one small CLI, not a String shadow.** `gen-shadow`
       types every field as `String`. The derive already holds `PathBuf`,
       `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli

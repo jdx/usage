@@ -412,6 +412,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             cmd.mounts.first().map(|m| format!("mount = {:?}", m.run)),
             "a `mount` on a command",
         ),
+        (
+            !is_root && cmd.effect.is_some(),
+            cmd.effect.map(|e| format!("effect = {:?}", e.as_str())),
+            "`effect` on a command",
+        ),
     ] {
         if !present {
             continue;
@@ -420,6 +425,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             Dialect::Usage => usage_opts.extend(declaration),
             Dialect::Clap | Dialect::Argh | Dialect::Bpaf => run.skipped.note(what),
         }
+    }
+    // The root cannot carry one: the spec writer and the derive both refuse it, so
+    // emitting it here would be a shadow that does not compile.
+    if is_root && cmd.effect.is_some() {
+        run.skipped.note("`effect` on the root command");
     }
     match (is_root, dialect) {
         (true, Dialect::Usage) => {
@@ -854,6 +864,14 @@ fn usage_flag_opts(
     if flag.require_equals {
         opts.push("require_equals".into());
     }
+    if let Some(effect) = flag.effect {
+        opts.push(format!("effect = {:?}", effect.as_str()));
+    }
+    // The derive puts `effect` on the flag field, not on a nested value argument, so a
+    // spec that classified the value rather than the flag has nowhere to land.
+    if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
+        skipped.note("`effect` on a flag's value argument");
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -980,6 +998,12 @@ fn clap_flag_opts(
     }
     if flag.require_equals {
         opts.push("require_equals = true".into());
+    }
+    if flag.effect.is_some() {
+        skipped.note("`effect` on a flag");
+    }
+    if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
+        skipped.note("`effect` on a flag's value argument");
     }
     if flag.global {
         opts.push("global = true".into());
@@ -1126,6 +1150,9 @@ fn arg_drops(arg: &SpecArg, skipped: &mut Skipped) {
     if arg.hide {
         skipped.note("`hide` on an argument");
     }
+    if arg.effect.is_some() {
+        skipped.note("`effect` on an argument");
+    }
     if arg.choices.is_some() {
         skipped.note("`choices` on an argument");
     }
@@ -1195,6 +1222,12 @@ fn argh_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
         skipped.note("a relationship between flags");
     }
+    if flag.effect.is_some() {
+        skipped.note("`effect` on a flag");
+    }
+    if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
+        skipped.note("`effect` on a flag's value argument");
+    }
     opts
 }
 
@@ -1245,6 +1278,12 @@ fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
         skipped.note("a relationship between flags");
     }
+    if flag.effect.is_some() {
+        skipped.note("`effect` on a flag");
+    }
+    if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
+        skipped.note("`effect` on a flag's value argument");
+    }
     opts
 }
 
@@ -1291,6 +1330,12 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     opts.extend(declared_help(arg.help.as_deref(), arg.help_long.as_deref()));
     if arg.hide {
         opts.push("hide".into());
+    }
+    // The derive refuses `effect` on a positional: supplying a flag changes what
+    // happens; a positional is the thing being acted on. Counted rather than
+    // written, so a spec that classified one is not silently flattened.
+    if arg.effect.is_some() {
+        skipped.note("`effect` on an argument");
     }
     // An argument can be backed by an environment variable and grouped under a heading
     // just as a flag can, and both reach `ArgMeta` — leaving them out made the shadow's
@@ -1350,6 +1395,9 @@ fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     ));
     if arg.hide {
         opts.push("hide = true".into());
+    }
+    if arg.effect.is_some() {
+        skipped.note("`effect` on an argument");
     }
     if let Some(choices) = &arg.choices {
         opts.push(format!(
@@ -2034,9 +2082,9 @@ mod tests {
         );
     }
 
-    /// The three command-level properties, which only one of the two dialects can say.
+    /// The command-level properties clap cannot hear. usage declares all four.
     const COMMAND_PROPERTIES: &str = "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"go\"\n\
-         cmd \"go\" restart_token=\":::\" {\n  mount run=\"ex tasks --usage\"\n}\n";
+         cmd \"go\" restart_token=\":::\" effect=\"read\" {\n  mount run=\"ex tasks --usage\"\n}\n";
 
     #[test]
     fn the_usage_dialect_carries_the_command_properties() {
@@ -2044,12 +2092,14 @@ mod tests {
         assert!(out.contains(r#"default_subcommand = "go""#), "{out}");
         assert!(out.contains(r#"restart_token = ":::""#), "{out}");
         assert!(out.contains(r#"mount = "ex tasks --usage""#), "{out}");
+        assert!(out.contains(r#"effect = "read""#), "{out}");
 
-        // Carried means not lost: none of the three may appear in the report.
+        // Carried means not lost: none of the four may appear in the report.
         for what in [
             "`default_subcommand` on a command",
             "a `restart_token` on a command",
             "a `mount` on a command",
+            "`effect` on a command",
         ] {
             assert!(
                 !skipped.counts.contains_key(what),
@@ -2060,7 +2110,7 @@ mod tests {
 
     #[test]
     fn the_clap_dialect_counts_them_as_dropped() {
-        // clap has no way to say any of the three. The shadow is a fairness fixture, so
+        // clap has no way to say any of the four. The shadow is a fairness fixture, so
         // what it cannot carry has to be named — a silent drop would make the clap side
         // look like a faithful translation of a spec it cannot represent.
         let (out, skipped) = rendered_as(COMMAND_PROPERTIES, Dialect::Clap);
@@ -2068,11 +2118,31 @@ mod tests {
             "`default_subcommand` on a command",
             "a `restart_token` on a command",
             "a `mount` on a command",
+            "`effect` on a command",
         ] {
             assert_eq!(skipped.counts.get(what), Some(&1), "{what}");
         }
         assert!(!out.contains("restart_token"), "{out}");
         assert!(!out.contains("default_subcommand"), "{out}");
+        assert!(!out.contains("effect"), "{out}");
+    }
+
+    #[test]
+    fn the_usage_dialect_carries_a_flag_effect() {
+        // communique's `--force` is `effect="destructive"`. Dropping it was invisible
+        // in help — help does not print an effect — and only showed up once markdown
+        // from the shadow's KDL was compared to the checked-in spec.
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--force\" effect=\"destructive\"\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(out.contains(r#"effect = "destructive""#), "{out}");
+        assert!(
+            !skipped.counts.contains_key("`effect` on a flag"),
+            "expressible, so it should not be counted as dropped"
+        );
+
+        let (clap, skipped) = rendered_as(spec, Dialect::Clap);
+        assert_eq!(skipped.counts.get("`effect` on a flag"), Some(&1));
+        assert!(!clap.contains("effect"), "{clap}");
     }
 
     #[test]

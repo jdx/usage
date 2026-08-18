@@ -9,12 +9,13 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// Generate release notes for a git tag
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct GenerateArgs {
     /// Push editorialized notes to the GitHub release
-    #[usage(long = "github-release")]
+    #[usage(long = "github-release", effect = "write")]
     pub github_release: bool,
     /// Update CHANGELOG.md with the generated changelog entry
-    #[usage(long = "changelog")]
+    #[usage(long = "changelog", effect = "write")]
     pub changelog: bool,
     /// Output concise changelog entry instead of detailed notes
     #[usage(long = "concise")]
@@ -38,7 +39,7 @@ pub struct GenerateArgs {
     #[usage(long = "base-url", value_name = "BASE_URL")]
     pub base_url: ::std::option::Option<::std::string::String>,
     /// Write output to a file instead of stdout
-    #[usage(long = "output", short = 'o', value_name = "OUTPUT")]
+    #[usage(long = "output", short = 'o', effect = "write", value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
     /// Git tag to generate release notes for
     #[usage(arg, name = "TAG")]
@@ -50,9 +51,10 @@ pub struct GenerateArgs {
 
 /// Generate a communique.toml config file in the repo root
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct InitArgs {
     /// Overwrite existing config file
-    #[usage(long = "force")]
+    #[usage(long = "force", effect = "destructive")]
     pub force: bool,
 }
 
@@ -64,6 +66,7 @@ pub struct SponsorsArgs {}
 ///
 /// https://usage.jdx.dev
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UsageArgs {}
 
 /// Editorialized release notes powered by AI
