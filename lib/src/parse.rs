@@ -373,6 +373,7 @@ impl<'a> Parser<'a> {
         // half-typed `--jobs ` is exactly what a completion is asked about — but a
         // full parse has nothing left to wait for, and dropping the flag silently
         // made a forgotten value look like a working command.
+        while try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value) {}
         if let Some(flag) = out.flag_awaiting_value.first() {
             let token = flag
                 .long
@@ -898,6 +899,21 @@ fn parse_partial_with_env(
                 return Ok((out, overridden_flags));
             }
             continue;
+        }
+
+        // A flag with `default_missing` that cannot take this token as a detached
+        // value binds that string and leaves the token for whatever comes next:
+        // `--color --verbose` colours with the missing value and still sets verbose,
+        // and `--inspect 9229` with `require_equals` binds the missing value rather
+        // than treating 9229 as the port.
+        if enable_flags
+            && !out.flag_awaiting_value.is_empty()
+            && out.flag_awaiting_value.last().is_some_and(|flag| {
+                flag.default_missing.is_some()
+                    && (flag.require_equals || (is_flag_like(&w) && !flag.allow_hyphen_values()))
+            })
+        {
+            try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value);
         }
 
         // Only while flags are still being read. Once a `--` has done its job, a
@@ -2062,6 +2078,37 @@ fn value_count(value: &ParseValue) -> usize {
         ParseValue::MultiBool(values) => values.len(),
         _ => 1,
     }
+}
+
+/// Bind [`SpecFlag::default_missing`] to a flag that was given with no value.
+///
+/// Returns whether anything was bound. Completions keep the flag waiting — a
+/// half-typed `--color ` is a question about the value — so this is asked only
+/// once a full parse has decided the value is not coming, or once the next token
+/// has made that decision.
+fn try_bind_default_missing(
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+) -> bool {
+    let Some(flag) = flag_awaiting_value.last() else {
+        return false;
+    };
+    let Some(value) = flag.default_missing.clone() else {
+        return false;
+    };
+    let flag = flag_awaiting_value.pop().unwrap();
+    let collecting = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
+    if collecting {
+        let arr = flags
+            .entry(flag)
+            .or_insert_with(|| ParseValue::MultiString(vec![]))
+            .try_as_multi_string_mut()
+            .unwrap();
+        arr.push(value);
+    } else {
+        flags.insert(flag, ParseValue::String(value));
+    }
+    true
 }
 
 fn drain_pending_flag_values(
@@ -6106,6 +6153,64 @@ flag "-i --inspect <PORT>" require_equals=#true
             msg.contains("requires an argument") || msg.contains("inspect"),
             "bundled short must refuse the following word: {msg}"
         );
+    }
+
+    #[test]
+    fn test_default_missing_binds_when_the_value_is_left_off() {
+        let spec = r#"
+flag "--color <WHEN>" default_missing="always"
+flag "--verbose"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--color"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+
+        let parsed = parse(&spec, &input(&["test", "--color=never"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "--color", "never"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "--color", "--verbose"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+        assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
+
+        let parsed = parse(&spec, &input(&["test", "--color="])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "");
+    }
+
+    #[test]
+    fn test_default_missing_with_require_equals_refuses_the_following_word() {
+        let spec = r#"
+flag "--inspect <PORT>" require_equals=#true default_missing="9229"
+arg "[rest]"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--inspect"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "9229");
+
+        let parsed = parse(&spec, &input(&["test", "--inspect=1234"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "1234");
+
+        // The following word is not the value; the missing value is, and 80 is a positional.
+        let parsed = parse(&spec, &input(&["test", "--inspect", "80"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "9229");
+        assert_eq!(
+            parsed
+                .args
+                .values()
+                .next()
+                .map(|v| v.to_string())
+                .as_deref(),
+            Some("80")
+        );
+
+        let parsed = parse(&spec, &input(&["test", "--inspect="])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "");
     }
 
     #[test]

@@ -39,6 +39,7 @@ flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
+flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -175,6 +176,21 @@ A short's attached form still binds (`-i9229`, `-i=9229`); only the following
 word is refused. Combined with [`allow_hyphen_values`](#allow_hyphen_values),
 the attached form can still pass a dash-prefixed value (`--args=--force`);
 the detached form stays refused.
+
+A flag that takes no value cannot declare it.
+
+## `default_missing`
+
+The value used when the flag is given with none: `--color` binds `always` if the
+spec says `default_missing="always"`. `--color=never` and (unless
+[`require_equals`](#require_equals)) `--color never` still bind the word that was
+typed. A following flag-like token is not taken as the value.
+
+clap spells this `default_missing_value`. clap 4 has the setter and no getter, so
+a spec generated from a clap command never carries it — the same hole as
+[`requires`](#requires). A rewrite that declares in usage keeps it. Combined with
+`require_equals`, a following word is a positional rather than the value, which
+is aube's `--color` / `--inspect` shape.
 
 A flag that takes no value cannot declare it.
 

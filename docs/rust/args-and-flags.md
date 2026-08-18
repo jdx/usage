@@ -76,6 +76,7 @@ jobs: Option<u32>,
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
 | `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
 | `require_equals`                        | Accept `--flag=value` and refuse `--flag value`                                         |
+| `default_missing = "…"`                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
 | `group = "name"`                        | Join a flag group ([Validation](/rust/validation#groups))                               |
 | `exclusive`                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                    |
 | `conflicts(…)` / `requires(…)`          | Relations to other flags ([Validation](/rust/validation))                               |
@@ -108,6 +109,12 @@ needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
 `#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
 and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:
 `flag "--inspect <PORT>" require_equals=#true`.
+
+`#[usage(default_missing = "always")]` is clap's `default_missing_value`: `--color`
+binds `always`, `--color=never` binds `never`, and an absent flag stays `None`.
+The flag has to take a value. Help shows the value as optional. Emitted KDL:
+`flag "--color <WHEN>" default_missing="always"`. Combined with `require_equals`,
+a following word is still refused.
 
 Flag relations (`conflicts`, `requires`, `overrides`, `required_if`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:

@@ -220,6 +220,7 @@
 //! | `delimiter = ','` | one word becomes several values; the field has to be a `Vec` |
 //! | `allow_hyphen_values` | a flag's detached value may look like a flag, including `--` |
 //! | `require_equals` | `--flag=value` is accepted and `--flag value` is not |
+//! | `default_missing = "always"` | the value when the flag is given with none |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!

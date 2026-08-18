@@ -1186,6 +1186,13 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.flag.require_equals {
         out.push_str(" require_equals=#true");
     }
+    if let Some(missing) = meta.flag.default_missing {
+        write!(
+            out,
+            " default_missing={}",
+            quoted(::core::str::from_utf8(missing).unwrap_or_default())
+        )?;
+    }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;

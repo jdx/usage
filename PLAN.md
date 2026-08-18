@@ -381,13 +381,17 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       recorded a split default and dropped the delimiter. Regenerating them
       against this crate is the item under **Trying the fleet**, not another
       parser feature.
-- [~] **`default_missing_value`, and optional-value flags** — the metadata and
-  help-rendering half has landed (`--bump [BUMP]`), but binding still requires
-  a value. Accepting bare `--color` as distinct from `--color=always` still
-  needs an `Option<Option<T>>`-shaped partial and default-missing semantics.
-  **Used by the fleet:** mise `watch` (`default_missing_value = "clear"` /
-  `"30s"`) and `generate bootstrap`, hk `-W/--fail-fast` with `num_args=0..=1`,
-  aube `--color` / `--inspect` / audit `--omit`.
+- [x] **`default_missing_value`, and optional-value flags** — `--color` versus
+      `--color=always`. Spec `default_missing="always"`, usage-lib, usage-argv
+      (`Flag::default_missing`), and `#[usage(default_missing = "always")]`.
+      Absent stays absent (or takes `default`); `--color` binds the missing
+      value; `--color=never` binds `never`. Combined with `require_equals`, a
+      following word is still refused. `value_optional` remains help-only unless
+      `default_missing` is also set, which makes help show the value as optional.
+      clap 4 has the setter and no getter, so the bridge cannot read it — same
+      hole as `requires`. **Used by the fleet:** mise `watch`, `generate bootstrap`,
+      hk `-W/--fail-fast`, aube `--color` / `--inspect` / audit `--omit` — once
+      those CLIs declare in usage rather than through clap.
 - [ ] **`default_value_if` / `default_value_ifs`** — a default that depends on
       another flag. Ours are unconditional. **Used by:** mise `bin_paths`
       (`default_value_if("json", IsPresent, "true")`).
@@ -464,7 +468,8 @@ completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
 (clap's `SetFalse`), `value_enum`, `num_args` via `var_min`/`var_max`, clap's
 `last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
 order, non-UTF-8 `OsString`/`PathBuf` values, `requires`, `group`/`exclusive`,
-and `delimiter`, `#[usage(skip)]`, `allow_hyphen_values`, and `require_equals`.
+and `delimiter`, `#[usage(skip)]`, `allow_hyphen_values`, `require_equals`, and
+`default_missing`.
 
 And the other direction: `mount`, `restart_token`, `default_subcommand` and
 `effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
@@ -609,19 +614,19 @@ looking at the clap surface, not only at the spec.
 - [ ] **The clap-only behaviour the fleet actually uses**, from the list above,
       in the order it would change a command line rather than a compile.
 
-| gap                                            | who                                                                                       | what breaks without it                                              |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `default_missing_value` / optional-value flags | mise `watch` / `generate bootstrap`, hk `-W`, aube `--color`/`--inspect` / audit `--omit` | `--color` and `--color=always` stop being two spellings of one flag |
-| `external_subcommand`                          | aube, pitchfork                                                                           | unknown words at the root stop being forwarded                      |
-| `default_value_if`                             | mise `bin_paths`                                                                          | `--json` no longer implies the matching default                     |
-| `value_parser` ranges                          | unknown until the typed rewrite                                                           | `FromStr` accepts out-of-range numbers clap would refuse            |
+| gap                   | who             | what breaks without it                                          |
+| --------------------- | --------------- | --------------------------------------------------------------- |
+| `external_subcommand` | aube, pitchfork | unknown words at the root stop being forwarded                  |
+| `default_value_if`    | mise `bin_paths` | `--json` no longer implies the matching default                 |
+| `value_parser` ranges | unknown until the typed rewrite | `FromStr` accepts out-of-range numbers clap would refuse |
 
-`value_delimiter`, `requires`, `allow_hyphen_values`, and `require_equals` are
-not in that table because the _parser_ can say them. They are lost only on the
-clap → spec round trip (and a non-ASCII delimiter is dropped even then), and a
-rewrite that declares in usage keeps them. `#[usage(skip)]` is a compile-time
-field, not a command-line shape. Trailing argv is already `double_dash=automatic`
-in every fleet spec that has one.
+`value_delimiter`, `requires`, `allow_hyphen_values`, `require_equals`, and
+`default_missing` are not in that table because the _parser_ can say them. They
+are lost only on the clap → spec round trip (and a non-ASCII delimiter is
+dropped even then; `default_missing_value` has no clap getter), and a rewrite
+that declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not
+a command-line shape. Trailing argv is already `double_dash=automatic` in every
+fleet spec that has one.
 
 - [ ] **Grammar decisions that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how

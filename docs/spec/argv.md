@@ -12,7 +12,7 @@ and the [conformance corpus](#the-conformance-corpus) makes it executable.
 
 ::: tip Both implementations answer every vector
 
-usage-lib and usage-argv agree with all 168 vectors today. That is a
+usage-lib and usage-argv agree with all 176 vectors today. That is a
 measurement, checked on every run rather than asserted here — see
 [Where the reference implementation differs](#where-the-reference-implementation-differs).
 
@@ -100,6 +100,13 @@ flag is not eaten as a value.
 A flag declared `require_equals` accepts only the attached form: `--inspect=9229`
 binds and `--inspect 9229` is a missing value. A short's attached form
 (`-i9229`, `-i=9229`) still binds.
+
+A flag declared `default_missing` binds that string when it is given with no
+value: `--color` is `always` if the spec says `default_missing="always"`. An
+attached or (unless `require_equals`) detached value still wins. A following
+flag-like token is not taken as the value, so `--color --verbose` colours with
+the missing default and still sets verbose. Combined with `require_equals`, a
+following word is a positional rather than the value.
 
 A flag needing a value that ends the command line is an error.
 
@@ -376,7 +383,7 @@ fails if a label is wrong in either direction. A recorded divergence that gets
 fixed shows up as a test failure telling you to delete the label, so the list
 cannot rot.
 
-**Today it does not: usage-lib agrees with all 168 vectors.** The list is empty
+**Today it does not: usage-lib agrees with all 176 vectors.** The list is empty
 for the first time, and the five entries it used to hold were what writing the
 grammar down was for. Each was a real defect that only a second reading found:
 

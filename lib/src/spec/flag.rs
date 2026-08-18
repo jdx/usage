@@ -148,6 +148,17 @@ pub struct SpecFlag {
     /// is the fleet case.
     #[serde(skip_serializing_if = "is_false")]
     pub require_equals: bool,
+    /// Value used when the flag is present but no value is given.
+    ///
+    /// clap's `default_missing_value`: `--color` binds this string, `--color=never`
+    /// binds `never`, and an absent flag stays absent (or takes [`Self::default`]).
+    /// Combined with [`Self::require_equals`], a following word is still refused
+    /// (`--inspect 9229`) while a bare `--inspect` binds this.
+    ///
+    /// clap 4 exposes this as a setter with no getter, so a spec generated from a
+    /// clap command never carries it — same hole as [`Self::requires`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_missing: Option<String>,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -212,6 +223,7 @@ impl SpecFlag {
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "require_equals" => flag.require_equals = v.ensure_bool()?,
+                "default_missing" => flag.default_missing = Some(v.ensure_string()?),
                 // Written on the flag and kept on its argument, as `allow_hyphen_values`
                 // is: the value is what gets split, and `flag "--tags <tag>"` is where a
                 // reader writes something about that value.
@@ -325,6 +337,9 @@ impl SpecFlag {
                 }
                 "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
                 "require_equals" => flag.require_equals = child.arg(0)?.ensure_bool()?,
+                "default_missing" => {
+                    flag.default_missing = Some(child.arg(0)?.ensure_string()?);
+                }
                 "requires" => {
                     flag.requires = child
                         .ensure_arg_len(1..)?
@@ -361,6 +376,13 @@ impl SpecFlag {
                 ctx,
                 node.node.name().span(),
                 "flag must have value to require equals"
+            );
+        }
+        if flag.default_missing.is_some() && flag.arg.is_none() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "flag must have value to have a default when missing"
             );
         }
         if let Some(raw) = delimiter {
@@ -562,6 +584,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.require_equals {
             node.push(KdlEntry::new_prop("require_equals", true));
         }
+        if let Some(missing) = &flag.default_missing {
+            node.push(string_entry(Some("default_missing"), missing));
+        }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
         }
@@ -761,6 +786,8 @@ impl From<&clap::Arg> for SpecFlag {
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             require_equals: c.is_require_equals_set(),
+            // clap 4 has `Arg::default_missing_value` as a setter with no getter.
+            default_missing: None,
             help,
             help_long,
             help_md: None,
@@ -987,6 +1014,37 @@ mod tests {
         let spec = Spec::from(&cmd);
         let inspect = spec.cmd.flags.iter().find(|f| f.name == "inspect").unwrap();
         assert!(inspect.require_equals);
+    }
+
+    #[test]
+    fn default_missing_round_trips_and_cannot_come_across_from_clap() {
+        let spec: Spec = "flag \"--color <WHEN>\" default_missing=\"always\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].default_missing.as_deref(), Some("always"));
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(
+            reparsed.cmd.flags[0].default_missing.as_deref(),
+            Some("always"),
+            "{spec}"
+        );
+
+        // Same hole as `requires`: clap 4 has the setter and keeps the field private.
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("color")
+                .long("color")
+                .action(clap::ArgAction::Set)
+                .num_args(0..=1)
+                .default_missing_value("always"),
+        );
+        let spec = Spec::from(&cmd);
+        let color = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert!(
+            color.default_missing.is_none(),
+            "clap exposes no getter for `default_missing_value`; if this now fails, \
+             the bridge can carry it and `SpecFlag::default_missing` should say so"
+        );
     }
 
     #[test]

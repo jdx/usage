@@ -132,6 +132,13 @@ type Flag struct {
 	// attached form (`-i9229`, `-i=9229`) still binds: only the following word
 	// is refused.
 	RequireEquals bool
+	// DefaultMissing is the value used when the flag is present but no value is
+	// given. Empty means unset: the flag then errors if a value is missing.
+	//
+	// clap's default_missing_value and the spec's default_missing. `--color`
+	// binds this, `--color=never` binds `never`, and an absent flag is not bound.
+	// Combined with RequireEquals, a following word is still refused.
+	DefaultMissing string
 	// Global is whether the flag is recognized by every command beneath the one
 	// that declares it.
 	Global bool

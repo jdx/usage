@@ -766,6 +766,10 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     let table_delimiter = table_delimiter(field);
     let allow_hyphen_values = field.allow_hyphen_values;
     let require_equals = field.require_equals;
+    let default_missing = match field.default_missing.as_deref() {
+        Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
+        None => quote!(::core::option::Option::None),
+    };
     quote! {
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
@@ -779,6 +783,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             delimiter: #table_delimiter,
             allow_hyphen_values: #allow_hyphen_values,
             require_equals: #require_equals,
+            default_missing: #default_missing,
             global: #global,
         };
     }

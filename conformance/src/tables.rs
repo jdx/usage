@@ -270,6 +270,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .map(|d| d as u8),
         allow_hyphen_values: f.allow_hyphen_values(),
         require_equals: f.require_equals,
+        default_missing: f.default_missing.as_deref().map(|s| leak(s).as_bytes()),
         global: f.global,
     }))
 }

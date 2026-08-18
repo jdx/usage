@@ -272,6 +272,41 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true\n",
       "argv": ["--inspect="],
       "expect": { "ok": { "flags": { "inspect": "" } } }
+    },
+    {
+      "id": "long-value-default-missing-bare",
+      "doc": "`default_missing` is the value when the flag is given with none: `--color` binds `always`. clap's `default_missing_value`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <WHEN>\" default_missing=\"always\"\n",
+      "argv": ["--color"],
+      "expect": { "ok": { "flags": { "color": "always" } } }
+    },
+    {
+      "id": "long-value-default-missing-attached",
+      "doc": "An attached value still wins: `--color=never` is `never`, not the missing default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <WHEN>\" default_missing=\"always\"\n",
+      "argv": ["--color=never"],
+      "expect": { "ok": { "flags": { "color": "never" } } }
+    },
+    {
+      "id": "long-value-default-missing-detached",
+      "doc": "Without `require_equals`, a following word is still the value: `--color never` binds `never`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <WHEN>\" default_missing=\"always\"\n",
+      "argv": ["--color", "never"],
+      "expect": { "ok": { "flags": { "color": "never" } } }
+    },
+    {
+      "id": "long-value-default-missing-next-is-flag",
+      "doc": "A flag-like next token is not taken as the value, so `--color --verbose` colours with the missing default and still sets verbose.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <WHEN>\" default_missing=\"always\"\nflag \"--verbose\"\n",
+      "argv": ["--color", "--verbose"],
+      "expect": { "ok": { "flags": { "color": "always", "verbose": true } } }
+    },
+    {
+      "id": "long-value-default-missing-with-require-equals",
+      "doc": "Combined with `require_equals`, a following word is not the value: `--inspect 80` binds the missing default and leaves `80` for a positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true default_missing=\"9229\"\narg \"[rest]\"\n",
+      "argv": ["--inspect", "80"],
+      "expect": { "ok": { "flags": { "inspect": "9229" }, "args": { "rest": "80" } } }
     }
   ]
 }

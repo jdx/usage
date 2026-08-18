@@ -966,3 +966,35 @@ fn a_require_equals_flag_refuses_a_detached_value() {
         "the attribute has to reach the spec: {kdl}"
     );
 }
+
+/// clap's `default_missing_value`: `--color` binds a value, `--color=never` another.
+#[derive(Cli, Debug)]
+#[usage(bin = "color")]
+struct WithMissing {
+    #[usage(long, default_missing = "always")]
+    color: Option<String>,
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[test]
+fn a_default_missing_flag_binds_when_the_value_is_left_off() {
+    let a = argv(["--color"]);
+    let got = WithMissing::parse_from(&a).expect("bare form");
+    assert_eq!(got.color.as_deref(), Some("always"));
+
+    let a = argv(["--color=never"]);
+    let got = WithMissing::parse_from(&a).expect("attached form");
+    assert_eq!(got.color.as_deref(), Some("never"));
+
+    let a = argv(["--color", "--verbose"]);
+    let got = WithMissing::parse_from(&a).expect("next token is a flag");
+    assert_eq!(got.color.as_deref(), Some("always"));
+    assert!(got.verbose);
+
+    let kdl = WithMissing::to_kdl();
+    assert!(
+        kdl.contains("default_missing="),
+        "the attribute has to reach the spec: {kdl}"
+    );
+}

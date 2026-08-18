@@ -1052,6 +1052,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.require_equals {
         fields.push("RequireEquals: true".to_string());
     }
+    if let Some(missing) = &flag.default_missing {
+        fields.push(format!("DefaultMissing: {}", go_string(missing)));
+    }
     if flag.global {
         fields.push("Global: true".to_string());
     }
@@ -1622,6 +1625,21 @@ flag "--inspect <PORT>" require_equals=#true
 "#);
         assert!(
             out.contains("Name: \"inspect\", Longs: []string{\"inspect\"}, TakesValue: true, RequireEquals: true"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn default_missing_reaches_the_table() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--color <WHEN>" default_missing="always"
+"#);
+        assert!(
+            out.contains(
+                "Name: \"color\", Longs: []string{\"color\"}, TakesValue: true, DefaultMissing: \"always\""
+            ),
             "{out}"
         );
     }
