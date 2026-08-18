@@ -27,4 +27,14 @@ func TestRewriteMulticall(t *testing.T) {
 	if !reflect.DeepEqual(got, []string{"ls", "-l"}) {
 		t.Fatalf("dispatcher: got %q", got)
 	}
+
+	got = RewriteMulticall("/usr/bin/busybox", []string{"ls", "-l"}, "/opt/bin/busybox.exe", "")
+	if !reflect.DeepEqual(got, []string{"ls", "-l"}) {
+		t.Fatalf("normalized name dispatcher: got %q", got)
+	}
+
+	got = RewriteMulticall(`C:\tools\busybox.exe`, []string{"ls", "-l"}, "", "/opt/bin/busybox")
+	if !reflect.DeepEqual(got, []string{"ls", "-l"}) {
+		t.Fatalf("normalized bin dispatcher: got %q", got)
+	}
 }
