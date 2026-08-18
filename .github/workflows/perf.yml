@@ -57,6 +57,7 @@ jobs:
       # 4-20%. Without it tak still records timing, but the series stops being
       # precise enough to detect anything.
       - name: Install valgrind
+        timeout-minutes: 3
         run: |
           command -v valgrind || {
             sudo apt-get update
