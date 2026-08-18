@@ -1616,15 +1616,26 @@ fn parse_partial_with_env(
         }
     }
 
-    // Validate var_min/var_max constraints for variadic flags
+    // Validate var_min/var_max constraints for variadic flags. A flag's own bounds
+    // count repeated occurrences; the nested argument's bounds count the values one
+    // non-repeatable occurrence takes. The latter is clap's `num_args` shape and must
+    // not make the flag itself repeatable merely to reach this check.
     for (flag, value) in &out.flags {
-        if flag.var {
+        let bounds = if flag.var {
+            Some((flag.var_min, flag.var_max))
+        } else {
+            flag.arg
+                .as_ref()
+                .filter(|arg| arg.var)
+                .map(|arg| (arg.var_min, arg.var_max))
+        };
+        if let Some((var_min, var_max)) = bounds {
             let count = match value {
                 ParseValue::MultiString(values) => values.len(),
                 ParseValue::MultiBool(values) => values.len(),
                 _ => continue,
             };
-            if let Some(min) = flag.var_min {
+            if let Some(min) = var_min {
                 if count < min {
                     out.errors.push(UsageErr::VarFlagTooFew {
                         name: flag.name.clone(),
@@ -1633,7 +1644,7 @@ fn parse_partial_with_env(
                     });
                 }
             }
-            if let Some(max) = flag.var_max {
+            if let Some(max) = var_max {
                 if count > max {
                     out.errors.push(UsageErr::VarFlagTooMany {
                         name: flag.name.clone(),

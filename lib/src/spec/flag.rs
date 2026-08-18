@@ -820,6 +820,15 @@ impl From<&clap::Arg> for SpecFlag {
                 arg.var = true;
             }
 
+            // clap's range is per occurrence. A non-repeatable `Set` flag has one
+            // occurrence, so the spec's collecting bound says exactly the same thing.
+            // `Append` can occur several times; carrying its minimum as a total would let
+            // one long occurrence hide another short one, so leave that for an explicit
+            // per-occurrence model rather than weakening the rule silently.
+            if matches!(c.get_action(), clap::ArgAction::Set) {
+                crate::spec::arg::value_bounds(c, &mut arg, false);
+            }
+
             Some(arg)
         } else {
             None
@@ -1169,6 +1178,97 @@ mod tests {
             "clap exposes no getter for `default_missing_value`; if this now fails, \
              the bridge can carry it and `SpecFlag::default_missing` should say so"
         );
+    }
+
+    #[test]
+    fn value_count_bounds_survive_the_clap_bridge() {
+        let cmd = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("pair")
+                    .long("pair")
+                    .action(clap::ArgAction::Set)
+                    .num_args(2),
+            )
+            .arg(
+                clap::Arg::new("files")
+                    .value_name("FILES")
+                    .required(true)
+                    .num_args(2..=4),
+            );
+        let spec = Spec::from(&cmd);
+
+        let pair_flag = spec.cmd.flags.iter().find(|f| f.name == "pair").unwrap();
+        assert!(!pair_flag.var, "the flag itself is not repeatable");
+        assert_eq!(pair_flag.var_min, None);
+        assert_eq!(pair_flag.var_max, None);
+        let pair = pair_flag.arg.as_ref().unwrap();
+        assert!(pair.var);
+        assert_eq!(pair.var_min, Some(2));
+        assert_eq!(pair.var_max, Some(2));
+
+        let files = spec.cmd.args.iter().find(|a| a.name == "FILES").unwrap();
+        assert!(files.var);
+        assert_eq!(files.var_min, Some(2));
+        assert_eq!(files.var_max, Some(4));
+
+        let words = ["ex", "--pair", "a", "b", "one", "two"].map(str::to_string);
+        crate::parse(&spec, &words).expect("both clap value-count ranges are satisfied");
+
+        let words = ["ex", "--pair", "a", "--", "one", "two"].map(str::to_string);
+        let err = crate::parse(&spec, &words).unwrap_err();
+        assert!(
+            format!("{err:?}").contains("requires at least 2 value(s), got 1"),
+            "{err:?}"
+        );
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        let pair = reparsed.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!((pair.var_min, pair.var_max), (Some(2), Some(2)));
+        assert_eq!(
+            (reparsed.cmd.args[0].var_min, reparsed.cmd.args[0].var_max),
+            (Some(2), Some(4))
+        );
+    }
+
+    #[test]
+    fn delimiter_value_count_bounds_are_not_mapped() {
+        let cmd = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("pairs")
+                    .long("pairs")
+                    .action(clap::ArgAction::Set)
+                    .value_delimiter(',')
+                    .num_args(2),
+            )
+            .arg(clap::Arg::new("items").value_delimiter(',').num_args(2..=3));
+        let spec = Spec::from(&cmd);
+
+        let pairs = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert!(pairs.var);
+        assert_eq!(pairs.delimiter, Some(','));
+        assert_eq!((pairs.var_min, pairs.var_max), (None, None));
+
+        let items = &spec.cmd.args[0];
+        assert!(items.var);
+        assert_eq!(items.delimiter, Some(','));
+        assert_eq!((items.var_min, items.var_max), (None, None));
+    }
+
+    #[test]
+    fn an_optional_flag_value_is_not_misreported_as_a_supported_bound() {
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("values")
+                .long("values")
+                .action(clap::ArgAction::Set)
+                .num_args(0..=3),
+        );
+        let spec = Spec::from(&cmd);
+        let values = spec.cmd.flags[0].arg.as_ref().unwrap();
+
+        assert_eq!(values.var_min, None);
+        assert_eq!(values.var_max, None);
+        assert_eq!(spec.cmd.flags[0].var_min, None);
+        assert_eq!(spec.cmd.flags[0].var_max, None);
     }
 
     #[test]
