@@ -172,6 +172,19 @@ func TestFlagsDoNotCloseThePositionToPaths(t *testing.T) {
 	}
 }
 
+func TestHiddenChoicesCloseThePositionToPaths(t *testing.T) {
+	root := &Command{Key: 1, Name: "ex", Args: []*Arg{{Key: 2, Name: "MODE"}}}
+	help := HelpTable{{Key: 1}, {Key: 2}}
+	meta := Metadata{{Key: 1}, {
+		Key: 2, Name: "MODE", AcceptedChoices: []string{"hidden"},
+	}}
+
+	answer := Request{Shell: Bash, Line: "ex h", Cursor: 4}.Answer(root, help, meta)
+	if answer.Files != NoFiles {
+		t.Errorf("a hidden-only choice set is still closed to paths: %v", answer.Files)
+	}
+}
+
 // A variadic still collecting is on the flag's value, not on the argument behind
 // it — so an argument owing a separator has nothing to say about this position.
 func TestASeparatorOwedBehindACollectingFlag(t *testing.T) {
