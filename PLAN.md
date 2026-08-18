@@ -398,6 +398,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **`value_parser`** — clap takes an arbitrary parser function and range
       validators (`value_parser!(u16).range(1..=65535)`). We are `T: FromStr` and
       nothing else, so there is no per-field validation and no bounded numeric.
+- [ ] **Token-boundary controls** — `allow_negative_numbers`, `value_terminator`
+      and `dont_delimit_trailing_values`. `allow_hyphen_values` is the broader
+      answer to the first one, but accepting every dash-word is not equivalent to
+      accepting only a negative number; the other two have no spelling at all.
+- [ ] **Fixed arity and distinct value names** — clap can say
+      `num_args(2)` with `<START> <END>`. `var_min` / `var_max` express the bound,
+      but the derive has one display name for the collection and the clap bridge
+      does not preserve the bound.
 - [x] **`allow_hyphen_values` on the derive path** — the spec said it and
       usage-lib honoured it (`lib/src/parse.rs`); usage-argv now has the same
       bit on `Flag`, so a detached value that looks like a flag binds when
@@ -424,18 +432,29 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 
 **Changes what a CLI accepts, less sharply**
 
-- [ ] **`ignore_case` on values, and `#[value(alias = …)]`** — subcommand variants
-      take aliases; enumerated _values_ take neither an alias nor a case-insensitive
-      match.
+- [ ] **The full `PossibleValue` model** — `ignore_case`, aliases and their
+      visibility, per-value help, and hidden values. Subcommand variants take
+      aliases; enumerated values are currently flattened to a list of strings.
 - [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
       suggest what was probably meant but do not accept it.
 - [ ] **`external_subcommand`** — the bridge reads clap's flag to compute
       `forwards` in `lib/src/spec/cmd.rs`, and the derive cannot declare one.
       **Used by:** aube's catch-all and pitchfork's root.
+- [ ] **Positionals in relationships and groups.** clap names relationships by
+      argument id and allows positional members; the spec's selectors name only
+      flags, so the clap bridge deliberately drops positional conflicts and group
+      members. Required groups and conflicts can therefore become weaker.
+- [ ] **The complete relationship families** — `requires_all`,
+      `required_if_eq`, `required_if_eq_all`, `required_if_eq_any`, and the
+      `required_unless_present` all/any variants. The common single-selector
+      forms exist, but a clap migration needs the complete truth table or an
+      explicit non-goal for each omitted form.
 - [ ] **`multicall` and `no_binary_name`** — busybox-style applets, and parsing an
       argv that has no `argv[0]`.
-- [ ] **`arg_required_else_help`, `args_conflicts_with_subcommands`,
-      `subcommand_negates_reqs`, `allow_missing_positional`.**
+- [ ] **Command parsing policy** — `arg_required_else_help`,
+      `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
+      `subcommand_precedence_over_arg`, `allow_missing_positional`,
+      and `args_override_self`.
 
 **Help output**
 
@@ -450,6 +469,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `subcommand_help_heading`, `subcommand_value_name`.**
 - [ ] **`verbatim_doc_comment`, `rename_all`, `rename_all_env`** — casing is kebab
       via `to_kebab`, with no opt-out.
+- [ ] **Built-in action and flag control** — custom `ArgAction::Help`,
+      `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
+      `disable_help_subcommand` and `disable_version_flag`. A clap
+      CLI can move or remove these entry points; usage currently supplies its own.
+- [ ] **Ordering and remaining metadata** — explicit `display_order`, the full
+      `ValueHint` vocabulary, `author`, `long_version`, and custom help/version
+      text. Declaration order and path hints cover the common cases, not the
+      complete clap surface.
 
 **API surface**
 
@@ -486,6 +513,63 @@ writing a clap shadow**, whose `clap_double_dash` emits only `last`; that is a
 gap in the shadow generator rather than in clap, since clap's derive does have
 `trailing_var_arg`, and it is worth closing so the shadow stops overstating the
 distance.
+
+### General clap launch gate
+
+The fleet proves that this can replace clap for the CLIs in front of us. A public
+launch makes a broader promise: a clap user must be able to tell, before changing
+their parser, whether every behavior they rely on survives. clap's derive forwards
+arbitrary `Command`, `Arg` and `PossibleValue` builder methods, so a hand-selected
+feature list is not an exhaustive audit.
+
+- [ ] **A versioned clap compatibility matrix.** Inventory clap's public derive
+      attributes and relevant builder methods, pinned to the clap release audited.
+      Give every row a result for `usage-derive`, `usage-argv`, the KDL spec and
+      usage-lib, help/completions, and the `clap_usage` bridge. Each cell must say
+      supported and tested, usage-only, bridge-lossy, intentionally different, or
+      unsupported. Updating clap must update the matrix in the same PR.
+- [ ] **A clap-to-spec fidelity report.** The bridge currently loses detectable
+      metadata without reporting it: `num_args` bounds, environment bindings,
+      hidden flag aliases, value hints and `PossibleValue` metadata, positional
+      relationship/group members, and command parsing settings. Return or emit a
+      structured loss report for everything clap exposes. For setter-only state
+      such as `requires` and `default_missing_value`, where loss cannot be detected,
+      the matrix and integration docs must say that the bridge is not a lossless
+      migration verifier.
+- [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
+      compared on accepted and rejected argv, typed values, error kind and exit
+      status, stdout versus stderr, short and long help, usage/version output, and
+      completion candidates. Run the portable cases on Unix and Windows and the
+      byte-value cases on Unix. The mise fuzzer remains the scale test; this is the
+      configuration-space test it cannot be.
+- [ ] **Combination and stateful tests.** Pairwise-cover settings that interact:
+      defaults with env and delimiters, optional values with `require_equals`,
+      globals with overrides, subcommands with required positionals, groups with
+      defaults, and help/version collisions. Add `update_from` cases if that API is
+      implemented. Single-feature parity is not enough where clap resolves settings
+      in an order.
+- [ ] **External clap adopters.** Before calling the replacement generally ready,
+      port or shadow at least three maintained, non-jdx clap CLIs chosen for
+      different shapes: a derive-heavy CLI, a builder-heavy CLI, and one using
+      custom validation/completions. Record every unsupported feature they expose;
+      do not silently narrow the sample to what already works.
+- [ ] **Migration and non-goal documentation.** Publish an attribute mapping guide,
+      examples for the common `Parser` / `Args` / `Subcommand` / `ValueEnum`
+      rewrites, compile-fail examples for unsupported combinations, the clap
+      compatibility baseline, and the parser-behavior semver policy. State which
+      builder and `ArgMatches` APIs are architectural non-goals instead of leaving
+      their absence implicit.
+- [ ] **A release documentation audit.** Generate the limitations page from, or
+      check it against, the compatibility matrix; verify dependency snippets against
+      workspace versions; and remove stale claims after features land. Today the
+      Rust limitations page still says non-UTF-8 `OsString` values cannot be accepted,
+      and the clap integration still recommends `clap_usage = "2"` while this
+      workspace is on version 5.
+- [ ] **Completion ecosystem coverage.** Decide whether general clap parity includes
+      every shell in `clap_complete` and every `ValueHint`. At minimum, either add
+      Elvish beside bash, fish, PowerShell and zsh or document it as a launch non-goal;
+      keep Nushell as an explicit usage extension rather than accidentally counting
+      it as clap parity.
 
 ### The gate
 
