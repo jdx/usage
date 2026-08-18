@@ -614,10 +614,10 @@ looking at the clap surface, not only at the spec.
 - [ ] **The clap-only behaviour the fleet actually uses**, from the list above,
       in the order it would change a command line rather than a compile.
 
-| gap                   | who             | what breaks without it                                          |
-| --------------------- | --------------- | --------------------------------------------------------------- |
-| `external_subcommand` | aube, pitchfork | unknown words at the root stop being forwarded                  |
-| `default_value_if`    | mise `bin_paths` | `--json` no longer implies the matching default                 |
+| gap                   | who                             | what breaks without it                                   |
+| --------------------- | ------------------------------- | -------------------------------------------------------- |
+| `external_subcommand` | aube, pitchfork                 | unknown words at the root stop being forwarded           |
+| `default_value_if`    | mise `bin_paths`                | `--json` no longer implies the matching default          |
 | `value_parser` ranges | unknown until the typed rewrite | `FromStr` accepts out-of-range numbers clap would refuse |
 
 `value_delimiter`, `requires`, `allow_hyphen_values`, `require_equals`, and
