@@ -2333,15 +2333,11 @@ fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStrea
                 Shape::Many => quote!(
                     partial.#ident.iter().any(|v| v.as_slice() == #when.as_bytes())
                 ),
-                Shape::Bool => {
-                    if matches!(when.as_str(), "1" | "true" | "True" | "TRUE") {
-                        quote!(partial.#ident)
-                    } else if matches!(when.as_str(), "0" | "false" | "False" | "FALSE") {
-                        quote!(!partial.#ident)
-                    } else {
-                        quote!(false)
-                    }
-                }
+                Shape::Bool => match when.as_str() {
+                    "true" => quote!(partial.#ident),
+                    "false" => quote!(!partial.#ident),
+                    _ => quote!(false),
+                },
                 Shape::Count => match when.as_str() {
                     "true" => quote!(partial.#ident > 0),
                     "false" => quote!(partial.#ident == 0),
