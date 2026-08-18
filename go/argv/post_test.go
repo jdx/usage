@@ -254,4 +254,17 @@ func TestApplyDefaultIf(t *testing.T) {
 	if sources[pretty] != Unset {
 		t.Errorf("--json should not match when=false: %q from %v", filled[pretty], sources[pretty])
 	}
+
+	meta = Metadata{
+		{Key: json, Name: "json", Flag: true, Default: []string{"true"}},
+		{Key: pretty, Name: "pretty", Flag: true, DefaultIf: []DefaultIf{
+			{Key: json, Value: "true"},
+		}},
+	}
+	filled = map[uint64][]string{json: {"true"}, pretty: nil}
+	sources = map[uint64]Source{json: FromDefault, pretty: Unset}
+	ApplyDefaultIf(meta, []uint64{json, pretty}, filled, sources, nil)
+	if sources[pretty] != Unset {
+		t.Errorf("a default is not Given: %q from %v", filled[pretty], sources[pretty])
+	}
 }

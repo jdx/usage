@@ -487,6 +487,12 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        // Decide every `default_if` against argv+env only. Binding as we go would put
+        // a default into `out.flags` and make the next flag's condition treat it as
+        // explicit — Go's `Given()` and the derive's `__given_*` both ignore defaults
+        // here, so an unconditional `default` on `--json` must not fire
+        // `default_if "--json"`.
+        let mut from_default_if: Vec<(Arc<SpecFlag>, String)> = Vec::new();
         for flag in &flags {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
@@ -494,12 +500,14 @@ impl<'a> Parser<'a> {
             if let Some(condition) = flag.default_if.iter().find(|condition| {
                 default_if_condition_matches(condition, &out, &overridden_flags, custom_env)
             }) {
-                bind_flag_fallback(
-                    flag,
-                    std::slice::from_ref(&condition.value),
-                    &mut out,
-                    custom_env,
-                )?;
+                from_default_if.push((Arc::clone(flag), condition.value.clone()));
+            }
+        }
+        for (flag, value) in &from_default_if {
+            bind_flag_fallback(flag, std::slice::from_ref(value), &mut out, custom_env)?;
+        }
+        for flag in &flags {
+            if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
             if !flag.default.is_empty() {
@@ -3968,6 +3976,26 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(
             out.as_env().get("usage_bin_names").map(String::as_str),
             Some("true")
+        );
+    }
+
+    #[test]
+    fn a_default_does_not_activate_a_conditional_default() {
+        // `--json` sorts before `--pretty` in the available-flag map, so a one-pass
+        // bind would put json's default into `out.flags` and then treat it as
+        // explicit for pretty's `default_if`. Go and the derive ignore defaults.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--pretty\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\" default=#true\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(&spec, &input(&["ex"])).unwrap();
+        assert_eq!(
+            out.as_env().get("usage_json").map(String::as_str),
+            Some("true")
+        );
+        assert!(
+            !out.as_env().contains_key("usage_pretty"),
+            "a default is not an explicit value for default_if"
         );
     }
 

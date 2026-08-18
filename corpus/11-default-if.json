@@ -105,6 +105,14 @@
       "layer": "post-binding"
     },
     {
+      "id": "default-if-default-does-not-activate",
+      "doc": "A default on the selector is not an explicit value. default_if only reads the command line and the environment, matching Go Given() and the derive's __given_*.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--pretty\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\" default=#true\n",
+      "argv": [],
+      "expect": { "ok": { "flags": { "json": true } } },
+      "layer": "post-binding"
+    },
+    {
       "id": "default-if-choice-is-checked",
       "doc": "A bound default_if value is checked against choices the same way a default is.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" {\n  default_if \"--pretty\" \"rainbow\"\n  choices \"auto\" \"always\" \"never\"\n}\nflag \"--pretty\"\n",
