@@ -203,3 +203,34 @@ func TestSourceGiven(t *testing.T) {
 		t.Error("a default is a fallback, not something the user said")
 	}
 }
+
+func TestApplyDefaultIf(t *testing.T) {
+	json := uint64(1)
+	bin := uint64(2)
+	meta := Metadata{
+		{Key: json, Name: "json", Flag: true},
+		{Key: bin, Name: "bin-names", Flag: true, DefaultIf: []DefaultIf{
+			{Key: json, Value: "true"},
+		}, Default: []string{"false"}},
+	}
+	filled := map[uint64][]string{json: {}, bin: nil}
+	sources := map[uint64]Source{json: FromArgv, bin: Unset}
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	if sources[bin] != FromDefault || !reflect.DeepEqual(filled[bin], []string{"true"}) {
+		t.Errorf("IsPresent should bind: %q from %v", filled[bin], sources[bin])
+	}
+
+	filled = map[uint64][]string{json: nil, bin: nil}
+	sources = map[uint64]Source{json: Unset, bin: Unset}
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	if sources[bin] != FromDefault || !reflect.DeepEqual(filled[bin], []string{"false"}) {
+		t.Errorf("unconditional default when no match: %q from %v", filled[bin], sources[bin])
+	}
+
+	filled = map[uint64][]string{json: {}, bin: []string{"already"}}
+	sources = map[uint64]Source{json: FromArgv, bin: FromEnv}
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	if sources[bin] != FromEnv || !reflect.DeepEqual(filled[bin], []string{"already"}) {
+		t.Errorf("env on the target suppresses: %q from %v", filled[bin], sources[bin])
+	}
+}

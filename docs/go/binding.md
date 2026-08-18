@@ -11,12 +11,15 @@ when you never call the functions: they define what your users' command lines me
 
 ## Resolution order
 
-Each flag or arg resolves **argv → env → default**, matching
+Each flag or arg resolves **argv → env → default_if → default**, matching
 [config resolution](/spec/resolution):
 
 ```go
 values, source := argv.Fill(Meta.Lookup(key), given, argv.LookupEnv)
 ```
+
+Fill every entry first, then `argv.ApplyDefaultIf` so a `default_if` can see a
+sibling that came from argv or env. An applied `default_if` is `FromDefault`.
 
 `Source` tells you where the value came from: `FromArgv`, `FromEnv`, `FromDefault`, or `Unset`.
 `Source.Given()` is true only for the first two — a default is a fallback, not something the

@@ -459,8 +459,12 @@ impl<'a> Parser<'a> {
             }
         }
 
-        // Apply env vars and defaults for flags
-        for flag in out.available_flags.values() {
+        // Environment first, for every flag, so a `default_if` can see a sibling
+        // that was filled from env. Applying both in one pass would make the
+        // answer depend on declaration order: `--bin-names` before `--json`
+        // would miss `EX_JSON=1`.
+        let flags: Vec<Arc<SpecFlag>> = out.available_flags.values().cloned().collect();
+        for flag in &flags {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
@@ -476,86 +480,35 @@ impl<'a> Parser<'a> {
                         out.flags
                             .insert(Arc::clone(flag), ParseValue::String(env_value));
                     } else {
-                        // For boolean flags, check if env value is truthy
                         let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
                         out.flags
                             .insert(Arc::clone(flag), ParseValue::Bool(is_true));
                     }
-                    continue;
                 }
             }
-            // Apply flag default
+        }
+        for flag in &flags {
+            if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
+                continue;
+            }
+            if let Some(condition) = flag.default_if.iter().find(|condition| {
+                default_if_condition_matches(condition, &out, &overridden_flags, custom_env)
+            }) {
+                bind_flag_fallback(
+                    flag,
+                    std::slice::from_ref(&condition.value),
+                    &mut out,
+                    custom_env,
+                )?;
+                continue;
+            }
             if !flag.default.is_empty() {
-                // Consider var when deciding the type of default return value
-                if flag.var {
-                    // For var=true, always return a vec (MultiString for flags with args, MultiBool for boolean flags)
-                    if let Some(arg) = flag.arg.as_ref() {
-                        validate_choice_values(
-                            ChoiceTarget::option(flag),
-                            &flag.default,
-                            arg.choices.as_ref(),
-                            custom_env,
-                        )?;
-                        out.flags.insert(
-                            Arc::clone(flag),
-                            ParseValue::MultiString(flag.default.clone()),
-                        );
-                    } else {
-                        // For boolean flags with var=true, convert default strings to bools
-                        let bools: Vec<bool> = flag
-                            .default
-                            .iter()
-                            .map(|s| matches!(s.as_str(), "1" | "true" | "True" | "TRUE"))
-                            .collect();
-                        out.flags
-                            .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
-                    }
-                } else {
-                    // For var=false, return the first default value
-                    if let Some(arg) = flag.arg.as_ref() {
-                        validate_choice_value(
-                            ChoiceTarget::option(flag),
-                            &flag.default[0],
-                            arg.choices.as_ref(),
-                            custom_env,
-                        )?;
-                        out.flags.insert(
-                            Arc::clone(flag),
-                            ParseValue::String(flag.default[0].clone()),
-                        );
-                    } else {
-                        // For boolean flags, convert default string to bool
-                        let is_true =
-                            matches!(flag.default[0].as_str(), "1" | "true" | "True" | "TRUE");
-                        out.flags
-                            .insert(Arc::clone(flag), ParseValue::Bool(is_true));
-                    }
-                }
+                bind_flag_fallback(flag, &flag.default, &mut out, custom_env)?;
+                continue;
             }
-            // Also check nested arg defaults (for flags like --foo <arg> where the arg has a default)
             if let Some(arg) = flag.arg.as_ref() {
-                if !out.flags.contains_key(flag) && !arg.default.is_empty() {
-                    if flag.var {
-                        validate_choice_values(
-                            ChoiceTarget::option(flag),
-                            &arg.default,
-                            arg.choices.as_ref(),
-                            custom_env,
-                        )?;
-                        out.flags.insert(
-                            Arc::clone(flag),
-                            ParseValue::MultiString(arg.default.clone()),
-                        );
-                    } else {
-                        validate_choice_value(
-                            ChoiceTarget::option(flag),
-                            &arg.default[0],
-                            arg.choices.as_ref(),
-                            custom_env,
-                        )?;
-                        out.flags
-                            .insert(Arc::clone(flag), ParseValue::String(arg.default[0].clone()));
-                    }
+                if !arg.default.is_empty() {
+                    bind_flag_fallback(flag, &arg.default, &mut out, custom_env)?;
                 }
             }
         }
@@ -1692,6 +1645,79 @@ fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -
         .is_some_and(|env_var| env_contains(custom_env, env_var))
 }
 
+fn fallback_is_true(value: &str) -> bool {
+    matches!(value, "1" | "true" | "True" | "TRUE")
+}
+
+/// Bind a fallback the way an unconditional `default` does: one value, or several
+/// for `var`, and choices checked the same way.
+fn bind_flag_fallback(
+    flag: &Arc<SpecFlag>,
+    values: &[String],
+    out: &mut ParseOutput,
+    custom_env: Option<&HashMap<String, String>>,
+) -> Result<(), miette::Error> {
+    if values.is_empty() {
+        return Ok(());
+    }
+    if flag.var {
+        if let Some(arg) = flag.arg.as_ref() {
+            validate_choice_values(
+                ChoiceTarget::option(flag),
+                values,
+                arg.choices.as_ref(),
+                custom_env,
+            )?;
+            out.flags
+                .insert(Arc::clone(flag), ParseValue::MultiString(values.to_vec()));
+        } else {
+            let bools: Vec<bool> = values.iter().map(|s| fallback_is_true(s)).collect();
+            out.flags
+                .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
+        }
+    } else if let Some(arg) = flag.arg.as_ref() {
+        validate_choice_value(
+            ChoiceTarget::option(flag),
+            &values[0],
+            arg.choices.as_ref(),
+            custom_env,
+        )?;
+        out.flags
+            .insert(Arc::clone(flag), ParseValue::String(values[0].clone()));
+    } else {
+        out.flags.insert(
+            Arc::clone(flag),
+            ParseValue::Bool(fallback_is_true(&values[0])),
+        );
+    }
+    Ok(())
+}
+
+fn default_if_condition_matches(
+    condition: &crate::SpecDefaultIf,
+    out: &ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    match &condition.when {
+        None => selector_is_explicit(&condition.selector, out, overridden_flags, custom_env),
+        Some(when) => {
+            let Some(flag) = out
+                .available_flags
+                .values()
+                .chain(out.flags.keys())
+                .find(|flag| flag_matches_selector(flag, &condition.selector))
+            else {
+                return false;
+            };
+            if overridden_flags.contains(&flag.name) {
+                return false;
+            }
+            explicit_flag_has_value(flag, when, out, custom_env)
+        }
+    }
+}
+
 /// Whether an explicitly supplied value of `flag` equals `expected`.
 ///
 /// clap treats command-line and environment values as explicit for `requires_if`, but
@@ -1784,7 +1810,11 @@ fn selector_is_satisfied(
         .filter(|flag| flag_matches_selector(flag, selector))
         .any(|flag| {
             !overridden_flags.contains(&flag.name)
-                && (!flag.default.is_empty() || flag.arg.iter().any(|a| !a.default.is_empty()))
+                && (!flag.default.is_empty()
+                    || flag.arg.iter().any(|a| !a.default.is_empty())
+                    || flag.default_if.iter().any(|condition| {
+                        default_if_condition_matches(condition, out, overridden_flags, custom_env)
+                    }))
         })
 }
 
@@ -3847,6 +3877,102 @@ flag "--file <file>" required_unless="--stdin"
 
         parse(&spec, &input(&["ex", "--out", "a.txt"]))
             .expect("a defaulted flag is not a missing one");
+    }
+
+    #[test]
+    fn a_present_flag_binds_a_conditional_default() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\"\n"
+            .parse()
+            .unwrap();
+
+        let with = parse(&spec, &input(&["ex", "--json"])).unwrap();
+        assert_eq!(
+            with.as_env().get("usage_bin_names").map(String::as_str),
+            Some("true")
+        );
+
+        let without = parse(&spec, &input(&["ex"])).unwrap();
+        assert!(
+            without.as_env().get("usage_bin_names").is_none(),
+            "IsPresent does nothing when the selector is absent"
+        );
+    }
+
+    #[test]
+    fn an_equals_condition_binds_a_conditional_default() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--output\" \"json\" \"pretty\"\n}\nflag \"--output <fmt>\"\n"
+            .parse()
+            .unwrap();
+
+        let json = parse(&spec, &input(&["ex", "--output", "json"])).unwrap();
+        assert_eq!(
+            json.as_env().get("usage_style").map(String::as_str),
+            Some("pretty")
+        );
+        let yaml = parse(&spec, &input(&["ex", "--output", "yaml"])).unwrap();
+        assert!(yaml.as_env().get("usage_style").is_none());
+    }
+
+    #[test]
+    fn the_first_matching_conditional_default_wins() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--json\" \"compact\"\n  default_if \"--pretty\" \"pretty\"\n}\nflag \"--json\"\nflag \"--pretty\"\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "--json", "--pretty"])).unwrap();
+        assert_eq!(
+            out.as_env().get("usage_style").map(String::as_str),
+            Some("compact")
+        );
+    }
+
+    #[test]
+    fn argv_and_env_suppress_a_conditional_default() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" env=\"EX_BIN\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\"\n"
+            .parse()
+            .unwrap();
+
+        let from_env = parse_with_env(&spec, &["ex", "--json"], &[("EX_BIN", "false")]).unwrap();
+        assert_eq!(
+            from_env.as_env().get("usage_bin_names").map(String::as_str),
+            Some("false"),
+            "the target's environment wins over default_if"
+        );
+    }
+
+    #[test]
+    fn a_sibling_env_activates_a_conditional_default() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\" env=\"EX_JSON\"\n"
+            .parse()
+            .unwrap();
+
+        let out = parse_with_env(&spec, &["ex"], &[("EX_JSON", "1")]).unwrap();
+        assert_eq!(
+            out.as_env().get("usage_bin_names").map(String::as_str),
+            Some("true")
+        );
+    }
+
+    #[test]
+    fn a_conditional_default_does_not_activate_requires_if() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--format <f>\" {\n  default_if \"--json\" \"json\"\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <s>\"\nflag \"--json\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--json"]))
+            .expect("a default_if value is not explicit for requires_if");
+        assert!(parse(&spec, &input(&["ex", "--format", "json"])).is_err());
+    }
+
+    #[test]
+    fn a_conditional_default_satisfies_a_requirement() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--out <p>\" requires=\"--format\"\nflag \"--format <f>\" {\n  default_if \"--json\" \"json\"\n}\nflag \"--json\"\n"
+            .parse()
+            .unwrap();
+
+        parse(&spec, &input(&["ex", "--out", "a.txt", "--json"]))
+            .expect("default_if fills the required flag");
+        assert!(parse(&spec, &input(&["ex", "--out", "a.txt"])).is_err());
     }
 
     #[test]

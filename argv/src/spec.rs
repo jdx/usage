@@ -627,6 +627,8 @@ pub struct FlagMeta<'a> {
     pub requires: &'a [&'a str],
     /// Value-triggered requirements declared by this flag.
     pub requires_if: &'a [RequiresIf<'a>],
+    /// Defaults that apply when another flag is given.
+    pub default_if: &'a [DefaultIf<'a>],
     /// Flags that make this one necessary.
     pub required_if: &'a [&'a str],
     /// Flags that make this one unnecessary.
@@ -662,6 +664,7 @@ impl FlagMeta<'_> {
         exclusive: false,
         requires: &[],
         requires_if: &[],
+        default_if: &[],
         required_if: &[],
         required_unless: &[],
         help_heading: None,
@@ -674,6 +677,17 @@ impl FlagMeta<'_> {
 pub struct RequiresIf<'a> {
     pub value: &'a str,
     pub requires: &'a str,
+}
+
+/// A default that applies when another flag is given.
+///
+/// Two-argument form (`when` is `None`) is clap's `ArgPredicate::IsPresent`.
+/// Three-argument form is `Equals`.
+#[derive(Debug, Clone, Copy)]
+pub struct DefaultIf<'a> {
+    pub selector: &'a str,
+    pub when: Option<&'a str>,
+    pub value: &'a str,
 }
 
 /// What a positional argument knows about itself beyond how it parses.
@@ -1211,6 +1225,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         || meta.conflicts.len() > 1
         || meta.requires.len() > 1
         || !meta.requires_if.is_empty()
+        || !meta.default_if.is_empty()
         || meta.required_if.len() > 1
         || meta.required_unless.len() > 1;
     if !has_children {
@@ -1236,6 +1251,24 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
             quoted(condition.value),
             quoted(condition.requires)
         )?;
+    }
+    for condition in meta.default_if {
+        indent(out, inner)?;
+        match condition.when {
+            None => writeln!(
+                out,
+                "default_if {} {}",
+                quoted(condition.selector),
+                quoted(condition.value)
+            )?,
+            Some(when) => writeln!(
+                out,
+                "default_if {} {} {}",
+                quoted(condition.selector),
+                quoted(when),
+                quoted(condition.value)
+            )?,
+        }
     }
     write_many_list(out, "required_if", meta.required_if, inner)?;
     write_many_list(out, "required_unless", meta.required_unless, inner)?;

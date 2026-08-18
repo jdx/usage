@@ -207,6 +207,8 @@ pub struct Field {
     pub requires: Vec<String>,
     /// Requirements activated by one of this flag's explicit values.
     pub requires_if: Vec<ConditionalRequirement>,
+    /// Defaults that apply when another flag is given. First match wins.
+    pub default_if: Vec<ConditionalDefault>,
     /// The character a value is split on, making one word several values.
     ///
     /// Only where several can land, so the field has to be a collection — checked at
@@ -249,6 +251,16 @@ pub struct Field {
 pub struct ConditionalRequirement {
     pub value: String,
     pub requires: String,
+}
+
+/// A default that applies when another flag is given.
+///
+/// Two arguments are clap's `ArgPredicate::IsPresent`; three are `Equals`.
+#[derive(Debug, Clone)]
+pub struct ConditionalDefault {
+    pub selector: String,
+    pub when: Option<String>,
+    pub value: String,
 }
 
 /// How a positional argument relates to the `--` separator.
@@ -1016,6 +1028,24 @@ impl Cli {
                     ));
                 }
             }
+            for condition in &field.default_if {
+                let selector = &condition.selector;
+                let Some(target) = self.field_for_selector(selector) else {
+                    return Err(syn::Error::new(
+                        field.span,
+                        format!(
+                            "`default_if(\"{selector}\", _)` names no flag on this command; \
+                             write it as the spec does, `--long` or `-s`"
+                        ),
+                    ));
+                };
+                if target.ident == field.ident {
+                    return Err(syn::Error::new(
+                        field.span,
+                        format!("`default_if(\"{selector}\", _)` names its own field"),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1102,6 +1132,7 @@ impl Field {
             conflicts: Vec::new(),
             requires: Vec::new(),
             requires_if: Vec::new(),
+            default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
@@ -1209,6 +1240,7 @@ impl Field {
             conflicts: Vec::new(),
             requires: Vec::new(),
             requires_if: Vec::new(),
+            default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
@@ -1310,6 +1342,7 @@ impl Field {
             conflicts: Vec::new(),
             requires: Vec::new(),
             requires_if: Vec::new(),
+            default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
@@ -1380,6 +1413,7 @@ impl Field {
         let mut conflicts: Vec<String> = Vec::new();
         let mut requires: Vec<String> = Vec::new();
         let mut requires_if: Vec<ConditionalRequirement> = Vec::new();
+        let mut default_if: Vec<ConditionalDefault> = Vec::new();
         let mut group: Option<String> = None;
         let mut exclusive = false;
         let mut delimiter: Option<char> = None;
@@ -1480,6 +1514,8 @@ impl Field {
                     "requires" => requires = selectors(&meta)?,
                     "requires_if" => requires_if.push(requirement_if(&meta)?),
                     "requires_ifs" => requires_if.extend(requirements_if(&meta)?),
+                    "default_if" => default_if.push(default_if_attr(&meta)?),
+                    "default_ifs" => default_if.extend(default_ifs_attr(&meta)?),
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
                     "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
@@ -1543,7 +1579,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `require_equals`, \
-                                 `default_missing`, \
+                                 `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -1760,6 +1796,19 @@ impl Field {
                     ),
                 ));
             }
+            if let Some(value) = default_if
+                .iter()
+                .map(|condition| &condition.value)
+                .find(|value| !choices.contains(value))
+            {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "the default_if value `{value}` is not one of this field's \
+                         choices, so it could never be valid"
+                    ),
+                ));
+            }
         }
 
         let is_flag = !longs.is_empty() || !shorts.is_empty();
@@ -1838,6 +1887,20 @@ impl Field {
                 span,
                 "`requires_if` describes a relationship between flags, so the field \
                  needs a `long` or a `short`",
+            ));
+        }
+        if !default_if.is_empty() && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`default_if` describes a relationship between flags, so the field \
+                 needs a `long` or a `short`",
+            ));
+        }
+        if !default_if.is_empty() && shape == Shape::Count {
+            return Err(syn::Error::new(
+                span,
+                "`default_if` binds a value, and a `count` field holds how many times \
+                 the flag was given rather than a value",
             ));
         }
         // Declared text wins over the comment, which is the point of declaring it. A comment's
@@ -2178,6 +2241,7 @@ impl Field {
             conflicts,
             requires,
             requires_if,
+            default_if,
             delimiter,
             allow_hyphen_values,
             require_equals,
@@ -2530,6 +2594,87 @@ fn requirements_if(meta: &Meta) -> syn::Result<Vec<ConditionalRequirement>> {
             let value = string_expr(elems.next().expect("length checked"))?;
             let requires = string_expr(elems.next().expect("length checked"))?;
             Ok(ConditionalRequirement { value, requires })
+        })
+        .collect()
+}
+
+fn default_if_attr(meta: &Meta) -> syn::Result<ConditionalDefault> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`default_if` takes a flag and a value, as in `default_if(\"--json\", \"true\")`, \
+             or a flag, a value, and a default, as in `default_if(\"--output\", \"json\", \"pretty\")`",
+        ));
+    };
+    let args: Vec<_> = list
+        .parse_args_with(
+            syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+        )?
+        .into_iter()
+        .collect();
+    match args.len() {
+        2 => Ok(ConditionalDefault {
+            selector: args[0].value(),
+            when: None,
+            value: args[1].value(),
+        }),
+        3 => Ok(ConditionalDefault {
+            selector: args[0].value(),
+            when: Some(args[1].value()),
+            value: args[2].value(),
+        }),
+        _ => Err(syn::Error::new_spanned(
+            meta,
+            "`default_if` takes two arguments (`--json`, `true`) or three \
+             (`--output`, `json`, `pretty`)",
+        )),
+    }
+}
+
+fn default_ifs_attr(meta: &Meta) -> syn::Result<Vec<ConditionalDefault>> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`default_ifs` takes tuples of two or three strings",
+        ));
+    };
+    let pairs = list.parse_args_with(
+        syn::punctuated::Punctuated::<syn::ExprTuple, syn::Token![,]>::parse_terminated,
+    )?;
+    if pairs.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`default_ifs` needs at least one tuple",
+        ));
+    }
+    pairs
+        .into_iter()
+        .map(|pair| {
+            let n = pair.elems.len();
+            if n != 2 && n != 3 {
+                return Err(syn::Error::new_spanned(
+                    pair,
+                    "each `default_ifs` entry is `(flag, value)` or `(flag, when, value)`",
+                ));
+            }
+            let mut elems = pair.elems.into_iter();
+            let selector = string_expr(elems.next().expect("length checked"))?;
+            if n == 2 {
+                let value = string_expr(elems.next().expect("length checked"))?;
+                Ok(ConditionalDefault {
+                    selector,
+                    when: None,
+                    value,
+                })
+            } else {
+                let when = string_expr(elems.next().expect("length checked"))?;
+                let value = string_expr(elems.next().expect("length checked"))?;
+                Ok(ConditionalDefault {
+                    selector,
+                    when: Some(when),
+                    value,
+                })
+            }
         })
         .collect()
 }
@@ -3432,6 +3577,78 @@ mod tests {
         "#,
         );
         assert!(err.contains("relationship between flags"), "{err}");
+    }
+
+    #[test]
+    fn conditional_defaults_need_a_flag_and_a_known_selector() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, default_if("--json", "true"))]
+                bin_names: bool,
+                #[usage(long)]
+                json: bool,
+                #[usage(long, default_if("--output", "json", "pretty"))]
+                style: Option<String>,
+                #[usage(long)]
+                output: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert_eq!(cli.fields[0].default_if.len(), 1);
+        assert!(cli.fields[0].default_if[0].when.is_none());
+        assert_eq!(cli.fields[2].default_if[0].when.as_deref(), Some("json"));
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_if("--json", "true"))]
+                bin_names: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("names no flag"), "{err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(default_if("--json", "true"))]
+                bin_names: bool,
+                #[usage(long)]
+                json: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("relationship between flags"), "{err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_if("--json"))]
+                bin_names: bool,
+                #[usage(long)]
+                json: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("two arguments"), "{err}");
+    }
+
+    #[test]
+    fn every_default_if_value_has_to_be_one_of_the_choices() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_if("--json", "wat"), choices("auto", "always", "never"))]
+                color: Option<String>,
+                #[usage(long)]
+                json: bool,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("the default_if value `wat`"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]

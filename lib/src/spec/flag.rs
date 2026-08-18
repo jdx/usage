@@ -28,6 +28,31 @@ pub struct SpecRequiresIf {
     pub requires: String,
 }
 
+/// A default that applies when another flag is given.
+///
+/// Lives on the *target* flag, the inverse of [`SpecRequiresIf`]:
+/// `flag "--bin-names" { default_if "--json" "true" }` binds `true` on
+/// `--bin-names` when `--json` was given. Two arguments are clap's
+/// `ArgPredicate::IsPresent`; three (`default_if "--output" "json" "pretty"`)
+/// are `Equals`. First match wins. Command-line and environment values on
+/// this flag suppress it; a `default_if` value is a default, not an explicit
+/// value, so it does not activate `requires_if`.
+///
+/// clap 4 has `Arg::default_value_if` as a setter with no getter, so a spec
+/// generated from a clap command never carries this — same hole as
+/// [`SpecFlag::requires`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SpecDefaultIf {
+    /// The other flag that decides whether this default applies (`"--json"`).
+    pub selector: String,
+    /// When set, the selector must have this explicit value (`Equals`).
+    /// When `None`, the selector only has to be present (`IsPresent`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
+    /// The value to bind on this flag when the condition matches.
+    pub value: String,
+}
+
 /// A CLI flag/option specification.
 ///
 /// Flags are optional arguments that start with `-` (short) or `--` (long).
@@ -135,6 +160,14 @@ pub struct SpecFlag {
     /// values do. This matches clap's `requires_if`/`requires_ifs` semantics.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub requires_if: Vec<SpecRequiresIf>,
+    /// Defaults that apply when another flag is given.
+    ///
+    /// First match wins. Only considered when this flag was not on the command
+    /// line and has no environment value. An applied `default_if` is a default,
+    /// not an explicit value: it satisfies `requires` and does not activate
+    /// `requires_if`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub default_if: Vec<SpecDefaultIf>,
     /// Whether this flag must be given on its own.
     ///
     /// The whole-command form of [`SpecFlag::conflicts`]: `--version` and `--help` are
@@ -352,6 +385,23 @@ impl SpecFlag {
                     flag.requires_if.push(SpecRequiresIf {
                         value: child.arg(0)?.ensure_string()?,
                         requires: child.arg(1)?.ensure_string()?,
+                    });
+                }
+                "default_if" => {
+                    child.ensure_arg_len(2..=3)?;
+                    let count = child.args().count();
+                    flag.default_if.push(if count == 2 {
+                        SpecDefaultIf {
+                            selector: child.arg(0)?.ensure_string()?,
+                            when: None,
+                            value: child.arg(1)?.ensure_string()?,
+                        }
+                    } else {
+                        SpecDefaultIf {
+                            selector: child.arg(0)?.ensure_string()?,
+                            when: Some(child.arg(1)?.ensure_string()?),
+                            value: child.arg(2)?.ensure_string()?,
+                        }
                     });
                 }
                 "choices" => {
@@ -585,6 +635,16 @@ impl From<&SpecFlag> for KdlNode {
             requires_if.push(string_entry(None, &condition.requires));
             children.nodes_mut().push(requires_if);
         }
+        for condition in &flag.default_if {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut default_if = KdlNode::new("default_if");
+            default_if.push(string_entry(None, &condition.selector));
+            if let Some(when) = &condition.when {
+                default_if.push(string_entry(None, when));
+            }
+            default_if.push(string_entry(None, &condition.value));
+            children.nodes_mut().push(default_if);
+        }
         if flag.exclusive {
             node.push(KdlEntry::new_prop("exclusive", true));
         }
@@ -790,6 +850,8 @@ impl From<&clap::Arg> for SpecFlag {
             requires: vec![],
             // The conditional forms are hidden behind the same clap API boundary.
             requires_if: vec![],
+            // clap 4 has `Arg::default_value_if` as a setter with no getter.
+            default_if: vec![],
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             require_equals: c.is_require_equals_set(),
@@ -976,6 +1038,61 @@ mod tests {
         assert_eq!(
             reparsed.cmd.flags[0].requires_if,
             spec.cmd.flags[0].requires_if
+        );
+    }
+
+    #[test]
+    fn conditional_defaults_round_trip_in_order_and_cannot_come_across_from_clap() {
+        let spec: Spec = "flag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n  default_if \"--output\" \"json\" \"pretty\"\n}\nflag \"--json\"\nflag \"--output <fmt>\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(
+            spec.cmd.flags[0].default_if,
+            [
+                SpecDefaultIf {
+                    selector: "--json".into(),
+                    when: None,
+                    value: "true".into(),
+                },
+                SpecDefaultIf {
+                    selector: "--output".into(),
+                    when: Some("json".into()),
+                    value: "pretty".into(),
+                },
+            ]
+        );
+
+        let emitted = spec.to_string();
+        let reparsed: Spec = emitted.parse().unwrap();
+        assert_eq!(
+            reparsed.cmd.flags[0].default_if,
+            spec.cmd.flags[0].default_if
+        );
+
+        // Same hole as `requires`: clap 4 has the setter and keeps the field private.
+        let cmd = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("bin-names")
+                    .long("bin-names")
+                    .action(clap::ArgAction::SetTrue)
+                    .default_value_if("json", clap::builder::ArgPredicate::IsPresent, "true"),
+            )
+            .arg(
+                clap::Arg::new("json")
+                    .long("json")
+                    .action(clap::ArgAction::SetTrue),
+            );
+        let spec = Spec::from(&cmd);
+        let bin_names = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "bin-names")
+            .unwrap();
+        assert!(
+            bin_names.default_if.is_empty(),
+            "clap exposes no getter for `default_value_if`; if this now fails, \
+             the bridge can carry it and `SpecFlag::default_if` should say so"
         );
     }
 

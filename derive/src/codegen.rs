@@ -16,7 +16,9 @@ use proc_macro2::TokenStream;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 
-use crate::model::{rendered_path, Cli, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum};
+use crate::model::{
+    rendered_path, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum,
+};
 
 /// The runtime as the adopter depended on it.
 ///
@@ -949,6 +951,15 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
         let requires = &condition.requires;
         quote!(usage_argv::spec::RequiresIf { value: #value, requires: #requires })
     });
+    let default_if = field.default_if.iter().map(|condition| {
+        let selector = &condition.selector;
+        let value = &condition.value;
+        let when = match &condition.when {
+            Some(when) => quote!(::core::option::Option::Some(#when)),
+            None => quote!(::core::option::Option::None),
+        };
+        quote!(usage_argv::spec::DefaultIf { selector: #selector, when: #when, value: #value })
+    });
     let exclusive = field.exclusive;
     let delimiter = match field.delimiter {
         Some(c) => quote!(::std::option::Option::Some(#c)),
@@ -990,6 +1001,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
             requires_if: &[#(#requires_if),*],
+            default_if: &[#(#default_if),*],
             exclusive: #exclusive,
             delimiter: #delimiter,
             required_if: &[#(#required_if),*],
@@ -2140,9 +2152,10 @@ fn field_final(field: &Field) -> TokenStream {
                     let given = format_ident!("__given_{}", ident);
                     let defaulted = !field.default.is_empty();
                     // Same as below: whether anything arrived is what tells "never given"
-                    // from "given nothing", which the `Vec` itself cannot.
+                    // from "given nothing", which the `Vec` itself cannot. A `default_if`
+                    // that fired has already pushed, so a non-empty vec is a value too.
                     quote! {
-                        #ident: if partial.#given || #defaulted {
+                        #ident: if partial.#given || #defaulted || !partial.#ident.is_empty() {
                             ::std::option::Option::Some(#collected)
                         } else {
                             ::std::option::Option::None
@@ -2235,11 +2248,13 @@ fn field_final(field: &Field) -> TokenStream {
                 // A declared default is a value, so a field that has one is never `None`. It
                 // does not set `__given_*` — the environment still has to be able to replace it
                 // — so the answer has to come from the declaration rather than from the partial.
+                // A `default_if` that matched has already pushed, which a leftover empty vec
+                // would not.
                 let defaulted = !field.default.is_empty();
                 // `Option<Vec<T>>` distinguishes "never given" from "given nothing", which
                 // no `Vec` can — so the answer comes from whether anything arrived.
                 quote! {
-                    #ident: if partial.#given || #defaulted {
+                    #ident: if partial.#given || #defaulted || !partial.#ident.is_empty() {
                         ::std::option::Option::Some(#collected)
                     } else {
                         ::std::option::Option::None
@@ -2271,26 +2286,83 @@ fn reset_to_default(field: &Field) -> TokenStream {
         return cleared;
     }
     // Every shape but a collection was checked in the model to have at most one.
-    let first = &field.default[0];
+    assign_literal(field, &field.default[0], field.default.as_slice())
+}
+
+/// Put `value` into the field the way a declared default does.
+fn assign_literal(field: &Field, first: &str, all: &[String]) -> TokenStream {
+    let ident = &field.ident;
+    let cleared = match field.shape {
+        Shape::Many => quote!(partial.#ident.clear();),
+        _ => quote!(),
+    };
     match field.shape {
         Shape::Bool => {
-            let on = first == "true";
+            let on = matches!(first, "1" | "true" | "True" | "TRUE");
             quote!(partial.#ident = #on;)
         }
         Shape::Optional => quote! {
             partial.#ident = ::std::option::Option::Some(#first.as_bytes().to_vec());
         },
         Shape::Required => quote!(partial.#ident = #first.as_bytes().to_vec();),
-        // Rejected in the model: a count starts at zero, so a default has nothing to say.
-        Shape::Count => cleared,
+        Shape::Count => quote!(partial.#ident = ::std::default::Default::default();),
         Shape::Many => {
-            let defaults = &field.default;
+            let defaults = all;
             quote! {
                 #cleared
                 #(partial.#ident.push(#defaults.as_bytes().to_vec());)*
             }
         }
     }
+}
+
+fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStream {
+    let Some(other) = cli.field_for_selector(&condition.selector) else {
+        return quote!(false);
+    };
+    let other_given = format_ident!("__given_{}", other.ident);
+    let ident = &other.ident;
+    match &condition.when {
+        None => quote!(partial.#other_given),
+        Some(when) => {
+            let matches = match other.shape {
+                Shape::Optional => quote!(
+                    partial.#ident.as_deref().is_some_and(|v| v == #when.as_bytes())
+                ),
+                Shape::Required => quote!(partial.#ident.as_slice() == #when.as_bytes()),
+                Shape::Many => quote!(
+                    partial.#ident.iter().any(|v| v.as_slice() == #when.as_bytes())
+                ),
+                Shape::Bool => {
+                    if matches!(when.as_str(), "1" | "true" | "True" | "TRUE") {
+                        quote!(partial.#ident)
+                    } else if matches!(when.as_str(), "0" | "false" | "False" | "FALSE") {
+                        quote!(!partial.#ident)
+                    } else {
+                        quote!(false)
+                    }
+                }
+                Shape::Count => match when.as_str() {
+                    "true" => quote!(partial.#ident > 0),
+                    "false" => quote!(partial.#ident == 0),
+                    _ => quote!(false),
+                },
+            };
+            quote!(partial.#other_given && #matches)
+        }
+    }
+}
+
+fn default_if_would_apply(cli: &Cli, field: &Field) -> Option<TokenStream> {
+    if field.default_if.is_empty() {
+        return None;
+    }
+    let preds: Vec<TokenStream> = field
+        .default_if
+        .iter()
+        .map(|condition| default_if_predicate(cli, condition))
+        .collect();
+    Some(quote!(#(#preds)||*))
 }
 
 /// Take one event and say whether it belonged to this command.
@@ -3518,14 +3590,37 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
 /// without also asking it to report a missing sibling.
 fn declared_defaults(cli: &Cli) -> TokenStream {
     let own = cli.fields.iter().filter_map(|f| {
-        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
+        if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
+            return None;
+        }
+        if f.default.is_empty() && f.default_if.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
-        let assign = reset_to_default(f);
-        Some(quote! {
-            if !partial.#given {
+        let standing = displaced_guard(cli, f);
+        let mut fills: Vec<TokenStream> = f
+            .default_if
+            .iter()
+            .map(|condition| {
+                let pred = default_if_predicate(cli, condition);
+                let assign =
+                    assign_literal(f, &condition.value, std::slice::from_ref(&condition.value));
+                quote!(if !__usage_filled && (#pred) {
+                    #assign
+                    __usage_filled = true;
+                })
+            })
+            .collect();
+        if !f.default.is_empty() {
+            let assign = reset_to_default(f);
+            fills.push(quote!(if !__usage_filled {
                 #assign
+            }));
+        }
+        Some(quote! {
+            if !partial.#given #standing {
+                let mut __usage_filled = false;
+                #(#fills)*
             }
         })
     });
@@ -3919,12 +4014,22 @@ fn post_binding(cli: &Cli) -> TokenStream {
             }
             let other_given = format_ident!("__given_{}", other.ident);
             let other_name = &other.name;
-            Some(quote! {
-                if partial.#given && !partial.#other_given {
-                    return ::std::result::Result::Err(
-                        usage_argv::Error::MissingRequired { name: #other_name },
-                    );
-                }
+            let missing = quote! {
+                return ::std::result::Result::Err(
+                    usage_argv::Error::MissingRequired { name: #other_name },
+                );
+            };
+            Some(match default_if_would_apply(cli, other) {
+                Some(pred) => quote! {
+                    if partial.#given && !partial.#other_given && !(#pred) {
+                        #missing
+                    }
+                },
+                None => quote! {
+                    if partial.#given && !partial.#other_given {
+                        #missing
+                    }
+                },
             })
         })
     });
@@ -3962,8 +4067,12 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     _ => quote!(false),
                 },
             };
+            let unless_default_if = match default_if_would_apply(cli, other) {
+                Some(pred) => quote!(&& !(#pred)),
+                None => quote!(),
+            };
             Some(quote! {
-                if partial.#given && #matches && !partial.#other_given {
+                if partial.#given && #matches && !partial.#other_given #unless_default_if {
                     return ::std::result::Result::Err(
                         usage_argv::Error::MissingRequired { name: #other_name },
                     );
@@ -4238,10 +4347,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     quote! {
-        // Before the environment, which overrides a default when the flag was not given —
-        // the order `start` used to give them.
-        #declared_defaults
+        // Environment first, so a `default_if` can see a sibling filled from
+        // env, and so the environment still overrides an unconditional default.
         #env_fallbacks
+        #declared_defaults
         // Splitting before any check that counts or judges values, so `choices` sees a
         // value rather than the word that carried several, and the bounds count what the
         // user meant. After the environment, since `TAGS=a,b` is one word too.

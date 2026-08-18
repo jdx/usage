@@ -95,12 +95,23 @@ type Meta struct {
 	// RequiresIf names entries required when this entry explicitly has Value.
 	// Defaults do not activate the condition, but may satisfy the requirement.
 	RequiresIf []ValueRequirement
+	// DefaultIf binds Value when another entry matches. First match wins.
+	// Two-argument form (When empty) is presence; When set is equality.
+	// An applied DefaultIf is a default, not an explicit value.
+	DefaultIf []DefaultIf
 }
 
 // ValueRequirement is one value-conditional relationship.
 type ValueRequirement struct {
 	Value string
 	Key   uint64
+}
+
+// DefaultIf is one conditional default, resolved to the selector's key.
+type DefaultIf struct {
+	Key   uint64
+	When  string
+	Value string
 }
 
 // Metadata is the cold table, indexed by key.
@@ -177,10 +188,76 @@ func Fill(m *Meta, given []string, lookupEnv func(string) (string, bool)) ([]str
 			return []string{v}, FromEnv
 		}
 	}
+	// Conditional defaults need sibling state, which this function cannot see.
+	// Leave the entry unset so [ApplyDefaultIf] can choose, then fall back to
+	// Default there as well.
+	if len(m.DefaultIf) > 0 {
+		return nil, Unset
+	}
 	if len(m.Default) > 0 {
 		return m.Default, FromDefault
 	}
 	return nil, Unset
+}
+
+// ApplyDefaultIf fills entries still unset after [Fill], using sibling state.
+//
+// First matching DefaultIf wins; an unconditional Default applies only when
+// none did. Mutates `filled` and `sources` in place. A no-op when nothing
+// declares DefaultIf, so generated parsers can always call it.
+func ApplyDefaultIf(meta Metadata, scope []uint64, filled map[uint64][]string, sources map[uint64]Source) {
+	if filled == nil || sources == nil {
+		return
+	}
+	for _, key := range scope {
+		if sources[key] != Unset {
+			continue
+		}
+		m := meta.Lookup(key)
+		if m == nil {
+			continue
+		}
+		applied := false
+		for i := range m.DefaultIf {
+			if defaultIfMatches(&m.DefaultIf[i], filled, sources, meta) {
+				filled[key] = []string{m.DefaultIf[i].Value}
+				sources[key] = FromDefault
+				applied = true
+				break
+			}
+		}
+		if !applied && len(m.Default) > 0 {
+			filled[key] = m.Default
+			sources[key] = FromDefault
+		}
+	}
+}
+
+func defaultIfMatches(cond *DefaultIf, filled map[uint64][]string, sources map[uint64]Source, meta Metadata) bool {
+	src := sources[cond.Key]
+	if !src.Given() {
+		return false
+	}
+	if cond.When == "" {
+		return true
+	}
+	values := explicitRelationshipValues(meta.Lookup(cond.Key), filled[cond.Key], src)
+	for _, value := range values {
+		if value == cond.When {
+			return true
+		}
+	}
+	return false
+}
+
+func explicitRelationshipValues(m *Meta, values []string, source Source) []string {
+	if m != nil && m.Flag && m.ValueName == "" && len(m.Choices) == 0 {
+		return RelationshipValues(&Meta{RequiresIfBoolean: true}, values, source, false)
+	}
+	if len(values) == 0 && source.Given() && m != nil && m.Flag {
+		return RelationshipValues(&Meta{RequiresIfBoolean: true}, values, source, false)
+	}
+	return values
 }
 
 // Check applies the rules that judge what ended up bound.

@@ -1,0 +1,108 @@
+{
+  "section": "default-if",
+  "about": "A default that depends on another flag. Lives on the target. Two arguments are presence; three are equality. First match wins. Command line and environment on the target suppress it. An applied default_if is a default, not an explicit value.",
+  "vectors": [
+    {
+      "id": "default-if-present-binds",
+      "doc": "`default_if \"--json\" \"true\"` binds when `--json` is given. clap's ArgPredicate::IsPresent.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\"\n",
+      "argv": ["--json"],
+      "expect": { "ok": { "flags": { "bin-names": true, "json": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-absent-does-nothing",
+      "doc": "With the selector absent, the target stays unset.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\"\n",
+      "argv": [],
+      "expect": { "ok": { "flags": {} } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-equals-binds",
+      "doc": "Three arguments: bind when the selector has that explicit value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--output\" \"json\" \"pretty\"\n}\nflag \"--output <fmt>\"\n",
+      "argv": ["--output", "json"],
+      "expect": { "ok": { "flags": { "style": "pretty", "output": "json" } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-equals-misses-other-values",
+      "doc": "An unrelated value on the selector does not bind the default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--output\" \"json\" \"pretty\"\n}\nflag \"--output <fmt>\"\n",
+      "argv": ["--output", "yaml"],
+      "expect": { "ok": { "flags": { "output": "yaml" } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-first-match-wins",
+      "doc": "Conditions are tried in order; the first that matches binds.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--json\" \"compact\"\n  default_if \"--pretty\" \"pretty\"\n}\nflag \"--json\"\nflag \"--pretty\"\n",
+      "argv": ["--json", "--pretty"],
+      "expect": {
+        "ok": { "flags": { "style": "compact", "json": true, "pretty": true } }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-argv-suppresses",
+      "doc": "A value typed for the target wins over default_if.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--json\" \"compact\"\n}\nflag \"--json\"\n",
+      "argv": ["--json", "--style", "pretty"],
+      "expect": { "ok": { "flags": { "style": "pretty", "json": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-env-on-target-suppresses",
+      "doc": "The target's environment is a value, so it suppresses default_if.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" env=\"EX_BIN\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\"\n",
+      "argv": ["--json"],
+      "env": { "EX_BIN": "false" },
+      "expect": { "ok": { "flags": { "bin-names": false, "json": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-sibling-env-activates",
+      "doc": "A selector filled from the environment is present, so default_if binds. Env is applied to every flag before any default_if, so declaration order does not matter.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--bin-names\" {\n  default_if \"--json\" \"true\"\n}\nflag \"--json\" env=\"EX_JSON\"\n",
+      "argv": [],
+      "env": { "EX_JSON": "1" },
+      "expect": { "ok": { "flags": { "bin-names": true, "json": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-does-not-activate-requires-if",
+      "doc": "An applied default_if is a default. requires_if only reads command-line and environment values.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <f>\" {\n  default_if \"--json\" \"json\"\n  requires_if \"json\" \"--schema\"\n}\nflag \"--schema <s>\"\nflag \"--json\"\n",
+      "argv": ["--json"],
+      "expect": { "ok": { "flags": { "format": "json", "json": true } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-satisfies-requires",
+      "doc": "A positive requirement asks whether the other flag ended up with a value. default_if is a value, the same as an unconditional default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--out <p>\" requires=\"--format\"\nflag \"--format <f>\" {\n  default_if \"--json\" \"json\"\n}\nflag \"--json\"\n",
+      "argv": ["--out", "a.txt", "--json"],
+      "expect": {
+        "ok": { "flags": { "out": "a.txt", "format": "json", "json": true } }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-unconditional-default-when-no-match",
+      "doc": "When no condition matches, an unconditional default still applies.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" default=\"plain\" {\n  default_if \"--json\" \"compact\"\n}\nflag \"--json\"\n",
+      "argv": [],
+      "expect": { "ok": { "flags": { "style": "plain" } } },
+      "layer": "post-binding"
+    },
+    {
+      "id": "default-if-choice-is-checked",
+      "doc": "A bound default_if value is checked against choices the same way a default is.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" {\n  default_if \"--pretty\" \"rainbow\"\n  choices \"auto\" \"always\" \"never\"\n}\nflag \"--pretty\"\n",
+      "argv": ["--pretty"],
+      "expect": { "error": "invalid_choice" },
+      "layer": "post-binding"
+    }
+  ]
+}

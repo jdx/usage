@@ -233,10 +233,16 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t}}\n\
          \t}}\n\
          \tsources := map[uint64]argv.Source{{}}\n\
+         \tfilled := map[uint64][]string{{}}\n\
          {conditional_resolved}\
          \tfor _, key := range scope {{\n\
          \t\tvalues, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)\n\
+         \t\tfilled[key] = values\n\
          \t\tsources[key] = source\n\
+         \t}}\n\
+         \targv.ApplyDefaultIf(Meta, scope, filled, sources)\n\
+         \tfor _, key := range scope {{\n\
+         \t\tvalues, source := filled[key], sources[key]\n\
          {conditional_value}\
          \t\tif err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {{\n\
          \t\t\treturn nil, err\n\t\t}}\n\

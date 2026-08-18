@@ -209,6 +209,7 @@ type Flag struct {
 	RequiredIf     []string     `json:"required_if"`
 	RequiredUnless []string     `json:"required_unless"`
 	RequiresIf     []RequiresIf `json:"requires_if"`
+	DefaultIf      []DefaultIf  `json:"default_if"`
 	RequireEquals  bool         `json:"require_equals"`
 	// Empty means unset: usage-lib stores Option, and a missing default of "" is
 	// not carried across the lowering. The corpus never uses one.
@@ -220,6 +221,13 @@ type Flag struct {
 type RequiresIf struct {
 	Value    string `json:"value"`
 	Requires string `json:"requires"`
+}
+
+// DefaultIf is a default that applies when another flag is given.
+type DefaultIf struct {
+	Selector string `json:"selector"`
+	When     string `json:"when"`
+	Value    string `json:"value"`
 }
 
 // spelling is how a user types a flag: its first long form, else its first short.
@@ -611,6 +619,15 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		}
 		return out
 	}
+	resolveDefaultIf := func(conditions []DefaultIf) []argv.DefaultIf {
+		var out []argv.DefaultIf
+		for _, condition := range conditions {
+			if key, ok := find(condition.Selector); ok {
+				out = append(out, argv.DefaultIf{Key: key, When: condition.When, Value: condition.Value})
+			}
+		}
+		return out
+	}
 
 	// `c.Flags` and `out.Flags` are built in step, so the index is the join.
 	for i := range c.Flags {
@@ -621,6 +638,7 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.RequiredUnless = resolve(src.RequiredUnless)
 		m.RequiredIf = resolve(src.RequiredIf)
 		m.RequiresIf = resolveValues(src.RequiresIf)
+		m.DefaultIf = resolveDefaultIf(src.DefaultIf)
 	}
 }
 
