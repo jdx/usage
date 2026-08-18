@@ -214,6 +214,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Require `--flag=value` and refuse `--flag value`.
+    pub fn require_equals(mut self, require: bool) -> Self {
+        self.inner.require_equals = require;
+        self
+    }
+
     /// Set the argument spec for flags that take values
     pub fn arg(mut self, arg: SpecArg) -> Self {
         self.inner.arg = Some(arg);

@@ -38,6 +38,7 @@ flag "--config <file>" {
 flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
+flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -162,6 +163,20 @@ still stops collecting at a later flag-like token, so a second occurrence of the
 flag is not eaten as a value.
 
 A flag that takes no value cannot declare it: there is nothing to take.
+
+## `require_equals`
+
+The value must be attached with `=`: `--inspect=9229` binds and `--inspect 9229`
+is a missing value. clap spells this `require_equals`, and a spec generated from
+a clap command carries it — aube's `--inspect` / `--inspect-brk` are the fleet
+case.
+
+A short's attached form still binds (`-i9229`, `-i=9229`); only the following
+word is refused. Combined with [`allow_hyphen_values`](#allow_hyphen_values),
+the attached form can still pass a dash-prefixed value (`--args=--force`);
+the detached form stays refused.
+
+A flag that takes no value cannot declare it.
 
 ## `global`
 

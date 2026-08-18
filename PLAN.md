@@ -408,8 +408,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `run`/`exec`/`dlx`/`node`, fnox `exec`/`proxy`, pitchfork `daemons add`.
       A hyphen-taking _flag value_ that is not also trailing is now the same
       declaration on the flag.
-- [ ] **`require_equals`** — accept `--flag=value` and refuse `--flag value`.
-      **Used by:** aube `run --inspect` / `--inspect-brk`.
+- [x] **`require_equals`** — accept `--flag=value` and refuse `--flag value`.
+      Spec, usage-lib, usage-argv, the derive (`#[usage(require_equals)]`), and
+      the clap bridge (`Arg::is_require_equals_set`). A short's attached form
+      (`-i9229`, `-i=9229`) still binds. **Used by:** aube `run --inspect` /
+      `--inspect-brk`.
 - [x] **`#[arg(skip)]`** — a field that is not an argument at all, filled from
       `Default`. `#[usage(skip)]` is that: the field stays on the struct so a
       rewrite can keep computed state beside parsed state, and nothing about it
@@ -463,7 +466,7 @@ completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
 (clap's `SetFalse`), `value_enum`, `num_args` via `var_min`/`var_max`, clap's
 `last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
 order, non-UTF-8 `OsString`/`PathBuf` values, `requires`, `group`/`exclusive`,
-and `delimiter`, `#[usage(skip)]`, and `allow_hyphen_values`.
+and `delimiter`, `#[usage(skip)]`, `allow_hyphen_values`, and `require_equals`.
 
 And the other direction: `mount`, `restart_token`, `default_subcommand` and
 `effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
@@ -611,17 +614,16 @@ looking at the clap surface, not only at the spec.
 | gap                                            | who                                                                                       | what breaks without it                                              |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `default_missing_value` / optional-value flags | mise `watch` / `generate bootstrap`, hk `-W`, aube `--color`/`--inspect` / audit `--omit` | `--color` and `--color=always` stop being two spellings of one flag |
-| `require_equals`                               | aube `--inspect`                                                                          | `--inspect 9229` is accepted when it should be refused              |
 | `external_subcommand`                          | aube, pitchfork                                                                           | unknown words at the root stop being forwarded                      |
 | `default_value_if`                             | mise `bin_paths`                                                                          | `--json` no longer implies the matching default                     |
 | `value_parser` ranges                          | unknown until the typed rewrite                                                           | `FromStr` accepts out-of-range numbers clap would refuse            |
 
-`value_delimiter`, `requires`, and `allow_hyphen_values` are not in that table
-because the _parser_ can say them. They are lost only on the clap → spec round
-trip (and a non-ASCII delimiter is dropped even then), and a rewrite that
-declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not a
-command-line shape. Trailing argv is already `double_dash=automatic` in every
-fleet spec that has one.
+`value_delimiter`, `requires`, `allow_hyphen_values`, and `require_equals` are
+not in that table because the _parser_ can say them. They are lost only on the
+clap → spec round trip (and a non-ASCII delimiter is dropped even then), and a
+rewrite that declares in usage keeps them. `#[usage(skip)]` is a compile-time
+field, not a command-line shape. Trailing argv is already `double_dash=automatic`
+in every fleet spec that has one.
 
 - [ ] **Grammar decisions that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how

@@ -851,6 +851,9 @@ fn usage_flag_opts(
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values".into());
     }
+    if flag.require_equals {
+        opts.push("require_equals".into());
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -974,6 +977,9 @@ fn clap_flag_opts(
     }
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values = true".into());
+    }
+    if flag.require_equals {
+        opts.push("require_equals = true".into());
     }
     if flag.global {
         opts.push("global = true".into());

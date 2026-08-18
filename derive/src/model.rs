@@ -218,6 +218,8 @@ pub struct Field {
     /// clap's `allow_hyphen_values`, and the spec's property of the same name. Only
     /// a flag that takes a value can declare it: there is nothing to take otherwise.
     pub allow_hyphen_values: bool,
+    /// Whether the value must be attached with `=`. clap's `require_equals`.
+    pub require_equals: bool,
     /// Whether this flag must be given on its own — clap's `exclusive`.
     pub exclusive: bool,
     /// The group this flag belongs to, if any. Properties live on the group's own
@@ -1097,6 +1099,7 @@ impl Field {
             requires_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            require_equals: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1202,6 +1205,7 @@ impl Field {
             requires_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            require_equals: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1301,6 +1305,7 @@ impl Field {
             requires_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            require_equals: false,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1371,6 +1376,7 @@ impl Field {
         let mut exclusive = false;
         let mut delimiter: Option<char> = None;
         let mut allow_hyphen_values = false;
+        let mut require_equals = false;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1468,6 +1474,7 @@ impl Field {
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
                     "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
+                    "require_equals" => require_equals = flag_value(&meta)?,
                     "delimiter" => {
                         let c = char_value(&meta)?;
                         if !c.is_ascii() {
@@ -1525,7 +1532,7 @@ impl Field {
                                  `count`, `hide`, `arg`, `env`, `default`, `choices`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
-                                 `delimiter`, `allow_hyphen_values`, \
+                                 `delimiter`, `allow_hyphen_values`, `require_equals`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -2040,6 +2047,21 @@ impl Field {
             }
         }
 
+        if require_equals {
+            if !matches!(kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    span,
+                    "`require_equals` is for a flag's value; a positional has no `=` form",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count) {
+                return Err(syn::Error::new(
+                    span,
+                    "`require_equals` requires `--flag=value`, and this flag takes none",
+                ));
+            }
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -2116,6 +2138,7 @@ impl Field {
             requires_if,
             delimiter,
             allow_hyphen_values,
+            require_equals,
             exclusive,
             group,
             required_if,
@@ -3863,6 +3886,34 @@ mod tests {
             err.contains("double_dash"),
             "should point at the positional spelling: {err}"
         );
+    }
+
+    #[test]
+    fn require_equals_is_a_flag_that_takes_a_value() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, require_equals)]
+                inspect: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert!(
+            cli.fields.iter().any(|f| f.require_equals),
+            "the attribute has to reach the field the table is built from"
+        );
+    }
+
+    #[test]
+    fn require_equals_cannot_sit_on_a_switch() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, require_equals)]
+                force: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("takes none"), "unhelpful message: {err}");
     }
 
     #[test]

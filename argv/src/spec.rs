@@ -1183,6 +1183,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.flag.allow_hyphen_values {
         out.push_str(" allow_hyphen_values=#true");
     }
+    if meta.flag.require_equals {
+        out.push_str(" require_equals=#true");
+    }
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;

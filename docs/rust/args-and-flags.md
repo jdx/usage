@@ -75,6 +75,7 @@ jobs: Option<u32>,
 | `value_enum`                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
 | `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
+| `require_equals`                        | Accept `--flag=value` and refuse `--flag value`                                         |
 | `group = "name"`                        | Join a flag group ([Validation](/rust/validation#groups))                               |
 | `exclusive`                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                    |
 | `conflicts(…)` / `requires(…)`          | Relations to other flags ([Validation](/rust/validation))                               |
@@ -103,6 +104,10 @@ has to implement `Default`.
 `-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that
 needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
 `flag "--args <ARGS>" allow_hyphen_values=#true`.
+
+`#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
+and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:
+`flag "--inspect <PORT>" require_equals=#true`.
 
 Flag relations (`conflicts`, `requires`, `overrides`, `required_if`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:
