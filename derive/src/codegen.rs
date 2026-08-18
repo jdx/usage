@@ -3899,6 +3899,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 quote!(&[#(#list),*])
             }
         };
+        let accepted_choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
+            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+            _ => quote!(#choices),
+        };
+        let ignore_case: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
+            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+            _ => quote!(false),
+        };
         let values = match f.shape {
             Shape::Optional => quote!(partial.#ident.iter()),
             Shape::Required => quote!(::std::iter::once(&partial.#ident)),
@@ -3920,7 +3928,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 else {
                     continue;
                 };
-                if !#choices.contains(&__usage_text) {
+                if !usage_argv::spec::choice_matches(#accepted_choices, __usage_text, #ignore_case) {
                     return ::std::result::Result::Err(
                         usage_argv::Error::InvalidChoice {
                             name: #name,
@@ -4415,11 +4423,34 @@ fn post_binding(cli: &Cli) -> TokenStream {
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
     let runtime = runtime_path();
-    let words: Vec<&String> = value_enum.variants.iter().map(|(_, name)| name).collect();
-    let arms = value_enum
+    let words: Vec<&String> = value_enum
         .variants
         .iter()
-        .map(|(variant, name)| quote!(#name => ::std::result::Result::Ok(#ident::#variant),));
+        .map(|value| &value.name)
+        .collect();
+    let accepted: Vec<&String> = value_enum
+        .variants
+        .iter()
+        .flat_map(|value| ::std::iter::once(&value.name).chain(value.aliases.iter()))
+        .collect();
+    let ignore_case = value_enum.ignore_case;
+    let arms = value_enum.variants.iter().map(|value| {
+        let variant = &value.ident;
+        let names = ::std::iter::once(&value.name).chain(value.aliases.iter());
+        if ignore_case {
+            quote! {
+                if [#(#names),*].iter().any(|word| word.eq_ignore_ascii_case(value)) {
+                    return ::std::result::Result::Ok(#ident::#variant);
+                }
+            }
+        } else {
+            quote! {
+                if [#(#names),*].contains(&value) {
+                    return ::std::result::Result::Ok(#ident::#variant);
+                }
+            }
+        }
+    });
     // Listed in the message because a wrong word is the common mistake, and the words are
     // right here. The `choices` check usually reports this first, with the same list; this
     // is what a caller sees who converts one by hand.
@@ -4436,19 +4467,19 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
 
             impl usage_argv::spec::ValueEnum for #ident {
                 const CHOICES: &'static [&'static str] = &[#(#words),*];
+                const ACCEPTED_CHOICES: &'static [&'static str] = &[#(#accepted),*];
+                const IGNORE_CASE: bool = #ignore_case;
             }
 
             impl ::std::str::FromStr for #ident {
                 type Err = ::std::string::String;
 
                 fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
-                    match value {
-                        #(#arms)*
-                        other => ::std::result::Result::Err(::std::format!(
-                            "`{other}` is not one of: {}",
-                            #expected
-                        )),
-                    }
+                    #(#arms)*
+                    ::std::result::Result::Err(::std::format!(
+                        "`{value}` is not one of: {}",
+                        #expected
+                    ))
                 }
             }
         };

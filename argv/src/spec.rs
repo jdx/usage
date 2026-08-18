@@ -1539,6 +1539,15 @@ fn quoted(value: &str) -> String {
 pub trait ValueEnum: Sized {
     /// Every word this type accepts, in the order it declared them.
     const CHOICES: &'static [&'static str];
+    /// Canonical words plus aliases accepted by the type.
+    const ACCEPTED_CHOICES: &'static [&'static str] = Self::CHOICES;
+    const IGNORE_CASE: bool = false;
+}
+
+pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool {
+    choices
+        .iter()
+        .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
 /// One value a flag was given, in a vocabulary this crate can hold.

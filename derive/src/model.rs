@@ -3278,8 +3278,15 @@ impl Variant {
 /// An enum whose variants are the words a value may be.
 pub struct ValueEnum {
     pub ident: syn::Ident,
+    pub ignore_case: bool,
     /// Each variant, and the word it answers to.
-    pub variants: Vec<(syn::Ident, String)>,
+    pub variants: Vec<ValueVariant>,
+}
+
+pub struct ValueVariant {
+    pub ident: syn::Ident,
+    pub name: String,
+    pub aliases: Vec<String>,
 }
 
 impl ValueEnum {
@@ -3298,7 +3305,22 @@ impl ValueEnum {
             ));
         }
 
-        let mut variants: Vec<(syn::Ident, String)> = Vec::new();
+        let mut ignore_case = false;
+        for attr in attrs(&input.attrs) {
+            for meta in nested(attr)? {
+                let path = meta.path().clone();
+                match ident_of(&path).as_str() {
+                    "ignore_case" => ignore_case = flag_value(&meta)?,
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            format!("unknown value-enum option `{other}`"),
+                        ))
+                    }
+                }
+            }
+        }
+        let mut variants: Vec<ValueVariant> = Vec::new();
         for variant in &data.variants {
             if !matches!(variant.fields, Fields::Unit) {
                 return Err(syn::Error::new_spanned(
@@ -3324,17 +3346,19 @@ impl ValueEnum {
                 ));
             }
             let mut name = to_kebab(&variant.ident.unraw().to_string());
+            let mut aliases = Vec::new();
             for attr in attrs(&variant.attrs) {
                 for meta in nested(attr)? {
                     let path = meta.path().clone();
                     match ident_of(&path).as_str() {
                         "name" => name = string_value(&meta)?,
+                        "alias" => aliases.push(string_value(&meta)?),
                         other => {
                             return Err(syn::Error::new_spanned(
                                 path,
                                 format!(
                                     "unknown option `{other}` on a value; a variant takes \
-                                     `name` here"
+                                     `name` or `alias` here"
                                 ),
                             ));
                         }
@@ -3347,14 +3371,18 @@ impl ValueEnum {
                     "a value with no name would answer to nothing",
                 ));
             }
-            if let Some((first, _)) = variants.iter().find(|(_, n)| *n == name) {
+            if let Some(first) = variants.iter().find(|value| value.name == name) {
                 return Err(dup(
                     variant.ident.span(),
-                    first.span(),
+                    first.ident.span(),
                     &format!("`{name}` names two of these values"),
                 ));
             }
-            variants.push((variant.ident.clone(), name));
+            variants.push(ValueVariant {
+                ident: variant.ident.clone(),
+                name,
+                aliases,
+            });
         }
         if variants.is_empty() {
             return Err(syn::Error::new_spanned(
@@ -3365,6 +3393,7 @@ impl ValueEnum {
 
         Ok(ValueEnum {
             ident: input.ident.clone(),
+            ignore_case,
             variants,
         })
     }
