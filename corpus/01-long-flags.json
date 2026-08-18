@@ -306,7 +306,9 @@
       "doc": "Combined with `require_equals`, a following word is not the value: `--inspect 80` binds the missing default and leaves `80` for a positional.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true default_missing=\"9229\"\narg \"[rest]\"\n",
       "argv": ["--inspect", "80"],
-      "expect": { "ok": { "flags": { "inspect": "9229" }, "args": { "rest": "80" } } }
+      "expect": {
+        "ok": { "flags": { "inspect": "9229" }, "args": { "rest": "80" } }
+      }
     }
   ]
 }
