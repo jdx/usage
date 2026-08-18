@@ -457,6 +457,9 @@ impl Emitter<'_> {
         if flag.required {
             fields.push("Required: true".to_string());
         }
+        if !flag.requires_if.is_empty() && flag.arg.is_none() {
+            fields.push("RequiresIfBoolean: true".to_string());
+        }
         // How a user types it, worked out where the forms are visible: the rules
         // that judge an entry never see a flag, and guessing from the name gets a
         // one-letter long form and a short the wrong way round.
@@ -518,6 +521,22 @@ impl Emitter<'_> {
             if !keys.is_empty() {
                 fields.push(format!("{label}: {}", key_slice(&keys)));
             }
+        }
+        let requires_if = flag
+            .requires_if
+            .iter()
+            .filter_map(|condition| {
+                resolve_relationship(std::slice::from_ref(&condition.requires), owner, commands)
+                    .into_iter()
+                    .next()
+                    .map(|key| format!("{{Value: {}, Key: {key}}}", go_string(&condition.value)))
+            })
+            .collect::<Vec<_>>();
+        if !requires_if.is_empty() {
+            fields.push(format!(
+                "RequiresIf: []argv.ValueRequirement{{{}}}",
+                requires_if.join(", ")
+            ));
         }
 
         format!("{{{}}}", fields.join(", "))
@@ -1602,6 +1621,28 @@ cmd "run" {
         assert!(
             !entry_of(&out, "solo").contains("Conflicts"),
             "a non-global should not resolve from below:\n{out}"
+        );
+    }
+
+    #[test]
+    fn a_value_conditional_requirement_reaches_go_metadata() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--format <format>" {
+    requires_if "json" "--schema"
+}
+flag "--schema <file>"
+"#);
+        assert!(
+            entry_of(&out, "format").contains(
+                "RequiresIf: []argv.ValueRequirement{{Value: \"json\", Key: FlagSchema}}"
+            ),
+            "{out}"
+        );
+        assert!(
+            out.contains("argv.CheckRelationshipsWithValues"),
+            "the emitted parser must enforce the metadata:\n{out}"
         );
     }
 

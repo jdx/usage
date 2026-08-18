@@ -1,14 +1,41 @@
 package argv
 
+// RelationshipValues canonicalizes the values used by value-conditional
+// relationships. It leaves value-taking entries alone and turns every boolean
+// source into the same "true" or "false" spelling.
+func RelationshipValues(m *Meta, values []string, source Source, negated bool) []string {
+	if m == nil || !m.RequiresIfBoolean {
+		return values
+	}
+	switch source {
+	case FromArgv:
+		if negated {
+			return []string{"false"}
+		}
+		return []string{"true"}
+	case FromEnv:
+		if len(values) > 0 && EnvTruth(values[0]) {
+			return []string{"true"}
+		}
+		return []string{"false"}
+	case FromDefault:
+		if len(values) > 0 && values[0] == "true" {
+			return []string{"true"}
+		}
+		return []string{"false"}
+	}
+	return values
+}
+
 // The rules that compare one entry against another.
 //
 // Everything in post.go judges an entry on its own: is it there, is its value
-// allowed, are there enough of them. These four need a second entry to answer at
+// allowed, are there enough of them. These rules need a second entry to answer at
 // all, which is why they are separate — a name in the declaration has to be
 // resolved to the entry it refers to before any of it can be checked, and that
 // resolution happens where the whole command is visible rather than here.
 //
-// `overrides` is the odd one. The other three are decided once the last token has
+// `overrides` is the odd one. The others are decided once the last token has
 // been read; this one asks which of two flags came *last*, which only the
 // arriving tokens know. So it is applied first, on the order binding reports, and
 // what it removes is removed before anything else looks.
@@ -86,6 +113,16 @@ func ApplyOverrides(meta Metadata, order map[uint64]int) map[uint64]bool {
 // A key removed by [ApplyOverrides] should not appear in `entries` at all: it
 // lost, so it is out of the running rather than merely absent.
 func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) Source) *Error {
+	return CheckRelationshipsWithValues(meta, entries, sourceOf, nil)
+}
+
+// CheckRelationshipsWithValues also enforces value-conditional requirements.
+//
+// `valuesOf` reports canonical values for an entry. Boolean flags should report
+// "true" or "false" regardless of whether that value came from a spelling such
+// as `--feature`, its negation, or a truthy environment value.
+func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
+	sourceOf func(uint64) Source, valuesOf func(uint64) []string) *Error {
 	given := func(key uint64) bool { return sourceOf(key).Given() }
 
 	for _, key := range entries {
@@ -105,6 +142,17 @@ func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) S
 						e.Other, e.OtherSpelling = o.Name, o.Spelling
 					}
 					return e
+				}
+			}
+			if valuesOf != nil {
+				values := valuesOf(key)
+				for _, condition := range m.RequiresIf {
+					if !containsValue(values, condition.Value) || sourceOf(condition.Key) != Unset {
+						continue
+					}
+					if required := meta.Lookup(condition.Key); required != nil {
+						return missingRequired(required)
+					}
 				}
 			}
 			continue
@@ -140,6 +188,15 @@ func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) S
 		}
 	}
 	return nil
+}
+
+func containsValue(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func missingRequired(m *Meta) *Error {

@@ -203,11 +203,18 @@ type Flag struct {
 	HelpLong      string   `json:"help_long"`
 	HelpHeading   string   `json:"help_heading"`
 	// The four that name another flag. They arrive as written, dashes included.
-	Conflicts      []string `json:"conflicts"`
-	Overrides      []string `json:"overrides"`
-	RequiredIf     []string `json:"required_if"`
-	RequiredUnless []string `json:"required_unless"`
-	Arg            *Arg     `json:"arg"`
+	Conflicts      []string     `json:"conflicts"`
+	Overrides      []string     `json:"overrides"`
+	RequiredIf     []string     `json:"required_if"`
+	RequiredUnless []string     `json:"required_unless"`
+	RequiresIf     []RequiresIf `json:"requires_if"`
+	Arg            *Arg         `json:"arg"`
+}
+
+// RequiresIf is one explicit value and the flag that value requires.
+type RequiresIf struct {
+	Value    string `json:"value"`
+	Requires string `json:"requires"`
 }
 
 // spelling is how a user types a flag: its first long form, else its first short.
@@ -589,6 +596,15 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		}
 		return out
 	}
+	resolveValues := func(requirements []RequiresIf) []argv.ValueRequirement {
+		var out []argv.ValueRequirement
+		for _, requirement := range requirements {
+			if key, ok := find(requirement.Requires); ok {
+				out = append(out, argv.ValueRequirement{Value: requirement.Value, Key: key})
+			}
+		}
+		return out
+	}
 
 	// `c.Flags` and `out.Flags` are built in step, so the index is the join.
 	for i := range c.Flags {
@@ -598,6 +614,7 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.Overrides = resolve(src.Overrides)
 		m.RequiredUnless = resolve(src.RequiredUnless)
 		m.RequiredIf = resolve(src.RequiredIf)
+		m.RequiresIf = resolveValues(src.RequiresIf)
 	}
 }
 
@@ -706,16 +723,17 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Default:       f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
-		Name:         f.Name,
-		Flag:         true,
-		Spelling:     spelling(f),
-		ValueName:    valueOf(f),
-		CompleteType: b.completeType(first(valueOf(f), f.Name)),
-		Required:     f.Required,
-		Choices:      f.choices(),
-		Default:      f.defaults(),
-		Env:          f.Env,
-		VarMin:       clampVarMax(f.VarMin),
+		Name:              f.Name,
+		Flag:              true,
+		RequiresIfBoolean: len(f.RequiresIf) > 0 && f.Arg == nil,
+		Spelling:          spelling(f),
+		ValueName:         valueOf(f),
+		CompleteType:      b.completeType(first(valueOf(f), f.Name)),
+		Required:          f.Required,
+		Choices:           f.choices(),
+		Default:           f.defaults(),
+		Env:               f.Env,
+		VarMin:            clampVarMax(f.VarMin),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
 		// and is set on the parse table below rather than here.
 		VarMax: clampVarMax(f.VarMax),

@@ -335,7 +335,14 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 		}
 		return argv.Unset
 	}
-	if err := argv.CheckRelationships(meta, scope, sourceOf); err != nil {
+	valuesOf := func(key uint64) []string {
+		r := final[key]
+		if r == nil {
+			return nil
+		}
+		return argv.RelationshipValues(meta.Lookup(key), r.values, r.source, r.negated)
+	}
+	if err := argv.CheckRelationshipsWithValues(meta, scope, sourceOf, valuesOf); err != nil {
 		return nil, err
 	}
 
