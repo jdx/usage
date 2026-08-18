@@ -79,7 +79,12 @@ pub fn run(vector: &Vector) -> Observed {
                 .iter()
                 .map(|(arg, value)| (arg.name.clone(), convert(value)))
                 .collect();
-            Observed::Parsed(Parsed { cmd, flags, args })
+            Observed::Parsed(Parsed {
+                cmd,
+                flags,
+                args,
+                external: out.external.unwrap_or_default(),
+            })
         }
         Err(e) => classify(&e.to_string()),
     }

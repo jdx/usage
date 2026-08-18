@@ -633,6 +633,12 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Forward an unmatched word as an external command plus the rest of argv
+    pub fn external_subcommand(mut self, enabled: bool) -> Self {
+        self.inner.external_subcommand = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

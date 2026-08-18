@@ -148,11 +148,27 @@ pub fn run(vector: &Vector) -> Outcome {
                     args.insert(name, Value::Str(string(value)));
                 }
             }
+            Ok(Event::External { values }) => {
+                return Outcome::Parsed(Parsed {
+                    cmd,
+                    flags,
+                    args,
+                    external: values
+                        .iter()
+                        .map(|v| v.to_str().expect("corpus values are UTF-8").to_string())
+                        .collect(),
+                });
+            }
             Err(e) => return Outcome::Failed(code(e)),
         }
     }
 
-    Outcome::Parsed(Parsed { cmd, flags, args })
+    Outcome::Parsed(Parsed {
+        cmd,
+        flags,
+        args,
+        external: Vec::new(),
+    })
 }
 
 fn string(value: &[u8]) -> String {

@@ -479,6 +479,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             restart_token,
             // How a command line is read, which no rendered page shows.
             unknown_flags: _,
+            external_subcommand: _,
             // Rendered above, or deliberately absent from the docs model.
             args: _,
             flags: _,

@@ -18,6 +18,8 @@ package argv
 //			// ev.Flag was given, with ev.Value if ev.HasValue
 //		case argv.KindArg:
 //			// ev.Value filled ev.Arg
+//		case argv.KindExternal:
+//			// ev.Values is the unmatched name, then the rest of argv
 //		}
 //	}
 //	if err := p.Err(); err != nil {
@@ -492,6 +494,16 @@ func (p *Parser) word(token string) bool {
 			}
 			p.pos--
 			return p.emit(Event{Kind: KindCommand, Command: d})
+		}
+
+		// An unmatched word that names no subcommand is forwarded as an external
+		// command: this word, then every token after it, including flags. Known
+		// subcommands already won above, and a default subcommand already caught.
+		if p.cmd.ExternalSubcommand && !isFlagLike(token) && token != "--" && token != "-" {
+			from := p.pos - 1
+			values := p.argv[from:]
+			p.pos = len(p.argv)
+			return p.emit(Event{Kind: KindExternal, Values: values})
 		}
 	}
 

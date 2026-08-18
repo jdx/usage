@@ -56,8 +56,9 @@ At each token, in order:
    [short](#short-flags)). If nothing matches, see
    [unrecognized flags](#unrecognized-flags).
 4. Otherwise the token is a word: it selects a [subcommand](#subcommands) if one
-   matches, and is otherwise offered to the command's
-   [positional arguments](#positional-arguments).
+   matches; otherwise it is forwarded as an [external subcommand](#external-subcommands)
+   if the command declares `external_subcommand`; otherwise it is offered to the
+   command's [positional arguments](#positional-arguments).
 
 ## Long flags
 
@@ -250,6 +251,34 @@ documents exactly this hazard for tasks that share a name with a command.
 **Only the descent position routes.** Once a word has been consumed by a
 positional argument, a later word matching a subcommand name is just a value.
 `ex other install` does not run `install`.
+
+### External subcommands
+
+A command may declare `external_subcommand`. An unmatched word that names no
+subcommand is then the name of an external command, and every token after it is
+forwarded with it — including flags. Known subcommands still win. A
+`default_subcommand` still catches first. A flag-like token on the parent is
+still an unknown flag, not a forwarded name: `ex git --help` forwards
+`git --help`; `ex --wat` errors.
+
+This is clap's `allow_external_subcommands`. It is not `unknown_flags=value`,
+which is the reading a wrapper uses when hyphen-taking tokens should bind as
+values of *this* command.
+
+```kdl
+unknown_flags "error"
+external_subcommand #true
+cmd "install"
+```
+
+The property is per command, so a nested `cmd` can forward while the root still
+owns its flags:
+
+```kdl
+cmd "exec" external_subcommand=#true {
+  cmd "install"
+}
+```
 
 ### Flag scope
 

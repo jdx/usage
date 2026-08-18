@@ -137,6 +137,25 @@ Unlike [`effect`](#effect), this is inherited: it describes how a command line i
 read rather than what a command does. See
 [the argv grammar](../argv.md#unrecognized-flags) for the reasoning and the cost.
 
+### External subcommands
+
+An unmatched word that names no subcommand can be forwarded as an external
+command plus the rest of argv. This is clap's `allow_external_subcommands`, not
+`unknown_flags=value`: known subcommands still win, a `default_subcommand` still
+catches first, and a flag-like token on the parent is still an unknown flag.
+
+```kdl
+unknown_flags "error"
+external_subcommand #true            // the whole CLI
+cmd "exec" external_subcommand=#true // or one command
+```
+
+`ex git --help` forwards `git --help`. `ex --wat` is still an error. Once the
+unmatched word is taken, remaining tokens — including `--help` — are not parsed
+as this command's flags.
+
+See [the argv grammar](../argv.md#external-subcommands).
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

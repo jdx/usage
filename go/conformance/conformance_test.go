@@ -63,9 +63,10 @@ type Expect struct {
 // the spec gives each flag or argument, never by the token that set it, so -j,
 // --jobs and an env var all land under `jobs`.
 type Parsed struct {
-	Cmd   []string               `json:"cmd"`
-	Flags map[string]interface{} `json:"flags"`
-	Args  map[string]interface{} `json:"args"`
+	Cmd      []string               `json:"cmd"`
+	Flags    map[string]interface{} `json:"flags"`
+	Args     map[string]interface{} `json:"args"`
+	External []string               `json:"external,omitempty"`
 }
 
 type file struct {
@@ -199,6 +200,7 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 	// The commands whose declarations are in scope. A required flag on a command
 	// nobody selected is not missing; it is simply not this invocation's.
 	path := []*argv.Command{root}
+	var external []string
 
 	p := argv.New(root, args)
 	for p.Next() {
@@ -222,6 +224,8 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 			b.occurrences++
 			b.at = seen
 			b.values = append(b.values, ev.Value)
+		case argv.KindExternal:
+			external = append(external, ev.Values...)
 		}
 	}
 	if err := p.Err(); err != nil {
@@ -233,9 +237,10 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 	}
 
 	out := &Parsed{
-		Cmd:   []string{},
-		Flags: map[string]interface{}{},
-		Args:  map[string]interface{}{},
+		Cmd:      []string{},
+		Flags:    map[string]interface{}{},
+		Args:     map[string]interface{}{},
+		External: external,
 	}
 	for _, cmd := range path[1:] {
 		out.Cmd = append(out.Cmd, cmd.Name)
@@ -434,7 +439,7 @@ func bools(v interface{}) []interface{} { return strs(v) }
 // root. Likewise for the two maps. The corpus is the definition of correct about
 // bindings, not about which of two spellings of "nothing" a decoder produces.
 func normalizeExpected(p *Parsed) *Parsed {
-	out := &Parsed{Cmd: p.Cmd, Flags: p.Flags, Args: p.Args}
+	out := &Parsed{Cmd: p.Cmd, Flags: p.Flags, Args: p.Args, External: p.External}
 	if out.Cmd == nil {
 		out.Cmd = []string{}
 	}

@@ -51,7 +51,8 @@ struct Install {
   `#[usage(subcommand)]` field, up to a maximum depth of 16.
 
 Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `long_help`,
-`verbatim_doc_comment`. Aliases declared on the variant and on the `Args` struct are joined.
+`verbatim_doc_comment`, `external_subcommand`. Aliases declared on the variant and on the `Args`
+struct are joined.
 
 Two variants wrapping the _same_ struct is a compile error — each command needs its own
 declaration (two byte-identical structs in different modules are fine).
@@ -66,6 +67,32 @@ struct Ex { /* … */ }
 
 When argv selects no command, `run` is assumed. Naming a command that doesn't exist fails the
 **build**, not the run.
+
+## External subcommands
+
+clap's `#[command(external_subcommand)]` is a catch-all variant that holds the unmatched
+name plus the rest of argv:
+
+```rust
+#[derive(Cli)]
+#[usage(bin = "ex", unknown_flags = "error")]
+struct Ex {
+    #[usage(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommands)]
+enum Commands {
+    Install(Install),
+    #[usage(external_subcommand)]
+    External(Vec<String>),
+}
+```
+
+The variant must hold `Vec<String>` or `Vec<OsString>`. Only one such variant is allowed.
+Known subcommands still win; a `default_subcommand` still catches first. `ex git --help`
+becomes `Commands::External(vec!["git", "--help".into()])`. `ex --wat` is still an unknown
+flag. The emitted spec carries `external_subcommand #true`.
 
 ## Sharing declarations with `flatten`
 

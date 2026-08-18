@@ -18,6 +18,8 @@ for p.Next() {
 		// ev.Flag; ev.Value if ev.HasValue; ev.Negated for --no-* spellings
 	case argv.KindArg:
 		// ev.Value filled ev.Arg
+	case argv.KindExternal:
+		// ev.Values is the unmatched name, then the rest of argv
 	}
 }
 if err := p.Err(); err != nil {

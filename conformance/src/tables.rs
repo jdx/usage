@@ -105,6 +105,7 @@ pub fn build(
         default_subcommand: None,
         version: false,
         unknown_flags,
+        external_subcommand: cmd.external_subcommand,
         key: 0,
     }));
 

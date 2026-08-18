@@ -290,6 +290,9 @@ macro_rules! __spec_cmd_attr {
     ($builder:expr, subcommand_required, $value:expr) => {
         $builder.subcommand_required($value)
     };
+    ($builder:expr, external_subcommand, $value:expr) => {
+        $builder.external_subcommand($value)
+    };
     ($builder:expr, aliases, $value:expr) => {
         $builder.aliases($value)
     };
