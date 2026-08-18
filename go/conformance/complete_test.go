@@ -1,10 +1,12 @@
 package conformance
 
 import (
+	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jdx/usage/go/argv"
 )
@@ -23,16 +25,23 @@ import (
 
 // completeWord is the reference's answer for a partial word at a command path.
 //
-// Only the lines the CLI itself produced: where the reference has nothing to
-// offer it falls back to listing the working directory, and those lines describe
-// the machine rather than the spec. The Go side says `\x01files` there instead,
-// which is compared separately below.
+// Every non-empty line it printed, whatever the line holds. Two of the things it
+// can hold are not this side's to reproduce — a listing of the working directory
+// where nothing else fit, and whatever a spec's `complete` block printed when the
+// reference ran it — so the *positions* asked about are chosen to avoid both,
+// rather than the lines being filtered afterwards. Filtering would quietly hide a
+// real difference behind a rule about what a path looks like.
+//
+// Bounded, because it is another program: a reference that hangs should fail this
+// test rather than the suite.
 func completeWord(t *testing.T, usageBin, kdl string, words []string, cword int) []string {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	args := []string{"complete-word", "--shell", "bash", "-f", kdl,
 		"--cword", itoa(cword), "--"}
 	args = append(args, words...)
-	out, err := exec.Command(usageBin, args...).Output()
+	out, err := exec.CommandContext(ctx, usageBin, args...).Output()
 	if err != nil {
 		t.Fatalf("the reference should answer %v: %v", words, err)
 	}
@@ -58,18 +67,22 @@ func TestTheCursorGetsTheReferencesAnswer(t *testing.T) {
 	// and `mise settings ⌶` both do, and shelling out on a Tab is the piece this
 	// package has deliberately not built.
 	//
+	// The root's own cursor is one of those: mise's default subcommand is `run`,
+	// whose `TASK` runs a completer, so even `mise plug⌶` is answered partly by a
+	// subprocess. The lines below sit under a subcommand that has neither.
+	//
 	// What is left covers the branches: subcommands, aliases, a nested command,
 	// both flag forms, a long that narrows, and a word that matches nothing.
 	for _, line := range []string{
-		"mise plug",
 		"mise config ",
 		"mise config l",
 		"mise -",
 		"mise --",
 		"mise --log-",
 		"mise use -",
-		"mise wat",
 		"mise plugins ",
+		"mise plugins in",
+		"mise plugins wat",
 		"mise plugins install -",
 	} {
 		split := argv.Split(line, len(line), argv.Bash)
