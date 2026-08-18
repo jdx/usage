@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use usage_conformance::complete::{load, run, Reference};
+use usage_conformance::complete::{load, reference, run, Reference};
 
 #[test]
 fn every_vector_is_offered_what_it_expects() {
@@ -78,21 +78,45 @@ fn every_vector_says_something() {
 }
 
 #[test]
-fn a_divergence_from_the_reference_is_labelled() {
-    // The corpus's rule, kept the same way the argv corpus keeps it: a vector the reference
-    // disagrees with must say so, so a divergence is a recorded decision rather than a mystery.
-    //
-    // Only the label is checked here, not the reference's answer: `usage-cli` completes through
-    // a `Command` with its own shell splitting, and re-deriving that inside a test would be a
-    // second implementation of the thing under test. `benches/gate` compares the two over mise's
-    // real spec, which is where the reference is actually held to account.
+fn the_reference_label_is_true_in_both_directions() {
+    // A vector claiming agreement must agree, and a vector claiming divergence must still
+    // diverge. A fixed divergence therefore fails with an instruction to delete the label
+    // instead of quietly rotting into folklore.
+    let mut wrong = Vec::new();
     for (file, vector) in load() {
-        if let Reference::Diverges(note) = &vector.reference {
-            assert!(
-                !note.trim().is_empty(),
-                "{} [{file}] is labelled as diverging with no note saying how",
+        let observed = match reference(&vector) {
+            Ok(observed) => observed,
+            Err(why) => {
+                wrong.push(format!("{} [{file}]: {why}", vector.id));
+                continue;
+            }
+        };
+        let agrees = observed.matches(&vector.expect);
+        match (&vector.reference, agrees) {
+            (Reference::Agrees, true) => {}
+            (Reference::Diverges(note), false) if !note.trim().is_empty() => {}
+            (Reference::Agrees, false) => wrong.push(format!(
+                "{} [{file}]: labelled as agreeing\n      wanted: {:?}{}\n      reference: {:?}{}",
+                vector.id,
+                vector.expect.candidates,
+                if vector.expect.files { " + files" } else { "" },
+                observed.candidates,
+                if observed.files { " + files" } else { "" },
+            )),
+            (Reference::Diverges(note), true) => wrong.push(format!(
+                "{} [{file}]: labelled as diverging ({note}), but the reference now agrees — delete the label",
                 vector.id
-            );
+            )),
+            (Reference::Diverges(_), false) => wrong.push(format!(
+                "{} [{file}]: labelled as diverging with no note saying how",
+                vector.id
+            )),
         }
     }
+    assert!(
+        wrong.is_empty(),
+        "{} reference label(s) are wrong:\n  {}",
+        wrong.len(),
+        wrong.join("\n  ")
+    );
 }

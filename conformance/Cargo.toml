@@ -19,6 +19,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 usage-argv = { workspace = true, features = ["spec", "complete", "diagnostics"] }
 usage-config = { workspace = true }
+usage-cli = { workspace = true }
 usage-lib = { workspace = true }
 
 [dev-dependencies]

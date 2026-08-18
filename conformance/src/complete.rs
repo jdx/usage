@@ -151,12 +151,39 @@ pub fn run(vector: &Vector) -> Result<Offered, String> {
     })
 }
 
+/// What the reference `usage-cli` implementation offers for a vector.
+pub fn reference(vector: &Vector) -> Result<Offered, String> {
+    let spec: Spec = vector
+        .spec
+        .parse()
+        .map_err(|e| format!("the spec would not load: {e}"))?;
+    let at = split(&vector.line, vector.cursor(), Shell::Bash);
+    let answer = usage_cli::complete_answer(&spec, &at.words, at.cword, "bash")
+        .map_err(|e| format!("the reference would not complete it: {e}"))?;
+    Ok(Offered {
+        candidates: if answer.files {
+            Vec::new()
+        } else {
+            answer
+                .candidates
+                .into_iter()
+                .map(|(value, _)| value)
+                .collect()
+        },
+        files: answer.files,
+    })
+}
+
 /// Every vector in the corpus, in file order.
 pub fn load() -> Vec<(String, Vector)> {
     let mut out = Vec::new();
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir())
         .expect("the completion corpus should be readable")
-        .filter_map(|e| e.ok().map(|e| e.path()))
+        .map(|entry| {
+            entry
+                .expect("a completion corpus directory entry should be readable")
+                .path()
+        })
         .filter(|p| p.extension().is_some_and(|e| e == "json"))
         .collect();
     files.sort();

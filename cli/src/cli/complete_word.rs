@@ -59,6 +59,29 @@ pub fn candidates(
     cword: usize,
     shell: &str,
 ) -> miette::Result<Vec<(String, String)>> {
+    Ok(answer(spec, words, cword, shell)?.candidates)
+}
+
+/// The reference implementation's candidates and whether they came from its path fallback.
+///
+/// `candidates` keeps returning the concrete paths the CLI has always printed. Conformance
+/// needs the extra bit because a portable corpus can say "files belong here" but cannot pin
+/// whichever files happen to be in the checkout running it.
+#[derive(Debug, PartialEq, Eq)]
+pub struct CandidateAnswer {
+    /// The concrete values the CLI would print for the shell.
+    pub candidates: Vec<(String, String)>,
+    /// Whether the CLI generated those values by scanning the filesystem.
+    pub files: bool,
+}
+
+/// Complete a partial command line while preserving path-fallback metadata.
+pub fn answer(
+    spec: &Spec,
+    words: &[String],
+    cword: usize,
+    shell: &str,
+) -> miette::Result<CandidateAnswer> {
     CompleteWord {
         words: words.to_vec(),
         file: None,
@@ -66,7 +89,7 @@ pub fn candidates(
         cword: Some(cword),
         shell: shell.to_string(),
     }
-    .complete_word(spec)
+    .complete_word_answer(spec)
 }
 
 impl CompleteWord {
@@ -111,6 +134,10 @@ impl CompleteWord {
     }
 
     pub fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
+        Ok(self.complete_word_answer(spec)?.candidates)
+    }
+
+    fn complete_word_answer(&self, spec: &Spec) -> miette::Result<CandidateAnswer> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self.words.get(cword).cloned().unwrap_or_default();
         let words: Vec<_> = self.words.iter().take(cword).cloned().collect();
@@ -233,13 +260,17 @@ impl CompleteWord {
         // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
         // `-input` still gets completed there.
         let looks_like_a_flag = flags_possible && ctoken.starts_with('-');
-        if choices.is_empty() && !looks_like_a_flag && !has_explicit_choices {
+        let files = choices.is_empty() && !looks_like_a_flag && !has_explicit_choices;
+        if files {
             let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             let files = self.complete_path(&cwd, &ctoken, |_| true);
             choices = files.into_iter().map(|n| (n, String::new())).collect();
         }
         trace!("choices: {}", choices.iter().map(|(c, _)| c).join(", "));
-        Ok(choices)
+        Ok(CandidateAnswer {
+            candidates: choices,
+            files,
+        })
     }
 
     fn complete_subcommands(&self, cmd: &SpecCommand, ctoken: &str) -> Vec<(String, String)> {
