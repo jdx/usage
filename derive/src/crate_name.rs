@@ -63,14 +63,21 @@ fn find_in_manifest(text: &str, package: &str) -> Result<FoundCrate, ()> {
             continue;
         }
 
-        if let Some(found) = finish_open_if_closed(&mut open, package, line) {
-            return Ok(found);
-        }
-
         if open.is_some() {
-            if let Some(pkg) = string_assignment(line, "package") {
+            // The body of a `{ … }` dependency, possibly ending on this line. Read a `package`
+            // field from the part before any `}`, then close the table when the `}` arrives.
+            let (fields, closed) = match line.split_once('}') {
+                Some((before, _)) => (before, true),
+                None => (line, false),
+            };
+            if let Some(pkg) = package_from_fields(fields) {
                 if let Some(t) = open.as_mut() {
                     t.package = Some(pkg);
+                }
+            }
+            if closed {
+                if let Some(found) = finish_open(&mut open, package) {
+                    return Ok(found);
                 }
             }
             continue;
@@ -83,11 +90,8 @@ fn find_in_manifest(text: &str, package: &str) -> Result<FoundCrate, ()> {
             continue;
         }
 
-        if let Some(key) = multiline_table_start(line) {
-            open = Some(OpenTable {
-                key,
-                package: None,
-            });
+        if let Some((key, package)) = multiline_table_start(line) {
+            open = Some(OpenTable { key, package });
         }
     }
 
@@ -102,22 +106,6 @@ struct OpenTable {
 fn finish_open(open: &mut Option<OpenTable>, wanted: &str) -> Option<FoundCrate> {
     let table = open.take()?;
     match_dep(&table.key, table.package.as_deref(), wanted)
-}
-
-fn finish_open_if_closed(
-    open: &mut Option<OpenTable>,
-    wanted: &str,
-    line: &str,
-) -> Option<FoundCrate> {
-    if open.is_none() {
-        return None;
-    }
-    // A closing `}` ends a multi-line `{ … }` dependency. Named `[dependencies.foo]` tables
-    // end at the next section header instead (handled by the caller).
-    if line == "}" || line.starts_with('}') {
-        return finish_open(open, wanted);
-    }
-    None
 }
 
 fn match_dep(key: &str, package_field: Option<&str>, wanted: &str) -> Option<FoundCrate> {
@@ -167,11 +155,7 @@ fn is_dependencies_section(header: &str) -> bool {
 }
 
 fn dependency_table_key(header: &str) -> Option<&str> {
-    for prefix in [
-        "dependencies.",
-        "dev-dependencies.",
-        "build-dependencies.",
-    ] {
+    for prefix in ["dependencies.", "dev-dependencies.", "build-dependencies."] {
         if let Some(key) = header.strip_prefix(prefix) {
             if is_ident_key(key) {
                 return Some(key);
@@ -197,14 +181,31 @@ fn inline_dependency(line: &str) -> Option<(String, Option<String>)> {
     None
 }
 
-fn multiline_table_start(line: &str) -> Option<String> {
+fn multiline_table_start(line: &str) -> Option<(String, Option<String>)> {
     let (key, rest) = split_assignment(line)?;
     if !is_ident_key(key) {
         return None;
     }
     let rest = rest.trim();
     if rest == "{" || (rest.starts_with('{') && !rest.contains('}')) {
-        return Some(key.to_string());
+        // Fields may already sit on the opening line, e.g. `usage = { package = "usage-rs",`.
+        let body = rest.strip_prefix('{').unwrap_or(rest);
+        let package = package_from_fields(body);
+        return Some((key.to_string(), package));
+    }
+    None
+}
+
+/// Find `package = "…"` among comma-separated `key = value` fields, tolerating a trailing comma.
+fn package_from_fields(body: &str) -> Option<String> {
+    for part in body.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if let Some(pkg) = string_assignment(part, "package") {
+            return Some(pkg);
+        }
     }
     None
 }
@@ -213,12 +214,7 @@ fn inline_table_package(table: &str) -> Option<String> {
     let mut body = table.trim();
     body = body.strip_prefix('{')?.trim();
     body = body.strip_suffix('}')?.trim();
-    for part in body.split(',') {
-        if let Some(pkg) = string_assignment(part.trim(), "package") {
-            return Some(pkg);
-        }
-    }
-    None
+    package_from_fields(body)
 }
 
 fn string_assignment(line: &str, field: &str) -> Option<String> {
@@ -237,7 +233,9 @@ fn split_assignment(line: &str) -> Option<(&str, &str)> {
 }
 
 fn parse_string(value: &str) -> Option<String> {
-    let value = value.trim();
+    // A field inside an inline table carries its separator: `package = "usage-rs",`. Drop a
+    // single trailing comma before matching the quotes.
+    let value = value.trim().trim_end_matches(',').trim();
     if let Some(v) = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
         return Some(v.to_string());
     }
@@ -320,6 +318,55 @@ usage = {
   package = "usage-rs"
   version = "5"
 }
+"#;
+        assert_eq!(
+            find_in_manifest(manifest, "usage-rs").unwrap(),
+            FoundCrate::Name("usage".into())
+        );
+    }
+
+    #[test]
+    fn finds_multiline_rename_with_trailing_commas() {
+        // Cargo's TOML 1.1 multi-line inline table: each field carries a trailing comma.
+        let manifest = r#"
+[package]
+name = "app"
+[dependencies]
+usage = {
+    package = "usage-rs",
+    version = "5",
+}
+"#;
+        assert_eq!(
+            find_in_manifest(manifest, "usage-rs").unwrap(),
+            FoundCrate::Name("usage".into())
+        );
+    }
+
+    #[test]
+    fn finds_package_on_the_opening_brace_line() {
+        let manifest = r#"
+[package]
+name = "app"
+[dependencies]
+usage = { package = "usage-rs",
+          version = "5" }
+"#;
+        assert_eq!(
+            find_in_manifest(manifest, "usage-rs").unwrap(),
+            FoundCrate::Name("usage".into())
+        );
+    }
+
+    #[test]
+    fn finds_package_sharing_the_closing_brace_line() {
+        let manifest = r#"
+[package]
+name = "app"
+[dependencies]
+usage = {
+  version = "5",
+  package = "usage-rs" }
 "#;
         assert_eq!(
             find_in_manifest(manifest, "usage-rs").unwrap(),
