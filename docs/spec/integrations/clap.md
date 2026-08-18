@@ -68,5 +68,6 @@ constraint. `Arg::default_value_if` is the same hole: a generated spec never car
 
 ## Links
 
+- [clap compatibility matrix](/rust/clap-compatibility)
 - [crate on crates.io](https://crates.io/crates/clap_usage)
 - [source code](https://github.com/jdx/usage/tree/main/clap_usage)
