@@ -373,6 +373,7 @@ impl<'a> Parser<'a> {
         // half-typed `--jobs ` is exactly what a completion is asked about — but a
         // full parse has nothing left to wait for, and dropping the flag silently
         // made a forgotten value look like a working command.
+        while try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)? {}
         if let Some(flag) = out.flag_awaiting_value.first() {
             let token = flag
                 .long
@@ -845,7 +846,8 @@ fn parse_partial_with_env(
         let binding = prefix_bindings.pop_front().flatten();
         // A short's attached value is re-queued with `grouped_flag` set, and that
         // continuation is not a following word. `require_equals` refuses only the
-        // following word; `-i9229` and `-i=9229` still bind.
+        // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
+        // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
 
         // Check for restart_token - resets argument parsing for multiple command invocations
@@ -898,6 +900,22 @@ fn parse_partial_with_env(
                 return Ok((out, overridden_flags));
             }
             continue;
+        }
+
+        // A flag with `default_missing` that cannot take this token as a detached
+        // value binds that string and leaves the token for whatever comes next:
+        // `--color --verbose` colours with the missing value and still sets verbose,
+        // and `--inspect 9229` with `require_equals` binds the missing value rather
+        // than treating 9229 as the port.
+        if enable_flags
+            && !attached_continuation
+            && !out.flag_awaiting_value.is_empty()
+            && out.flag_awaiting_value.last().is_some_and(|flag| {
+                flag.default_missing.is_some()
+                    && (flag.require_equals || (is_flag_like(&w) && !flag.allow_hyphen_values()))
+            })
+        {
+            try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)?;
         }
 
         // Only while flags are still being read. Once a `--` has done its job, a
@@ -2062,6 +2080,50 @@ fn value_count(value: &ParseValue) -> usize {
         ParseValue::MultiBool(values) => values.len(),
         _ => 1,
     }
+}
+
+/// Bind [`SpecFlag::default_missing`] to a flag that was given with no value.
+///
+/// Returns whether anything was bound. Completions keep the flag waiting — a
+/// half-typed `--color ` is a question about the value — so this is asked only
+/// once a full parse has decided the value is not coming, or once the next token
+/// has made that decision.
+///
+/// The missing string is a real value: if the flag names `choices`, it has to
+/// be one of them, the same way an env var or a `default` is checked. Binding
+/// first and failing later would leave the flag set to a value the spec forbids.
+fn try_bind_default_missing(
+    flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
+    flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> miette::Result<bool> {
+    let Some(flag) = flag_awaiting_value.last() else {
+        return Ok(false);
+    };
+    let Some(value) = flag.default_missing.clone() else {
+        return Ok(false);
+    };
+    if let Some(arg) = flag.arg.as_ref() {
+        validate_choice_value(
+            ChoiceTarget::option(flag),
+            &value,
+            arg.choices.as_ref(),
+            custom_env,
+        )?;
+    }
+    let flag = flag_awaiting_value.pop().unwrap();
+    let collecting = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
+    if collecting {
+        let arr = flags
+            .entry(flag)
+            .or_insert_with(|| ParseValue::MultiString(vec![]))
+            .try_as_multi_string_mut()
+            .unwrap();
+        arr.push(value);
+    } else {
+        flags.insert(flag, ParseValue::String(value));
+    }
+    Ok(true)
 }
 
 fn drain_pending_flag_values(
@@ -6105,6 +6167,126 @@ flag "-i --inspect <PORT>" require_equals=#true
         assert!(
             msg.contains("requires an argument") || msg.contains("inspect"),
             "bundled short must refuse the following word: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_default_missing_binds_when_the_value_is_left_off() {
+        let spec = r#"
+flag "-c --color <WHEN>" default_missing="always"
+flag "-v --verbose"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--color"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+
+        let parsed = parse(&spec, &input(&["test", "--color=never"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "--color", "never"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "--color", "--verbose"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+        assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
+
+        let parsed = parse(&spec, &input(&["test", "--color="])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "");
+
+        let parsed = parse(&spec, &input(&["test", "-cnever"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "-c", "-v"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+        assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
+    }
+
+    #[test]
+    fn test_default_missing_with_require_equals_refuses_the_following_word() {
+        let spec = r#"
+flag "--inspect <PORT>" require_equals=#true default_missing="9229"
+arg "[rest]"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--inspect"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "9229");
+
+        let parsed = parse(&spec, &input(&["test", "--inspect=1234"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "1234");
+
+        // The following word is not the value; the missing value is, and 80 is a positional.
+        let parsed = parse(&spec, &input(&["test", "--inspect", "80"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "9229");
+        assert_eq!(
+            parsed
+                .args
+                .values()
+                .next()
+                .map(|v| v.to_string())
+                .as_deref(),
+            Some("80")
+        );
+
+        let parsed = parse(&spec, &input(&["test", "--inspect="])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "");
+    }
+
+    #[test]
+    fn test_default_missing_must_be_a_choice() {
+        let spec = r#"
+flag "--color <WHEN>" default_missing="always" {
+    choices "auto" "always" "never"
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--color"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+
+        let parsed = parse(&spec, &input(&["test", "--color=never"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let spec = r#"
+flag "--color <WHEN>" default_missing="wat" {
+    choices "auto" "always" "never"
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["test", "--color"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Invalid choice for option color: wat"),
+            "missing default has to pass choices the same way a typed value does: {msg}"
+        );
+
+        let err = parse(&spec, &input(&["test", "--color=wat"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Invalid choice for option color: wat"),
+            "an attached value that is not a choice is still refused: {msg}"
+        );
+
+        let spec = r#"
+flag "--inspect <PORT>" require_equals=#true default_missing="wat" {
+    choices "9229" "80"
+}
+arg "[rest]"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["test", "--inspect", "80"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Invalid choice for option inspect: wat"),
+            "require_equals still binds the missing string, so the error is the choice: {msg}"
         );
     }
 

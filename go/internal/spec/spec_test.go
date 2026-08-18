@@ -516,3 +516,15 @@ func TestRequireEqualsCarries(t *testing.T) {
 		t.Error("require_equals should carry")
 	}
 }
+
+func TestDefaultMissingCarries(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "color", Long: []string{"color"}, DefaultMissing: "always", Arg: &Arg{Name: "WHEN"}},
+		}},
+	})
+	if root.Flags[0].DefaultMissing != "always" {
+		t.Errorf("default_missing: got %q", root.Flags[0].DefaultMissing)
+	}
+}

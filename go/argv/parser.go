@@ -402,17 +402,25 @@ func (p *Parser) shortFlag() bool {
 // word either way. The negative-number exception means `--offset -1` still works.
 func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool) {
 	if flag.RequireEquals {
-		return p.missingValue(flag, long, short)
+		return p.missingOrDefault(flag, long, short)
 	}
 	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos])) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true
 	}
-	return p.missingValue(flag, long, short)
+	return p.missingOrDefault(flag, long, short)
 }
 
-func (p *Parser) missingValue(flag *Flag, long string, short byte) (string, bool) {
+// missingOrDefault is the value when a detached one is refused or absent.
+//
+// DefaultMissing binds without consuming the next token, so `--color --verbose`
+// still sets verbose and `--inspect 80` with RequireEquals leaves `80` for a
+// positional. Empty DefaultMissing is unset, and is then the missing-value error.
+func (p *Parser) missingOrDefault(flag *Flag, long string, short byte) (string, bool) {
+	if flag.DefaultMissing != "" {
+		return flag.DefaultMissing, true
+	}
 	// The form the user actually wrote, carried so the advice can use it. A flag
 	// answers to several spellings and the first is not always the one in front of
 	// them: with an inherited `--jobs --workers` whose `--jobs` a nearer command

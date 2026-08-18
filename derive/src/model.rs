@@ -220,6 +220,11 @@ pub struct Field {
     pub allow_hyphen_values: bool,
     /// Whether the value must be attached with `=`. clap's `require_equals`.
     pub require_equals: bool,
+    /// Value used when the flag is present but no value is given.
+    ///
+    /// clap's `default_missing_value`. `--color` binds this string; `--color=never`
+    /// binds `never`. The field has to take a value.
+    pub default_missing: Option<String>,
     /// Whether this flag must be given on its own — clap's `exclusive`.
     pub exclusive: bool,
     /// The group this flag belongs to, if any. Properties live on the group's own
@@ -1100,6 +1105,7 @@ impl Field {
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
+            default_missing: None,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1206,6 +1212,7 @@ impl Field {
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
+            default_missing: None,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1306,6 +1313,7 @@ impl Field {
             delimiter: None,
             allow_hyphen_values: false,
             require_equals: false,
+            default_missing: None,
             exclusive: false,
             group: None,
             required_if: Vec::new(),
@@ -1377,6 +1385,7 @@ impl Field {
         let mut delimiter: Option<char> = None;
         let mut allow_hyphen_values = false;
         let mut require_equals = false;
+        let mut default_missing = None;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
 
@@ -1475,6 +1484,7 @@ impl Field {
                     "exclusive" => exclusive = flag_value(&meta)?,
                     "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
                     "require_equals" => require_equals = flag_value(&meta)?,
+                    "default_missing" => default_missing = Some(string_value(&meta)?),
                     "delimiter" => {
                         let c = char_value(&meta)?;
                         if !c.is_ascii() {
@@ -1533,6 +1543,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `require_equals`, \
+                                 `default_missing`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
@@ -1734,6 +1745,18 @@ impl Field {
                     format!(
                         "the default `{default}` is not one of this field's choices, so \
                          it could never be valid"
+                    ),
+                ));
+            }
+            if let Some(missing) = default_missing
+                .as_ref()
+                .filter(|missing| !choices.contains(missing))
+            {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "the default_missing `{missing}` is not one of this field's \
+                         choices, so it could never be valid"
                     ),
                 ));
             }
@@ -2062,6 +2085,25 @@ impl Field {
             }
         }
 
+        if default_missing.is_some() {
+            if !matches!(kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_missing` is for a flag's value; a positional is filled \
+                     or it is not",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count) {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_missing` is the value used when this flag is given \
+                     without one, and this flag takes none",
+                ));
+            }
+            // Help should show the value as optional: `--color` is a complete invocation.
+            value_optional = true;
+        }
+
         // `value_name` names the placeholder a *flag's value* gets in help — `--out <FILE>`.
         // A positional argument is named by `name`, and a `bool` or `count` flag has no value
         // to put a placeholder in, so `arg_meta` never emits it and a valueless flag has nowhere
@@ -2139,6 +2181,7 @@ impl Field {
             delimiter,
             allow_hyphen_values,
             require_equals,
+            default_missing,
             exclusive,
             group,
             required_if,
@@ -3322,6 +3365,22 @@ mod tests {
     }
 
     #[test]
+    fn every_default_missing_has_to_be_one_of_the_choices() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_missing = "wat", choices("auto", "always", "never"))]
+                color: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("the default_missing `wat`"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
     fn only_required_exempts_an_argument_from_the_variadic_rule() {
         // `automatic` and `preserve` are about *flags* and about what a `--` means; neither ends
         // a variadic, so neither buys an argument a place behind an unbounded one. Easy to get
@@ -3909,6 +3968,39 @@ mod tests {
             r#"
             struct Ex {
                 #[usage(long, require_equals)]
+                force: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("takes none"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn default_missing_is_a_flag_that_takes_a_value() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, default_missing = "always")]
+                color: Option<String>,
+            }
+        "#)
+        .expect("should compile");
+        assert_eq!(
+            cli.fields[0].default_missing.as_deref(),
+            Some("always"),
+            "the attribute has to reach the field the table is built from"
+        );
+        assert!(
+            cli.fields[0].value_optional,
+            "a flag that can be given without a value should show one as optional"
+        );
+    }
+
+    #[test]
+    fn default_missing_cannot_sit_on_a_switch() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_missing = "always")]
                 force: bool,
             }
         "#,

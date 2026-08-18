@@ -211,6 +211,27 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-i --inspect <PORT>\" require_equals=#true\n",
       "argv": ["-i", "9229"],
       "expect": { "error": "missing_flag_value" }
+    },
+    {
+      "id": "short-value-default-missing-bare",
+      "doc": "The short form of `default_missing`: `-c` with no following word binds the missing default.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-c --color <WHEN>\" default_missing=\"always\"\n",
+      "argv": ["-c"],
+      "expect": { "ok": { "flags": { "color": "always" } } }
+    },
+    {
+      "id": "short-value-default-missing-attached",
+      "doc": "A short's attached form still binds: `-cnever` is `never`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-c --color <WHEN>\" default_missing=\"always\"\n",
+      "argv": ["-cnever"],
+      "expect": { "ok": { "flags": { "color": "never" } } }
+    },
+    {
+      "id": "short-value-default-missing-next-is-flag",
+      "doc": "`-c -v` colours with the missing default and still sets verbose.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-c --color <WHEN>\" default_missing=\"always\"\nflag \"-v --verbose\"\n",
+      "argv": ["-c", "-v"],
+      "expect": { "ok": { "flags": { "color": "always", "verbose": true } } }
     }
   ]
 }

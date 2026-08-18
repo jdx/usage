@@ -281,6 +281,78 @@ func TestRequireEquals(t *testing.T) {
 	}
 }
 
+func TestDefaultMissing(t *testing.T) {
+	color := &Flag{Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
+		TakesValue: true, DefaultMissing: "always"}
+	verbose := &Flag{Key: 10, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}}
+	cmd := &Command{Name: "ex", Flags: []*Flag{color, verbose}}
+
+	if got := collect(cmd, "--color"); got != "flag:color=always" {
+		t.Errorf("--color: got %s", got)
+	}
+	if got := collect(cmd, "--color=never"); got != "flag:color=never" {
+		t.Errorf("--color=never: got %s", got)
+	}
+	if got := collect(cmd, "--color", "never"); got != "flag:color=never" {
+		t.Errorf("--color never: got %s", got)
+	}
+	if got := collect(cmd, "--color", "--verbose"); got != "flag:color=always flag:verbose" {
+		t.Errorf("--color --verbose: got %s", got)
+	}
+	if got := collect(cmd, "--color="); got != "flag:color=" {
+		t.Errorf("--color=: got %s", got)
+	}
+	if got := collect(cmd, "-c"); got != "flag:color=always" {
+		t.Errorf("-c: got %s", got)
+	}
+	if got := collect(cmd, "-cnever"); got != "flag:color=never" {
+		t.Errorf("-cnever: got %s", got)
+	}
+}
+
+// Bind only: choices live in Check. A missing default that is not on the list
+// still binds, and Check is what refuses it — the same path as `--color=wat`.
+func TestDefaultMissingGoesThroughChoices(t *testing.T) {
+	color := &Flag{Key: 13, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "always"}
+	cmd := &Command{Name: "ex", Flags: []*Flag{color}}
+	meta := &Meta{Name: "color", Flag: true, Choices: []string{"auto", "always", "never"}}
+
+	if got := collect(cmd, "--color"); got != "flag:color=always" {
+		t.Errorf("--color: got %s", got)
+	}
+	if err := Check(meta, []string{"always"}, 1); err != nil {
+		t.Errorf("always is a choice: %v", err)
+	}
+
+	bad := &Flag{Key: 14, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "wat"}
+	if got := collect(&Command{Name: "ex", Flags: []*Flag{bad}}, "--color"); got != "flag:color=wat" {
+		t.Errorf("bind still happens: got %s", got)
+	}
+	err := Check(meta, []string{"wat"}, 1)
+	if err == nil || err.Code != CodeInvalidChoice {
+		t.Errorf("want invalid choice after bind, got %v", err)
+	}
+}
+
+func TestDefaultMissingWithRequireEquals(t *testing.T) {
+	inspect := &Flag{Key: 11, Name: "inspect", Longs: []string{"inspect"},
+		TakesValue: true, RequireEquals: true, DefaultMissing: "9229"}
+	rest := &Arg{Key: 12, Name: "rest"}
+	cmd := &Command{Name: "ex", Flags: []*Flag{inspect}, Args: []*Arg{rest}}
+
+	if got := collect(cmd, "--inspect"); got != "flag:inspect=9229" {
+		t.Errorf("--inspect: got %s", got)
+	}
+	if got := collect(cmd, "--inspect", "80"); got != "flag:inspect=9229 arg:rest=80" {
+		t.Errorf("--inspect 80: got %s", got)
+	}
+	if got := collect(cmd, "--inspect="); got != "flag:inspect=" {
+		t.Errorf("--inspect=: got %s", got)
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	args := []string{"install", "--verbose", "-f", "a", "b", "c"}
 	b.ReportAllocs()

@@ -220,6 +220,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Value used when the flag is present but no value is given.
+    pub fn default_missing(mut self, value: impl Into<String>) -> Self {
+        self.inner.default_missing = Some(value.into());
+        self
+    }
+
     /// Set the argument spec for flags that take values
     pub fn arg(mut self, arg: SpecArg) -> Self {
         self.inner.arg = Some(arg);
@@ -344,6 +350,11 @@ impl SpecFlagBuilder {
         if self.allow_hyphen_values {
             if let Some(arg) = &mut self.inner.arg {
                 arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
+            }
+        }
+        if self.inner.default_missing.is_some() {
+            if let Some(arg) = &mut self.inner.arg {
+                arg.required = false;
             }
         }
         self.inner.usage = self.inner.usage();

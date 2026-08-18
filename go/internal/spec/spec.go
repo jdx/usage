@@ -209,7 +209,10 @@ type Flag struct {
 	RequiredUnless []string     `json:"required_unless"`
 	RequiresIf     []RequiresIf `json:"requires_if"`
 	RequireEquals  bool         `json:"require_equals"`
-	Arg            *Arg         `json:"arg"`
+	// Empty means unset: usage-lib stores Option, and a missing default of "" is
+	// not carried across the lowering. The corpus never uses one.
+	DefaultMissing string `json:"default_missing"`
+	Arg            *Arg   `json:"arg"`
 }
 
 // RequiresIf is one explicit value and the flag that value requires.
@@ -696,6 +699,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		// on the command, not here.
 		AllowHyphenValues: f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
 		RequireEquals:     f.RequireEquals,
+		DefaultMissing:    f.DefaultMissing,
 		Global:            f.Global,
 	}
 	b.recordNegation(out.Key, f.Negate)

@@ -279,6 +279,12 @@ pub struct Flag<'a> {
     /// attached form (`-i9229`, `-i=9229`) still binds: only the following word
     /// is refused.
     pub require_equals: bool,
+    /// Value used when the flag is present but no value is given.
+    ///
+    /// clap's `default_missing_value` and the spec's `default_missing`. `--color`
+    /// binds this, `--color=never` binds `never`, and an absent flag is not bound.
+    /// Combined with [`Self::require_equals`], a following word is still refused.
+    pub default_missing: ::core::option::Option<&'a [u8]>,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -298,6 +304,7 @@ impl Flag<'_> {
         delimiter: ::core::option::Option::None,
         allow_hyphen_values: false,
         require_equals: false,
+        default_missing: ::core::option::Option::None,
         global: false,
     };
 
@@ -1000,7 +1007,7 @@ pub struct Parser<'t, 'v> {
     help_span: (usize, usize),
 }
 
-impl<'t, 'v> Parser<'t, 'v> {
+impl<'t: 'v, 'v> Parser<'t, 'v> {
     /// Begin parsing `argv` against `root`.
     ///
     /// `argv` excludes the program name.
@@ -1371,14 +1378,21 @@ impl<'t, 'v> Parser<'t, 'v> {
     /// the next token is taken whatever it looks like, including `--`.
     fn take_detached_value(&mut self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
         if flag.require_equals {
-            return Err(Error::MissingFlagValue { flag });
+            return self.missing_or_default(flag);
         }
         match self.argv.get(self.pos) {
             Some(next) if flag.allow_hyphen_values || !is_flag_like(bytes(next)) => {
                 self.pos += 1;
                 Ok(bytes(next))
             }
-            _ => Err(Error::MissingFlagValue { flag }),
+            _ => self.missing_or_default(flag),
+        }
+    }
+
+    fn missing_or_default(&self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
+        match flag.default_missing {
+            Some(value) => Ok(value),
+            None => Err(Error::MissingFlagValue { flag }),
         }
     }
 
@@ -1783,7 +1797,7 @@ mod tests {
     };
 
     /// Collect every event, or the first error.
-    fn parse<'t, 'v>(
+    fn parse<'t: 'v, 'v>(
         root: &'t Command<'t>,
         argv: &'v [&'v OsStr],
     ) -> Result<Vec<Event<'t, 'v>>, Error<'t, 'v>> {
@@ -2482,6 +2496,131 @@ mod tests {
         assert!(
             matches!(parse(&BUNDLE, &a), Err(Error::MissingFlagValue { .. })),
             "a require_equals short reached through a bundle still refuses the following word"
+        );
+    }
+
+    #[test]
+    fn default_missing_binds_when_the_value_is_left_off() {
+        static COLOR: Flag = Flag {
+            key: 9,
+            name: "color",
+            longs: &["color"],
+            takes_value: true,
+            default_missing: Some(b"always"),
+            ..Flag::BOOL
+        };
+        static VERBOSE: Flag = Flag {
+            key: 10,
+            name: "verbose",
+            longs: &["verbose"],
+            ..Flag::BOOL
+        };
+        static MISSING: Command = Command {
+            name: "ex",
+            flags: &[&COLOR, &VERBOSE],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--color"]);
+        assert_eq!(
+            parse(&MISSING, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &COLOR,
+                value: Some(b"always"),
+                negated: false
+            }]
+        );
+
+        let a = argv(["--color=never"]);
+        assert_eq!(
+            parse(&MISSING, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &COLOR,
+                value: Some(b"never"),
+                negated: false
+            }]
+        );
+
+        let a = argv(["--color", "--verbose"]);
+        assert_eq!(
+            parse(&MISSING, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &COLOR,
+                    value: Some(b"always"),
+                    negated: false
+                },
+                Event::Flag {
+                    flag: &VERBOSE,
+                    value: None,
+                    negated: false
+                },
+            ]
+        );
+
+        let a = argv(["--color="]);
+        assert_eq!(
+            parse(&MISSING, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &COLOR,
+                value: Some(b""),
+                negated: false
+            }]
+        );
+    }
+
+    #[test]
+    fn default_missing_with_require_equals_leaves_the_following_word() {
+        static INSPECT: Flag = Flag {
+            key: 11,
+            name: "inspect",
+            longs: &["inspect"],
+            takes_value: true,
+            require_equals: true,
+            default_missing: Some(b"9229"),
+            ..Flag::BOOL
+        };
+        static BOTH: Command = Command {
+            name: "ex",
+            flags: &[&INSPECT],
+            args: &[&REST],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--inspect"]);
+        assert_eq!(
+            parse(&BOTH, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &INSPECT,
+                value: Some(b"9229"),
+                negated: false
+            }]
+        );
+
+        let a = argv(["--inspect", "80"]);
+        assert_eq!(
+            parse(&BOTH, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &INSPECT,
+                    value: Some(b"9229"),
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"80"
+                },
+            ]
+        );
+
+        let a = argv(["--inspect="]);
+        assert_eq!(
+            parse(&BOTH, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &INSPECT,
+                value: Some(b""),
+                negated: false
+            }]
         );
     }
 

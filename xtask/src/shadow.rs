@@ -864,6 +864,9 @@ fn usage_flag_opts(
     if flag.require_equals {
         opts.push("require_equals".into());
     }
+    if let Some(missing) = &flag.default_missing {
+        opts.push(format!("default_missing = {missing:?}"));
+    }
     if let Some(effect) = flag.effect {
         opts.push(format!("effect = {:?}", effect.as_str()));
     }
@@ -999,6 +1002,12 @@ fn clap_flag_opts(
     if flag.require_equals {
         opts.push("require_equals = true".into());
     }
+    if let Some(missing) = &flag.default_missing {
+        // clap's setter exists even though the getter does not, so the clap shadow
+        // can say this even though a spec regenerated from clap would drop it.
+        opts.push("num_args = 0..=1".into());
+        opts.push(format!("default_missing_value = {missing:?}"));
+    }
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
     }
@@ -1071,15 +1080,19 @@ fn clap_flag_opts(
                 None => opts.push(format!("num_args = {least}..")),
             }
         } else if !arg.required {
-            // Noted, not emitted. `num_args = 0..=1` was the obvious translation and it is the
-            // wrong one: `value_optional` is help-only — usage-lib's parser refuses a bare
-            // `--bump` exactly as it refuses a bare `--port` — so declaring it in clap would
-            // make the clap shadow accept a line the usage shadow rejects, and the pair exists
-            // to be one grammar told to two frameworks.
-            //
-            // A real limitation, then, rather than a gap in this file: clap cannot print
-            // `[BUMP]` without also accepting `--bump` on its own.
-            skipped.note("a flag's value being optional in help only");
+            if flag.default_missing.is_some() {
+                // Already written as `num_args = 0..=1` beside `default_missing_value`.
+            } else {
+                // Noted, not emitted. `num_args = 0..=1` was the obvious translation and it is the
+                // wrong one: `value_optional` is help-only — usage-lib's parser refuses a bare
+                // `--bump` exactly as it refuses a bare `--port` — so declaring it in clap would
+                // make the clap shadow accept a line the usage shadow rejects, and the pair exists
+                // to be one grammar told to two frameworks.
+                //
+                // A real limitation, then, rather than a gap in this file: clap cannot print
+                // `[BUMP]` without also accepting `--bump` on its own.
+                skipped.note("a flag's value being optional in help only");
+            }
         }
         if flag.required {
             opts.push("required = true".into());
@@ -1222,6 +1235,9 @@ fn argh_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
         skipped.note("a relationship between flags");
     }
+    if flag.default_missing.is_some() {
+        skipped.note("`default_missing` on a flag");
+    }
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
     }
@@ -1277,6 +1293,9 @@ fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     }
     if !flag.conflicts.is_empty() || !flag.requires.is_empty() {
         skipped.note("a relationship between flags");
+    }
+    if flag.default_missing.is_some() {
+        skipped.note("`default_missing` on a flag");
     }
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
@@ -2143,6 +2162,24 @@ mod tests {
         let (clap, skipped) = rendered_as(spec, Dialect::Clap);
         assert_eq!(skipped.counts.get("`effect` on a flag"), Some(&1));
         assert!(!clap.contains("effect"), "{clap}");
+    }
+
+    #[test]
+    fn the_usage_dialect_carries_default_missing() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--color <WHEN>\" default_missing=\"always\"\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(out.contains(r#"default_missing = "always""#), "{out}");
+        assert!(
+            !skipped.counts.contains_key("`default_missing` on a flag"),
+            "expressible, so it should not be counted as dropped"
+        );
+
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(
+            clap.contains(r#"default_missing_value = "always""#),
+            "{clap}"
+        );
+        assert!(clap.contains("num_args = 0..=1"), "{clap}");
     }
 
     #[test]

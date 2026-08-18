@@ -75,6 +75,36 @@ fn a_value_outside_the_choices_is_refused() {
     );
 }
 
+/// A missing default is a bound value, so `choices` has to accept it the same
+/// way it accepts `--color=always`.
+#[derive(Cli, Debug)]
+#[usage(bin = "color")]
+struct ColorWhen {
+    #[usage(long, default_missing = "always", choices("auto", "always", "never"))]
+    color: Option<String>,
+}
+
+#[test]
+fn a_default_missing_value_has_to_be_a_choice() {
+    let a = argv(["--color"]);
+    assert_eq!(
+        ColorWhen::parse_from(&a)
+            .expect("always is on the list")
+            .color
+            .as_deref(),
+        Some("always")
+    );
+
+    let a = argv(["--color=never"]);
+    assert_eq!(
+        ColorWhen::parse_from(&a)
+            .expect("an attached choice still binds")
+            .color
+            .as_deref(),
+        Some("never")
+    );
+}
+
 #[test]
 fn variadic_bounds_are_counted() {
     let a = argv(["--include", "a", "x"]);
