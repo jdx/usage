@@ -263,7 +263,7 @@ still an unknown flag, not a forwarded name: `ex git --help` forwards
 
 This is clap's `allow_external_subcommands`. It is not `unknown_flags=value`,
 which is the reading a wrapper uses when hyphen-taking tokens should bind as
-values of *this* command.
+values of _this_ command.
 
 ```kdl
 unknown_flags "error"

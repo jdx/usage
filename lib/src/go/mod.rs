@@ -1572,25 +1572,28 @@ external_subcommand #true
 cmd "install"
 cmd "exec" external_subcommand=#true
 "#);
+        let block = |var: &str| {
+            let start = out
+                .find(&format!("var {var} ="))
+                .unwrap_or_else(|| panic!("{var} should be emitted, got:\n{out}"));
+            let rest = &out[start..];
+            let end = rest[1..].find("\nvar ").map(|i| i + 1).unwrap_or(rest.len());
+            &rest[..end]
+        };
         assert!(
-            out.contains("ExternalSubcommand: true"),
-            "the root should forward unmatched words, got:\n{out}"
+            block("Root").contains("ExternalSubcommand: true"),
+            "the root should forward unmatched words:\n{}",
+            block("Root")
         );
-        let exec = out
-            .lines()
-            .find(|l| l.contains("Name: \"exec\""))
-            .expect("exec is emitted");
         assert!(
-            exec.contains("ExternalSubcommand: true"),
-            "a nested command can forward too: {exec}"
+            block("cmdExec").contains("ExternalSubcommand: true"),
+            "a nested command can forward too:\n{}",
+            block("cmdExec")
         );
-        let install = out
-            .lines()
-            .find(|l| l.contains("Name: \"install\""))
-            .expect("install is emitted");
         assert!(
-            !install.contains("ExternalSubcommand"),
-            "a command that does not declare it should not carry it: {install}"
+            !block("cmdInstall").contains("ExternalSubcommand"),
+            "a command that does not declare it should not carry it:\n{}",
+            block("cmdInstall")
         );
     }
 
