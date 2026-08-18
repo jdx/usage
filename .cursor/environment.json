@@ -1,0 +1,8 @@
+{
+  "name": "usage",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "./.cursor/install.sh"
+}
