@@ -310,6 +310,32 @@ func TestDefaultMissing(t *testing.T) {
 	}
 }
 
+// Bind only: choices live in Check. A missing default that is not on the list
+// still binds, and Check is what refuses it — the same path as `--color=wat`.
+func TestDefaultMissingGoesThroughChoices(t *testing.T) {
+	color := &Flag{Key: 13, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "always"}
+	cmd := &Command{Name: "ex", Flags: []*Flag{color}}
+	meta := &Meta{Name: "color", Flag: true, Choices: []string{"auto", "always", "never"}}
+
+	if got := collect(cmd, "--color"); got != "flag:color=always" {
+		t.Errorf("--color: got %s", got)
+	}
+	if err := Check(meta, []string{"always"}, 1); err != nil {
+		t.Errorf("always is a choice: %v", err)
+	}
+
+	bad := &Flag{Key: 14, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "wat"}
+	if got := collect(&Command{Name: "ex", Flags: []*Flag{bad}}, "--color"); got != "flag:color=wat" {
+		t.Errorf("bind still happens: got %s", got)
+	}
+	err := Check(meta, []string{"wat"}, 1)
+	if err == nil || err.Code != CodeInvalidChoice {
+		t.Errorf("want invalid choice after bind, got %v", err)
+	}
+}
+
 func TestDefaultMissingWithRequireEquals(t *testing.T) {
 	inspect := &Flag{Key: 11, Name: "inspect", Longs: []string{"inspect"},
 		TakesValue: true, RequireEquals: true, DefaultMissing: "9229"}

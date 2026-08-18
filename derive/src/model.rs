@@ -1748,6 +1748,18 @@ impl Field {
                     ),
                 ));
             }
+            if let Some(missing) = default_missing
+                .as_ref()
+                .filter(|missing| !choices.contains(missing))
+            {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "the default_missing `{missing}` is not one of this field's \
+                         choices, so it could never be valid"
+                    ),
+                ));
+            }
         }
 
         let is_flag = !longs.is_empty() || !shorts.is_empty();
@@ -3350,6 +3362,22 @@ mod tests {
         "#,
         );
         assert!(err.contains("the default `z`"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn every_default_missing_has_to_be_one_of_the_choices() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, default_missing = "wat", choices("auto", "always", "never"))]
+                color: Option<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("the default_missing `wat`"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]
