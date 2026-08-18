@@ -30,18 +30,19 @@ jobs:
         with:
           shared-key: test
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-      # Not allowed to fail the job. Every shell test skips the shell it cannot find and
-      # says so in the log, and the one test that would notice all of them missing checks
-      # for that itself — so a mirror having a bad afternoon should cost the shell
-      # coverage of one run, not the run. It has: this step timed out twice in an hour
-      # while apt talked to an unreachable azure mirror, both times before a single test
-      # had run.
+      # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
+      # tests refuse to skip a missing shell when `CI` is set — see
+      # `skip_if_shell_missing` — which is a deliberate policy this step exists to keep:
+      # a run that quietly tested one shell instead of four is worse than a run that
+      # stopped. So the flakiness is what gets fixed, not the consequence of it.
+      #
+      # The failure mode seen twice in an hour was an azure mirror that stalled rather
+      # than one that refused: apt waited on it until the step timed out, before a single
+      # test had run. Retries move past a bad mirror; three minutes for an 8.5 MB download
+      # was simply tight.
       - name: Install shells for completion integration tests
-        continue-on-error: true
-        timeout-minutes: 6
+        timeout-minutes: 8
         run: |
-          # Retries rather than a longer wait alone: the failure is a mirror that stalls,
-          # and apt's default is to keep waiting on it.
           sudo apt-get -o Acquire::Retries=3 update
           sudo apt-get -o Acquire::Retries=3 install -y zsh fish
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
@@ -50,10 +51,18 @@ jobs:
           if ! command -v pwsh >/dev/null 2>&1; then
             sudo snap install powershell --classic
           fi
-          # Said out loud, because a skipped shell is quiet by design and an afternoon of
-          # green runs that tested one shell instead of four should be visible in the log.
-          for shell in zsh fish pwsh; do
-            command -v "$shell" >/dev/null || echo "::warning::$shell is missing, so its completion tests will skip"
+      # A step of its own, and `always()`, because the interesting time to hear which
+      # shells are present is the run where the one above did not finish — and a `set -e`
+      # script says nothing after the command that failed it.
+      - name: Report which shells are available
+        if: always()
+        run: |
+          for shell in bash zsh fish pwsh; do
+            if command -v "$shell" >/dev/null; then
+              echo "$shell: $(command -v "$shell")"
+            else
+              echo "::warning::$shell is missing, so its completion tests cannot run"
+            fi
           done
       - run: mise r build
       - run: mise r test
