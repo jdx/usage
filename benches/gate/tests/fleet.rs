@@ -171,3 +171,63 @@ fleet! {
     "tak" => shadow_tak from "../../fleet/tak.usage.kdl",
     "communique" => shadow_communique from "../../fleet/communique.usage.kdl",
 }
+
+/// Markdown and a manpage from the checked-in spec versus from the shadow's
+/// emitted KDL. usage-cli already does this for `usage`; communique is five
+/// commands, which is enough to catch a generator that only agrees on that
+/// shape.
+#[test]
+fn communique_docs_match_the_checked_in_spec() {
+    let fixture: LibSpec = include_str!("../../fleet/communique.usage.kdl")
+        .parse()
+        .expect("communique's fixture should parse");
+    let emitted: LibSpec = shadow_communique::Cli::to_kdl()
+        .parse()
+        .expect("the shadow's emitted spec should parse");
+
+    let fixture_md = markdown(&fixture);
+    let emitted_md = markdown(&emitted);
+    assert_eq!(
+        fixture_md,
+        emitted_md,
+        "markdown from the shadow's KDL should match the checked-in spec\n{}",
+        first_diff(&emitted_md, &fixture_md)
+    );
+
+    let fixture_man = manpage(&fixture);
+    let emitted_man = manpage(&emitted);
+    assert_eq!(
+        fixture_man,
+        emitted_man,
+        "the manpage from the shadow's KDL should match the checked-in spec\n{}",
+        first_diff(&emitted_man, &fixture_man)
+    );
+}
+
+fn markdown(spec: &LibSpec) -> String {
+    let renderer = usage::docs::markdown::MarkdownRenderer::new(spec.clone()).with_multi(true);
+    let mut pages = vec![renderer.render_index().expect("the index should render")];
+    let mut cmds = Vec::new();
+    walk_lib_cmds(&spec.cmd, &mut cmds);
+    for cmd in cmds {
+        pages.push(
+            renderer
+                .render_cmd(cmd)
+                .unwrap_or_else(|e| panic!("{} should render: {e}", cmd.name)),
+        );
+    }
+    pages.join("\n---\n")
+}
+
+fn manpage(spec: &LibSpec) -> String {
+    usage::docs::manpage::ManpageRenderer::new(spec.clone())
+        .render()
+        .expect("the manpage should render")
+}
+
+fn walk_lib_cmds<'a>(cmd: &'a SpecCommand, out: &mut Vec<&'a SpecCommand>) {
+    out.push(cmd);
+    for sub in cmd.subcommands.values() {
+        walk_lib_cmds(sub, out);
+    }
+}

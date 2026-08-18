@@ -9,6 +9,7 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// Print a hook configuration for an agent or editor
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AgentHooksArgs {
     #[usage(
         long = "target",
@@ -20,6 +21,7 @@ pub struct AgentHooksArgs {
 
 /// Print project instructions for a coding agent
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AgentInstructionsArgs {
     #[usage(
         long = "target",
@@ -31,6 +33,7 @@ pub struct AgentInstructionsArgs {
 
 /// Print an MCP server configuration
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AgentMcpArgs {
     #[usage(
         long = "target",
@@ -42,6 +45,7 @@ pub struct AgentMcpArgs {
 
 /// Generate integration snippets for coding agents
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct AgentArgs {
     #[usage(subcommand)]
     pub command: AgentCommands,
@@ -62,14 +66,17 @@ pub enum AgentCommands {
 
 /// Lists all available builtin linters
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BuiltinsArgs {}
 
 /// Clear the cache directory
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CacheClearArgs {}
 
 /// Manage hk internal cache
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CacheArgs {
     #[usage(subcommand)]
     pub command: CacheCommands,
@@ -178,6 +185,7 @@ pub struct CheckArgs {
 
 /// Generates shell completion scripts
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CompletionArgs {
     /// The shell to generate completion for
     #[usage(arg, name = "SHELL")]
@@ -188,6 +196,7 @@ pub struct CompletionArgs {
 ///
 /// Shows the merged configuration from all sources including CLI flags, environment variables, git config, user config, and project config.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigDumpArgs {
     /// Output format (json or toml)
     #[usage(
@@ -203,6 +212,7 @@ pub struct ConfigDumpArgs {
 ///
 /// Shows the resolved value, its source (env/git/cli/default), and the full precedence chain showing all layers that could affect it.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigExplainArgs {
     /// Configuration key to explain
     #[usage(arg, name = "KEY")]
@@ -213,6 +223,7 @@ pub struct ConfigExplainArgs {
 ///
 /// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast, display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigGetArgs {
     /// Configuration key to retrieve
     ///
@@ -225,12 +236,14 @@ pub struct ConfigGetArgs {
 ///
 /// Lists all configuration sources in order of precedence to help understand where configuration values come from.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigSourcesArgs {}
 
 /// Configuration introspection and management
 ///
 /// View and inspect hk's configuration from all sources. Configuration is merged from multiple sources in precedence order: CLI flags > Environment variables > Git config (local) > User config (.hkrc.pkl) > Git config (global) > Project config (hk.pkl) > Built-in defaults.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ConfigArgs {
     #[usage(subcommand)]
     pub command: ::std::option::Option<ConfigCommands>,
@@ -348,6 +361,7 @@ pub struct FixArgs {
 
 /// Generates a new hk.pkl file for a project
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct InitArgs {
     /// Overwrite existing hk.pkl file
     #[usage(long = "force", short = 'f')]
@@ -363,6 +377,7 @@ pub struct InitArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct InstallArgs {
     #[usage(
         help = "Install local hooks even when hk is already configured globally\n(any `hook.hk-*` entry in `~/.gitconfig`). By default a per-repo\ninstall is skipped in that case to avoid hk firing twice per\nevent. Not compatible with `--global`.",
@@ -397,6 +412,7 @@ pub struct McpArgs {
 
 /// Migrate from pre-commit to hk
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct MigratePreCommitArgs {
     /// Path to .pre-commit-config.yaml
     #[usage(
@@ -424,6 +440,7 @@ pub struct MigratePreCommitArgs {
 
 /// Migrate from other hook managers to hk
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct MigrateArgs {
     #[usage(subcommand)]
     pub command: MigrateCommands,
@@ -1436,6 +1453,7 @@ pub enum RunCommands {
 
 /// Show the companies sponsoring hk and the jdx.dev open source tools
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SponsorsArgs {}
 
 /// Run step-defined tests
@@ -1454,6 +1472,7 @@ pub struct TestArgs {
 
 /// Removes hk hooks from the current git repository
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct UninstallArgs {
     /// Remove hk hooks from the user's global git config (`~/.gitconfig`).
     #[usage(long = "global")]
@@ -1464,10 +1483,12 @@ pub struct UninstallArgs {
 ///
 /// https://usage.jdx.dev
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UsageArgs {}
 
 /// Check for large files being added to repository
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckAddedLargeFilesArgs {
     /// Maximum file size in kilobytes (default: 500)
     #[usage(long = "maxkb", value_name = "MAXKB", default = "500")]
@@ -1479,6 +1500,7 @@ pub struct UtilCheckAddedLargeFilesArgs {
 
 /// Check for UTF-8 byte order marker (BOM)
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckByteOrderMarkerArgs {
     /// Output a diff of the change
     #[usage(long = "diff", short = 'd')]
@@ -1490,6 +1512,7 @@ pub struct UtilCheckByteOrderMarkerArgs {
 
 /// Check for case-insensitive filename conflicts
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckCaseConflictArgs {
     /// Files to check for case conflicts
     #[usage(arg, name = "FILES", required)]
@@ -1500,6 +1523,7 @@ pub struct UtilCheckCaseConflictArgs {
 ///
 /// Titles starting with `fixup! `, `squash! `, or `amend! ` (temporary commits created for `git rebase --autosquash`) skip validation.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckConventionalCommitArgs {
     #[usage(
         long = "allowed-types",
@@ -1515,6 +1539,7 @@ pub struct UtilCheckConventionalCommitArgs {
 
 /// Check that executable files have shebangs
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckExecutablesHaveShebangsArgs {
     /// Files to check
     #[usage(arg, name = "FILES", required)]
@@ -1523,6 +1548,7 @@ pub struct UtilCheckExecutablesHaveShebangsArgs {
 
 /// Check for merge conflict markers
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckMergeConflictArgs {
     /// Run the check even when not in a merge
     #[usage(long = "assume-in-merge")]
@@ -1534,6 +1560,7 @@ pub struct UtilCheckMergeConflictArgs {
 
 /// Check for broken symlinks
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilCheckSymlinksArgs {
     /// Files to check
     #[usage(arg, name = "FILES", required)]
@@ -1542,6 +1569,7 @@ pub struct UtilCheckSymlinksArgs {
 
 /// Detect private keys in files
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilDetectPrivateKeyArgs {
     /// Files to check
     #[usage(arg, name = "FILES", required)]
@@ -1550,6 +1578,7 @@ pub struct UtilDetectPrivateKeyArgs {
 
 /// Check for and optionally fix missing final newlines
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UtilEndOfFileFixerArgs {
     /// Output a diff of the change. Cannot use with `fix`
     #[usage(long = "diff", short = 'd')]
@@ -1564,6 +1593,7 @@ pub struct UtilEndOfFileFixerArgs {
 
 /// Remove UTF-8 byte order marker (BOM)
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UtilFixByteOrderMarkerArgs {
     /// Files to remove BOM from
     #[usage(arg, name = "FILES", required)]
@@ -1572,6 +1602,7 @@ pub struct UtilFixByteOrderMarkerArgs {
 
 /// Replace UTF-8 smart quotes
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UtilFixSmartQuotesArgs {
     /// Check for smart quotes without fixing them
     #[usage(long = "check")]
@@ -1586,6 +1617,7 @@ pub struct UtilFixSmartQuotesArgs {
 
 /// Detect and fix mixed line endings
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UtilMixedLineEndingArgs {
     /// Output a diff of the change. Cannot use with `fix`
     #[usage(long = "diff", short = 'd')]
@@ -1600,6 +1632,7 @@ pub struct UtilMixedLineEndingArgs {
 
 /// Prevent commits to specific branches
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilNoCommitToBranchArgs {
     /// Branch names to protect (default: main, master)
     #[usage(long = "branch", value_name = "BRANCH", var)]
@@ -1608,6 +1641,7 @@ pub struct UtilNoCommitToBranchArgs {
 
 /// Check Python files for valid syntax
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilPythonCheckAstArgs {
     /// Files to check
     #[usage(arg, name = "FILES", required)]
@@ -1616,6 +1650,7 @@ pub struct UtilPythonCheckAstArgs {
 
 /// Detect Python debug statements
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilPythonDebugStatementsArgs {
     /// Files to check
     #[usage(arg, name = "FILES", required)]
@@ -1624,6 +1659,7 @@ pub struct UtilPythonDebugStatementsArgs {
 
 /// Check for and optionally fix trailing whitespace
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct UtilTrailingWhitespaceArgs {
     /// Output a diff of the change. Cannot use with `fix`
     #[usage(long = "diff", short = 'd')]
@@ -1638,6 +1674,7 @@ pub struct UtilTrailingWhitespaceArgs {
 
 /// Utility commands for file operations
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UtilArgs {
     #[usage(subcommand)]
     pub command: UtilCommands,
@@ -1697,10 +1734,12 @@ pub enum UtilCommands {
 
 /// Validate the config file
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ValidateArgs {}
 
 /// Print the version of hk
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct VersionArgs {}
 
 /// A tool for managing git hooks

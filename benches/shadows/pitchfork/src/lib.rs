@@ -24,6 +24,7 @@ use usage_derive::{Args, Cli, Subcommands};
 ///   fish (~/.config/fish/config.fish):
 ///     pitchfork activate fish | source
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ActivateArgs {
     /// Shell to activate (bash, zsh, fish)
     #[usage(arg, name = "SHELL")]
@@ -32,6 +33,7 @@ pub struct ActivateArgs {
 
 /// Generate JSON documentation for the web API endpoints
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ApiSchemaArgs {}
 
 /// Enable boot start for pitchfork supervisor
@@ -50,6 +52,7 @@ pub struct ApiSchemaArgs {}
 /// under a specific user's home directory, configure `settings.supervisor.user`
 /// in your pitchfork configuration.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootEnableArgs {}
 
 /// Disable boot start for pitchfork supervisor
@@ -57,12 +60,14 @@ pub struct BootEnableArgs {}
 /// Removes the boot start registration. Pitchfork will no longer start
 /// automatically on system boot.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct BootDisableArgs {}
 
 /// Check boot start status
 ///
 /// Reports whether pitchfork is configured to start on system boot.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootStatusArgs {}
 
 /// Enable or disable boot start
@@ -95,6 +100,7 @@ pub struct BootStatusArgs {}
 ///   pitchfork boot disable          Don't start pitchfork on boot
 ///   pitchfork boot status           Check boot start status
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct BootArgs {
     #[usage(subcommand)]
     pub command: BootCommands,
@@ -114,6 +120,7 @@ pub enum BootCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CdArgs {
     #[usage(long = "shell-pid", value_name = "SHELL_PID")]
     pub shell_pid: ::std::string::String,
@@ -131,6 +138,7 @@ pub struct CdArgs {
 ///   pitchfork clean                 Remove all stopped/failed entries
 ///   pitchfork c                     Alias for 'clean'
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct CleanArgs {}
 
 /// Add a new daemon to pitchfork.toml
@@ -161,6 +169,7 @@ pub struct CleanArgs {}
 ///   pitchfork daemons add worker --run './worker' --cron-schedule '0 * * * *' --cron-immediate
 ///                                   Add cron daemon that triggers immediately
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DaemonsAddArgs {
     /// Command to run (can also use positional args)
     #[usage(long = "run", value_name = "RUN")]
@@ -253,6 +262,7 @@ pub struct DaemonsAddArgs {
 
 /// Remove a daemon from a pitchfork config file
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct DaemonsRemoveArgs {
     /// Remove from pitchfork.local.toml instead of pitchfork.toml
     #[usage(long = "local")]
@@ -270,6 +280,7 @@ pub struct DaemonsRemoveArgs {
 
 /// List configured daemons from all merged config files.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct DaemonsArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -304,6 +315,7 @@ pub enum DaemonsCommands {
 ///   fish:
 ///     pitchfork completion fish > ~/.config/fish/completions/pitchfork.fish
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct CompletionArgs {
     /// Shell to generate completions for (bash, zsh, fish)
     #[usage(arg, name = "SHELL")]
@@ -321,6 +333,7 @@ pub struct CompletionArgs {
 ///   pitchfork d api                 Alias for 'disable'
 ///   pitchfork list                  Shows 'disabled' status in output
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct DisableArgs {
     /// Name of the daemon to disable
     #[usage(arg, name = "ID")]
@@ -336,6 +349,7 @@ pub struct DisableArgs {
 ///   pitchfork enable api            Enable a disabled daemon
 ///   pitchfork e api                 Alias for 'enable'
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct EnableArgs {
     /// Name of the daemon to enable
     #[usage(arg, name = "ID")]
@@ -365,6 +379,7 @@ pub struct EnableArgs {
 ///   worker  available
 ///   db      errored    exit code 127
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ListArgs {
     /// Hide the table header row
     #[usage(long = "hide-header")]
@@ -402,6 +417,7 @@ pub struct ListArgs {
 /// Exits when the pipe reaches end of file, which happens once the daemon and
 /// every descendant holding the write end have gone.
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct LogSinkArgs {
     /// Qualified id of the daemon whose output this is
     #[usage(long = "daemon-id", value_name = "DAEMON_ID")]
@@ -462,9 +478,10 @@ pub struct LogSinkArgs {
 ///   pitchfork logs api --clear      Delete logs for 'api'
 ///   pitchfork logs --clear          Delete logs for all daemons
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct LogsArgs {
     /// Delete logs
-    #[usage(long = "clear", short = 'c')]
+    #[usage(long = "clear", short = 'c', effect = "destructive")]
     pub clear: bool,
     /// Show last N lines of logs
     ///
@@ -579,6 +596,7 @@ pub struct McpArgs {}
 ///   pitchfork proxy trust
 ///   sudo pitchfork proxy trust    # Linux only
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ProxyTrustArgs {
     /// Path to the certificate file to trust (defaults to pitchfork's auto-generated cert)
     #[usage(long = "cert", value_name = "CERT")]
@@ -598,6 +616,7 @@ pub struct ProxyTrustArgs {
 ///   pitchfork proxy untrust
 ///   sudo pitchfork proxy untrust    # Linux only
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ProxyUntrustArgs {
     /// Path to the certificate file (defaults to pitchfork's auto-generated cert)
     #[usage(long = "cert", value_name = "CERT")]
@@ -609,6 +628,7 @@ pub struct ProxyUntrustArgs {
 /// Displays the proxy configuration and lists all slugs from the global config
 /// with their project directory, daemon name, and current status (running/stopped, port).
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ProxyStatusArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -628,6 +648,7 @@ pub struct ProxyStatusArgs {
 ///   pitchfork proxy add api --daemon server
 ///   pitchfork proxy add api --dir /home/user/my-api --daemon server
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ProxyAddArgs {
     /// Project directory (defaults to current directory)
     #[usage(long = "dir", value_name = "DIR")]
@@ -648,6 +669,7 @@ pub struct ProxyAddArgs {
 /// Example:
 ///   pitchfork proxy remove api
 #[derive(Args)]
+#[usage(effect = "destructive")]
 pub struct ProxyRemoveArgs {
     /// The slug name to remove
     #[usage(arg, name = "SLUG")]
@@ -675,6 +697,7 @@ pub struct ProxyRemoveArgs {
 ///   remove    Remove a slug mapping from the global config
 ///   status    Show all registered slugs and their current state
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ProxyArgs {
     #[usage(subcommand)]
     pub command: ProxyCommands,
@@ -700,6 +723,7 @@ pub enum ProxyCommands {
 }
 
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ProjectEnterArgs {
     /// Host process PID that owns the session. Required
     #[usage(long = "pid", value_name = "PID")]
@@ -711,6 +735,7 @@ pub struct ProjectEnterArgs {
 
 /// Leave a project session and evaluate its directory for autostop
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct ProjectLeaveArgs {
     /// Host process PID that owns the session
     #[usage(long = "pid", value_name = "PID")]
@@ -721,6 +746,7 @@ pub struct ProjectLeaveArgs {
 }
 
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ProjectListArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -729,6 +755,7 @@ pub struct ProjectListArgs {
 
 /// Project session management for IDE and workspace integrations.
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct ProjectArgs {
     #[usage(subcommand)]
     pub command: ProjectCommands,
@@ -867,10 +894,12 @@ pub struct RunArgs {
 
 /// Generate JSON Schema for pitchfork.toml configuration
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SchemaArgs {}
 
 /// List all available settings with types and defaults
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SettingsListArgs {
     /// Only show settings in a specific group (e.g., "general", "web", "supervisor")
     #[usage(long = "group", value_name = "GROUP")]
@@ -882,6 +911,7 @@ pub struct SettingsListArgs {
 
 /// Get the current value of a setting
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SettingsGetArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -893,6 +923,7 @@ pub struct SettingsGetArgs {
 
 /// Set a setting value in a config file
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct SettingsSetArgs {
     /// Write to the user-level global config (~/.config/pitchfork/config.toml)
     #[usage(long = "global")]
@@ -934,6 +965,7 @@ pub struct SettingsSetArgs {
 ///   pitchfork settings set supervisor.stop_timeout 10s --local
 ///   pitchfork settings set supervisor.stop_timeout 10s --project
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SettingsArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -957,6 +989,7 @@ pub enum SettingsCommands {
 
 /// Show the companies sponsoring pitchfork and the jdx.dev open source tools
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SponsorsArgs {}
 
 /// Starts a daemon from a pitchfork.toml file
@@ -1040,6 +1073,7 @@ pub struct StartArgs {
 ///   PID: 12345
 ///   Status: running
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct StatusArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -1071,6 +1105,7 @@ pub struct StatusArgs {
 ///   pitchfork stop -g            Stop all global daemons in config.toml
 ///   pitchfork kill api           Same as 'stop' (alias)
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct StopArgs {
     /// Stop all daemons in the named group
     #[usage(long = "group", value_name = "GROUP")]
@@ -1119,6 +1154,7 @@ pub struct SupervisorStartArgs {
 
 /// Gets the status of the pitchfork daemon
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SupervisorStatusArgs {
     /// Output in JSON format
     #[usage(long = "json")]
@@ -1127,10 +1163,12 @@ pub struct SupervisorStatusArgs {
 
 /// Stops the internal pitchfork daemon running in the background
 #[derive(Args)]
+#[usage(effect = "write")]
 pub struct SupervisorStopArgs {}
 
 /// Start, stop, and check the status of the pitchfork supervisor daemon
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SupervisorArgs {
     #[usage(subcommand)]
     pub command: SupervisorCommands,
@@ -1160,6 +1198,7 @@ pub struct TuiArgs {}
 ///
 /// https://usage.jdx.dev
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct UsageArgs {}
 
 /// Wait for a daemon to stop, tailing the logs along the way
@@ -1174,6 +1213,7 @@ pub struct UsageArgs {}
 ///   pitchfork w api                 Alias for 'wait'
 ///   pitchfork wait api && echo done Run command after daemon stops
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct WaitArgs {
     /// The name of the daemon to wait for
     #[usage(arg, name = "ID")]
