@@ -440,8 +440,9 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **The full `PossibleValue` model** — `ignore_case`, aliases and their
       visibility, per-value help, and hidden values. Subcommand variants take
       aliases. The KDL model, usage-lib parser, and clap bridge now preserve this
-      metadata; generated Rust and Go tables still flatten choices to strings and are
-      the remaining work before this item is complete.
+      metadata. Generated Go tables now distinguish accepted aliases and hidden values
+      from the visible diagnostic/help list and honor `ignore_case`; generated Rust
+      tables are the remaining work before this item is complete.
 - [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
       suggest what was probably meant but do not accept it.
 - [x] **`external_subcommand`** — an unmatched word is forwarded with the rest

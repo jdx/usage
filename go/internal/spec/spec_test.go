@@ -99,6 +99,31 @@ func TestChoicesAreReadThroughTheValue(t *testing.T) {
 	}
 }
 
+func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
+	choices := &Choices{
+		Choices:    []string{"always", "never"},
+		IgnoreCase: true,
+		Details: []Choice{
+			{Value: "always", Aliases: []ChoiceAlias{{Value: "yes"}, {Value: "on", Hide: true}}},
+			{Value: "never", Hide: true},
+		},
+	}
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Args: []Arg{{Name: "color", Choices: choices}}},
+	})
+	entry := metaFor(t, meta, root, "color")
+	if !entry.IgnoreCase {
+		t.Error("ignore_case was lost")
+	}
+	if !reflect.DeepEqual(entry.Choices, []string{"always", "yes"}) {
+		t.Errorf("visible choices: %q", entry.Choices)
+	}
+	if !reflect.DeepEqual(entry.AcceptedChoices, []string{"always", "never", "yes", "on"}) {
+		t.Errorf("accepted choices: %q", entry.AcceptedChoices)
+	}
+}
+
 // The two tables are separate data tied together by key, so the tie is what is
 // worth testing: every entry's metadata must describe that entry and no other.
 func TestMetadataLinesUpWithTheParseTables(t *testing.T) {
