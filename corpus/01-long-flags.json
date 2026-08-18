@@ -251,6 +251,27 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-a --args <ARGS>\" var=#true allow_hyphen_values=#true\n",
       "argv": ["-a", "-val1", "-a", "-val2"],
       "expect": { "ok": { "flags": { "args": ["-val1", "-val2"] } } }
+    },
+    {
+      "id": "long-value-require-equals-attached",
+      "doc": "`require_equals` accepts the attached form: `--inspect=9229` binds. aube's `--inspect` is the fleet case.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true\n",
+      "argv": ["--inspect=9229"],
+      "expect": { "ok": { "flags": { "inspect": "9229" } } }
+    },
+    {
+      "id": "long-value-require-equals-refuses-detached",
+      "doc": "`require_equals` refuses the following word: `--inspect 9229` is a missing value, not a port of 9229.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true\n",
+      "argv": ["--inspect", "9229"],
+      "expect": { "error": "missing_flag_value" }
+    },
+    {
+      "id": "long-value-require-equals-still-takes-empty-attached",
+      "doc": "`--inspect=` is still present-but-empty: the `=` settled that a value was given, even though it is empty.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--inspect <PORT>\" require_equals=#true\n",
+      "argv": ["--inspect="],
+      "expect": { "ok": { "flags": { "inspect": "" } } }
     }
   ]
 }

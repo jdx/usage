@@ -938,3 +938,31 @@ fn a_hyphen_taking_flag_binds_a_flaglike_value() {
         "usage-lib has to read the emitted property the same way it reads a handwritten one"
     );
 }
+
+/// clap's `require_equals`: `--flag=value` yes, `--flag value` no.
+#[derive(Cli, Debug)]
+#[usage(bin = "equals")]
+struct WithEquals {
+    #[usage(short = 'i', long, require_equals)]
+    inspect: Option<String>,
+}
+
+#[test]
+fn a_require_equals_flag_refuses_a_detached_value() {
+    let a = argv(["--inspect=9229"]);
+    let got = WithEquals::parse_from(&a).expect("attached form");
+    assert_eq!(got.inspect.as_deref(), Some("9229"));
+
+    let a = argv(["--inspect", "9229"]);
+    let err = WithEquals::parse_from(&a).expect_err("detached form");
+    assert!(
+        matches!(err, usage_argv::Error::MissingFlagValue { .. }),
+        "{err:?}"
+    );
+
+    let kdl = WithEquals::to_kdl();
+    assert!(
+        kdl.contains("require_equals=#true"),
+        "the attribute has to reach the spec: {kdl}"
+    );
+}

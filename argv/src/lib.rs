@@ -272,6 +272,13 @@ pub struct Flag<'a> {
     /// occurrence still stops collecting at a later flag-like token, so a second
     /// occurrence of the flag is not eaten as a value.
     pub allow_hyphen_values: bool,
+    /// Whether the value must be attached with `=`.
+    ///
+    /// `--flag=value` is accepted and `--flag value` is not, which is clap's
+    /// `require_equals` and the spec's property of the same name. A short's
+    /// attached form (`-i9229`, `-i=9229`) still binds: only the following word
+    /// is refused.
+    pub require_equals: bool,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -290,6 +297,7 @@ impl Flag<'_> {
         var_max: ::core::option::Option::None,
         delimiter: ::core::option::Option::None,
         allow_hyphen_values: false,
+        require_equals: false,
         global: false,
     };
 
@@ -1362,6 +1370,9 @@ impl<'t, 'v> Parser<'t, 'v> {
     /// one, and the attached form is available for the deliberate case. Declared,
     /// the next token is taken whatever it looks like, including `--`.
     fn take_detached_value(&mut self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
+        if flag.require_equals {
+            return Err(Error::MissingFlagValue { flag });
+        }
         match self.argv.get(self.pos) {
             Some(next) if flag.allow_hyphen_values || !is_flag_like(bytes(next)) => {
                 self.pos += 1;
@@ -2409,6 +2420,68 @@ mod tests {
                     value: b"-x"
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn require_equals_refuses_a_detached_value() {
+        static INSPECT: Flag = Flag {
+            key: 8,
+            name: "inspect",
+            longs: &["inspect"],
+            shorts: b"i",
+            takes_value: true,
+            require_equals: true,
+            ..Flag::BOOL
+        };
+        static EQ: Command = Command {
+            name: "ex",
+            flags: &[&INSPECT],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--inspect=9229"]);
+        assert_eq!(
+            parse(&EQ, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &INSPECT,
+                value: Some(b"9229"),
+                negated: false
+            }]
+        );
+
+        let a = argv(["--inspect", "9229"]);
+        assert!(matches!(
+            parse(&EQ, &a),
+            Err(Error::MissingFlagValue { .. })
+        ));
+
+        let a = argv(["-i9229"]);
+        assert_eq!(
+            parse(&EQ, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &INSPECT,
+                value: Some(b"9229"),
+                negated: false
+            }]
+        );
+
+        static ALL: Flag = Flag {
+            key: 9,
+            name: "all",
+            longs: &["all"],
+            shorts: b"a",
+            ..Flag::BOOL
+        };
+        static BUNDLE: Command = Command {
+            name: "ex",
+            flags: &[&ALL, &INSPECT],
+            ..Command::EMPTY
+        };
+        let a = argv(["-ai", "9229"]);
+        assert!(
+            matches!(parse(&BUNDLE, &a), Err(Error::MissingFlagValue { .. })),
+            "a require_equals short reached through a bundle still refuses the following word"
         );
     }
 

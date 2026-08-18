@@ -125,6 +125,13 @@ type Flag struct {
 	// occurrence still stops collecting at a later flag-like token, so a second
 	// occurrence of the flag is not eaten as a value.
 	AllowHyphenValues bool
+	// RequireEquals is whether the value must be attached with `=`.
+	//
+	// `--flag=value` is accepted and `--flag value` is not, which is clap's
+	// require_equals and the spec's property of the same name. A short's
+	// attached form (`-i9229`, `-i=9229`) still binds: only the following word
+	// is refused.
+	RequireEquals bool
 	// Global is whether the flag is recognized by every command beneath the one
 	// that declares it.
 	Global bool

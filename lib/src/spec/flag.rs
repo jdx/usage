@@ -143,6 +143,11 @@ pub struct SpecFlag {
     /// makes this different from being in a group with every other flag.
     #[serde(skip_serializing_if = "is_false")]
     pub exclusive: bool,
+    /// Whether the value must be attached with `=`: `--flag=value` is accepted
+    /// and `--flag value` is not. clap's `require_equals`. Aube's `--inspect`
+    /// is the fleet case.
+    #[serde(skip_serializing_if = "is_false")]
+    pub require_equals: bool,
     /// Raises the effect of the command when this flag is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -206,6 +211,7 @@ impl SpecFlag {
                 "conflicts" => flag.conflicts = vec![v.ensure_string()?],
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
+                "require_equals" => flag.require_equals = v.ensure_bool()?,
                 // Written on the flag and kept on its argument, as `allow_hyphen_values`
                 // is: the value is what gets split, and `flag "--tags <tag>"` is where a
                 // reader writes something about that value.
@@ -318,6 +324,7 @@ impl SpecFlag {
                         .collect::<Result<Vec<_>>>()?;
                 }
                 "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
+                "require_equals" => flag.require_equals = child.arg(0)?.ensure_bool()?,
                 "requires" => {
                     flag.requires = child
                         .ensure_arg_len(1..)?
@@ -348,6 +355,13 @@ impl SpecFlag {
         }
         if allow_hyphen_values {
             flag.set_allow_hyphen_values(ctx, node.node.name().span(), true)?;
+        }
+        if flag.require_equals && flag.arg.is_none() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "flag must have value to require equals"
+            );
         }
         if let Some(raw) = delimiter {
             let mut chars = raw.chars();
@@ -544,6 +558,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.exclusive {
             node.push(KdlEntry::new_prop("exclusive", true));
+        }
+        if flag.require_equals {
+            node.push(KdlEntry::new_prop("require_equals", true));
         }
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
@@ -743,6 +760,7 @@ impl From<&clap::Arg> for SpecFlag {
             requires_if: vec![],
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
+            require_equals: c.is_require_equals_set(),
             help,
             help_long,
             help_md: None,
@@ -948,6 +966,27 @@ mod tests {
         assert!(dump.exclusive);
         let verbose = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
         assert!(!verbose.exclusive);
+    }
+
+    #[test]
+    fn require_equals_round_trips_and_comes_across_from_clap() {
+        let spec: Spec = "flag \"--inspect <PORT>\" require_equals=#true\n"
+            .parse()
+            .unwrap();
+        assert!(spec.cmd.flags[0].require_equals);
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert!(reparsed.cmd.flags[0].require_equals, "{spec}");
+
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("inspect")
+                .long("inspect")
+                .action(clap::ArgAction::Set)
+                .require_equals(true),
+        );
+        let spec = Spec::from(&cmd);
+        let inspect = spec.cmd.flags.iter().find(|f| f.name == "inspect").unwrap();
+        assert!(inspect.require_equals);
     }
 
     #[test]

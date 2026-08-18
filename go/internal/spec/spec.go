@@ -208,6 +208,7 @@ type Flag struct {
 	RequiredIf     []string     `json:"required_if"`
 	RequiredUnless []string     `json:"required_unless"`
 	RequiresIf     []RequiresIf `json:"requires_if"`
+	RequireEquals  bool         `json:"require_equals"`
 	Arg            *Arg         `json:"arg"`
 }
 
@@ -694,6 +695,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		// usage-lib keeps allow_hyphen_values. Trailing positionals use Arg.DoubleDash
 		// on the command, not here.
 		AllowHyphenValues: f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
+		RequireEquals:     f.RequireEquals,
 		Global:            f.Global,
 	}
 	b.recordNegation(out.Key, f.Negate)

@@ -190,6 +190,27 @@
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-d --working-dir <DIR>\"\nflag \"-a --args <ARGS>\" allow_hyphen_values=#true\n",
       "argv": ["-a", "-destroy"],
       "expect": { "ok": { "flags": { "args": "-destroy" } } }
+    },
+    {
+      "id": "short-value-require-equals-attached",
+      "doc": "A short's attached form still binds under `require_equals`: `-i9229` never needed a following word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-i --inspect <PORT>\" require_equals=#true\n",
+      "argv": ["-i9229"],
+      "expect": { "ok": { "flags": { "inspect": "9229" } } }
+    },
+    {
+      "id": "short-value-require-equals-equals-form",
+      "doc": "`-i=9229` is attached too: the `=` is a separator, not a following word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-i --inspect <PORT>\" require_equals=#true\n",
+      "argv": ["-i=9229"],
+      "expect": { "ok": { "flags": { "inspect": "9229" } } }
+    },
+    {
+      "id": "short-value-require-equals-refuses-detached",
+      "doc": "`-i 9229` is the following word, so `require_equals` refuses it the same way `--inspect 9229` is refused.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-i --inspect <PORT>\" require_equals=#true\n",
+      "argv": ["-i", "9229"],
+      "expect": { "error": "missing_flag_value" }
     }
   ]
 }

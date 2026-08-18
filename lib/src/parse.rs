@@ -843,6 +843,10 @@ fn parse_partial_with_env(
         // The flag this word was read as in Phase 1, if it skipped it (see `prefix_bindings`).
         // Words pushed back below get a `None` so the two queues stay aligned.
         let binding = prefix_bindings.pop_front().flatten();
+        // A short's attached value is re-queued with `grouped_flag` set, and that
+        // continuation is not a following word. `require_equals` refuses only the
+        // following word; `-i9229` and `-i=9229` still bind.
+        let attached_continuation = grouped_flag;
 
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
@@ -874,7 +878,7 @@ fn parse_partial_with_env(
             && out
                 .flag_awaiting_value
                 .last()
-                .is_some_and(|flag| flag.allow_hyphen_values())
+                .is_some_and(|flag| flag.allow_hyphen_values() && !flag.require_equals)
         {
             // A variadic argument collects here too: which token supplied its first
             // value says nothing about how many it takes.
@@ -1063,8 +1067,11 @@ fn parse_partial_with_env(
                 if !rest.is_empty() {
                     input.push_front(format!("-{rest}"));
                     prefix_bindings.push_front(None);
-                    grouped_flag = true;
                 }
+                // A fully consumed short is no longer a grouped continuation.
+                // Leaving this set after `-ai` made `-i` skip `require_equals`
+                // and bind the following word.
+                grouped_flag = !rest.is_empty();
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
@@ -1106,6 +1113,35 @@ fn parse_partial_with_env(
         // where every token is data. Draining there gave `ex --jobs -- x` the word after
         // the separator, so the command line quietly meant `ex --jobs=x` and the `--`
         // was gone. Left waiting, it is reported as the missing value it is.
+        // `require_equals` refuses a detached value: `--flag value` is a missing
+        // value, not a flag of `"value"`. The attached form is still bound above.
+        // Reported here rather than left waiting until the end of the line: falling
+        // through would offer `value` to the positionals and call it an unexpected
+        // word, which is the wrong error and a different one from usage-argv.
+        if enable_flags
+            && !attached_continuation
+            && !out.flag_awaiting_value.is_empty()
+            && out
+                .flag_awaiting_value
+                .last()
+                .is_some_and(|flag| flag.require_equals)
+        {
+            let flag = out.flag_awaiting_value.last().unwrap();
+            let token = flag
+                .long
+                .first()
+                .map(|l| format!("--{l}"))
+                .or_else(|| flag.short.first().map(|s| format!("-{s}")))
+                .unwrap_or_else(|| flag.name.clone());
+            out.errors.push(UsageErr::InvalidFlag {
+                token: token.clone(),
+                reason: "requires an argument".to_string(),
+                span: (0, 0).into(),
+                input: format!("{token} {w}"),
+            });
+            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+            return Ok((out, overridden_flags));
+        }
         if enable_flags && !out.flag_awaiting_value.is_empty() {
             // Held before the drain pops it: a flag whose argument is variadic keeps
             // taking values after this first one.
@@ -6034,6 +6070,42 @@ flag "-a --args <ARGS>" var=#true allow_hyphen_values=#true
             }
             _ => panic!("expected MultiString, got {value:?}"),
         }
+    }
+
+    #[test]
+    fn test_require_equals_accepts_attached_and_refuses_detached() {
+        let spec = r#"
+flag "--inspect <PORT>" require_equals=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--inspect=9229"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "inspect"), "9229");
+
+        let err = parse(&spec, &input(&["test", "--inspect", "9229"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("requires an argument") || msg.contains("inspect"),
+            "detached value must be refused: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_require_equals_refuses_a_detached_value_after_a_short_bundle() {
+        let spec = r#"
+flag "-a --all"
+flag "-i --inspect <PORT>" require_equals=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["test", "-ai", "9229"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("requires an argument") || msg.contains("inspect"),
+            "bundled short must refuse the following word: {msg}"
+        );
     }
 
     #[test]
