@@ -2983,6 +2983,20 @@ impl Variant {
                     "`effect` belongs on a command; `external_subcommand` forwards to one",
                 ));
             }
+            if hide {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`external_subcommand` is a catch-all rather than a command help lists, \
+                     so there is nothing for `hide` to keep out of help",
+                ));
+            }
+            if help.is_some() || long_help.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "a catch-all has no page of its own, so a description here would be \
+                     dropped; describe the forwarding on the command that declares it",
+                ));
+            }
             let held = match &variant.fields {
                 Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => {
                     unnamed.unnamed[0].ty.clone()
@@ -3017,7 +3031,7 @@ impl Variant {
             };
             return Ok(Variant {
                 ident: variant.ident.clone(),
-                hide,
+                hide: false,
                 name,
                 effect: None,
                 unit: false,
@@ -3027,8 +3041,8 @@ impl Variant {
                 external_os,
                 aliases,
                 hidden_aliases,
-                help,
-                long_help,
+                help: None,
+                long_help: None,
             });
         }
 
@@ -3609,7 +3623,7 @@ mod tests {
         assert!(subs.variants[1].external);
         assert!(!subs.variants[1].external_os);
 
-        let subs = subcommands(
+        let err = enum_rejection(
             r#"
             enum Commands {
                 #[usage(external_subcommand)]
@@ -3617,7 +3631,7 @@ mod tests {
             }
         "#,
         );
-        assert!(subs.is_err());
+        assert!(err.contains("Vec<String>"), "{err}");
 
         let err = enum_rejection(
             r#"
@@ -3640,6 +3654,30 @@ mod tests {
         "#,
         );
         assert!(err.contains("only one variant"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(hide, external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        );
+        assert!(err.contains("hide"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                /// forwarded argv
+                #[usage(external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        );
+        assert!(
+            err.contains("description") || err.contains("catch-all"),
+            "{err}"
+        );
     }
 
     fn value_enum(body: &str) -> syn::Result<ValueEnum> {

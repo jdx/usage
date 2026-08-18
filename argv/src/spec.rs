@@ -1761,15 +1761,22 @@ pub trait Subcommands: Sized {
     /// A flag that `install` requires says nothing about an invocation that ran
     /// `run`, so only the command that was actually reached is judged.
     ///
-    /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
-    /// key: the position is found from the table's own address, so two commands whose
-    /// keys happen to collide still cannot be confused for one another.
+    /// `selected` is a variant index, the same value [`apply`] is given — mapped
+    /// through [`VARIANT_OF`] when [`HAS_EXTERNAL`] is set, so it is not a
+    /// position in [`COMMANDS`]. Two commands whose keys happen to collide still
+    /// cannot be confused for one another: the index names the variant, not a
+    /// table slot.
     fn check<'t, 'v>(
         partial: &mut Self::Partial,
         selected: usize,
     ) -> Result<(), crate::Error<'t, 'v>>;
 
-    /// Build the variant at `selected`, a position in [`Subcommands::COMMANDS`].
+    /// Build the variant at `selected`, a variant index.
+    ///
+    /// The same index [`apply`] and [`check`] take — mapped through [`VARIANT_OF`]
+    /// when [`HAS_EXTERNAL`] is set, so it is not a position in [`COMMANDS`]. An
+    /// external variant is not in that table, and a caller that indexed `COMMANDS`
+    /// by this value would read the wrong command or go out of bounds.
     ///
     /// `None` when no variant was selected, which a caller reads as "no subcommand
     /// was given". An `Err` comes from building the variant that *was* selected.

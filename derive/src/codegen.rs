@@ -3125,6 +3125,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         let held = format_ident!("V{i}");
         let variant = &v.ident;
         if v.external {
+            let name = &v.name;
             let collected = if v.external_os {
                 quote! {{
                     let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
@@ -3137,7 +3138,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                                 return ::std::result::Result::Err(
                                     usage_argv::Error::InvalidValue(::std::boxed::Box::new(
                                         usage_argv::InvalidValue {
-                                            name: "EXTERNAL",
+                                            name: #name,
                                             value: ::std::string::String::from_utf8_lossy(
                                                 &__usage_bytes,
                                             )
@@ -3165,7 +3166,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                                 return ::std::result::Result::Err(
                                     usage_argv::Error::InvalidValue(::std::boxed::Box::new(
                                         usage_argv::InvalidValue {
-                                            name: "EXTERNAL",
+                                            name: #name,
                                             value: ::std::string::String::from_utf8_lossy(
                                                 __usage_bad.as_bytes(),
                                             )
@@ -3182,11 +3183,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     __usage_values
                 }}
             };
-            let made = if v.boxed {
-                quote!(#ident::#variant(::std::boxed::Box::new(#collected)))
-            } else {
-                quote!(#ident::#variant(#collected))
-            };
+            let made = quote!(#ident::#variant(#collected));
             quote! {
                 #i => match partial {
                     Partial::#held(__usage_p) => {
