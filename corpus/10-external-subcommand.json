@@ -56,6 +56,17 @@
       }
     },
     {
+      "id": "external-numeric-token",
+      "doc": "A negative number is a value, not a flag, so it can be the unmatched word the catch-all forwards. usage-lib used to treat every token that starts with `-` as a flag and skip this path.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"install\"\n",
+      "argv": ["-1", "rest"],
+      "expect": {
+        "ok": {
+          "external": ["-1", "rest"]
+        }
+      }
+    },
+    {
       "id": "external-nested-forwards",
       "doc": "The property is per command: a nested cmd can forward while the root still owns its flags.",
       "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ncmd \"exec\" external_subcommand=#true {\n  cmd \"install\"\n}\n",

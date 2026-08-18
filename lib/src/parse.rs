@@ -700,7 +700,7 @@ fn parse_partial_with_env(
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
-            && !input[idx].starts_with('-')
+            && is_command_word(&input[idx])
             && out.cmd.find_subcommand(&input[idx]).is_none()
         {
             mounts_resolved = true;
@@ -733,7 +733,7 @@ fn parse_partial_with_env(
             prefix_flags.clear();
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
-        } else if input[idx].starts_with('-') {
+        } else if !is_command_word(&input[idx]) {
             // Check if this is a known flag
             let word = input[idx].clone();
             let flag_key = get_flag_key(&word);
@@ -767,7 +767,7 @@ fn parse_partial_with_env(
                 if f.arg.is_some()
                     && !word.contains('=')
                     && idx < input.len()
-                    && !input[idx].starts_with('-')
+                    && !is_flag_like(&input[idx])
                 {
                     if let Some(words) = forwarded.as_mut() {
                         words.push(input[idx].clone());
@@ -1910,6 +1910,17 @@ fn is_flag_like(token: &str) -> bool {
         None | Some("") => false,
         Some(rest) => !is_number(rest),
     }
+}
+
+/// A token that can select a subcommand, trigger a mount, or be forwarded as an
+/// external command.
+///
+/// Flag-like tokens are not words. A lone `-` is a value — conventionally stdin —
+/// so it was never a candidate to *select* anything either. usage-argv uses the
+/// same rule; without it, `-1` skipped the external-subcommand path because Phase 1
+/// treated every token that `starts_with('-')` as a flag.
+fn is_command_word(token: &str) -> bool {
+    !is_flag_like(token) && token != "-"
 }
 
 /// Digits, at most one `.`, and an optional exponent.
@@ -5857,6 +5868,12 @@ flag "-v --verbose" global=#true
 
         // An unknown flag on the parent is still an error, which is what clap does.
         assert!(parse(&spec, &input(&["ex", "--wat"])).is_err());
+
+        // A negative number is a value, not a flag, so it can be the unmatched word.
+        // usage-argv already forwarded `-1`; Phase 1 used to treat every `starts_with('-')`
+        // token as a flag and never reach the catch-all.
+        let parsed = parse(&spec, &input(&["ex", "-1", "rest"])).unwrap();
+        assert_eq!(parsed.external, Some(vec!["-1".into(), "rest".into()]));
     }
 
     #[test]

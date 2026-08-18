@@ -376,6 +376,9 @@ func TestExternalSubcommand(t *testing.T) {
 	if got := collect(catch, "--wat"); got != "err:unknown_flag" {
 		t.Errorf("unknown flag: got %s", got)
 	}
+	if got := collect(catch, "-1", "rest"); got != "external:-1,rest" {
+		t.Errorf("numeric token: got %s", got)
+	}
 
 	run := &Command{Name: "run", Args: []*Arg{{Key: 10, Name: "task"}}}
 	both := &Command{

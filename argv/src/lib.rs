@@ -2232,6 +2232,13 @@ mod tests {
             parse(&CATCH, &a),
             Err(Error::UnknownFlag { token: b"--wat" })
         );
+
+        // A negative number is a value, not a flag, so it can be the unmatched word.
+        let a = argv(["-1", "rest"]);
+        assert_eq!(
+            parse(&CATCH, &a).unwrap(),
+            vec![Event::External { values: &a[..] }]
+        );
     }
 
     #[test]

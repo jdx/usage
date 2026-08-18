@@ -1577,7 +1577,10 @@ cmd "exec" external_subcommand=#true
                 .find(&format!("var {var} ="))
                 .unwrap_or_else(|| panic!("{var} should be emitted, got:\n{out}"));
             let rest = &out[start..];
-            let end = rest[1..].find("\nvar ").map(|i| i + 1).unwrap_or(rest.len());
+            let end = rest[1..]
+                .find("\nvar ")
+                .map(|i| i + 1)
+                .unwrap_or(rest.len());
             &rest[..end]
         };
         assert!(
