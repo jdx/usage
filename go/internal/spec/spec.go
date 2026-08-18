@@ -38,9 +38,13 @@ type Spec struct {
 	// DefaultSubcommand is declared once, at the top, and names a subcommand of
 	// the root.
 	DefaultSubcommand string `json:"default_subcommand"`
-	Version           string `json:"version"`
-	About             string `json:"about"`
-	AboutLong         string `json:"about_long"`
+	// Multicall is whether argv[0]'s basename selects a subcommand (busybox-style
+	// applets). clap's multicall. The dispatcher names (Name / Bin) are skipped;
+	// any other basename is parsed as the first word.
+	Multicall bool   `json:"multicall"`
+	Version   string `json:"version"`
+	About     string `json:"about"`
+	AboutLong string `json:"about_long"`
 	// Complete is the completers a spec declares, keyed by the lowercased name of
 	// the argument or flag value they belong to — which is how usage-lib keys
 	// them, and how a lookup has to be spelled.

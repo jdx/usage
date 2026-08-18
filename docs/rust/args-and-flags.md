@@ -182,6 +182,7 @@ On the root `#[derive(Cli)]` struct:
 | `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)   |
 | `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                |
 | `default_subcommand = "run"`        | Command to assume when argv names none                         |
+| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)       |
 | `completion`                        | Generate completion support ([Completions](/rust/completions)) |
 | `settings`                          | Generate config-settings bindings                              |
 | `min_usage_version = "…"`           | Declare the minimum usage version the spec needs               |

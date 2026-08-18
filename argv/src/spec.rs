@@ -296,6 +296,13 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
+    /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
+    ///
+    /// clap's `multicall`. The dispatcher names (`name` / `bin`) are skipped; any
+    /// other basename is parsed as the first word. Path components and a trailing
+    /// `.exe` are stripped. The parser itself does not see argv[0]; [`crate::multicall_applet`]
+    /// is what a process entry applies before calling it.
+    pub multicall: bool,
     /// The root command, and the home of everything a spec declares at its top level.
     ///
     /// A KDL spec has one place for surrounding text and examples — the top level — and the
@@ -319,6 +326,7 @@ impl Spec<'_> {
         long_about: None,
         usage: None,
         default_subcommand: None,
+        multicall: false,
         root: &CommandMeta::EMPTY,
     };
 }
@@ -839,6 +847,9 @@ impl Spec<'_> {
         }
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
+        }
+        if self.multicall {
+            writeln!(out, "multicall #true")?;
         }
         if self.root.cmd.external_subcommand {
             writeln!(out, "external_subcommand #true")?;

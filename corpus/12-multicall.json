@@ -1,0 +1,98 @@
+{
+  "section": "multicall",
+  "about": "argv[0]'s basename selects a subcommand when the spec declares multicall. clap's busybox-style applets: the dispatcher names (name and bin) are skipped, any other basename is the first word, and a trailing .exe plus path components are stripped so /usr/bin/ls and ls.exe select the same applet.",
+  "vectors": [
+    {
+      "id": "multicall-applet-selects",
+      "doc": "A symlink invocation: argv[0]'s basename is the applet, and the rest of argv belongs to it.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\" {\n  arg \"[ARGS]...\"\n}\ncmd \"cat\"\n",
+      "argv0": "/usr/bin/ls",
+      "argv": ["-l"],
+      "expect": {
+        "ok": {
+          "cmd": ["ls"],
+          "args": { "ARGS": ["-l"] }
+        }
+      }
+    },
+    {
+      "id": "multicall-dispatcher-skips",
+      "doc": "A dispatcher invocation still skips argv[0], so busybox ls is the ls applet.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\" {\n  arg \"[ARGS]...\"\n}\n",
+      "argv0": "/usr/bin/busybox",
+      "argv": ["ls", "-l"],
+      "expect": {
+        "ok": {
+          "cmd": ["ls"],
+          "args": { "ARGS": ["-l"] }
+        }
+      }
+    },
+    {
+      "id": "multicall-strips-exe",
+      "doc": "A trailing .exe is stripped so Windows and Unix agree on the applet name.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n",
+      "argv0": "ls.exe",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": ["ls"]
+        }
+      }
+    },
+    {
+      "id": "multicall-unknown-is-unexpected",
+      "doc": "An unknown applet is the same error as an unmatched word: nothing can hold it.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n",
+      "argv0": "wat",
+      "argv": [],
+      "expect": { "error": "unexpected_arg" }
+    },
+    {
+      "id": "multicall-unknown-can-be-external",
+      "doc": "An unknown applet is forwarded when the root declares external_subcommand, including flags after it.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"ls\"\n",
+      "argv0": "/usr/bin/git",
+      "argv": ["--help"],
+      "expect": {
+        "ok": {
+          "external": ["git", "--help"]
+        }
+      }
+    },
+    {
+      "id": "multicall-name-or-bin-is-dispatcher",
+      "doc": "Either dispatcher name skips argv[0]: `bin` matching is enough even when `name` differs.",
+      "spec": "name \"BusyBox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\" {\n  arg \"[ARGS]...\"\n}\n",
+      "argv0": "/usr/bin/busybox",
+      "argv": ["ls", "-l"],
+      "expect": {
+        "ok": {
+          "cmd": ["ls"],
+          "args": { "ARGS": ["-l"] }
+        }
+      }
+    },
+    {
+      "id": "multicall-default-subcommand-catches-unknown-applet",
+      "doc": "An unknown applet is an unmatched word, so default_subcommand still catches it.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ndefault_subcommand \"ls\"\ncmd \"ls\" {\n  arg \"[ARGS]...\"\n}\n",
+      "argv0": "wat",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": ["ls"],
+          "args": { "ARGS": ["wat"] }
+        }
+      }
+    },
+    {
+      "id": "multicall-empty-dispatcher-stays-at-root",
+      "doc": "Invoking the dispatcher with no further words stays at the root; it does not invent an applet.",
+      "spec": "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n",
+      "argv0": "busybox",
+      "argv": [],
+      "expect": { "ok": {} }
+    }
+  ]
+}

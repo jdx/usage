@@ -78,6 +78,12 @@ pub struct Cli {
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
     pub default_subcommand: Option<String>,
+    /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
+    ///
+    /// clap's `multicall`. Only the root has one: a spec declares it once, for the
+    /// whole program. `parse()` rewrites the process's argv[0]; `parse_from` is
+    /// unchanged, because the caller already decided the words.
+    pub multicall: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<String>,
@@ -464,6 +470,7 @@ impl Cli {
             long_about: None,
             unknown_flags: None,
             default_subcommand: None,
+            multicall: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -538,6 +545,7 @@ impl Cli {
                     "default_subcommand" => {
                         cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
                     }
+                    "multicall" => cli.multicall = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -547,7 +555,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `bin`, `version`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `restart_token`, `mount` and \
+                                 `default_subcommand`, `multicall`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
                             ),
@@ -673,6 +681,13 @@ impl Cli {
                      spec declares one for the whole program, not one per command",
                 ));
             }
+            if self.multicall {
+                return Err(self.misplaced(
+                    ident,
+                    "`multicall` belongs on the root, where `#[derive(Cli)]` is: a spec \
+                     declares it once for the whole program, not one per command",
+                ));
+            }
             return Ok(());
         }
 
@@ -731,6 +746,18 @@ impl Cli {
                 ident,
                 "`default_subcommand` names the command a bare invocation means, and this \
                  one has no subcommands to name",
+            ));
+        }
+        if self.multicall
+            && !self
+                .fields
+                .iter()
+                .any(|f| matches!(f.kind, Kind::Subcommand { .. }))
+        {
+            return Err(self.misplaced(
+                ident,
+                "`multicall` treats argv[0] as a subcommand, and this one has no \
+                 subcommands to select",
             ));
         }
         Ok(())
@@ -4439,6 +4466,42 @@ mod tests {
         let err = position_error(
             r#"
             #[usage(default_subcommand = "inner")]
+            struct Nested {
+                #[usage(subcommand)]
+                command: Option<Commands>,
+            }
+        "#,
+            false,
+        );
+        assert!(
+            err.contains("belongs on the root"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn multicall_needs_subcommands_to_select() {
+        let err = position_error(
+            r#"
+            #[usage(bin = "ex", multicall)]
+            struct Ex {
+                #[usage(arg)]
+                task: Option<String>,
+            }
+        "#,
+            true,
+        );
+        assert!(
+            err.contains("no subcommands to select"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn multicall_is_refused_below_the_root() {
+        let err = position_error(
+            r#"
+            #[usage(multicall)]
             struct Nested {
                 #[usage(subcommand)]
                 command: Option<Commands>,

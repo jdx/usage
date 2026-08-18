@@ -212,6 +212,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),
         default_subcommand: opt(&spec.default_subcommand),
+        multicall: spec.multicall,
         // An exact synopsis the spec declares, which replaces the generated line on the root's
         // page. usage-lib's manpage renderer honours it and its help renderer does not, so a
         // spec that declares one is a case the two disagree about; `render/03-sections.json`

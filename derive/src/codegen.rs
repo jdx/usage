@@ -88,6 +88,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
+    let multicall = cli.multicall;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -440,6 +441,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 usage: #usage,
                 default_subcommand: #default_subcommand,
+                multicall: #multicall,
                 root: &ROOT_META,
             };
 
@@ -485,8 +487,26 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 pub fn parse() -> Self {
                     #completion_intercept
-                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
-                        ::std::env::args_os().skip(1).collect();
+                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> = if SPEC.multicall {
+                        let mut __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                            ::std::env::args_os().collect();
+                        if !__usage_all.is_empty() {
+                            let __usage_argv0 = __usage_all.remove(0);
+                            if let ::std::option::Option::Some(__usage_word) =
+                                __usage_argv0.to_str().and_then(|s| {
+                                    usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                                })
+                            {
+                                __usage_all.insert(
+                                    0,
+                                    ::std::ffi::OsString::from(__usage_word),
+                                );
+                            }
+                        }
+                        __usage_all
+                    } else {
+                        ::std::env::args_os().skip(1).collect()
+                    };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                         __usage_raw.iter().map(|a| a.as_os_str()).collect();
                     // This is the entry point that *is* the process — it already exits for a help
