@@ -234,7 +234,9 @@
       "doc": "A `--` is flag-like too, so an `allow_hyphen_values` flag takes it as the value rather than ending flag interpretation. `ex -a -- -x` then binds `--` and leaves `-x` for the argument, matching clap.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--args <ARGS>\" allow_hyphen_values=#true\narg \"[rest]...\"\n",
       "argv": ["--args", "--", "-x"],
-      "expect": { "ok": { "flags": { "args": "--" }, "args": { "rest": ["-x"] } } }
+      "expect": {
+        "ok": { "flags": { "args": "--" }, "args": { "rest": ["-x"] } }
+      }
     },
     {
       "id": "long-variadic-allow-hyphen-first-value",
