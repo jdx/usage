@@ -274,6 +274,11 @@ pub struct ParseOutput {
     /// of the variadic argument collecting it, not a separator, so it does not unlock a
     /// `double_dash="required"` argument.
     pub double_dash_seen: bool,
+    /// Remaining argv captured when an unmatched word was forwarded as an external
+    /// subcommand: the command name first, then every token after it.
+    ///
+    /// Absent when no external command was selected. See [`SpecCommand::external_subcommand`].
+    pub external: Option<Vec<String>>,
 }
 
 impl ParseOutput {
@@ -617,6 +622,7 @@ fn parse_partial_with_env(
         errors: vec![],
         next_arg: None,
         double_dash_seen: false,
+        external: None,
     };
     // Keep this internal so adding relationship support remains semver-compatible. The full
     // parser uses it to prevent defaults and environment values from restoring overridden flags.
@@ -694,7 +700,7 @@ fn parse_partial_with_env(
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
-            && !input[idx].starts_with('-')
+            && is_command_word(&input[idx])
             && out.cmd.find_subcommand(&input[idx]).is_none()
         {
             mounts_resolved = true;
@@ -727,7 +733,7 @@ fn parse_partial_with_env(
             prefix_flags.clear();
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
-        } else if input[idx].starts_with('-') {
+        } else if !is_command_word(&input[idx]) {
             // Check if this is a known flag
             let word = input[idx].clone();
             let flag_key = get_flag_key(&word);
@@ -761,7 +767,7 @@ fn parse_partial_with_env(
                 if f.arg.is_some()
                     && !word.contains('=')
                     && idx < input.len()
-                    && !input[idx].starts_with('-')
+                    && !is_flag_like(&input[idx])
                 {
                     if let Some(words) = forwarded.as_mut() {
                         words.push(input[idx].clone());
@@ -813,6 +819,15 @@ fn parse_partial_with_env(
                         continue;
                     }
                 }
+            }
+            // An unmatched word that names no subcommand is forwarded as an external
+            // command: this word, then every token after it, including flags. Known
+            // subcommands already won above, and a default_subcommand already caught.
+            // clap's `allow_external_subcommands` is this, not `unknown_flags=value`.
+            if out.cmd.external_subcommand {
+                let rest: Vec<String> = input.drain(idx..).collect();
+                out.external = Some(rest);
+                break;
             }
             // This could be a positional argument, so stop subcommand search
             break;
@@ -1349,7 +1364,7 @@ fn parse_partial_with_env(
     // the child would be here instead. The spec has carried `subcommand_required` since it was
     // added for the derive, and this parser never read it — so `mise generate` parsed as a
     // complete invocation while usage-argv and clap both refused it.
-    if out.cmd.subcommand_required && !out.cmd.subcommands.is_empty() {
+    if out.cmd.subcommand_required && !out.cmd.subcommands.is_empty() && out.external.is_none() {
         let mut names: Vec<&str> = out
             .cmd
             .subcommands
@@ -1897,6 +1912,17 @@ fn is_flag_like(token: &str) -> bool {
     }
 }
 
+/// A token that can select a subcommand, trigger a mount, or be forwarded as an
+/// external command.
+///
+/// Flag-like tokens are not words. A lone `-` is a value — conventionally stdin —
+/// so it was never a candidate to *select* anything either. usage-argv uses the
+/// same rule; without it, `-1` skipped the external-subcommand path because Phase 1
+/// treated every token that `starts_with('-')` as a flag.
+fn is_command_word(token: &str) -> bool {
+    !is_flag_like(token) && token != "-"
+}
+
 /// Digits, at most one `.`, and an optional exponent.
 ///
 /// Spelled out rather than deferred to `f64::from_str`, which also accepts `inf` and
@@ -2351,6 +2377,7 @@ impl Debug for ParseOutput {
             )
             .field("flag_awaiting_value", &self.flag_awaiting_value)
             .field("errors", &self.errors)
+            .field("external", &self.external)
             .finish()
     }
 }
@@ -5804,6 +5831,85 @@ cmd "open" {
         // this is the half that keeps the check from being "any command with children".
         parse(&spec, &words(&["ex", "open"])).unwrap();
         parse(&spec, &words(&["ex", "open", "sub"])).unwrap();
+    }
+
+    #[test]
+    fn an_unmatched_word_is_forwarded_when_external_subcommand_is_set() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+unknown_flags "error"
+external_subcommand #true
+cmd "install"
+flag "-v --verbose" global=#true
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["ex", "foo", "--help", "bar"])).unwrap();
+        assert_eq!(
+            parsed.external,
+            Some(vec!["foo".into(), "--help".into(), "bar".into()])
+        );
+        assert!(parsed.flags.is_empty());
+
+        // Known subcommands still win.
+        let parsed = parse(&spec, &input(&["ex", "install"])).unwrap();
+        assert_eq!(parsed.cmd.name, "install");
+        assert!(parsed.external.is_none());
+
+        // A global flag before the unmatched word still binds on the parent.
+        let parsed = parse(&spec, &input(&["ex", "-v", "foo", "--verbose"])).unwrap();
+        assert_eq!(
+            parsed.external,
+            Some(vec!["foo".into(), "--verbose".into()])
+        );
+        assert!(parsed.flags.keys().any(|flag| flag.name == "verbose"));
+
+        // An unknown flag on the parent is still an error, which is what clap does.
+        assert!(parse(&spec, &input(&["ex", "--wat"])).is_err());
+
+        // A negative number is a value, not a flag, so it can be the unmatched word.
+        // usage-argv already forwarded `-1`; Phase 1 used to treat every `starts_with('-')`
+        // token as a flag and never reach the catch-all.
+        let parsed = parse(&spec, &input(&["ex", "-1", "rest"])).unwrap();
+        assert_eq!(parsed.external, Some(vec!["-1".into(), "rest".into()]));
+    }
+
+    #[test]
+    fn an_external_subcommand_satisfies_subcommand_required() {
+        let mut spec: Spec = r#"
+name "ex"
+bin "ex"
+external_subcommand #true
+cmd "install"
+"#
+        .parse()
+        .unwrap();
+        spec.cmd.subcommand_required = true;
+
+        parse(&spec, &input(&["ex", "foo", "--help"])).unwrap();
+        assert!(parse(&spec, &input(&["ex"])).is_err());
+    }
+
+    #[test]
+    fn a_default_subcommand_outranks_an_external_one() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+external_subcommand #true
+cmd "run" {
+    arg "[task]"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["ex", "build"])).unwrap();
+        assert_eq!(parsed.cmd.name, "run");
+        assert!(parsed.external.is_none());
+        assert_eq!(first_string_value(&parsed), "build");
     }
 
     #[test]

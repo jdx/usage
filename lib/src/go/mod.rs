@@ -371,6 +371,10 @@ impl<'a> Emitter<'a> {
                 ));
             }
 
+            if e.cmd.external_subcommand {
+                lines.push(Line::Field("ExternalSubcommand".into(), "true".into()));
+            }
+
             if e.root {
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
@@ -1557,6 +1561,43 @@ default_subcommand "run"
                 "should point at the command named `run`, got:\n{out}"
             );
         }
+    }
+
+    #[test]
+    fn an_external_subcommand_is_emitted_on_the_command_that_declares_it() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+external_subcommand #true
+cmd "install"
+cmd "exec" external_subcommand=#true
+"#);
+        let block = |var: &str| {
+            let start = out
+                .find(&format!("var {var} ="))
+                .unwrap_or_else(|| panic!("{var} should be emitted, got:\n{out}"));
+            let rest = &out[start..];
+            let end = rest[1..]
+                .find("\nvar ")
+                .map(|i| i + 1)
+                .unwrap_or(rest.len());
+            &rest[..end]
+        };
+        assert!(
+            block("Root").contains("ExternalSubcommand: true"),
+            "the root should forward unmatched words:\n{}",
+            block("Root")
+        );
+        assert!(
+            block("cmdExec").contains("ExternalSubcommand: true"),
+            "a nested command can forward too:\n{}",
+            block("cmdExec")
+        );
+        assert!(
+            !block("cmdInstall").contains("ExternalSubcommand"),
+            "a command that does not declare it should not carry it:\n{}",
+            block("cmdInstall")
+        );
     }
 
     /// A subcommand actually named `root` wants the constant the root has.

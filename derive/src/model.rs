@@ -2781,6 +2781,11 @@ pub struct Variant {
     /// keeps its command enum from being as large as its biggest variant — clap struggles
     /// at that size, and `clippy::large_enum_variant` says so about the rest.
     pub boxed: bool,
+    /// Whether this variant is clap's `external_subcommand`: an unmatched word plus
+    /// the rest of argv, held as `Vec<String>` or `Vec<OsString>`.
+    pub external: bool,
+    /// Whether the captured argv is `Vec<OsString>` rather than `Vec<String>`.
+    pub external_os: bool,
     /// Other names this command answers to.
     ///
     /// Kept apart from [`hidden_aliases`](Self::hidden_aliases) only for the spec: the
@@ -2824,11 +2829,22 @@ impl Subcommands {
             }
         }
 
+        let externals: Vec<_> = variants.iter().filter(|v| v.external).collect();
+        if externals.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                &externals[1].ident,
+                "a command has one catch-all: only one variant may be `external_subcommand`",
+            ));
+        }
+
         // Every name a command answers to, its aliases included: the parser takes the
         // first table entry that matches, so a name claimed twice means one of the two
         // commands can never be reached and nothing would have said so.
         let mut seen: Vec<(&str, Span)> = Vec::new();
         for variant in &variants {
+            if variant.external {
+                continue;
+            }
             for name in std::iter::once(&variant.name)
                 .chain(&variant.aliases)
                 .chain(&variant.hidden_aliases)
@@ -2858,6 +2874,9 @@ impl Subcommands {
         // were refused.
         let mut types: Vec<(String, Span)> = Vec::new();
         for variant in &variants {
+            if variant.external {
+                continue;
+            }
             let rendered = quote::ToTokens::to_token_stream(&variant.ty)
                 .to_string()
                 .replace(' ', "");
@@ -2892,6 +2911,7 @@ impl Variant {
         let mut hidden_aliases: Vec<String> = Vec::new();
         let mut effect = None;
         let mut hide = false;
+        let mut external = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
 
@@ -2904,6 +2924,7 @@ impl Variant {
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
+                    "external_subcommand" => external = flag_value(&meta)?,
                     "effect" => {
                         // Checked where it is written, and checked again by the struct's own
                         // derive, which is where it is read — one definition of the word.
@@ -2921,8 +2942,8 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden` and \
-                                 `verbatim_doc_comment` here, \
+                                 variant takes `name`, `alias`, `alias_hidden`, \
+                                 `external_subcommand` and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));
@@ -2944,6 +2965,85 @@ impl Variant {
                     format!("`{alias}` is this command's own name, not another name for it"),
                 ));
             }
+        }
+
+        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+
+        if external {
+            if !aliases.is_empty() || !hidden_aliases.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`external_subcommand` is a catch-all, not a named command, so it \
+                     takes no alias",
+                ));
+            }
+            if effect.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`effect` belongs on a command; `external_subcommand` forwards to one",
+                ));
+            }
+            if hide {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`external_subcommand` is a catch-all rather than a command help lists, \
+                     so there is nothing for `hide` to keep out of help",
+                ));
+            }
+            if help.is_some() || long_help.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "a catch-all has no page of its own, so a description here would be \
+                     dropped; describe the forwarding on the command that declares it",
+                ));
+            }
+            let held = match &variant.fields {
+                Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => {
+                    unnamed.unnamed[0].ty.clone()
+                }
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        other,
+                        "`external_subcommand` holds the unmatched name plus the rest of \
+                         argv, as `External(Vec<String>)` or `External(Vec<OsString>)`",
+                    ));
+                }
+            };
+            let Some(inner) = peel(&held, "Vec") else {
+                return Err(syn::Error::new_spanned(
+                    &held,
+                    "`external_subcommand` holds `Vec<String>` or `Vec<OsString>`",
+                ));
+            };
+            let inner_name = type_name(&inner);
+            let external_os = match inner_name.as_str() {
+                "String" => false,
+                "OsString" => true,
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        &inner,
+                        format!(
+                            "`external_subcommand` holds `Vec<String>` or `Vec<OsString>`, \
+                             not `Vec<{other}>`"
+                        ),
+                    ));
+                }
+            };
+            return Ok(Variant {
+                ident: variant.ident.clone(),
+                hide: false,
+                name,
+                effect: None,
+                unit: false,
+                ty: held,
+                boxed: false,
+                external: true,
+                external_os,
+                aliases,
+                hidden_aliases,
+                help: None,
+                long_help: None,
+            });
         }
 
         // One unnamed field, holding the struct that declares the command's flags
@@ -2982,7 +3082,6 @@ impl Variant {
             None => (held, false),
         };
 
-        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
         Ok(Variant {
             ident: variant.ident.clone(),
             hide,
@@ -2991,6 +3090,8 @@ impl Variant {
             unit,
             ty,
             boxed,
+            external: false,
+            external_os: false,
             aliases,
             hidden_aliases,
             help,
@@ -3505,6 +3606,78 @@ mod tests {
             Ok(_) => panic!("should not have compiled"),
             Err(e) => e.to_string(),
         }
+    }
+
+    #[test]
+    fn an_external_subcommand_holds_a_vec_of_strings() {
+        let subs = subcommands(
+            r#"
+            enum Commands {
+                Install(Install),
+                #[usage(external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        )
+        .expect("should compile");
+        assert!(subs.variants[1].external);
+        assert!(!subs.variants[1].external_os);
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(external_subcommand)]
+                Extra(::std::ffi::OsString),
+            }
+        "#,
+        );
+        assert!(err.contains("Vec<String>"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(external_subcommand)]
+                Extra(Vec<u8>),
+            }
+        "#,
+        );
+        assert!(err.contains("Vec<String>"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(external_subcommand)]
+                A(Vec<String>),
+                #[usage(external_subcommand)]
+                B(Vec<String>),
+            }
+        "#,
+        );
+        assert!(err.contains("only one variant"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(hide, external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        );
+        assert!(err.contains("hide"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                /// forwarded argv
+                #[usage(external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        );
+        assert!(
+            err.contains("description") || err.contains("catch-all"),
+            "{err}"
+        );
     }
 
     fn value_enum(body: &str) -> syn::Result<ValueEnum> {

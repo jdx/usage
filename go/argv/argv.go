@@ -61,6 +61,13 @@ type Command struct {
 	// Applied at most once per parse, so a CLI cannot loop through it, and only
 	// where a subcommand could still be selected.
 	DefaultSubcommand *Command
+	// ExternalSubcommand is whether an unmatched word is forwarded as an external
+	// command plus the rest of argv.
+	//
+	// clap's allow_external_subcommands. Known subcommands still win; a
+	// DefaultSubcommand still catches first. Once the unmatched word is taken,
+	// remaining tokens — including --help — are not parsed as this command's flags.
+	ExternalSubcommand bool
 	// UnknownFlags is what an unrecognized flag-like token means here. Already
 	// resolved: inheritance is a question for whoever builds the tables.
 	UnknownFlags UnknownFlags
@@ -202,7 +209,7 @@ const (
 	DoubleDashAutomatic
 )
 
-// Kind is which of the three things an [Event] reports.
+// Kind is which of the things an [Event] reports.
 type Kind uint8
 
 const (
@@ -212,6 +219,9 @@ const (
 	KindFlag
 	// KindArg means a word was bound to a positional argument.
 	KindArg
+	// KindExternal means an unmatched word was forwarded as an external command:
+	// the name, then every remaining token, including flags.
+	KindExternal
 )
 
 // Event is something the parser bound.
@@ -239,6 +249,10 @@ type Event struct {
 	HasValue bool
 	// Negated is true when a flag was set through its Negate form.
 	Negated bool
+	// Values is the remaining argv when Kind is KindExternal: the unmatched name
+	// first, then every token after it. Shares memory with the argv the parser
+	// was given.
+	Values []string
 }
 
 // Code is a class of binding failure.

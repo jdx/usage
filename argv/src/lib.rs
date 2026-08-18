@@ -168,6 +168,13 @@ pub struct Command<'a> {
     /// Resolve it with [`find_subcommand`], which turns a name that no subcommand answers to
     /// into a compile error.
     pub default_subcommand: ::core::option::Option<&'a Command<'a>>,
+    /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
+    ///
+    /// clap's `allow_external_subcommands`. Known subcommands still win; a
+    /// [`default_subcommand`](Self::default_subcommand) still catches first. Once the
+    /// unmatched word is taken, remaining tokens — including `--help` — are not parsed
+    /// as this command's flags.
+    pub external_subcommand: bool,
     /// What an unrecognized flag-like token means here, or `None` to keep whatever the
     /// enclosing command said. See [`UnknownFlags`].
     ///
@@ -208,6 +215,7 @@ impl Command<'_> {
         args: &[],
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
+        external_subcommand: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
         key: 0,
@@ -411,6 +419,9 @@ pub enum Event<'t, 'v> {
     /// A word was bound to a positional argument. A variadic argument produces
     /// one event per value.
     Arg { arg: &'t Arg<'t>, value: &'v [u8] },
+    /// An unmatched word was forwarded as an external command: the name, then
+    /// every remaining token, including flags.
+    External { values: &'v [&'v OsStr] },
 }
 
 /// A binding failure.
@@ -1462,6 +1473,21 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
                     return Ok(Event::Command(default));
                 }
             }
+
+            // An unmatched word that names no subcommand is forwarded as an external
+            // command: this word, then every token after it, including flags. Known
+            // subcommands already won above, and a default_subcommand already caught.
+            if self.cmd.external_subcommand
+                && !is_flag_like(token)
+                && token != b"--"
+                && token != b"-"
+            {
+                let from = self.pos - 1;
+                self.pos = self.argv.len();
+                return Ok(Event::External {
+                    values: &self.argv[from..],
+                });
+            }
         }
 
         let Some(arg) = self.next_arg() else {
@@ -2166,6 +2192,74 @@ mod tests {
         assert_eq!(
             parse(&DEFAULTING, &a).unwrap(),
             vec![Event::Command(&INSTALL)]
+        );
+    }
+
+    #[test]
+    fn an_unmatched_word_is_forwarded_when_external_subcommand_is_set() {
+        static CATCH: Command = Command {
+            name: "ex",
+            flags: &[&VERBOSE],
+            subcommands: &[&INSTALL],
+            external_subcommand: true,
+            unknown_flags: Some(UnknownFlags::Error),
+            ..Command::EMPTY
+        };
+        let a = argv(["foo", "--help", "bar"]);
+        assert_eq!(
+            parse(&CATCH, &a).unwrap(),
+            vec![Event::External { values: &a[..] }]
+        );
+
+        let a = argv(["install"]);
+        assert_eq!(parse(&CATCH, &a).unwrap(), vec![Event::Command(&INSTALL)]);
+
+        let a = argv(["--verbose", "foo", "--verbose"]);
+        assert_eq!(
+            parse(&CATCH, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &VERBOSE,
+                    value: None,
+                    negated: false
+                },
+                Event::External { values: &a[1..] }
+            ]
+        );
+
+        let a = argv(["--wat"]);
+        assert_eq!(
+            parse(&CATCH, &a),
+            Err(Error::UnknownFlag { token: b"--wat" })
+        );
+
+        // A negative number is a value, not a flag, so it can be the unmatched word.
+        let a = argv(["-1", "rest"]);
+        assert_eq!(
+            parse(&CATCH, &a).unwrap(),
+            vec![Event::External { values: &a[..] }]
+        );
+    }
+
+    #[test]
+    fn a_default_subcommand_outranks_an_external_one() {
+        static CATCH_DEFAULT: Command = Command {
+            name: "ex",
+            subcommands: &[&RUN],
+            default_subcommand: Some(&RUN),
+            external_subcommand: true,
+            ..Command::EMPTY
+        };
+        let a = argv(["build"]);
+        assert_eq!(
+            parse(&CATCH_DEFAULT, &a).unwrap(),
+            vec![
+                Event::Command(&RUN),
+                Event::Arg {
+                    arg: &RUN_TASK,
+                    value: b"build"
+                }
+            ]
         );
     }
 

@@ -276,6 +276,9 @@ impl Spec {
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
                 }
+                "external_subcommand" => {
+                    schema.cmd.external_subcommand = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -538,6 +541,11 @@ impl Display for Spec {
         if let Some(default_subcommand) = &self.default_subcommand {
             let mut node = KdlNode::new("default_subcommand");
             node.push(string_entry(None, default_subcommand));
+            nodes.push(node);
+        }
+        if self.cmd.external_subcommand {
+            let mut node = KdlNode::new("external_subcommand");
+            node.push(KdlEntry::new(true));
             nodes.push(node);
         }
         if !self.usage.is_empty() {

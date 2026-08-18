@@ -94,6 +94,14 @@ pub struct SpecCommand {
     /// Whether a subcommand must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
+    /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
+    ///
+    /// clap's `allow_external_subcommands` / `#[command(external_subcommand)]`. Known
+    /// subcommands still win; a `default_subcommand` still catches first. Once the
+    /// unmatched word is taken, remaining tokens — including `--help` — are not parsed
+    /// as this command's flags.
+    #[serde(skip_serializing_if = "is_false")]
+    pub external_subcommand: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,6 +170,7 @@ impl Default for SpecCommand {
             mounted: false,
             flags_from_mount: false,
             subcommand_required: false,
+            external_subcommand: false,
             restart_token: None,
             help: None,
             help_long: None,
@@ -267,6 +276,7 @@ impl SpecCommand {
                 }
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
+                "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -388,6 +398,9 @@ impl SpecCommand {
                 "subcommand_required" => {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "external_subcommand" => {
+                    cmd.external_subcommand = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -497,6 +510,7 @@ impl SpecCommand {
             examples,
             hide,
             subcommand_required,
+            external_subcommand,
             restart_token,
             subcommands,
             complete,
@@ -569,6 +583,7 @@ impl SpecCommand {
         }
         self.hide = hide;
         self.subcommand_required = subcommand_required;
+        self.external_subcommand = external_subcommand;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -671,6 +686,7 @@ impl From<&SpecCommand> for KdlNode {
             name,
             hide,
             subcommand_required,
+            external_subcommand,
             restart_token,
             unknown_flags,
             aliases,
@@ -708,6 +724,10 @@ impl From<&SpecCommand> for KdlNode {
         if *subcommand_required {
             node.entries_mut()
                 .push(KdlEntry::new_prop("subcommand_required", true));
+        }
+        if *external_subcommand {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("external_subcommand", true));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()
@@ -849,14 +869,19 @@ impl From<&clap::Command> for SpecCommand {
         // of them said `unknown_flags`, so `mise use --globa` became a tool named `--globa`
         // rather than the error clap gives.
         //
-        // Which commands forward is clap's own knowledge: an argument that accepts hyphen values,
-        // or a command that takes external subcommands. In mise that is five commands — `run`,
-        // `watch`, `asdf`, `tool-stub` and the root's implicit task arguments — and the other two
-        // hundred get the stricter reading back.
-        let forwards = cmd.is_allow_external_subcommands_set()
-            || cmd
-                .get_arguments()
-                .any(|arg| arg.is_allow_hyphen_values_set() || arg.is_trailing_var_arg_set());
+        // Which commands forward unknown *flags* is clap's own knowledge: an argument that
+        // accepts hyphen values, or a trailing var arg. In mise that is five commands —
+        // `run`, `watch`, `asdf`, `tool-stub` and the root's implicit task arguments — and
+        // the other two hundred get the stricter reading back.
+        //
+        // An external subcommand is a different shape: an unmatched *word* is forwarded with
+        // the rest of argv. clap still rejects an unknown flag on such a command (`x --wat`),
+        // so mapping `allow_external_subcommands` onto `unknown_flags=value` silently loosened
+        // every clap CLI that allowed one.
+        spec.external_subcommand = cmd.is_allow_external_subcommands_set();
+        let forwards = cmd
+            .get_arguments()
+            .any(|arg| arg.is_allow_hyphen_values_set() || arg.is_trailing_var_arg_set());
         spec.unknown_flags = Some(if forwards {
             UnknownFlags::Value
         } else {
@@ -1166,6 +1191,7 @@ cmd "wrapped" help="Wraps another CLI" {
 }
 cmd "remove" help="Remove a package" deprecated="use `uninstall`" effect="destructive"
 cmd "run" restart_token=":::" help="Run tasks"
+cmd "exec" external_subcommand=#true help="Run an external command"
 cmd "hidden" hide=#true
         "#;
 
@@ -1278,11 +1304,12 @@ cmd "hidden" hide=#true
         let spec: SpecCommand = (&trailing).into();
         assert_eq!(spec.unknown_flags, Some(UnknownFlags::Value));
 
-        // And a command that takes whatever subcommand it is given, which is the other shape of
-        // the same thing.
+        // And a command that takes whatever subcommand it is given, which is a different
+        // shape from forwarding unknown flags: clap still rejects `x --wat`.
         let external = clap::Command::new("x").allow_external_subcommands(true);
         let spec: SpecCommand = (&external).into();
-        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Value));
+        assert_eq!(spec.unknown_flags, Some(UnknownFlags::Error));
+        assert!(spec.external_subcommand);
     }
 
     #[cfg(feature = "clap")]

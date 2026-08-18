@@ -70,6 +70,8 @@ func collect(cmd *Command, args ...string) string {
 			out = append(out, s)
 		case KindArg:
 			out = append(out, "arg:"+ev.Arg.Name+"="+ev.Value)
+		case KindExternal:
+			out = append(out, "external:"+strings.Join(ev.Values, ","))
 		}
 	}
 	if err := p.Err(); err != nil {
@@ -350,6 +352,43 @@ func TestDefaultMissingWithRequireEquals(t *testing.T) {
 	}
 	if got := collect(cmd, "--inspect="); got != "flag:inspect=" {
 		t.Errorf("--inspect=: got %s", got)
+	}
+}
+
+func TestExternalSubcommand(t *testing.T) {
+	install := &Command{Name: "install", Key: 100}
+	catch := &Command{
+		Name:               "ex",
+		Flags:              []*Flag{verbose},
+		Subcommands:        []*Command{install},
+		ExternalSubcommand: true,
+		UnknownFlags:       UnknownFlagsError,
+	}
+	if got := collect(catch, "foo", "--help", "bar"); got != "external:foo,--help,bar" {
+		t.Errorf("forward: got %s", got)
+	}
+	if got := collect(catch, "install"); got != "cmd:install" {
+		t.Errorf("known command: got %s", got)
+	}
+	if got := collect(catch, "--verbose", "foo", "--verbose"); got != "flag:verbose external:foo,--verbose" {
+		t.Errorf("global before the word: got %s", got)
+	}
+	if got := collect(catch, "--wat"); got != "err:unknown_flag" {
+		t.Errorf("unknown flag: got %s", got)
+	}
+	if got := collect(catch, "-1", "rest"); got != "external:-1,rest" {
+		t.Errorf("numeric token: got %s", got)
+	}
+
+	run := &Command{Name: "run", Args: []*Arg{{Key: 10, Name: "task"}}}
+	both := &Command{
+		Name:               "ex",
+		Subcommands:        []*Command{run},
+		DefaultSubcommand:  run,
+		ExternalSubcommand: true,
+	}
+	if got := collect(both, "build"); got != "cmd:run arg:task=build" {
+		t.Errorf("default outranks: got %s", got)
 	}
 }
 

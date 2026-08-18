@@ -1,0 +1,82 @@
+{
+  "section": "external-subcommand",
+  "about": "An unmatched word forwarded as an external command plus the rest of argv. clap's allow_external_subcommands: known subcommands still win, default_subcommand still catches first, and a flag-like token on the parent is still an unknown flag rather than a forwarded name.",
+  "vectors": [
+    {
+      "id": "external-forwards-the-rest",
+      "doc": "Once an unmatched word is taken as the external name, every token after it is forwarded with it, including flags.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"install\"\n",
+      "argv": ["foo", "--help", "bar"],
+      "expect": {
+        "ok": {
+          "external": ["foo", "--help", "bar"]
+        }
+      }
+    },
+    {
+      "id": "external-known-command-still-wins",
+      "doc": "A word that names a declared subcommand selects it; the catch-all is only for words that name nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"install\"\n",
+      "argv": ["install"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"]
+        }
+      }
+    },
+    {
+      "id": "external-unknown-flag-still-errors",
+      "doc": "A flag-like token on the parent is still an unknown flag. This is clap's allow_external_subcommands, not unknown_flags=value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"install\"\n",
+      "argv": ["--wat"],
+      "expect": { "error": "unknown_flag" }
+    },
+    {
+      "id": "external-global-before-the-word",
+      "doc": "A global flag typed before the unmatched word still binds on the parent; flags after it are forwarded.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\nflag \"-v --verbose\" global=#true\ncmd \"install\"\n",
+      "argv": ["-v", "foo", "--verbose"],
+      "expect": {
+        "ok": {
+          "external": ["foo", "--verbose"],
+          "flags": { "verbose": true }
+        }
+      }
+    },
+    {
+      "id": "external-default-outranks",
+      "doc": "A declared default_subcommand already says what an unmatched word means, so it catches before the external forwarding.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\nexternal_subcommand #true\ncmd \"run\" {\n  arg \"[TASK]\"\n}\n",
+      "argv": ["build"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": { "TASK": "build" }
+        }
+      }
+    },
+    {
+      "id": "external-numeric-token",
+      "doc": "A negative number is a value, not a flag, so it can be the unmatched word the catch-all forwards. usage-lib used to treat every token that starts with `-` as a flag and skip this path.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nexternal_subcommand #true\ncmd \"install\"\n",
+      "argv": ["-1", "rest"],
+      "expect": {
+        "ok": {
+          "external": ["-1", "rest"]
+        }
+      }
+    },
+    {
+      "id": "external-nested-forwards",
+      "doc": "The property is per command: a nested cmd can forward while the root still owns its flags.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ncmd \"exec\" external_subcommand=#true {\n  cmd \"install\"\n}\n",
+      "argv": ["exec", "git", "--help"],
+      "expect": {
+        "ok": {
+          "cmd": ["exec"],
+          "external": ["git", "--help"]
+        }
+      }
+    }
+  ]
+}

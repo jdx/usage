@@ -442,3 +442,99 @@ fn a_boxed_command_can_be_named_through_a_path() {
     };
     assert!(deep.quiet);
 }
+
+/// clap's `external_subcommand`: an unmatched word plus the rest of argv.
+#[derive(Cli)]
+#[usage(bin = "ex", unknown_flags = "error")]
+struct Catch {
+    /// Say more
+    #[usage(short = 'v', long, global)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Option<CatchCommands>,
+}
+
+#[derive(Subcommands)]
+enum CatchCommands {
+    /// Install a tool
+    Install(CatchInstall),
+    #[usage(external_subcommand)]
+    External(Vec<String>),
+}
+
+#[derive(Args)]
+struct CatchInstall {}
+
+#[derive(Cli)]
+#[usage(bin = "need", unknown_flags = "error")]
+struct Need {
+    #[usage(subcommand)]
+    command: NeedCommands,
+}
+
+#[derive(Subcommands)]
+enum NeedCommands {
+    Install(CatchInstall),
+    #[usage(external_subcommand)]
+    External(Vec<String>),
+}
+
+#[test]
+fn an_unmatched_word_is_forwarded_as_an_external_subcommand() {
+    let a = argv(["foo", "--help", "bar"]);
+    let catch = Catch::parse_from(&a).expect("forwards the rest");
+    match catch.command {
+        Some(CatchCommands::External(values)) => {
+            assert_eq!(values, vec!["foo", "--help", "bar"]);
+        }
+        _ => panic!("expected the catch-all, got a named command"),
+    }
+
+    let a = argv(["install"]);
+    let catch = Catch::parse_from(&a).expect("known commands still win");
+    assert!(matches!(catch.command, Some(CatchCommands::Install(_))));
+
+    let a = argv(["-v", "foo", "--verbose"]);
+    let catch = Catch::parse_from(&a).expect("a global before the word still binds");
+    assert!(catch.verbose);
+    match catch.command {
+        Some(CatchCommands::External(values)) => {
+            assert_eq!(values, vec!["foo", "--verbose"]);
+        }
+        _ => panic!("expected the catch-all, got a named command"),
+    }
+
+    let a = argv(["--wat"]);
+    assert!(
+        Catch::parse_from(&a).is_err(),
+        "an unknown flag on the parent is still an error"
+    );
+
+    let spec = Catch::to_kdl();
+    assert!(
+        spec.contains("external_subcommand #true"),
+        "the catch-all is emitted: {spec}"
+    );
+    assert!(
+        !spec.contains("cmd \"external\""),
+        "the catch-all is not a named command: {spec}"
+    );
+}
+
+#[test]
+fn an_external_subcommand_satisfies_a_required_command() {
+    let a = argv(["foo", "--help"]);
+    let need = Need::parse_from(&a).expect("the catch-all counts as a command");
+    match need.command {
+        NeedCommands::External(values) => {
+            assert_eq!(values, vec!["foo", "--help"]);
+        }
+        _ => panic!("expected the catch-all, got a named command"),
+    }
+
+    let a = argv([]);
+    assert!(
+        Need::parse_from(&a).is_err(),
+        "with nothing typed, a required command is still missing"
+    );
+}

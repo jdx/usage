@@ -149,6 +149,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|p| p.default.clone())
         .unwrap_or_default();
+    let sub_external = parts
+        .as_ref()
+        .map(|p| p.external.clone())
+        .unwrap_or_default();
     let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
@@ -268,6 +272,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 args: #arg_table_ref,
                 #sub_commands
                 #sub_default
+                #sub_external
                 ..usage_argv::Command::EMPTY
             };
 
@@ -2358,6 +2363,9 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                     #per_level_resets
                     false
                 }
+                // Forwarded argv belongs to the catch-all variant, which the
+                // subcommand route claims; this command's own flags do not.
+                Event::External { .. } => false,
             }
         }
     }
@@ -2373,6 +2381,8 @@ struct SubcommandParts {
     commands: TokenStream,
     /// `default_subcommand:` for the `Command` table, when one is declared.
     default: TokenStream,
+    /// `external_subcommand:` for the `Command` table.
+    external: TokenStream,
     /// `subcommands:` for the `CommandMeta`.
     metas: TokenStream,
     /// Fields the partial needs to carry.
@@ -2423,6 +2433,9 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 
     Some(SubcommandParts {
         commands: quote!(subcommands: <#ty as usage_argv::spec::Subcommands>::COMMANDS,),
+        external: quote!(
+            external_subcommand: <#ty as usage_argv::spec::Subcommands>::HAS_EXTERNAL,
+        ),
         // Resolved from the name at compile time. The variants are another expansion, so the
         // name is all there is to go on here — but `find_subcommand` searches the list during
         // const evaluation, which means a name no subcommand answers to fails to compile
@@ -2441,9 +2454,9 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         metas: quote!(subcommands: <#ty as usage_argv::spec::Subcommands>::METAS,),
         partial_fields: quote! {
             pub __usage_sub: <#ty as usage_argv::spec::Subcommands>::Partial,
-            /// Which of this command's subcommands was reached, as a position in
-            /// `COMMANDS`. Found from the table's own address, so it cannot be
-            /// confused by a key collision.
+            /// Which of this command's subcommands was reached, as a variant index.
+            /// Found from the table's own address, then mapped through `VARIANT_OF`
+            /// when a catch-all sits among the named commands.
             pub __usage_selected: ::std::option::Option<usize>,
         },
         partial_starts: quote! {
@@ -2454,17 +2467,34 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // A command word only counts as *this* command's if one of its own
             // subcommands answers to it: a deeper descent belongs to whoever owns
             // that command, and recording it here would make the wrong variant look
-            // selected.
+            // selected. `COMMANDS` holds named commands only, so the position is
+            // mapped through `VARIANT_OF` when a catch-all variant sits beside them.
             if let usage_argv::Event::Command(__usage_cmd) = event {
-                if let ::std::option::Option::Some(__usage_at) =
+                if let ::std::option::Option::Some(__usage_named) =
                     <#ty as usage_argv::spec::Subcommands>::COMMANDS
                         .iter()
                         .position(|candidate| ::core::ptr::eq(*candidate, *__usage_cmd))
                 {
+                    let __usage_at = if <#ty as usage_argv::spec::Subcommands>::HAS_EXTERNAL {
+                        <#ty as usage_argv::spec::Subcommands>::VARIANT_OF[__usage_named]
+                    } else {
+                        __usage_named
+                    };
                     partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                     // The one place the selection and the storage are tied together: from
-                    // here on, `__usage_selected` naming a position means `__usage_sub`
+                    // here on, `__usage_selected` naming a variant means `__usage_sub`
                     // holds that variant. Everything downstream relies on it.
+                    <#ty as usage_argv::spec::Subcommands>::begin(
+                        &mut partial.__usage_sub,
+                        __usage_at,
+                    );
+                }
+            }
+            if let usage_argv::Event::External { .. } = event {
+                if let ::std::option::Option::Some(__usage_at) =
+                    <#ty as usage_argv::spec::Subcommands>::EXTERNAL
+                {
+                    partial.__usage_selected = ::std::option::Option::Some(__usage_at);
                     <#ty as usage_argv::spec::Subcommands>::begin(
                         &mut partial.__usage_sub,
                         __usage_at,
@@ -2592,6 +2622,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|p| p.commands.clone())
         .unwrap_or_default();
+    let sub_external = parts
+        .as_ref()
+        .map(|p| p.external.clone())
+        .unwrap_or_default();
     let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
     // The same conversion the root gets. Two emitters producing one `build` is what let
@@ -2637,6 +2671,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands
+                #sub_external
                 ..usage_argv::Command::EMPTY
             };
 
@@ -2790,36 +2825,69 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // comes into being when a command word selects it, in `begin`.
     let partial_variants = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote!(#variant(<#ty as usage_argv::spec::CommandArgs>::Partial),)
+        if v.external {
+            quote!(#variant(::std::vec::Vec<::std::vec::Vec<u8>>),)
+        } else {
+            let ty = &v.ty;
+            quote!(#variant(<#ty as usage_argv::spec::CommandArgs>::Partial),)
+        }
     });
     // Idempotent, as the trait requires: a restart token can re-announce the command that is
     // already selected, and starting it again there would throw away the parse so far.
     let begins = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            #i => {
-                if !::std::matches!(partial, Partial::#variant(_)) {
-                    *partial = Partial::#variant(
-                        <#ty as usage_argv::spec::CommandArgs>::start(),
-                    );
+        if v.external {
+            quote! {
+                #i => {
+                    if !::std::matches!(partial, Partial::#variant(_)) {
+                        *partial = Partial::#variant(::std::vec::Vec::new());
+                    }
+                }
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                #i => {
+                    if !::std::matches!(partial, Partial::#variant(_)) {
+                        *partial = Partial::#variant(
+                            <#ty as usage_argv::spec::CommandArgs>::start(),
+                        );
+                    }
                 }
             }
         }
     });
     let applies = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            ::std::option::Option::Some(#i) => {
-                if let Partial::#variant(__usage_p) = partial {
-                    <#ty as usage_argv::spec::CommandArgs>::apply(__usage_p, event)
-                } else {
-                    // `begin` put this variant here on the event that selected it, so the
-                    // partial always matches the selection. An event with nowhere to go was
-                    // not this command's.
-                    false
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        if let usage_argv::Event::External { values } = event {
+                            __usage_p.extend(
+                                values.iter().map(|v| v.as_encoded_bytes().to_vec()),
+                            );
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        <#ty as usage_argv::spec::CommandArgs>::apply(__usage_p, event)
+                    } else {
+                        // `begin` put this variant here on the event that selected it, so the
+                        // partial always matches the selection. An event with nowhere to go was
+                        // not this command's.
+                        false
+                    }
                 }
             }
         }
@@ -2828,122 +2896,170 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // command — its own kebab-case name, or whatever `name` says. Splicing the
     // struct's table unchanged would have used the *struct's* name instead, which
     // only looks right when the two happen to match.
-    let command_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
-        let name = format_ident!("COMMAND_{i}");
-        let alias_groups = format_ident!("ALIAS_GROUPS_{i}");
-        let aliases_name = format_ident!("ALIASES_{i}");
-        let ty = &v.ty;
-        let cmd_name = &v.name;
-        // Both kinds of alias go in the table, because the parser matches both; which of
-        // them help and completions mention is the metadata's business, below.
-        let aliases = v.aliases.iter().chain(&v.hidden_aliases);
-        quote! {
-            const #alias_groups: &[&[&str]] = &[
-                <#ty as usage_argv::spec::CommandArgs>::COMMAND.aliases,
-                &[#(#aliases),*],
-            ];
-            static #aliases_name: [&str; usage_argv::table_len(#alias_groups)] =
-                usage_argv::spec::concat_aliases(#alias_groups);
-            pub static #name: usage_argv::Command = usage_argv::Command {
-                name: #cmd_name,
-                aliases: &#aliases_name,
-                ..*<#ty as usage_argv::spec::CommandArgs>::COMMAND
-            };
-        }
-    });
-    let commands = (0..subs.variants.len()).map(|i| {
-        let name = format_ident!("COMMAND_{i}");
-        quote!(&#name)
-    });
-    let unique_commands = (0..subs.variants.len()).map(|i| {
-        let name = format_ident!("COMMAND_{i}");
-        quote!(&#name)
-    });
+    let command_overrides = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, v)| {
+            let name = format_ident!("COMMAND_{i}");
+            let alias_groups = format_ident!("ALIAS_GROUPS_{i}");
+            let aliases_name = format_ident!("ALIASES_{i}");
+            let ty = &v.ty;
+            let cmd_name = &v.name;
+            // Both kinds of alias go in the table, because the parser matches both; which of
+            // them help and completions mention is the metadata's business, below.
+            let aliases = v.aliases.iter().chain(&v.hidden_aliases);
+            quote! {
+                const #alias_groups: &[&[&str]] = &[
+                    <#ty as usage_argv::spec::CommandArgs>::COMMAND.aliases,
+                    &[#(#aliases),*],
+                ];
+                static #aliases_name: [&str; usage_argv::table_len(#alias_groups)] =
+                    usage_argv::spec::concat_aliases(#alias_groups);
+                pub static #name: usage_argv::Command = usage_argv::Command {
+                    name: #cmd_name,
+                    aliases: &#aliases_name,
+                    ..*<#ty as usage_argv::spec::CommandArgs>::COMMAND
+                };
+            }
+        });
+    let commands = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, _)| {
+            let name = format_ident!("COMMAND_{i}");
+            quote!(&#name)
+        });
+    let unique_commands = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, _)| {
+            let name = format_ident!("COMMAND_{i}");
+            quote!(&#name)
+        });
+    let variant_of = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, _)| quote!(#i));
+    let has_external = subs.variants.iter().any(|v| v.external);
+    let external_const = match subs.variants.iter().position(|v| v.external) {
+        Some(i) => quote!(::std::option::Option::Some(#i)),
+        None => quote!(::std::option::Option::None),
+    };
     // A doc comment on the variant wins over the struct's, since that is where a
     // reader of the enum expects to describe the command — and ignoring it would lose
     // the description without saying so. Overriding one field of the struct's
     // metadata is possible in a const, so the tables stay static.
-    let meta_overrides = subs.variants.iter().enumerate().map(|(i, v)| {
-        let name = format_ident!("META_{i}");
-        let cmd = format_ident!("COMMAND_{i}");
-        let hidden_groups = format_ident!("HIDDEN_ALIAS_GROUPS_{i}");
-        let hidden_name = format_ident!("HIDDEN_ALIASES_{i}");
-        let ty = &v.ty;
-        // A doc comment on the variant wins over the struct's, since that is where a
-        // reader of the enum expects to describe the command. Absent one, the
-        // struct's own description carries through.
-        // Each falls back on its own. A variant that gives a short description was suppressing
-        // the struct's long one, which is exactly how a generated CLI is shaped: the enum says
-        // what the command is for in a line, and the struct's own comment carries the rest. The
-        // long form went missing from help for every command written that way.
-        let about = match v.help.as_deref() {
-            Some(help) => option_str(Some(help)),
-            None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.about),
-        };
-        let long_about = match v.long_help.as_deref() {
-            Some(long) => option_str(Some(long)),
-            None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.long_about),
-        };
-        // Which of the table's aliases are hidden. The visible ones are not listed
-        // anywhere: `cmd.aliases` minus these is what help and completions show.
-        let hidden = &v.hidden_aliases;
-        // A hidden command still answers to its name; it is simply not offered. Declared on
-        // the variant, which is where the command itself is declared.
-        let hide = v.hide;
-        quote! {
-            const #hidden_groups: &[&[&str]] = &[
-                <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
-                &[#(#hidden),*],
-            ];
-            static #hidden_name: [&str; usage_argv::table_len(#hidden_groups)] =
-                usage_argv::spec::concat_aliases(#hidden_groups);
-            pub static #name: usage_argv::spec::CommandMeta =
-                usage_argv::spec::CommandMeta {
-                    cmd: &#cmd,
-                    about: #about,
-                    long_about: #long_about,
-                    hide: #hide,
-                    hidden_aliases: &#hidden_name,
-                    ..*<#ty as usage_argv::spec::CommandArgs>::META
-                };
-        }
-    });
-    let metas = (0..subs.variants.len()).map(|i| {
-        let name = format_ident!("META_{i}");
-        quote!(&#name)
-    });
+    let meta_overrides = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, v)| {
+            let name = format_ident!("META_{i}");
+            let cmd = format_ident!("COMMAND_{i}");
+            let hidden_groups = format_ident!("HIDDEN_ALIAS_GROUPS_{i}");
+            let hidden_name = format_ident!("HIDDEN_ALIASES_{i}");
+            let ty = &v.ty;
+            // A doc comment on the variant wins over the struct's, since that is where a
+            // reader of the enum expects to describe the command. Absent one, the
+            // struct's own description carries through.
+            // Each falls back on its own. A variant that gives a short description was suppressing
+            // the struct's long one, which is exactly how a generated CLI is shaped: the enum says
+            // what the command is for in a line, and the struct's own comment carries the rest. The
+            // long form went missing from help for every command written that way.
+            let about = match v.help.as_deref() {
+                Some(help) => option_str(Some(help)),
+                None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.about),
+            };
+            let long_about = match v.long_help.as_deref() {
+                Some(long) => option_str(Some(long)),
+                None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.long_about),
+            };
+            // Which of the table's aliases are hidden. The visible ones are not listed
+            // anywhere: `cmd.aliases` minus these is what help and completions show.
+            let hidden = &v.hidden_aliases;
+            // A hidden command still answers to its name; it is simply not offered. Declared on
+            // the variant, which is where the command itself is declared.
+            let hide = v.hide;
+            quote! {
+                const #hidden_groups: &[&[&str]] = &[
+                    <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
+                    &[#(#hidden),*],
+                ];
+                static #hidden_name: [&str; usage_argv::table_len(#hidden_groups)] =
+                    usage_argv::spec::concat_aliases(#hidden_groups);
+                pub static #name: usage_argv::spec::CommandMeta =
+                    usage_argv::spec::CommandMeta {
+                        cmd: &#cmd,
+                        about: #about,
+                        long_about: #long_about,
+                        hide: #hide,
+                        hidden_aliases: &#hidden_name,
+                        ..*<#ty as usage_argv::spec::CommandArgs>::META
+                    };
+            }
+        });
+    let metas = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external)
+        .map(|(i, _)| {
+            let name = format_ident!("META_{i}");
+            quote!(&#name)
+        });
     // Matched on the command's key rather than its name, so selecting a variant is
     // an integer comparison and cannot be confused by an alias.
     let checks = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            #i => match partial {
-                Partial::#variant(__usage_p) => {
-                    <#ty as usage_argv::spec::CommandArgs>::check(__usage_p)
-                }
-                // Selected but unfilled cannot happen — see `Subcommands::begin`.
-                _ => ::std::result::Result::Ok(()),
-            },
+        if v.external {
+            quote! {
+                #i => ::std::result::Result::Ok(()),
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                #i => match partial {
+                    Partial::#variant(__usage_p) => {
+                        <#ty as usage_argv::spec::CommandArgs>::check(__usage_p)
+                    }
+                    // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                    _ => ::std::result::Result::Ok(()),
+                },
+            }
         }
     });
     // Every variant's bindings, because a table says what the CLI *can* do and is compared
     // against a spec that documents all of them — but only the selected variant's values, since
     // those are about one invocation. A command nobody ran did not give anything.
-    let binding_parts = subs.variants.iter().map(|v| {
+    let binding_parts = subs.variants.iter().filter(|v| !v.external).map(|v| {
         let ty = &v.ty;
         quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS)
     });
     let binding_lens = binding_parts.clone().map(|part| quote!(+ #part.len()));
     let givens = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            ::std::option::Option::Some(#i) => {
-                if let Partial::#variant(__usage_p) = partial {
-                    <#ty as usage_argv::spec::CommandArgs>::settings_given(__usage_p)
-                } else {
-                    ::std::vec::Vec::new()
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => ::std::vec::Vec::new(),
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        <#ty as usage_argv::spec::CommandArgs>::settings_given(__usage_p)
+                    } else {
+                        ::std::vec::Vec::new()
+                    }
                 }
             }
         }
@@ -2952,37 +3068,55 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     // variant rather than a field: an unselected arm has nothing to have been given.
     let any_givens = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            ::std::option::Option::Some(#i) => {
-                if let Partial::#variant(__usage_p) = partial {
-                    <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_p)
-                } else {
-                    ::std::option::Option::None
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => ::std::option::Option::None,
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_p)
+                    } else {
+                        ::std::option::Option::None
+                    }
                 }
             }
         }
     });
     let exclusive_givens = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            ::std::option::Option::Some(#i) => {
-                if let Partial::#variant(__usage_p) = partial {
-                    <#ty as usage_argv::spec::CommandArgs>::exclusive_given(__usage_p)
-                } else {
-                    ::std::option::Option::None
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => ::std::option::Option::None,
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        <#ty as usage_argv::spec::CommandArgs>::exclusive_given(__usage_p)
+                    } else {
+                        ::std::option::Option::None
+                    }
                 }
             }
         }
     });
     let apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
-        let ty = &v.ty;
-        quote! {
-            ::std::option::Option::Some(#i) => {
-                if let Partial::#variant(__usage_p) = partial {
-                    <#ty as usage_argv::spec::CommandArgs>::apply_env(__usage_p);
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => {}
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        <#ty as usage_argv::spec::CommandArgs>::apply_env(__usage_p);
+                    }
                 }
             }
         }
@@ -2990,33 +3124,103 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let selects = subs.variants.iter().enumerate().map(|(i, v)| {
         let held = format_ident!("V{i}");
         let variant = &v.ident;
-        let ty = &v.ty;
-        // The one place the box matters: everything else — tables, partial, `build` —
-        // speaks to the struct itself.
-        let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(__usage_p)?);
-        let built = if v.boxed {
-            quote!(::std::boxed::Box::new(#built))
+        if v.external {
+            let name = &v.name;
+            let collected = if v.external_os {
+                quote! {{
+                    let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
+                    for __usage_item in __usage_p {
+                        match usage_argv::os_string_from_bytes(__usage_item) {
+                            ::std::result::Result::Ok(__usage_os) => {
+                                __usage_values.push(__usage_os)
+                            }
+                            ::std::result::Result::Err(__usage_bytes) => {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                        usage_argv::InvalidValue {
+                                            name: #name,
+                                            value: ::std::string::String::from_utf8_lossy(
+                                                &__usage_bytes,
+                                            )
+                                            .into_owned(),
+                                            reason: ::std::string::ToString::to_string(
+                                                &"this platform cannot hold these bytes",
+                                            ),
+                                        },
+                                    )),
+                                );
+                            }
+                        }
+                    }
+                    __usage_values
+                }}
+            } else {
+                quote! {{
+                    let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
+                    for __usage_item in __usage_p {
+                        match ::std::string::String::from_utf8(__usage_item) {
+                            ::std::result::Result::Ok(__usage_text) => {
+                                __usage_values.push(__usage_text)
+                            }
+                            ::std::result::Result::Err(__usage_bad) => {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                        usage_argv::InvalidValue {
+                                            name: #name,
+                                            value: ::std::string::String::from_utf8_lossy(
+                                                __usage_bad.as_bytes(),
+                                            )
+                                            .into_owned(),
+                                            reason: ::std::string::ToString::to_string(
+                                                &__usage_bad.utf8_error(),
+                                            ),
+                                        },
+                                    )),
+                                );
+                            }
+                        }
+                    }
+                    __usage_values
+                }}
+            };
+            let made = quote!(#ident::#variant(#collected));
+            quote! {
+                #i => match partial {
+                    Partial::#held(__usage_p) => {
+                        ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                    }
+                    _ => ::std::result::Result::Ok(::std::option::Option::None),
+                },
+            }
         } else {
-            built
-        };
-        // A bare variant has nowhere to put what was built, and nothing was declared to go in
-        // it — but the build still runs, because that is where the command's own checks live.
-        let made = if v.unit {
-            quote! {{
-                let _ = #built;
-                #ident::#variant
-            }}
-        } else {
-            quote!(#ident::#variant(#built))
-        };
-        quote! {
-            #i => match partial {
-                Partial::#held(__usage_p) => {
-                    ::std::result::Result::Ok(::std::option::Option::Some(#made))
-                }
-                // Selected but unfilled cannot happen — see `Subcommands::begin`.
-                _ => ::std::result::Result::Ok(::std::option::Option::None),
-            },
+            let ty = &v.ty;
+            // The one place the box matters: everything else — tables, partial, `build` —
+            // speaks to the struct itself.
+            let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(__usage_p)?);
+            let built = if v.boxed {
+                quote!(::std::boxed::Box::new(#built))
+            } else {
+                built
+            };
+            // A bare variant has nowhere to put what was built, and nothing was declared to go in
+            // it — but the build still runs, because that is where the command's own checks live.
+            let made = if v.unit {
+                quote! {{
+                    let _ = #built;
+                    #ident::#variant
+                }}
+            } else {
+                quote!(#ident::#variant(#built))
+            };
+            quote! {
+                #i => match partial {
+                    Partial::#held(__usage_p) => {
+                        ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                    }
+                    // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                    _ => ::std::result::Result::Ok(::std::option::Option::None),
+                },
+            }
         }
     });
 
@@ -3062,6 +3266,9 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     &[#(#commands),*];
                 const METAS: &'static [&'static usage_argv::spec::CommandMeta<'static>] =
                     &[#(#metas),*];
+                const HAS_EXTERNAL: bool = #has_external;
+                const EXTERNAL: ::std::option::Option<usize> = #external_const;
+                const VARIANT_OF: &'static [usize] = &[#(#variant_of),*];
 
                 fn apply(
                     partial: &mut Self::Partial,

@@ -826,6 +826,9 @@ impl Spec<'_> {
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
+        if self.root.cmd.external_subcommand {
+            writeln!(out, "external_subcommand #true")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1021,6 +1024,9 @@ fn write_command(
     // demand one, and the spec's own reader treats the pair as a mistake.
     if meta.subcommand_required && !meta.cmd.subcommands.is_empty() {
         out.push_str(" subcommand_required=#true");
+    }
+    if meta.cmd.external_subcommand {
+        out.push_str(" external_subcommand=#true");
     }
     out.push_str(" {\n");
 
@@ -1661,10 +1667,24 @@ pub trait Subcommands: Sized {
     /// The metadata for the variants, in the same order.
     const METAS: &'static [&'static CommandMeta<'static>];
 
+    /// Whether one of these variants is an [`external_subcommand`](Command::external_subcommand).
+    const HAS_EXTERNAL: bool = false;
+
+    /// The variant index of the catch-all, if any. Not a position in [`COMMANDS`]:
+    /// an external variant is not a named command.
+    const EXTERNAL: Option<usize> = None;
+
+    /// Maps a position in [`COMMANDS`] to a variant index.
+    ///
+    /// Identity when there is no catch-all. When [`HAS_EXTERNAL`] is set, the named
+    /// commands sit in `COMMANDS` without the external variant, so a table position
+    /// is not a variant index and this is how the two are tied together.
+    const VARIANT_OF: &'static [usize] = &[];
+
     /// Take one event, and say whether it belonged to the selected command.
     ///
-    /// `selected` is a position in [`Subcommands::COMMANDS`], or `None` before any of them
-    /// has been reached — in which case the event cannot be theirs and nothing is asked.
+    /// `selected` is a variant index, or `None` before any of them has been reached —
+    /// in which case the event cannot be theirs and nothing is asked.
     ///
     /// Only the selected one is asked, which is both cheaper and *necessary*. Cheaper because
     /// a CLI with a hundred subcommands would otherwise offer every event to all hundred.
@@ -1741,15 +1761,22 @@ pub trait Subcommands: Sized {
     /// A flag that `install` requires says nothing about an invocation that ran
     /// `run`, so only the command that was actually reached is judged.
     ///
-    /// Identified by its position in [`Subcommands::COMMANDS`] rather than by its
-    /// key: the position is found from the table's own address, so two commands whose
-    /// keys happen to collide still cannot be confused for one another.
+    /// `selected` is a variant index, the same value [`apply`] is given — mapped
+    /// through [`VARIANT_OF`] when [`HAS_EXTERNAL`] is set, so it is not a
+    /// position in [`COMMANDS`]. Two commands whose keys happen to collide still
+    /// cannot be confused for one another: the index names the variant, not a
+    /// table slot.
     fn check<'t, 'v>(
         partial: &mut Self::Partial,
         selected: usize,
     ) -> Result<(), crate::Error<'t, 'v>>;
 
-    /// Build the variant at `selected`, a position in [`Subcommands::COMMANDS`].
+    /// Build the variant at `selected`, a variant index.
+    ///
+    /// The same index [`apply`] and [`check`] take — mapped through [`VARIANT_OF`]
+    /// when [`HAS_EXTERNAL`] is set, so it is not a position in [`COMMANDS`]. An
+    /// external variant is not in that table, and a caller that indexed `COMMANDS`
+    /// by this value would read the wrong command or go out of bounds.
     ///
     /// `None` when no variant was selected, which a caller reads as "no subcommand
     /// was given". An `Err` comes from building the variant that *was* selected.

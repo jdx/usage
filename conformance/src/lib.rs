@@ -117,6 +117,10 @@ pub struct Parsed {
     pub flags: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub args: BTreeMap<String, Value>,
+    /// Remaining argv captured when an unmatched word was forwarded as an
+    /// external subcommand: the command name first, then every token after it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external: Vec<String>,
 }
 
 /// A bound value.
