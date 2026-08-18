@@ -259,6 +259,29 @@ fn fish_prints_the_candidates_it_was_given() {
     assert_eq!(out, "install\tInstall a tool\nuninstall\tRemove it\n");
 }
 
+/// A candidate that looks like an option to fish's own printer is still offered.
+///
+/// `echo -n` prints nothing at all: the flag is read as fish's, not as the data it was handed. So a
+/// CLI with a `-n` flag had that candidate vanish on the way to the prompt.
+///
+/// Undescribed candidates, which is the case that breaks and the common one — the renderer writes a
+/// description column only when something in the answer has one, so a spec whose flags carry no
+/// help sends the bare spellings. With a description attached the argument is `-n\tDry run`, which
+/// is nobody's option and survives either way; a test written that way passes against the bug.
+#[test]
+fn fish_prints_a_candidate_that_looks_like_an_option() {
+    if !available("fish") {
+        println!("fish is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new("fish-optionlike", Shell::Fish, "-n\n-e\n-E\n--dry-run\n");
+    let out = fixture.run("fish", "source ./script; __usage_complete_ex");
+    assert_eq!(
+        out, "-n\n-e\n-E\n--dry-run\n",
+        "every option-like candidate should arrive as itself"
+    );
+}
+
 #[test]
 fn fish_adds_paths_and_never_the_marker() {
     if !available("fish") {
