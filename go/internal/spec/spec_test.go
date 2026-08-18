@@ -484,3 +484,23 @@ func TestTheTableCarriesHowAFlagIsTyped(t *testing.T) {
 		}
 	}
 }
+
+func TestAllowHyphenValuesCarriesFromNestedArg(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "args", Long: []string{"args"}, Arg: &Arg{Name: "ARGS", DoubleDash: "Automatic"}},
+			{Name: "jobs", Long: []string{"jobs"}, Arg: &Arg{Name: "N"}},
+		}},
+	})
+	byName := map[string]*argv.Flag{}
+	for _, f := range root.Flags {
+		byName[f.Name] = f
+	}
+	if !byName["args"].AllowHyphenValues {
+		t.Error("allow_hyphen_values should come from the nested arg's double_dash=automatic")
+	}
+	if byName["jobs"].AllowHyphenValues {
+		t.Error("a flag without double_dash=automatic should not take hyphen values")
+	}
+}
