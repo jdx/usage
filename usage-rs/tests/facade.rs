@@ -55,7 +55,16 @@ fn defaults_render_clap_shaped_parse_errors() {
     let Err(err) = Ex::parse_from(&argv) else {
         panic!("unknown flag should fail");
     };
-    let message = usage::render_failure(Ex::spec(), &argv, &err);
+    // `render_failure` colours via `Style::auto()` when stderr is a TTY or
+    // `CLICOLOR_FORCE` is set, which would put ANSI codes inside the quotes and
+    // break a literal substring check. Plain style is what a pipe (and this
+    // assertion) wants.
+    let message = usage::diagnostic::render(
+        Ex::spec(),
+        &argv,
+        &err,
+        usage::diagnostic::Style::PLAIN,
+    );
     assert!(
         message.contains("unexpected argument '--wat'"),
         "defaults should enable diagnostics; got:\n{message}"
