@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from "vue";
 
-// Rust wall clock from `time-sweep.rs`, which warms each parser and keeps the
-// fastest of many short rounds — steady-state and in-process, because a
-// whole-process measurement cannot resolve a 200ns parse. Values in nanoseconds,
+// Rust wall clock from `time-sweep.rs`, which runs each parser repeatedly in one
+// process and keeps the fastest of many short rounds — throughput rather than
+// whole-process latency, because process startup cannot resolve a 200ns parse.
+// Values in nanoseconds,
 // quoted to two significant figures: across twenty-two runs on two machines the
 // minima moved a few percent and their ratios by 10% — clap read 2,226x, 2,502x
 // and 2,419x on three occasions — so the ratios carry a `~`.
@@ -121,16 +122,16 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             @mouseenter="clamp"
             @focusin="clamp"
             aria-describedby="bench-tip-warmed"
-            >one warmed parse
+            >in-process parse throughput
             <span class="usage-bench-tip" id="bench-tip-warmed" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                In-process and warmed — the fastest of many short rounds, since a fresh
-                process cannot resolve a 200ns parse. Minima and their ratios drift a few
-                percent between runs and machines, hence the <code>~</code>. Instructions
-                for one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
-                agreeing across two machines to 0.15%. For scale, starting a process costs
-                ~1ms, so the first two bars are under anything a user feels.
+                Each parser runs repeatedly inside one process; process startup is excluded,
+                so these bars are not full CLI invocation times. The chart reports the fastest
+                per-parse time from many short rounds. Minima and their ratios drift a few
+                percent between runs and machines, hence the <code>~</code>. Instructions for
+                one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
+                agreeing across two machines to 0.15%.
               </span>
             </span>
           </span>
