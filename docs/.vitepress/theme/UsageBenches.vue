@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from "vue";
+
 // Rust wall clock from `time-sweep.rs`, which warms each parser and keeps the
 // fastest of many short rounds — steady-state and in-process, because a
 // whole-process measurement cannot resolve a 200ns parse. Values in nanoseconds,
@@ -38,6 +40,63 @@ const goMax = Math.max(...goRows.map((r) => r.value));
 function width(value: number, max: number): string {
   return `${Math.max((value / max) * 100, 0.5)}%`;
 }
+
+// A tip is centred on the phrase it explains, and where that phrase sits on the line
+// depends on where the text wrapped — so on a narrow card a tip can hang off the
+// edge, and which edge it hangs off is not knowable when the CSS is written. Nudge
+// it back inside as it opens. Measuring here rather than guessing in a media query
+// is what lets the tip stay under its own phrase at every width.
+const GUTTER = 8;
+
+function place(hint: HTMLElement) {
+  const tip = hint.querySelector(".usage-bench-tip") as HTMLElement | null;
+  const card = hint.closest(".usage-bench-card") as HTMLElement | null;
+  if (!tip || !card) return;
+
+  const h = hint.getBoundingClientRect();
+  const c = card.getBoundingClientRect();
+
+  // Inside the card, and inside the window: at 320px the card is itself wider than
+  // the screen, so the card alone is not the bound that matters there.
+  const min = Math.max(c.left, 0) + GUTTER;
+  const max = Math.min(c.right, window.innerWidth) - GUTTER;
+  const room = max - min;
+
+  // A tip too wide for that interval cannot be nudged into it — moving it to clear
+  // one edge only pushes it past the other — so cap the width to the room there is
+  // and let it wrap. This is why the width lives here and not only in the CSS, where
+  // it would have to guess the same interval a second time.
+  tip.style.maxWidth = "";
+  if (tip.offsetWidth > room) tip.style.maxWidth = `${Math.floor(room)}px`;
+
+  // Where the tip sits with no nudge: centred on the phrase, per the CSS. Derived
+  // from layout rather than read off the tip's own rect, which reports wherever the
+  // last nudge is mid-transition to and would clamp against the wrong position.
+  const left = h.left + h.width / 2 - tip.offsetWidth / 2;
+  const right = left + tip.offsetWidth;
+
+  let shift = 0;
+  if (left < min) shift = min - left;
+  else if (right > max) shift = max - right;
+  tip.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
+}
+
+function clamp(event: Event) {
+  place(event.currentTarget as HTMLElement);
+}
+
+// A tip open across a resize, a zoom, a rotation or the 860px reflow was measured
+// against a layout that no longer exists. Whichever hint is still under the pointer
+// or holding focus is the one showing a tip, so that is the one to measure again.
+function replace() {
+  const open = document.querySelector(
+    ".usage-bench-hint:hover, .usage-bench-hint:focus",
+  ) as HTMLElement | null;
+  if (open) place(open);
+}
+
+onMounted(() => window.addEventListener("resize", replace, { passive: true }));
+onBeforeUnmount(() => window.removeEventListener("resize", replace));
 </script>
 
 <template>
@@ -56,7 +115,12 @@ function width(value: number, max: number): string {
         <h3>usage-rs <span>vs clap, argh, bpaf</span></h3>
         <p class="usage-bench-metric">
           wall time,
-          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-warmed"
+          <span
+            class="usage-bench-hint"
+            tabindex="0"
+            @mouseenter="clamp"
+            @focusin="clamp"
+            aria-describedby="bench-tip-warmed"
             >one warmed parse
             <span class="usage-bench-tip" id="bench-tip-warmed" role="tooltip">
               <strong>How this is measured</strong>
@@ -90,7 +154,12 @@ function width(value: number, max: number): string {
         </div>
         <p class="usage-bench-foot">
           clap and bpaf
-          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-build"
+          <span
+            class="usage-bench-hint"
+            tabindex="0"
+            @mouseenter="clamp"
+            @focusin="clamp"
+            aria-describedby="bench-tip-build"
             >build a parser before they can use one
             <span class="usage-bench-tip" id="bench-tip-build" role="tooltip">
               <strong>Where their time goes</strong>
@@ -102,7 +171,12 @@ function width(value: number, max: number): string {
             </span></span
           >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
           argh and bpaf also
-          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-express"
+          <span
+            class="usage-bench-hint"
+            tabindex="0"
+            @mouseenter="clamp"
+            @focusin="clamp"
+            aria-describedby="bench-tip-express"
             >express less
             <span class="usage-bench-tip" id="bench-tip-express" role="tooltip">
               <strong>Missing from the argh and bpaf shadows</strong>
@@ -120,7 +194,12 @@ function width(value: number, max: number): string {
         <h3>usage-go <span>vs cobra, urfave/cli, kong</span></h3>
         <p class="usage-bench-metric">
           wall time,
-          <span class="usage-bench-hint" tabindex="0" aria-describedby="bench-tip-cold"
+          <span
+            class="usage-bench-hint"
+            tabindex="0"
+            @mouseenter="clamp"
+            @focusin="clamp"
+            aria-describedby="bench-tip-cold"
             >one cold parse
             <span class="usage-bench-tip" id="bench-tip-cold" role="tooltip">
               <strong>How this is measured</strong>

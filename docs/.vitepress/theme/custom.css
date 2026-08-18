@@ -497,6 +497,11 @@
   margin: 0 auto;
   padding: 3.5rem 1.5rem 4.5rem;
   text-align: center;
+  /* A closed tip still takes part in layout, at the position it would open at, so on
+     a narrow screen it can widen the page even though nobody can see it. Clip that
+     horizontally; vertical stays visible, since an open tip hangs below its card. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .usage-bench-title {
@@ -663,11 +668,13 @@
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(6px);
+  /* --tip-shift is measured by the component as the tip opens: how far it has to
+     move to sit inside its card. Zero until then, and zero if scripting is off,
+     which leaves the tip centred on its phrase as it was. */
+  transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(6px);
   width: max-content;
-  /* 280 rather than 300: at the widths where a card is ~650px, a wider tip
-     centred on the first footnote phrase hangs off the card's left edge. */
-  max-width: 280px;
+  /* Never wider than the viewport it has to fit into, gutters included. */
+  max-width: min(280px, calc(100vw - 2.5rem));
   margin-top: 0.5rem;
   padding: 0.8rem 1rem;
   background: rgba(13, 2, 33, 0.97);
@@ -678,7 +685,13 @@
     0 0 20px var(--vw-cyan-glow);
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  /* Named properties rather than `all`: the component reads the tip's width back to
+     decide whether it has to cap it, and a width the browser is busy animating
+     reports the value it is animating from. */
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease,
+    transform 0.2s ease;
   pointer-events: none;
   z-index: 100;
   /* The metric line is uppercase mono; a tooltip inside it is prose. */
@@ -696,7 +709,7 @@
 .usage-bench-hint:focus-visible .usage-bench-tip {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
 }
 
 .usage-bench-tip strong {
@@ -718,30 +731,6 @@
   display: block;
   color: rgba(245, 240, 255, 0.75);
   line-height: 1.55;
-}
-
-/* Narrow enough that a 300px tip centred on a phrase would hang off the card, and
-   which side it hangs off depends on where the line wrapped. Pin it to the card
-   instead: the hint stops being the positioning context, so the tip lands under the
-   card at its full width and cannot be clipped wherever the phrase ended up. */
-@media (max-width: 620px) {
-  .usage-bench-hint {
-    position: static;
-  }
-
-  .usage-bench-tip {
-    left: 1rem;
-    right: 1rem;
-    width: auto;
-    max-width: none;
-    transform: translateY(6px);
-  }
-
-  .usage-bench-hint:hover .usage-bench-tip,
-  .usage-bench-hint:focus .usage-bench-tip,
-  .usage-bench-hint:focus-visible .usage-bench-tip {
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 860px) {
