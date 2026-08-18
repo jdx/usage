@@ -13,9 +13,9 @@
 //! do not collide with anything, and so `cargo expand` shows them together.
 
 use proc_macro2::TokenStream;
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 
+use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum,
 };
@@ -26,16 +26,19 @@ use crate::model::{
 /// deliberately enable a different feature set there. Otherwise the `usage-rs` facade provides
 /// the runtime as `usage::argv`, keeping derives, tables, and their versions behind one
 /// dependency.
+///
+/// Resolved by reading the adopter's `Cargo.toml` directly rather than via `proc-macro-crate`,
+/// so the derive does not drag `toml_edit` into every compile.
 fn runtime_path() -> TokenStream {
     match crate_name("usage-argv") {
         Ok(FoundCrate::Name(name)) => {
-            let runtime = format_ident!("{}", name.replace('-', "_"));
+            let runtime = format_ident!("{name}");
             quote!(::#runtime)
         }
         _ => match crate_name("usage-rs") {
             Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
             Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{}", name.replace('-', "_"));
+                let facade = format_ident!("{name}");
                 quote!(::#facade::argv)
             }
             // Preserve the old useful compiler error when neither dependency was declared.
@@ -52,13 +55,13 @@ fn runtime_path() -> TokenStream {
 fn derive_path() -> TokenStream {
     match crate_name("usage-derive") {
         Ok(FoundCrate::Name(name)) => {
-            let derive = format_ident!("{}", name.replace('-', "_"));
+            let derive = format_ident!("{name}");
             quote!(::#derive)
         }
         _ => match crate_name("usage-rs") {
             Ok(FoundCrate::Itself) => quote!(::usage_rs),
             Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{}", name.replace('-', "_"));
+                let facade = format_ident!("{name}");
                 quote!(::#facade)
             }
             _ => quote!(::usage_derive),

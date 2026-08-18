@@ -308,6 +308,7 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod codegen;
+mod crate_name;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
