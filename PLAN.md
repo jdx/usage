@@ -408,11 +408,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       trailing.
 - [ ] **`require_equals`** — accept `--flag=value` and refuse `--flag value`.
       **Used by:** aube `run --inspect` / `--inspect-brk`.
-- [ ] **`#[arg(skip)]`** — a field that is not an argument at all, filled from
-      `Default`. Every field is currently a flag or a positional. **Used by:**
-      mise `run`/`install`/`doctor`/`bootstrap`, hk `hook_options`, aube
-      `update`. A rewrite that keeps the clap structs needs this; a rewrite that
-      splits "parsed" from "computed" can just omit the field.
+- [x] **`#[arg(skip)]`** — a field that is not an argument at all, filled from
+      `Default`. `#[usage(skip)]` is that: the field stays on the struct so a
+      rewrite can keep computed state beside parsed state, and nothing about it
+      reaches the spec, the parse tables, or help. Combining it with `long` or
+      `arg` is a compile error. **Used by:** mise `run`/`install`/`doctor`/
+      `bootstrap`, hk `hook_options`, aube `update`.
 
 **Changes what a CLI accepts, less sharply**
 
@@ -460,7 +461,7 @@ completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
 (clap's `SetFalse`), `value_enum`, `num_args` via `var_min`/`var_max`, clap's
 `last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
 order, non-UTF-8 `OsString`/`PathBuf` values, `requires`, `group`/`exclusive`,
-and `delimiter`.
+and `delimiter`, and `#[usage(skip)]`.
 
 And the other direction: `mount`, `restart_token`, `default_subcommand` and
 `effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
@@ -609,7 +610,6 @@ looking at the clap surface, not only at the spec.
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `default_missing_value` / optional-value flags | mise `watch` / `generate bootstrap`, hk `-W`, aube `--color`/`--inspect` / audit `--omit` | `--color` and `--color=always` stop being two spellings of one flag |
 | `require_equals`                               | aube `--inspect`                                                                          | `--inspect 9229` is accepted when it should be refused              |
-| `#[arg(skip)]`                                 | mise, hk, aube                                                                            | a struct-for-struct rewrite will not compile                        |
 | `external_subcommand`                          | aube, pitchfork                                                                           | unknown words at the root stop being forwarded                      |
 | `default_value_if`                             | mise `bin_paths`                                                                          | `--json` no longer implies the matching default                     |
 | `value_parser` ranges                          | unknown until the typed rewrite                                                           | `FromStr` accepts out-of-range numbers clap would refuse            |
@@ -617,7 +617,8 @@ looking at the clap surface, not only at the spec.
 `value_delimiter` and `requires` are not in that table because the _parser_ can
 say them. They are lost only on the clap → spec round trip (and a non-ASCII
 delimiter is dropped even then), and a rewrite that declares in usage keeps
-them. `allow_hyphen_values` on trailing argv is already `double_dash=automatic`
+them. `#[usage(skip)]` is a compile-time field, not a command-line shape.
+`allow_hyphen_values` on trailing argv is already `double_dash=automatic`
 in every fleet spec that has one.
 
 - [ ] **Grammar decisions that would change mise at run time**, not just at
