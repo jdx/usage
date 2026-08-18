@@ -392,9 +392,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       hole as `requires`. **Used by the fleet:** mise `watch`, `generate bootstrap`,
       hk `-W/--fail-fast`, aube `--color` / `--inspect` / audit `--omit` — once
       those CLIs declare in usage rather than through clap.
-- [ ] **`default_value_if` / `default_value_ifs`** — a default that depends on
-      another flag. Ours are unconditional. **Used by:** mise `bin_paths`
-      (`default_value_if("json", IsPresent, "true")`).
+- [x] **`default_if` (clap's `default_value_if` / `default_value_ifs`)** — a
+      default that depends on another flag. Spec `default_if` on the target,
+      usage-lib, usage-argv, `#[usage(default_if("--json", "true"))]`, and Go
+      `ApplyDefaultIf`. Two arguments are `ArgPredicate::IsPresent`; three are
+      `Equals`. First matching condition wins, and only when the target was not
+      on the command line and has no env value. clap 4 has the setter and no
+      getter, so the bridge cannot read it — same hole as `requires`. **Used
+      by:** mise `bin_paths` (`default_value_if("json", IsPresent, "true")`).
 - [ ] **`value_parser`** — clap takes an arbitrary parser function and range
       validators (`value_parser!(u16).range(1..=65535)`). We are `T: FromStr` and
       nothing else, so there is no per-field validation and no bounded numeric.
@@ -437,9 +442,13 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       aliases; enumerated values are currently flattened to a list of strings.
 - [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
       suggest what was probably meant but do not accept it.
-- [ ] **`external_subcommand`** — the bridge reads clap's flag to compute
-      `forwards` in `lib/src/spec/cmd.rs`, and the derive cannot declare one.
-      **Used by:** aube's catch-all and pitchfork's root.
+- [x] **`external_subcommand`** — an unmatched word is forwarded with the rest
+      of argv. Spec `external_subcommand`, usage-lib, usage-argv, the derive
+      (`#[usage(external_subcommand)]` on a catch-all `Vec` variant), and the
+      clap bridge (`Command::is_allow_external_subcommands_set`). Known
+      subcommands still win; a `default_subcommand` still catches first; a
+      flag-like token on the parent is still an unknown flag. **Used by:**
+      aube's catch-all and pitchfork's root.
 - [ ] **Positionals in relationships and groups.** clap names relationships by
       argument id and allows positional members; the spec's selectors name only
       flags, so the clap bridge deliberately drops positional conflicts and group
@@ -449,8 +458,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `required_unless_present` all/any variants. The common single-selector
       forms exist, but a clap migration needs the complete truth table or an
       explicit non-goal for each omitted form.
-- [ ] **`multicall` and `no_binary_name`** — busybox-style applets, and parsing an
-      argv that has no `argv[0]`.
+- [ ] **`multicall`** — busybox-style applets: argv[0]'s basename selects a
+      subcommand when it is not the dispatcher. clap's `Command::multicall`.
+- [ ] **`no_binary_name`** — parsing an argv that has no `argv[0]`. usage-argv
+      already takes argv without the program name; this is clap's setter that
+      skips stripping it. Out of scope until a fleet CLI needs it.
 - [ ] **Command parsing policy** — `arg_required_else_help`,
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
       `subcommand_precedence_over_arg`, `allow_missing_positional`,
@@ -700,9 +712,12 @@ looking at the clap surface, not only at the spec.
 
 | gap                   | who                             | what breaks without it                                   |
 | --------------------- | ------------------------------- | -------------------------------------------------------- |
-| `external_subcommand` | aube, pitchfork                 | unknown words at the root stop being forwarded           |
-| `default_value_if`    | mise `bin_paths`                | `--json` no longer implies the matching default          |
 | `value_parser` ranges | unknown until the typed rewrite | `FromStr` accepts out-of-range numbers clap would refuse |
+
+`external_subcommand` and `default_if` have landed: the parser, the derive, and
+the corpus all say them. clap's bridge reads `allow_external_subcommands`;
+`default_value_if` is a setter with no getter, same hole as `requires`. They
+are off this table because they no longer change what a rewrite accepts.
 
 `value_delimiter`, `requires`, `allow_hyphen_values`, `require_equals`, and
 `default_missing` are not in that table because the _parser_ can say them. They
@@ -787,8 +802,9 @@ Checked against mise rather than assumed, and two of them do not survive contact
 
 ## Known usage-lib divergences
 
-**The corpus records none today**: usage-lib answers all 154 vectors, and so do
-usage-argv and the Go runner. What is left below is the history, plus the one
+**The corpus records none today**: usage-lib answers every vector, and so do
+usage-argv and the Go runner. That is a measurement, checked on every run
+rather than asserted here. What is left below is the history, plus the one
 item marked _needs a decision_ — which is not a divergence but a question about
 what the grammar should say.
 
