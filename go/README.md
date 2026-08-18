@@ -19,16 +19,20 @@ hundred commands the user did not type.
 Measured against a shadow of [mise](https://mise.jdx.dev)'s spec — 211 commands,
 711 flags, 128 positionals — parsing `mise use -g node@20`:
 
-|                         | instructions, cold | wall, whole process |  binary |
-| ----------------------- | -----------------: | ------------------: | ------: |
-| a do-nothing Go process |                  — |             0.95 ms | 2.31 MB |
-| **usage-go**            |         **~1,600** |          **1.1 ms** | 2.37 MB |
-| cobra                   |          2,008,880 |              1.8 ms | 3.87 MB |
-| urfave/cli v3           |          5,591,321 |              1.7 ms | 5.74 MB |
-| kong                    |         57,889,084 |              6.1 ms | 5.34 MB |
+|                         | instructions | wall, whole process |  binary |
+| ----------------------- | -----------: | ------------------: | ------: |
+| a do-nothing Go process |            — |             0.95 ms | 2.31 MB |
+| **usage-go**, amortized |   **~1,600** |          **1.1 ms** | 2.37 MB |
+| cobra, one cold parse   |    2,008,880 |              1.8 ms | 3.87 MB |
+| urfave/cli v3, likewise |    5,591,321 |              1.7 ms | 5.74 MB |
+| kong, likewise          |   57,889,084 |              6.1 ms | 5.34 MB |
 
 Instruction counts are cachegrind, against mise's committed spec, on the argv the
-Rust shadows use so the two tables describe the same work.
+Rust shadows use so the two tables describe the same work. The column is labelled
+per row rather than once at the top, because the two kinds of figure are not the
+same measurement: the three frameworks are one cold parse, and usage-go's is
+amortized over a thousand binds — for the reason below, which is that a single one
+of ours cannot be measured at all.
 
 **usage-go's row is reproducible: `mise run perf:go`.** That harness
 ([`tasks/perf-go.sh`](../tasks/perf-go.sh)) reports the bind amortized over 1,000
