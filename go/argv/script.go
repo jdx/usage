@@ -48,7 +48,12 @@ func Script(bin string, shell Shell) string {
 	}
 	switch shell {
 	case Zsh:
-		return fill(zshScript, bin)
+		// The header goes *after* the magic comment here, not before it. `compinit`
+		// reads only the first line of a file in `$fpath` looking for `#compdef`,
+		// so a script that leads with a comment of its own is autoloaded and never
+		// registers — and this one documents being dropped in `$fpath`.
+		return strings.NewReplacer("{bin}", bin, "{shell}", "zsh").
+			Replace("#compdef {bin}\n" + header + zshScript)
 	case Fish:
 		return fill(fishScript, bin)
 	case Nu:
@@ -168,8 +173,7 @@ _usage_complete_{bin}() {
 complete -F _usage_complete_{bin} '{bin}'
 `
 
-const zshScript = `#compdef {bin}
-
+const zshScript = `
 _{bin}() {
     local -a values=() descriptions=() inserts=()
     local __usage_files= __usage_line __usage_menu=0
@@ -246,7 +250,10 @@ function __usage_complete_{bin}
         else if test "$entry" = "$marker_dirs"
             set files dirs
         else if test -n "$entry"
-            echo $entry
+            # printf, not echo: fish's echo reads a leading -n, -e, -s or -E as
+            # its own option, so those flags would be swallowed or mangled rather
+            # than offered — and a CLI with a -n is not unusual.
+            printf '%s\n' $entry
         end
     end
     # fish's own path completion, which knows about ` + "`" + `~` + "`" + `, variables and remote paths.
