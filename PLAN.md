@@ -628,12 +628,11 @@ that declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not
 a command-line shape. Trailing argv is already `double_dash=automatic` in every
 fleet spec that has one.
 
-- [ ] **Grammar decisions that would change mise at run time**, not just at
+- [ ] **The grammar decision that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how
       mise parses task arguments; tightening it is a behaviour change to every
-      `mise run`. A repeated `--` being eaten is the other. Both are marked
-      _needs a decision_ under **Known usage-lib divergences**. They should be
-      decided before a rewrite, not discovered by it.
+      `mise run`. Decide that before a rewrite, rather than discovering it in
+      one. Repeated `--` handling was settled and fixed in #809.
 
 **Not on this list, on purpose.** Config is a second project: the four CLIs
 would keep their generated `Settings` through an argv-only move. Mounts are
@@ -705,8 +704,8 @@ Checked against mise rather than assumed, and two of them do not survive contact
 ## Known usage-lib divergences
 
 **The corpus records none today**: usage-lib answers all 154 vectors, and so do
-usage-argv and the Go runner. What is left below is the history, plus the two
-items marked _needs a decision_ — which are not divergences but questions about
+usage-argv and the Go runner. What is left below is the history, plus the one
+item marked _needs a decision_ — which is not a divergence but a question about
 what the grammar should say.
 
 They were bugs to fix or decisions to revisit, not settled behavior. Each was a
