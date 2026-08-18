@@ -376,6 +376,9 @@ type Error struct {
 	// point of the error is to show it back.
 	Value string
 	Want  string
+	// Reason explains a declarative validation failure. Empty for ordinary typed
+	// conversion failures, which use Want instead.
+	Reason string
 	// Other is the flag [Name] cannot be given with, for CodeConflictingFlags.
 	// Both are carried because either alone reads as a puzzle: which flag is
 	// unwelcome depends on what else was given.
@@ -420,7 +423,11 @@ func (e *Error) Error() string {
 		// off the command line, and this one is likelier than most to hold
 		// something strange — it exists because the text was not what the type
 		// expected.
-		return "invalid value for " + e.Name + ": " + safe(e.Value)
+		message := "invalid value for " + e.Name + ": " + safe(e.Value)
+		if e.Reason != "" {
+			message += ": " + e.Reason
+		}
+		return message
 	}
 	return "parse error"
 }

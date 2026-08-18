@@ -1569,6 +1569,31 @@ fn parse_partial_with_env(
     }
     out.errors.extend(group_errors);
 
+    // Declarative value validation is deliberately post-binding. Defaults and environment
+    // fallbacks have landed by here, delimiters have already split values, and the binder stays
+    // unaware of both expr and value types. Like clap's value parsers, a declaration judges each
+    // resulting raw value independently.
+    for (arg, parsed) in &out.args {
+        validate_expression(
+            &arg.name,
+            arg.validate.as_deref(),
+            arg.validate_error.as_deref(),
+            parsed,
+            &mut out.errors,
+        );
+    }
+    for (flag, parsed) in &out.flags {
+        if let Some(arg) = &flag.arg {
+            validate_expression(
+                &flag.name,
+                arg.validate.as_deref(),
+                arg.validate_error.as_deref(),
+                parsed,
+                &mut out.errors,
+            );
+        }
+    }
+
     if !exclusive_present {
         for flag in unique_flags(out.available_flags.values()) {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
@@ -1648,6 +1673,37 @@ fn parse_partial_with_env(
     }
 
     Ok((out, overridden_flags))
+}
+
+fn validate_expression(
+    name: &str,
+    expression: Option<&str>,
+    message: Option<&str>,
+    parsed: &ParseValue,
+    errors: &mut Vec<UsageErr>,
+) {
+    let Some(expression) = expression else {
+        return;
+    };
+    let values: &[String] = match parsed {
+        ParseValue::String(value) => std::slice::from_ref(value),
+        ParseValue::MultiString(values) => values,
+        ParseValue::Bool(_) | ParseValue::MultiBool(_) => return,
+    };
+    for value in values {
+        let reason = match usage_validation::validate(expression, value) {
+            Ok(true) => continue,
+            Ok(false) => message
+                .unwrap_or("does not satisfy the validation expression")
+                .to_string(),
+            Err(error) => format!("validation expression failed: {error}"),
+        };
+        errors.push(UsageErr::InvalidValue {
+            name: name.to_string(),
+            value: value.clone(),
+            reason,
+        });
+    }
 }
 
 fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {

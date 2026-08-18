@@ -187,6 +187,10 @@ pub struct Field {
     /// The values this may take. Checked after the parse, since a choice list is
     /// about what a value *means* rather than which token it came from.
     pub choices: Vec<String>,
+    /// Portable expr expression evaluated for each raw value after binding.
+    pub validate: Option<String>,
+    /// Message reported when `validate` returns false.
+    pub validate_error: Option<String>,
     /// A Rust function that answers for this value when a shell asks.
     ///
     /// The counterpart of a spec's `run=`, and the source it is generated from: declaring the
@@ -1155,6 +1159,8 @@ impl Field {
             value_name: None,
             required_collection: false,
             choices: Vec::new(),
+            validate: None,
+            validate_error: None,
             value_enum: false,
             var_min: None,
             var_max: None,
@@ -1263,6 +1269,8 @@ impl Field {
             value_name: None,
             required_collection: false,
             choices: Vec::new(),
+            validate: None,
+            validate_error: None,
             value_enum: false,
             var_min: None,
             var_max: None,
@@ -1365,6 +1373,8 @@ impl Field {
             value_name: None,
             required_collection: false,
             choices: Vec::new(),
+            validate: None,
+            validate_error: None,
             value_enum: false,
             var_min: None,
             var_max: None,
@@ -1434,6 +1444,8 @@ impl Field {
         let mut hide = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
+        let mut validate: Option<String> = None;
+        let mut validate_error: Option<String> = None;
         let mut complete: Option<syn::Path> = None;
         let mut complete_type: Option<String> = None;
         let mut value_enum = false;
@@ -1536,6 +1548,8 @@ impl Field {
                             ));
                         }
                     }
+                    "validate" => validate = Some(string_value(&meta)?),
+                    "validate_error" => validate_error = Some(string_value(&meta)?),
                     // Both spellings the spec has: one target as a value, several as a
                     // list. A flag selector never contains a comma, so unlike `choices`
                     // there is nothing to lose by accepting the shorter form.
@@ -1605,7 +1619,8 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `hide`, `arg`, `env`, `default`, `choices`, \
+                                 `count`, `hide`, `arg`, `env`, `default`, `choices`, `validate`, \
+                                 `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `require_equals`, \
@@ -1771,6 +1786,18 @@ impl Field {
             return Err(syn::Error::new(
                 span,
                 "a `bool` or counting field has no value to check against `choices`",
+            ));
+        }
+        if validate.is_some() && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "a `bool` or counting field has no value to validate",
+            ));
+        }
+        if validate_error.is_some() && validate.is_none() {
+            return Err(syn::Error::new(
+                span,
+                "`validate_error` needs a `validate` expression to report for",
             ));
         }
         if complete_type.is_some() && matches!(shape, Shape::Bool | Shape::Count) {
@@ -2262,6 +2289,8 @@ impl Field {
             value_name,
             required_collection,
             choices,
+            validate,
+            validate_error,
             complete,
             complete_type,
             value_enum,

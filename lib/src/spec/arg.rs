@@ -90,6 +90,12 @@ pub struct SpecArg {
     /// Valid choices for this argument
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choices: Option<SpecChoices>,
+    /// A portable expr expression that must return true for each raw value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validate: Option<String>,
+    /// Message reported when [`SpecArg::validate`] returns false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validate_error: Option<String>,
     /// Raises the effect of the command when this argument is supplied.
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,6 +165,8 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = v.ensure_string().map(Some)?,
+                "validate" => arg.validate = v.ensure_string().map(Some)?,
+                "validate_error" => arg.validate_error = v.ensure_string().map(Some)?,
                 "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
@@ -182,6 +190,10 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
+                "validate" => arg.validate = child.arg(0)?.ensure_string().map(Some)?,
+                "validate_error" => {
+                    arg.validate_error = child.arg(0)?.ensure_string().map(Some)?;
+                }
                 "help_heading" => {
                     arg.help_heading = child.arg(0)?.ensure_string().map(Some)?;
                 }
@@ -210,6 +222,22 @@ impl SpecArg {
                 "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
+            }
+        }
+        if arg.validate_error.is_some() && arg.validate.is_none() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "validate_error requires a validate expression"
+            );
+        }
+        if let Some(expression) = &arg.validate {
+            if let Err(error) = usage_validation::check(expression) {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "invalid validation expression: {error}"
+                );
             }
         }
         arg.usage = arg.usage();
@@ -300,6 +328,12 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(env) = &arg.env {
             node.push(string_entry(Some("env"), env));
+        }
+        if let Some(validate) = &arg.validate {
+            node.push(string_entry(Some("validate"), validate));
+        }
+        if let Some(error) = &arg.validate_error {
+            node.push(string_entry(Some("validate_error"), error));
         }
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
@@ -512,6 +546,8 @@ impl From<&clap::Arg> for SpecArg {
             hide,
             default: default_values(arg),
             choices: None,
+            validate: None,
+            validate_error: None,
             effect: None,
             env: None,
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
@@ -538,6 +574,60 @@ impl Eq for SpecArg {}
 impl Hash for SpecArg {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use crate::{parse, Spec};
+
+    fn spec() -> Spec {
+        r#"
+name "ex"
+bin "ex"
+arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
+        "#
+        .parse()
+        .unwrap()
+    }
+
+    #[test]
+    fn validation_round_trips_through_kdl() {
+        let spec = spec();
+        let kdl = spec.to_string();
+        let reparsed: Spec = kdl.parse().unwrap();
+        let arg = &reparsed.cmd.args[0];
+        assert_eq!(
+            arg.validate.as_deref(),
+            Some("int(value) >= 1 && int(value) <= 65535")
+        );
+        assert_eq!(arg.validate_error.as_deref(), Some("must be a valid port"));
+    }
+
+    #[test]
+    fn invalid_validation_declarations_are_rejected_with_the_spec() {
+        let missing_expression = r#"name "demo"
+bin "demo"
+arg "<port>" validate_error="must be a port"
+"#;
+        assert!(missing_expression.parse::<Spec>().is_err());
+
+        let invalid_expression = r#"name "demo"
+bin "demo"
+arg "<port>" validate="int(value) >"
+"#;
+        assert!(invalid_expression.parse::<Spec>().is_err());
+    }
+
+    #[test]
+    fn reference_parser_validates_each_raw_value() {
+        parse(&spec(), &["ex".to_string(), "9229".to_string()]).unwrap();
+
+        let error = parse(&spec(), &["ex".to_string(), "0".to_string()]).unwrap_err();
+        assert!(
+            error.to_string().contains("must be a valid port"),
+            "{error:?}"
+        );
     }
 }
 

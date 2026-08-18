@@ -400,9 +400,13 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       on the command line and has no env value. clap 4 has the setter and no
       getter, so the bridge cannot read it — same hole as `requires`. **Used
       by:** mise `bin_paths` (`default_value_if("json", IsPresent, "true")`).
-- [ ] **`value_parser`** — clap takes an arbitrary parser function and range
-      validators (`value_parser!(u16).range(1..=65535)`). We are `T: FromStr` and
-      nothing else, so there is no per-field validation and no bounded numeric.
+- [x] **Portable value validation** — `validate="int(value) >= 1 && int(value) <=
+      65535"` is a declarative expr rule stored in KDL and enforced by usage-lib and
+      generated Rust and Go parsers. `validate_error` supplies the user-facing failure.
+      This covers clap's common range-validation use case without embedding a Rust
+      parser function in the spec. clap's arbitrary `value_parser` remains inherently
+      opaque to `clap_usage`, so an existing clap command must declare the equivalent
+      rule when moving to the typed usage rewrite.
 - [ ] **Token-boundary controls** — `allow_negative_numbers`, `value_terminator`
       and `dont_delimit_trailing_values`. `allow_hyphen_values` is the broader
       answer to the first one, but accepting every dash-word is not equivalent to
@@ -720,12 +724,10 @@ looking at the clap surface, not only at the spec.
       they force, and a binary that still answers `--help` / `--usage-spec` the
       same way. That is the experiment that tells you whether the rest of the
       fleet is a rewrite or a blocked rewrite.
-- [ ] **The clap-only behaviour the fleet actually uses**, from the list above,
-      in the order it would change a command line rather than a compile.
-
-| gap                   | who                             | what breaks without it                                   |
-| --------------------- | ------------------------------- | -------------------------------------------------------- |
-| `value_parser` ranges | unknown until the typed rewrite | `FromStr` accepts out-of-range numbers clap would refuse |
+- [x] **The clap-only validation behaviour the fleet actually uses.** Portable
+      `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
+      parser functions remain opaque to `clap_usage`, but they no longer require a
+      Rust-only extension to the spec: the rewrite declares the equivalent expr rule.
 
 `external_subcommand` and `default_if` have landed: the parser, the derive, and
 the corpus all say them. clap's bridge reads `allow_external_subcommands`;

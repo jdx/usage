@@ -1,8 +1,11 @@
 package argv
 
 import (
+	"fmt"
 	"os"
 	"strings"
+
+	"github.com/expr-lang/expr"
 )
 
 // The rules that are decided once the last token has been read.
@@ -80,6 +83,12 @@ type Meta struct {
 	// binding applies, and lives on [Flag.VarMax] and [Arg.VarMax] instead — a
 	// value bound here would fail an invocation that never broke it.
 	VarMax uint32
+	// Validate is a portable expr expression evaluated once for each raw value.
+	// The environment contains one string variable, `value`.
+	Validate string
+	// ValidateError is reported when Validate returns false. Empty uses the
+	// runtime's generic validation message.
+	ValidateError string
 
 	// The relationships that need a second entry to answer, all resolved to keys rather
 	// than left as the names the spec writes. Resolution happens where the whole
@@ -307,6 +316,34 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 			if !containsChoice(accepted, v, m.IgnoreCase) {
 				return &Error{Code: CodeInvalidChoice, Name: m.Name,
 					Spelling: m.Spelling, Choices: m.Choices}
+			}
+		}
+	}
+
+	if m.Validate != "" {
+		program, err := expr.Compile(m.Validate, expr.Env(map[string]any{"value": ""}))
+		if err != nil {
+			return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+				Reason: "validation expression failed: " + err.Error()}
+		}
+		for _, value := range values {
+			result, err := expr.Run(program, map[string]any{"value": value})
+			if err != nil {
+				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: "validation expression failed: " + err.Error()}
+			}
+			valid, ok := result.(bool)
+			if !ok {
+				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: fmt.Sprintf("validation expression must return a boolean, got %v", result)}
+			}
+			if !valid {
+				reason := m.ValidateError
+				if reason == "" {
+					reason = "does not satisfy the validation expression"
+				}
+				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: reason}
 			}
 		}
 	}

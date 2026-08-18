@@ -1,0 +1,18 @@
+[package]
+name = "usage-validation"
+description = "Portable expression validation for usage specs"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.91"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+expr-lang = { git = "https://github.com/jdx/expr.rs", rev = "2c6cecc8b38eaeba4aae01bbe055305f1e14e422" }
+
+[package.metadata.release]
+shared-version = true
+release = true

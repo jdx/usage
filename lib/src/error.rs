@@ -111,6 +111,13 @@ pub enum UsageErr {
     #[error("Invalid file path: {0}")]
     InvalidPath(String),
 
+    #[error("Invalid value for {name}: {value}: {reason}")]
+    InvalidValue {
+        name: String,
+        value: String,
+        reason: String,
+    },
+
     #[error("Unsupported shell: {0}")]
     UnsupportedShell(String),
 }

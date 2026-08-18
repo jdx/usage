@@ -42,6 +42,8 @@ pub use usage_argv as argv;
 pub use usage_argv::*;
 #[cfg(feature = "spec")]
 pub use usage_derive::{Args, Cli, Subcommands, ValueEnum};
+#[cfg(feature = "validation")]
+pub use usage_validation as validation;
 
 #[cfg(all(test, feature = "spec"))]
 mod tests {
@@ -49,8 +51,43 @@ mod tests {
     #[usage(bin = "internal")]
     struct Internal {}
 
+    #[derive(Debug, crate::Cli)]
+    #[usage(bin = "validated")]
+    struct Validated {
+        #[usage(
+            long,
+            validate = "int(value) >= 1 && int(value) <= 65535",
+            validate_error = "must be a valid port"
+        )]
+        port: Option<u16>,
+    }
+
     #[test]
     fn derives_resolve_the_facade_from_inside_the_facade() {
         assert_eq!(Internal::spec().bin, Some("internal"));
+    }
+
+    #[test]
+    fn derives_evaluate_portable_validation_expressions() {
+        let valid = [
+            ::std::ffi::OsStr::new("--port"),
+            ::std::ffi::OsStr::new("9229"),
+        ];
+        assert_eq!(Validated::parse_from(&valid).unwrap().port, Some(9229));
+
+        let invalid = [
+            ::std::ffi::OsStr::new("--port"),
+            ::std::ffi::OsStr::new("0"),
+        ];
+        let crate::Error::InvalidValue(error) = Validated::parse_from(&invalid).unwrap_err() else {
+            panic!("expected invalid value");
+        };
+        assert_eq!(error.reason, "must be a valid port");
+
+        let kdl = Validated::to_kdl();
+        assert!(
+            kdl.contains(r#"validate="int(value) >= 1 && int(value) <= 65535""#),
+            "{kdl}"
+        );
     }
 }

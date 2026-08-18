@@ -529,6 +529,18 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Set a portable expr expression that must accept each raw value.
+    pub fn validate(mut self, expression: impl Into<String>) -> Self {
+        self.inner.validate = Some(expression.into());
+        self
+    }
+
+    /// Set the message reported when validation returns false.
+    pub fn validate_error(mut self, message: impl Into<String>) -> Self {
+        self.inner.validate_error = Some(message.into());
+        self
+    }
+
     /// Set choices from an environment variable
     #[cfg(feature = "unstable_choices_env")]
     pub fn choices_env(mut self, env: impl Into<String>) -> Self {

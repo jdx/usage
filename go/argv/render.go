@@ -109,6 +109,9 @@ func explain(err *Error, help HelpTable) string {
 		if err.Want != "" {
 			msg += " (expected " + err.Want + ")"
 		}
+		if err.Reason != "" {
+			msg += ": " + err.Reason
+		}
 		return msg
 	case CodeConflictingFlags:
 		other := err.Other

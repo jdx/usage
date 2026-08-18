@@ -56,6 +56,10 @@ flag "--shell <shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices
 }
 
+flag "--port <port>" {
+  arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
+}
+
 flag "--env <env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
 }

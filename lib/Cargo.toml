@@ -38,6 +38,7 @@ tera = { version = "2", optional = true }
 thiserror = "2"
 versions = "7"
 xx = "2"
+usage-validation = { workspace = true }
 
 [features]
 default = ["docs"]
