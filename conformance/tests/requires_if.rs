@@ -80,3 +80,36 @@ fn a_default_does_not_activate_a_conditional_requirement() {
     assert_eq!(parsed.format.as_deref(), Some("json"));
     assert!(parsed.schema.is_none());
 }
+
+#[derive(Cli)]
+#[usage(bin = "counted")]
+struct Counted {
+    #[usage(
+        short = 'v',
+        long,
+        count,
+        requires_if("true", "--schema"),
+        requires_if("2", "--never")
+    )]
+    verbose: u8,
+    #[usage(long)]
+    schema: Option<String>,
+    #[usage(long)]
+    never: bool,
+}
+
+#[test]
+fn a_count_matches_the_canonical_boolean_value() {
+    let missing = argv(["-v"]);
+    assert!(matches!(
+        Counted::parse_from(&missing),
+        Err(Error::MissingRequired { name }) if name == "schema"
+    ));
+
+    let satisfied = argv(["-vv", "--schema", "schema.json"]);
+    let parsed = Counted::parse_from(&satisfied)
+        .expect("a numeric condition is not a count-value relationship");
+    assert_eq!(parsed.verbose, 2);
+    assert_eq!(parsed.schema.as_deref(), Some("schema.json"));
+    assert!(!parsed.never);
+}

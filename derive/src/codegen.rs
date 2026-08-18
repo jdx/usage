@@ -3732,9 +3732,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     "false" => quote!(!partial.#ident),
                     _ => quote!(false),
                 },
-                Shape::Count => match value.parse::<usize>() {
-                    Ok(value) => quote!(partial.#ident == #value),
-                    Err(_) => quote!(false),
+                Shape::Count => match value.as_str() {
+                    "true" => quote!(partial.#ident > 0),
+                    "false" => quote!(partial.#ident == 0),
+                    _ => quote!(false),
                 },
             };
             Some(quote! {
