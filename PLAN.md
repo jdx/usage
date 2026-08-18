@@ -384,12 +384,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       against this crate is the item under **Trying the fleet**, not another
       parser feature.
 - [~] **`default_missing_value`, and optional-value flags** — the metadata and
-      help-rendering half has landed (`--bump [BUMP]`), but binding still requires
-      a value. Accepting bare `--color` as distinct from `--color=always` still
-      needs an `Option<Option<T>>`-shaped partial and default-missing semantics.
-      **Used by the fleet:** mise `watch` (`default_missing_value = "clear"` /
-      `"30s"`) and `generate bootstrap`, hk `-W/--fail-fast` with `num_args =
-      0..=1`, aube `--color` / `--inspect` / audit `--omit`.
+  help-rendering half has landed (`--bump [BUMP]`), but binding still requires
+  a value. Accepting bare `--color` as distinct from `--color=always` still
+  needs an `Option<Option<T>>`-shaped partial and default-missing semantics.
+  **Used by the fleet:** mise `watch` (`default_missing_value = "clear"` /
+  `"30s"`) and `generate bootstrap`, hk `-W/--fail-fast` with `num_args=0..=1`,
+  aube `--color` / `--inspect` / audit `--omit`.
 - [ ] **`default_value_if` / `default_value_ifs`** — a default that depends on
       another flag. Ours are unconditional. **Used by:** mise `bin_paths`
       (`default_value_if("json", IsPresent, "true")`).
@@ -653,8 +653,8 @@ a prerequisite for trying a CLI.
 - [ ] **hk, pitchfork, fnox, aube** — smaller than mise, all already generating
       their spec from clap. Natural next adopters after one small CLI has moved.
 - [~] **Other languages** — Go now parses, validates, renders help and answers
-      completions from generated static tables, verified against the shared corpus.
-      JavaScript and Python implementations remain open.
+  completions from generated static tables, verified against the shared corpus.
+  JavaScript and Python implementations remain open.
 
 ### What adoption should let mise delete
 
