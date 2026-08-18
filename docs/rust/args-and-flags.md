@@ -74,6 +74,7 @@ jobs: Option<u32>,
 | `choices("a", "b")`                     | Restrict values to a fixed set                                                          |
 | `value_enum`                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
+| `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
 | `group = "name"`                        | Join a flag group ([Validation](/rust/validation#groups))                               |
 | `exclusive`                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                    |
 | `conflicts(…)` / `requires(…)`          | Relations to other flags ([Validation](/rust/validation))                               |
@@ -97,6 +98,11 @@ jobs: Option<u32>,
 computed state beside parsed state, and nothing about it reaches the spec, the parse tables, or
 help. Combining it with `long`, `arg`, or any other field option is a compile error. The type
 has to implement `Default`.
+
+`#[usage(allow_hyphen_values)]` is clap's attribute of the same name: `--args -destroy` binds
+`-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that
+needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
+`flag "--args <ARGS>" allow_hyphen_values=#true`.
 
 Flag relations (`conflicts`, `requires`, `overrides`, `required_if`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:

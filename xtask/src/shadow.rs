@@ -848,6 +848,9 @@ fn usage_flag_opts(
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("delimiter = {delimiter:?}"));
     }
+    if flag.allow_hyphen_values() {
+        opts.push("allow_hyphen_values".into());
+    }
     if !flag.required_if.is_empty() {
         opts.push(selector_list("required_if", &flag.required_if));
     }
@@ -968,6 +971,9 @@ fn clap_flag_opts(
     }
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("value_delimiter = {delimiter:?}"));
+    }
+    if flag.allow_hyphen_values() {
+        opts.push("allow_hyphen_values = true".into());
     }
     if flag.global {
         opts.push("global = true".into());

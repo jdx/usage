@@ -396,16 +396,18 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **`value_parser`** — clap takes an arbitrary parser function and range
       validators (`value_parser!(u16).range(1..=65535)`). We are `T: FromStr` and
       nothing else, so there is no per-field validation and no bounded numeric.
-- [ ] **`allow_hyphen_values` on the derive path** — the spec says it and
-      usage-lib honours it (`lib/src/parse.rs`), but there is no derive attribute
-      and no mention in `argv/src/`. A spec-versus-derive asymmetry rather than a
-      plain absence, which makes it cheaper than the rest of this group.
+- [x] **`allow_hyphen_values` on the derive path** — the spec said it and
+      usage-lib honoured it (`lib/src/parse.rs`); usage-argv now has the same
+      bit on `Flag`, so a detached value that looks like a flag binds when
+      declared, including `--`. `#[usage(allow_hyphen_values)]` is the attribute,
+      and the emitted KDL is `allow_hyphen_values=#true`. A positional that needs
+      the same thing is already `double_dash = "automatic"`.
       **For the fleet this is mostly already spelled:** clap_usage encodes
       `allow_hyphen_values` on a trailing argument as `double_dash=automatic`,
       which the derive has. That is mise `run`/`exec`/`watch`/`asdf`, aube
       `run`/`exec`/`dlx`/`node`, fnox `exec`/`proxy`, pitchfork `daemons add`.
-      What is still missing is a hyphen-taking _flag value_ that is not also
-      trailing.
+      A hyphen-taking _flag value_ that is not also trailing is now the same
+      declaration on the flag.
 - [ ] **`require_equals`** — accept `--flag=value` and refuse `--flag value`.
       **Used by:** aube `run --inspect` / `--inspect-brk`.
 - [x] **`#[arg(skip)]`** — a field that is not an argument at all, filled from
@@ -461,7 +463,7 @@ completions for four shells, `flatten`, `global`, `count`, `env`, `negate`
 (clap's `SetFalse`), `value_enum`, `num_args` via `var_min`/`var_max`, clap's
 `last` via `double_dash`, `help_heading`, `subcommand_required`, declaration
 order, non-UTF-8 `OsString`/`PathBuf` values, `requires`, `group`/`exclusive`,
-and `delimiter`, and `#[usage(skip)]`.
+and `delimiter`, `#[usage(skip)]`, and `allow_hyphen_values`.
 
 And the other direction: `mount`, `restart_token`, `default_subcommand` and
 `effect` are things a spec says that clap cannot hear, and `gen-shadow` counts
@@ -614,12 +616,12 @@ looking at the clap surface, not only at the spec.
 | `default_value_if`                             | mise `bin_paths`                                                                          | `--json` no longer implies the matching default                     |
 | `value_parser` ranges                          | unknown until the typed rewrite                                                           | `FromStr` accepts out-of-range numbers clap would refuse            |
 
-`value_delimiter` and `requires` are not in that table because the _parser_ can
-say them. They are lost only on the clap → spec round trip (and a non-ASCII
-delimiter is dropped even then), and a rewrite that declares in usage keeps
-them. `#[usage(skip)]` is a compile-time field, not a command-line shape.
-`allow_hyphen_values` on trailing argv is already `double_dash=automatic`
-in every fleet spec that has one.
+`value_delimiter`, `requires`, and `allow_hyphen_values` are not in that table
+because the _parser_ can say them. They are lost only on the clap → spec round
+trip (and a non-ASCII delimiter is dropped even then), and a rewrite that
+declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not a
+command-line shape. Trailing argv is already `double_dash=automatic` in every
+fleet spec that has one.
 
 - [ ] **Grammar decisions that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how

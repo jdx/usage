@@ -904,3 +904,37 @@ fn a_skipped_field_is_defaulted_and_absent_from_the_spec() {
         "a skipped field must not reach the spec: {kdl}"
     );
 }
+
+/// clap's `allow_hyphen_values`: a flag's detached value may look like a flag.
+#[derive(Cli, Debug)]
+#[usage(bin = "hyphen")]
+struct WithHyphen {
+    #[usage(short = 'd', long)]
+    working_dir: Option<String>,
+    #[usage(short = 'a', long, allow_hyphen_values)]
+    args: Option<String>,
+}
+
+#[test]
+fn a_hyphen_taking_flag_binds_a_flaglike_value() {
+    let a = argv(["-a", "-destroy"]);
+    let got = WithHyphen::parse_from(&a).expect("should parse");
+    assert_eq!(got.args.as_deref(), Some("-destroy"));
+    assert_eq!(got.working_dir.as_deref(), None);
+
+    let kdl = WithHyphen::to_kdl();
+    assert!(
+        kdl.contains("allow_hyphen_values=#true"),
+        "the attribute has to reach the spec: {kdl}"
+    );
+    let spec: LibSpec = kdl.parse().expect("valid spec");
+    assert!(
+        spec.cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "args")
+            .expect("args")
+            .allow_hyphen_values(),
+        "usage-lib has to read the emitted property the same way it reads a handwritten one"
+    );
+}

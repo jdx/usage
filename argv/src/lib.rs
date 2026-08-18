@@ -263,6 +263,15 @@ pub struct Flag<'a> {
     /// two is already past its bound on the single word it was entitled to take. Binding
     /// cannot count without it.
     pub delimiter: ::core::option::Option<u8>,
+    /// Whether a detached value may itself look like a flag.
+    ///
+    /// The default is to refuse: `--jobs --force` is far more likely a forgotten
+    /// value than a jobs of `"--force"`. Declared, the next token is taken
+    /// whatever it looks like — including `--` — which is clap's
+    /// `allow_hyphen_values` and the spec's property of the same name. A variadic
+    /// occurrence still stops collecting at a later flag-like token, so a second
+    /// occurrence of the flag is not eaten as a value.
+    pub allow_hyphen_values: bool,
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
@@ -280,6 +289,7 @@ impl Flag<'_> {
         variadic: false,
         var_max: ::core::option::Option::None,
         delimiter: ::core::option::Option::None,
+        allow_hyphen_values: false,
         global: false,
     };
 
@@ -1347,12 +1357,13 @@ impl<'t, 'v> Parser<'t, 'v> {
 
     /// Take the following token as a flag's value.
     ///
-    /// Refuses a flag-like token: `--jobs --force` is far more likely a forgotten
-    /// value than a deliberate one, and the attached form is available for the
-    /// deliberate case.
+    /// Refuses a flag-like token unless [`Flag::allow_hyphen_values`] is set:
+    /// `--jobs --force` is far more likely a forgotten value than a deliberate
+    /// one, and the attached form is available for the deliberate case. Declared,
+    /// the next token is taken whatever it looks like, including `--`.
     fn take_detached_value(&mut self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
         match self.argv.get(self.pos) {
-            Some(next) if !is_flag_like(bytes(next)) => {
+            Some(next) if flag.allow_hyphen_values || !is_flag_like(bytes(next)) => {
                 self.pos += 1;
                 Ok(bytes(next))
             }
@@ -2347,6 +2358,58 @@ mod tests {
             })
             .collect();
         assert_eq!(values, vec![&b"a"[..], &b"--"[..], &b"b"[..]]);
+    }
+
+    #[test]
+    fn allow_hyphen_values_takes_a_flaglike_detached_value() {
+        static ARGS: Flag = Flag {
+            key: 6,
+            name: "args",
+            longs: &["args"],
+            shorts: b"a",
+            takes_value: true,
+            allow_hyphen_values: true,
+            ..Flag::BOOL
+        };
+        static DIR: Flag = Flag {
+            key: 7,
+            name: "working-dir",
+            longs: &["working-dir"],
+            shorts: b"d",
+            ..Flag::VALUE
+        };
+        static HYPHEN: Command = Command {
+            name: "ex",
+            flags: &[&ARGS, &DIR],
+            args: &[&REST],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["-a", "-destroy"]);
+        assert_eq!(
+            parse(&HYPHEN, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &ARGS,
+                value: Some(b"-destroy"),
+                negated: false
+            }]
+        );
+
+        let a = argv(["--args", "--", "-x"]);
+        assert_eq!(
+            parse(&HYPHEN, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &ARGS,
+                    value: Some(b"--"),
+                    negated: false
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"-x"
+                },
+            ]
+        );
     }
 
     #[test]
