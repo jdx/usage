@@ -36,15 +36,18 @@ jobs:
       # a run that quietly tested one shell instead of four is worse than a run that
       # stopped. So the flakiness is what gets fixed, not the consequence of it.
       #
-      # The failure mode seen twice in an hour was an azure mirror that stalled rather
-      # than one that refused: apt waited on it until the step timed out, before a single
-      # test had run. Retries move past a bad mirror; three minutes for an 8.5 MB download
-      # was simply tight.
+      # The failure mode, seen three times in an afternoon, is the azure mirror that
+      # GitHub's runners list first *stalling* rather than refusing. Retries alone did not
+      # help — an eight-minute attempt with them timed out the same way — because retrying
+      # a connection that hangs just hangs again. What was missing is a per-connection
+      # timeout: with one, apt gives up on the stalled mirror in seconds and moves to the
+      # next entry in `/etc/apt/apt-mirrors.txt`, which is the archive.ubuntu.com that was
+      # answering fine throughout.
       - name: Install shells for completion integration tests
-        timeout-minutes: 8
+        timeout-minutes: 5
         run: |
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install -y zsh fish
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
           # if a future image drops it so the integration test still runs
           # (rather than panicking under CI=1).
