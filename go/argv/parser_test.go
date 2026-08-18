@@ -261,6 +261,26 @@ func TestAllowHyphenValues(t *testing.T) {
 	}
 }
 
+func TestRequireEquals(t *testing.T) {
+	inspect := &Flag{Key: 8, Name: "inspect", Longs: []string{"inspect"}, Shorts: []byte{'i'},
+		TakesValue: true, RequireEquals: true}
+	all := &Flag{Key: 9, Name: "all", Longs: []string{"all"}, Shorts: []byte{'a'}}
+	cmd := &Command{Name: "ex", Flags: []*Flag{inspect, all}}
+
+	if got := collect(cmd, "--inspect=9229"); got != "flag:inspect=9229" {
+		t.Errorf("--inspect=9229: got %s", got)
+	}
+	if got := collect(cmd, "--inspect", "9229"); got != "err:missing_flag_value" {
+		t.Errorf("--inspect 9229: got %s", got)
+	}
+	if got := collect(cmd, "-i9229"); got != "flag:inspect=9229" {
+		t.Errorf("-i9229: got %s", got)
+	}
+	if got := collect(cmd, "-ai", "9229"); got != "flag:all err:missing_flag_value" {
+		t.Errorf("-ai 9229: got %s", got)
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	args := []string{"install", "--verbose", "-f", "a", "b", "c"}
 	b.ReportAllocs()

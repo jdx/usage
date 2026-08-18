@@ -398,14 +398,21 @@ func (p *Parser) shortFlag() bool {
 // It refuses a flag-like token unless AllowHyphenValues is set: `--jobs --force`
 // is far more likely a forgotten value than a deliberate one, and the attached
 // form is available for the deliberate case. Declared, the next token is taken
-// whatever it looks like, including `--`. The negative-number exception means
-// `--offset -1` still works.
+// whatever it looks like, including `--`. RequireEquals refuses the following
+// word either way. The negative-number exception means `--offset -1` still works.
 func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool) {
+	if flag.RequireEquals {
+		return p.missingValue(flag, long, short)
+	}
 	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos])) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true
 	}
+	return p.missingValue(flag, long, short)
+}
+
+func (p *Parser) missingValue(flag *Flag, long string, short byte) (string, bool) {
 	// The form the user actually wrote, carried so the advice can use it. A flag
 	// answers to several spellings and the first is not always the one in front of
 	// them: with an inherited `--jobs --workers` whose `--jobs` a nearer command

@@ -504,3 +504,15 @@ func TestAllowHyphenValuesCarriesFromNestedArg(t *testing.T) {
 		t.Error("a flag without double_dash=automatic should not take hyphen values")
 	}
 }
+
+func TestRequireEqualsCarries(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "inspect", Long: []string{"inspect"}, RequireEquals: true, Arg: &Arg{Name: "PORT"}},
+		}},
+	})
+	if !root.Flags[0].RequireEquals {
+		t.Error("require_equals should carry")
+	}
+}

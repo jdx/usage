@@ -1049,6 +1049,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.allow_hyphen_values() {
         fields.push("AllowHyphenValues: true".to_string());
     }
+    if flag.require_equals {
+        fields.push("RequireEquals: true".to_string());
+    }
     if flag.global {
         fields.push("Global: true".to_string());
     }
@@ -1606,6 +1609,19 @@ flag "--args <ARGS>" allow_hyphen_values=#true
 "#);
         assert!(
             out.contains("Name: \"args\", Longs: []string{\"args\"}, TakesValue: true, AllowHyphenValues: true"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn require_equals_reaches_the_table() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--inspect <PORT>" require_equals=#true
+"#);
+        assert!(
+            out.contains("Name: \"inspect\", Longs: []string{\"inspect\"}, TakesValue: true, RequireEquals: true"),
             "{out}"
         );
     }
