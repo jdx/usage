@@ -3352,7 +3352,16 @@ impl ValueEnum {
                     let path = meta.path().clone();
                     match ident_of(&path).as_str() {
                         "name" => name = string_value(&meta)?,
-                        "alias" => aliases.push(string_value(&meta)?),
+                        "alias" => {
+                            let alias = string_value(&meta)?;
+                            if alias.is_empty() {
+                                return Err(syn::Error::new_spanned(
+                                    path,
+                                    "an alias with no name would answer to nothing",
+                                ));
+                            }
+                            aliases.push(alias);
+                        }
                         other => {
                             return Err(syn::Error::new_spanned(
                                 path,
@@ -3371,13 +3380,6 @@ impl ValueEnum {
                     "a value with no name would answer to nothing",
                 ));
             }
-            if let Some(first) = variants.iter().find(|value| value.name == name) {
-                return Err(dup(
-                    variant.ident.span(),
-                    first.ident.span(),
-                    &format!("`{name}` names two of these values"),
-                ));
-            }
             variants.push(ValueVariant {
                 ident: variant.ident.clone(),
                 name,
@@ -3389,6 +3391,36 @@ impl ValueEnum {
                 &input.ident,
                 "an enum with no variants accepts no value at all",
             ));
+        }
+
+        let mut seen: Vec<(&str, Span)> = Vec::new();
+        for variant in &variants {
+            for word in ::std::iter::once(variant.name.as_str())
+                .chain(variant.aliases.iter().map(String::as_str))
+            {
+                let collision = seen.iter().find(|(seen, _)| {
+                    if ignore_case {
+                        seen.eq_ignore_ascii_case(word)
+                    } else {
+                        *seen == word
+                    }
+                });
+                if let Some((_, first_span)) = collision {
+                    return Err(dup(
+                        variant.ident.span(),
+                        *first_span,
+                        &format!(
+                            "`{word}` names two of these values, counting aliases{}",
+                            if ignore_case {
+                                " without regard to case"
+                            } else {
+                                ""
+                            }
+                        ),
+                    ));
+                }
+                seen.push((word, variant.ident.span()));
+            }
         }
 
         Ok(ValueEnum {
@@ -3975,7 +4007,7 @@ mod tests {
         assert_eq!(
             ve.variants
                 .iter()
-                .map(|(_, w)| w.as_str())
+                .map(|value| value.name.as_str())
                 .collect::<Vec<_>>(),
             ["bash", "pwsh"]
         );
@@ -4005,6 +4037,55 @@ mod tests {
             err.contains("names two of these values"),
             "unhelpful: {err}"
         );
+    }
+
+    #[test]
+    fn a_value_enum_rejects_alias_collisions() {
+        for body in [
+            r#"
+                enum Shell {
+                    Bash,
+                    #[usage(alias = "bash")]
+                    Dash,
+                }
+            "#,
+            r#"
+                enum Shell {
+                    #[usage(alias = "sh")]
+                    Bash,
+                    #[usage(alias = "sh")]
+                    Dash,
+                }
+            "#,
+            r#"
+                #[usage(ignore_case)]
+                enum Shell {
+                    #[usage(alias = "SH")]
+                    Bash,
+                    #[usage(name = "sh")]
+                    Dash,
+                }
+            "#,
+        ] {
+            let err = match value_enum(body) {
+                Ok(_) => panic!("should not have compiled"),
+                Err(e) => e.to_string(),
+            };
+            assert!(err.contains("counting aliases"), "unhelpful: {err}");
+        }
+
+        let err = match value_enum(
+            r#"
+                enum Shell {
+                    #[usage(alias = "")]
+                    Bash,
+                }
+            "#,
+        ) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        };
+        assert!(err.contains("no name"), "unhelpful: {err}");
     }
 
     #[test]
