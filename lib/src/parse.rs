@@ -565,17 +565,15 @@ pub fn multicall_basename(argv0: &str) -> &str {
 /// rest. `Some` is a symlink invocation (`ls -l`): inject the basename.
 pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Option<&'a str> {
     let base = multicall_basename(argv0);
-    if dispatcher_name(name, bin).any(|dispatcher| dispatcher == base) {
-        None
-    } else {
-        Some(base)
+    if !name.is_empty() && base == name {
+        return None;
     }
-}
-
-fn dispatcher_name(name: &str, bin: Option<&str>) -> impl Iterator<Item = &str> {
-    [name, bin.unwrap_or("")]
-        .into_iter()
-        .filter(|s| !s.is_empty())
+    if let Some(bin) = bin {
+        if !bin.is_empty() && base == bin {
+            return None;
+        }
+    }
+    Some(base)
 }
 
 /// Internal version of parse_partial that accepts an optional custom env map.

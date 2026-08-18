@@ -2211,14 +2211,16 @@ mod tests {
         assert!(usage.contains("multicall"), "{usage}");
         assert!(
             !skipped.counts.keys().any(|k| k.contains("multicall")),
-            "{skipped:?}"
+            "{:?}",
+            skipped.counts
         );
 
         let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
         assert!(clap.contains("multicall = true"), "{clap}");
         assert!(
             !clap_skipped.counts.keys().any(|k| k.contains("multicall")),
-            "{clap_skipped:?}"
+            "{:?}",
+            clap_skipped.counts
         );
     }
 

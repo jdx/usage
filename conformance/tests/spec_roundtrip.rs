@@ -1063,24 +1063,11 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
 
 #[test]
 fn multicall_survives_the_round_trip() {
-    static LS: Command = Command {
-        name: "ls",
-        ..Command::EMPTY
-    };
-    static ROOT: Command = Command {
-        name: "busybox",
-        subcommands: &[&LS],
-        ..Command::EMPTY
-    };
-    static ROOT_META: CommandMeta = CommandMeta {
-        cmd: &ROOT,
-        ..CommandMeta::EMPTY
-    };
     static SPEC: Spec = Spec {
         name: "busybox",
         bin: Some("busybox"),
         multicall: true,
-        root: &ROOT_META,
+        root: &CommandMeta::EMPTY,
         ..Spec::EMPTY
     };
 
