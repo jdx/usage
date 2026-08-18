@@ -27,6 +27,12 @@ already done.
 A **command line** is the tokens after the program name. `mycli install -f x`
 has three.
 
+When the spec declares `multicall`, argv[0]'s basename is itself a word: a
+symlink `ls -> busybox` is parsed as if the first token were `ls`. The
+dispatcher names (`name` and `bin`) are skipped, so `busybox ls` still has two
+words after the program name. Path components and a trailing `.exe` are
+stripped so `/usr/bin/ls` and `ls.exe` select the same applet.
+
 A token is **flag-like** when it begins with `-`, is longer than one character,
 and is not a negative number. So `--force`, `-f`, and `-abc` are flag-like; `-`,
 `-1`, `-2.5`, and `-1e5` are not.
@@ -279,6 +285,21 @@ cmd "exec" external_subcommand=#true {
   cmd "install"
 }
 ```
+
+### Multicall
+
+A spec may declare `multicall`. argv[0]'s basename is then a word: a symlink
+`ls -> busybox` is parsed as if the first token were `ls`. The dispatcher names
+(`name` and `bin`) are skipped, so `busybox ls` still selects `ls`. Path
+components and a trailing `.exe` are stripped, so `/usr/bin/ls` and `ls.exe`
+select the same applet.
+
+An unknown applet is an unmatched word: it errors, or is forwarded if the root
+declares `external_subcommand`. Invoking the dispatcher with no further words
+stays at the root.
+
+This is clap's `Command::multicall`. Corpus vectors that care about argv[0]
+carry it as `argv0`; everyone else is the spec's `bin`.
 
 ### Flag scope
 

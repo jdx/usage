@@ -166,6 +166,7 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
             name: &spec.name,
             version: spec.version.as_deref(),
             default_subcommand: spec.default_subcommand.as_deref(),
+            multicall: spec.multicall,
             about: spec.about.as_deref(),
             about_long: spec.about_long.as_deref(),
             dialect,
@@ -287,6 +288,8 @@ struct Run<'a> {
     version: Option<&'a str>,
     /// Only the root has one, and only it declares it.
     default_subcommand: Option<&'a str>,
+    /// Busybox-style applets: argv[0]'s basename selects a subcommand.
+    multicall: bool,
     /// The spec's own description, which belongs to the root.
     about: Option<&'a str>,
     about_long: Option<&'a str>,
@@ -431,6 +434,9 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     if is_root && cmd.effect.is_some() {
         run.skipped.note("`effect` on the root command");
     }
+    if is_root && run.multicall {
+        usage_opts.push("multicall".into());
+    }
     match (is_root, dialect) {
         (true, Dialect::Usage) => {
             out.push_str("#[derive(Cli)]\n");
@@ -450,6 +456,9 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             // clap spells this the same way, so the two shadows describe the same program.
             if let Some(version) = run.version {
                 opts.push(format!("version = {version:?}"));
+            }
+            if run.multicall {
+                opts.push("multicall = true".into());
             }
             opts.extend(declared_about.iter().cloned());
             out.push_str(&format!("#[command({})]\n", opts.join(", ")));
@@ -2192,6 +2201,26 @@ mod tests {
             out.matches("default_subcommand").count(),
             1,
             "only the root should declare it: {out}"
+        );
+    }
+
+    #[test]
+    fn both_dialects_carry_multicall() {
+        let spec = "name \"busybox\"\nbin \"busybox\"\nmulticall #true\ncmd \"ls\"\n";
+        let (usage, skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains("multicall"), "{usage}");
+        assert!(
+            !skipped.counts.keys().any(|k| k.contains("multicall")),
+            "{:?}",
+            skipped.counts
+        );
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(clap.contains("multicall = true"), "{clap}");
+        assert!(
+            !clap_skipped.counts.keys().any(|k| k.contains("multicall")),
+            "{:?}",
+            clap_skipped.counts
         );
     }
 
