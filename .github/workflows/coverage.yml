@@ -30,13 +30,19 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@4c7e9f3bb4ca35f54341be8fc8d3608f71e4d24e # zizmor: ignore[impostor-commit] cargo-llvm-cov (tag-only ref by design)
+      # See the note in test.yml: the shell tests skip what they cannot find, so a flaky
+      # apt mirror should not fail the job.
       - name: Install shells for completion integration tests
-        timeout-minutes: 3
+        continue-on-error: true
+        timeout-minutes: 6
         run: |
-          sudo apt-get update
-          sudo apt-get install -y zsh fish
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y zsh fish
           if ! command -v pwsh >/dev/null 2>&1; then
             sudo snap install powershell --classic
           fi
+          for shell in zsh fish pwsh; do
+            command -v "$shell" >/dev/null || echo "::warning::$shell is missing, so its completion tests will skip"
+          done
       - name: Generate code coverage
         run: mise run coverage
