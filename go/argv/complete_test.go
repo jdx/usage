@@ -61,8 +61,24 @@ func complete(words []string, partial string) []string {
 }
 
 func TestCompletionOffersCommandsFlagsAndAliases(t *testing.T) {
+	// A bare cursor is asking which command to run. The reference offers no flags
+	// there — checked against `usage complete-word`, which answers `install` and
+	// `run` for a spec whose root also has `-v --verbose`.
 	got := complete(nil, "")
-	for _, want := range []string{"run", "list", "r", "--verbose", "-v", "--color", "--no-color"} {
+	for _, want := range []string{"run", "list", "r"} {
+		if !offered(got, want) {
+			t.Errorf("want %q offered, got %v", want, got)
+		}
+	}
+	for _, unwanted := range []string{"--verbose", "-v"} {
+		if offered(got, unwanted) {
+			t.Errorf("a bare cursor is not asking for flags: %v", got)
+		}
+	}
+
+	// A dash is: a lone one offers both forms.
+	got = complete(nil, "-")
+	for _, want := range []string{"--verbose", "-v", "--color", "--no-color"} {
 		if !offered(got, want) {
 			t.Errorf("want %q offered, got %v", want, got)
 		}
@@ -87,7 +103,7 @@ func TestCompletionFiltersByThePartialWord(t *testing.T) {
 
 // A global is offered inside a subcommand, because the parser accepts it there.
 func TestAGlobalIsOfferedInsideASubcommand(t *testing.T) {
-	got := complete([]string{"run"}, "")
+	got := complete([]string{"run"}, "-")
 	if !offered(got, "--verbose") {
 		t.Errorf("an inherited global should be offered: %v", got)
 	}
@@ -213,7 +229,7 @@ func TestOnlyTheClaimedSpellingIsWithdrawn(t *testing.T) {
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
 	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
 
-	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	got := values(Candidates(Walk(root, []string{"run"}), "-", help, meta))
 	// `--jobs` is the subcommand's now, and still offered once.
 	if n := count(got, "--jobs"); n != 1 {
 		t.Errorf("--jobs should appear once, got %d: %v", n, got)
@@ -264,7 +280,7 @@ func TestANegationLosesToALongOfTheSameSpelling(t *testing.T) {
 	if f := binds(t, root, []string{"run", "--no-color"}); f != global {
 		t.Fatalf("the parser binds --no-color to %v, so the premise is wrong", f)
 	}
-	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	got := values(Candidates(Walk(root, []string{"run"}), "-", help, meta))
 	if n := count(got, "--no-color"); n != 1 {
 		t.Errorf("--no-color should be offered once, by the flag that binds it, got %d: %v",
 			n, got)
@@ -288,7 +304,7 @@ func TestAnInheritedNegationSurvivesItsFlagsOtherSpellings(t *testing.T) {
 	if f := binds(t, root, []string{"run", "--no-color"}); f != global {
 		t.Fatalf("the parser binds --no-color to %v, so the premise is wrong", f)
 	}
-	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	got := values(Candidates(Walk(root, []string{"run"}), "-", help, meta))
 	if !offered(got, "--no-color") {
 		t.Errorf("--no-color still binds, so it should be offered: %v", got)
 	}
@@ -339,7 +355,7 @@ func TestANegationSpelledLikeItsOwnLongIsOfferedOnce(t *testing.T) {
 	help := HelpTable{{Key: 1}, {Key: 2}}
 	meta := Metadata{{Key: 1}, {Key: 2}}
 
-	got := values(Candidates(Walk(root, nil), "", help, meta))
+	got := values(Candidates(Walk(root, nil), "-", help, meta))
 	if n := count(got, "--no-color"); n != 1 {
 		t.Errorf("--no-color should be offered once, got %d: %v", n, got)
 	}
@@ -368,19 +384,24 @@ func TestAVariadicStillCollectingOffersFlagsToo(t *testing.T) {
 	}
 
 	got := values(Candidates(Walk(root, []string{"--tools", "a"}), "", help, meta))
-	if !offered(got, "--force") {
-		t.Errorf("a flag ends the collection and binds, so it belongs here: %v", got)
-	}
 	if !offered(got, "node") {
 		t.Errorf("the variadic's own values belong here too: %v", got)
+	}
+	// And once a dash is typed, the flags that would end the collection — the
+	// same rule as anywhere else, which is the point: this position is not the
+	// exclusive one a flag owed its value is.
+	dashed := values(Candidates(Walk(root, []string{"--tools", "a"}), "-", help, meta))
+	if !offered(dashed, "--force") {
+		t.Errorf("a flag ends the collection and binds, so it belongs here: %v", dashed)
 	}
 	// A plain word goes to the variadic, so nothing a plain word cannot be.
 	if offered(got, "run") {
 		t.Errorf("a subcommand name would be collected as a value, not bound: %v", got)
 	}
 
-	// And a flag still owed its first value keeps the position to itself.
-	owed := values(Candidates(Walk(root, []string{"--tools"}), "", help, meta))
+	// And a flag still owed its first value keeps the position to itself, dash or
+	// no dash: the parser refuses a flag-like token there.
+	owed := values(Candidates(Walk(root, []string{"--tools"}), "-", help, meta))
 	if offered(owed, "--force") {
 		t.Errorf("a flag-like token is refused where a value is owed: %v", owed)
 	}
@@ -403,7 +424,7 @@ func TestANearerFlagTakesTheSpellingFromAnInheritedNegation(t *testing.T) {
 	if f := binds(t, root, []string{"run", "--x"}); f != local {
 		t.Fatalf("the parser binds --x to the nearer flag, got %v", f)
 	}
-	got := values(Candidates(Walk(root, []string{"run"}), "", help, meta))
+	got := values(Candidates(Walk(root, []string{"run"}), "-", help, meta))
 	if n := count(got, "--x"); n != 1 {
 		t.Errorf("--x should be offered once, by the flag that binds it, got %d: %v", n, got)
 	}

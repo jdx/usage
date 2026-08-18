@@ -39,6 +39,16 @@ type Meta struct {
 	// between them can name a different flag entirely. Empty for an argument,
 	// which is typed as its value rather than as a form.
 	Spelling string
+	// ValueName is what a flag's value is called — the `DIR` of `--into <DIR>` —
+	// and empty where the entry is an argument, which is named by its value
+	// already. Read by completion rather than by any rule here: what a value is
+	// called is what says whether a path belongs there.
+	ValueName string
+	// CompleteType is the type a spec's `complete` block names for this entry,
+	// where it names one. Also completion's, and carried for the same reason: an
+	// author who wrote `complete "input" type="file"` said what the position
+	// takes, and the alternative is inferring it from a name they did not choose.
+	CompleteType string
 	// Flag distinguishes a missing flag from a missing argument, which the
 	// grammar reports as different classes.
 	Flag bool

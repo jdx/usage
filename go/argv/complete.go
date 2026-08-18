@@ -191,10 +191,16 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		commands()
 	}
 
-	// Flags, only where one could still be typed, and taken from the parser's own
-	// scope so that shadowing is respected: a subcommand redeclaring an inherited
-	// name offers its own.
-	if pos.FlagsPossible {
+	// Flags, only where one could still be typed *and* the user has started typing
+	// one. The reference offers no flags for a bare cursor — `ex ⌶` lists
+	// subcommands, `ex -⌶` lists both forms, `ex --⌶` the longs — and checked
+	// against `usage complete-word` rather than assumed. Offering them anyway made
+	// every position look answered, which is also what decides whether the shell
+	// should fall back to paths.
+	//
+	// The prefix filter below would narrow them to the same set; what this changes
+	// is the empty prefix, where it would not.
+	if pos.FlagsPossible && strings.HasPrefix(partial, "-") {
 		for _, s := range flagsInScope(pos.Chain) {
 			if h := help.Lookup(s.flag.Key); h != nil && h.Hide {
 				continue

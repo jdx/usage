@@ -408,7 +408,7 @@ impl Emitter<'_> {
                 by_key.insert(named.number, self.flag_meta(flag, named, e, commands));
             }
             for (arg, named) in &e.args {
-                by_key.insert(named.number, arg_meta(arg, named));
+                by_key.insert(named.number, arg_meta(self.spec, arg, named));
             }
         }
 
@@ -465,6 +465,19 @@ impl Emitter<'_> {
         } else if let Some(short) = flag.short.first() {
             fields.push(format!("Spelling: {}", go_string(&format!("-{short}"))));
         }
+        // What the value is called, which is what says whether a path belongs
+        // there — `--into <DIR>` completes directories because of the name.
+        if let Some(value) = flag.arg.as_ref() {
+            fields.push(format!("ValueName: {}", go_string(&value.name)));
+        }
+        let named_value = flag
+            .arg
+            .as_ref()
+            .map(|a| a.name.as_str())
+            .unwrap_or(flag.name.as_str());
+        if let Some(kind) = complete_type(self.spec, named_value) {
+            fields.push(format!("CompleteType: {}", go_string(kind)));
+        }
         // Written on the value a flag takes, never on the flag.
         if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
             fields.push(format!("Choices: {}", string_slice(&choices.choices)));
@@ -512,13 +525,31 @@ impl Emitter<'_> {
 }
 
 /// The cold half of a positional argument.
-fn arg_meta(arg: &SpecArg, named: &Named) -> String {
+/// The type a spec's `complete` block names for an entry, if it names one.
+///
+/// By lowercased name, which is how usage-lib files them: `complete "FILE"` and
+/// an argument written `<file>` are the same position as far as the reference is
+/// concerned.
+fn complete_type<'a>(spec: &'a Spec, name: &str) -> Option<&'a str> {
+    spec.complete
+        .get(&name.to_lowercase())
+        .and_then(|c| c.type_.as_deref())
+}
+
+fn arg_meta(spec: &Spec, arg: &SpecArg, named: &Named) -> String {
     let mut fields = vec![
         format!("Key: {}", named.key),
         format!("Name: {}", go_string(&arg.name)),
     ];
     if arg.required {
         fields.push("Required: true".to_string());
+    }
+    // What the position takes, where the spec said so. Read by completion rather
+    // than by any post-binding rule: an author who wrote `complete "input"
+    // type="file"` named what belongs there, and the alternative is inferring it
+    // from a name they did not choose.
+    if let Some(kind) = complete_type(spec, &arg.name) {
+        fields.push(format!("CompleteType: {}", go_string(kind)));
     }
     if let Some(choices) = &arg.choices {
         fields.push(format!("Choices: {}", string_slice(&choices.choices)));
