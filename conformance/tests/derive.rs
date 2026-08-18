@@ -879,3 +879,28 @@ fn a_bound_hands_the_rest_to_the_next_argument() {
         Bounded::to_kdl()
     );
 }
+
+/// clap's `#[arg(skip)]`: a field that is not an argument, filled from Default.
+#[derive(Cli, Debug)]
+#[usage(bin = "skip")]
+struct WithSkip {
+    #[usage(long)]
+    force: bool,
+    #[usage(skip)]
+    computed: usize,
+}
+
+#[test]
+fn a_skipped_field_is_defaulted_and_absent_from_the_spec() {
+    let a = argv(["--force"]);
+    let got = WithSkip::parse_from(&a).expect("should parse");
+    assert!(got.force);
+    assert_eq!(got.computed, 0, "filled from Default, not from argv");
+
+    let kdl = WithSkip::to_kdl();
+    assert!(kdl.contains(r#"flag "--force""#), "{kdl}");
+    assert!(
+        !kdl.contains("computed"),
+        "a skipped field must not reach the spec: {kdl}"
+    );
+}

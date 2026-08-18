@@ -91,6 +91,12 @@ jobs: Option<u32>,
 | `effect = "…"`                          | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
 | `setting = "key"`                       | Bind to a config setting (generates `parse_from_with_settings`)                         |
 | `verbatim_doc_comment`                  | Keep the doc comment's line breaks in help                                              |
+| `skip`                                  | Not an argument; filled from `Default` when the struct is built                         |
+
+`#[usage(skip)]` is clap's `#[arg(skip)]`: the field stays on the struct so a rewrite can keep
+computed state beside parsed state, and nothing about it reaches the spec, the parse tables, or
+help. Combining it with `long`, `arg`, or any other field option is a compile error. The type
+has to implement `Default`.
 
 Flag relations (`conflicts`, `requires`, `overrides`, `required_if`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:

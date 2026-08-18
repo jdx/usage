@@ -353,6 +353,13 @@ pub enum Kind {
         /// The struct's type, as written.
         ty: syn::Type,
     },
+    /// A field that is not an argument at all, filled from `Default`.
+    ///
+    /// clap's `#[arg(skip)]`: the struct still holds the field so a rewrite can keep
+    /// computed state beside parsed state, and nothing about it reaches the spec, the
+    /// parse tables, or help. The type has to implement `Default`, which is also how
+    /// clap fills one.
+    Skip,
     Subcommand {
         /// The enum's type, as written.
         ty: syn::Type,
@@ -793,6 +800,7 @@ impl Cli {
                 // where the whole tree is visible, by the duplicate-form check in
                 // `Spec::to_kdl`.
                 Kind::Flatten { .. } => {}
+                Kind::Skip => {}
                 Kind::Arg { double_dash } => {
                     // A variadic takes every remaining word, so anything after it can
                     // never be filled — with two exceptions, both of which are something
@@ -1008,6 +1016,91 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 }
 
 impl Field {
+    /// A field marked `#[usage(skip)]`, if this is one.
+    ///
+    /// clap's `#[arg(skip)]`: the field is not an argument, and is filled from `Default`
+    /// when the struct is built. Recognised before flags and arguments so a combination
+    /// like `#[usage(skip, long)]` is refused as a contradiction rather than parsed as a
+    /// flag that also happens to say skip — there is no such thing, and accepting it would
+    /// put a field in the tables that the build then ignored.
+    fn skip(
+        field: &syn::Field,
+        ident: &syn::Ident,
+        span: proc_macro2::Span,
+    ) -> syn::Result<Option<Self>> {
+        let mut found = false;
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                if ident_of(&meta.path().clone()) != "skip" {
+                    continue;
+                }
+                if !matches!(meta, Meta::Path(_)) {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        "`skip` takes no value: the field is filled from `Default`",
+                    ));
+                }
+                found = true;
+            }
+        }
+        if !found {
+            return Ok(None);
+        }
+
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                let name = ident_of(&meta.path().clone());
+                if name != "skip" {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        format!(
+                            "`skip` cannot be combined with `{name}`: a skipped field is \
+                             not a flag or an argument, so nothing that describes one applies"
+                        ),
+                    ));
+                }
+            }
+        }
+
+        Ok(Some(Field {
+            ident: ident.clone(),
+            ty: field.ty.clone(),
+            name: to_kebab(&ident.to_string()),
+            value_optional: false,
+            kind: Kind::Skip,
+            effect: None,
+            complete: None,
+            complete_type: None,
+            shape: Shape::Bool,
+            value_ty: None,
+            optional_collection: false,
+            help: None,
+            long_help: None,
+            env: None,
+            setting: None,
+            default: Vec::new(),
+            help_heading: None,
+            value_name: None,
+            required_collection: false,
+            choices: Vec::new(),
+            value_enum: false,
+            var_min: None,
+            var_max: None,
+            overrides: Vec::new(),
+            conflicts: Vec::new(),
+            requires: Vec::new(),
+            requires_if: Vec::new(),
+            delimiter: None,
+            exclusive: false,
+            group: None,
+            required_if: Vec::new(),
+            required_unless: Vec::new(),
+            hide: false,
+            repeatable: false,
+            span,
+        }))
+    }
+
     /// A field marked `#[usage(flatten)]`, if this is one.
     ///
     /// Recognized before flags and arguments for the same reason a subcommand is: the field
@@ -1216,6 +1309,12 @@ impl Field {
             .clone()
             .expect("named fields were checked by the caller");
         let span = field.span();
+        // A skipped field is not a flag, an argument, or a subcommand: recognised
+        // first so `#[usage(skip, long)]` is refused as a combination rather than
+        // parsed as a flag that also happens to say skip.
+        if let Some(skipped) = Self::skip(field, &ident, span)? {
+            return Ok(skipped);
+        }
         // A subcommand field is neither a flag nor an argument, and shares none of
         // their options, so it is recognized before any of them are read.
         if let Some(subcommand) = Self::subcommand(field, &ident, span)? {
@@ -1420,7 +1519,7 @@ impl Field {
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
-                                 `required`, and `double_dash`"
+                                 `required`, `double_dash`, and `skip`"
                             ),
                         ));
                     }
@@ -3644,6 +3743,49 @@ mod tests {
         "#,
         );
         assert!(err.contains("takes no value"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn skip_is_a_field_that_is_not_a_flag_or_an_argument() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long)]
+                force: bool,
+                #[usage(skip)]
+                computed: usize,
+            }
+        "#)
+        .expect("should compile");
+        assert!(
+            cli.fields
+                .iter()
+                .any(|f| matches!(f.kind, super::Kind::Skip) && f.ident == "computed"),
+            "skip should be a kind of its own, not a flag whose tables then ignore it"
+        );
+        assert_eq!(
+            cli.fields
+                .iter()
+                .filter(|f| matches!(f.kind, super::Kind::Flag { .. }))
+                .count(),
+            1,
+            "a skipped field must not appear as a flag"
+        );
+    }
+
+    #[test]
+    fn skip_cannot_be_combined_with_a_flag_option() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(skip, long)]
+                computed: usize,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("cannot be combined with `long`"),
+            "unhelpful message: {err}"
+        );
     }
 
     #[test]

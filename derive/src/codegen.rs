@@ -1204,7 +1204,7 @@ fn tables(cli: &Cli) -> Tables {
                 flag_meta_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.flags));
                 arg_meta_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.args));
             }
-            Kind::Subcommand { .. } => {}
+            Kind::Subcommand { .. } | Kind::Skip => {}
         }
     }
     flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
@@ -1489,7 +1489,10 @@ fn option_str(value: Option<&str>) -> TokenStream {
 /// `CommandArgs` boundary.
 fn presence_methods(cli: &Cli) -> TokenStream {
     let direct_given = cli.fields.iter().filter_map(|field| {
-        if matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }) {
+        if matches!(
+            field.kind,
+            Kind::Flatten { .. } | Kind::Subcommand { .. } | Kind::Skip
+        ) {
             return None;
         }
         let given = format_ident!("__given_{}", field.ident);
@@ -1594,8 +1597,9 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         .map(|p| p.partial_fields)
         .unwrap_or_default();
     let fields = cli.fields.iter().filter_map(|f| {
-        if matches!(f.kind, Kind::Subcommand { .. }) {
-            // Its values live in the enum's own partial.
+        if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
+            // Its values live in the enum's own partial. A skipped field is not parsed
+            // at all, so it has nothing to accumulate.
             return None;
         }
         // A flattened struct accumulates into its own partial, whose shape only its derive
@@ -1948,7 +1952,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
         .map(|p| p.partial_starts)
         .unwrap_or_default();
     let plain = cli.fields.iter().filter_map(|f| {
-        if matches!(f.kind, Kind::Subcommand { .. }) {
+        if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
             return None;
         }
         // `start()` rather than `Default`, so the flattened struct's own defaults are in
@@ -2006,6 +2010,10 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
 fn field_final(field: &Field) -> TokenStream {
     let ident = &field.ident;
     let name = &field.name;
+    if matches!(field.kind, Kind::Skip) {
+        // clap's skip: not parsed, filled from Default when the struct is built.
+        return quote!(#ident: ::std::default::Default::default());
+    }
     if let Kind::Flatten { ty } = &field.kind {
         // Built by its own derive, which is also what makes a nested flatten work: this is
         // the same call at every level.
@@ -3294,7 +3302,7 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
 /// without also asking it to report a missing sibling.
 fn declared_defaults(cli: &Cli) -> TokenStream {
     let own = cli.fields.iter().filter_map(|f| {
-        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. }) {
+        if f.default.is_empty() || matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -3766,7 +3774,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 .iter()
                 .filter(move |other| other.ident != f.ident)
                 .filter(|other| {
-                    !matches!(other.kind, Kind::Subcommand { .. } | Kind::Flatten { .. })
+                    !matches!(
+                        other.kind,
+                        Kind::Subcommand { .. } | Kind::Flatten { .. } | Kind::Skip
+                    )
                 })
                 .map(move |other| {
                     let other_given = format_ident!("__given_{}", other.ident);
@@ -3793,7 +3804,12 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let direct_given = cli
         .fields
         .iter()
-        .filter(|field| !matches!(field.kind, Kind::Flatten { .. } | Kind::Subcommand { .. }))
+        .filter(|field| {
+            !matches!(
+                field.kind,
+                Kind::Flatten { .. } | Kind::Subcommand { .. } | Kind::Skip
+            )
+        })
         .rev()
         .fold(quote!(::std::option::Option::None), |rest, field| {
             let given = format_ident!("__given_{}", field.ident);
