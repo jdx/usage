@@ -14,7 +14,7 @@ license = { workspace = true }
 # the registry as consts. This crate is what runs in the CLI, so it carries no spec parser
 # and no format reader it was not asked for.
 [dependencies]
-toml = { version = "0.9", optional = true }
+toml = { version = "1.0", optional = true }
 serde_json = { version = "1", optional = true }
 
 # Reading config files is opt-in, one format at a time, so the default is still no
