@@ -59,12 +59,8 @@ fn defaults_render_clap_shaped_parse_errors() {
     // `CLICOLOR_FORCE` is set, which would put ANSI codes inside the quotes and
     // break a literal substring check. Plain style is what a pipe (and this
     // assertion) wants.
-    let message = usage::diagnostic::render(
-        Ex::spec(),
-        &argv,
-        &err,
-        usage::diagnostic::Style::PLAIN,
-    );
+    let message =
+        usage::diagnostic::render(Ex::spec(), &argv, &err, usage::diagnostic::Style::PLAIN);
     assert!(
         message.contains("unexpected argument '--wat'"),
         "defaults should enable diagnostics; got:\n{message}"
