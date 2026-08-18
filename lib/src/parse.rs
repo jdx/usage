@@ -1067,8 +1067,11 @@ fn parse_partial_with_env(
                 if !rest.is_empty() {
                     input.push_front(format!("-{rest}"));
                     prefix_bindings.push_front(None);
-                    grouped_flag = true;
                 }
+                // A fully consumed short is no longer a grouped continuation.
+                // Leaving this set after `-ai` made `-i` skip `require_equals`
+                // and bind the following word.
+                grouped_flag = !rest.is_empty();
                 if f.arg.is_some() {
                     out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
@@ -6085,6 +6088,23 @@ flag "--inspect <PORT>" require_equals=#true
         assert!(
             msg.contains("requires an argument") || msg.contains("inspect"),
             "detached value must be refused: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_require_equals_refuses_a_detached_value_after_a_short_bundle() {
+        let spec = r#"
+flag "-a --all"
+flag "-i --inspect <PORT>" require_equals=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["test", "-ai", "9229"])).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("requires an argument") || msg.contains("inspect"),
+            "bundled short must refuse the following word: {msg}"
         );
     }
 

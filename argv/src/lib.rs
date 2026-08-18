@@ -2465,6 +2465,24 @@ mod tests {
                 negated: false
             }]
         );
+
+        static ALL: Flag = Flag {
+            key: 9,
+            name: "all",
+            longs: &["all"],
+            shorts: b"a",
+            ..Flag::BOOL
+        };
+        static BUNDLE: Command = Command {
+            name: "ex",
+            flags: &[&ALL, &INSPECT],
+            ..Command::EMPTY
+        };
+        let a = argv(["-ai", "9229"]);
+        assert!(
+            matches!(parse(&BUNDLE, &a), Err(Error::MissingFlagValue { .. })),
+            "a require_equals short reached through a bundle still refuses the following word"
+        );
     }
 
     #[test]
