@@ -207,6 +207,13 @@ run = "usage generate go -f benches/mise.usage.kdl --package mise -o go/internal
 dir = "{{config_root}}"
 run = ["cargo build --release", "./tasks/perf-shadow.sh"]
 
+# What binding a mise-sized command line costs a Go CLI. Reported, never gated — see the
+# note at the top of the script, and `perf:shadow` for the Rust side's version of the same
+# comparison.
+[tasks."perf:go"]
+dir = "{{config_root}}"
+run = './tasks/perf-go.sh'
+
 # Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
 # without it tak reports wall clock only and says so, so this still works on
 # macOS where there is no usable cachegrind.
