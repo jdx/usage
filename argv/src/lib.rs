@@ -1797,7 +1797,7 @@ mod tests {
     };
 
     /// Collect every event, or the first error.
-    fn parse<'t, 'v>(
+    fn parse<'t: 'v, 'v>(
         root: &'t Command<'t>,
         argv: &'v [&'v OsStr],
     ) -> Result<Vec<Event<'t, 'v>>, Error<'t, 'v>> {

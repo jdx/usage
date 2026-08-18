@@ -846,7 +846,8 @@ fn parse_partial_with_env(
         let binding = prefix_bindings.pop_front().flatten();
         // A short's attached value is re-queued with `grouped_flag` set, and that
         // continuation is not a following word. `require_equals` refuses only the
-        // following word; `-i9229` and `-i=9229` still bind.
+        // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
+        // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
 
         // Check for restart_token - resets argument parsing for multiple command invocations
@@ -907,6 +908,7 @@ fn parse_partial_with_env(
         // and `--inspect 9229` with `require_equals` binds the missing value rather
         // than treating 9229 as the port.
         if enable_flags
+            && !attached_continuation
             && !out.flag_awaiting_value.is_empty()
             && out.flag_awaiting_value.last().is_some_and(|flag| {
                 flag.default_missing.is_some()
@@ -6158,8 +6160,8 @@ flag "-i --inspect <PORT>" require_equals=#true
     #[test]
     fn test_default_missing_binds_when_the_value_is_left_off() {
         let spec = r#"
-flag "--color <WHEN>" default_missing="always"
-flag "--verbose"
+flag "-c --color <WHEN>" default_missing="always"
+flag "-v --verbose"
 "#
         .parse::<Spec>()
         .unwrap();
@@ -6179,6 +6181,13 @@ flag "--verbose"
 
         let parsed = parse(&spec, &input(&["test", "--color="])).unwrap();
         assert_eq!(flag_string_value(&parsed, "color"), "");
+
+        let parsed = parse(&spec, &input(&["test", "-cnever"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "never");
+
+        let parsed = parse(&spec, &input(&["test", "-c", "-v"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "color"), "always");
+        assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
     }
 
     #[test]

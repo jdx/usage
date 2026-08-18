@@ -305,6 +305,9 @@ func TestDefaultMissing(t *testing.T) {
 	if got := collect(cmd, "-c"); got != "flag:color=always" {
 		t.Errorf("-c: got %s", got)
 	}
+	if got := collect(cmd, "-cnever"); got != "flag:color=never" {
+		t.Errorf("-cnever: got %s", got)
+	}
 }
 
 func TestDefaultMissingWithRequireEquals(t *testing.T) {
