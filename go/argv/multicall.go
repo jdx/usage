@@ -21,10 +21,10 @@ func MulticallBasename(argv0 string) string {
 // inject the basename.
 func AppletFromArgv0(argv0, name, bin string) (applet string, ok bool) {
 	base := MulticallBasename(argv0)
-	if name != "" && base == name {
+	if name != "" && base == MulticallBasename(name) {
 		return "", false
 	}
-	if bin != "" && base == bin {
+	if bin != "" && base == MulticallBasename(bin) {
 		return "", false
 	}
 	return base, true
