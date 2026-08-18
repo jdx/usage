@@ -1785,6 +1785,10 @@ flag "--output <fmt>"
             out.contains("argv.ApplyDefaultIf"),
             "the emitted parser must apply the metadata:\n{out}"
         );
+        assert!(
+            out.contains("negated[ev.Flag.Key] = ev.Negated"),
+            "Equals default_if needs the negate form:\n{out}"
+        );
     }
 
     /// The form is part of the name, and usage-lib resolves neither of the

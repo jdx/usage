@@ -3914,6 +3914,24 @@ flag "--file <file>" required_unless="--stdin"
     }
 
     #[test]
+    fn an_equals_condition_reads_a_negated_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--pretty\" {\n  default_if \"--json\" \"false\" \"true\"\n}\nflag \"--json\" negate=\"--no-json\"\n"
+            .parse()
+            .unwrap();
+
+        let off = parse(&spec, &input(&["ex", "--no-json"])).unwrap();
+        assert_eq!(
+            off.as_env().get("usage_pretty").map(String::as_str),
+            Some("true")
+        );
+        let on = parse(&spec, &input(&["ex", "--json"])).unwrap();
+        assert!(
+            on.as_env().get("usage_pretty").is_none(),
+            "--json is true, so when=false should miss"
+        );
+    }
+
+    #[test]
     fn the_first_matching_conditional_default_wins() {
         let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--style <s>\" {\n  default_if \"--json\" \"compact\"\n  default_if \"--pretty\" \"pretty\"\n}\nflag \"--json\"\nflag \"--pretty\"\n"
             .parse()

@@ -215,22 +215,43 @@ func TestApplyDefaultIf(t *testing.T) {
 	}
 	filled := map[uint64][]string{json: {}, bin: nil}
 	sources := map[uint64]Source{json: FromArgv, bin: Unset}
-	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources, nil)
 	if sources[bin] != FromDefault || !reflect.DeepEqual(filled[bin], []string{"true"}) {
 		t.Errorf("IsPresent should bind: %q from %v", filled[bin], sources[bin])
 	}
 
 	filled = map[uint64][]string{json: nil, bin: nil}
 	sources = map[uint64]Source{json: Unset, bin: Unset}
-	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources, nil)
 	if sources[bin] != FromDefault || !reflect.DeepEqual(filled[bin], []string{"false"}) {
 		t.Errorf("unconditional default when no match: %q from %v", filled[bin], sources[bin])
 	}
 
 	filled = map[uint64][]string{json: {}, bin: []string{"already"}}
 	sources = map[uint64]Source{json: FromArgv, bin: FromEnv}
-	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources)
+	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources, nil)
 	if sources[bin] != FromEnv || !reflect.DeepEqual(filled[bin], []string{"already"}) {
 		t.Errorf("env on the target suppresses: %q from %v", filled[bin], sources[bin])
+	}
+
+	pretty := uint64(2)
+	meta = Metadata{
+		{Key: json, Name: "json", Flag: true},
+		{Key: pretty, Name: "pretty", Flag: true, DefaultIf: []DefaultIf{
+			{Key: json, When: "false", Value: "true"},
+		}},
+	}
+	filled = map[uint64][]string{json: {}, pretty: nil}
+	sources = map[uint64]Source{json: FromArgv, pretty: Unset}
+	ApplyDefaultIf(meta, []uint64{json, pretty}, filled, sources, map[uint64]bool{json: true})
+	if sources[pretty] != FromDefault || !reflect.DeepEqual(filled[pretty], []string{"true"}) {
+		t.Errorf("--no-json should match when=false: %q from %v", filled[pretty], sources[pretty])
+	}
+
+	filled = map[uint64][]string{json: {}, pretty: nil}
+	sources = map[uint64]Source{json: FromArgv, pretty: Unset}
+	ApplyDefaultIf(meta, []uint64{json, pretty}, filled, sources, nil)
+	if sources[pretty] != Unset {
+		t.Errorf("--json should not match when=false: %q from %v", filled[pretty], sources[pretty])
 	}
 }

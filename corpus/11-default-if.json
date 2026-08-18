@@ -97,6 +97,14 @@
       "layer": "post-binding"
     },
     {
+      "id": "default-if-equals-reads-negation",
+      "doc": "An Equals default_if on a bool reads the negate form as false, the same way requires_if does. `--no-json` is given, and its value is false.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--pretty\" {\n  default_if \"--json\" \"false\" \"true\"\n}\nflag \"--json\" negate=\"--no-json\"\n",
+      "argv": ["--no-json"],
+      "expect": { "ok": { "flags": { "pretty": true, "json": false } } },
+      "layer": "post-binding"
+    },
+    {
       "id": "default-if-choice-is-checked",
       "doc": "A bound default_if value is checked against choices the same way a default is.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" {\n  default_if \"--pretty\" \"rainbow\"\n  choices \"auto\" \"always\" \"never\"\n}\nflag \"--pretty\"\n",
