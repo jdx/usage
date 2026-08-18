@@ -1024,6 +1024,7 @@ fn a_conditional_default_binds_when_the_other_flag_is_given() {
     let a = argv(["--output", "json"]);
     let got = BinPaths::parse_from(&a).expect("Equals");
     assert_eq!(got.style.as_deref(), Some("pretty"));
+    assert_eq!(got.output.as_deref(), Some("json"));
     assert!(!got.bin_names);
 
     let a = argv(["--json", "--bin-names"]);

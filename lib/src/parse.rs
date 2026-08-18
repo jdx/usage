@@ -3893,7 +3893,7 @@ flag "--file <file>" required_unless="--stdin"
 
         let without = parse(&spec, &input(&["ex"])).unwrap();
         assert!(
-            without.as_env().get("usage_bin_names").is_none(),
+            !without.as_env().contains_key("usage_bin_names"),
             "IsPresent does nothing when the selector is absent"
         );
     }
@@ -3910,7 +3910,7 @@ flag "--file <file>" required_unless="--stdin"
             Some("pretty")
         );
         let yaml = parse(&spec, &input(&["ex", "--output", "yaml"])).unwrap();
-        assert!(yaml.as_env().get("usage_style").is_none());
+        assert!(!yaml.as_env().contains_key("usage_style"));
     }
 
     #[test]
@@ -3926,7 +3926,7 @@ flag "--file <file>" required_unless="--stdin"
         );
         let on = parse(&spec, &input(&["ex", "--json"])).unwrap();
         assert!(
-            on.as_env().get("usage_pretty").is_none(),
+            !on.as_env().contains_key("usage_pretty"),
             "--json is true, so when=false should miss"
         );
     }
