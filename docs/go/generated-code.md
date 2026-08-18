@@ -84,7 +84,7 @@ type InstallCmd struct {
 `Parse` walks the events, fills the structs, then — for the commands the words actually
 selected — applies fallbacks and checks:
 
-1. values resolve **argv → env → default**, per entry
+1. values resolve **argv → env → default_if → default**, per entry
 2. `required`, `choices`, `var_min`/`var_max` are checked
 3. `conflicts`, `required_if`, `required_unless` are checked across the selected commands
 

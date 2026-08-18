@@ -542,6 +542,29 @@ impl Emitter<'_> {
                 requires_if.join(", ")
             ));
         }
+        let default_if = flag
+            .default_if
+            .iter()
+            .filter_map(|condition| {
+                resolve_relationship(std::slice::from_ref(&condition.selector), owner, commands)
+                    .into_iter()
+                    .next()
+                    .map(|key| match &condition.when {
+                        None => format!("{{Key: {key}, Value: {}}}", go_string(&condition.value)),
+                        Some(when) => format!(
+                            "{{Key: {key}, When: {}, Value: {}}}",
+                            go_string(when),
+                            go_string(&condition.value)
+                        ),
+                    })
+            })
+            .collect::<Vec<_>>();
+        if !default_if.is_empty() {
+            fields.push(format!(
+                "DefaultIf: []argv.DefaultIf{{{}}}",
+                default_if.join(", ")
+            ));
+        }
 
         format!("{{{}}}", fields.join(", "))
     }
@@ -1734,6 +1757,37 @@ flag "--schema <file>"
         assert!(
             out.contains("argv.CheckRelationshipsWithValues"),
             "the emitted parser must enforce the metadata:\n{out}"
+        );
+    }
+
+    #[test]
+    fn a_conditional_default_reaches_go_metadata() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--bin-names" {
+    default_if "--json" "true"
+    default_if "--output" "json" "pretty"
+}
+flag "--json"
+flag "--output <fmt>"
+"#);
+        assert!(
+            entry_of(&out, "bin-names")
+                .contains("DefaultIf: []argv.DefaultIf{{Key: FlagJson, Value: \"true\"}"),
+            "{out}"
+        );
+        assert!(
+            entry_of(&out, "bin-names").contains("When: \"json\""),
+            "{out}"
+        );
+        assert!(
+            out.contains("argv.ApplyDefaultIf"),
+            "the emitted parser must apply the metadata:\n{out}"
+        );
+        assert!(
+            out.contains("negated[ev.Flag.Key] = ev.Negated"),
+            "Equals default_if needs the negate form:\n{out}"
         );
     }
 

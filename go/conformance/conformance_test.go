@@ -321,6 +321,22 @@ func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Err
 		}
 	}
 
+	filled := map[uint64][]string{}
+	sources := map[uint64]argv.Source{}
+	negated := map[uint64]bool{}
+	for _, key := range scope {
+		r := final[key]
+		filled[key] = r.values
+		sources[key] = r.source
+		negated[key] = r.negated
+	}
+	argv.ApplyDefaultIf(meta, scope, filled, sources, negated)
+	for _, key := range scope {
+		r := final[key]
+		r.values = filled[key]
+		r.source = sources[key]
+	}
+
 	// What one entry ended up with, judged on its own.
 	for _, key := range scope {
 		r := final[key]

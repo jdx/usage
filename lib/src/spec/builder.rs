@@ -33,7 +33,8 @@
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
-    spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecFlag, SpecRequiresIf,
+    spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecDefaultIf, SpecFlag,
+    SpecRequiresIf,
 };
 
 /// Builder for SpecFlag
@@ -308,7 +309,44 @@ impl SpecFlagBuilder {
         self
     }
 
-    /// Set environment variable name
+    /// Bind `value` on this flag when `selector` is present.
+    ///
+    /// clap's `default_value_if(id, ArgPredicate::IsPresent, value)`.
+    pub fn default_if(mut self, selector: impl Into<String>, value: impl Into<String>) -> Self {
+        self.inner.default_if.push(SpecDefaultIf {
+            selector: selector.into(),
+            when: None,
+            value: value.into(),
+        });
+        self
+    }
+
+    /// Bind `value` on this flag when `selector` is explicitly `when`.
+    ///
+    /// clap's `default_value_if(id, ArgPredicate::Equals(when), value)`.
+    pub fn default_if_eq(
+        mut self,
+        selector: impl Into<String>,
+        when: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.inner.default_if.push(SpecDefaultIf {
+            selector: selector.into(),
+            when: Some(when.into()),
+            value: value.into(),
+        });
+        self
+    }
+
+    /// Add several conditional defaults, in first-match-wins order.
+    pub fn default_ifs<I>(mut self, conditions: I) -> Self
+    where
+        I: IntoIterator<Item = SpecDefaultIf>,
+    {
+        self.inner.default_if.extend(conditions);
+        self
+    }
+
     /// Heading to list this under in help output.
     pub fn help_heading(mut self, help_heading: impl Into<String>) -> Self {
         self.inner.help_heading = Some(help_heading.into());
@@ -805,6 +843,31 @@ mod tests {
                 SpecRequiresIf {
                     value: "signed.toml".into(),
                     requires: "--identity".into(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_flag_builder_conditional_defaults() {
+        let flag = SpecFlagBuilder::new()
+            .long("bin-names")
+            .default_if("--json", "true")
+            .default_if_eq("--output", "json", "pretty")
+            .build();
+
+        assert_eq!(
+            flag.default_if,
+            [
+                SpecDefaultIf {
+                    selector: "--json".into(),
+                    when: None,
+                    value: "true".into(),
+                },
+                SpecDefaultIf {
+                    selector: "--output".into(),
+                    when: Some("json".into()),
+                    value: "pretty".into(),
                 },
             ]
         );

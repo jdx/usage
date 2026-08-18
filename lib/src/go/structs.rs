@@ -104,7 +104,12 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         .iter()
         .flat_map(|command| command.flags.iter())
         .any(|(flag, _)| !flag.requires_if.is_empty());
-    let conditional_state = if has_requires_if {
+    let has_default_if = commands
+        .iter()
+        .flat_map(|command| command.flags.iter())
+        .any(|(flag, _)| !flag.default_if.is_empty());
+    let needs_negated = has_requires_if || has_default_if;
+    let conditional_state = if needs_negated {
         "\tnegated := map[uint64]bool{}\n"
     } else {
         ""
@@ -173,7 +178,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         );
     }
 
-    let conditional_event = if has_requires_if {
+    let conditional_event = if needs_negated {
         "\t\t\tnegated[ev.Flag.Key] = ev.Negated\n"
     } else {
         ""
@@ -221,6 +226,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         }
     }
 
+    let negated_arg = if needs_negated { "negated" } else { "nil" };
     let _ = writeln!(
         out,
         "\t\t\t}}\n\t\t}}\n\t}}\n\
@@ -233,10 +239,16 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t}}\n\
          \t}}\n\
          \tsources := map[uint64]argv.Source{{}}\n\
+         \tfilled := map[uint64][]string{{}}\n\
          {conditional_resolved}\
          \tfor _, key := range scope {{\n\
          \t\tvalues, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)\n\
+         \t\tfilled[key] = values\n\
          \t\tsources[key] = source\n\
+         \t}}\n\
+         \targv.ApplyDefaultIf(Meta, scope, filled, sources, {negated_arg})\n\
+         \tfor _, key := range scope {{\n\
+         \t\tvalues, source := filled[key], sources[key]\n\
          {conditional_value}\
          \t\tif err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {{\n\
          \t\t\treturn nil, err\n\t\t}}\n\

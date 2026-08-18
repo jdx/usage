@@ -25,7 +25,9 @@
 
 use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
-use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta, GroupMeta, RequiresIf};
+use usage_argv::spec::{
+    ArgMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta, GroupMeta, RequiresIf,
+};
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
 /// A command's two tables, built together so the metadata can borrow the parse table.
@@ -331,6 +333,17 @@ fn flag_meta(
                 .map(|condition| RequiresIf {
                     value: leak(&condition.value),
                     requires: leak(&condition.requires),
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        default_if: Box::leak(
+            f.default_if
+                .iter()
+                .map(|condition| DefaultIf {
+                    selector: leak(&condition.selector),
+                    when: condition.when.as_deref().map(leak),
+                    value: leak(&condition.value),
                 })
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),

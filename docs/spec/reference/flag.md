@@ -40,6 +40,9 @@ flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
+flag "--bin-names" {
+  default_if "--json" "true" // --json implies --bin-names
+}
 
 flag "--stdin" {
   conflicts "--file" "--url" // several, one per argument
@@ -119,6 +122,32 @@ This is the same source distinction clap's `requires_if` and `requires_ifs` make
 A spec generated from a clap command never carries this. clap has `Arg::requires` as a
 setter with no getter, so [the clap integration](/spec/integrations/clap) cannot read it
 back out — a CLI that wants the constraint in its spec has to declare it here.
+:::
+
+## `default_if`
+
+A default that depends on another flag. Lives on the _target_ — the flag that
+gets the value — which is the inverse of [`requires_if`](#requires_if):
+
+```kdl
+flag "--bin-names" {
+  default_if "--json" "true"            // --json is enough
+  default_if "--output" "json" "pretty" // --output json binds pretty
+}
+```
+
+Two arguments are clap's `ArgPredicate::IsPresent`; three are `Equals`. The node
+may be repeated; the first matching condition wins.
+
+Only considered when this flag was not on the command line and has no environment
+value. An applied `default_if` is a default, not an explicit value: it satisfies
+[`requires`](#requires) and does not activate `requires_if`.
+
+::: warning
+A spec generated from a clap command never carries this. clap has
+`Arg::default_value_if` as a setter with no getter, so
+[the clap integration](/spec/integrations/clap) cannot read it back out — the
+same hole as `requires`.
 :::
 
 ## `exclusive`

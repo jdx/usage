@@ -998,3 +998,42 @@ fn a_default_missing_flag_binds_when_the_value_is_left_off() {
         "the attribute has to reach the spec: {kdl}"
     );
 }
+
+/// clap's `default_value_if`: `--json` implies `--bin-names`.
+#[derive(Cli, Debug)]
+#[usage(bin = "paths")]
+struct BinPaths {
+    #[usage(long, default_if("--json", "true"))]
+    bin_names: bool,
+    #[usage(long)]
+    json: bool,
+    #[usage(long, default_if("--output", "json", "pretty"))]
+    style: Option<String>,
+    #[usage(long)]
+    output: Option<String>,
+}
+
+#[test]
+fn a_conditional_default_binds_when_the_other_flag_is_given() {
+    let a = argv(["--json"]);
+    let got = BinPaths::parse_from(&a).expect("IsPresent");
+    assert!(got.bin_names);
+    assert!(got.json);
+    assert!(got.style.is_none());
+
+    let a = argv(["--output", "json"]);
+    let got = BinPaths::parse_from(&a).expect("Equals");
+    assert_eq!(got.style.as_deref(), Some("pretty"));
+    assert_eq!(got.output.as_deref(), Some("json"));
+    assert!(!got.bin_names);
+
+    let a = argv(["--json", "--bin-names"]);
+    let got = BinPaths::parse_from(&a).expect("argv still wins");
+    assert!(got.bin_names);
+
+    let kdl = BinPaths::to_kdl();
+    assert!(
+        kdl.contains("default_if"),
+        "the attribute has to reach the spec: {kdl}"
+    );
+}

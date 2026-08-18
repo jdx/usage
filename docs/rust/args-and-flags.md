@@ -77,6 +77,7 @@ jobs: Option<u32>,
 | `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
 | `require_equals`                        | Accept `--flag=value` and refuse `--flag value`                                         |
 | `default_missing = "…"`                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
+| `default_if("--json", "true")`          | Default when another flag is given (two args = present, three = equals)                 |
 | `group = "name"`                        | Join a flag group ([Validation](/rust/validation#groups))                               |
 | `exclusive`                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                    |
 | `conflicts(…)` / `requires(…)`          | Relations to other flags ([Validation](/rust/validation))                               |
@@ -116,6 +117,18 @@ The flag has to take a value. Help shows the value as optional. Emitted KDL:
 `flag "--color <WHEN>" default_missing="always"`. Combined with `require_equals`,
 a following word is still refused.
 
+`#[usage(default_if("--json", "true"))]` is clap's `default_value_if` with
+`ArgPredicate::IsPresent`. Three arguments (`default_if("--output", "json", "pretty")`)
+are `Equals`. First match wins. The target's own argv and env suppress it. An
+applied `default_if` is a default: it does not set `__given_*`, so it does not
+activate `requires_if`. Emitted KDL:
+
+```kdl
+flag "--bin-names" {
+  default_if "--json" "true"
+}
+```
+
 Flag relations (`conflicts`, `requires`, `overrides`, `required_if`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:
 
@@ -134,7 +147,8 @@ After argv is parsed, each field resolves in this order — matching
 
 1. the value given on the command line
 2. the `env` variable, if set
-3. the `default`, if declared
+3. a matching `default_if`, if declared
+4. the `default`, if declared
 
 Then validation runs: required-ness (skipped for anything a default or env var filled),
 `choices`, and `var_min`/`var_max`. Only the command that actually ran is judged — a required

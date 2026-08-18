@@ -60,7 +60,8 @@ exposes a getter for. [`requires`](/spec/reference/flag#requires) is the notable
 does not: `Arg::requires`, `requires_if`, `requires_ifs` and `requires_all` are setters
 with no reader, so a flag declared with them arrives in the spec with no requirement on
 it, and everything downstream — help, docs, completions — describes a CLI without that
-constraint.
+constraint. `Arg::default_value_if` is the same hole: a generated spec never carries
+[`default_if`](/spec/reference/flag#default_if).
 
 Declaring it in the spec is the way to have it. A CLI that keeps its source of truth in
 clap can add the node to a hand-written overlay spec merged with the generated one.

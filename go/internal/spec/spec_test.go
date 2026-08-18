@@ -528,3 +528,29 @@ func TestDefaultMissingCarries(t *testing.T) {
 		t.Errorf("default_missing: got %q", root.Flags[0].DefaultMissing)
 	}
 }
+
+func TestDefaultIfResolves(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "bin-names", Long: []string{"bin-names"}, DefaultIf: []DefaultIf{
+				{Selector: "--json", Value: "true"},
+				{Selector: "--output", When: "json", Value: "pretty"},
+			}},
+			{Name: "json", Long: []string{"json"}},
+			{Name: "output", Long: []string{"output"}, Arg: &Arg{Name: "fmt"}},
+		}},
+	})
+	m := metaFor(t, meta, root, "bin-names")
+	if len(m.DefaultIf) != 2 {
+		t.Fatalf("default_if: %+v", m.DefaultIf)
+	}
+	jsonKey := metaFor(t, meta, root, "json").Key
+	outputKey := metaFor(t, meta, root, "output").Key
+	if m.DefaultIf[0].Key != jsonKey || m.DefaultIf[0].Value != "true" || m.DefaultIf[0].When != "" {
+		t.Errorf("IsPresent: %+v", m.DefaultIf[0])
+	}
+	if m.DefaultIf[1].Key != outputKey || m.DefaultIf[1].When != "json" || m.DefaultIf[1].Value != "pretty" {
+		t.Errorf("Equals: %+v", m.DefaultIf[1])
+	}
+}

@@ -189,9 +189,15 @@ func Parse(args []string) (*Cli, error) {
 		}
 	}
 	sources := map[uint64]argv.Source{}
+	filled := map[uint64][]string{}
 	for _, key := range scope {
 		values, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)
+		filled[key] = values
 		sources[key] = source
+	}
+	argv.ApplyDefaultIf(Meta, scope, filled, sources, nil)
+	for _, key := range scope {
+		values, source := filled[key], sources[key]
 		if err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {
 			return nil, err
 		}
