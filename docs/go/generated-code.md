@@ -43,6 +43,19 @@ type InstallCmd struct { /* … */ }  // and one per command
 func Parse(args []string) (*Cli, error)
 ```
 
+`Parse` takes the tokens after the program name. A spec that declares
+`multicall` needs argv[0] rewritten first, because a symlink `ls -> busybox`
+has no `ls` word in `os.Args[1:]`:
+
+```go
+args := argv.RewriteMulticall(os.Args[0], os.Args[1:], HelpMeta.Name, HelpMeta.Bin)
+cli, err := Parse(args)
+```
+
+`RewriteMulticall` prepends argv[0]'s basename when it is an applet rather than
+the dispatcher (`name` / `bin`). Path components and a trailing `.exe` are
+stripped. A dispatcher invocation is a no-op.
+
 The three tables are separate on purpose: reference only `Root` and the linker drops the
 validation metadata and help text. On mise's spec that's the difference between a 2.60MB and a
 2.82MB contribution to the binary. Dispatch on the key constants, never on `Name` strings — a

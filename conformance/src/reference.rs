@@ -57,8 +57,9 @@ pub fn run(vector: &Vector) -> Observed {
         .collect();
 
     // usage-lib expects argv to include the program name, and reports the
-    // selected command relative to it.
-    let mut input = vec![spec.bin.clone()];
+    // selected command relative to it. A multicall vector that cares about the
+    // process's argv[0] supplies it; everyone else is the spec's bin.
+    let mut input = vec![vector.argv0.clone().unwrap_or_else(|| spec.bin.clone())];
     input.extend(vector.argv.iter().cloned());
 
     match Parser::new(&spec).with_env(env).parse(&input) {

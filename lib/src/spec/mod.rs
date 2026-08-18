@@ -91,6 +91,14 @@ pub struct Spec {
     /// This enables "naked" command syntax like `mise foo` instead of `mise run foo`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_subcommand: Option<String>,
+    /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
+    ///
+    /// clap's `multicall`. The dispatcher names ([`Self::name`] and [`Self::bin`])
+    /// are skipped; any other basename is parsed as the first word, so a symlink
+    /// `ls -> busybox` runs the `ls` applet. Path components and a trailing `.exe`
+    /// are stripped.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub multicall: bool,
     /// What to do with a flag-like token that names no declared flag, for the whole
     /// CLI. A command may override it; see [`SpecCommand::unknown_flags`].
     pub unknown_flags: Option<crate::spec::unknown_flags::UnknownFlags>,
@@ -276,6 +284,7 @@ impl Spec {
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
                 }
+                "multicall" => schema.multicall = node.arg(0)?.ensure_bool()?,
                 "external_subcommand" => {
                     schema.cmd.external_subcommand = node.arg(0)?.ensure_bool()?;
                 }
@@ -372,6 +381,9 @@ impl Spec {
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
+        if other.multicall {
+            self.multicall = true;
+        }
         merge_opt!(unknown_flags);
         merge_extend!(complete);
         merge_extend!(examples);
@@ -543,6 +555,11 @@ impl Display for Spec {
             node.push(string_entry(None, default_subcommand));
             nodes.push(node);
         }
+        if self.multicall {
+            let mut node = KdlNode::new("multicall");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
         if self.cmd.external_subcommand {
             let mut node = KdlNode::new("external_subcommand");
             node.push(KdlEntry::new(true));
@@ -609,6 +626,7 @@ impl From<&clap::Command> for Spec {
             // The root is a command too, and its own answer has nowhere else to go: a spec says
             // this at the top level, which is the field a reader puts it back into.
             unknown_flags: crate::spec::cmd::SpecCommand::from(cmd).unknown_flags,
+            multicall: cmd.is_multicall_set(),
             ..Default::default()
         };
         // The same pass the KDL parser makes, and for the same reason: a command has to know
@@ -778,6 +796,48 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         let spec = Spec::from(&cmd);
         let flag = spec.cmd.flags.iter().find(|f| f.name == "events").unwrap();
         assert_eq!(flag.default, ["a,b"]);
+    }
+
+    #[test]
+    fn multicall_round_trips() {
+        let spec = Spec::parse(
+            &Default::default(),
+            r#"
+name "busybox"
+bin "busybox"
+multicall #true
+cmd "ls"
+cmd "cat"
+        "#,
+        )
+        .unwrap();
+        assert!(spec.multicall);
+        let emitted = spec.to_string();
+        assert!(
+            emitted.contains("multicall #true"),
+            "lost on the way out: {emitted}"
+        );
+        let again: Spec = emitted.parse().unwrap();
+        assert!(again.multicall);
+    }
+
+    #[test]
+    #[cfg(feature = "clap")]
+    fn multicall_comes_across_from_clap() {
+        let cmd = clap::Command::new("busybox")
+            .multicall(true)
+            .subcommand(clap::Command::new("ls"))
+            .subcommand(clap::Command::new("cat"));
+        let spec = Spec::from(&cmd);
+        assert!(spec.multicall);
+        assert!(
+            spec.to_string().contains("multicall #true"),
+            "{}",
+            spec.to_string()
+        );
+
+        let plain = clap::Command::new("ex").subcommand(clap::Command::new("ls"));
+        assert!(!Spec::from(&plain).multicall);
     }
 
     macro_rules! extract_usage_tests {

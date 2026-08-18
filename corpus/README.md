@@ -32,15 +32,16 @@ the group establishes, and `vectors`:
 }
 ```
 
-| field       | meaning                                                                                                         |
-| ----------- | --------------------------------------------------------------------------------------------------------------- |
-| `id`        | unique across the corpus, and stable — reports quote it, so renaming one breaks anybody tracking known failures |
-| `doc`       | what this vector pins down, in one sentence                                                                     |
-| `spec`      | a complete spec, as KDL                                                                                         |
-| `argv`      | the command line, excluding the program name                                                                    |
-| `env`       | the environment the parse sees; absent means empty                                                              |
-| `expect`    | `{"ok": {...}}` or `{"error": "code"}`                                                                          |
-| `reference` | whether usage-lib agrees; see below                                                                             |
+| field       | meaning                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`        | unique across the corpus, and stable — reports quote it, so renaming one breaks anybody tracking known failures                                                    |
+| `doc`       | what this vector pins down, in one sentence                                                                                                                        |
+| `spec`      | a complete spec, as KDL                                                                                                                                            |
+| `argv`      | the command line, excluding the program name                                                                                                                       |
+| `argv0`     | the process's argv[0], when that is the question; absent means the spec's `bin`. A `multicall` applet is selected by this basename rather than by a word in `argv` |
+| `env`       | the environment the parse sees; absent means empty                                                                                                                 |
+| `expect`    | `{"ok": {...}}` or `{"error": "code"}`                                                                                                                             |
+| `reference` | whether usage-lib agrees; see below                                                                                                                                |
 
 `expect.ok` holds `cmd` (the selected subcommand path, outermost first, omitted
 for the root), `flags`, and `args`. Both maps are keyed by the name the spec gives

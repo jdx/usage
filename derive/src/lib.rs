@@ -180,7 +180,8 @@
 //!
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
-//! `default_subcommand`, `min_usage_version` — the oldest `usage` that can read the emitted
+//! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
+//! `min_usage_version` — the oldest `usage` that can read the emitted
 //! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —

@@ -458,8 +458,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `required_unless_present` all/any variants. The common single-selector
       forms exist, but a clap migration needs the complete truth table or an
       explicit non-goal for each omitted form.
-- [ ] **`multicall`** — busybox-style applets: argv[0]'s basename selects a
-      subcommand when it is not the dispatcher. clap's `Command::multicall`.
+- [x] **`multicall`** — busybox-style applets: argv[0]'s basename selects a
+      subcommand when it is not the dispatcher. Spec `multicall #true`,
+      usage-lib (which sees argv0), usage-argv / the derive `parse()` /
+      Go `RewriteMulticall` (which rewrite at process entry; `parse_from` /
+      `Parse` stay without argv0), and the clap bridge
+      (`Command::is_multicall_set`). Path components and a trailing `.exe`
+      are stripped. **Not used by the fleet today**; clap's own applets and
+      busybox-style binaries are the reason it exists.
 - [ ] **`no_binary_name`** — parsing an argv that has no `argv[0]`. usage-argv
       already takes argv without the program name; this is clap's setter that
       skips stripping it. Out of scope until a fleet CLI needs it.

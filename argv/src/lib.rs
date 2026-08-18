@@ -222,6 +222,33 @@ impl Command<'_> {
     };
 }
 
+/// Basename of argv[0] for a multicall CLI: last path component, with a trailing
+/// `.exe` stripped so Windows and Unix agree.
+pub fn multicall_basename(argv0: &str) -> &str {
+    let name = argv0.rsplit(['/', '\\']).next().unwrap_or(argv0);
+    match name.get(name.len().saturating_sub(4)..) {
+        Some(ext) if ext.eq_ignore_ascii_case(".exe") => &name[..name.len() - 4],
+        _ => name,
+    }
+}
+
+/// The applet name to parse as the first word, when argv[0] is not the dispatcher.
+///
+/// `None` means a dispatcher invocation (`busybox ls`): skip argv[0] and parse the
+/// rest. `Some` is a symlink invocation (`ls -l`): inject the basename.
+pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Option<&'a str> {
+    let base = multicall_basename(argv0);
+    if !name.is_empty() && base == name {
+        return None;
+    }
+    if let Some(bin) = bin {
+        if !bin.is_empty() && base == bin {
+            return None;
+        }
+    }
+    Some(base)
+}
+
 /// A flag, addressed by any of its long or short forms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Flag<'a> {
@@ -3045,5 +3072,23 @@ mod tests {
 
         assert!(as_str(b"ok").is_ok());
         assert!(as_str(&[0xff, 0xfe]).is_err());
+    }
+
+    #[test]
+    fn a_multicall_applet_is_the_basename_unless_it_is_the_dispatcher() {
+        assert_eq!(multicall_basename("/usr/bin/ls"), "ls");
+        assert_eq!(multicall_basename(r"C:\busybox\ls.exe"), "ls");
+        assert_eq!(
+            multicall_applet("/usr/bin/ls", "busybox", Some("busybox")),
+            Some("ls")
+        );
+        assert_eq!(
+            multicall_applet("/usr/bin/busybox", "busybox", Some("busybox")),
+            None
+        );
+        assert_eq!(
+            multicall_applet("ls.exe", "busybox", Some("busybox")),
+            Some("ls")
+        );
     }
 }
