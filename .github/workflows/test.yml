@@ -114,11 +114,11 @@ jobs:
   # was checking it. It said 1.80 — set in 2024 when `LazyLock` landed and never revisited —
   # and usage-argv had not built at 1.80 for a long time. A promise nobody checks is a guess.
   #
-  # Two floors, because the crates genuinely differ: usage-argv, usage-derive and usage-config
-  # take no dependency on KDL and hold mise's own 1.91, which is the floor that matters for the
-  # fleet. usage-lib and everything that reads a spec through it need 1.95, because `kdl` says
-  # so. Each crate is checked at the version *it* declares rather than at one shared guess,
-  # which is how a lower floor stays real instead of aspirational.
+  # Two floors, because the crates genuinely differ: usage-argv, usage-derive, usage-config and
+  # usage-validation take no dependency on KDL and hold mise's own 1.91, which is the floor that
+  # matters for the fleet. usage-lib and everything that reads a spec through it need 1.95,
+  # because `kdl` says so. Each crate is checked at the version *it* declares rather than at one
+  # shared guess, which is how a lower floor stays real instead of aspirational.
   #
   # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
   # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
@@ -132,7 +132,7 @@ jobs:
       matrix:
         include:
           - version: "1.91"
-            crates: usage-argv usage-derive usage-config usage-rs
+            crates: usage-argv usage-derive usage-config usage-validation usage-rs
           - version: "1.95"
             crates: usage-lib usage-config-build clap_usage usage-cli
     steps:
