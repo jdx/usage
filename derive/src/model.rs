@@ -1089,6 +1089,7 @@ impl Field {
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
+            requires_if: Vec::new(),
             delimiter: None,
             exclusive: false,
             group: None,
