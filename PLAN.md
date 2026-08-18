@@ -743,10 +743,10 @@ including telling you to delete the label afterwards.
       not `parse_partial`, since a half-typed flag is exactly what a completion is
       asked about.
 - [x] `=` is kept in attached short values, so `-j=8` binds `=8`.
-- [ ] A repeated `--` is eaten, so a forwarded command line containing its own
-      separator is altered in transit. **Needs a decision**: an existing test
-      asserts this, and `double_dash="preserve"` is the declared way to keep
-      separators, which may make it intentional.
+- [x] A repeated `--` was eaten, altering a forwarded command line containing
+      its own separator. Only the first `--` is parser syntax; later separators
+      are data and are preserved. `double_dash="preserve"` has the narrower role
+      of preserving the first separator too. Fixed in #809.
 - [x] `--jobs=` binds nothing rather than the empty string.
 - [x] A flag with a variadic argument rejects its second value, though
       [the flag reference](https://usage.jdx.dev/spec/reference/flag) documents the
