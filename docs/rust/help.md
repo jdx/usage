@@ -66,8 +66,8 @@ same collision.
 `MissingSubcommand`, `ArgRequiresDoubleDash`, and more — plus `Help` and `Version` as described
 above.
 
-`render_failure(spec, argv, &err)` turns any of them into the message users see. With the
-`diagnostics` feature enabled the message is clap-shaped:
+`render_failure(spec, argv, &err)` turns any of them into the message users see. Facade defaults
+include `diagnostics`, so the message is clap-shaped out of the box:
 
 ```
 error: unexpected argument '--wat' found
@@ -77,6 +77,7 @@ Usage: ex [OPTIONS] <FILE>
 For more information, try '--help'.
 ```
 
-Without `diagnostics`, it falls back to the `Debug` form of the error — fine for internal tools,
+Without `diagnostics` (for example after `default-features = false`, or when depending on
+`usage-argv` alone), it falls back to the `Debug` form of the error — fine for internal tools,
 not what you want to ship. `parse()` prints the rendered failure to **stderr** and exits **2**,
 clap's status, so scripts that check for it keep working.

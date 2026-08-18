@@ -45,20 +45,23 @@ whole comment becomes the long help shown by `--help`.
 
 ## Installation
 
-Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
+One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 
 ```toml
 [dependencies]
 usage = { package = "usage-rs", version = "5" }
 ```
 
-The alias is supported directly — the derive resolves its runtime through the package name, so
-depending on `usage-rs` under any name works. `usage-rs` is a facade over two crates you can also
-use directly:
+That is the whole install: derives, the argv runtime, help, and clap-shaped errors come with the
+defaults. The alias is supported directly — the derive resolves its runtime through the package
+name, so depending on `usage-rs` under any name works.
+
+`usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
+available for low-level adopters that want a thinner surface:
 
 | Crate          | Role                                                                       |
 | -------------- | -------------------------------------------------------------------------- |
-| `usage-rs`     | The facade an application depends on; re-exports the whole runtime         |
+| `usage-rs`     | The one package an application depends on; re-exports the whole runtime    |
 | `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`               |
 | `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against |
 
@@ -68,15 +71,12 @@ use directly:
 | ------------- | :-----: | ------------------------------------------------------------ |
 | `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives              |
 | `help`        |   ✅    | `-h` / `--help` page rendering                               |
+| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`             |
 | `completions` |         | Shell completion scripts and the runtime completion protocol |
-| `diagnostics` |         | clap-shaped error messages from `render_failure`             |
 
-Two footguns worth knowing up front:
-
-- Without `diagnostics`, parse failures print as a `Debug`-formatted error rather than the
-  friendly clap-shaped message. Enable it for anything user-facing.
-- `#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
-  tells you which feature to add.
+`#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
+tells you which feature to add. To drop diagnostics (or help) from a binary that does not want
+them, turn defaults off and re-enable only what you need — or depend on `usage-argv` directly.
 
 ## Parse entry points
 
