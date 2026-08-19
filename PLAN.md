@@ -766,12 +766,12 @@ feature list is not an exhaustive audit.
       compatibility baseline, and the parser-behavior semver policy. State which
       builder and `ArgMatches` APIs are architectural non-goals instead of leaving
       their absence implicit.
-- [ ] **A release documentation audit.** Generate the limitations page from, or
-      check it against, the compatibility matrix; verify dependency snippets against
-      workspace versions; and remove stale claims after features land. Today the
-      Rust limitations page still says non-UTF-8 `OsString` values cannot be accepted,
-      and the clap integration still recommends `clap_usage = "2"` while this
-      workspace is on version 5.
+- [x] **A release documentation audit.** The limitations page is checked against
+      the versioned compatibility matrix and dependency snippets consistently name
+      the 6.x epoch. Stale claims about non-UTF-8 values and prefix inference have
+      been removed; the clap integration now recommends the matching
+      `clap_usage = "6"`. Concrete workspace and generated-artifact versions remain
+      release-plz's responsibility.
 - [ ] **Completion ecosystem coverage.** Decide whether general clap parity includes
       every shell in `clap_complete` and every `ValueHint`. At minimum, either add
       Elvish beside bash, fish, PowerShell and zsh or document it as a launch non-goal;

@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-clap_usage = "5"
+clap_usage = "6"
 ```
 
 ## Quick Start
