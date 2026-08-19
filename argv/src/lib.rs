@@ -1332,7 +1332,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         };
 
         if let Some((flag, negated)) = self.find_long_form(name) {
-            let value = if flag.takes_value {
+            let value = if flag.takes_value && !negated {
                 Some(match attached {
                     Some(v) => v,
                     None => self.take_detached_value(flag)?,
@@ -1340,7 +1340,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             } else {
                 None
             };
-            if flag.variadic {
+            if flag.variadic && !negated {
                 self.start_collecting(flag, value.unwrap_or(b""))?;
             }
             return Ok(Event::Flag {
@@ -2018,6 +2018,39 @@ mod tests {
             panic!("expected a flag");
         };
         assert_eq!(value, Some(&b"-1"[..]));
+    }
+
+    #[test]
+    fn negation_of_value_flag_does_not_consume_a_value() {
+        static MODE: Flag = Flag {
+            key: 9,
+            name: "mode",
+            longs: &["mode"],
+            negate: Some("no-mode"),
+            ..Flag::VALUE
+        };
+        static NEGATED_VALUE: Command = Command {
+            name: "ex",
+            flags: &[&MODE],
+            args: &[&FILE],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--no-mode", "input"]);
+        assert_eq!(
+            parse(&NEGATED_VALUE, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &MODE,
+                    value: None,
+                    negated: true
+                },
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"input"
+                }
+            ]
+        );
     }
 
     #[test]
