@@ -2456,7 +2456,7 @@ mod tests {
     fn composed_relationship_selectors_count_flag_spellings() {
         static FIRST: Flag = Flag {
             longs: &["first", "alias"],
-            shorts: &[b'f'],
+            shorts: b"f",
             negate: Some("no-first"),
             ..Flag::BOOL
         };
