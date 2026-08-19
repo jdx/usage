@@ -611,15 +611,18 @@ mod tests {
             &["shown", "secret", "short", "secret-short"]
         );
         let emitted: Spec = built.to_kdl().parse().expect("emitted choices stay valid");
-        assert_eq!(
-            emitted.cmd.flags[0]
-                .arg
-                .as_ref()
-                .and_then(|arg| arg.choices.as_ref())
-                .expect("flag choices")
-                .values(),
-            vec!["shown", "short"]
-        );
+        let choices = emitted.cmd.flags[0]
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.choices.as_ref())
+            .expect("flag choices");
+        assert_eq!(choices.values(), vec!["shown", "short"]);
+        assert_eq!(choices.choices, ["shown", "secret"]);
+        assert_eq!(choices.details[0].aliases[0].value, "short");
+        assert!(!choices.details[0].aliases[0].hide);
+        assert_eq!(choices.details[0].aliases[1].value, "secret-short");
+        assert!(choices.details[0].aliases[1].hide);
+        assert!(choices.details[1].hide);
     }
 
     /// A completer is keyed by the *value's* name, lowercased, on whichever command asks.

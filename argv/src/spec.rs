@@ -1477,7 +1477,7 @@ fn write_choices(
     ignore_case: bool,
     depth: usize,
 ) -> core::fmt::Result {
-    if choices.is_empty() {
+    if choices.is_empty() && accepted_choices.is_empty() {
         return Ok(());
     }
     indent(out, depth)?;
@@ -1486,10 +1486,10 @@ fn write_choices(
         out.push_str(" ignore_case=#true");
     }
 
-    let has_unmapped_accepted = accepted_choices
+    let has_hidden_accepted = accepted_choices
         .iter()
-        .any(|value| !choices.contains(value) && !aliases.iter().any(|(_, alias)| alias == value));
-    if aliases.is_empty() && !has_unmapped_accepted {
+        .any(|value| !choices.contains(value));
+    if aliases.is_empty() && !has_hidden_accepted {
         for choice in choices {
             write!(out, " {}", quoted(choice))?;
         }
@@ -1498,12 +1498,29 @@ fn write_choices(
     }
 
     out.push_str(" {\n");
-    for choice in choices {
+    // `choices` is the advertised set, so it contains visible aliases as well as canonical
+    // values. `accepted_choices` adds everything hidden. The alias pairs let emission recover
+    // which is which without putting presentation-only visibility into the parse table.
+    let is_alias = |value: &str| aliases.iter().any(|(_, alias)| *alias == value);
+    let mut canonicals = std::vec::Vec::new();
+    for value in choices
+        .iter()
+        .chain(aliases.iter().map(|(canonical, _)| canonical))
+        .chain(accepted_choices.iter())
+    {
+        if !is_alias(value) && !canonicals.contains(value) {
+            canonicals.push(*value);
+        }
+    }
+    for choice in canonicals {
         indent(out, depth + 1)?;
         write!(out, "choice {}", quoted(choice))?;
+        if !choices.contains(&choice) {
+            out.push_str(" hide=#true");
+        }
         let choice_aliases: std::vec::Vec<&str> = aliases
             .iter()
-            .filter_map(|(canonical, alias)| (*canonical == *choice).then_some(*alias))
+            .filter_map(|(canonical, alias)| (*canonical == choice).then_some(*alias))
             .collect();
         if choice_aliases.is_empty() {
             out.push('\n');
@@ -1512,17 +1529,14 @@ fn write_choices(
         out.push_str(" {\n");
         for alias in choice_aliases {
             indent(out, depth + 2)?;
-            writeln!(out, "alias {} hide=#true", quoted(alias))?;
+            write!(out, "alias {}", quoted(alias))?;
+            if !choices.contains(&alias) {
+                out.push_str(" hide=#true");
+            }
+            out.push('\n');
         }
         indent(out, depth + 1)?;
         out.push_str("}\n");
-    }
-    for value in accepted_choices {
-        if choices.contains(value) || aliases.iter().any(|(_, alias)| alias == value) {
-            continue;
-        }
-        indent(out, depth + 1)?;
-        writeln!(out, "choice {} hide=#true", quoted(value))?;
     }
     indent(out, depth)?;
     out.push_str("}\n");
@@ -1935,6 +1949,31 @@ mod tests {
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    #[test]
+    fn choice_emission_preserves_visible_and_hidden_aliases() {
+        let mut out = String::new();
+        write_choices(
+            &mut out,
+            &["shown", "short"],
+            &["shown", "secret", "short", "secret-short"],
+            &[("shown", "short"), ("shown", "secret-short")],
+            false,
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            out,
+            "choices {\n    choice \"shown\" {\n        alias \"short\"\n        alias \"secret-short\" hide=#true\n    }\n    choice \"secret\" hide=#true\n}\n"
+        );
+
+        out.clear();
+        write_choices(&mut out, &[], &["secret"], &[], false, 0).unwrap();
+        assert_eq!(
+            out, "choices {\n    choice \"secret\" hide=#true\n}\n",
+            "an entirely hidden set must still be emitted"
+        );
     }
 
     #[test]
