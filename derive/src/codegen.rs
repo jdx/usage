@@ -2940,6 +2940,32 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
 /// The enum a `subcommand` field holds: its variants' tables, and the trait a
 /// parent uses to route events into them.
+fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
+    let path = match meta {
+        syn::Meta::Path(path) => path,
+        syn::Meta::List(list) => &mut list.path,
+        syn::Meta::NameValue(value) => &mut value.path,
+    };
+    if path.is_ident("arg") {
+        *path = syn::parse_quote!(usage);
+        return;
+    }
+    if !path.is_ident("cfg_attr") {
+        return;
+    }
+    let syn::Meta::List(list) = meta else {
+        return;
+    };
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    let Ok(mut nested) = syn::parse::Parser::parse2(parser, list.tokens.clone()) else {
+        return;
+    };
+    for value in nested.iter_mut().skip(1) {
+        rewrite_inline_arg_meta(value);
+    }
+    list.tokens = quote!(#nested);
+}
+
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
     let runtime = runtime_path();
@@ -2963,14 +2989,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .map(|word| quote!(#[usage(effect = #word)]));
             let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
                 for attr in &mut field.attrs {
-                    let path = match &mut attr.meta {
-                        syn::Meta::Path(path) => path,
-                        syn::Meta::List(list) => &mut list.path,
-                        syn::Meta::NameValue(value) => &mut value.path,
-                    };
-                    if path.is_ident("arg") {
-                        *path = syn::parse_quote!(usage);
-                    }
+                    rewrite_inline_arg_meta(&mut attr.meta);
                 }
                 field
             });
