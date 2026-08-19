@@ -140,6 +140,10 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
     };
     assert_eq!(show.file, Path::new("input.txt"));
     assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+
+    let embedded = Ex::app().name("embedded").bin("embedded").spec();
+    assert_eq!(embedded.name, "embedded");
+    assert_eq!(embedded.bin, Some("embedded"));
 }
 
 #[test]

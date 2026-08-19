@@ -528,6 +528,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     &SPEC
                 }
 
+                /// A borrowed cold-path view for runtime identity and sparse metadata overlays.
+                ///
+                /// Parsing continues to read [`Self::command`] directly; constructing this
+                /// copies no command tree and performs no work on an ordinary invocation.
+                pub fn app() -> usage_argv::spec::SpecView<'static> {
+                    Self::spec().view()
+                }
+
                 /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
                 /// and the completion generators read.
                 pub fn to_kdl() -> ::std::string::String {

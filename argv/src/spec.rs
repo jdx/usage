@@ -313,6 +313,129 @@ pub struct Spec<'a> {
     pub root: &'a CommandMeta<'a>,
 }
 
+/// A command selected for a cold-path metadata override.
+///
+/// Paths are space-separated command names below the root (`"dist-tag rm"`). Keys are useful
+/// when the command type is available and avoid coupling an overlay to its displayed spelling.
+#[derive(Debug, Clone, Copy)]
+pub enum CommandSelector<'a> {
+    Path(&'a str),
+    Key(u64),
+}
+
+impl CommandSelector<'_> {
+    fn matches(&self, meta: &CommandMeta<'_>, path: &[&str]) -> bool {
+        match self {
+            Self::Path(expected) => expected.split_ascii_whitespace().eq(path.iter().copied()),
+            Self::Key(key) => meta.cmd.key == *key,
+        }
+    }
+}
+
+/// One sparse metadata override applied by [`SpecView`].
+///
+/// This deliberately contains only properties with real fleet users. Adding a property is
+/// preferable to exposing a mutable command builder: the base derive tables remain immutable,
+/// shareable and free to parse.
+#[derive(Debug, Clone, Copy)]
+pub struct CommandOverlay<'a> {
+    pub command: CommandSelector<'a>,
+    pub effect: Effect,
+}
+
+impl<'a> CommandOverlay<'a> {
+    pub const fn effect(path: &'a str, effect: Effect) -> Self {
+        Self {
+            command: CommandSelector::Path(path),
+            effect,
+        }
+    }
+
+    pub const fn effect_for(key: u64, effect: Effect) -> Self {
+        Self {
+            command: CommandSelector::Key(key),
+            effect,
+        }
+    }
+}
+
+/// A borrowed, sparse view over a derive-generated [`Spec`].
+///
+/// Constructing a view copies no command tree and is never part of argv parsing. It exists for
+/// cold paths—help, spec emission and completion—where a program may need runtime identity or a
+/// centrally audited metadata policy without lowering the static tables through usage-lib.
+#[derive(Debug, Clone, Copy)]
+pub struct SpecView<'a> {
+    base: &'a Spec<'a>,
+    name: Option<&'a str>,
+    bin: Option<&'a str>,
+    version: Option<&'a str>,
+    commands: &'a [CommandOverlay<'a>],
+}
+
+impl<'a> SpecView<'a> {
+    pub const fn new(base: &'a Spec<'a>) -> Self {
+        Self {
+            base,
+            name: None,
+            bin: None,
+            version: None,
+            commands: &[],
+        }
+    }
+
+    pub const fn name(mut self, name: &'a str) -> Self {
+        self.name = Some(name);
+        self
+    }
+
+    pub const fn bin(mut self, bin: &'a str) -> Self {
+        self.bin = Some(bin);
+        self
+    }
+
+    pub const fn version(mut self, version: &'a str) -> Self {
+        self.version = Some(version);
+        self
+    }
+
+    pub const fn overlay(mut self, commands: &'a [CommandOverlay<'a>]) -> Self {
+        self.commands = commands;
+        self
+    }
+
+    /// The shallow effective spec. Its command metadata still borrows the derive's static tree.
+    pub const fn spec(self) -> Spec<'a> {
+        Spec {
+            name: match self.name {
+                Some(name) => name,
+                None => self.base.name,
+            },
+            bin: match self.bin {
+                Some(bin) => Some(bin),
+                None => self.base.bin,
+            },
+            version: match self.version {
+                Some(version) => Some(version),
+                None => self.base.version,
+            },
+            min_usage_version: self.base.min_usage_version,
+            about: self.base.about,
+            long_about: self.base.long_about,
+            usage: self.base.usage,
+            default_subcommand: self.base.default_subcommand,
+            multicall: self.base.multicall,
+            root: self.base.root,
+        }
+    }
+
+    /// Emit the effective view without constructing or mutating a command graph.
+    pub fn to_kdl(self) -> String {
+        let spec = self.spec();
+        spec.to_kdl_with(self.commands)
+    }
+}
+
 impl Spec<'_> {
     /// A spec with nothing declared but a root, for use with struct update syntax.
     ///
@@ -329,6 +452,11 @@ impl Spec<'_> {
         multicall: false,
         root: &CommandMeta::EMPTY,
     };
+
+    /// Borrow this spec for runtime identity or sparse metadata overlays.
+    pub const fn view(&self) -> SpecView<'_> {
+        SpecView::new(self)
+    }
 }
 
 /// Join groups of flag metadata into one, at compile time.
@@ -805,6 +933,10 @@ impl Effect {
 impl Spec<'_> {
     /// Write this CLI as a usage spec, in KDL.
     pub fn to_kdl(&self) -> String {
+        self.to_kdl_with(&[])
+    }
+
+    fn to_kdl_with(&self, overlays: &[CommandOverlay<'_>]) -> String {
         debug_assert!(
             duplicate_key(self.root.cmd).is_none(),
             "two things on the same command share a key ({:?}), so a parse would bind the \
@@ -842,11 +974,11 @@ impl Spec<'_> {
         let mut out = String::new();
         // Unwrap-free: writing into a String cannot fail, and `write!` returning
         // Result is an artifact of the trait rather than a real outcome.
-        let _ = self.write_kdl(&mut out);
+        let _ = self.write_kdl(&mut out, overlays);
         out
     }
 
-    fn write_kdl(&self, out: &mut String) -> core::fmt::Result {
+    fn write_kdl(&self, out: &mut String, overlays: &[CommandOverlay<'_>]) -> core::fmt::Result {
         // First, so a `usage` too old to read the rest sees it before whatever it would choke on.
         if let Some(min) = self.min_usage_version {
             prop(out, "min_usage_version", min)?;
@@ -930,12 +1062,15 @@ impl Spec<'_> {
             write_example(out, example, 0)?;
         }
         // Nothing above the root, so what it does not state is the default.
+        let mut path = Vec::new();
         write_body(
             out,
             self.root,
             0,
             UnknownFlags::Value,
             self.bin.unwrap_or(self.name),
+            overlays,
+            &mut path,
         )
     }
 }
@@ -944,12 +1079,14 @@ impl Spec<'_> {
 ///
 /// Separate from [`write_command`] because the root's contents sit at the top
 /// level of the document rather than inside a `cmd` node.
-fn write_body(
+fn write_body<'a>(
     out: &mut String,
-    meta: &CommandMeta<'_>,
+    meta: &CommandMeta<'a>,
     depth: usize,
     inherited_unknown_flags: UnknownFlags,
     bin: &str,
+    overlays: &[CommandOverlay<'_>],
+    path: &mut Vec<&'a str>,
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
     // and otherwise whatever it inherited.
@@ -1002,7 +1139,15 @@ fn write_body(
     #[cfg(feature = "complete")]
     write_completers(out, meta, bin, depth)?;
     for sub in meta.subcommands {
-        write_command(out, sub, depth, enclosing_unknown_flags, bin)?;
+        write_command(
+            out,
+            sub,
+            depth,
+            enclosing_unknown_flags,
+            bin,
+            overlays,
+            path,
+        )?;
     }
     Ok(())
 }
@@ -1037,13 +1182,16 @@ fn write_completion_types(
     Ok(())
 }
 
-fn write_command(
+fn write_command<'a>(
     out: &mut String,
-    meta: &CommandMeta<'_>,
+    meta: &CommandMeta<'a>,
     depth: usize,
     inherited_unknown_flags: UnknownFlags,
     bin: &str,
+    overlays: &[CommandOverlay<'_>],
+    path: &mut Vec<&'a str>,
 ) -> core::fmt::Result {
+    path.push(meta.cmd.name);
     indent(out, depth)?;
     write!(out, "cmd {}", quoted(meta.cmd.name))?;
     if let Some(help) = meta.about {
@@ -1052,7 +1200,13 @@ fn write_command(
     if meta.hide {
         out.push_str(" hide=#true");
     }
-    if let Some(effect) = meta.effect {
+    let effect = overlays
+        .iter()
+        .rev()
+        .find(|overlay| overlay.command.matches(meta, path))
+        .map(|overlay| overlay.effect)
+        .or(meta.effect);
+    if let Some(effect) = effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
     // Written only where it changes, since the spec inherits it as the tables do: a command
@@ -1116,10 +1270,19 @@ fn write_command(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, effective_unknown_flags, bin)?;
+    write_body(
+        out,
+        meta,
+        inner,
+        effective_unknown_flags,
+        bin,
+        overlays,
+        path,
+    )?;
 
     indent(out, depth)?;
     out.push_str("}\n");
+    path.pop();
     Ok(())
 }
 
@@ -2142,7 +2305,16 @@ mod tests {
         };
 
         let mut out = String::new();
-        write_body(&mut out, &ROOT_META, 0, UnknownFlags::Value, "ex").unwrap();
+        write_body(
+            &mut out,
+            &ROOT_META,
+            0,
+            UnknownFlags::Value,
+            "ex",
+            &[],
+            &mut Vec::new(),
+        )
+        .unwrap();
 
         // Counted rather than checked with `contains`, which is how a duplicated
         // write survived review: `unknown_flags="value" unknown_flags="value"` contains
@@ -2174,6 +2346,78 @@ mod tests {
             1,
             "a differing subcommand declares it exactly once: {exec}"
         );
+    }
+
+    #[test]
+    fn a_spec_view_applies_identity_and_sparse_effects_without_mutating_the_base() {
+        static RM: Command = Command {
+            name: "rm",
+            key: 12,
+            ..Command::EMPTY
+        };
+        static DIST_TAG: Command = Command {
+            name: "dist-tag",
+            subcommands: &[&RM],
+            ..Command::EMPTY
+        };
+        static LIST: Command = Command {
+            name: "list",
+            key: 13,
+            ..Command::EMPTY
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            subcommands: &[&DIST_TAG, &LIST],
+            ..Command::EMPTY
+        };
+        static RM_META: CommandMeta = CommandMeta {
+            cmd: &RM,
+            ..CommandMeta::EMPTY
+        };
+        static DIST_TAG_META: CommandMeta = CommandMeta {
+            cmd: &DIST_TAG,
+            subcommands: &[&RM_META],
+            ..CommandMeta::EMPTY
+        };
+        static LIST_META: CommandMeta = CommandMeta {
+            cmd: &LIST,
+            ..CommandMeta::EMPTY
+        };
+        static ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            subcommands: &[&DIST_TAG_META, &LIST_META],
+            ..CommandMeta::EMPTY
+        };
+        static SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &ROOT_META,
+            ..Spec::EMPTY
+        };
+        static OVERLAY: [CommandOverlay<'static>; 2] = [
+            CommandOverlay::effect("dist-tag rm", Effect::Destructive),
+            CommandOverlay::effect_for(13, Effect::Read),
+        ];
+
+        let view = SPEC
+            .view()
+            .name("embedded")
+            .bin("embedded")
+            .version("2.0.0")
+            .overlay(&OVERLAY);
+        let effective = view.spec();
+        assert_eq!(effective.name, "embedded");
+        assert_eq!(effective.bin, Some("embedded"));
+        assert_eq!(effective.version, Some("2.0.0"));
+
+        let kdl = view.to_kdl();
+        assert!(kdl.contains("name \"embedded\""), "{kdl}");
+        assert!(kdl.contains("cmd \"rm\" effect=\"destructive\""), "{kdl}");
+        assert!(kdl.contains("cmd \"list\" effect=\"read\""), "{kdl}");
+
+        let base = SPEC.to_kdl();
+        assert!(base.contains("name \"ex\""), "{base}");
+        assert!(!base.contains("effect="), "{base}");
     }
 
     #[test]
