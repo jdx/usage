@@ -427,6 +427,7 @@ impl<'a> Parser<'a> {
                         custom_env,
                     )?;
                     let parsed = if arg.var {
+                        validate_arg_fallback_count(arg, values.len(), &mut out.errors);
                         ParseValue::MultiString(values)
                     } else {
                         ParseValue::String(values.into_iter().next().unwrap_or_default())
@@ -439,6 +440,7 @@ impl<'a> Parser<'a> {
                 // Consider var when deciding the type of default return value
                 if arg.var {
                     let values = split_fallback_values(&arg.default, arg.delimiter);
+                    validate_arg_fallback_count(arg, values.len(), &mut out.errors);
                     validate_choice_values(
                         ChoiceTarget::arg(arg),
                         &values,
@@ -485,6 +487,17 @@ impl<'a> Parser<'a> {
                             custom_env,
                         )?;
                         let parsed = if flag.var || arg.var {
+                            if flag.var {
+                                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+                            }
+                            if arg.var {
+                                validate_flag_arg_fallback_count(
+                                    flag,
+                                    arg,
+                                    values.len(),
+                                    &mut out.errors,
+                                );
+                            }
                             ParseValue::MultiString(values)
                         } else {
                             ParseValue::String(values.into_iter().next().unwrap_or_default())
@@ -1800,6 +1813,74 @@ fn split_fallback_values(values: &[String], delimiter: Option<char>) -> Vec<Stri
     }
 }
 
+fn validate_arg_fallback_count(arg: &SpecArg, count: usize, errors: &mut Vec<UsageErr>) {
+    if let Some(min) = arg.var_min {
+        if count < min {
+            errors.push(UsageErr::VarArgTooFew {
+                name: arg.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = arg.var_max {
+        if count > max {
+            errors.push(UsageErr::VarArgTooMany {
+                name: arg.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
+fn validate_flag_fallback_count(flag: &SpecFlag, count: usize, errors: &mut Vec<UsageErr>) {
+    if let Some(min) = flag.var_min {
+        if count < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = flag.var_max {
+        if count > max {
+            errors.push(UsageErr::VarFlagTooMany {
+                name: flag.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
+fn validate_flag_arg_fallback_count(
+    flag: &SpecFlag,
+    arg: &SpecArg,
+    count: usize,
+    errors: &mut Vec<UsageErr>,
+) {
+    if let Some(min) = arg.var_min {
+        if count < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = arg.var_max {
+        if count > max {
+            errors.push(UsageErr::VarFlagTooMany {
+                name: flag.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
 /// Bind a fallback the way an unconditional `default` does: one value, or several
 /// for `var`, and choices checked the same way.
 fn bind_flag_fallback(
@@ -1814,6 +1895,12 @@ fn bind_flag_fallback(
     if let Some(arg) = flag.arg.as_ref() {
         let values = split_fallback_values(values, arg.delimiter);
         if flag.var || arg.var {
+            if flag.var {
+                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+            }
+            if arg.var {
+                validate_flag_arg_fallback_count(flag, arg, values.len(), &mut out.errors);
+            }
             validate_choice_values(
                 ChoiceTarget::option(flag),
                 &values,
@@ -1834,6 +1921,7 @@ fn bind_flag_fallback(
                 .insert(Arc::clone(flag), ParseValue::String(value));
         }
     } else if flag.var {
+        validate_flag_fallback_count(flag, values.len(), &mut out.errors);
         let bools: Vec<bool> = values.iter().map(|s| fallback_is_true(s)).collect();
         out.flags
             .insert(Arc::clone(flag), ParseValue::MultiBool(bools));

@@ -659,17 +659,18 @@ arg "[port]" env="PORT" validate="int(value) > 0" validate_error="port must be p
 flag "--mode" default="bad" {
     arg "<mode>" validate="value == 'good'" validate_error="mode must be good"
 }
-arg "[ports]..." env="PORTS" var=#true delimiter="," validate="int(value) > 0" validate_error="all ports must be positive"
+arg "[ports]..." env="PORTS" var=#true var_max=1 delimiter="," validate="int(value) > 0" validate_error="all ports must be positive"
 flag "--levels" env="LEVELS" {
-    arg "<level>..." var=#true delimiter="," validate="value == 'good'" validate_error="all levels must be good"
+    arg "<level>..." var=#true var_max=1 delimiter="," validate="value == 'good'" validate_error="all levels must be good"
 }
 flag "--modes" default="good,bad" {
-    arg "<mode>..." var=#true delimiter="," validate="value == 'good'" validate_error="all modes must be good"
+    arg "<mode>..." var=#true var_max=1 delimiter="," validate="value == 'good'" validate_error="all modes must be good"
 }
 flag "--conditional" {
     default_if "--trigger" "good,bad"
-    arg "<conditional>..." var=#true delimiter="," validate="value == 'good'" validate_error="all conditional values must be good"
+    arg "<conditional>..." var=#true var_max=1 delimiter="," validate="value == 'good'" validate_error="all conditional values must be good"
 }
+flag "--repeats <repeat>" env="REPEATS" var=#true var_max=1 delimiter=","
 flag "--trigger"
         "#
         .parse()
@@ -678,6 +679,7 @@ flag "--trigger"
             ("PORT".to_string(), "0".to_string()),
             ("PORTS".to_string(), "1,0".to_string()),
             ("LEVELS".to_string(), "good,bad".to_string()),
+            ("REPEATS".to_string(), "one,two".to_string()),
         ]);
         let error = Parser::new(&spec)
             .with_env(env)
@@ -693,6 +695,18 @@ flag "--trigger"
             error.contains("all conditional values must be good"),
             "{error}"
         );
+        assert!(
+            error.contains("Variadic argument <ports> accepts at most 1 value(s), got 2"),
+            "{error}"
+        );
+        for flag in ["levels", "modes", "conditional", "repeats"] {
+            assert!(
+                error.contains(&format!(
+                    "Variadic flag --{flag} accepts at most 1 value(s), got 2"
+                )),
+                "{error}"
+            );
+        }
     }
 }
 
