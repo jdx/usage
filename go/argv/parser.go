@@ -296,7 +296,7 @@ func (p *Parser) longFlag(token string) bool {
 	if flag, negated := p.findLongForm(name); flag != nil {
 		value := ""
 		hasValue := false
-		if flag.TakesValue {
+		if flag.TakesValue && !negated {
 			hasValue = true
 			if hasAttached {
 				value = attached
@@ -311,7 +311,7 @@ func (p *Parser) longFlag(token string) bool {
 				value = v
 			}
 		}
-		if flag.Variadic {
+		if flag.Variadic && !negated {
 			p.startCollecting(flag)
 		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue, Negated: negated})

@@ -136,6 +136,14 @@ func TestBinding(t *testing.T) {
 	}
 }
 
+func TestNegatedValueFlagDoesNotConsumeTheNextWord(t *testing.T) {
+	mode := &Flag{Key: 20, Name: "mode", Longs: []string{"mode"}, Negate: "no-mode", TakesValue: true}
+	cmd := &Command{Name: "ex", Flags: []*Flag{mode}, Args: []*Arg{file}}
+	if got := collect(cmd, "--no-mode", "input"); got != "flag:mode! arg:file=input" {
+		t.Fatalf("negation consumed the positional: %s", got)
+	}
+}
+
 // TestBundleIsRejectedWhole pins the rule that costs the parser a second scan.
 //
 // A token containing an unrecognized letter is not a bundle at all, so none of its
