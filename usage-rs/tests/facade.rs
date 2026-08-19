@@ -68,6 +68,13 @@ struct PositionalRelations {
     stdin: bool,
 }
 
+#[derive(Cli)]
+#[command(bin = "clap-spellings", rename_all = "kebab-case")]
+struct ClapSpellings {
+    #[arg(id = "output", long, visible_aliases = ["out", "dest"])]
+    path: Option<String>,
+}
+
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
@@ -535,6 +542,18 @@ fn positional_relationships_parse_and_emit_losslessly() {
         kdl.contains("group \"input\" \"--from-file\" \"VALUE\""),
         "{kdl}"
     );
+}
+
+#[test]
+fn clap_field_ids_and_visible_aliases_need_no_rewrite() {
+    for spelling in ["--output", "--out", "--dest"] {
+        let parsed = ClapSpellings::parse_from(&[OsStr::new(spelling), OsStr::new("file")])
+            .expect("every visible alias should parse");
+        assert_eq!(parsed.path.as_deref(), Some("file"));
+    }
+
+    let kdl = ClapSpellings::to_kdl();
+    assert!(kdl.contains("--output --out --dest"), "{kdl}");
 }
 
 #[test]

@@ -212,6 +212,10 @@
 //!
 //! [Settings]: #settings-and-the-flags-that-set-them
 //!
+//! Named fields accept both `#[usage(...)]` and clap-compatible `#[arg(...)]`.
+//! Lossless clap spellings such as `id` and visible aliases may therefore stay in
+//! place while a CLI changes derives.
+//!
 //! | option | meaning |
 //! | --- | --- |
 //! | `long`, `long = "x"` | a long form, defaulting to the field name |
@@ -234,6 +238,8 @@
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
+//! | `id = "name"` | clap-compatible spelling for the field identity / positional name |
+//! | `visible_alias = "other"` | clap-compatible advertised long alias; the plural array spelling also works |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | an argument this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
@@ -330,7 +336,7 @@ mod crate_name;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
-#[proc_macro_derive(Cli, attributes(usage, command))]
+#[proc_macro_derive(Cli, attributes(usage, command, arg))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let parsed = model::Cli::from_input(&input)
@@ -349,7 +355,7 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 /// tables and metadata as [`Cli`], minus the program-level parts a subcommand does
 /// not have — a name, a version, an entry point — plus the trait a parent uses to
 /// route events into it.
-#[proc_macro_derive(Args, attributes(usage, command))]
+#[proc_macro_derive(Args, attributes(usage, command, arg))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
