@@ -944,9 +944,14 @@ repeated here.
 - [ ] **Relationships across a flatten boundary.** A flag in the parent
       conflicting with a flag in the flattened group has no spelling; hk and
       aube both hit it and enforce post-bind by hand.
-- [ ] **A clap_usage knob to omit `version`** from the emitted spec, so tak can
-      stop mutating the spec to keep release-plz's version-only PRs from
-      failing the generated-reference check.
+- [ ] **Checked-in specs vs release automation.** tak sets `spec.version = None`
+      post-hoc so release-plz's version-only PR does not fail the
+      generated-reference CI check. This is not a bridge problem and it survives
+      removing clap: the derive's spec emission carries `version` too. Decide
+      how a checked-in spec treats version under release automation — an
+      omit-version option on spec emission, or regenerating the reference as
+      part of the release. Not a clap_usage feature; the bridge is transitional
+      and the fleet's endpoint is the derive.
 
 ## Not covered by the corpus yet
 
