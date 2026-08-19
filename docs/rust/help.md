@@ -38,6 +38,14 @@ match Ex::parse_from(&argv) {
 
 `Error` is `#[non_exhaustive]` — always keep a fallback arm.
 
+That match is also the post-parse interception point. An application that must
+run an update notifier, rewrite output, or re-exec before answering help or
+version does that work in the corresponding arm and then renders or returns.
+Work that depends on a successfully built CLI value belongs after the `Ok(cli)`
+arm and before command dispatch. There is no hidden callback lifecycle: the
+embedding application owns the order explicitly, and `parse()` remains the
+convenience entry point for CLIs that want immediate print-and-exit behavior.
+
 ### Customizing the page
 
 - `usage = "…"` on the root replaces the generated synopsis line(s) verbatim.
