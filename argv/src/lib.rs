@@ -1486,9 +1486,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             // descending would bind them, and they are a question rather than an invocation.
             if token == b"help" && !self.cmd.subcommands.is_empty() {
                 let mut cmd = self.cmd;
+                let mut infer_subcommands = self.infer_subcommands;
                 let from = self.pos;
                 while let Some(next) = self.argv.get(self.pos) {
-                    let Some(sub) = (if self.infer_subcommands {
+                    let Some(sub) = (if infer_subcommands {
                         find_prefixed(cmd, bytes(next))
                     } else {
                         find_named(cmd, bytes(next))
@@ -1496,6 +1497,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                         break;
                     };
                     cmd = sub;
+                    infer_subcommands |= sub.infer_subcommands;
                     self.pos += 1;
                 }
                 // Kept for `help::route_to`: which mount was asked about is not recoverable
@@ -2454,6 +2456,24 @@ mod tests {
             ..Command::EMPTY
         };
         assert_unique_subcommand_names(&[&INSTALL, &ADD]);
+    }
+
+    #[test]
+    #[cfg(feature = "spec")]
+    fn inferred_help_keeps_the_route_it_resolved() {
+        let root = Command {
+            name: "ex",
+            subcommands: &[&INSTALL],
+            infer_subcommands: true,
+            ..Command::EMPTY
+        };
+        let a = argv(["help", "insta"]);
+        let Err(Error::Help { cmd, .. }) = parse(&root, &a) else {
+            panic!("expected inferred help")
+        };
+        let route = crate::help::route_to(&root, &a, cmd).expect("the inferred route");
+        assert_eq!(route.len(), 2);
+        assert!(::core::ptr::eq(route[1], &INSTALL));
     }
 
     #[test]

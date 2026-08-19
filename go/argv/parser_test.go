@@ -427,6 +427,20 @@ func TestInferredPrefixes(t *testing.T) {
 	if got := collect(shadowed, "run", "--verb"); got != "cmd:run flag:verbose" {
 		t.Errorf("redeclared global prefix: got %s", got)
 	}
+
+	nestedInstall := &Command{Name: "install"}
+	nested := &Command{Name: "nested", Subcommands: []*Command{nestedInstall}, InferSubcommands: true}
+	nestedRoot := &Command{Name: "ex", Subcommands: []*Command{nested}}
+	if got := collect(nestedRoot, "nested", "insta"); got != "cmd:nested cmd:install" {
+		t.Errorf("nested command prefix: got %s", got)
+	}
+	p := New(nestedRoot, []string{"help", "nested", "insta"})
+	for p.Next() {
+	}
+	err, ok := p.Err().(*Error)
+	if !ok || err.Code != CodeHelp || err.Cmd != nestedInstall {
+		t.Errorf("nested help prefix: got %v", p.Err())
+	}
 }
 
 func BenchmarkParse(b *testing.B) {

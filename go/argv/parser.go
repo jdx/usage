@@ -465,12 +465,14 @@ func (p *Parser) word(token string) bool {
 		// invocation.
 		if token == "help" && len(p.cmd.Subcommands) > 0 {
 			cmd := p.cmd
+			inferSubcommands := p.inferSubcommands
 			for p.pos < len(p.argv) {
-				sub := findNamedWithPrefix(cmd, p.argv[p.pos], p.inferSubcommands)
+				sub := findNamedWithPrefix(cmd, p.argv[p.pos], inferSubcommands)
 				if sub == nil {
 					break
 				}
 				cmd = sub
+				inferSubcommands = inferSubcommands || sub.InferSubcommands
 				p.pos++
 			}
 			// The long form, as `ex config --help` gives: someone who typed a whole word
