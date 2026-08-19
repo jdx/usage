@@ -418,31 +418,38 @@ impl<'a> Parser<'a> {
             }
             if let Some(env_var) = arg.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
-                    validate_choice_value(
+                    let values =
+                        split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
+                    validate_choice_values(
                         ChoiceTarget::arg(arg),
-                        &env_value,
+                        &values,
                         arg.choices.as_ref(),
                         custom_env,
                     )?;
-                    out.args
-                        .insert(Arc::new(arg.clone()), ParseValue::String(env_value));
+                    let parsed = if arg.var {
+                        validate_arg_fallback_count(arg, values.len(), &mut out.errors);
+                        ParseValue::MultiString(values)
+                    } else {
+                        ParseValue::String(values.into_iter().next().unwrap_or_default())
+                    };
+                    out.args.insert(Arc::new(arg.clone()), parsed);
                     continue;
                 }
             }
             if !arg.default.is_empty() {
                 // Consider var when deciding the type of default return value
                 if arg.var {
+                    let values = split_fallback_values(&arg.default, arg.delimiter);
+                    validate_arg_fallback_count(arg, values.len(), &mut out.errors);
                     validate_choice_values(
                         ChoiceTarget::arg(arg),
-                        &arg.default,
+                        &values,
                         arg.choices.as_ref(),
                         custom_env,
                     )?;
                     // For var=true, always return a vec (MultiString)
-                    out.args.insert(
-                        Arc::new(arg.clone()),
-                        ParseValue::MultiString(arg.default.clone()),
-                    );
+                    out.args
+                        .insert(Arc::new(arg.clone()), ParseValue::MultiString(values));
                 } else {
                     validate_choice_value(
                         ChoiceTarget::arg(arg),
@@ -471,14 +478,31 @@ impl<'a> Parser<'a> {
             if let Some(env_var) = flag.env.as_ref() {
                 if let Some(env_value) = get_env(env_var) {
                     if let Some(arg) = flag.arg.as_ref() {
-                        validate_choice_value(
+                        let values =
+                            split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
+                        validate_choice_values(
                             ChoiceTarget::option(flag),
-                            &env_value,
+                            &values,
                             arg.choices.as_ref(),
                             custom_env,
                         )?;
-                        out.flags
-                            .insert(Arc::clone(flag), ParseValue::String(env_value));
+                        let parsed = if flag.var || arg.var {
+                            if flag.var {
+                                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+                            }
+                            if arg.var {
+                                validate_flag_arg_fallback_count(
+                                    flag,
+                                    arg,
+                                    values.len(),
+                                    &mut out.errors,
+                                );
+                            }
+                            ParseValue::MultiString(values)
+                        } else {
+                            ParseValue::String(values.into_iter().next().unwrap_or_default())
+                        };
+                        out.flags.insert(Arc::clone(flag), parsed);
                     } else {
                         let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
                         out.flags
@@ -1779,6 +1803,84 @@ fn fallback_is_true(value: &str) -> bool {
     matches!(value, "1" | "true" | "True" | "TRUE")
 }
 
+fn split_fallback_values(values: &[String], delimiter: Option<char>) -> Vec<String> {
+    match delimiter {
+        Some(delimiter) => values
+            .iter()
+            .flat_map(|value| value.split(delimiter).map(str::to_string))
+            .collect(),
+        None => values.to_vec(),
+    }
+}
+
+fn validate_arg_fallback_count(arg: &SpecArg, count: usize, errors: &mut Vec<UsageErr>) {
+    if let Some(min) = arg.var_min {
+        if count < min {
+            errors.push(UsageErr::VarArgTooFew {
+                name: arg.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = arg.var_max {
+        if count > max {
+            errors.push(UsageErr::VarArgTooMany {
+                name: arg.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
+fn validate_flag_fallback_count(flag: &SpecFlag, count: usize, errors: &mut Vec<UsageErr>) {
+    if let Some(min) = flag.var_min {
+        if count < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = flag.var_max {
+        if count > max {
+            errors.push(UsageErr::VarFlagTooMany {
+                name: flag.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
+fn validate_flag_arg_fallback_count(
+    flag: &SpecFlag,
+    arg: &SpecArg,
+    count: usize,
+    errors: &mut Vec<UsageErr>,
+) {
+    if let Some(min) = arg.var_min {
+        if count < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: count,
+            });
+        }
+    }
+    if let Some(max) = arg.var_max {
+        if count > max {
+            errors.push(UsageErr::VarFlagTooMany {
+                name: flag.name.clone(),
+                max,
+                got: count,
+            });
+        }
+    }
+}
+
 /// Bind a fallback the way an unconditional `default` does: one value, or several
 /// for `var`, and choices checked the same way.
 fn bind_flag_fallback(
@@ -1790,30 +1892,39 @@ fn bind_flag_fallback(
     if values.is_empty() {
         return Ok(());
     }
-    if flag.var {
-        if let Some(arg) = flag.arg.as_ref() {
+    if let Some(arg) = flag.arg.as_ref() {
+        let values = split_fallback_values(values, arg.delimiter);
+        if flag.var || arg.var {
+            if flag.var {
+                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+            }
+            if arg.var {
+                validate_flag_arg_fallback_count(flag, arg, values.len(), &mut out.errors);
+            }
             validate_choice_values(
                 ChoiceTarget::option(flag),
-                values,
+                &values,
                 arg.choices.as_ref(),
                 custom_env,
             )?;
             out.flags
-                .insert(Arc::clone(flag), ParseValue::MultiString(values.to_vec()));
+                .insert(Arc::clone(flag), ParseValue::MultiString(values));
         } else {
-            let bools: Vec<bool> = values.iter().map(|s| fallback_is_true(s)).collect();
+            let value = values.into_iter().next().unwrap_or_default();
+            validate_choice_value(
+                ChoiceTarget::option(flag),
+                &value,
+                arg.choices.as_ref(),
+                custom_env,
+            )?;
             out.flags
-                .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
+                .insert(Arc::clone(flag), ParseValue::String(value));
         }
-    } else if let Some(arg) = flag.arg.as_ref() {
-        validate_choice_value(
-            ChoiceTarget::option(flag),
-            &values[0],
-            arg.choices.as_ref(),
-            custom_env,
-        )?;
+    } else if flag.var {
+        validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+        let bools: Vec<bool> = values.iter().map(|s| fallback_is_true(s)).collect();
         out.flags
-            .insert(Arc::clone(flag), ParseValue::String(values[0].clone()));
+            .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
     } else {
         out.flags.insert(
             Arc::clone(flag),
