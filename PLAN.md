@@ -589,12 +589,14 @@ feature list is not an exhaustive audit.
       forcing two identical structs. `flatten` solves shared fields within a
       command but not a whole command body shared under two names. Either support
       this directly or document the duplication as an architectural constraint.
-- [ ] **Inline struct-style subcommand variants.** aube and hk use clap enums
+- [x] **Inline struct-style subcommand variants.** aube and hk use clap enums
       whose variants declare fields directly. usage requires every non-bare
       variant to wrap one dedicated Args struct, turning a mechanical migration
       into a broad public-type refactor before argv behavior can even be tested.
-      Accept inline variants or provide a migration lowering that preserves the
-      user's enum shape.
+      The Subcommands derive now lowers inline variants to hidden Args structs and
+      moves the bound fields back into the original enum shape. It accepts both
+      native `usage` field attributes and clap-shaped `arg` attributes in this
+      migration form.
 - [x] **ValueEnum must coexist with domain parsing and cfg.** aube and fnox enums
       already implement `FromStr`; deriving usage `ValueEnum` adds a conflicting
       implementation. fnox also cfg-gates individual variants, while usage's

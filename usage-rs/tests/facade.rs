@@ -1,4 +1,5 @@
 #![cfg(feature = "spec")]
+#![deny(unused_variables)]
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -18,6 +19,38 @@ enum Command {
     Show(Show),
     /// Print version information
     Version,
+}
+
+#[derive(Subcommands, serde::Deserialize)]
+enum InlineCommand {
+    /// Run a named benchmark.
+    Run {
+        #[serde(default)]
+        #[arg(long)]
+        bench: Option<String>,
+        #[usage(long)]
+        runs: Option<u32>,
+        #[cfg_attr(all(), arg(long))]
+        iterations: Option<u32>,
+        #[arg]
+        label: Option<String>,
+        #[cfg(any())]
+        #[arg(long)]
+        platform_only: Option<String>,
+    },
+    Empty {},
+    PlatformOnly {
+        #[cfg(any())]
+        #[arg(long)]
+        platform_only: Option<String>,
+    },
+}
+
+#[derive(Cli)]
+#[usage(bin = "inline-ex")]
+struct InlineEx {
+    #[usage(subcommand)]
+    command: InlineCommand,
 }
 
 #[derive(ValueEnum)]
@@ -86,6 +119,53 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
 fn unit_subcommands_use_the_facade_derive() {
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));
+}
+
+#[test]
+fn struct_style_subcommands_bind_fields_in_place() {
+    let cli = InlineEx::parse_from(&[
+        OsStr::new("run"),
+        OsStr::new("--bench"),
+        OsStr::new("startup"),
+        OsStr::new("--runs"),
+        OsStr::new("5"),
+        OsStr::new("--iterations"),
+        OsStr::new("9"),
+        OsStr::new("nightly"),
+    ])
+    .expect("inline fields should parse");
+    let InlineCommand::Run {
+        bench,
+        runs,
+        iterations,
+        label,
+    } = cli.command
+    else {
+        panic!("run command should be selected");
+    };
+    assert_eq!(bench.as_deref(), Some("startup"));
+    assert_eq!(runs, Some(5));
+    assert_eq!(iterations, Some(9));
+    assert_eq!(label.as_deref(), Some("nightly"));
+
+    let kdl = InlineEx::to_kdl();
+    assert!(kdl.contains("cmd \"run\""), "{kdl}");
+    assert!(kdl.contains("flag \"--bench\""), "{kdl}");
+    assert!(kdl.contains("arg \"<BENCH>\""), "{kdl}");
+    assert!(kdl.contains("flag \"--runs\""), "{kdl}");
+    assert!(kdl.contains("arg \"<RUNS>\""), "{kdl}");
+    assert!(kdl.contains("flag \"--iterations\""), "{kdl}");
+    assert!(kdl.contains("arg \"[LABEL]\""), "{kdl}");
+}
+
+#[test]
+fn empty_struct_style_subcommands_do_not_emit_unused_bindings() {
+    let cli = InlineEx::parse_from(&[OsStr::new("empty")]).expect("empty command should parse");
+    assert!(matches!(cli.command, InlineCommand::Empty {}));
+
+    let cli = InlineEx::parse_from(&[OsStr::new("platform-only")])
+        .expect("a command whose fields are cfg'd out should parse");
+    assert!(matches!(cli.command, InlineCommand::PlatformOnly {}));
 }
 
 #[test]

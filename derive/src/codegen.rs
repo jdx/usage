@@ -2940,18 +2940,96 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
 /// The enum a `subcommand` field holds: its variants' tables, and the trait a
 /// parent uses to route events into them.
+fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
+    if matches!(meta, syn::Meta::Path(path) if path.is_ident("arg")) {
+        *meta = syn::parse_quote!(usage(arg));
+        return;
+    }
+    let path = match meta {
+        syn::Meta::Path(path) => path,
+        syn::Meta::List(list) => &mut list.path,
+        syn::Meta::NameValue(value) => &mut value.path,
+    };
+    if path.is_ident("arg") {
+        *path = syn::parse_quote!(usage);
+        return;
+    }
+    if !path.is_ident("cfg_attr") {
+        return;
+    }
+    let syn::Meta::List(list) = meta else {
+        return;
+    };
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    let Ok(mut nested) = syn::parse::Parser::parse2(parser, list.tokens.clone()) else {
+        return;
+    };
+    for value in nested.iter_mut().skip(1) {
+        rewrite_inline_arg_meta(value);
+    }
+    list.tokens = quote!(#nested);
+}
+
+fn inline_field_meta(meta: &syn::Meta) -> Option<syn::Meta> {
+    if meta.path().is_ident("arg") {
+        let mut meta = meta.clone();
+        rewrite_inline_arg_meta(&mut meta);
+        return Some(meta);
+    }
+    if meta.path().is_ident("usage") || meta.path().is_ident("doc") || meta.path().is_ident("cfg") {
+        return Some(meta.clone());
+    }
+    let syn::Meta::List(list) = meta else {
+        return None;
+    };
+    if !list.path.is_ident("cfg_attr") {
+        return None;
+    }
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    let nested = syn::parse::Parser::parse2(parser, list.tokens.clone()).ok()?;
+    let mut nested = nested.into_iter();
+    let condition = nested.next()?;
+    let kept = nested
+        .filter_map(|meta| inline_field_meta(&meta))
+        .collect::<Vec<_>>();
+    if kept.is_empty() {
+        return None;
+    }
+    syn::parse2(quote!(cfg_attr(#condition, #(#kept),*))).ok()
+}
+
+fn inline_field_attr(attr: syn::Attribute) -> Option<syn::Attribute> {
+    let meta = inline_field_meta(&attr.meta)?;
+    Some(syn::Attribute { meta, ..attr })
+}
+
+fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
+    if meta.path().is_ident("cfg") {
+        return true;
+    }
+    let syn::Meta::List(list) = meta else {
+        return false;
+    };
+    if !list.path.is_ident("cfg_attr") {
+        return false;
+    }
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    syn::parse::Parser::parse2(parser, list.tokens.clone())
+        .is_ok_and(|nested| nested.iter().skip(1).any(meta_controls_field_presence))
+}
+
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
     let runtime = runtime_path();
     let derive = derive_path();
 
-    // The structs the bare variants imply, written here so everything downstream keeps
-    // speaking to a struct. `Args` is derived on them rather than the impl being written out:
-    // one description of what an empty command is, and it is the one adopters already use.
-    let unit_structs = subs
+    // The structs bare and inline variants imply, written here so everything downstream keeps
+    // speaking to one Args struct. Clap-shaped `arg` attributes are rewritten to the native
+    // spelling while copying inline fields, which lets a migration keep its enum layout.
+    let generated_structs = subs
         .variants
         .iter()
-        .filter(|v| v.unit)
+        .filter(|v| v.unit || v.inline_fields.is_some())
         .map(|v| {
             let name = &v.ty;
             // Whatever the variant said about the command, written where the command's
@@ -2961,15 +3039,25 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .effect
                 .as_ref()
                 .map(|word| quote!(#[usage(effect = #word)]));
+            let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
+                field.attrs = field
+                    .attrs
+                    .into_iter()
+                    .filter_map(inline_field_attr)
+                    .collect();
+                field
+            });
             quote! {
                 #[doc(hidden)]
                 #[derive(#derive::Args)]
                 #effect
-                pub struct #name {}
+                pub struct #name {
+                    #(#fields),*
+                }
             }
         })
         .collect::<Vec<_>>();
-    let unit_structs = unit_structs.into_iter();
+    let generated_structs = generated_structs.into_iter();
 
     // One *variant* per subcommand, not one field: a parse fills exactly one of them, and a
     // struct with room for all of them is the whole CLI's accumulator whichever command ran —
@@ -3361,6 +3449,31 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     let _ = #built;
                     #ident::#variant
                 }}
+            } else if let Some(fields) = &v.inline_fields {
+                let assignments = fields.iter().map(|field| {
+                    let name = field
+                        .ident
+                        .as_ref()
+                        .expect("named variant fields have names");
+                    let cfg_attrs = field
+                        .attrs
+                        .iter()
+                        .filter(|attr| meta_controls_field_presence(&attr.meta));
+                    quote! {
+                        #(#cfg_attrs)*
+                        #name: __usage_built.#name
+                    }
+                });
+                quote! {{
+                    let __usage_built = #built;
+                    // An empty named variant, or one whose fields were all removed by cfg,
+                    // still has to run `build` for the command's checks. Mark the result used
+                    // without changing the field moves below.
+                    let _ = &__usage_built;
+                    #ident::#variant {
+                        #(#assignments),*
+                    }
+                }}
             } else {
                 quote!(#ident::#variant(#built))
             };
@@ -3379,7 +3492,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     quote! {
         // Beside the enum rather than inside the generated module: the variants name these
         // types, and a type a variant cannot see is no use to it.
-        #(#unit_structs)*
+        #(#generated_structs)*
 
         #[doc(hidden)]
         #[allow(

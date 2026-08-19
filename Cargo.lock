@@ -2508,6 +2508,7 @@ dependencies = [
 name = "usage-rs"
 version = "5.1.0"
 dependencies = [
+ "serde",
  "usage-argv",
  "usage-derive",
  "usage-lib",
