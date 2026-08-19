@@ -841,7 +841,7 @@ looking at the clap surface, not only at the spec.
   values rather than lowering to String, keep intentional forwarding behavior,
   and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
   the root because its external-subcommand path is a package-manager forwarder.
-  All five pin the experiment stack at `7f8aeb47`. The workarounds they still
+  All five pin the experiment stack at `88786493`. The workarounds they still
   contain are the unchecked launch-gate rows above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
