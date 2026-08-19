@@ -198,20 +198,6 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
             format!("env={}", env.to_string_lossy()),
         );
     }
-    let hidden_longs: Vec<_> = arg.get_aliases().unwrap_or_default();
-    let visible_shorts = arg.get_visible_short_aliases().unwrap_or_default();
-    let hidden_shorts: Vec<_> = arg
-        .get_all_short_aliases()
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|alias| !visible_shorts.contains(alias))
-        .collect();
-    if !hidden_longs.is_empty() || !hidden_shorts.is_empty() {
-        add(
-            FidelityFeature::HiddenFlagAlias,
-            format!("long={hidden_longs:?}, short={hidden_shorts:?}"),
-        );
-    }
     if arg.get_value_hint() != ValueHint::Unknown {
         add(
             FidelityFeature::ValueHint,

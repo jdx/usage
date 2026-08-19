@@ -1250,6 +1250,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
+            hidden_shorts: &[],
             hidden_longs: &[#(#hidden_longs),*],
             required: #required,
             value_optional: #value_optional,

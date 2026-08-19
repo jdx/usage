@@ -29,7 +29,6 @@ fn reports_detectable_losses_with_locations() {
     for expected in [
         FidelityFeature::ArgRequiredElseHelp,
         FidelityFeature::Environment,
-        FidelityFeature::HiddenFlagAlias,
         FidelityFeature::ValueHint,
         FidelityFeature::ValueTerminator,
         FidelityFeature::GranularHide,
@@ -110,6 +109,22 @@ fn building_metadata_does_not_mutate_the_callers_command() {
     assert_eq!(command.get_arguments().count(), argument_count);
     assert_eq!(command.get_subcommands().count(), subcommand_count);
     assert!(!spec.cmd.subcommands.contains_key("help"));
+}
+
+#[test]
+fn hidden_flag_aliases_are_lossless() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("output")
+            .long("output")
+            .alias("quietly")
+            .short('o')
+            .short_alias('q'),
+    );
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    let output = &spec.cmd.flags[0];
+    assert_eq!(output.hidden_aliases, ["quietly"]);
+    assert_eq!(output.hidden_short_aliases, ['q']);
 }
 
 #[test]

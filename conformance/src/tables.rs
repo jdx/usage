@@ -305,6 +305,7 @@ fn flag_meta(
     let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
+        hidden_shorts: bytes(&f.hidden_short_aliases),
         hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
@@ -461,6 +462,18 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     Box::leak(
         list.iter()
             .map(|s| leak(s))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn bytes(list: &[char]) -> &'static [u8] {
+    Box::leak(
+        list.iter()
+            .map(|c| {
+                assert!(c.is_ascii(), "a hidden short flag alias must be ASCII");
+                *c as u8
+            })
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )

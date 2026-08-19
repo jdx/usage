@@ -759,6 +759,8 @@ impl CommandMeta<'_> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
+    /// Short forms accepted by the parser but omitted from help and completion.
+    pub hidden_shorts: &'a [u8],
     /// Long forms accepted by the parser but omitted from help and completion.
     pub hidden_longs: &'a [&'a str],
     /// Short help, shown by `-h`.
@@ -847,6 +849,7 @@ impl FlagMeta<'_> {
         complete: None,
         complete_type: None,
         flag: &Flag::BOOL,
+        hidden_shorts: &[],
         hidden_longs: &[],
         help: None,
         long_help: None,
@@ -1516,6 +1519,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_list(out, "required_unless", meta.required_unless)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.hidden_shorts.is_empty()
         || !meta.hidden_longs.is_empty()
         || meta.flag.takes_value
         || !meta.choices.is_empty()
@@ -1538,9 +1542,12 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
-    if !meta.hidden_longs.is_empty() {
+    if !meta.hidden_shorts.is_empty() || !meta.hidden_longs.is_empty() {
         indent(out, inner)?;
         out.push_str("alias");
+        for alias in meta.hidden_shorts {
+            write!(out, " {}", quoted(&format!("-{}", *alias as char)))?;
+        }
         for alias in meta.hidden_longs {
             write!(out, " {}", quoted(&format!("--{alias}")))?;
         }
@@ -1932,6 +1939,9 @@ fn flag_forms(meta: &FlagMeta<'_>) -> String {
     let flag = meta.flag;
     let mut forms = String::new();
     for short in flag.shorts {
+        if meta.hidden_shorts.contains(short) {
+            continue;
+        }
         if !forms.is_empty() {
             forms.push(' ');
         }
@@ -2709,9 +2719,11 @@ mod tests {
         assert_eq!(
             flag_forms(&FlagMeta {
                 flag: &F,
+                hidden_shorts: b"w",
+                hidden_longs: &["workers"],
                 ..FlagMeta::EMPTY
             }),
-            "-j -w --jobs --workers"
+            "-j --jobs"
         );
     }
 

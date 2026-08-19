@@ -1189,6 +1189,9 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             continue;
         }
         for &short in flag.shorts {
+            if meta.is_some_and(|m| m.hidden_shorts.contains(&short)) {
+                continue;
+            }
             // Written out rather than with `is_none_or`, which this crate's MSRV predates.
             let asked_about = match wanted {
                 None => true,
