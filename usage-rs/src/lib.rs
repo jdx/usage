@@ -1,7 +1,9 @@
 //! The facade for building compiled Rust CLIs with usage.
 //!
-//! Depend on `usage-rs` under the short crate name `usage`; the derive macros and their runtime
-//! then come from one versioned package, while cold-path functionality stays behind features:
+//! Depend on `usage-rs` under the short crate name `usage`. That is the one package an
+//! application needs: derive macros, the argv runtime, help, and clap-shaped errors ship in the
+//! defaults. Completions stay behind a feature; low-level adopters that want only the binding
+//! runtime keep depending on `usage-argv` directly.
 //!
 //! ```toml
 //! [dependencies]

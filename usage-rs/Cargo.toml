@@ -15,7 +15,10 @@ usage-argv = { workspace = true }
 usage-derive = { workspace = true, optional = true }
 
 [features]
-default = ["spec", "help"]
+# Applications get a usable CLI out of the box: parse tables, help, and
+# clap-shaped errors. Completions stay opt-in. Low-level adopters that want only
+# the binding runtime keep depending on `usage-argv` directly (no defaults).
+default = ["spec", "help", "diagnostics"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
 help = ["spec"]
 completions = ["spec", "usage-argv/complete"]

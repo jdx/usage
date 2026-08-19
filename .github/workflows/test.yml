@@ -30,17 +30,56 @@ jobs:
         with:
           shared-key: test
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
+      # tests refuse to skip a missing shell when `CI` is set — see
+      # `skip_if_shell_missing` — which is a deliberate policy this step exists to keep:
+      # a run that quietly tested one shell instead of four is worse than a run that
+      # stopped. So the flakiness is what gets fixed, not the consequence of it.
+      #
+      # The failure mode, seen three times in an afternoon, is the azure mirror that
+      # GitHub's runners list first *stalling* rather than refusing. Retries alone did not
+      # help — an eight-minute attempt with them timed out the same way — because retrying
+      # a connection that hangs just hangs again. What was missing is a per-connection
+      # timeout: with one, apt gives up on the stalled mirror in seconds and moves to the
+      # next entry in `/etc/apt/apt-mirrors.txt`, which is the archive.ubuntu.com that was
+      # answering fine throughout.
       - name: Install shells for completion integration tests
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y zsh fish
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
           # if a future image drops it so the integration test still runs
           # (rather than panicking under CI=1).
           if ! command -v pwsh >/dev/null 2>&1; then
             sudo snap install powershell --classic
           fi
+      # A step of its own, and `always()`, because the interesting time to hear which
+      # shells are present is the run where the one above did not finish — and a `set -e`
+      # script says nothing after the command that failed it.
+      - name: Report which shells are available
+        if: always()
+        run: |
+          probe_dir=$(mktemp -d)
+          trap 'rm -rf "$probe_dir"' EXIT
+          for shell in bash zsh fish pwsh; do
+            if [[ "$shell" == pwsh ]]; then
+              probe="$probe_dir/$shell.ps1"
+            else
+              probe="$probe_dir/$shell"
+            fi
+            printf 'echo ok\n' > "$probe"
+            if [[ "$shell" == pwsh ]]; then
+              output=$(pwsh -NoProfile -NonInteractive -File "$probe" 2>/dev/null) && usable=true || usable=false
+            else
+              output=$("$shell" "$probe" 2>/dev/null) && usable=true || usable=false
+            fi
+            if [[ "$usable" == true && "$output" == ok ]]; then
+              echo "$shell: $(command -v "$shell") (script probe passed)"
+            else
+              echo "::warning::$shell cannot run a script, so its completion tests cannot run"
+            fi
+          done
       - run: mise r build
       - run: mise r test
       # Run here rather than in a job of its own: the corpus vectors carry KDL

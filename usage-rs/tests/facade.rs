@@ -48,3 +48,21 @@ fn unit_subcommands_use_the_facade_derive() {
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));
 }
+
+#[test]
+fn defaults_render_clap_shaped_parse_errors() {
+    let argv = [OsStr::new("--wat")];
+    let Err(err) = Ex::parse_from(&argv) else {
+        panic!("unknown flag should fail");
+    };
+    // `render_failure` colours via `Style::auto()` when stderr is a TTY or
+    // `CLICOLOR_FORCE` is set, which would put ANSI codes inside the quotes and
+    // break a literal substring check. Plain style is what a pipe (and this
+    // assertion) wants.
+    let message =
+        usage::diagnostic::render(Ex::spec(), &argv, &err, usage::diagnostic::Style::PLAIN);
+    assert!(
+        message.contains("unexpected argument '--wat'"),
+        "defaults should enable diagnostics; got:\n{message}"
+    );
+}
