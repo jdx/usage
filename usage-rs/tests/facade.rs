@@ -475,7 +475,13 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     assert!(kdl.contains("alias \"z-shell\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"zsh-shell\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"bourne-again\" hide=#true"), "{kdl}");
+    #[cfg(not(windows))]
     assert_eq!(<Shell as usage::spec::ValueEnum>::CHOICES, &["bash", "b"]);
+    #[cfg(windows)]
+    assert_eq!(
+        <Shell as usage::spec::ValueEnum>::CHOICES,
+        &["bash", "b", "power-shell"]
+    );
     #[cfg(not(windows))]
     assert!(!kdl.contains("power-shell"), "{kdl}");
 }
