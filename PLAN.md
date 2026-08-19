@@ -1166,7 +1166,7 @@ including telling you to delete the label afterwards.
       usage-argv's parser, so a derive-generated binary still rejects a repeated flag as clap
       does. Separately, `Spec::to_kdl` validates `duplicate_flag_form` at the spec boundary so
       two declarations cannot claim the same spelling. Unknown flags are intentionally different: usage parsers
-      is permissive by default and a command opts into `unknown_flags="error"` when it owns the
+      are permissive by default and a command opts into `unknown_flags="error"` when it owns the
       whole grammar. That is what fleet adopters should declare for clap parity, while forwarding
       commands such as `mise run` keep the default. `differential.rs` carries a named test so
       tightening usage-lib fails with the reason attached.
