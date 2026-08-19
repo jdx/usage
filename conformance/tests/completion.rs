@@ -103,7 +103,7 @@ fn ask_forward(line: &str) -> String {
 fn command_with_arguments_changes_native_completion_after_the_command_word() {
     assert_eq!(
         ask_forward("forward "),
-        format!("{}\n", usage_argv::complete::EXECUTABLES_MARKER)
+        format!("{}\n", usage_argv::complete::COMMANDS_MARKER)
     );
     assert_eq!(
         ask_forward("forward git "),
