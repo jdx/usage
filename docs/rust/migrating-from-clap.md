@@ -1,0 +1,205 @@
+# Migrating from clap
+
+usage 6 is a typed parser with static metadata, not a compatibility layer around clap. Most
+derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional API
+breaks: move their behavior into typed declarations or keep clap at that boundary.
+
+Use the [compatibility matrix](/rust/clap-compatibility) as the audited baseline. It separates
+behavior supported by usage itself from metadata that `clap_usage` can recover from an existing
+`clap::Command`.
+
+## Dependencies
+
+Depend on the facade rather than on `usage-derive` or `usage-argv` separately:
+
+```toml
+[dependencies]
+usage = { package = "usage-rs", version = "6", features = ["completions"] }
+```
+
+The defaults include the derive, help, and clap-shaped diagnostics. Add `validation` for portable
+validation expressions and `completions` when the binary generates or answers completion
+requests.
+
+During a prerelease migration, pin every producer and consumer to one revision. In particular,
+the `usage-rs` dependency that emits KDL and any installed `usage-cli` that renders that KDL must
+use the same 6.x revision. A 5.x CLI reading a 6.x spec is unsupported.
+
+## Derive mapping
+
+| clap                    | usage                                                   |
+| ----------------------- | ------------------------------------------------------- |
+| `#[derive(Parser)]`     | `#[derive(usage::Cli)]`                                 |
+| `#[derive(Args)]`       | `#[derive(usage::Args)]`                                |
+| `#[derive(Subcommand)]` | `#[derive(usage::Subcommands)]`                         |
+| `#[derive(ValueEnum)]`  | `#[derive(usage::ValueEnum)]`                           |
+| `#[command(...)]`       | `#[usage(...)]`                                         |
+| `#[arg(...)]`           | `#[usage(...)]`, or keep a supported migration spelling |
+| `#[value(...)]`         | `#[usage(...)]`, or keep supported names and aliases    |
+
+`#[arg(long)]` is accepted on fields and inline subcommand variants, so the first pass can keep
+small diffs. Prefer `#[usage(...)]` for usage-only behavior and for the final declaration.
+
+```rust
+use usage::{Cli, Subcommands};
+
+#[derive(Cli)]
+#[usage(bin = "tak", version, unknown_flags = "error")]
+struct Cli {
+    #[usage(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommands)]
+enum Command {
+    /// Benchmark a command.
+    Run {
+        #[arg(long)]
+        bench: Option<String>,
+        #[arg(long)]
+        runs: Option<u32>,
+    },
+    Version,
+}
+```
+
+Unknown flags are values by default, which is useful for wrapper CLIs. Add
+`unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
+
+## Fields
+
+Common mappings retain their meaning:
+
+```rust
+#[derive(usage::Args)]
+struct Options {
+    #[usage(short = 'v', long, count)]
+    verbose: u8,
+
+    #[usage(long, env = "APP_COLOR", default = "auto")]
+    color: String,
+
+    #[usage(long, delimiter = ',')]
+    tags: Vec<String>,
+
+    #[usage(long, value_enum)]
+    shell: Shell,
+
+    #[usage(skip)]
+    computed: bool,
+}
+```
+
+Defaults make a field optional in the generated grammar. `Option<T>` is also optional; `T`
+without a default is required. A bare optional-value flag needs an explicit meaning:
+
+```rust
+#[usage(long, default_missing = "always", require_equals)]
+color: Option<String>,
+```
+
+That accepts `--color` and `--color=never`, while refusing a detached value. usage does not
+guess clap's per-occurrence `num_args(0..=1)` semantics.
+
+For validation that must survive KDL emission, use a portable expression instead of a Rust
+`value_parser` callback:
+
+```rust
+#[usage(
+    long,
+    validate = "int(value) >= 1 && int(value) <= 65535",
+    validate_error = "must be a valid port"
+)]
+port: Option<u16>,
+```
+
+## Subcommands and shared arguments
+
+Unit commands, inline struct variants, nested enums, flattened groups, and one `Args` type mounted
+under more than one command are supported:
+
+```rust
+#[derive(usage::Args)]
+struct RemoteArgs {
+    #[usage(long, default = "origin")]
+    remote: String,
+}
+
+#[derive(usage::Subcommands)]
+enum Command {
+    Push(RemoteArgs),
+    Init(RemoteArgs),
+    Doctor,
+}
+```
+
+Tuple `Cli` and `Args` structs are not inferred. Name the field and say whether it is flattened:
+
+```compile_fail
+#[derive(usage::Args)]
+struct Ambiguous(CommonArgs);
+```
+
+```rust
+#[derive(usage::Args)]
+struct Explicit {
+    #[usage(flatten)]
+    common: CommonArgs,
+}
+```
+
+Relationships that cross a flattened boundary or name a positional are not supported yet. Keep
+the check after parsing until the compatibility matrix marks that row supported; the derive
+rejects selectors it can prove invalid instead of silently weakening them.
+
+## Parse entry points
+
+clap tests usually include argv0. Choose the matching entry point explicitly:
+
+| Need                                       | Entry point                         |
+| ------------------------------------------ | ----------------------------------- |
+| process argv, including help/version exits | `Cli::parse()`                      |
+| words after argv0                          | `Cli::parse_from(&[&OsStr])`        |
+| full argv with argv0, returning errors     | `Cli::parse_from_argv(&[OsString])` |
+| clap-shaped call sites                     | `Cli::try_parse_from(iter)`         |
+
+`parse_from` is the allocation-free primitive. `parse_from_argv` also applies multicall basename
+routing. Handle `usage::Error::Help` and `usage::Error::Version` before dispatch when an embedder
+must intercept those built-ins.
+
+## Help, specs, and completions
+
+Doc comments remain the source of short and long help. `Cli::to_kdl()` emits the portable spec;
+`Cli::spec().view()` provides cold-path identity and metadata overlays without moving normal
+parsing onto a dynamic command graph.
+
+With the `completions` feature, prefer the built-in completion surface:
+
+```rust
+let script = Cli::completion_script(usage::complete::Shell::Zsh);
+```
+
+Use `Cli::app().completion_app()` for projections and sync or async runtime candidates. Async
+callbacks return a future and run on the application's executor; usage does not bundle one.
+
+## Intentional non-goals
+
+usage does not reproduce `Command::new`, `augment_args`, `ArgMatches`, `FromArgMatches`, or the
+complete public `CommandFactory` builder surface. A library that publicly returns
+`clap::Command` must make a major-version API change, retain a clap-specific adapter, or expose a
+separately named usage spec/view API.
+
+These are architectural boundaries, not temporarily undocumented compatibility promises. The
+static typed path is what keeps normal parsing allocation-free; `usage-lib` remains the dynamic
+interpreter for applications that genuinely construct a CLI at runtime.
+
+## Compatibility policy
+
+Within usage 6.x, changes to accepted argv, typed binding, exit status, stdout versus stderr, or
+the portable spec dialect are parser behavior and follow semver. New clap spellings may be added
+compatibly when they map to existing behavior. A spelling whose clap behavior cannot be carried
+losslessly is rejected or documented as partial; it is not silently accepted with weaker
+semantics.
+
+The compatibility matrix is versioned against the clap releases named at its top. Updating clap
+requires re-auditing that matrix; compiling with a new clap is not by itself a parity claim.

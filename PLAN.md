@@ -747,7 +747,7 @@ feature list is not an exhaustive audit.
       different shapes: a derive-heavy CLI, a builder-heavy CLI, and one using
       custom validation/completions. Record every unsupported feature they expose;
       do not silently narrow the sample to what already works.
-- [ ] **Migration and non-goal documentation.** Publish an attribute mapping guide,
+- [x] **Migration and non-goal documentation.** The Rust migration guide publishes an attribute mapping guide,
       examples for the common `Parser` / `Args` / `Subcommand` / `ValueEnum`
       rewrites, compile-fail examples for unsupported combinations, the clap
       compatibility baseline, and the parser-behavior semver policy. State which
