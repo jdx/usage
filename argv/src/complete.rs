@@ -343,7 +343,7 @@ impl<'a> CompletionOverlay<'a> {
 /// A projection inserts a command path after argv0 before walking the base tables. That lets a
 /// multicall binary such as `aubr` expose `aube run` without cloning a command tree or losing the
 /// root's global flags.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct App<'a> {
     view: SpecView<'a>,
     overlays: &'a [CompletionOverlay<'a>],
@@ -590,12 +590,25 @@ fn declared_files_at_cursor(
     split: &Split,
     position: &Position<'_>,
 ) -> Option<Files> {
+    if split.cword == 0
+        || (position.awaiting_value.is_none()
+            && position.flags_possible
+            && split.prefix.starts_with('-'))
+    {
+        return None;
+    }
     let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
     let at_cursor = if restarted(meta, split) {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
         position.next_arg
     };
+    if position.awaiting_value.is_none()
+        && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
+        && !position.separator_seen
+    {
+        return None;
+    }
     let (name, complete_type) = if let Some(flag) = position.awaiting_value {
         let meta = flag_meta(spec.root, flag);
         (
@@ -806,28 +819,52 @@ fn overlay_at_cursor<'o>(
     position: &Position<'_>,
     overlays: &'o [CompletionOverlay<'_>],
 ) -> Option<&'o CompletionOverlay<'o>> {
-    if position.awaiting_value.is_none() && position.flags_possible && split.prefix.starts_with('-')
+    if split.cword == 0
+        || (position.awaiting_value.is_none()
+            && position.flags_possible
+            && split.prefix.starts_with('-'))
     {
         return None;
     }
     let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
     let target = if restarted(meta, split) {
-        meta.and_then(|owner| owner.args.first().map(|field| (owner, field.arg.name)))
+        meta.and_then(|owner| {
+            owner.args.first().map(|field| {
+                (
+                    owner,
+                    field.arg.name,
+                    field.arg.double_dash == crate::DoubleDash::Required,
+                )
+            })
+        })
     } else if let Some(flag) = position.awaiting_value {
         flag_meta_owner(spec.root, flag)
-            .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name)))
+            .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
     } else {
         position
             .next_arg
-            .and_then(|arg| {
-                arg_meta_owner(spec.root, arg).map(|(owner, field)| (owner, field.arg.name))
+            .and_then(|arg| arg_meta_owner(spec.root, arg))
+            .map(|(owner, field)| {
+                (
+                    owner,
+                    field.arg.name,
+                    field.arg.double_dash == crate::DoubleDash::Required,
+                )
             })
             .or_else(|| {
-                default_subcommand_arg(spec, split, position)
-                    .map(|(owner, field)| (owner, field.arg.name))
+                default_subcommand_arg(spec, split, position).map(|(owner, field)| {
+                    (
+                        owner,
+                        field.arg.name,
+                        field.arg.double_dash == crate::DoubleDash::Required,
+                    )
+                })
             })
     };
-    let (owner, value) = target?;
+    let (owner, value, needs_separator) = target?;
+    if needs_separator && !position.separator_seen {
+        return None;
+    }
     let (_, chain) = crate::help::find(spec, owner.cmd)?;
     let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
     overlays.iter().rev().find(|overlay| {
@@ -1848,6 +1885,12 @@ mod tests {
             "file",
             runtime_tools,
         )];
+    static PIPE_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::asynchronous(
+            "pipe",
+            "path",
+            runtime_tools,
+        )];
     static PLUGIN_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::asynchronous(
             "plugins",
@@ -1875,6 +1918,34 @@ mod tests {
             &FILE_RUNTIME_COMPLETIONS,
         ));
         assert_eq!(file.files, Some(Files::Any));
+
+        let before_separator = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise pipe "),
+            &PIPE_RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            before_separator
+                .candidates
+                .iter()
+                .all(|candidate| candidate.value != "uby"),
+            "{before_separator:?}"
+        );
+        assert_eq!(before_separator.files, None);
+
+        let after_separator = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise pipe -- "),
+            &PIPE_RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            after_separator
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "uby"),
+            "{after_separator:?}"
+        );
+        assert_eq!(after_separator.files, Some(Files::Any));
 
         let flag = run_ready(complete_with(
             &SPEC,
@@ -1992,6 +2063,37 @@ mod tests {
                 .completion_request(&binary_argv),
         );
         assert_eq!(with_projection, without_projection);
+
+        static ROOT_ARG: Command = Command {
+            name: "root-arg",
+            args: &[&TOOL],
+            ..Command::EMPTY
+        };
+        static ROOT_ARG_META: CommandMeta = CommandMeta {
+            cmd: &ROOT_ARG,
+            args: &[ArgMeta {
+                arg: &TOOL,
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static ROOT_ARG_SPEC: Spec = Spec {
+            name: "root-arg",
+            root: &ROOT_ARG_META,
+            ..Spec::EMPTY
+        };
+        let argv0 = run_ready(complete_with(
+            &ROOT_ARG_SPEC,
+            &at_end("root"),
+            &GLOBAL_RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            argv0
+                .candidates
+                .iter()
+                .all(|candidate| candidate.value != "rootuby"),
+            "{argv0:?}"
+        );
 
         let unrelated = at_end("mise plugins ");
         let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
