@@ -251,6 +251,7 @@ fn resolve_long_flag(
     available: &BTreeMap<String, Arc<SpecFlag>>,
     word: &str,
     infer: bool,
+    help_enabled: bool,
 ) -> Option<(Arc<SpecFlag>, bool)> {
     let key = get_flag_key(word);
     if let Some(exact) = available.get(key) {
@@ -259,7 +260,8 @@ fn resolve_long_flag(
     if !infer || !key.starts_with("--") || key.len() == 2 {
         return None;
     }
-    let built_in_help = "--help".starts_with(key) && !available.contains_key("--help");
+    let built_in_help =
+        help_enabled && "--help".starts_with(key) && !available.contains_key("--help");
     let mut found: Option<(Arc<SpecFlag>, bool)> = None;
     for (candidate, flag) in available {
         if !candidate.starts_with("--") {
@@ -895,8 +897,13 @@ fn parse_partial_with_env(
                 word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
             let infer_long_args = out.cmds.iter().any(|cmd| cmd.infer_long_args);
             if let Some(f) = (if word.starts_with("--") {
-                resolve_long_flag(&out.available_flags, &word, infer_long_args)
-                    .map(|(flag, _)| flag)
+                resolve_long_flag(
+                    &out.available_flags,
+                    &word,
+                    infer_long_args,
+                    spec.disable_help != Some(true),
+                )
+                .map(|(flag, _)| flag)
             } else {
                 out.available_flags.get(flag_key).cloned()
             })
@@ -1145,6 +1152,7 @@ fn parse_partial_with_env(
                 &out.available_flags,
                 word,
                 out.cmds.iter().any(|cmd| cmd.infer_long_args),
+                spec.disable_help != Some(true),
             );
             let resolved_flag = resolved.as_ref().map(|(flag, _)| flag);
             if let Some(f) = binding.as_ref().or(resolved_flag) {
@@ -1439,8 +1447,9 @@ fn parse_partial_with_env(
                 out.cmds.iter().any(|cmd| cmd.infer_subcommands),
             )
         {
-            out.errors
-                .push(render_help_err(spec, &out.cmd, w.len() > 2));
+            // A help *word* is clap's long help action even when inferred from `h` or `he`.
+            // The length distinction belongs only to the `-h` / `--help` flag spellings.
+            out.errors.push(render_help_err(spec, &out.cmd, true));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
             return Ok((out, overridden_flags));
         }
@@ -3108,6 +3117,19 @@ infer_long_args #true
             .to_string();
         assert!(inferred.contains("Usage:"), "{inferred}");
 
+        let disabled: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+disable_help #true
+unknown_flags "error"
+flag "--hello"
+"#
+        .parse()
+        .unwrap();
+        parse(&disabled, &input(&["ex", "--he"]))
+            .expect("disabled built-in help must not make a real flag prefix ambiguous");
+
         let with_helper: Spec = r#"
 name "ex"
 bin "ex"
@@ -3124,6 +3146,21 @@ cmd "helper"
             .unwrap_err()
             .to_string();
         assert!(!ambiguous.contains("Usage:"), "{ambiguous}");
+
+        let help_word: Spec = r#"
+name "ex"
+bin "ex"
+about "short description"
+long_about "long description marker"
+infer_subcommands #true
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+        let inferred = parse(&help_word, &input(&["ex", "he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(inferred.contains("long description marker"), "{inferred}");
     }
 
     #[cfg(unix)]
