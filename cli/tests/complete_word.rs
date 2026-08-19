@@ -676,6 +676,25 @@ complete "command" type="command_args"
 }
 
 #[test]
+fn complete_word_command_args_uses_paths_after_the_command() {
+    let usage = cargo::cargo_bin!("usage");
+    let spec = r#"
+name "mycli"
+bin "mycli"
+arg "<COMMAND>..." double_dash="automatic"
+complete "command" type="command_args"
+"#;
+    Command::new(usage)
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "usage", "Cargo",
+        ])
+        .env("PATH", usage.parent().unwrap())
+        .assert()
+        .success()
+        .stdout(contains("Cargo.toml"));
+}
+
+#[test]
 fn complete_word_subcommands_without_shell() {
     let mut cmd = cmd("basic.usage.kdl", None);
     cmd.args(["plugins", "install"]);

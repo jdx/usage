@@ -56,12 +56,12 @@ func TestEveryScriptCallsTheBinaryAndRegistersIt(t *testing.T) {
 // PowerShell, `\u{1}` in nushell — so a change to the constant would leave five
 // scripts watching for something that never arrives.
 func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
-	if FilesMarker != "\x01files" || DirsMarker != "\x01dirs" {
-		t.Fatalf("the scripts are written for \\x01: %q %q", FilesMarker, DirsMarker)
+	if FilesMarker != "\x01files" || DirsMarker != "\x01dirs" || ExecutablesMarker != "\x01commands" {
+		t.Fatalf("the scripts are written for \\x01: %q %q %q", FilesMarker, DirsMarker, ExecutablesMarker)
 	}
 	for _, c := range []struct{ shell, spelling Shell }{{Bash, Bash}, {Zsh, Zsh}} {
 		out := Script("mise", c.shell)
-		for _, want := range []string{`$'\001files'`, `$'\001dirs'`} {
+		for _, want := range []string{`$'\001files'`, `$'\001dirs'`, `$'\001commands'`} {
 			if !strings.Contains(out, want) {
 				t.Errorf("%v should watch for %s:\n%s", c.shell, want, out)
 			}
@@ -75,6 +75,20 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	}
 	if !strings.Contains(Script("mise", PowerShell), "[char]1") {
 		t.Error("PowerShell builds it from the code point")
+	}
+	for _, test := range []struct {
+		shell Shell
+		want  string
+	}{
+		{Bash, "compgen -c"},
+		{Zsh, "_command_names"},
+		{Fish, "__fish_complete_command"},
+		{Nu, "commandline complete --detailed"},
+		{PowerShell, "Get-Command"},
+	} {
+		if out := Script("mise", test.shell); !strings.Contains(out, test.want) {
+			t.Errorf("%v should ask the shell for commands with %q:\n%s", test.shell, test.want, out)
+		}
 	}
 }
 

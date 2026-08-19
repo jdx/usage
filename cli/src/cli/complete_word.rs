@@ -363,7 +363,14 @@ impl CompleteWord {
             "executable" | "command" => return (self.complete_commands(ctoken), true),
             "command_args" => {
                 let command_was_bound = cx.parsed.next_arg.as_ref().is_some_and(|next| {
-                    cx.parsed.args.keys().any(|bound| Arc::ptr_eq(bound, next))
+                    // `parse_partial` records the cursor with a fresh `Arc` around a
+                    // cloned argument, so pointer identity cannot connect it to the
+                    // separately cloned map key. Argument names are the stable identity
+                    // within a command (and the one `SpecArg` equality uses).
+                    cx.parsed
+                        .args
+                        .keys()
+                        .any(|bound| bound.as_ref() == next.as_ref())
                 });
                 if !command_was_bound {
                     return (self.complete_commands(ctoken), true);
