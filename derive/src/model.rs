@@ -3519,8 +3519,15 @@ pub struct ValueEnum {
 pub struct ValueVariant {
     pub ident: syn::Ident,
     pub name: String,
-    pub aliases: Vec<String>,
+    pub aliases: Vec<ValueAlias>,
+    pub help: Option<String>,
+    pub hide: bool,
     pub cfg_attrs: Vec<syn::Attribute>,
+}
+
+pub struct ValueAlias {
+    pub name: String,
+    pub hide: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -3736,6 +3743,9 @@ impl ValueEnum {
                 .map(|style| style.apply(&rust_name))
                 .unwrap_or_else(|| to_kebab(&rust_name));
             let mut aliases = Vec::new();
+            let (doc_help, _) = doc_comment(&variant.attrs, false)?;
+            let mut help = doc_help;
+            let mut hide = false;
             for attr in value_attrs(&variant.attrs) {
                 for meta in nested(attr)? {
                     let path = meta.path().clone();
@@ -3749,15 +3759,35 @@ impl ValueEnum {
                                         "an alias with no name would answer to nothing",
                                     ));
                                 }
-                                aliases.push(alias);
+                                aliases.push(ValueAlias {
+                                    name: alias,
+                                    hide: true,
+                                });
                             }
                         }
+                        "visible_alias" | "visible_aliases" => {
+                            for alias in selectors(&meta)? {
+                                if alias.is_empty() {
+                                    return Err(syn::Error::new_spanned(
+                                        &path,
+                                        "an alias with no name would answer to nothing",
+                                    ));
+                                }
+                                aliases.push(ValueAlias {
+                                    name: alias,
+                                    hide: false,
+                                });
+                            }
+                        }
+                        "help" => help = Some(string_value(&meta)?),
+                        "hide" => hide = flag_value(&meta)?,
                         other => {
                             return Err(syn::Error::new_spanned(
                                 path,
                                 format!(
                                     "unknown option `{other}` on a value; a variant takes \
-                                     `name`, `alias`, or `aliases` here"
+                                     `name`, `alias`, `aliases`, `visible_alias`, \
+                                     `visible_aliases`, `help`, or `hide` here"
                                 ),
                             ));
                         }
@@ -3774,6 +3804,8 @@ impl ValueEnum {
                 ident: variant.ident.clone(),
                 name,
                 aliases,
+                help,
+                hide,
                 cfg_attrs,
             });
         }
@@ -3787,7 +3819,7 @@ impl ValueEnum {
         let mut seen: Vec<(&str, Span, &[Attribute])> = Vec::new();
         for variant in &variants {
             for word in ::std::iter::once(variant.name.as_str())
-                .chain(variant.aliases.iter().map(String::as_str))
+                .chain(variant.aliases.iter().map(|alias| alias.name.as_str()))
             {
                 let collision = seen.iter().find(|(seen, _, cfg)| {
                     let same = if ignore_case {
@@ -4467,14 +4499,20 @@ mod tests {
         let ve = value_enum(
             r#"
             enum Provider {
-                #[value(name = "1password", alias = "op")]
+                /// Password manager.
+                #[value(name = "1password", alias = "op", visible_alias = "one", hide)]
                 OnePassword,
             }
         "#,
         )
         .expect("clap value metadata should remain usable");
         assert_eq!(ve.variants[0].name, "1password");
-        assert_eq!(ve.variants[0].aliases, ["op"]);
+        assert_eq!(ve.variants[0].help.as_deref(), Some("Password manager."));
+        assert!(ve.variants[0].hide);
+        assert_eq!(ve.variants[0].aliases[0].name, "op");
+        assert!(ve.variants[0].aliases[0].hide);
+        assert_eq!(ve.variants[0].aliases[1].name, "one");
+        assert!(!ve.variants[0].aliases[1].hide);
     }
 
     #[test]

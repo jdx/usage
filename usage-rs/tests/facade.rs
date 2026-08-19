@@ -59,9 +59,17 @@ struct InlineEx {
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
-    #[value(aliases(["bourne-again", "bash-shell"]))]
+    #[value(
+        aliases(["bourne-again", "bash-shell"]),
+        visible_alias = "b",
+        help = "Bourne Again shell"
+    )]
     Bash,
-    #[value(aliases = ["shell-z", "z-shell", "zsh-shell"])]
+    /// Z shell.
+    #[value(
+        aliases = ["shell-z", "z-shell", "zsh-shell"],
+        hide = true
+    )]
     Zsh,
     #[cfg(windows)]
     PowerShell,
@@ -453,10 +461,21 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
 
     let kdl = ChoiceEx::to_kdl();
     assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
+    assert!(
+        kdl.contains("choice \"bash\" help=\"Bourne Again shell\""),
+        "{kdl}"
+    );
+    assert!(kdl.contains("alias \"b\"\n"), "{kdl}");
+    assert!(!kdl.contains("alias \"b\" hide=#true"), "{kdl}");
+    assert!(
+        kdl.contains("choice \"zsh\" help=\"Z shell.\" hide=#true"),
+        "{kdl}"
+    );
     assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"z-shell\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"zsh-shell\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"bourne-again\" hide=#true"), "{kdl}");
+    assert_eq!(<Shell as usage::spec::ValueEnum>::CHOICES, &["bash", "b"]);
     #[cfg(not(windows))]
     assert!(!kdl.contains("power-shell"), "{kdl}");
 }

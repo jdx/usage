@@ -380,15 +380,19 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// ```ignore
 /// #[derive(usage::ValueEnum)]
 /// enum Shell {
+///     /// Bourne Again shell.
 ///     Bash,
 ///     #[value(alias = "shell-z")]
 ///     Zsh,
-///     #[value(name = "pwsh")]
+///     #[value(name = "pwsh", visible_alias = "powershell", hide = true)]
 ///     PowerShell,
 /// }
 /// ```
 ///
 /// `#[usage(ignore_case)]` on the enum applies to canonical words and aliases.
+/// A variant's doc comment becomes its per-value help. `help = "..."` overrides
+/// it, `hide` keeps the value accepted while omitting it from help and completion,
+/// `alias` is hidden, and `visible_alias` is advertised alongside the canonical word.
 ///
 /// The enum must implement [`FromStr`](std::str::FromStr); this derive owns only its CLI
 /// word metadata and does not replace domain parsing. Variant `cfg` and `cfg_attr`

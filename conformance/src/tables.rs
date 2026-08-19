@@ -26,7 +26,8 @@
 use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
 use usage_argv::spec::{
-    ArgMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta, GroupMeta, RequiresIf,
+    ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta,
+    GroupMeta, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -316,6 +317,7 @@ fn flag_meta(
         accepted_choices: accepted_choices(choices),
         choices: visible_choices(choices),
         choice_aliases: choice_aliases(choices),
+        choice_details: choice_details(choices),
         ignore_case: choices.is_some_and(|c| c.ignore_case),
         validate: arg.and_then(|a| a.validate.as_deref()).map(leak),
         validate_error: arg.and_then(|a| a.validate_error.as_deref()).map(leak),
@@ -377,6 +379,7 @@ fn arg_meta(
         accepted_choices: accepted_choices(choices),
         choices: visible_choices(choices),
         choice_aliases: choice_aliases(choices),
+        choice_details: choice_details(choices),
         ignore_case: choices.is_some_and(|c| c.ignore_case),
         validate: a.validate.as_deref().map(leak),
         validate_error: a.validate_error.as_deref().map(leak),
@@ -520,6 +523,35 @@ fn choice_aliases(choices: Option<&SpecChoices>) -> &'static [(&'static str, &'s
                     .aliases
                     .iter()
                     .map(move |alias| (leak(&choice.value), leak(&alias.value)))
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn choice_details(choices: Option<&SpecChoices>) -> &'static [ChoiceMeta<'static>] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .details
+            .iter()
+            .map(|choice| ChoiceMeta {
+                value: leak(&choice.value),
+                help: choice.help.as_deref().map(leak),
+                hide: choice.hide,
+                aliases: Box::leak(
+                    choice
+                        .aliases
+                        .iter()
+                        .map(|alias| ChoiceAliasMeta {
+                            value: leak(&alias.value),
+                            hide: alias.hide,
+                        })
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice(),
+                ),
             })
             .collect::<Vec<_>>()
             .into_boxed_slice(),

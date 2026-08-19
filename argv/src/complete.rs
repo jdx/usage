@@ -988,7 +988,16 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
         flag_meta(spec.root, flag)
-            .map(|m| declared(m.choices, m.complete, split, &position, token))
+            .map(|m| {
+                declared(
+                    m.choices,
+                    m.choice_details,
+                    m.complete,
+                    split,
+                    &position,
+                    token,
+                )
+            })
             .unwrap_or_default()
     } else {
         let mut found = Vec::new();
@@ -1143,7 +1152,14 @@ fn positional<'a>(
         }
         return Vec::new();
     }
-    declared(meta.choices, meta.complete, split, position, token)
+    declared(
+        meta.choices,
+        meta.choice_details,
+        meta.complete,
+        split,
+        position,
+        token,
+    )
 }
 
 /// What a position declares it takes: its choices, or the completer that answers for it.
@@ -1154,13 +1170,14 @@ fn positional<'a>(
 /// the reference does with a `run=` command's output.
 fn declared<'a>(
     choices_declared: &'a [&'a str],
+    choice_details: &'a [crate::spec::ChoiceMeta<'a>],
     completer: Option<Completer>,
     split: &Split,
     position: &Position<'_>,
     token: &str,
 ) -> Vec<Candidate<'a>> {
     if !choices_declared.is_empty() {
-        return choices(choices_declared, token);
+        return choices(choices_declared, choice_details, token);
     }
     let Some(completer) = completer else {
         return Vec::new();
@@ -1196,13 +1213,23 @@ fn command_words<'s>(split: &'s Split, position: &Position<'_>) -> &'s [String] 
 }
 
 /// The declared values of a flag or argument, filtered by what has been typed.
-fn choices<'a>(declared: &'a [&'a str], token: &str) -> Vec<Candidate<'a>> {
+fn choices<'a>(
+    declared: &'a [&'a str],
+    details: &'a [crate::spec::ChoiceMeta<'a>],
+    token: &str,
+) -> Vec<Candidate<'a>> {
     declared
         .iter()
         .filter(|c| c.starts_with(token))
         .map(|c| Candidate {
             value: (*c).to_string(),
-            description: None,
+            description: details
+                .iter()
+                .find(|detail| {
+                    detail.value == *c || detail.aliases.iter().any(|alias| alias.value == *c)
+                })
+                .and_then(|detail| detail.help)
+                .map(::std::borrow::Cow::Borrowed),
         })
         .collect()
 }
@@ -1679,6 +1706,12 @@ mod tests {
             flag: &JOBS,
             help: Some("How many at once"),
             choices: &["1", "2", "4"],
+            choice_details: &[crate::spec::ChoiceMeta {
+                value: "2",
+                help: Some("Two workers"),
+                hide: false,
+                aliases: &[],
+            }],
             ..FlagMeta::EMPTY
         }],
         args: &[ArgMeta {
@@ -2506,6 +2539,10 @@ mod tests {
 
         let found = candidates(&SPEC, &at_end("mise pl"));
         assert_eq!(found[0].description.as_deref(), Some("Manage plugins"));
+
+        let found = candidates(&SPEC, &at_end("mise use --jobs "));
+        let two = found.iter().find(|c| c.value == "2").expect("choice 2");
+        assert_eq!(two.description.as_deref(), Some("Two workers"));
     }
     #[test]
     fn a_help_topic_offers_the_commands_under_it() {

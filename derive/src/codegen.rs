@@ -1177,7 +1177,8 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
-    let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
+    let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
+        choices_tokens(field);
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
@@ -1237,6 +1238,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             accepted_choices: #accepted_choices,
             choices: #choices,
             choice_aliases: #choice_aliases,
+            choice_details: #choice_details,
             ignore_case: #ignore_case,
             validate: #validate,
             validate_error: #validate_error,
@@ -1272,7 +1274,8 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // declare it. Every other shape gets its answer from the type.
     let required =
         (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
-    let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
+    let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
+        choices_tokens(field);
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
@@ -1298,6 +1301,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             accepted_choices: #accepted_choices,
             choices: #choices,
             choice_aliases: #choice_aliases,
+            choice_details: #choice_details,
             ignore_case: #ignore_case,
             validate: #validate,
             validate_error: #validate_error,
@@ -1310,7 +1314,15 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
 }
 
 /// A field's declared choices, as the metadata holds them.
-fn choices_tokens(field: &Field) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
+fn choices_tokens(
+    field: &Field,
+) -> (
+    TokenStream,
+    TokenStream,
+    TokenStream,
+    TokenStream,
+    TokenStream,
+) {
     // From the type when the field says `value_enum`, so the spec, the help and the check
     // all read the list the type declares rather than a copy of it.
     if let (true, Some(ty)) = (field.value_enum, field.value_ty.as_ref()) {
@@ -1318,12 +1330,19 @@ fn choices_tokens(field: &Field) -> (TokenStream, TokenStream, TokenStream, Toke
             quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES),
             quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
             quote!(<#ty as usage_argv::spec::ValueEnum>::ALIASES),
+            quote!(<#ty as usage_argv::spec::ValueEnum>::DETAILS),
             quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
         );
     }
     let choices = &field.choices;
     let choices = quote!(&[#(#choices),*]);
-    (choices.clone(), choices, quote!(&[]), quote!(false))
+    (
+        choices.clone(),
+        choices,
+        quote!(&[]),
+        quote!(&[]),
+        quote!(false),
+    )
 }
 
 /// A field's declared bounds, as the metadata holds them.
@@ -4877,24 +4896,50 @@ fn post_binding(cli: &Cli) -> TokenStream {
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
     let runtime = runtime_path();
-    let words = value_enum.variants.iter().map(|value| {
-        let word = &value.name;
+    let words = value_enum.variants.iter().flat_map(|value| {
         let cfg = &value.cfg_attrs;
-        quote!(#(#cfg)* #word)
+        ::std::iter::once((!value.hide).then_some(&value.name))
+            .chain(
+                value
+                    .aliases
+                    .iter()
+                    .map(|alias| (!alias.hide).then_some(&alias.name)),
+            )
+            .flatten()
+            .map(move |word| quote!(#(#cfg)* #word))
     });
     let accepted = value_enum.variants.iter().flat_map(|value| {
         let cfg = &value.cfg_attrs;
         ::std::iter::once(&value.name)
-            .chain(value.aliases.iter())
+            .chain(value.aliases.iter().map(|alias| &alias.name))
             .map(move |word| quote!(#(#cfg)* #word))
     });
     let aliases = value_enum.variants.iter().flat_map(|value| {
         let canonical = &value.name;
         let cfg = &value.cfg_attrs;
-        value
-            .aliases
-            .iter()
-            .map(move |alias| quote!(#(#cfg)* (#canonical, #alias)))
+        value.aliases.iter().map(move |alias| {
+            let alias = &alias.name;
+            quote!(#(#cfg)* (#canonical, #alias))
+        })
+    });
+    let details = value_enum.variants.iter().map(|value| {
+        let canonical = &value.name;
+        let help = option_str(value.help.as_deref());
+        let hide = value.hide;
+        let cfg = &value.cfg_attrs;
+        let aliases = value.aliases.iter().map(|alias| {
+            let name = &alias.name;
+            let hide = alias.hide;
+            quote!(usage_argv::spec::ChoiceAliasMeta { value: #name, hide: #hide })
+        });
+        quote!(
+            #(#cfg)* usage_argv::spec::ChoiceMeta {
+                value: #canonical,
+                help: #help,
+                hide: #hide,
+                aliases: &[#(#aliases),*],
+            }
+        )
     });
     let ignore_case = value_enum.ignore_case;
 
@@ -4907,6 +4952,7 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 const CHOICES: &'static [&'static str] = &[#(#words),*];
                 const ACCEPTED_CHOICES: &'static [&'static str] = &[#(#accepted),*];
                 const ALIASES: &'static [(&'static str, &'static str)] = &[#(#aliases),*];
+                const DETAILS: &'static [usage_argv::spec::ChoiceMeta<'static>] = &[#(#details),*];
                 const IGNORE_CASE: bool = #ignore_case;
             }
         };

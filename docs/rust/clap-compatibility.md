@@ -22,16 +22,16 @@ not only from generated KDL, when a row says **usage only**.
 
 ## Types and declarations
 
-| clap                                             | usage       | clap → spec    | Notes                                                                                                                                                 |
-| ------------------------------------------------ | ----------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Parser`                                         | Supported   | Supported      | `#[derive(usage::Cli)]`                                                                                                                               |
-| `Args`                                           | Supported   | Supported      | `#[derive(usage::Args)]`, including `flatten`                                                                                                         |
-| `Subcommand`                                     | Supported   | Supported      | Nested and boxed variants are supported.                                                                                                              |
-| `ValueEnum`                                      | Partial     | Partial        | Names, aliases, cfg-gated variants, and case-insensitive matching work; per-value help and hidden values are not yet carried by Rust static metadata. |
-| `#[arg(skip)]`                                   | Supported   | Not applicable | `#[usage(skip)]`; skipped fields do not belong in a spec.                                                                                             |
-| arbitrary `Command` / `Arg` builder code         | Non-goal    | Partial        | `usage-lib` is the dynamic spec interpreter; usage derive does not reproduce clap's builder API.                                                      |
-| `ArgMatches`, `FromArgMatches`, `CommandFactory` | Non-goal    | Not applicable | Typed structs are built directly from static tables.                                                                                                  |
-| `update_from` / `try_update_from`                | Unsupported | Not applicable | A parse currently constructs a new value.                                                                                                             |
+| clap                                             | usage       | clap → spec    | Notes                                                                                                                                               |
+| ------------------------------------------------ | ----------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Parser`                                         | Supported   | Supported      | `#[derive(usage::Cli)]`                                                                                                                             |
+| `Args`                                           | Supported   | Supported      | `#[derive(usage::Args)]`, including `flatten`                                                                                                       |
+| `Subcommand`                                     | Supported   | Supported      | Nested and boxed variants are supported.                                                                                                            |
+| `ValueEnum`                                      | Supported   | Supported      | Names, per-value help, hidden values, visible and hidden aliases, cfg-gated variants, and case-insensitive matching are carried in static metadata. |
+| `#[arg(skip)]`                                   | Supported   | Not applicable | `#[usage(skip)]`; skipped fields do not belong in a spec.                                                                                           |
+| arbitrary `Command` / `Arg` builder code         | Non-goal    | Partial        | `usage-lib` is the dynamic spec interpreter; usage derive does not reproduce clap's builder API.                                                    |
+| `ArgMatches`, `FromArgMatches`, `CommandFactory` | Non-goal    | Not applicable | Typed structs are built directly from static tables.                                                                                                |
+| `update_from` / `try_update_from`                | Unsupported | Not applicable | A parse currently constructs a new value.                                                                                                           |
 
 ## Arguments and values
 
