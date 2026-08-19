@@ -34,6 +34,13 @@ struct Busy {
     command: Option<BusyCommand>,
 }
 
+#[derive(Cli)]
+#[command(no_binary_name)]
+struct WordsOnly {
+    #[usage(long)]
+    plain: bool,
+}
+
 #[derive(Subcommands)]
 enum BusyCommand {
     #[usage(alias = "r")]
@@ -116,4 +123,23 @@ fn a_full_argv_helper_matches_clap_shaped_tests_and_multicall() {
     let parsed = Busy::parse_from_argv(&applet).expect("applet form should parse");
     assert!(matches!(parsed.command, Some(BusyCommand::Run)));
     assert!(parsed.verbose, "root globals remain in scope for applets");
+}
+
+#[test]
+fn clap_shaped_parsing_honors_no_binary_name() {
+    use std::ffi::OsStr;
+
+    let full = [OsStr::new("communique"), OsStr::new("--plain")];
+    assert!(
+        Cli_::try_parse_from(&full)
+            .expect("argv0 is stripped")
+            .plain
+    );
+
+    let words = [OsStr::new("--plain")];
+    assert!(
+        WordsOnly::try_parse_from(&words)
+            .expect("every word is parsed")
+            .plain
+    );
 }

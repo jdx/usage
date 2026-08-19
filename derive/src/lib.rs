@@ -316,7 +316,7 @@ mod crate_name;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
-#[proc_macro_derive(Cli, attributes(usage))]
+#[proc_macro_derive(Cli, attributes(usage, command))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let parsed = model::Cli::from_input(&input)
@@ -335,7 +335,7 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 /// tables and metadata as [`Cli`], minus the program-level parts a subcommand does
 /// not have — a name, a version, an entry point — plus the trait a parent uses to
 /// route events into it.
-#[proc_macro_derive(Args, attributes(usage))]
+#[proc_macro_derive(Args, attributes(usage, command))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is

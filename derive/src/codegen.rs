@@ -117,6 +117,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let multicall = cli.multicall;
+    let no_binary_name = cli.no_binary_name;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -587,6 +588,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                     }
                     Self::parse_from(__usage_words)
+                }
+
+                /// Parse using clap's `try_parse_from` argv contract.
+                ///
+                /// Input includes argv0 by default. `#[command(no_binary_name)]`
+                /// opts into treating every supplied word as an argument.
+                pub fn try_parse_from<'v>(
+                    argv: &'v [&'v ::std::ffi::OsStr],
+                ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
+                    if #no_binary_name {
+                        Self::parse_from(argv)
+                    } else {
+                        Self::parse_from_argv(argv)
+                    }
                 }
 
                 /// Parse the process's own arguments.
