@@ -31,7 +31,7 @@ cmd "complete-word" help="Generate shell completion candidates for a partial com
     flag "--cword" help="Current word index" {
         arg "<CWORD>"
     }
-    flag "--shell" required=#true default="bash" {
+    flag "--shell" default="bash" {
         arg "<SHELL>" {
             choices "bash" "fish" "nu" "powershell" "zsh"
         }
@@ -70,7 +70,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         flag "--include-bash-completion-lib" help="Include https://github.com/scop/bash-completion" {
             long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
         }
-        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" required=#true env="JDX_USAGE_BIN" default="usage" {
+        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" env="JDX_USAGE_BIN" default="usage" {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
             arg "<USAGE_BIN>"
         }
@@ -88,7 +88,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         alias "init" hide=#true
         alias "completions-init" hide=#true
         long_help "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable\ntab-completion for any executable whose first line is a `usage` shebang —\nno per-script `usage g completion` step required."
-        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" required=#true env="JDX_USAGE_BIN" default="usage" {
+        flag "--usage-bin" help="Override the bin used for calling back to usage-cli" env="JDX_USAGE_BIN" default="usage" {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
             arg "<USAGE_BIN>"
         }
@@ -158,7 +158,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
         flag "-o --out-file" help="Output file path, or \"-\" for stdout (default)" effect="write" {
             arg "<OUT_FILE>"
         }
-        flag "-s --section" help="Manual section number (default: 1)" required=#true default="1" {
+        flag "-s --section" help="Manual section number (default: 1)" default="1" {
             long_help "Manual section number (default: 1)\n\nCommon sections:\n- 1: User commands\n- 5: File formats\n- 7: Miscellaneous\n- 8: System administration commands"
             arg "<SECTION>"
         }
@@ -205,7 +205,7 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
     }
 }
 cmd "lint" help="Lint a usage spec file for common issues" effect="read" {
-    flag "-f --format" help="Output format" required=#true default="text" {
+    flag "-f --format" help="Output format" default="text" {
         arg "<FORMAT>" {
             choices "text" "json"
         }
