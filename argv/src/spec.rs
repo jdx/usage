@@ -772,6 +772,8 @@ pub struct FlagMeta<'a> {
     pub choices: &'a [&'a str],
     /// Canonical-to-alias pairs used when emitting a lossless spec.
     pub choice_aliases: &'a [(&'a str, &'a str)],
+    /// Per-canonical presentation metadata used when emitting a lossless spec.
+    pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
     /// Portable expr expression evaluated for each raw value.
     pub validate: Option<&'a str>,
@@ -851,6 +853,7 @@ impl FlagMeta<'_> {
         accepted_choices: &[],
         choices: &[],
         choice_aliases: &[],
+        choice_details: &[],
         ignore_case: false,
         validate: None,
         validate_error: None,
@@ -906,6 +909,8 @@ pub struct ArgMeta<'a> {
     pub choices: &'a [&'a str],
     /// Canonical-to-alias pairs used when emitting a lossless spec.
     pub choice_aliases: &'a [(&'a str, &'a str)],
+    /// Per-canonical presentation metadata used when emitting a lossless spec.
+    pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
     /// Portable expr expression evaluated for each raw value.
     pub validate: Option<&'a str>,
@@ -941,6 +946,7 @@ impl ArgMeta<'_> {
         accepted_choices: &[],
         choices: &[],
         choice_aliases: &[],
+        choice_details: &[],
         ignore_case: false,
         validate: None,
         validate_error: None,
@@ -1567,7 +1573,10 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
                 write!(out, " validate_error={}", quoted(error))?;
             }
         }
-        if meta.choices.is_empty() {
+        if meta.choices.is_empty()
+            && meta.accepted_choices.is_empty()
+            && meta.choice_details.is_empty()
+        {
             out.push('\n');
         } else {
             out.push_str(" {\n");
@@ -1576,18 +1585,23 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
                 meta.choices,
                 meta.accepted_choices,
                 meta.choice_aliases,
+                meta.choice_details,
                 meta.ignore_case,
                 inner + 1,
             )?;
             indent(out, inner)?;
             out.push_str("}\n");
         }
-    } else if !meta.choices.is_empty() {
+    } else if !meta.choices.is_empty()
+        || !meta.accepted_choices.is_empty()
+        || !meta.choice_details.is_empty()
+    {
         write_choices(
             out,
             meta.choices,
             meta.accepted_choices,
             meta.choice_aliases,
+            meta.choice_details,
             meta.ignore_case,
             inner,
         )?;
@@ -1646,8 +1660,11 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     write_single_default(out, meta.default)?;
 
-    let has_children =
-        meta.long_help.is_some() || !meta.choices.is_empty() || meta.default.len() > 1;
+    let has_children = meta.long_help.is_some()
+        || !meta.choices.is_empty()
+        || !meta.accepted_choices.is_empty()
+        || !meta.choice_details.is_empty()
+        || meta.default.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1665,6 +1682,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         meta.choices,
         meta.accepted_choices,
         meta.choice_aliases,
+        meta.choice_details,
         meta.ignore_case,
         inner,
     )?;
@@ -1737,16 +1755,80 @@ fn write_choices(
     choices: &[&str],
     accepted_choices: &[&str],
     aliases: &[(&str, &str)],
+    details: &[ChoiceMeta<'_>],
     ignore_case: bool,
     depth: usize,
 ) -> core::fmt::Result {
-    if choices.is_empty() && accepted_choices.is_empty() {
+    if choices.is_empty() && accepted_choices.is_empty() && details.is_empty() {
         return Ok(());
     }
     indent(out, depth)?;
     out.push_str("choices");
     if ignore_case {
         out.push_str(" ignore_case=#true");
+    }
+
+    if !details.is_empty() {
+        out.push_str(" {\n");
+        let is_alias = |value: &str| {
+            aliases.iter().any(|(_, alias)| *alias == value)
+                || details
+                    .iter()
+                    .flat_map(|choice| choice.aliases)
+                    .any(|alias| alias.value == value)
+        };
+        let mut canonicals = std::vec::Vec::new();
+        for value in choices
+            .iter()
+            .chain(aliases.iter().map(|(canonical, _)| canonical))
+            .chain(accepted_choices.iter())
+            .chain(details.iter().map(|choice| &choice.value))
+        {
+            if !is_alias(value) && !canonicals.contains(value) {
+                canonicals.push(*value);
+            }
+        }
+        for value in canonicals {
+            let detail = details.iter().find(|choice| choice.value == value);
+            indent(out, depth + 1)?;
+            write!(out, "choice {}", quoted(value))?;
+            if let Some(help) = detail.and_then(|choice| choice.help) {
+                write!(out, " help={}", quoted(help))?;
+            }
+            if detail.is_some_and(|choice| choice.hide) || !choices.contains(&value) {
+                out.push_str(" hide=#true");
+            }
+            let fallback_aliases: std::vec::Vec<ChoiceAliasMeta<'_>> = aliases
+                .iter()
+                .filter_map(|(canonical, alias)| {
+                    (*canonical == value).then_some(ChoiceAliasMeta {
+                        value: alias,
+                        hide: !choices.contains(alias),
+                    })
+                })
+                .collect();
+            let choice_aliases = detail
+                .map(|choice| choice.aliases)
+                .unwrap_or(&fallback_aliases);
+            if choice_aliases.is_empty() {
+                out.push('\n');
+                continue;
+            }
+            out.push_str(" {\n");
+            for alias in choice_aliases {
+                indent(out, depth + 2)?;
+                write!(out, "alias {}", quoted(alias.value))?;
+                if alias.hide {
+                    out.push_str(" hide=#true");
+                }
+                out.push('\n');
+            }
+            indent(out, depth + 1)?;
+            out.push_str("}\n");
+        }
+        indent(out, depth)?;
+        out.push_str("}\n");
+        return Ok(());
     }
 
     let has_hidden_accepted = accepted_choices
@@ -1904,7 +1986,23 @@ pub trait ValueEnum: Sized {
     const ACCEPTED_CHOICES: &'static [&'static str] = Self::CHOICES;
     /// Canonical-to-alias pairs, used by spec emission to retain the distinction.
     const ALIASES: &'static [(&'static str, &'static str)] = &[];
+    /// Presentation metadata for canonical values and aliases.
+    const DETAILS: &'static [ChoiceMeta<'static>] = &[];
     const IGNORE_CASE: bool = false;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChoiceMeta<'a> {
+    pub value: &'a str,
+    pub help: Option<&'a str>,
+    pub hide: bool,
+    pub aliases: &'a [ChoiceAliasMeta<'a>],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChoiceAliasMeta<'a> {
+    pub value: &'a str,
+    pub hide: bool,
 }
 
 pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool {
@@ -2222,6 +2320,7 @@ mod tests {
             &["shown", "short"],
             &["shown", "secret", "short", "secret-short"],
             &[("shown", "short"), ("shown", "secret-short")],
+            &[],
             false,
             0,
         )
@@ -2232,10 +2331,42 @@ mod tests {
         );
 
         out.clear();
-        write_choices(&mut out, &[], &["secret"], &[], false, 0).unwrap();
+        write_choices(&mut out, &[], &["secret"], &[], &[], false, 0).unwrap();
         assert_eq!(
             out, "choices {\n    choice \"secret\" hide=#true\n}\n",
             "an entirely hidden set must still be emitted"
+        );
+
+        out.clear();
+        write_choices(
+            &mut out,
+            &["plain", "shown", "short"],
+            &["plain", "shown", "short", "secret"],
+            &[("shown", "short")],
+            &[
+                ChoiceMeta {
+                    value: "shown",
+                    help: Some("Shown value"),
+                    hide: false,
+                    aliases: &[ChoiceAliasMeta {
+                        value: "short",
+                        hide: false,
+                    }],
+                },
+                ChoiceMeta {
+                    value: "secret",
+                    help: None,
+                    hide: true,
+                    aliases: &[],
+                },
+            ],
+            false,
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            out,
+            "choices {\n    choice \"plain\"\n    choice \"shown\" help=\"Shown value\" {\n        alias \"short\"\n    }\n    choice \"secret\" hide=#true\n}\n"
         );
     }
 

@@ -200,13 +200,14 @@ impl SpecChoices {
     }
 
     pub(crate) fn values_with_env(&self, env: Option<&HashMap<String, String>>) -> Vec<String> {
-        let mut values = self.visible_declared();
+        let values = self.visible_declared();
 
         #[cfg(not(feature = "unstable_choices_env"))]
         let _ = env;
 
         #[cfg(feature = "unstable_choices_env")]
-        {
+        let values = {
+            let mut values = values;
             if let Some(env_key) = self.env() {
                 let env_value = if let Some(env_map) = env {
                     env_map.get(env_key).cloned()
@@ -226,7 +227,8 @@ impl SpecChoices {
                     }
                 }
             }
-        }
+            values
+        };
 
         values
     }

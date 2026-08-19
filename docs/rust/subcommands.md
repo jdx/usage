@@ -152,9 +152,12 @@ For a flag or arg whose values are a fixed set of words, derive `ValueEnum` inst
 ```rust
 #[derive(usage::ValueEnum)]
 enum Shell {
+    /// Bourne Again shell
+    #[value(visible_alias = "b")]
     Bash,
+    #[value(alias = "shell-z", hide = true)]
     Zsh,
-    #[usage(name = "pwsh")]
+    #[value(name = "pwsh", help = "PowerShell")]
     PowerShell,
 }
 
@@ -166,9 +169,14 @@ struct Completion {
 }
 ```
 
-Variant names kebab-case into the accepted words. The derive also implements `FromStr`, whose
-error lists the valid words. One limitation: a single variant cannot be `cfg`-ed out (the word
-list is a `const`) — put the `cfg` on the whole enum.
+Variant names kebab-case into the accepted words. A doc comment supplies per-value help;
+`help` overrides it, `hide` keeps a value accepted without advertising it, `alias` adds a
+hidden spelling, and `visible_alias` advertises the alternate spelling. Plural alias attributes
+accept lists. `#[usage(ignore_case)]` applies to the whole enum, and `cfg`-gated variants remain
+gated in every generated metadata table.
+
+The type still implements its own `FromStr`: `ValueEnum` owns the portable CLI metadata and
+does not replace domain parsing.
 
 ## Mounts and restart tokens
 

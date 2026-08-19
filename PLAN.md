@@ -444,13 +444,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 
 **Changes what a CLI accepts, less sharply**
 
-- [ ] **The full `PossibleValue` model** — `ignore_case`, aliases and their
+- [x] **The full `PossibleValue` model** — `ignore_case`, aliases and their
       visibility, per-value help, and hidden values. Subcommand variants take
       aliases. The KDL model, usage-lib parser, and clap bridge now preserve this
       metadata. Generated Go tables distinguish accepted aliases and hidden values from
-      the visible diagnostic/help list and honor `ignore_case`; Rust `ValueEnum` accepts
-      aliases and case-insensitive values. Carrying per-value help and visibility through
-      Rust's static metadata is the remaining work before this item is complete.
+      the visible diagnostic/help list and honor `ignore_case`; Rust `ValueEnum` now
+      carries doc-comment or explicit help, hidden canonical values, hidden `alias`,
+      visible `visible_alias`, and case-insensitive matching through its static metadata
+      and lossless KDL emission.
 - [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
       suggest what was probably meant but do not accept it.
 - [x] **`external_subcommand`** — an unmatched word is forwarded with the rest
