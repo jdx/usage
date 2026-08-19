@@ -310,6 +310,7 @@ impl CompleteWord {
                 let mut flags = f
                     .long
                     .iter()
+                    .filter(|long| !f.hidden_aliases.contains(long))
                     .map(|l| (format!("--{l}"), f.help.clone().unwrap_or_default()))
                     .collect::<Vec<_>>();
                 if let Some(negate) = &f.negate {
@@ -334,7 +335,11 @@ impl CompleteWord {
         flags
             .values()
             .filter(|f| !f.hide)
-            .flat_map(|f| &f.short)
+            .flat_map(|f| {
+                f.short
+                    .iter()
+                    .filter(|short| !f.hidden_short_aliases.contains(short))
+            })
             .unique()
             .filter(|c| cur.is_none() || cur == Some(**c))
             // TODO: get flag description

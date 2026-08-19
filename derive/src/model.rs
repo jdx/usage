@@ -382,6 +382,8 @@ fn value_hint(meta: &Meta) -> syn::Result<String> {
 pub enum Kind {
     Flag {
         longs: Vec<String>,
+        /// Long aliases accepted by the parser but omitted from help and completion.
+        hidden_longs: Vec<String>,
         shorts: Vec<char>,
         negate: Option<String>,
         global: bool,
@@ -1581,6 +1583,7 @@ impl Field {
         let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
         let mut visible_long_aliases: Vec<String> = Vec::new();
+        let mut hidden_longs: Vec<String> = Vec::new();
         let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
         let mut bare_shorts = 0usize;
@@ -1662,11 +1665,11 @@ impl Field {
                         );
                     }
                     "alias" | "aliases" => {
-                        return Err(syn::Error::new_spanned(
-                            &meta,
-                            "clap's `alias` is hidden from help, while an additional usage \
-                             `long` is visible; hidden flag aliases are not representable yet",
-                        ));
+                        hidden_longs.extend(
+                            selectors(&meta)?
+                                .into_iter()
+                                .map(|name| strip_dashes(&name)),
+                        );
                     }
                     // Resolved after the loop, for the same reason a bare `long` is:
                     // `short` written before `name = "…"` would otherwise take the
@@ -2292,8 +2295,12 @@ impl Field {
                     "a negatable flag is on or off, so the field has to be `bool`",
                 ));
             }
+            // Hidden aliases still belong in the parse table, after advertised forms so
+            // the first long remains the canonical help spelling.
+            longs.extend(hidden_longs.iter().cloned());
             Kind::Flag {
                 longs,
+                hidden_longs,
                 shorts,
                 negate,
                 global,
@@ -4024,7 +4031,7 @@ mod tests {
         let cli = cli(r#"
             #[command(rename_all = "kebab-case")]
             struct Ex {
-                #[arg(id = "output", long, visible_aliases = ["out", "dest"])]
+                #[arg(id = "output", long, visible_aliases = ["out", "dest"], aliases = ["quietly", "silent-output"])]
                 path: Option<String>,
             }
         "#)
@@ -4032,10 +4039,19 @@ mod tests {
 
         let field = &cli.fields[0];
         assert_eq!(field.name, "output");
-        let Kind::Flag { longs, .. } = &field.kind else {
+        let Kind::Flag {
+            longs,
+            hidden_longs,
+            ..
+        } = &field.kind
+        else {
             panic!("long should make this a flag");
         };
-        assert_eq!(longs, &["output", "out", "dest"]);
+        assert_eq!(
+            longs,
+            &["output", "out", "dest", "quietly", "silent-output"]
+        );
+        assert_eq!(hidden_longs, &["quietly", "silent-output"]);
     }
 
     #[test]
@@ -4074,16 +4090,6 @@ mod tests {
 
     #[test]
     fn lossy_clap_field_spellings_get_migration_diagnostics() {
-        let hidden = rejection(
-            r#"
-            struct Ex {
-                #[arg(long, alias = "quietly")]
-                output: Option<String>,
-            }
-        "#,
-        );
-        assert!(hidden.contains("hidden flag aliases"), "{hidden}");
-
         let arity = rejection(
             r#"
             struct Ex {

@@ -1147,6 +1147,9 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
         }
         let description = meta.and_then(|m| m.help);
         for long in flag.longs {
+            if meta.is_some_and(|m| m.hidden_longs.contains(long)) {
+                continue;
+            }
             let value = format!("--{long}");
             if value.starts_with(token) {
                 out.push(Candidate {

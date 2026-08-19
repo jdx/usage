@@ -90,8 +90,14 @@ pub struct SpecFlag {
     pub help_first_line: Option<String>,
     /// Short flag characters (e.g., 'v' for -v)
     pub short: Vec<char>,
+    /// Short aliases accepted by parsing but omitted from help and completion.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hidden_short_aliases: Vec<char>,
     /// Long flag names (e.g., "verbose" for --verbose)
     pub long: Vec<String>,
+    /// Long aliases accepted by parsing but omitted from help and completion.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hidden_aliases: Vec<String>,
     /// Whether this flag must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
@@ -354,6 +360,46 @@ impl SpecFlag {
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
                 }
+                "alias" => {
+                    let hide = child
+                        .get("hide")
+                        .map(|entry| entry.ensure_bool())
+                        .unwrap_or(Ok(false))?;
+                    for entry in child.ensure_arg_len(1..)?.args() {
+                        let spelling = entry.ensure_string()?;
+                        if let Some(long) = spelling.strip_prefix("--") {
+                            if !flag.long.iter().any(|existing| existing == long) {
+                                flag.long.push(long.to_string());
+                            }
+                            if hide && !flag.hidden_aliases.iter().any(|existing| existing == long)
+                            {
+                                flag.hidden_aliases.push(long.to_string());
+                            }
+                        } else if let Some(short) = spelling.strip_prefix('-') {
+                            let mut chars = short.chars();
+                            let Some(short) = chars.next().filter(|_| chars.next().is_none())
+                            else {
+                                bail_parse!(
+                                    ctx,
+                                    entry.entry.span(),
+                                    "a short flag alias must be exactly one character"
+                                );
+                            };
+                            if !flag.short.contains(&short) {
+                                flag.short.push(short);
+                            }
+                            if hide && !flag.hidden_short_aliases.contains(&short) {
+                                flag.hidden_short_aliases.push(short);
+                            }
+                        } else {
+                            bail_parse!(
+                                ctx,
+                                entry.entry.span(),
+                                "flag aliases must begin with - or --"
+                            );
+                        }
+                    }
+                }
                 "conflicts" => {
                     flag.conflicts = child
                         .ensure_arg_len(1..)?
@@ -549,13 +595,31 @@ impl From<&SpecFlag> for KdlNode {
         let name = flag
             .short
             .iter()
+            .filter(|short| !flag.hidden_short_aliases.contains(short))
             .map(|c| format!("-{c}"))
-            .chain(flag.long.iter().map(|s| format!("--{s}")))
+            .chain(
+                flag.long
+                    .iter()
+                    .filter(|long| !flag.hidden_aliases.contains(long))
+                    .map(|s| format!("--{s}")),
+            )
             .collect_vec()
             .join(" ");
         node.push(KdlEntry::new(name));
         if let Some(desc) = &flag.help {
             node.push(string_entry(Some("help"), desc));
+        }
+        if !flag.hidden_aliases.is_empty() || !flag.hidden_short_aliases.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut aliases = KdlNode::new("alias");
+            for alias in &flag.hidden_short_aliases {
+                aliases.push(string_entry(None, &format!("-{alias}")));
+            }
+            for alias in &flag.hidden_aliases {
+                aliases.push(string_entry(None, &format!("--{alias}")));
+            }
+            aliases.push(KdlEntry::new_prop("hide", true));
+            children.nodes_mut().push(aliases);
         }
         if let Some(desc) = &flag.help_long {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -774,13 +838,30 @@ impl From<&clap::Arg> for SpecFlag {
             clap::ArgAction::Count | clap::ArgAction::Append
         );
         let default: Vec<String> = crate::spec::arg::default_values(c);
-        let short = c.get_short_and_visible_aliases().unwrap_or_default();
-        let long = c
+        let mut short = c.get_short_and_visible_aliases().unwrap_or_default();
+        let visible_short = short.clone();
+        let hidden_short_aliases = c
+            .get_all_short_aliases()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|alias| !visible_short.contains(alias))
+            .collect::<Vec<_>>();
+        short.extend(hidden_short_aliases.iter().copied());
+        let mut long = c
             .get_long_and_visible_aliases()
             .unwrap_or_default()
             .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
+        let visible_long = long.clone();
+        let hidden_aliases = c
+            .get_all_aliases()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|alias| !visible_long.iter().any(|visible| visible == alias))
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        long.extend(hidden_aliases.iter().cloned());
         let name = get_name_from_short_and_long(&short, &long).unwrap_or_default();
         let arg = if let clap::ArgAction::Set | clap::ArgAction::Append = c.get_action() {
             let mut arg = SpecArg::from(
@@ -837,7 +918,9 @@ impl From<&clap::Arg> for SpecFlag {
             name,
             usage: "".into(),
             short,
+            hidden_short_aliases,
             long,
+            hidden_aliases,
             required,
             required_if: vec![],
             required_unless: vec![],
@@ -976,6 +1059,50 @@ mod tests {
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+    }
+
+    #[test]
+    fn hidden_aliases_parse_bind_and_round_trip_without_becoming_visible() {
+        let spec: Spec =
+            "flag \"-o --output <file>\" {\n  alias \"-q\" \"--quietly\" hide=#true\n}\n"
+                .parse()
+                .unwrap();
+        let flag = &spec.cmd.flags[0];
+        assert_eq!(flag.short, ['o', 'q']);
+        assert_eq!(flag.long, ["output", "quietly"]);
+        assert_eq!(flag.hidden_short_aliases, ['q']);
+        assert_eq!(flag.hidden_aliases, ["quietly"]);
+
+        let emitted = spec.to_string();
+        assert!(emitted.contains("flag \"-o --output\""), "{emitted}");
+        assert!(!emitted.contains("flag \"-o -q"), "{emitted}");
+        assert!(
+            emitted.contains("alias \"-q\" \"--quietly\" hide=#true"),
+            "{emitted}"
+        );
+        let reparsed: Spec = emitted.parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].short, flag.short);
+        assert_eq!(reparsed.cmd.flags[0].long, flag.long);
+        assert_eq!(
+            reparsed.cmd.flags[0].hidden_short_aliases,
+            flag.hidden_short_aliases
+        );
+        assert_eq!(reparsed.cmd.flags[0].hidden_aliases, flag.hidden_aliases);
+
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("output")
+                .short('o')
+                .short_alias('q')
+                .long("output")
+                .visible_alias("out")
+                .alias("quietly"),
+        );
+        let bridged = Spec::from(&cmd);
+        let flag = &bridged.cmd.flags[0];
+        assert_eq!(flag.short, ['o', 'q']);
+        assert_eq!(flag.hidden_short_aliases, ['q']);
+        assert_eq!(flag.long, ["output", "out", "quietly"]);
+        assert_eq!(flag.hidden_aliases, ["quietly"]);
     }
 
     #[test]

@@ -146,7 +146,12 @@ impl<'a> Shown<'a> {
     /// Everything the flag has, for a command's own flags — nothing above them to claim any.
     fn all(meta: &'a FlagMeta<'a>) -> Self {
         Shown {
-            long: meta.flag.longs.first().copied(),
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|long| !meta.hidden_longs.contains(long)),
             short: meta.flag.shorts.first().copied(),
             negate: meta.flag.negate.is_some(),
         }
@@ -176,7 +181,7 @@ impl<'a> Shown<'a> {
                 .longs
                 .iter()
                 .copied()
-                .find(|l| !taken.contains(&format!("--{l}"))),
+                .find(|l| !meta.hidden_longs.contains(l) && !taken.contains(&format!("--{l}"))),
             short: meta
                 .flag
                 .shorts
@@ -534,7 +539,8 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
 pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
     meta.flag
         .longs
-        .first()
+        .iter()
+        .find(|long| !meta.hidden_longs.contains(long))
         .map(|long| format!("--{long}"))
         .or_else(|| {
             meta.flag

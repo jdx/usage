@@ -628,7 +628,7 @@ feature list is not an exhaustive audit.
       const word list refused holes. ValueEnum now describes choices without
       taking ownership of domain parsing, and copies variant `cfg`/`cfg_attr`
       attributes onto the corresponding static-table entries.
-- [ ] **Clap-compatible field spellings and IDs.** Multiple `long` and `short`
+- [x] **Clap-compatible field spellings and IDs.** Multiple `long` and `short`
       entries express flag aliases in usage, but real migrations still have to
       rewrite clap's `alias` / `visible_alias`, `id`, `num_args`, `value_parser`
       and `rename_all` vocabulary before the derive can explain the semantic
@@ -642,10 +642,10 @@ feature list is not an exhaustive audit.
       `Cli` and named `Args` fields now accept `#[arg(...)]` directly, `id` maps
       losslessly to the usage field identity, `visible_alias` / `visible_aliases`
       become advertised long forms, and the default `rename_all = "kebab-case"`
-      can remain on the command. Hidden `alias` / `aliases`, non-default casing,
-      `num_args`, and `value_parser` now produce targeted migration diagnostics
-      instead of a generic unknown-option error. Hidden flag alias representation
-      remains before this item can close.
+      can remain on the command. Hidden `alias` / `aliases` retain their parse-only
+      visibility through KDL, Rust and Go tables, help, completion, and the clap
+      bridge. Non-default casing, `num_args`, and `value_parser` produce targeted
+      migration diagnostics instead of a generic unknown-option error.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
       shell-native completion types. A forwarded argv vector offers commands for

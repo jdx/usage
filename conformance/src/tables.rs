@@ -305,6 +305,7 @@ fn flag_meta(
     let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
+        hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
         value_name: arg.map(|a| leak(&a.name)),

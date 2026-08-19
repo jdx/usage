@@ -71,7 +71,12 @@ struct PositionalRelations {
 #[derive(Cli)]
 #[command(bin = "clap-spellings", rename_all = "kebab-case")]
 struct ClapSpellings {
-    #[arg(id = "output", long, visible_aliases = ["out", "dest"])]
+    #[arg(
+        id = "output",
+        long,
+        visible_aliases = ["out", "dest"],
+        aliases = ["quietly", "silent-output"]
+    )]
     path: Option<String>,
 }
 
@@ -545,8 +550,14 @@ fn positional_relationships_parse_and_emit_losslessly() {
 }
 
 #[test]
-fn clap_field_ids_and_visible_aliases_need_no_rewrite() {
-    for spelling in ["--output", "--out", "--dest"] {
+fn clap_field_ids_and_aliases_need_no_rewrite() {
+    for spelling in [
+        "--output",
+        "--out",
+        "--dest",
+        "--quietly",
+        "--silent-output",
+    ] {
         let parsed = ClapSpellings::parse_from(&[OsStr::new(spelling), OsStr::new("file")])
             .expect("every visible alias should parse");
         assert_eq!(parsed.path.as_deref(), Some("file"));
@@ -554,6 +565,11 @@ fn clap_field_ids_and_visible_aliases_need_no_rewrite() {
 
     let kdl = ClapSpellings::to_kdl();
     assert!(kdl.contains("--output --out --dest"), "{kdl}");
+    assert!(!kdl.contains("--dest --quietly"), "{kdl}");
+    assert!(
+        kdl.contains("alias \"--quietly\" \"--silent-output\" hide=#true"),
+        "{kdl}"
+    );
 }
 
 #[test]

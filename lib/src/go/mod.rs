@@ -1140,6 +1140,12 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
             .join(", ");
         fields.push(format!("Longs: []string{{{longs}}}"));
     }
+    if !flag.hidden_aliases.is_empty() {
+        fields.push(format!(
+            "HiddenLongs: {}",
+            string_slice(&flag.hidden_aliases)
+        ));
+    }
     if !flag.short.is_empty() {
         let shorts = flag
             .short
@@ -1148,6 +1154,15 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
             .collect::<Vec<_>>()
             .join(", ");
         fields.push(format!("Shorts: []byte{{{shorts}}}"));
+    }
+    if !flag.hidden_short_aliases.is_empty() {
+        let shorts = flag
+            .hidden_short_aliases
+            .iter()
+            .map(|c| go_byte(*c))
+            .collect::<Vec<_>>()
+            .join(", ");
+        fields.push(format!("HiddenShorts: []byte{{{shorts}}}"));
     }
     if let Some(negate) = &flag.negate {
         // The spec stores the negation with its dashes; the table wants the bare
