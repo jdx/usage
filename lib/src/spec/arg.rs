@@ -228,7 +228,11 @@ impl SpecArg {
                 "var_max" => arg.var_max = child.arg(0)?.ensure_usize().map(Some)?,
                 "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
                 "conflicts" => {
-                    arg.conflicts.push(child.arg(0)?.ensure_string()?);
+                    arg.conflicts = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
                 }
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
@@ -317,8 +321,15 @@ impl From<&SpecArg> for KdlNode {
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
         }
-        for conflict in &arg.conflicts {
-            node.push(string_entry(Some("conflicts"), conflict));
+        if arg.conflicts.len() == 1 {
+            node.push(string_entry(Some("conflicts"), &arg.conflicts[0]));
+        } else if !arg.conflicts.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut conflicts = KdlNode::new("conflicts");
+            for target in &arg.conflicts {
+                conflicts.push(string_entry(None, target));
+            }
+            children.nodes_mut().push(conflicts);
         }
         // Serialize default values
         if !arg.default.is_empty() {
@@ -1047,5 +1058,20 @@ arg "<input>" {
             input_arg.help_long,
             Some("Extended help text for input".to_string())
         );
+    }
+
+    #[test]
+    fn positional_conflicts_round_trip_without_dropping_members() {
+        let spec: Spec = "arg \"[VALUE]\" { conflicts \"--from-file\" \"--stdin\" }\n"
+            .parse()
+            .unwrap();
+        assert_eq!(
+            spec.cmd.args[0].conflicts,
+            vec!["--from-file".to_string(), "--stdin".to_string()]
+        );
+
+        let rendered = spec.to_string();
+        let reparsed: Spec = rendered.parse().unwrap();
+        assert_eq!(reparsed.cmd.args[0].conflicts, spec.cmd.args[0].conflicts);
     }
 }

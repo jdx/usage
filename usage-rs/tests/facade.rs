@@ -62,8 +62,10 @@ struct InlineEx {
 struct PositionalRelations {
     #[usage(long, conflicts = "value", group = "input")]
     from_file: Option<String>,
-    #[usage(conflicts = "--from-file", group = "input")]
+    #[usage(conflicts("--from-file", "--stdin"), group = "input")]
     value: Option<String>,
+    #[usage(long)]
+    stdin: bool,
 }
 
 #[derive(ValueEnum)]
@@ -502,6 +504,7 @@ fn positional_relationships_parse_and_emit_losslessly() {
         PositionalRelations::parse_from(&[OsStr::new("--from-file"), OsStr::new("vars.env")])
             .expect("the flag satisfies the group");
     assert_eq!(from_file.from_file.as_deref(), Some("vars.env"));
+    assert!(!from_file.stdin);
 
     let positional = PositionalRelations::parse_from(&[OsStr::new("literal")])
         .expect("the positional satisfies the group");
@@ -516,7 +519,7 @@ fn positional_relationships_parse_and_emit_losslessly() {
 
     let kdl = PositionalRelations::to_kdl();
     assert!(
-        kdl.contains("arg \"[VALUE]\" conflicts=\"--from-file\""),
+        kdl.contains("conflicts \"--from-file\" \"--stdin\""),
         "{kdl}"
     );
     assert!(

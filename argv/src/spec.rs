@@ -1460,8 +1460,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.hide {
         out.push_str(" hide=#true");
     }
-    for conflict in meta.conflicts {
-        write!(out, " conflicts={}", quoted(conflict))?;
+    if meta.conflicts.len() == 1 {
+        write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
     }
     if meta.count {
         out.push_str(" count=#true");
@@ -1685,7 +1685,8 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         || !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
         || !meta.choice_details.is_empty()
-        || meta.default.len() > 1;
+        || meta.default.len() > 1
+        || meta.conflicts.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1696,6 +1697,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    if meta.conflicts.len() > 1 {
+        indent(out, inner)?;
+        out.push_str("conflicts");
+        for conflict in meta.conflicts {
+            write!(out, " {}", quoted(conflict))?;
+        }
+        out.push('\n');
     }
     write_many_defaults(out, meta.default, inner)?;
     write_choices(
