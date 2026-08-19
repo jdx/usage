@@ -17,6 +17,8 @@ struct Ex {
     verbose: bool,
     #[usage(long)]
     verify: bool,
+    #[usage(long, negate = "--no-color")]
+    color: bool,
     #[usage(subcommand)]
     command: Option<Commands>,
 }
@@ -75,6 +77,11 @@ fn the_typed_parser_accepts_only_unique_prefixes() {
     assert!(verbose.verbose);
     assert!(!verbose.verify);
 
+    let color = Ex::parse_from(&argv(["--col"])).expect("a positive prefix should enable");
+    assert!(color.color);
+    let color = Ex::parse_from(&argv(["--no-col"])).expect("a negated prefix should disable");
+    assert!(!color.color);
+
     let exact = Ex::parse_from(&argv(["install"])).expect("exact names still outrank prefixes");
     assert!(matches!(exact.command, Some(Commands::Install(_))));
 }
@@ -92,4 +99,20 @@ fn emitted_kdl_gives_usage_lib_the_same_policy() {
 
     assert!(usage::parse::parse(&spec, &words(["ex", "ins"])).is_err());
     assert!(usage::parse::parse(&spec, &words(["ex", "--ver"])).is_err());
+
+    let positive = usage::parse::parse(&spec, &words(["ex", "--col"]))
+        .expect("a positive prefix should enable");
+    assert!(matches!(
+        positive
+            .flags
+            .values()
+            .find(|value| matches!(value, usage::parse::ParseValue::Bool(true))),
+        Some(usage::parse::ParseValue::Bool(true))
+    ));
+    let negative = usage::parse::parse(&spec, &words(["ex", "--no-col"]))
+        .expect("a negated prefix should disable");
+    assert!(negative
+        .flags
+        .values()
+        .any(|value| matches!(value, usage::parse::ParseValue::Bool(false))));
 }

@@ -251,15 +251,15 @@ fn resolve_long_flag(
     available: &BTreeMap<String, Arc<SpecFlag>>,
     word: &str,
     infer: bool,
-) -> Option<Arc<SpecFlag>> {
+) -> Option<(Arc<SpecFlag>, bool)> {
     let key = get_flag_key(word);
     if let Some(exact) = available.get(key) {
-        return Some(Arc::clone(exact));
+        return Some((Arc::clone(exact), exact.negate.as_deref() == Some(key)));
     }
     if !infer || !key.starts_with("--") || key.len() == 2 {
         return None;
     }
-    let mut found: Option<Arc<SpecFlag>> = None;
+    let mut found: Option<(Arc<SpecFlag>, bool)> = None;
     for (candidate, flag) in available {
         if !candidate.starts_with("--") {
             continue;
@@ -267,13 +267,18 @@ fn resolve_long_flag(
         if !candidate.starts_with(key) {
             continue;
         }
-        if found
-            .as_ref()
-            .is_some_and(|prior| !Arc::ptr_eq(prior, flag))
-        {
-            return None;
+        let negated = flag.negate.as_deref() == Some(candidate.as_str());
+        if let Some((prior, prior_negated)) = &mut found {
+            if !Arc::ptr_eq(prior, flag) {
+                return None;
+            }
+            // Several aliases of one declaration are one match. If both a positive and
+            // negative spelling share the prefix, the positive form wins, matching the
+            // static Rust and Go parsers.
+            *prior_negated &= negated;
+        } else {
+            found = Some((Arc::clone(flag), negated));
         }
-        found = Some(Arc::clone(flag));
     }
     found
 }
@@ -829,6 +834,7 @@ fn parse_partial_with_env(
             let infer_long_args = out.cmds.iter().any(|cmd| cmd.infer_long_args);
             if let Some(f) = (if word.starts_with("--") {
                 resolve_long_flag(&out.available_flags, &word, infer_long_args)
+                    .map(|(flag, _)| flag)
             } else {
                 out.available_flags.get(flag_key).cloned()
             })
@@ -1070,17 +1076,16 @@ fn parse_partial_with_env(
             // the flag entirely.
             let split = w.split_once('=');
             let word = split.map(|(word, _)| word).unwrap_or(&w);
-            let inferred = binding
-                .is_none()
-                .then(|| {
-                    resolve_long_flag(
-                        &out.available_flags,
-                        word,
-                        out.cmds.iter().any(|cmd| cmd.infer_long_args),
-                    )
-                })
-                .flatten();
-            if let Some(f) = binding.as_ref().or(inferred.as_ref()) {
+            // Resolve even when Phase 1 already carried the flag binding forward: a binding
+            // identifies the declaration, but an inferred negation also has to preserve which
+            // spelling matched.
+            let resolved = resolve_long_flag(
+                &out.available_flags,
+                word,
+                out.cmds.iter().any(|cmd| cmd.infer_long_args),
+            );
+            let resolved_flag = resolved.as_ref().map(|(flag, _)| flag);
+            if let Some(f) = binding.as_ref().or(resolved_flag) {
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1134,13 +1139,15 @@ fn parse_partial_with_env(
                         .unwrap();
                     arr.push(true);
                 } else {
-                    let negate = f.negate.clone().unwrap_or_default();
-                    // Which form was typed is a question about the name, so it is
-                    // asked of `word` rather than the whole token: the attached value
-                    // is dropped just above, and comparing `--no-color=yes` against
-                    // `--no-color` would take the negation down with it.
-                    out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(word != negate));
+                    let negated = resolved
+                        .as_ref()
+                        .filter(|(resolved, _)| Arc::ptr_eq(resolved, f))
+                        .map(|(_, negated)| *negated)
+                        .unwrap_or_else(|| f.negate.as_deref() == Some(word));
+                    // Exact bindings can compare the typed form. Inferred bindings carry
+                    // which form matched, because a prefix is deliberately not equal to the
+                    // full negation spelling.
+                    out.flags.insert(Arc::clone(f), ParseValue::Bool(!negated));
                 }
                 continue;
             }
