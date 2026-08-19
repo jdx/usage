@@ -657,6 +657,13 @@ feature list is not an exhaustive audit.
       tier (and hk currently declares Rust 1.88). Provide a static metadata hook,
       a lightweight spec-editing surface, or an explicit release policy before
       claiming these migrations are mergeable.
+- [ ] **Keep generated-spec producers and consumers on one dialect.** A derive
+      pinned to the 6.x stack can emit nodes such as `unknown_flags` that the
+      released 5.x `usage` binary in an adopter's docs task cannot read. The
+      communique experiment had to build a second git-pinned `usage-cli` just to
+      render the KDL emitted by its Rust dependency. Define a supported way to
+      install matching pre-release tooling (and make version diagnostics name the
+      required dialect) so a migration does not silently combine two revisions.
 - [ ] **Runtime program identity.** aube embeds the same CLI under a caller-chosen
       binary name. A derived spec can be rewritten after emission, but parser
       help and diagnostics still use the static name. Support a runtime identity
