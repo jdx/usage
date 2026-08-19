@@ -822,27 +822,27 @@ looking at the clap surface, not only at the spec.
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
 - [x] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
-  shadows.** `gen-shadow`
-  types every field as `String`. The derive already holds `PathBuf`,
-  `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
-  proves that for usage's own types. These five will prove it across real
-  clap CLIs rewritten in place: real field types, skip-fields or the split
-  they force, and binaries that preserve every pre-existing `--help` and
-  spec-emission entry point. tak's experiment-only spec entry point is tested
-  as new behavior rather than compared with a nonexistent baseline. Each
-  experiment is a ready-for-review PR whose `Cargo.toml`
-  deliberately points at usage's git revision; the PR is evidence for the
-  6.x gate, not something to merge before usage 6.x is published. Together
-  they tell us whether the fleet is a rewrite or a set of blocked rewrites.
-  **The experiment PRs now exist and all five modify the real CLI:**
-  jdx/communique#265, jdx/tak#47, jdx/aube#1336, jdx/hk#1211 and
-  jdx/fnox#725 all remove clap, compile against the stacked usage changes and
-  pass their migrated test suites. The ports preserve their typed domain
-  values rather than lowering to String, keep intentional forwarding behavior,
-  and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
-  the root because its external-subcommand path is a package-manager forwarder.
-  All five pin the experiment stack at `88786493`. The workarounds they still
-  contain are the unchecked launch-gate rows above, not unfinished conversions.
+      shadows.** `gen-shadow`
+      types every field as `String`. The derive already holds `PathBuf`,
+      `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
+      proves that for usage's own types. These five will prove it across real
+      clap CLIs rewritten in place: real field types, skip-fields or the split
+      they force, and binaries that preserve every pre-existing `--help` and
+      spec-emission entry point. tak's experiment-only spec entry point is tested
+      as new behavior rather than compared with a nonexistent baseline. Each
+      experiment is a ready-for-review PR whose `Cargo.toml`
+      deliberately points at usage's git revision; the PR is evidence for the
+      6.x gate, not something to merge before usage 6.x is published. Together
+      they tell us whether the fleet is a rewrite or a set of blocked rewrites.
+      **The experiment PRs now exist and all five modify the real CLI:**
+      jdx/communique#265, jdx/tak#47, jdx/aube#1336, jdx/hk#1211 and
+      jdx/fnox#725 all remove clap, compile against the stacked usage changes and
+      pass their migrated test suites. The ports preserve their typed domain
+      values rather than lowering to String, keep intentional forwarding behavior,
+      and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
+      the root because its external-subcommand path is a package-manager forwarder.
+      All five pin the experiment stack at `88786493`. The workarounds they still
+      contain are the unchecked launch-gate rows above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -885,13 +885,13 @@ a prerequisite for trying a CLI.
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
 - [x] **communique, tak, aube, hk, and fnox** — five ready-for-review fleet
-  experiment PRs parse their real typed commands with usage, remove clap and
-  pass locally. They deliberately retain a git dependency and are evidence for
-  the 6.x gate rather than merge candidates before publication. tak's added
-  spec endpoint is experiment-only and outside its preserved CLI contract.
-  The gaps found are recorded in the general launch gate above; closing the
-  merge-blocking rows is required before publishing 6.x and converting these
-  experiments into release-dependency PRs.
+      experiment PRs parse their real typed commands with usage, remove clap and
+      pass locally. They deliberately retain a git dependency and are evidence for
+      the 6.x gate rather than merge candidates before publication. tak's added
+      spec endpoint is experiment-only and outside its preserved CLI contract.
+      The gaps found are recorded in the general launch gate above; closing the
+      merge-blocking rows is required before publishing 6.x and converting these
+      experiments into release-dependency PRs.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
       parsers. Adoption is measured by what it lets mise delete, listed below.
