@@ -286,6 +286,24 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .or(cli.version.as_ref())
         .cloned()
         .unwrap_or_else(|| quote!(""));
+    let help_spec = if cli.runtime_version.is_some() {
+        quote! {
+            // The portable spec keeps `version_spec`; this process's help must agree with
+            // the computed version printed by `--version`. The owned string lives for the
+            // whole render and is allocated only on this cold help path.
+            let __usage_runtime_version =
+                ::std::string::ToString::to_string(&(#runtime_version));
+            let __usage_runtime_spec = usage_argv::spec::Spec {
+                version: ::std::option::Option::Some(__usage_runtime_version.as_str()),
+                ..*Self::spec()
+            };
+            let __usage_spec = &__usage_runtime_spec;
+        }
+    } else {
+        quote! {
+            let __usage_spec = Self::spec();
+        }
+    };
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -574,6 +592,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             ::std::process::exit(0);
                         }
                         ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
+                            #help_spec
                             // By the route the words took, not by the command's address: one
                             // `Subcommands` type mounted under two parents is one address, and a
                             // page found by searching for it carries the first mount's path and
@@ -584,10 +603,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 cmd,
                             ) {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_at(Self::spec(), &route, long)
+                                    usage_argv::help::render_at(__usage_spec, &route, long)
                                 }
                                 ::std::option::Option::None => {
-                                    usage_argv::help::render(Self::spec(), cmd, long)
+                                    usage_argv::help::render(__usage_spec, cmd, long)
                                 }
                             };
                             match __usage_page {
