@@ -42,7 +42,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `Args`                                           | yes      | yes      | yes | yes | yes    | yes    | Dedicated, unit, reused, nested, and flattened Args types are covered.                             |
 | `Subcommand`                                     | yes      | yes      | yes | yes | yes    | yes    | Bare, tuple, inline-struct, nested, boxed, aliases, and hidden aliases are covered.                |
 | `ValueEnum` / `PossibleValue`                    | yes      | yes      | yes | yes | yes    | yes    | Names, help, hide, visible/hidden aliases, cfg, and case-insensitive matching are preserved.       |
-| `flatten`                                        | yes      | yes      | yes | yes | lossy  | yes    | Parsing is composed; flattened `next_help_heading` topology is not preserved.                      |
+| `flatten`                                        | yes      | yes      | yes | yes | yes    | yes    | Parsing and flattened `next_help_heading` topology are composed.                                   |
 | `skip`                                           | yes      | yes      | n/a | n/a | n/a    | n/a    | `#[usage(skip)]` fills the field from `Default` and emits no argument.                             |
 | `from_global`                                    | no       | no       | no  | no  | no     | no     | A global flag is parsed on its declaring root type; copying it into another field is unsupported.  |
 | arbitrary `Command` / `Arg` builder code         | non-goal | non-goal | n/a | yes | yes    | lossy  | `usage-lib` is the dynamic API; the typed derive does not reproduce clap's builder API.            |

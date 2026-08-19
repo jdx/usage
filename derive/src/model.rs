@@ -114,6 +114,8 @@ pub struct Cli {
     /// `after_long_help` on 115 commands, and a page without it is missing what a reader came
     /// for. Nothing derives these from the code, so they are declared.
     pub before_help: Option<proc_macro2::TokenStream>,
+    /// Default help section for fields declared by this argument struct.
+    pub next_help_heading: Option<String>,
     pub before_long_help: Option<proc_macro2::TokenStream>,
     pub after_help: Option<proc_macro2::TokenStream>,
     pub after_long_help: Option<proc_macro2::TokenStream>,
@@ -526,6 +528,7 @@ impl Cli {
             about_attr: None,
             long_about_attr: None,
             before_help: None,
+            next_help_heading: None,
             before_long_help: None,
             after_help: None,
             after_long_help: None,
@@ -633,6 +636,7 @@ impl Cli {
                     "about" => cli.about_attr = Some(metadata_expr(&meta)?),
                     "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
+                    "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
                     "after_help" => cli.after_help = Some(metadata_expr(&meta)?),
                     "after_long_help" => cli.after_long_help = Some(metadata_expr(&meta)?),
@@ -691,7 +695,7 @@ impl Cli {
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `infer_subcommands`, \
-                                 `infer_long_args`, `restart_token`, `mount` and \
+                                 `infer_long_args`, `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
                             ),
@@ -743,6 +747,15 @@ impl Cli {
 
         for field in data.fields.iter() {
             cli.fields.push(Field::from_field(field)?);
+        }
+        if let Some(heading) = &cli.next_help_heading {
+            for field in &mut cli.fields {
+                if matches!(field.kind, Kind::Flag { .. } | Kind::Arg { .. })
+                    && field.help_heading.is_none()
+                {
+                    field.help_heading = Some(heading.clone());
+                }
+            }
         }
         // A program is called what its binary is called, unless it says otherwise. The name
         // defaults to the struct's, and a struct is usually called `Cli` — so `bin =
@@ -5696,6 +5709,25 @@ mod tests {
             }
         "#)
         .expect("the composed partial resolves the target while binding");
+    }
+
+    #[test]
+    fn next_help_heading_defaults_each_direct_field() {
+        let cli = cli(r#"
+            #[command(next_help_heading = "Network")]
+            struct Ex {
+                #[arg(long)]
+                registry: Option<String>,
+                #[arg(long, help_heading = "Authentication")]
+                token: Option<String>,
+            }
+        "#)
+        .unwrap();
+        assert_eq!(cli.fields[0].help_heading.as_deref(), Some("Network"));
+        assert_eq!(
+            cli.fields[1].help_heading.as_deref(),
+            Some("Authentication")
+        );
     }
 
     #[test]

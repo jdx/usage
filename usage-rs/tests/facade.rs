@@ -113,6 +113,29 @@ struct FlattenedRelationships {
     shared: FlattenedRelationshipTargets,
 }
 
+#[derive(usage::Args)]
+#[command(next_help_heading = "Network")]
+#[allow(dead_code)]
+struct HeadedSharedArgs {
+    /// Registry URL.
+    #[arg(long)]
+    registry: Option<String>,
+    /// Authentication token.
+    #[arg(long, help_heading = "Authentication")]
+    token: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "headed-flatten")]
+#[allow(dead_code)]
+struct HeadedFlatten {
+    /// Ordinary root flag.
+    #[arg(long)]
+    verbose: bool,
+    #[usage(flatten)]
+    shared: HeadedSharedArgs,
+}
+
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
@@ -663,6 +686,33 @@ fn relationships_resolve_targets_inside_flattened_args() {
     assert!(kdl.contains("overrides=\"--nested\""), "{kdl}");
     assert!(kdl.contains("requires=\"--key\""), "{kdl}");
     assert!(kdl.contains("required_if=\"--json\""), "{kdl}");
+}
+
+#[test]
+fn flattened_args_keep_their_help_heading_topology() {
+    let spec = HeadedFlatten::spec();
+    let registry = spec
+        .root
+        .flags
+        .iter()
+        .find(|field| field.flag.name == "registry")
+        .unwrap();
+    let token = spec
+        .root
+        .flags
+        .iter()
+        .find(|field| field.flag.name == "token")
+        .unwrap();
+    assert_eq!(registry.help_heading, Some("Network"));
+    assert_eq!(token.help_heading, Some("Authentication"));
+
+    for long in [false, true] {
+        let help = usage::help::render(spec, spec.root.cmd, long).unwrap();
+        let ordinary = help.find("Flags:").unwrap();
+        let network = help.find("Network:").unwrap();
+        let authentication = help.find("Authentication:").unwrap();
+        assert!(ordinary < network && network < authentication, "{help}");
+    }
 }
 
 #[test]

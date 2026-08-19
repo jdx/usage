@@ -684,11 +684,12 @@ feature list is not an exhaustive audit.
       losing field's default/env suppression, and handles either token order. A
       matching event is identified by the flattened type's static tables, so nested
       flattening composes without allocation or a runtime command graph.
-- [ ] **Flattened help topology.** clap's `next_help_heading` and flattened flag
-      groups preserve meaningful sections in aube's long help. usage flattens the
-      fields but discards that struct-level heading, so a migration can preserve
-      parsing while silently degrading help. Define heading inheritance for a
-      flattened Args type and cover short/long help ordering in conformance.
+- [x] **Flattened help topology.** clap's `next_help_heading` and flattened flag
+      groups preserve meaningful sections in aube's long help. An Args-level
+      heading now becomes the default for each direct flag or positional while an
+      explicit field heading wins. Because flattened metadata tables retain those
+      headings, both short and long help keep unheaded and named sections in their
+      declaration order.
 - [x] **Facade-owned derive validation.** `usage-rs` exposes portable expression
       validation through its `validation` feature and the derive resolves that
       facade path when an application does not depend on `usage-validation`
