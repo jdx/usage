@@ -308,14 +308,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .unwrap_or_else(|| quote!(""));
     let runtime_name_decl = cli.runtime_name.as_ref().map(|runtime_name| {
         quote! {
-            let __usage_runtime_name =
-                ::std::string::ToString::to_string(&(#runtime_name));
+            let __usage_runtime_name: &'static str = #runtime_name;
         }
     });
     let runtime_bin_decl = cli.runtime_bin.as_ref().map(|runtime_bin| {
         quote! {
-            let __usage_runtime_bin =
-                ::std::string::ToString::to_string(&(#runtime_bin));
+            let __usage_runtime_bin: &'static str = #runtime_bin;
         }
     });
     let runtime_version_decl = cli.runtime_version.as_ref().map(|_| {
@@ -325,12 +323,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
         }
     });
     let effective_name = if cli.runtime_name.is_some() {
-        quote!(__usage_runtime_name.as_str())
+        quote!(__usage_runtime_name)
     } else {
         quote!(Self::spec().name)
     };
     let effective_bin = if cli.runtime_bin.is_some() {
-        quote!(::std::option::Option::Some(__usage_runtime_bin.as_str()))
+        quote!(::std::option::Option::Some(__usage_runtime_bin))
     } else {
         quote!(Self::spec().bin)
     };
@@ -371,9 +369,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|program| {
             quote! {
-                let __usage_runtime_program =
-                    ::std::string::ToString::to_string(&(#program));
-                let __usage_bin = __usage_runtime_program.as_str();
+                let __usage_bin: &'static str = #program;
             }
         })
         .unwrap_or_else(|| {
@@ -381,6 +377,19 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 let __usage_bin = Self::spec().bin.unwrap_or(Self::spec().name);
             }
         });
+    let runtime_name_view = cli.runtime_name.as_ref().map(|name| quote!(.name(#name)));
+    let runtime_bin_view = cli.runtime_bin.as_ref().map(|bin| quote!(.bin(#bin)));
+    let runtime_app = has_runtime_identity.then(|| {
+        quote! {
+            /// This CLI's cold-path view with its computed process identity applied.
+            ///
+            /// Runtime identity is required to be `&'static str`, so this borrows the
+            /// static metadata and allocates nothing.
+            pub fn runtime_app() -> usage_argv::spec::SpecView<'static> {
+                Self::app() #runtime_name_view #runtime_bin_view
+            }
+        }
+    });
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -613,6 +622,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     Self::spec().view()
                 }
 
+                #runtime_app
+
                 /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
                 /// and the completion generators read.
                 pub fn to_kdl() -> ::std::string::String {
@@ -824,9 +835,8 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         .or(cli.runtime_name.as_ref())
         .map(|program| {
             quote! {
-                let __usage_runtime_program =
-                    ::std::string::ToString::to_string(&(#program));
-                __usage_runtime_program
+                let __usage_runtime_program: &'static str = #program;
+                __usage_runtime_program.to_string()
             }
         })
         .unwrap_or_else(|| {

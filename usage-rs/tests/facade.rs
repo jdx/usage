@@ -502,6 +502,10 @@ fn runtime_program_identity_is_separate_from_the_portable_spec() {
     assert!(kdl.contains("name \"portable-ex\""), "{kdl}");
     assert!(kdl.contains("bin \"portable-ex\""), "{kdl}");
 
+    let runtime = RuntimeIdentityEx::runtime_app().spec();
+    assert_eq!(runtime.name, "runtime-ex");
+    assert_eq!(runtime.bin, Some("runtime-ex"));
+
     let script = RuntimeIdentityEx::completion_script(usage::complete::Shell::Bash);
     assert!(script.contains("runtime-ex"), "{script}");
     assert!(!script.contains("'portable-ex'"), "{script}");
