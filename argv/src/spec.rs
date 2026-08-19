@@ -592,6 +592,10 @@ pub struct FlagMeta<'a> {
     /// Canonical-to-alias pairs used when emitting a lossless spec.
     pub choice_aliases: &'a [(&'a str, &'a str)],
     pub ignore_case: bool,
+    /// Portable expr expression evaluated for each raw value.
+    pub validate: Option<&'a str>,
+    /// Message reported when validation returns false.
+    pub validate_error: Option<&'a str>,
     pub required: bool,
     /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
     ///
@@ -667,6 +671,8 @@ impl FlagMeta<'_> {
         choices: &[],
         choice_aliases: &[],
         ignore_case: false,
+        validate: None,
+        validate_error: None,
         required: false,
         value_optional: false,
         hide: false,
@@ -720,6 +726,10 @@ pub struct ArgMeta<'a> {
     /// Canonical-to-alias pairs used when emitting a lossless spec.
     pub choice_aliases: &'a [(&'a str, &'a str)],
     pub ignore_case: bool,
+    /// Portable expr expression evaluated for each raw value.
+    pub validate: Option<&'a str>,
+    /// Message reported when validation returns false.
+    pub validate_error: Option<&'a str>,
     /// Whether the argument must be filled. The parser does not enforce this —
     /// it is checked once the last token has been read — but the spec has to say
     /// it, and help output has to show it.
@@ -751,6 +761,8 @@ impl ArgMeta<'_> {
         choices: &[],
         choice_aliases: &[],
         ignore_case: false,
+        validate: None,
+        validate_error: None,
         required: true,
         hide: false,
         var_min: None,
@@ -1312,6 +1324,14 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         if meta.value_optional {
             out.push_str(" required=#false");
         }
+        if let Some(validate) = meta.validate {
+            write!(out, " validate={}", quoted(validate))?;
+        }
+        if meta.validate.is_some() {
+            if let Some(error) = meta.validate_error {
+                write!(out, " validate_error={}", quoted(error))?;
+            }
+        }
         if meta.choices.is_empty() {
             out.push('\n');
         } else {
@@ -1380,6 +1400,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
+    }
+    if let Some(validate) = meta.validate {
+        write!(out, " validate={}", quoted(validate))?;
+    }
+    if meta.validate.is_some() {
+        if let Some(error) = meta.validate_error {
+            write!(out, " validate_error={}", quoted(error))?;
+        }
     }
     write_single_default(out, meta.default)?;
 

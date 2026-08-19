@@ -118,7 +118,7 @@
 //! 2. **Required-ness**, which the type states: a `String` has nowhere to put
 //!    "absent", so it must be given — unless a default or the environment already
 //!    filled it.
-//! 3. **`choices`** and **`var_min`/`var_max`**, which judge a value however it
+//! 3. **`choices`, `validate`, and `var_min`/`var_max`**, which judge a value however it
 //!    arrived, including from the environment or a default.
 //!
 //! Only the command that actually ran is judged. A flag that `install` requires says
@@ -127,6 +127,10 @@
 //! Bounds constrain the values a field was *given*: an unused optional flag is
 //! absent, not a violation, or `var_min` would be a second way to spell
 //! required-ness and there would be no way to say "at least two, if you use it".
+//!
+//! `validate` is a portable [expr](https://expr-lang.org/) expression with one string
+//! variable, `value`. It must return a boolean. `validate_error` supplies the message
+//! shown when it returns false.
 //!
 //! Contradictions are refused at compile time rather than at run time — `choices` on
 //! a `bool`, a `var_min` above its `var_max`, a bound on something that is not a

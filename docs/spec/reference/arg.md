@@ -7,6 +7,7 @@ arg "[file]"                             // optional positional arg
 arg "<file>" default="file.txt"          // default value for arg
 arg "<file>" env="MY_FILE"               // arg can be backed by an env var
 arg "<file>" parse="mycli parse-file {}" // parse arg value with external command
+arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
 
 arg "[file]" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (0 or more)
 arg "<file>" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (1 or more)
@@ -14,6 +15,12 @@ arg "<file>..."        // shorthand for var=#true (trailing ellipsis)
 arg "<file>" var=#true var_min=3 // at least 3 args must be passed
 arg "<file>" var=#true var_max=3 // up to 3 args can be passed
 ```
+
+`validate` is an [expr](https://expr-lang.org/) expression evaluated once for each
+value after defaults and environment fallbacks are applied. The only variable is
+`value`, always a string. The expression must return a boolean; `false` reports
+`validate_error`, or a generic validation error when it is omitted. Because the
+expression is stored in the spec, generated Rust and Go parsers enforce the same rule.
 
 ## Using Variadic Args in Bash
 

@@ -529,6 +529,18 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Set a portable expr expression that must accept each raw value.
+    pub fn validate(mut self, expression: impl Into<String>) -> Self {
+        self.inner.validate = Some(expression.into());
+        self
+    }
+
+    /// Set the message reported when validation returns false.
+    pub fn validate_error(mut self, message: impl Into<String>) -> Self {
+        self.inner.validate_error = Some(message.into());
+        self
+    }
+
     /// Set choices from an environment variable
     #[cfg(feature = "unstable_choices_env")]
     pub fn choices_env(mut self, env: impl Into<String>) -> Self {
@@ -558,6 +570,9 @@ impl SpecArgBuilder {
     /// Build the final SpecArg
     #[must_use]
     pub fn build(mut self) -> SpecArg {
+        if self.inner.validate.is_none() {
+            self.inner.validate_error = None;
+        }
         self.inner.usage = self.inner.usage();
         self.inner
     }
@@ -924,6 +939,16 @@ mod tests {
 
         assert_eq!(arg.default, vec!["a.txt".to_string(), "b.txt".to_string()]);
         assert!(!arg.required);
+    }
+
+    #[test]
+    fn test_arg_builder_drops_validation_error_without_expression() {
+        let arg = SpecArgBuilder::new()
+            .name("port")
+            .validate_error("must be a valid port")
+            .build();
+
+        assert!(arg.validate_error.is_none());
     }
 
     #[test]

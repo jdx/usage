@@ -10,6 +10,12 @@
 //! usage = { package = "usage-rs", version = "5.1" }
 //! ```
 //!
+//! Enable portable expression validation only when a CLI declares `validate` rules:
+//!
+//! ```toml
+//! usage = { package = "usage-rs", version = "5.1", features = ["validation"] }
+//! ```
+//!
 //! ```
 //! use usage_rs as usage;
 //! # #[cfg(feature = "spec")]
@@ -42,6 +48,8 @@ pub use usage_argv as argv;
 pub use usage_argv::*;
 #[cfg(feature = "spec")]
 pub use usage_derive::{Args, Cli, Subcommands, ValueEnum};
+#[cfg(feature = "validation")]
+pub use usage_validation as validation;
 
 #[cfg(all(test, feature = "spec"))]
 mod tests {
@@ -49,8 +57,84 @@ mod tests {
     #[usage(bin = "internal")]
     struct Internal {}
 
+    #[cfg(feature = "validation")]
+    #[derive(Debug, crate::Cli)]
+    #[usage(bin = "validated")]
+    struct Validated {
+        #[usage(
+            long,
+            validate = "int(value) >= 1 && int(value) <= 65535",
+            validate_error = "must be a valid port"
+        )]
+        port: Option<u16>,
+    }
+
+    #[cfg(feature = "validation")]
+    #[derive(Debug, crate::Args)]
+    struct ValidatedArgs {
+        #[usage(long, validate = "value == 'ok'", validate_error = "must be ok")]
+        token: Option<String>,
+    }
+
+    #[cfg(feature = "validation")]
+    #[derive(Debug, crate::Cli)]
+    #[usage(bin = "validated-args")]
+    struct ValidatedArgsCli {
+        #[usage(flatten)]
+        args: ValidatedArgs,
+    }
+
     #[test]
     fn derives_resolve_the_facade_from_inside_the_facade() {
         assert_eq!(Internal::spec().bin, Some("internal"));
+    }
+
+    #[cfg(feature = "validation")]
+    #[test]
+    fn derives_evaluate_portable_validation_expressions() {
+        let valid = [
+            ::std::ffi::OsStr::new("--port"),
+            ::std::ffi::OsStr::new("9229"),
+        ];
+        assert_eq!(Validated::parse_from(&valid).unwrap().port, Some(9229));
+
+        let invalid = [
+            ::std::ffi::OsStr::new("--port"),
+            ::std::ffi::OsStr::new("0"),
+        ];
+        let crate::Error::InvalidValue(error) = Validated::parse_from(&invalid).unwrap_err() else {
+            panic!("expected invalid value");
+        };
+        assert_eq!(error.reason, "must be a valid port");
+
+        let invalid_args = [
+            ::std::ffi::OsStr::new("--token"),
+            ::std::ffi::OsStr::new("bad"),
+        ];
+        let crate::Error::InvalidValue(error) =
+            ValidatedArgsCli::parse_from(&invalid_args).unwrap_err()
+        else {
+            panic!("expected invalid value from flattened Args");
+        };
+        assert_eq!(error.reason, "must be ok");
+
+        let valid_args = [
+            ::std::ffi::OsStr::new("--token"),
+            ::std::ffi::OsStr::new("ok"),
+        ];
+        assert_eq!(
+            ValidatedArgsCli::parse_from(&valid_args)
+                .unwrap()
+                .args
+                .token
+                .as_deref(),
+            Some("ok")
+        );
+
+        let kdl = Validated::to_kdl();
+        assert!(
+            kdl.contains(r#"validate="int(value) >= 1 && int(value) <= 65535""#),
+            "{kdl}"
+        );
     }
 }

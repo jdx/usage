@@ -124,6 +124,26 @@ func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
 	}
 }
 
+func TestValidationIsReadThroughTheValue(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex",
+			Flags: []Flag{{Name: "port", Long: []string{"port"}, Arg: &Arg{
+				Name: "port", Validate: "int(value) > 0", ValidateError: "must be positive",
+			}}},
+			Args: []Arg{{Name: "file", Validate: "value != ''"}},
+		},
+	})
+
+	port := metaFor(t, meta, root, "port")
+	if port.Validate != "int(value) > 0" || port.ValidateError != "must be positive" {
+		t.Errorf("nested flag validation was lost: %+v", port)
+	}
+	if got := metaFor(t, meta, root, "file").Validate; got != "value != ''" {
+		t.Errorf("argument validation was lost: %q", got)
+	}
+}
+
 // The two tables are separate data tied together by key, so the tie is what is
 // worth testing: every entry's metadata must describe that entry and no other.
 func TestMetadataLinesUpWithTheParseTables(t *testing.T) {

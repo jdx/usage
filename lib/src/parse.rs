@@ -520,6 +520,30 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        // Declarative value validation is deliberately post-binding. Defaults and
+        // environment fallbacks have landed by here, and delimiters were already split
+        // while binding. Like clap's value parsers, a declaration judges each resulting
+        // raw value independently.
+        for (arg, parsed) in &out.args {
+            validate_expression(
+                &arg.name,
+                arg.validate.as_deref(),
+                arg.validate_error.as_deref(),
+                parsed,
+                &mut out.errors,
+            );
+        }
+        for (flag, parsed) in &out.flags {
+            if let Some(arg) = &flag.arg {
+                validate_expression(
+                    &flag.name,
+                    arg.validate.as_deref(),
+                    arg.validate_error.as_deref(),
+                    parsed,
+                    &mut out.errors,
+                );
+            }
+        }
         if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
             bail!("{err}");
         }
@@ -1648,6 +1672,68 @@ fn parse_partial_with_env(
     }
 
     Ok((out, overridden_flags))
+}
+
+fn validate_expression(
+    name: &str,
+    expression: Option<&str>,
+    message: Option<&str>,
+    parsed: &ParseValue,
+    errors: &mut Vec<UsageErr>,
+) {
+    let Some(expression) = expression else {
+        return;
+    };
+    #[cfg(not(feature = "validation"))]
+    let _ = expression;
+    let values: &[String] = match parsed {
+        ParseValue::String(value) => std::slice::from_ref(value),
+        ParseValue::MultiString(values) => values,
+        ParseValue::Bool(_) | ParseValue::MultiBool(_) => return,
+    };
+    for value in values {
+        #[cfg(not(feature = "validation"))]
+        let _ = message;
+        #[cfg(feature = "validation")]
+        let reason = match usage_validation::validate(expression, value) {
+            Ok(true) => continue,
+            Ok(false) => message
+                .unwrap_or("does not satisfy the validation expression")
+                .to_string(),
+            Err(error) => format!("validation expression failed: {error}"),
+        };
+        #[cfg(not(feature = "validation"))]
+        let reason = "expression validation requires the `validation` feature".to_string();
+        errors.push(UsageErr::InvalidValue {
+            name: name.to_string(),
+            value: value.clone(),
+            reason,
+        });
+        break;
+    }
+}
+
+#[cfg(all(test, not(feature = "validation")))]
+mod optional_validation_tests {
+    use crate::{parse, Spec};
+
+    #[test]
+    fn validation_declarations_require_the_opt_in_runtime_feature() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+arg "<port>" validate="int(value) > 0"
+        "#
+        .parse()
+        .unwrap();
+        let error = parse(&spec, &["ex".to_string(), "1".to_string()]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires the `validation` feature"),
+            "{error:?}"
+        );
+    }
 }
 
 fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {

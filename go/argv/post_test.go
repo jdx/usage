@@ -155,6 +155,38 @@ func TestCheckRichChoices(t *testing.T) {
 	}
 }
 
+func TestCheckPortableValidation(t *testing.T) {
+	meta := &Meta{
+		Name:          "port",
+		Validate:      "int(value) >= 1 && int(value) <= 65535",
+		ValidateError: "must be a valid port",
+	}
+	if err := Check(meta, []string{"9229"}, 1); err != nil {
+		t.Fatalf("a valid port should pass: %v", err)
+	}
+	for _, value := range []string{"0", "65536"} {
+		err := Check(meta, []string{value}, 1)
+		if err == nil || err.Code != CodeInvalidValue || err.Value != value || err.Reason != meta.ValidateError {
+			t.Errorf("%q: want the declared validation error, got %+v", value, err)
+		}
+	}
+	if err := Check(meta, []string{"not-a-number"}, 1); err == nil || err.Code != CodeInvalidValue {
+		t.Fatalf("an expression evaluation error should reject the value: %+v", err)
+	}
+
+	meta.Validate = "value"
+	err := Check(meta, []string{"bad\x1b[31m"}, 1)
+	if err == nil || err.Reason != "validation expression must return a boolean, got string" {
+		t.Fatalf("a non-boolean result should report only its type: %+v", err)
+	}
+
+	meta.Validate = "int(value) > 0"
+	err = Check(meta, []string{"0", "-1"}, 2)
+	if err == nil || err.Value != "0" {
+		t.Fatalf("multi-value validation should stop at the first failure: %+v", err)
+	}
+}
+
 // TestEnvTruth pins the allow-list, including what it deliberately leaves out.
 func TestEnvTruth(t *testing.T) {
 	for _, s := range []string{"1", "true", "True", "TRUE"} {

@@ -1,0 +1,22 @@
+[
+  {
+    "expression": "int(value) >= 1 && int(value) <= 65535",
+    "value": "9229",
+    "valid": true
+  },
+  {
+    "expression": "int(value) >= 1 && int(value) <= 65535",
+    "value": "0",
+    "valid": false
+  },
+  {
+    "expression": "value startsWith 'release-'",
+    "value": "release-5.1.0",
+    "valid": true
+  },
+  {
+    "expression": "value startsWith 'release-'",
+    "value": "nightly",
+    "valid": false
+  }
+]

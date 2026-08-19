@@ -69,9 +69,34 @@ fn derive_path() -> TokenStream {
     }
 }
 
+/// The cold expression evaluator, resolved independently of the binding runtime.
+fn validation_path() -> TokenStream {
+    match crate_name("usage-validation") {
+        Ok(FoundCrate::Itself) => quote!(::usage_validation),
+        Ok(FoundCrate::Name(name)) => {
+            let validation = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#validation)
+        }
+        _ => match crate_name("usage-rs") {
+            Ok(FoundCrate::Itself) => quote!(::usage_rs::validation),
+            Ok(FoundCrate::Name(name)) => {
+                let facade = format_ident!("{}", name.replace('-', "_"));
+                quote!(::#facade::validation)
+            }
+            _ => quote!(::usage_validation),
+        },
+    }
+}
+
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let validation = validation_path();
+    let validation_import = cli
+        .fields
+        .iter()
+        .any(|field| field.validate.is_some())
+        .then(|| quote!(use #validation as usage_validation;));
 
     let flags: Vec<&Field> = cli
         .fields
@@ -260,6 +285,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         )]
         const _: () = {
             use #runtime as usage_argv;
+            #validation_import
 
             #flatten_checks
             #keys
@@ -971,6 +997,8 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // nothing about whether its value is.
     let value_optional = field.value_optional;
     let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
+    let validate = option_str(field.validate.as_deref());
+    let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
     // the struct says.
@@ -1029,6 +1057,8 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             choice_aliases: #choice_aliases,
             ignore_case: #ignore_case,
+            validate: #validate,
+            validate_error: #validate_error,
             var_min: #var_min,
             var_max: #var_max,
             overrides: &[#(#overrides),*],
@@ -1061,6 +1091,8 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // declare it. Every other shape gets its answer from the type.
     let required = field.shape == Shape::Required || field.required_collection;
     let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
+    let validate = option_str(field.validate.as_deref());
+    let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
     let delimiter = match field.delimiter {
         Some(c) => quote!(::std::option::Option::Some(#c)),
@@ -1085,6 +1117,8 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             choices: #choices,
             choice_aliases: #choice_aliases,
             ignore_case: #ignore_case,
+            validate: #validate,
+            validate_error: #validate_error,
             var_min: #var_min,
             var_max: #var_max,
             delimiter: #delimiter,
@@ -2640,6 +2674,12 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let validation = validation_path();
+    let validation_import = cli
+        .fields
+        .iter()
+        .any(|field| field.validate.is_some())
+        .then(|| quote!(use #validation as usage_validation;));
     let presence = presence_methods(cli);
     let apply_defaults = declared_defaults(cli);
     let apply_env = env_fallbacks(cli);
@@ -2767,6 +2807,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         )]
         const _: () = {
             use #runtime as usage_argv;
+            #validation_import
 
             #flatten_checks
             #keys
@@ -3955,6 +3996,48 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
     });
 
+    let validation_checks = cli.fields.iter().filter_map(|f| {
+        let expression = f.validate.as_ref()?;
+        let ident = &f.ident;
+        let name = &f.name;
+        let message = f
+            .validate_error
+            .as_deref()
+            .unwrap_or("does not satisfy the validation expression");
+        let values = match f.shape {
+            Shape::Optional => quote!(partial.#ident.iter()),
+            Shape::Required => quote!(::std::iter::once(&partial.#ident)),
+            Shape::Many => quote!(partial.#ident.iter()),
+            Shape::Bool | Shape::Count => return None,
+        };
+        Some(quote! {
+            for value in #values {
+                let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
+                else {
+                    // The field conversion reports non-UTF-8 with the original bytes. An expr
+                    // variable is text, so claiming the validation failed would hide that more
+                    // precise error.
+                    continue;
+                };
+                let __usage_reason = match usage_validation::validate(#expression, __usage_text) {
+                    ::std::result::Result::Ok(true) => continue,
+                    ::std::result::Result::Ok(false) => #message.to_string(),
+                    ::std::result::Result::Err(error) =>
+                        ::std::format!("validation expression failed: {error}"),
+                };
+                return ::std::result::Result::Err(
+                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                        usage_argv::InvalidValue {
+                            name: #name,
+                            value: __usage_text.to_string(),
+                            reason: __usage_reason,
+                        },
+                    )),
+                );
+            }
+        })
+    });
+
     let bound_checks = cli.fields.iter().filter_map(|f| {
         if f.var_min.is_none() && f.var_max.is_none() {
             return None;
@@ -4423,6 +4506,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             #(#relationship_required_checks)*
         }
         #(#choice_checks)*
+        #(#validation_checks)*
         #(#bound_checks)*
         #sub_check
     }

@@ -1,0 +1,18 @@
+[package]
+name = "usage-validation"
+description = "Portable expression validation for usage specs"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.91"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+expr-lang = "2.0.0"
+
+[package.metadata.release]
+shared-version = true
+release = true

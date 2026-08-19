@@ -305,6 +305,8 @@ type Arg struct {
 	HelpFirstLine string   `json:"help_first_line"`
 	HelpLong      string   `json:"help_long"`
 	HelpHeading   string   `json:"help_heading"`
+	Validate      string   `json:"validate"`
+	ValidateError string   `json:"validate_error"`
 }
 
 // Example is a worked invocation a page prints.
@@ -824,6 +826,8 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Default:           f.defaults(),
 		Env:               f.Env,
 		VarMin:            clampVarMax(f.VarMin),
+		Validate:          valueValidation(f.Arg),
+		ValidateError:     valueValidationError(f.Arg),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
 		// and is set on the parse table below rather than here.
 		VarMax: clampVarMax(f.VarMax),
@@ -872,11 +876,27 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		Default:         a.Default,
 		Env:             a.Env,
 		VarMin:          clampVarMax(a.VarMin),
+		Validate:        a.Validate,
+		ValidateError:   a.ValidateError,
 		// No VarMax: for an argument the bound is a limit binding applies, which
 		// is what makes `[a]… [b]` fillable at all, so judging it again here would
 		// fail an invocation that never broke it.
 	})
 	return out
+}
+
+func valueValidation(arg *Arg) string {
+	if arg == nil {
+		return ""
+	}
+	return arg.Validate
+}
+
+func valueValidationError(arg *Arg) string {
+	if arg == nil {
+		return ""
+	}
+	return arg.ValidateError
 }
 
 // clampVarMax turns the spec's bound into the table's.
