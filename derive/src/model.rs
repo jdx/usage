@@ -4,6 +4,7 @@
 //! [`crate::codegen`], which keeps the error messages — the part an author
 //! actually interacts with — in one place.
 
+use heck::{ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
 use syn::parse::Parser as _;
@@ -2528,6 +2529,15 @@ fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
     attrs.iter().filter(|a| a.path().is_ident("usage"))
 }
 
+/// Value metadata accepts clap's `#[value(...)]` spelling so an enum can keep its
+/// existing annotations while replacing the derive. `#[usage(...)]` remains accepted
+/// for code that does not need source compatibility.
+fn value_attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
+    attrs
+        .iter()
+        .filter(|a| a.path().is_ident("usage") || a.path().is_ident("value"))
+}
+
 fn nested(attr: &Attribute) -> syn::Result<Vec<Meta>> {
     let list = attr.meta.require_list()?;
     let parsed = list
@@ -2644,16 +2654,25 @@ fn group_decl(meta: &Meta) -> syn::Result<GroupDecl> {
 }
 
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
-    let Meta::List(list) = meta else {
-        return Ok(vec![string_value(meta)?]);
+    let found: Vec<String> = match meta {
+        Meta::List(list) => {
+            if let Ok(array) = syn::parse2::<syn::ExprArray>(list.tokens.clone()) {
+                string_array(&array)?
+            } else {
+                list.parse_args_with(
+                    syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+                )?
+                .into_iter()
+                .map(|lit| lit.value())
+                .collect()
+            }
+        }
+        Meta::NameValue(value) => match &value.value {
+            syn::Expr::Array(array) => string_array(array)?,
+            _ => vec![string_value(meta)?],
+        },
+        Meta::Path(_) => vec![string_value(meta)?],
     };
-    let found: Vec<String> = list
-        .parse_args_with(
-            syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
-        )?
-        .into_iter()
-        .map(|lit| lit.value())
-        .collect();
     // An empty list compiles into no relationship at all, which is a declaration that
     // reads as though it does something.
     if found.is_empty() {
@@ -2667,6 +2686,20 @@ fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
         ));
     }
     Ok(found)
+}
+
+fn string_array(array: &syn::ExprArray) -> syn::Result<Vec<String>> {
+    array
+        .elems
+        .iter()
+        .map(|expr| match expr {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(value),
+                ..
+            }) => Ok(value.value()),
+            _ => Err(syn::Error::new_spanned(expr, "expected a string literal")),
+        })
+        .collect()
 }
 
 fn requirement_if(meta: &Meta) -> syn::Result<ConditionalRequirement> {
@@ -3428,6 +3461,56 @@ pub struct ValueVariant {
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
+#[derive(Clone, Copy)]
+enum CasingStyle {
+    Camel,
+    Kebab,
+    Pascal,
+    ScreamingSnake,
+    Snake,
+    Lower,
+    Upper,
+    Verbatim,
+}
+
+impl CasingStyle {
+    fn parse(meta: &Meta) -> syn::Result<Self> {
+        let raw = string_value(meta)?;
+        let normalized = raw
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>();
+        match normalized.as_str() {
+            "camel" | "camelcase" => Ok(Self::Camel),
+            "kebab" | "kebabcase" => Ok(Self::Kebab),
+            "pascal" | "pascalcase" => Ok(Self::Pascal),
+            "screamingsnake" | "screamingsnakecase" => Ok(Self::ScreamingSnake),
+            "snake" | "snakecase" => Ok(Self::Snake),
+            "lower" | "lowercase" => Ok(Self::Lower),
+            "upper" | "uppercase" => Ok(Self::Upper),
+            "verbatim" | "verbatimcase" => Ok(Self::Verbatim),
+            _ => Err(syn::Error::new_spanned(
+                meta,
+                format!("unsupported casing `{raw}`"),
+            )),
+        }
+    }
+
+    fn apply(self, name: &str) -> String {
+        match self {
+            Self::Camel => name.to_lower_camel_case(),
+            Self::Kebab => name.to_kebab_case(),
+            Self::Pascal => name.to_upper_camel_case(),
+            Self::ScreamingSnake => name.to_shouty_snake_case(),
+            Self::Snake => name.to_snake_case(),
+            Self::Lower => name.to_snake_case().replace('_', ""),
+            Self::Upper => name.to_shouty_snake_case().replace('_', ""),
+            Self::Verbatim => name.to_string(),
+        }
+    }
+}
+
 fn cfg_gate_meta(meta: &Meta) -> syn::Result<Option<Meta>> {
     if meta.path().is_ident("cfg") {
         return Ok(Some(meta.clone()));
@@ -3557,11 +3640,16 @@ impl ValueEnum {
         }
 
         let mut ignore_case = false;
-        for attr in attrs(&input.attrs) {
+        let mut rename_all = None;
+        // Registering clap's `value` helper attribute means rustc accepts it at
+        // either level. Parse it here too so unsupported enum-wide options fail
+        // explicitly instead of being silently ignored.
+        for attr in value_attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "ignore_case" => ignore_case = flag_value(&meta)?,
+                    "rename_all" => rename_all = Some(CasingStyle::parse(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -3581,29 +3669,33 @@ impl ValueEnum {
                 ));
             }
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
-            let mut name = to_kebab(&variant.ident.unraw().to_string());
+            let rust_name = variant.ident.unraw().to_string();
+            let mut name = rename_all
+                .map(|style| style.apply(&rust_name))
+                .unwrap_or_else(|| to_kebab(&rust_name));
             let mut aliases = Vec::new();
-            for attr in attrs(&variant.attrs) {
+            for attr in value_attrs(&variant.attrs) {
                 for meta in nested(attr)? {
                     let path = meta.path().clone();
                     match ident_of(&path).as_str() {
                         "name" => name = string_value(&meta)?,
-                        "alias" => {
-                            let alias = string_value(&meta)?;
-                            if alias.is_empty() {
-                                return Err(syn::Error::new_spanned(
-                                    path,
-                                    "an alias with no name would answer to nothing",
-                                ));
+                        "alias" | "aliases" => {
+                            for alias in selectors(&meta)? {
+                                if alias.is_empty() {
+                                    return Err(syn::Error::new_spanned(
+                                        &path,
+                                        "an alias with no name would answer to nothing",
+                                    ));
+                                }
+                                aliases.push(alias);
                             }
-                            aliases.push(alias);
                         }
                         other => {
                             return Err(syn::Error::new_spanned(
                                 path,
                                 format!(
                                     "unknown option `{other}` on a value; a variant takes \
-                                     `name` or `alias` here"
+                                     `name`, `alias`, or `aliases` here"
                                 ),
                             ));
                         }
@@ -4274,6 +4366,62 @@ mod tests {
         assert!(
             err.contains("names two of these values"),
             "unhelpful: {err}"
+        );
+    }
+
+    #[test]
+    fn a_value_enum_accepts_clap_value_metadata() {
+        let ve = value_enum(
+            r#"
+            enum Provider {
+                #[value(name = "1password", alias = "op")]
+                OnePassword,
+            }
+        "#,
+        )
+        .expect("clap value metadata should remain usable");
+        assert_eq!(ve.variants[0].name, "1password");
+        assert_eq!(ve.variants[0].aliases, ["op"]);
+    }
+
+    #[test]
+    fn a_value_enum_accepts_clap_container_casing() {
+        let legacy = value_enum("enum Protocol { HTTPServer }")
+            .expect("the default naming policy should compile");
+        assert_eq!(legacy.variants[0].name, "h-t-t-p-server");
+
+        for (style, expected) in [
+            ("camelCase", "onePassword"),
+            ("kebab-case", "one-password"),
+            ("PascalCase", "OnePassword"),
+            ("SCREAMING_SNAKE_CASE", "ONE_PASSWORD"),
+            ("snake_case", "one_password"),
+            ("lowercase", "onepassword"),
+            ("UPPERCASE", "ONEPASSWORD"),
+            ("verbatim", "OnePassword"),
+        ] {
+            let ve = value_enum(&format!(
+                r#"
+                #[value(rename_all = "{style}")]
+                enum Provider {{ OnePassword }}
+            "#
+            ))
+            .expect("clap container metadata should remain usable");
+            assert_eq!(ve.variants[0].name, expected, "style {style}");
+        }
+
+        let err = match value_enum(
+            r#"
+            #[value(rename_all = "train-case")]
+            enum Provider { OnePassword }
+        "#,
+        ) {
+            Ok(_) => panic!("unsupported casing must be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("unsupported casing `train-case`"),
+            "unhelpful error: {err}"
         );
     }
 
