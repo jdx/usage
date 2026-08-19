@@ -60,7 +60,7 @@ struct InlineEx {
 #[usage(ignore_case)]
 enum Shell {
     Bash,
-    #[usage(alias = "shell-z")]
+    #[value(alias("shell-z"), aliases("z-shell", "zsh-shell"))]
     Zsh,
     #[cfg(windows)]
     PowerShell,
@@ -222,6 +222,8 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     let kdl = ChoiceEx::to_kdl();
     assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
     assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias \"z-shell\" hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias \"zsh-shell\" hide=#true"), "{kdl}");
     #[cfg(not(windows))]
     assert!(!kdl.contains("power-shell"), "{kdl}");
 }

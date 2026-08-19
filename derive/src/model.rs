@@ -3597,22 +3597,23 @@ impl ValueEnum {
                     let path = meta.path().clone();
                     match ident_of(&path).as_str() {
                         "name" => name = string_value(&meta)?,
-                        "alias" => {
-                            let alias = string_value(&meta)?;
-                            if alias.is_empty() {
-                                return Err(syn::Error::new_spanned(
-                                    path,
-                                    "an alias with no name would answer to nothing",
-                                ));
+                        "alias" | "aliases" => {
+                            for alias in selectors(&meta)? {
+                                if alias.is_empty() {
+                                    return Err(syn::Error::new_spanned(
+                                        &path,
+                                        "an alias with no name would answer to nothing",
+                                    ));
+                                }
+                                aliases.push(alias);
                             }
-                            aliases.push(alias);
                         }
                         other => {
                             return Err(syn::Error::new_spanned(
                                 path,
                                 format!(
                                     "unknown option `{other}` on a value; a variant takes \
-                                     `name` or `alias` here"
+                                     `name`, `alias`, or `aliases` here"
                                 ),
                             ));
                         }
