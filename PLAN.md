@@ -1158,13 +1158,14 @@ including telling you to delete the label afterwards.
 - [x] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. **Decided
       (2026-08-19): lax is the default everywhere — both parsers — and strict is
-      the opt-in, `unknown_flags "error"` at whatever scope wants it.** The
-      grammar's "data in transit" rationale is the rule, not a compatibility
-      accident, and what `mise run` tasks accept does not change. The derive's
-      strictness about a _repeated_ non-repeatable flag is a separate rule and
-      unchanged. The migration guide must say this prominently: a clap adopter
-      expects strict and gets it by declaring it at the root, as communique's
-      rewrite already does.
+      the opt-in, `unknown_flags "error"` at whatever scope wants it.** This is
+      a position, not a compatibility concession: clap's strict default is held
+      to be the wrong one — a wrapper appending to a command line it did not
+      write is ordinary, which is the grammar's "data in transit" rationale —
+      and what `mise run` tasks accept does not change. The derive's strictness
+      about a _repeated_ non-repeatable flag is a separate rule and unchanged.
+      The migration guide presents the difference as intentional, with strict
+      one root-level line away, as communique's rewrite already declares it.
 - [x] A flag missing its value is dropped silently — now an error, in `parse` but
       not `parse_partial`, since a half-typed flag is exactly what a completion is
       asked about.
