@@ -31,6 +31,11 @@ pub fn completion_request(argv: &[OsString]) -> Option<String>;
 
 `Shell` covers `Bash`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
 
+For the 6.x compatibility contract, bash, fish, PowerShell, and zsh are the
+clap-parity set. Nushell is an additional usage-native target. Elvish is not
+supported in 6.0, so a clap application that currently publishes an Elvish script
+must keep that generator or defer the migration of that artifact.
+
 ## How it works
 
 The installed script calls your binary back at completion time with a hidden
