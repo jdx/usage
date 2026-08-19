@@ -1073,6 +1073,12 @@ impl Spec<'_> {
         if self.root.cmd.external_subcommand {
             writeln!(out, "external_subcommand #true")?;
         }
+        if self.root.cmd.infer_subcommands {
+            writeln!(out, "infer_subcommands #true")?;
+        }
+        if self.root.cmd.infer_long_args {
+            writeln!(out, "infer_long_args #true")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1312,6 +1318,12 @@ fn write_command<'a>(
     }
     if meta.cmd.external_subcommand {
         out.push_str(" external_subcommand=#true");
+    }
+    if meta.cmd.infer_subcommands {
+        out.push_str(" infer_subcommands=#true");
+    }
+    if meta.cmd.infer_long_args {
+        out.push_str(" infer_long_args=#true");
     }
     out.push_str(" {\n");
 

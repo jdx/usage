@@ -1,5 +1,7 @@
 package argv
 
+import "strings"
+
 // Parser reads a command line once, left to right, against static tables.
 //
 // There is no backtracking, no reordering, and no second pass: what a token binds
@@ -35,6 +37,9 @@ type Parser struct {
 	pos int
 	// cmd is the command currently in scope.
 	cmd *Command
+	// Prefix policies are inherited as the parser descends.
+	inferSubcommands bool
+	inferLongArgs    bool
 	// ancestors is the chain above cmd, used to find inherited global flags.
 	// Fixed size so that nothing is allocated.
 	ancestors [MaxDepth]*Command
@@ -87,7 +92,12 @@ type Parser struct {
 
 // New begins parsing argv against root. argv excludes the program name.
 func New(root *Command, argv []string) Parser {
-	return Parser{argv: argv, cmd: root}
+	return Parser{
+		argv:             argv,
+		cmd:              root,
+		inferSubcommands: root.InferSubcommands,
+		inferLongArgs:    root.InferLongArgs,
+	}
 }
 
 // Next reads the next event, reporting false when argv is exhausted or the parse
@@ -285,10 +295,10 @@ func (p *Parser) longFlag(token string) bool {
 		}
 	}
 
-	if flag := p.findLong(name); flag != nil {
+	if flag, negated := p.findLongForm(name); flag != nil {
 		value := ""
 		hasValue := false
-		if flag.TakesValue {
+		if flag.TakesValue && !negated {
 			hasValue = true
 			if hasAttached {
 				value = attached
@@ -303,14 +313,10 @@ func (p *Parser) longFlag(token string) bool {
 				value = v
 			}
 		}
-		if flag.Variadic {
+		if flag.Variadic && !negated {
 			p.startCollecting(flag)
 		}
-		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
-	}
-
-	if flag := p.findNegation(name); flag != nil {
-		return p.emit(Event{Kind: KindFlag, Flag: flag, Negated: true})
+		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue, Negated: negated})
 	}
 
 	// Where the CLI declared a version, --version answers with it — asked after the
@@ -445,11 +451,19 @@ func (p *Parser) word(token string) bool {
 	// positional of this command has taken a word, a later word that happens to
 	// equal a subcommand name is just a value.
 	if !p.argFilled && !p.flagsStopped {
-		if sub := p.findSubcommand(token); sub != nil {
+		if sub := findNamed(p.cmd, token); sub != nil {
 			if !p.descend(sub) {
 				return false
 			}
 			return p.emit(Event{Kind: KindCommand, Command: sub})
+		}
+		helpPrefix := token != "" && strings.HasPrefix("help", token) && len(p.cmd.Subcommands) > 0
+		inferred := p.findSubcommand(token)
+		if inferred != nil && !helpPrefix {
+			if !p.descend(inferred) {
+				return false
+			}
+			return p.emit(Event{Kind: KindCommand, Command: inferred})
 		}
 
 		// `ex help config ls` — the line every page with a Commands section prints.
@@ -459,14 +473,16 @@ func (p *Parser) word(token string) bool {
 		// The words after it name a command, resolved here rather than descended
 		// into: descending would bind them, and they are a question rather than an
 		// invocation.
-		if token == "help" && len(p.cmd.Subcommands) > 0 {
+		if (token == "help" || (p.inferSubcommands && helpPrefix && !hasPrefixedSubcommand(p.cmd, token))) && len(p.cmd.Subcommands) > 0 {
 			cmd := p.cmd
+			inferSubcommands := p.inferSubcommands
 			for p.pos < len(p.argv) {
-				sub := findNamed(cmd, p.argv[p.pos])
+				sub := findNamedWithPrefix(cmd, p.argv[p.pos], inferSubcommands)
 				if sub == nil {
 					break
 				}
 				cmd = sub
+				inferSubcommands = inferSubcommands || sub.InferSubcommands
 				p.pos++
 			}
 			// The long form, as `ex config --help` gives: someone who typed a whole word
@@ -544,6 +560,8 @@ func (p *Parser) descend(sub *Command) bool {
 	p.starts[p.depth] = p.cmdStart
 	p.depth++
 	p.cmd = sub
+	p.inferSubcommands = p.inferSubcommands || sub.InferSubcommands
+	p.inferLongArgs = p.inferLongArgs || sub.InferLongArgs
 	// Where this command's own words start, which is what lets a completion hand a
 	// callback the half-parsed struct of the command it was declared on rather than
 	// of the root.
@@ -615,21 +633,94 @@ func (p *Parser) FlagsInScope(fn func(*Flag) bool) {
 	p.eachInScope(fn)
 }
 
-func (p *Parser) findLong(name string) *Flag {
-	return p.eachInScope(func(f *Flag) bool {
+func (p *Parser) findLongForm(name string) (*Flag, bool) {
+	if found := p.eachInScope(func(f *Flag) bool {
 		for _, l := range f.Longs {
 			if l == name {
 				return true
 			}
 		}
 		return false
+	}); found != nil {
+		return found, false
+	}
+	if found := p.eachInScope(func(f *Flag) bool {
+		return f.Negate != "" && f.Negate == name
+	}); found != nil {
+		return found, true
+	}
+	if name == "help" {
+		return HelpLong, false
+	}
+	if name == "version" && p.cmd.Version {
+		return VersionLong, false
+	}
+	if !p.inferLongArgs || name == "" {
+		return nil, false
+	}
+	var found *Flag
+	negated := false
+	ambiguous := false
+	p.eachInScope(func(f *Flag) bool {
+		positive := false
+		for _, long := range f.Longs {
+			if len(long) >= len(name) && long[:len(name)] == name && !p.longFormIsShadowed(f, long) {
+				positive = true
+				break
+			}
+		}
+		negative := !positive && f.Negate != "" && len(f.Negate) >= len(name) && f.Negate[:len(name)] == name && !p.longFormIsShadowed(f, f.Negate)
+		if !positive && !negative {
+			return false
+		}
+		if found != nil && found != f {
+			ambiguous = true
+			return true
+		}
+		found, negated = f, negative
+		return false
 	})
+	for _, builtin := range []struct {
+		name string
+		flag *Flag
+		ok   bool
+	}{{"help", HelpLong, true}, {"version", VersionLong, p.cmd.Version}} {
+		if !builtin.ok || !strings.HasPrefix(builtin.name, name) || p.longFormIsShadowed(builtin.flag, builtin.name) {
+			continue
+		}
+		if found != nil && found != builtin.flag {
+			ambiguous = true
+			break
+		}
+		found, negated = builtin.flag, false
+	}
+	if ambiguous {
+		return nil, false
+	}
+	return found, negated
 }
 
-func (p *Parser) findNegation(name string) *Flag {
-	return p.eachInScope(func(f *Flag) bool {
-		return f.Negate != "" && f.Negate == name
+// longFormIsShadowed reports whether a nearer declaration already owns this
+// exact spelling. Prefix lookup must preserve exact lookup's shadowing rule.
+func (p *Parser) longFormIsShadowed(flag *Flag, form string) bool {
+	shadowed := false
+	p.eachInScope(func(prior *Flag) bool {
+		if prior == flag {
+			return true
+		}
+		for _, long := range prior.Longs {
+			if long == form {
+				shadowed = true
+				return true
+			}
+		}
+		if prior.Negate == form {
+			shadowed = true
+			return true
+		}
+		return false
 	})
+	return shadowed
 }
 
 func (p *Parser) findShort(b byte) *Flag {
@@ -656,7 +747,42 @@ func (p *Parser) findShort(b byte) *Flag {
 }
 
 func (p *Parser) findSubcommand(name string) *Command {
-	return findNamed(p.cmd, name)
+	return findNamedWithPrefix(p.cmd, name, p.inferSubcommands)
+}
+
+func findNamedWithPrefix(cmd *Command, name string, infer bool) *Command {
+	if exact := findNamed(cmd, name); exact != nil || !infer || name == "" {
+		return exact
+	}
+	var found *Command
+	for _, sub := range cmd.Subcommands {
+		matches := len(sub.Name) >= len(name) && sub.Name[:len(name)] == name
+		for _, alias := range sub.Aliases {
+			matches = matches || len(alias) >= len(name) && alias[:len(name)] == name
+		}
+		if !matches {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = sub
+	}
+	return found
+}
+
+func hasPrefixedSubcommand(cmd *Command, name string) bool {
+	for _, sub := range cmd.Subcommands {
+		if strings.HasPrefix(sub.Name, name) {
+			return true
+		}
+		for _, alias := range sub.Aliases {
+			if strings.HasPrefix(alias, name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // findNamed resolves a word against a command's subcommands, by name or alias.

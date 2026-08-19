@@ -136,6 +136,14 @@ func TestBinding(t *testing.T) {
 	}
 }
 
+func TestNegatedValueFlagDoesNotConsumeTheNextWord(t *testing.T) {
+	mode := &Flag{Key: 20, Name: "mode", Longs: []string{"mode"}, Negate: "no-mode", TakesValue: true}
+	cmd := &Command{Name: "ex", Flags: []*Flag{mode}, Args: []*Arg{file}}
+	if got := collect(cmd, "--no-mode", "input"); got != "flag:mode! arg:file=input" {
+		t.Fatalf("negation consumed the positional: %s", got)
+	}
+}
+
 // TestBundleIsRejectedWhole pins the rule that costs the parser a second scan.
 //
 // A token containing an unrecognized letter is not a bundle at all, so none of its
@@ -389,6 +397,78 @@ func TestExternalSubcommand(t *testing.T) {
 	}
 	if got := collect(both, "build"); got != "cmd:run arg:task=build" {
 		t.Errorf("default outranks: got %s", got)
+	}
+}
+
+func TestInferredPrefixes(t *testing.T) {
+	verify := &Flag{Key: 21, Name: "verify", Longs: []string{"verify"}}
+	forceful := &Flag{Key: 22, Name: "forceful", Longs: []string{"forceful"}}
+	install := &Command{Name: "install", Flags: []*Flag{forceful}}
+	inspect := &Command{Name: "inspect"}
+	remove := &Command{Name: "remove", Aliases: []string{"uninstall"}}
+	cmd := &Command{
+		Name:             "ex",
+		Flags:            []*Flag{verbose, verify},
+		Subcommands:      []*Command{install, inspect, remove},
+		InferSubcommands: true,
+		InferLongArgs:    true,
+		UnknownFlags:     UnknownFlagsError,
+	}
+
+	if got := collect(cmd, "insta", "--for"); got != "cmd:install flag:forceful" {
+		t.Errorf("unique prefixes: got %s", got)
+	}
+	if got := collect(cmd, "uni"); got != "cmd:remove" {
+		t.Errorf("alias prefix: got %s", got)
+	}
+	if got := collect(cmd, "ins"); got != "err:unexpected_arg" {
+		t.Errorf("ambiguous subcommand: got %s", got)
+	}
+	if got := collect(cmd, "--ver"); got != "err:unknown_flag" {
+		t.Errorf("ambiguous long: got %s", got)
+	}
+
+	helpAll := &Flag{Key: 25, Name: "help-all", Longs: []string{"help-all"}}
+	withHelpAll := &Command{Name: "ex", Flags: []*Flag{helpAll}, InferLongArgs: true, UnknownFlags: UnknownFlagsError}
+	if got := collect(withHelpAll, "--help"); got != "flag:help" {
+		t.Errorf("exact built-in help: got %s", got)
+	}
+	if got := collect(withHelpAll, "--he"); got != "err:unknown_flag" {
+		t.Errorf("help prefix should be ambiguous: got %s", got)
+	}
+	if got := collect(&Command{Name: "ex", InferLongArgs: true}, "--he"); got != "flag:help" {
+		t.Errorf("unique built-in help prefix: got %s", got)
+	}
+
+	helper := &Command{Name: "helper"}
+	withHelper := &Command{Name: "ex", Subcommands: []*Command{helper}, InferSubcommands: true}
+	if got := collect(withHelper, "help"); got != "err:help" {
+		t.Errorf("exact help command: got %s", got)
+	}
+	if got := collect(withHelper, "he"); got != "err:unexpected_arg" {
+		t.Errorf("help command prefix should be ambiguous: got %s", got)
+	}
+
+	global := &Flag{Key: 23, Name: "verbose", Longs: []string{"verbose"}, Global: true}
+	local := &Flag{Key: 24, Name: "verbose", Longs: []string{"verbose"}}
+	run := &Command{Name: "run", Flags: []*Flag{local}}
+	shadowed := &Command{Name: "ex", Flags: []*Flag{global}, Subcommands: []*Command{run}, InferLongArgs: true}
+	if got := collect(shadowed, "run", "--verb"); got != "cmd:run flag:verbose" {
+		t.Errorf("redeclared global prefix: got %s", got)
+	}
+
+	nestedInstall := &Command{Name: "install"}
+	nested := &Command{Name: "nested", Subcommands: []*Command{nestedInstall}, InferSubcommands: true}
+	nestedRoot := &Command{Name: "ex", Subcommands: []*Command{nested}}
+	if got := collect(nestedRoot, "nested", "insta"); got != "cmd:nested cmd:install" {
+		t.Errorf("nested command prefix: got %s", got)
+	}
+	p := New(nestedRoot, []string{"help", "nested", "insta"})
+	for p.Next() {
+	}
+	err, ok := p.Err().(*Error)
+	if !ok || err.Code != CodeHelp || err.Cmd != nestedInstall {
+		t.Errorf("nested help prefix: got %v", p.Err())
 	}
 }
 

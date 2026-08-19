@@ -247,6 +247,101 @@ fn get_flag_key(word: &str) -> &str {
     }
 }
 
+fn resolve_long_flag(
+    available: &BTreeMap<String, Arc<SpecFlag>>,
+    word: &str,
+    infer: bool,
+    help_enabled: bool,
+) -> Option<(Arc<SpecFlag>, bool)> {
+    let key = get_flag_key(word);
+    if let Some(exact) = available.get(key) {
+        return Some((Arc::clone(exact), exact.negate.as_deref() == Some(key)));
+    }
+    if !infer || !key.starts_with("--") || key.len() == 2 {
+        return None;
+    }
+    let built_in_help =
+        help_enabled && "--help".starts_with(key) && !available.contains_key("--help");
+    let mut found: Option<(Arc<SpecFlag>, bool)> = None;
+    for (candidate, flag) in available {
+        if !candidate.starts_with("--") {
+            continue;
+        }
+        if !candidate.starts_with(key) {
+            continue;
+        }
+        let negated = flag.negate.as_deref() == Some(candidate.as_str());
+        if let Some((prior, prior_negated)) = &mut found {
+            if !Arc::ptr_eq(prior, flag) {
+                return None;
+            }
+            // Several aliases of one declaration are one match. If both a positive and
+            // negative spelling share the prefix, the positive form wins, matching the
+            // static Rust and Go parsers.
+            *prior_negated &= negated;
+        } else {
+            found = Some((Arc::clone(flag), negated));
+        }
+    }
+    if built_in_help {
+        // The built-in is a candidate too. With a declared match this prefix is
+        // ambiguous; without one the caller recognizes the built-in itself.
+        return None;
+    }
+    found
+}
+
+fn resolve_subcommand_with_builtins<'a>(
+    cmd: &'a SpecCommand,
+    name: &str,
+    infer: bool,
+    help_enabled: bool,
+) -> Option<&'a SpecCommand> {
+    if let Some(exact) = cmd.find_subcommand(name) {
+        return Some(exact);
+    }
+    if help_enabled
+        && !cmd.subcommands.is_empty()
+        && (name == "help" || (infer && !name.is_empty() && "help".starts_with(name)))
+    {
+        return None;
+    }
+    cmd.find_subcommand_with_prefix(name, infer)
+}
+
+fn inferred_long_help(
+    spec: &Spec,
+    available: &BTreeMap<String, Arc<SpecFlag>>,
+    word: &str,
+    infer: bool,
+) -> bool {
+    let key = get_flag_key(word);
+    spec.disable_help != Some(true)
+        && infer
+        && key.len() > 2
+        && "--help".starts_with(key)
+        && !available
+            .keys()
+            .any(|candidate| candidate.starts_with("--") && candidate.starts_with(key))
+}
+
+fn inferred_help_word(spec: &Spec, cmd: &SpecCommand, word: &str, infer: bool) -> bool {
+    spec.disable_help != Some(true)
+        && !word.is_empty()
+        && !cmd.subcommands.is_empty()
+        && (word == "help"
+            || (infer
+                && "help".starts_with(word)
+                && !cmd.subcommands.values().any(|sub| {
+                    sub.name.starts_with(word)
+                        || sub.aliases.iter().any(|alias| alias.starts_with(word))
+                        || sub
+                            .hidden_aliases
+                            .iter()
+                            .any(|alias| alias.starts_with(word))
+                })))
+}
+
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
@@ -740,11 +835,18 @@ fn parse_partial_with_env(
         // once per task invocation.
         let default_catches_it = spec.default_subcommand.is_some()
             && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+        let infer_subcommands = out.cmds.iter().any(|cmd| cmd.infer_subcommands);
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
             && is_command_word(&input[idx])
-            && out.cmd.find_subcommand(&input[idx]).is_none()
+            && resolve_subcommand_with_builtins(
+                &out.cmd,
+                &input[idx],
+                infer_subcommands,
+                spec.disable_help != Some(true),
+            )
+            .is_none()
         {
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
@@ -755,7 +857,12 @@ fn parse_partial_with_env(
             }
             out.cmd = mounted;
         }
-        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
+        if let Some(subcommand) = resolve_subcommand_with_builtins(
+            &out.cmd,
+            &input[idx],
+            infer_subcommands,
+            spec.disable_help != Some(true),
+        ) {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -788,11 +895,19 @@ fn parse_partial_with_env(
             // never named it.
             let is_bundle =
                 word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
-            if let Some(f) = out
-                .available_flags
-                .get(flag_key)
-                .cloned()
-                .filter(|_| is_bundle)
+            let infer_long_args = out.cmds.iter().any(|cmd| cmd.infer_long_args);
+            if let Some(f) = (if word.starts_with("--") {
+                resolve_long_flag(
+                    &out.available_flags,
+                    &word,
+                    infer_long_args,
+                    spec.disable_help != Some(true),
+                )
+                .map(|(flag, _)| flag)
+            } else {
+                out.available_flags.get(flag_key).cloned()
+            })
+            .filter(|_| is_bundle)
             {
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
@@ -1030,7 +1145,17 @@ fn parse_partial_with_env(
             // the flag entirely.
             let split = w.split_once('=');
             let word = split.map(|(word, _)| word).unwrap_or(&w);
-            if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
+            // Resolve even when Phase 1 already carried the flag binding forward: a binding
+            // identifies the declaration, but an inferred negation also has to preserve which
+            // spelling matched.
+            let resolved = resolve_long_flag(
+                &out.available_flags,
+                word,
+                out.cmds.iter().any(|cmd| cmd.infer_long_args),
+                spec.disable_help != Some(true),
+            );
+            let resolved_flag = resolved.as_ref().map(|(flag, _)| flag);
+            if let Some(f) = binding.as_ref().or(resolved_flag) {
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1084,17 +1209,26 @@ fn parse_partial_with_env(
                         .unwrap();
                     arr.push(true);
                 } else {
-                    let negate = f.negate.clone().unwrap_or_default();
-                    // Which form was typed is a question about the name, so it is
-                    // asked of `word` rather than the whole token: the attached value
-                    // is dropped just above, and comparing `--no-color=yes` against
-                    // `--no-color` would take the negation down with it.
-                    out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(word != negate));
+                    let negated = resolved
+                        .as_ref()
+                        .filter(|(resolved, _)| Arc::ptr_eq(resolved, f))
+                        .map(|(_, negated)| *negated)
+                        .unwrap_or_else(|| f.negate.as_deref() == Some(word));
+                    // Exact bindings can compare the typed form. Inferred bindings carry
+                    // which form matched, because a prefix is deliberately not equal to the
+                    // full negation spelling.
+                    out.flags.insert(Arc::clone(f), ParseValue::Bool(!negated));
                 }
                 continue;
             }
-            if is_help_arg(spec, &w) {
+            if is_help_arg(spec, &w)
+                || inferred_long_help(
+                    spec,
+                    &out.available_flags,
+                    &w,
+                    out.cmds.iter().any(|cmd| cmd.infer_long_args),
+                )
+            {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -1305,9 +1439,17 @@ fn parse_partial_with_env(
             }
             continue;
         }
-        if is_help_arg(spec, &w) {
+        let help_word = inferred_help_word(
+            spec,
+            &out.cmd,
+            &w,
+            out.cmds.iter().any(|cmd| cmd.infer_subcommands),
+        );
+        if is_help_arg(spec, &w) || help_word {
+            // A help *word* is clap's long help action even when inferred from `h` or `he`.
+            // The length distinction belongs only to the `-h` / `--help` flag spellings.
             out.errors
-                .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                .push(render_help_err(spec, &out.cmd, help_word || w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
             return Ok((out, overridden_flags));
         }
@@ -2941,6 +3083,84 @@ mount run="exit 1"
 
         let out = parse(&spec, &["ex".to_string(), "--verbose".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "ex");
+    }
+
+    #[test]
+    fn inferred_builtins_are_exact_and_participate_in_ambiguity() {
+        let with_help_all: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+unknown_flags "error"
+flag "--help-all"
+"#
+        .parse()
+        .unwrap();
+        let exact = parse(&with_help_all, &input(&["ex", "--help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(exact.contains("Usage:"), "{exact}");
+        let ambiguous = parse(&with_help_all, &input(&["ex", "--he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!ambiguous.contains("Usage:"), "{ambiguous}");
+
+        let lone: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+"#
+        .parse()
+        .unwrap();
+        let inferred = parse(&lone, &input(&["ex", "--he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(inferred.contains("Usage:"), "{inferred}");
+
+        let disabled: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+disable_help #true
+unknown_flags "error"
+flag "--hello"
+"#
+        .parse()
+        .unwrap();
+        parse(&disabled, &input(&["ex", "--he"]))
+            .expect("disabled built-in help must not make a real flag prefix ambiguous");
+
+        let with_helper: Spec = r#"
+name "ex"
+bin "ex"
+infer_subcommands #true
+cmd "helper"
+"#
+        .parse()
+        .unwrap();
+        let exact = parse(&with_helper, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(exact.contains("Usage:"), "{exact}");
+        let ambiguous = parse(&with_helper, &input(&["ex", "he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!ambiguous.contains("Usage:"), "{ambiguous}");
+
+        let help_word: Spec = r#"
+name "ex"
+bin "ex"
+about "short description"
+long_about "long description marker"
+infer_subcommands #true
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+        let inferred = parse(&help_word, &input(&["ex", "he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(inferred.contains("long description marker"), "{inferred}");
     }
 
     #[cfg(unix)]

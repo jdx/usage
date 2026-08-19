@@ -452,8 +452,14 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       carries doc-comment or explicit help, hidden canonical values, hidden `alias`,
       visible `visible_alias`, and case-insensitive matching through its static metadata
       and lossless KDL emission.
-- [ ] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes. We
-      suggest what was probably meant but do not accept it.
+- [x] **`infer_subcommands` / `infer_long_args`** — unambiguous prefixes of
+      command names, command aliases, long flags, and long aliases are accepted
+      only when one declaration matches. Both settings are inherited by child
+      commands and carried through KDL, usage-lib, generated Rust, generated Go,
+      and Go's runtime spec builder. `#[usage(infer_subcommands, infer_long_args)]`
+      is the typed spelling. clap exposes setters but no public getters for these
+      global settings, so `clap_usage` cannot recover them from an existing
+      `Command`; a migration declares them on the usage type.
 - [x] **`external_subcommand`** — an unmatched word is forwarded with the rest
       of argv. Spec `external_subcommand`, usage-lib, usage-argv, the derive
       (`#[usage(external_subcommand)]` on a catch-all `Vec` variant), and the

@@ -68,6 +68,10 @@ type Command struct {
 	// DefaultSubcommand still catches first. Once the unmatched word is taken,
 	// remaining tokens — including --help — are not parsed as this command's flags.
 	ExternalSubcommand bool
+	// InferSubcommands accepts unambiguous prefixes of names and aliases.
+	InferSubcommands bool
+	// InferLongArgs accepts unambiguous prefixes of long flag names and aliases.
+	InferLongArgs bool
 	// UnknownFlags is what an unrecognized flag-like token means here. Already
 	// resolved: inheritance is a question for whoever builds the tables.
 	UnknownFlags UnknownFlags
