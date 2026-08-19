@@ -374,9 +374,9 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 ///
 /// `#[usage(ignore_case)]` on the enum applies to canonical words and aliases.
 ///
-/// A variant cannot be `cfg`-ed out: the words are a `const` list, and a list with holes
-/// in it would either offer a word nothing answers to or name a variant that is not there.
-/// `cfg` the whole enum instead.
+/// The enum must implement [`FromStr`](std::str::FromStr); this derive owns only its CLI
+/// word metadata and does not replace domain parsing. Variant `cfg` and `cfg_attr`
+/// attributes are copied to their entries in the static word tables.
 ///
 /// A field holding one says `value_enum`, which is what puts the words in the spec — so
 /// help, completions and the check that rejects a wrong word all read the same list, and

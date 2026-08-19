@@ -26,6 +26,26 @@ enum Shell {
     Bash,
     #[usage(alias = "shell-z")]
     Zsh,
+    #[cfg(windows)]
+    PowerShell,
+}
+
+impl std::str::FromStr for Shell {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        #[cfg(windows)]
+        if value.eq_ignore_ascii_case("power-shell") {
+            return Ok(Self::PowerShell);
+        }
+        if value.eq_ignore_ascii_case("bash") {
+            Ok(Self::Bash)
+        } else if value.eq_ignore_ascii_case("zsh") || value.eq_ignore_ascii_case("shell-z") {
+            Ok(Self::Zsh)
+        } else {
+            Err(format!("unsupported shell: {value}"))
+        }
+    }
 }
 
 #[derive(Cli)]
@@ -95,6 +115,8 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     let kdl = ChoiceEx::to_kdl();
     assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
     assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
+    #[cfg(not(windows))]
+    assert!(!kdl.contains("power-shell"), "{kdl}");
 }
 
 #[test]

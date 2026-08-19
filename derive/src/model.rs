@@ -6,6 +6,7 @@
 
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
+use syn::parse::Parser as _;
 use syn::spanned::Spanned;
 use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 
@@ -3316,6 +3317,119 @@ pub struct ValueVariant {
     pub ident: syn::Ident,
     pub name: String,
     pub aliases: Vec<String>,
+    pub cfg_attrs: Vec<syn::Attribute>,
+}
+
+fn cfg_gate_meta(meta: &Meta) -> syn::Result<Option<Meta>> {
+    if meta.path().is_ident("cfg") {
+        return Ok(Some(meta.clone()));
+    }
+    if !meta.path().is_ident("cfg_attr") {
+        return Ok(None);
+    }
+    let Meta::List(list) = meta else {
+        return Ok(None);
+    };
+    let nested = syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated
+        .parse2(list.tokens.clone())?;
+    let mut nested = nested.into_iter();
+    let Some(condition) = nested.next() else {
+        return Ok(None);
+    };
+    let gates = nested
+        .map(|meta| cfg_gate_meta(&meta))
+        .collect::<syn::Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    if gates.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(syn::parse2(quote::quote!(
+        cfg_attr(#condition, #(#gates),*)
+    ))?))
+}
+
+fn cfg_gate_attrs(attrs: &[Attribute]) -> syn::Result<Vec<Attribute>> {
+    attrs
+        .iter()
+        .filter_map(|attr| match cfg_gate_meta(&attr.meta) {
+            Ok(Some(meta)) => {
+                let mut attr = attr.clone();
+                attr.meta = meta;
+                Some(Ok(attr))
+            }
+            Ok(None) => None,
+            Err(err) => Some(Err(err)),
+        })
+        .collect()
+}
+
+fn cfg_variants_are_disjoint(left: &[Attribute], right: &[Attribute]) -> bool {
+    let left = left
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| attr.parse_args::<Meta>().ok())
+        .collect::<Vec<_>>();
+    let right = right
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| attr.parse_args::<Meta>().ok())
+        .collect::<Vec<_>>();
+
+    left.iter()
+        .any(|a| right.iter().any(|b| cfg_predicates_are_disjoint(a, b)))
+}
+
+fn cfg_predicates_are_disjoint(left: &Meta, right: &Meta) -> bool {
+    let tokens_equal = |a: &Meta, b: &Meta| {
+        quote::ToTokens::to_token_stream(a).to_string()
+            == quote::ToTokens::to_token_stream(b).to_string()
+    };
+    let negates = |outer: &Meta, inner: &Meta| {
+        let Meta::List(list) = outer else {
+            return false;
+        };
+        list.path.is_ident("not")
+            && list
+                .parse_args::<Meta>()
+                .is_ok_and(|value| tokens_equal(&value, inner))
+    };
+    if negates(left, right) || negates(right, left) {
+        return true;
+    }
+    if matches!((left, right), (Meta::Path(a), Meta::Path(b)) if
+        (a.is_ident("unix") && b.is_ident("windows"))
+            || (a.is_ident("windows") && b.is_ident("unix")))
+    {
+        return true;
+    }
+    match (left, right) {
+        (Meta::NameValue(a), Meta::NameValue(b))
+            if a.path
+                .get_ident()
+                .zip(b.path.get_ident())
+                .is_some_and(|(a, b)| {
+                    a == b
+                        && [
+                            "target_abi",
+                            "target_arch",
+                            "target_endian",
+                            "target_env",
+                            "target_os",
+                            "target_pointer_width",
+                            "target_vendor",
+                            "panic",
+                        ]
+                        .iter()
+                        .any(|exclusive| a == exclusive)
+                }) =>
+        {
+            quote::ToTokens::to_token_stream(&a.value).to_string()
+                != quote::ToTokens::to_token_stream(&b.value).to_string()
+        }
+        _ => false,
+    }
 }
 
 impl ValueEnum {
@@ -3358,22 +3472,7 @@ impl ValueEnum {
                      fields would have nothing to build them from",
                 ));
             }
-            // A variant that may not exist cannot be listed. `CHOICES` is a `const` array and
-            // an array literal takes no attributes on its elements, so a `cfg`-ed-out
-            // variant would either leave a word in the list that nothing answers to, or an
-            // arm referring to a variant that is not there. Refused rather than
-            // miscompiled; `cfg` the whole enum, or keep the words and map them yourself.
-            if let Some(cfg) = variant
-                .attrs
-                .iter()
-                .find(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"))
-            {
-                return Err(syn::Error::new_spanned(
-                    cfg,
-                    "a value's variants are a `const` list of words, which cannot have holes \
-                     in it: `cfg` the whole enum instead",
-                ));
-            }
+            let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
             let mut name = to_kebab(&variant.ident.unraw().to_string());
             let mut aliases = Vec::new();
             for attr in attrs(&variant.attrs) {
@@ -3413,6 +3512,7 @@ impl ValueEnum {
                 ident: variant.ident.clone(),
                 name,
                 aliases,
+                cfg_attrs,
             });
         }
         if variants.is_empty() {
@@ -3422,19 +3522,20 @@ impl ValueEnum {
             ));
         }
 
-        let mut seen: Vec<(&str, Span)> = Vec::new();
+        let mut seen: Vec<(&str, Span, &[Attribute])> = Vec::new();
         for variant in &variants {
             for word in ::std::iter::once(variant.name.as_str())
                 .chain(variant.aliases.iter().map(String::as_str))
             {
-                let collision = seen.iter().find(|(seen, _)| {
-                    if ignore_case {
+                let collision = seen.iter().find(|(seen, _, cfg)| {
+                    let same = if ignore_case {
                         seen.eq_ignore_ascii_case(word)
                     } else {
                         *seen == word
-                    }
+                    };
+                    same && !cfg_variants_are_disjoint(cfg, &variant.cfg_attrs)
                 });
-                if let Some((_, first_span)) = collision {
+                if let Some((_, first_span, _)) = collision {
                     return Err(dup(
                         variant.ident.span(),
                         *first_span,
@@ -3448,7 +3549,7 @@ impl ValueEnum {
                         ),
                     ));
                 }
-                seen.push((word, variant.ident.span()));
+                seen.push((word, variant.ident.span(), &variant.cfg_attrs));
             }
         }
 
@@ -4118,10 +4219,8 @@ mod tests {
     }
 
     #[test]
-    fn a_conditional_value_is_refused_rather_than_miscompiled() {
-        // The word list is a `const` array, so a variant that may not exist would leave
-        // either a word nothing answers to or an arm naming a variant that is not there.
-        let err = match value_enum(
+    fn a_conditional_value_keeps_its_cfg_for_static_emission() {
+        let value = value_enum(
             r#"
             enum Shell {
                 Bash,
@@ -4129,13 +4228,71 @@ mod tests {
                 PowerShell,
             }
         "#,
-        ) {
-            Ok(_) => panic!("should not have compiled"),
-            Err(e) => e.to_string(),
+        )
+        .expect("conditional variants should compile");
+        assert!(value.variants[0].cfg_attrs.is_empty());
+        assert_eq!(value.variants[1].cfg_attrs.len(), 1);
+    }
+
+    #[test]
+    fn cfg_attr_keeps_only_variant_gates_for_static_emission() {
+        let value = value_enum(
+            r#"
+            enum Shell {
+                #[cfg_attr(windows, cfg(target_pointer_width = "64"), doc = "Windows shell")]
+                PowerShell,
+                #[cfg_attr(all(), doc = "Unix shell")]
+                Bash,
+            }
+        "#,
+        )
+        .expect("non-gating cfg_attr metadata should be ignored");
+        assert_eq!(value.variants[0].cfg_attrs.len(), 1);
+        let emitted = quote::ToTokens::to_token_stream(&value.variants[0].cfg_attrs[0]).to_string();
+        assert!(emitted.contains("cfg_attr"));
+        assert!(emitted.contains("target_pointer_width"));
+        assert!(!emitted.contains("doc"));
+        assert!(value.variants[1].cfg_attrs.is_empty());
+    }
+
+    #[test]
+    fn cfg_disjoint_values_may_reuse_one_cli_word() {
+        value_enum(
+            r#"
+            enum Shell {
+                #[cfg(windows)]
+                #[usage(name = "native")]
+                Windows,
+                #[cfg(not(windows))]
+                #[usage(name = "native")]
+                Unix,
+            }
+        "#,
+        )
+        .expect("only one cfg-disjoint word exists on any target");
+    }
+
+    #[test]
+    fn independently_true_target_cfgs_may_not_reuse_one_cli_word() {
+        let result = value_enum(
+            r#"
+            enum AtomicWidth {
+                #[cfg(target_has_atomic = "8")]
+                #[usage(name = "native")]
+                Eight,
+                #[cfg(target_has_atomic = "16")]
+                #[usage(name = "native")]
+                Sixteen,
+            }
+        "#,
+        );
+        let Err(err) = result else {
+            panic!("a target may support both atomic widths")
         };
+        let err = err.to_string();
         assert!(
-            err.contains("cannot have holes"),
-            "unhelpful message: {err}"
+            err.contains("names two of these values"),
+            "unhelpful: {err}"
         );
     }
 
