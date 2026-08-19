@@ -570,6 +570,30 @@ feature list is not an exhaustive audit.
       such as `requires` and `default_missing_value`, where loss cannot be detected,
       the matrix and integration docs must say that the bridge is not a lossless
       migration verifier.
+- [ ] **Defaults must preserve optionality in metadata.** The typed tak rewrite
+      accepts an omitted defaulted `String`, but its emitted KDL spells the
+      argument `<REV>` and the flag `required=#true`, where clap_usage emitted
+      `[REV]` and an optional value-taking flag. Binding succeeds because the
+      derive applies the default, but help, spec consumers and differential
+      tooling see a required shape. A default satisfies a field; it must not
+      make the user's token required in the static metadata.
+- [ ] **Rust expressions for compile-time metadata.** hk and fnox use constants
+      for defaults, aube and hk use constants for long help, and all three use
+      generated or computed version strings. Requiring every value to be copied
+      into a string literal creates exactly the drift this project is meant to
+      remove. Define which attributes accept `expr`, evaluate what can remain in
+      static tables, and give an explicit escape hatch for emission-only values.
+- [ ] **One Args type used by more than one command.** tak's `push` and `init`
+      have the same `--remote` shape. The derive rejects two variants wrapping
+      one `Args` type because collection is attached to the declaring struct,
+      forcing two identical structs. `flatten` solves shared fields within a
+      command but not a whole command body shared under two names. Either support
+      this directly or document the duplication as an architectural constraint.
+- [ ] **Version omission and dynamic version policy.** tak intentionally removes
+      the package version from its generated spec so release-plz version-only PRs
+      do not dirty generated docs; hk computes a richer version string. Specify
+      static, expression-backed and omitted versions separately rather than
+      forcing a hard-coded literal into every `Cli` derive.
 - [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
       compared on accepted and rejected argv, typed values, error kind and exit
       status, stdout versus stderr, short and long help, usage/version output, and
@@ -724,7 +748,7 @@ looking at the clap surface, not only at the spec.
       command) and the same manpage. usage-cli's own
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
-- [ ] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
+- [~] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
       shadows.** `gen-shadow`
       types every field as `String`. The derive already holds `PathBuf`,
       `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
@@ -737,6 +761,11 @@ looking at the clap surface, not only at the spec.
       deliberately points at usage's git revision; the PR is evidence for the
       6.x gate, not something to merge before usage 6.x is published. Together
       they tell us whether the fleet is a rewrite or a set of blocked rewrites.
+      **The experiment PRs now exist:** communique#265 and tak#47 are typed
+      rewrites; aube#1336, hk#1211 and fnox#725 are compileable static-table
+      shadows plus inventories of their real typed surfaces. The latter three
+      still need their clap dispatch replaced before this box closes. All five
+      pin `jdx/usage` at `cc60dcb7`.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -778,12 +807,15 @@ a prerequisite for trying a CLI.
       `usage-rs`, emits its spec from the same tables, and feeds that spec to
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
-- [ ] **communique, tak, aube, hk, and fnox** — five typed fleet rewrites, each
+- [~] **communique, tak, aube, hk, and fnox** — five fleet experiment PRs now
+      exist, each
       carried as a ready-for-review experimental PR on a git dependency until
-      usage 6.x exists. tak cannot emit a spec today; adding a `usage` subcommand
-      (or `--usage-spec`) is experiment-only and outside its preserved CLI
-      contract. Every missing usage feature and every general clap-compatibility
-      gap found while converting them goes into a stacked follow-up to this plan
+      usage 6.x exists. communique and tak parse their real typed commands with
+      usage and compile; tak's added spec endpoint is experiment-only and outside
+      its preserved CLI contract. aube, hk and fnox have their real derives and
+      dependencies converted, not shadows, but do not compile against the current
+      usage revision. The gaps found are recorded in the general launch gate
+      above; closing them and finishing those three typed rewrites is required
       before 6.x is published.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
