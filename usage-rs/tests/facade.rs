@@ -59,8 +59,9 @@ struct InlineEx {
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
+    #[value(aliases(["bourne-again", "bash-shell"]))]
     Bash,
-    #[value(alias("shell-z"), aliases("z-shell", "zsh-shell"))]
+    #[value(aliases = ["shell-z", "z-shell", "zsh-shell"])]
     Zsh,
     #[cfg(windows)]
     PowerShell,
@@ -224,6 +225,7 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"z-shell\" hide=#true"), "{kdl}");
     assert!(kdl.contains("alias \"zsh-shell\" hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias \"bourne-again\" hide=#true"), "{kdl}");
     #[cfg(not(windows))]
     assert!(!kdl.contains("power-shell"), "{kdl}");
 }

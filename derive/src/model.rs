@@ -2653,16 +2653,25 @@ fn group_decl(meta: &Meta) -> syn::Result<GroupDecl> {
 }
 
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
-    let Meta::List(list) = meta else {
-        return Ok(vec![string_value(meta)?]);
+    let found: Vec<String> = match meta {
+        Meta::List(list) => {
+            if let Ok(array) = syn::parse2::<syn::ExprArray>(list.tokens.clone()) {
+                string_array(&array)?
+            } else {
+                list.parse_args_with(
+                    syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+                )?
+                .into_iter()
+                .map(|lit| lit.value())
+                .collect()
+            }
+        }
+        Meta::NameValue(value) => match &value.value {
+            syn::Expr::Array(array) => string_array(array)?,
+            _ => vec![string_value(meta)?],
+        },
+        Meta::Path(_) => vec![string_value(meta)?],
     };
-    let found: Vec<String> = list
-        .parse_args_with(
-            syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
-        )?
-        .into_iter()
-        .map(|lit| lit.value())
-        .collect();
     // An empty list compiles into no relationship at all, which is a declaration that
     // reads as though it does something.
     if found.is_empty() {
@@ -2676,6 +2685,20 @@ fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
         ));
     }
     Ok(found)
+}
+
+fn string_array(array: &syn::ExprArray) -> syn::Result<Vec<String>> {
+    array
+        .elems
+        .iter()
+        .map(|expr| match expr {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(value),
+                ..
+            }) => Ok(value.value()),
+            _ => Err(syn::Error::new_spanned(expr, "expected a string literal")),
+        })
+        .collect()
 }
 
 fn requirement_if(meta: &Meta) -> syn::Result<ConditionalRequirement> {
