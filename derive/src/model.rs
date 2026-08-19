@@ -3640,7 +3640,7 @@ impl ValueEnum {
         }
 
         let mut ignore_case = false;
-        let mut rename_all = CasingStyle::Kebab;
+        let mut rename_all = None;
         // Registering clap's `value` helper attribute means rustc accepts it at
         // either level. Parse it here too so unsupported enum-wide options fail
         // explicitly instead of being silently ignored.
@@ -3649,7 +3649,7 @@ impl ValueEnum {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "ignore_case" => ignore_case = flag_value(&meta)?,
-                    "rename_all" => rename_all = CasingStyle::parse(&meta)?,
+                    "rename_all" => rename_all = Some(CasingStyle::parse(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -3669,7 +3669,10 @@ impl ValueEnum {
                 ));
             }
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
-            let mut name = rename_all.apply(&variant.ident.unraw().to_string());
+            let rust_name = variant.ident.unraw().to_string();
+            let mut name = rename_all
+                .map(|style| style.apply(&rust_name))
+                .unwrap_or_else(|| to_kebab(&rust_name));
             let mut aliases = Vec::new();
             for attr in value_attrs(&variant.attrs) {
                 for meta in nested(attr)? {
@@ -4383,6 +4386,10 @@ mod tests {
 
     #[test]
     fn a_value_enum_accepts_clap_container_casing() {
+        let legacy = value_enum("enum Protocol { HTTPServer }")
+            .expect("the default naming policy should compile");
+        assert_eq!(legacy.variants[0].name, "h-t-t-p-server");
+
         for (style, expected) in [
             ("camelCase", "onePassword"),
             ("kebab-case", "one-password"),
