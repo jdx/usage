@@ -364,13 +364,13 @@ impl<'a> CommandOverlay<'a> {
 /// Constructing a view copies no command tree and is never part of argv parsing. It exists for
 /// cold paths—help, spec emission and completion—where a program may need runtime identity or a
 /// centrally audited metadata policy without lowering the static tables through usage-lib.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct SpecView<'a> {
     base: &'a Spec<'a>,
     name: Option<&'a str>,
     bin: Option<&'a str>,
     version: Option<&'a str>,
-    commands: &'a [CommandOverlay<'a>],
+    commands: Vec<CommandOverlay<'a>>,
 }
 
 impl<'a> SpecView<'a> {
@@ -380,11 +380,11 @@ impl<'a> SpecView<'a> {
             name: None,
             bin: None,
             version: None,
-            commands: &[],
+            commands: Vec::new(),
         }
     }
 
-    const fn reborrow<'b>(self) -> SpecView<'b>
+    fn reborrow<'b>(self) -> SpecView<'b>
     where
         'a: 'b,
     {
@@ -397,7 +397,7 @@ impl<'a> SpecView<'a> {
         }
     }
 
-    pub const fn name<'b, 'c>(self, name: &'b str) -> SpecView<'c>
+    pub fn name<'b, 'c>(self, name: &'b str) -> SpecView<'c>
     where
         'a: 'c,
         'b: 'c,
@@ -407,7 +407,7 @@ impl<'a> SpecView<'a> {
         view
     }
 
-    pub const fn bin<'b, 'c>(self, bin: &'b str) -> SpecView<'c>
+    pub fn bin<'b, 'c>(self, bin: &'b str) -> SpecView<'c>
     where
         'a: 'c,
         'b: 'c,
@@ -417,7 +417,7 @@ impl<'a> SpecView<'a> {
         view
     }
 
-    pub const fn version<'b, 'c>(self, version: &'b str) -> SpecView<'c>
+    pub fn version<'b, 'c>(self, version: &'b str) -> SpecView<'c>
     where
         'a: 'c,
         'b: 'c,
@@ -427,18 +427,18 @@ impl<'a> SpecView<'a> {
         view
     }
 
-    pub const fn overlay<'b, 'c>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'c>
+    pub fn overlay<'b, 'c>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'c>
     where
         'a: 'c,
         'b: 'c,
     {
         let mut view = self.reborrow();
-        view.commands = commands;
+        view.commands.extend_from_slice(commands);
         view
     }
 
     /// The shallow effective spec. Its command metadata still borrows the derive's static tree.
-    pub const fn spec(self) -> Spec<'a> {
+    pub const fn spec(&self) -> Spec<'a> {
         Spec {
             name: match self.name {
                 Some(name) => name,
@@ -465,7 +465,7 @@ impl<'a> SpecView<'a> {
     /// Emit the effective view without constructing or mutating a command graph.
     pub fn to_kdl(self) -> String {
         let spec = self.spec();
-        spec.render_kdl_with(self.commands)
+        spec.render_kdl_with(&self.commands)
     }
 }
 
@@ -2468,6 +2468,10 @@ mod tests {
         assert!(runtime.contains("name \"runtime\""), "{runtime}");
         assert!(
             runtime.contains("cmd \"list\" effect=\"write\""),
+            "{runtime}"
+        );
+        assert!(
+            runtime.contains("cmd \"rm\" effect=\"destructive\""),
             "{runtime}"
         );
     }
