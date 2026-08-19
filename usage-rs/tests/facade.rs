@@ -115,6 +115,15 @@ struct UnitArgsCli {
     command: UnitArgsCommand,
 }
 
+#[derive(Cli)]
+#[usage(bin = "completion-dedup")]
+struct CompletionDedup {
+    #[usage(long, value_name = "PATH", value_hint = usage::ValueHint::FilePath)]
+    input: Option<PathBuf>,
+    #[usage(long, value_name = "PATH", value_hint = usage::ValueHint::FilePath)]
+    output: Option<PathBuf>,
+}
+
 const DEFAULT_RUNS: u32 = 7;
 const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
 const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
@@ -181,6 +190,26 @@ fn unit_cli_and_args_structs_parse_without_shape_rewrites() {
         UnitArgsCli::parse_from(&[OsStr::new("empty")]).expect("unit Args command should parse");
     assert!(matches!(cli.command, UnitArgsCommand::Empty(UnitArgs)));
     assert!(UnitArgsCli::to_kdl().contains("cmd \"empty\""));
+}
+
+#[test]
+fn identical_builtin_completers_are_emitted_once() {
+    let parsed = CompletionDedup::parse_from(&[
+        OsStr::new("--input"),
+        OsStr::new("in.txt"),
+        OsStr::new("--output"),
+        OsStr::new("out.txt"),
+    ])
+    .expect("both path flags should parse");
+    assert_eq!(parsed.input.as_deref(), Some(Path::new("in.txt")));
+    assert_eq!(parsed.output.as_deref(), Some(Path::new("out.txt")));
+
+    let kdl = CompletionDedup::to_kdl();
+    assert_eq!(
+        kdl.matches("complete \"path\" type=\"path\"").count(),
+        1,
+        "{kdl}"
+    );
 }
 
 #[test]
