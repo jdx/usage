@@ -3319,6 +3319,59 @@ pub struct ValueVariant {
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
+fn cfg_variants_are_disjoint(left: &[Attribute], right: &[Attribute]) -> bool {
+    let left = left
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| attr.parse_args::<Meta>().ok())
+        .collect::<Vec<_>>();
+    let right = right
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| attr.parse_args::<Meta>().ok())
+        .collect::<Vec<_>>();
+
+    left.iter()
+        .any(|a| right.iter().any(|b| cfg_predicates_are_disjoint(a, b)))
+}
+
+fn cfg_predicates_are_disjoint(left: &Meta, right: &Meta) -> bool {
+    let tokens_equal = |a: &Meta, b: &Meta| {
+        quote::ToTokens::to_token_stream(a).to_string()
+            == quote::ToTokens::to_token_stream(b).to_string()
+    };
+    let negates = |outer: &Meta, inner: &Meta| {
+        let Meta::List(list) = outer else {
+            return false;
+        };
+        list.path.is_ident("not")
+            && list
+                .parse_args::<Meta>()
+                .is_ok_and(|value| tokens_equal(&value, inner))
+    };
+    if negates(left, right) || negates(right, left) {
+        return true;
+    }
+    if matches!((left, right), (Meta::Path(a), Meta::Path(b)) if
+        (a.is_ident("unix") && b.is_ident("windows"))
+            || (a.is_ident("windows") && b.is_ident("unix")))
+    {
+        return true;
+    }
+    match (left, right) {
+        (Meta::NameValue(a), Meta::NameValue(b))
+            if a.path
+                .get_ident()
+                .zip(b.path.get_ident())
+                .is_some_and(|(a, b)| a == b && a.to_string().starts_with("target_")) =>
+        {
+            quote::ToTokens::to_token_stream(&a.value).to_string()
+                != quote::ToTokens::to_token_stream(&b.value).to_string()
+        }
+        _ => false,
+    }
+}
+
 impl ValueEnum {
     pub fn from_input(input: &DeriveInput) -> syn::Result<Self> {
         let Data::Enum(data) = &input.data else {
@@ -3414,19 +3467,20 @@ impl ValueEnum {
             ));
         }
 
-        let mut seen: Vec<(&str, Span)> = Vec::new();
+        let mut seen: Vec<(&str, Span, &[Attribute])> = Vec::new();
         for variant in &variants {
             for word in ::std::iter::once(variant.name.as_str())
                 .chain(variant.aliases.iter().map(String::as_str))
             {
-                let collision = seen.iter().find(|(seen, _)| {
-                    if ignore_case {
+                let collision = seen.iter().find(|(seen, _, cfg)| {
+                    let same = if ignore_case {
                         seen.eq_ignore_ascii_case(word)
                     } else {
                         *seen == word
-                    }
+                    };
+                    same && !cfg_variants_are_disjoint(cfg, &variant.cfg_attrs)
                 });
-                if let Some((_, first_span)) = collision {
+                if let Some((_, first_span, _)) = collision {
                     return Err(dup(
                         variant.ident.span(),
                         *first_span,
@@ -3440,7 +3494,7 @@ impl ValueEnum {
                         ),
                     ));
                 }
-                seen.push((word, variant.ident.span()));
+                seen.push((word, variant.ident.span(), &variant.cfg_attrs));
             }
         }
 
@@ -4123,6 +4177,23 @@ mod tests {
         .expect("conditional variants should compile");
         assert!(value.variants[0].cfg_attrs.is_empty());
         assert_eq!(value.variants[1].cfg_attrs.len(), 1);
+    }
+
+    #[test]
+    fn cfg_disjoint_values_may_reuse_one_cli_word() {
+        value_enum(
+            r#"
+            enum Shell {
+                #[cfg(windows)]
+                #[usage(name = "native")]
+                Windows,
+                #[cfg(not(windows))]
+                #[usage(name = "native")]
+                Unix,
+            }
+        "#,
+        )
+        .expect("only one cfg-disjoint word exists on any target");
     }
 
     /// The position rules, which each derive applies for the place it stands in.
