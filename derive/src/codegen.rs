@@ -595,7 +595,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// Input includes argv0 by default. `#[command(no_binary_name)]`
                 /// opts into treating every supplied word as an argument.
                 pub fn try_parse_from<'v>(
-                    argv: &'v [&'v ::std::ffi::OsStr],
+                    argv: &[&'v ::std::ffi::OsStr],
                 ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
                     if #no_binary_name {
                         Self::parse_from(argv)
