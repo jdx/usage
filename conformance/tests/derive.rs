@@ -423,7 +423,17 @@ fn a_defaulted_argument_reads_as_optional_in_both_renderers() {
     // `required=#false default=…`, so there is nothing to normalize. A *derived* one is
     // required by its type and defaulted by its attribute, which is exactly the shape that
     // diverges.
-    let spec: LibSpec = Defaulted::to_kdl().parse().expect("valid spec");
+    let kdl = Defaulted::to_kdl();
+    let derived = Defaulted::spec();
+    assert!(!derived.root.args[0].required, "{kdl}");
+    assert!(!derived.root.flags[0].required, "{kdl}");
+    assert!(kdl.contains(r#"arg "[DIR]""#), "{kdl}");
+    assert!(
+        !kdl.contains(r#"flag "--out <out>" required=#true"#),
+        "{kdl}"
+    );
+
+    let spec: LibSpec = kdl.parse().expect("valid spec");
     let theirs = format!("ex {}", spec.cmd.usage()).trim().to_string();
     let ours = usage_argv::help::usage_line(&["ex"], Defaulted::spec().root);
     assert_eq!(ours, theirs, "the two renderers disagree");
