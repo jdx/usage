@@ -196,10 +196,11 @@ fn emit_command(
         let _ = writeln!(out, "\t{var}.AddCommand({child})");
     }
 
-    if !cmd.mounts.is_empty() {
-        // Wherever they are: mise's are on `run` and `tasks`, not at the root, so a check
-        // that only looked there dropped them without saying so — in the one report this
-        // whole shadow relies on for honesty.
+    // One per mount, wherever it is. mise's are on `run` and `tasks` rather than at the root,
+    // so a check that only looked there dropped them without saying so — in the one report
+    // this whole shadow relies on for honesty. Counted per entry because a command may graft
+    // in more than one, and the report is a count.
+    for _ in &cmd.mounts {
         skipped.note("mounts (another spec grafted in at run time)");
     }
 }

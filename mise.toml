@@ -113,7 +113,10 @@ dir = "{{config_root}}"
 # question, because `go vet ./... || true` would swallow a generator regression as well: a
 # shadow that no longer compiles would pass the lint and then report itself unmeasured.
 run = [
-    'test -z "$(gofmt -l go benches/go)" || { gofmt -l go benches/go; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
+    # The status as well as the output: a file gofmt cannot *parse* is reported on stderr with
+    # nothing on stdout, so `test -z "$(gofmt -l …)"` called that a pass — the one case where
+    # the answer matters most.
+    'list=$(gofmt -l go benches/go) || { echo "gofmt could not parse a file; see above"; exit 1; }; test -z "$list" || { echo "$list"; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
     'cd go && go vet ./...',
     'cd benches/go/cobra && if go mod download >/dev/null 2>&1; then go vet ./...; else echo "skipped: cobra could not be fetched"; fi',
 ]
