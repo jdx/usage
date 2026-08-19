@@ -126,6 +126,15 @@ fn merge_subcommand_flags(
                             merged.long.push(l.clone());
                         }
                     }
+                    // A child may deliberately promote one of the ancestor's hidden aliases.
+                    // Hidden lists are subsets of the accepted spellings, so a spelling present
+                    // on the child but absent from its hidden subset is visible at this level.
+                    merged.hidden_short_aliases.retain(|alias| {
+                        !flag.short.contains(alias) || flag.hidden_short_aliases.contains(alias)
+                    });
+                    merged.hidden_aliases.retain(|alias| {
+                        !flag.long.contains(alias) || flag.hidden_aliases.contains(alias)
+                    });
                     for s in &flag.hidden_short_aliases {
                         if !merged.hidden_short_aliases.contains(s) {
                             merged.hidden_short_aliases.push(*s);
@@ -5306,6 +5315,28 @@ cmd "run" {
         assert_eq!(merged.hidden_short_aliases, ['q', 's']);
         assert_eq!(merged.hidden_aliases, ["quietly", "secret"]);
         for key in ["-q", "-s", "--quietly", "--secret"] {
+            assert!(Arc::ptr_eq(&parsed.available_flags[key], merged), "{key}");
+        }
+    }
+
+    #[test]
+    fn test_redeclared_global_can_promote_hidden_aliases() {
+        let spec = r#"
+flag "--yes" global=#true {
+    alias "-q" "--quietly" hide=#true
+}
+cmd "run" {
+    flag "-q --yes --quietly"
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+        let merged = &parsed.available_flags["--yes"];
+        assert!(merged.hidden_short_aliases.is_empty());
+        assert!(merged.hidden_aliases.is_empty());
+        for key in ["-q", "--quietly"] {
             assert!(Arc::ptr_eq(&parsed.available_flags[key], merged), "{key}");
         }
     }
