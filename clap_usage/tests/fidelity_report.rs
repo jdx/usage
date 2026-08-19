@@ -113,7 +113,7 @@ fn building_metadata_does_not_mutate_the_callers_command() {
 }
 
 #[test]
-fn reports_positional_conflicts_declared_from_either_endpoint() {
+fn positional_conflicts_are_lossless_from_either_endpoint() {
     for command in [
         Command::new("ex")
             .arg(Arg::new("file").conflicts_with("force"))
@@ -124,13 +124,7 @@ fn reports_positional_conflicts_declared_from_either_endpoint() {
     ] {
         let mut command = command;
         let (_, report) = spec_with_report(&mut command, "ex");
-        assert!(
-            report
-                .losses()
-                .iter()
-                .any(|loss| loss.feature == FidelityFeature::PositionalRelationship),
-            "{report:#?}"
-        );
+        assert!(report.is_lossless(), "{report:#?}");
     }
 }
 
