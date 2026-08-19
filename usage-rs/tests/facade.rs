@@ -128,6 +128,8 @@ struct CompletionDedup {
 struct SharedArgs {
     #[usage(long)]
     verbose: bool,
+    #[usage(long)]
+    target: Option<String>,
 }
 
 #[derive(Subcommands)]
@@ -239,6 +241,7 @@ fn one_args_type_can_back_multiple_commands() {
         match cli.command {
             SharedArgsCommand::First(args) | SharedArgsCommand::Second(args) => {
                 assert!(args.verbose);
+                assert!(args.target.is_none());
             }
         }
     }
@@ -247,6 +250,61 @@ fn one_args_type_can_back_multiple_commands() {
     assert!(kdl.contains("cmd \"first\""), "{kdl}");
     assert!(kdl.contains("cmd \"second\""), "{kdl}");
     assert_eq!(kdl.matches("flag \"--verbose\"").count(), 2, "{kdl}");
+}
+
+#[cfg(feature = "completions")]
+fn first_targets(_: &usage::complete::CompleteCtx<'_>) -> Vec<usage::complete::Candidate<'static>> {
+    vec![usage::complete::Candidate::new("first-target")]
+}
+
+#[cfg(feature = "completions")]
+fn second_targets(
+    _: &usage::complete::CompleteCtx<'_>,
+) -> Vec<usage::complete::Candidate<'static>> {
+    vec![usage::complete::Candidate::new("second-target")]
+}
+
+#[cfg(feature = "completions")]
+fn run_ready<F: std::future::Future>(future: F) -> F::Output {
+    struct Ready;
+    impl std::task::Wake for Ready {
+        fn wake(self: std::sync::Arc<Self>) {}
+    }
+
+    let waker = std::task::Waker::from(std::sync::Arc::new(Ready));
+    let mut cx = std::task::Context::from_waker(&waker);
+    let mut future = Box::pin(future);
+    match future.as_mut().poll(&mut cx) {
+        std::task::Poll::Ready(output) => output,
+        std::task::Poll::Pending => panic!("facade completion callback unexpectedly waited"),
+    }
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn shared_args_completion_overlays_stay_on_the_selected_command() {
+    static OVERLAYS: [usage::complete::CompletionOverlay<'static>; 2] = [
+        usage::complete::CompletionOverlay::sync("first", "target", first_targets),
+        usage::complete::CompletionOverlay::sync("second", "target", second_targets),
+    ];
+
+    for (command, expected) in [("first", "first-target"), ("second", "second-target")] {
+        let argv = [
+            std::ffi::OsString::from("__complete_word__"),
+            std::ffi::OsString::from("--shell"),
+            std::ffi::OsString::from("bash"),
+            std::ffi::OsString::from("--line"),
+            std::ffi::OsString::from(format!("shared-args {command} --target ")),
+        ];
+        let rendered = run_ready(
+            SharedArgsCli::app()
+                .completion_app()
+                .completions(&OVERLAYS)
+                .completion_request(&argv),
+        )
+        .expect("hidden completion request should be handled");
+        assert_eq!(rendered, format!("{expected}\n"));
+    }
 }
 
 #[test]

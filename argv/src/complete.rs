@@ -840,12 +840,12 @@ fn overlay_at_cursor<'o>(
             })
         })
     } else if let Some(flag) = position.awaiting_value {
-        flag_meta_owner(spec.root, flag)
+        flag_meta_owner_on_route(spec, position, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
     } else {
         position
             .next_arg
-            .and_then(|arg| arg_meta_owner(spec.root, arg))
+            .and_then(|arg| arg_meta_owner_on_route(spec, position, arg))
             .map(|(owner, field)| {
                 (
                     owner,
@@ -874,6 +874,36 @@ fn overlay_at_cursor<'o>(
     })
 }
 
+fn flag_meta_owner_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+    flag: &Flag<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
+    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    chain.iter().rev().find_map(|owner| {
+        owner
+            .flags
+            .iter()
+            .find(|field| core::ptr::eq(field.flag, flag))
+            .map(|field| (*owner, field))
+    })
+}
+
+fn arg_meta_owner_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+    arg: &Arg<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
+    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    chain.iter().rev().find_map(|owner| {
+        owner
+            .args
+            .iter()
+            .find(|field| core::ptr::eq(field.arg, arg))
+            .map(|field| (*owner, field))
+    })
+}
+
 fn default_subcommand_arg<'a>(
     spec: &'a Spec<'a>,
     split: &Split,
@@ -888,36 +918,6 @@ fn default_subcommand_arg<'a>(
         .find(|sub| sub.cmd.name == default)
         .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
         .and_then(|sub| sub.args.first().map(|field| (sub, field)))
-}
-
-fn flag_meta_owner<'a>(
-    meta: &'a CommandMeta<'a>,
-    flag: &Flag<'_>,
-) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
-    meta.flags
-        .iter()
-        .find(|field| core::ptr::eq(field.flag, flag))
-        .map(|field| (meta, field))
-        .or_else(|| {
-            meta.subcommands
-                .iter()
-                .find_map(|sub| flag_meta_owner(sub, flag))
-        })
-}
-
-fn arg_meta_owner<'a>(
-    meta: &'a CommandMeta<'a>,
-    arg: &Arg<'_>,
-) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
-    meta.args
-        .iter()
-        .find(|field| core::ptr::eq(field.arg, arg))
-        .map(|field| (meta, field))
-        .or_else(|| {
-            meta.subcommands
-                .iter()
-                .find_map(|sub| arg_meta_owner(sub, arg))
-        })
 }
 
 /// Just the candidates this CLI knows about, without the question of paths.
