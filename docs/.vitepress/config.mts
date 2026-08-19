@@ -158,6 +158,19 @@ export default defineConfig({
     footer: false,
   },
   head: [
+    [
+      "script",
+      {},
+      `(function () {
+  try {
+    var d = document.documentElement;
+    var id = localStorage.getItem("jdx-banner-id");
+    var h = localStorage.getItem("jdx-banner-height");
+    if (id && h && localStorage.getItem("jdx-banner-dismissed") !== id)
+      d.style.setProperty("--vp-layout-top-height", h);
+  } catch (e) {}
+})();`,
+    ],
     ["link", { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
     ["link", { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" }],
     ["link", { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" }],
