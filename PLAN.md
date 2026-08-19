@@ -577,6 +577,15 @@ feature list is not an exhaustive audit.
       derive applies the default, but help, spec consumers and differential
       tooling see a required shape. A default satisfies a field; it must not
       make the user's token required in the static metadata.
+- [ ] **Keep emitted parser settings consumable by the documentation toolchain.**
+      The typed tak rewrite correctly opts into strict parsing with
+      `unknown_flags="error"`, but `Cli::to_kdl()` emits an `unknown_flags`
+      root node that the published usage 5.1 CLI rejects as an unsupported spec
+      key. Until every renderer in the 6.x toolchain reads the same schema, an
+      adopter cannot regenerate checked-in docs from its new canonical metadata.
+      Version the schema boundary, test derive output through usage-cli, and
+      either model parser settings in `Spec` or keep runtime-only settings out of
+      portable KDL.
 - [ ] **Rust expressions for compile-time metadata.** hk and fnox use constants
       for defaults, aube and hk use constants for long help, and all three use
       generated or computed version strings. Requiring every value to be copied
