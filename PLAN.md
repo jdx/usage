@@ -681,9 +681,12 @@ feature list is not an exhaustive audit.
 - [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
       compared on accepted and rejected argv, typed values, error kind and exit
       status, stdout versus stderr, short and long help, usage/version output, and
-      completion candidates. Run the portable cases on Unix and Windows and the
-      byte-value cases on Unix. The mise fuzzer remains the scale test; this is the
-      configuration-space test it cannot be.
+      completion candidates. Include setting-specific diagnostics: for example,
+      clap explains that `--flag=value` is required when `require_equals` rejects
+      a detached or missing value, while usage currently reports only a generic
+      missing value and forced Aube to adapt that error locally. Run the portable
+      cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
+      remains the scale test; this is the configuration-space test it cannot be.
 - [ ] **Combination and stateful tests.** Pairwise-cover settings that interact:
       defaults with env and delimiters, optional values with `require_equals`,
       globals with overrides, subcommands with required positionals, groups with
