@@ -682,7 +682,10 @@ feature list is not an exhaustive audit.
       lightweight overlay/projection surface consumable by the compiled completion
       walker, define an async completion callback strategy that does not tax normal
       parsing, and cover alternate binary identities before calling completions
-      self-contained for embedders and multicall CLIs.
+      self-contained for embedders and multicall CLIs. fnox exposes the same gap in
+      a smaller shape: switching it to `Cli::completion_script` dropped the secret,
+      provider, profile and config-file completers appended from
+      `fnox-extras.usage.kdl`, so its fleet PR also retains `usage g completion`.
 - [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
       output was semantically accepted but differed substantially from the same
       tree after a usage-lib parse/serialize round trip, and repeated identical
@@ -884,11 +887,11 @@ looking at the clap surface, not only at the spec.
       and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
       the root because its external-subcommand path is a package-manager forwarder.
       All five depend only on the `usage-rs` facade for parsing and derives and pin
-      the experiment stack at `88786493`. hk and fnox also use its built-in compiled
-      completion protocol, removing their runtime dependency on an installed `usage`
-      binary; aube retains the external completion generator for the runtime-overlay
-      gap above. The workarounds they still contain are the unchecked launch-gate rows
-      above, not unfinished conversions.
+      the experiment stack at `88786493`. hk also uses its built-in compiled
+      completion protocol, removing its runtime dependency on an installed `usage`
+      binary; aube and fnox retain the external completion generator for the
+      runtime-overlay gap above. The workarounds they still contain are the unchecked
+      launch-gate rows above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
