@@ -33,6 +33,24 @@ struct Run {
     all: bool,
 }
 
+#[derive(Cli)]
+#[command(bin = "ex", default_subcommand = "run")]
+struct DefaultPolicy {
+    #[command(subcommand)]
+    command: Option<DefaultCommands>,
+}
+
+#[derive(Subcommands)]
+enum DefaultCommands {
+    Run(DefaultRun),
+}
+
+#[derive(Args)]
+#[command(arg_required_else_help)]
+struct DefaultRun {
+    task: String,
+}
+
 #[test]
 fn a_bare_root_asks_for_short_help_even_when_a_default_fills_a_field() {
     let Err(Error::Help { cmd, long }) = RootPolicy::parse_from(&[]) else {
@@ -56,6 +74,15 @@ fn a_nested_command_counts_only_tokens_after_its_own_name() {
     let parsed = NestedPolicy::parse_from(&argv(["run", "--all"])).expect("run has an argument");
     let Commands::Run(run) = parsed.command;
     assert!(run.all);
+}
+
+#[test]
+fn a_default_command_counts_the_unmatched_word_routed_into_it() {
+    let parsed = DefaultPolicy::parse_from(&argv(["build"])).expect("run received argv");
+    let Some(DefaultCommands::Run(run)) = parsed.command else {
+        panic!("the default command should be selected");
+    };
+    assert_eq!(run.task, "build");
 }
 
 #[test]

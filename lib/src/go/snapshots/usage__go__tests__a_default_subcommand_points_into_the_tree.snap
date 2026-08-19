@@ -140,6 +140,9 @@ func Parse(args []string) (*Cli, error) {
 	if err := p.Err(); err != nil {
 		return nil, err
 	}
+	if p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args) {
+		return nil, &argv.Error{Code: argv.CodeHelp, Cmd: p.Command()}
+	}
 
 	// Only the commands the words actually selected are judged: a required
 	// flag on a command nobody ran is not missing.
