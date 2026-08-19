@@ -15,9 +15,12 @@
 //! as argv had the line been run — the parser downstream should see exactly what it would see
 //! in a real invocation.
 
-use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec};
+use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CompleteCtx, Completer};
 use crate::{Arg, Command, Error, Flag, Parser};
+use core::future::Future;
+use core::pin::Pin;
+use std::ffi::OsString;
 
 /// Where the cursor is, in the grammar rather than in the line.
 ///
@@ -267,6 +270,189 @@ pub struct Completions<'a> {
     pub files: Option<Files>,
 }
 
+/// A completion future supplied by an embedding CLI.
+///
+/// usage-argv does not choose an executor. The application awaits this future on the runtime it
+/// already owns; the allocation exists only after the shell asks for candidates.
+pub type CompletionFuture<'a> = Pin<Box<dyn Future<Output = Vec<Candidate<'static>>> + 'a>>;
+
+/// An async completion function. Taking the context by value lets the future borrow its line and
+/// command tables without requiring global state or a runtime-specific callback trait.
+pub type AsyncCompleter = for<'a> fn(CompleteCtx<'a>) -> CompletionFuture<'a>;
+
+/// A runtime completion callback added to a derive-generated field.
+#[derive(Clone, Copy)]
+pub enum CompletionHandler {
+    Sync(Completer),
+    Async(AsyncCompleter),
+}
+
+impl core::fmt::Debug for CompletionHandler {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Sync(_) => "Sync(..)",
+            Self::Async(_) => "Async(..)",
+        })
+    }
+}
+
+/// One sparse completion override, selected by declaring command and normalized value name.
+#[derive(Debug, Clone, Copy)]
+pub struct CompletionOverlay<'a> {
+    pub command: CommandSelector<'a>,
+    pub value: &'a str,
+    pub handler: CompletionHandler,
+}
+
+impl<'a> CompletionOverlay<'a> {
+    pub const fn sync_any(value: &'a str, completer: Completer) -> Self {
+        Self {
+            command: CommandSelector::Any,
+            value,
+            handler: CompletionHandler::Sync(completer),
+        }
+    }
+
+    pub const fn async_any(value: &'a str, completer: AsyncCompleter) -> Self {
+        Self {
+            command: CommandSelector::Any,
+            value,
+            handler: CompletionHandler::Async(completer),
+        }
+    }
+
+    pub const fn sync(path: &'a str, value: &'a str, completer: Completer) -> Self {
+        Self {
+            command: CommandSelector::Path(path),
+            value,
+            handler: CompletionHandler::Sync(completer),
+        }
+    }
+
+    pub const fn asynchronous(path: &'a str, value: &'a str, completer: AsyncCompleter) -> Self {
+        Self {
+            command: CommandSelector::Path(path),
+            value,
+            handler: CompletionHandler::Async(completer),
+        }
+    }
+}
+
+/// A self-contained completion surface over a borrowed [`SpecView`].
+///
+/// A projection inserts a command path after argv0 before walking the base tables. That lets a
+/// multicall binary such as `aubr` expose `aube run` without cloning a command tree or losing the
+/// root's global flags.
+#[derive(Debug, Clone, Copy)]
+pub struct App<'a> {
+    view: SpecView<'a>,
+    overlays: &'a [CompletionOverlay<'a>],
+    projection: Option<&'a str>,
+}
+
+impl<'a> App<'a> {
+    pub const fn new(view: SpecView<'a>) -> Self {
+        Self {
+            view,
+            overlays: &[],
+            projection: None,
+        }
+    }
+
+    pub const fn completions(mut self, overlays: &'a [CompletionOverlay<'a>]) -> Self {
+        self.overlays = overlays;
+        self
+    }
+
+    pub const fn project(mut self, command_path: &'a str) -> Self {
+        self.projection = Some(command_path);
+        self
+    }
+
+    pub fn completion_script(self, shell: Shell) -> String {
+        let spec = self.view.spec();
+        crate::script::script(spec.bin.unwrap_or(spec.name), shell)
+    }
+
+    /// Answer a hidden completion invocation, or return `None` for ordinary argv.
+    pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
+        let request = Request::parse(argv)?;
+        let mut split = request.split;
+        if let Some(path) = self.projection {
+            let projected: Vec<String> =
+                path.split_ascii_whitespace().map(str::to_string).collect();
+            let count = projected.len();
+            split.words.splice(1..1, projected);
+            split.cword += count;
+        }
+        let spec = self.view.spec();
+        let answer = if let Some(name) = request.candidates_for {
+            complete_named_with(&spec, &split, self.overlays, &name).await
+        } else {
+            complete_with(&spec, &split, self.overlays).await
+        };
+        Some(render(&answer, request.shell))
+    }
+}
+
+impl<'a> SpecView<'a> {
+    /// Add compiled completion callbacks and optional multicall projections to this view.
+    pub const fn completion_app(self) -> App<'a> {
+        App::new(self)
+    }
+}
+
+struct Request {
+    shell: Shell,
+    split: Split,
+    candidates_for: Option<String>,
+}
+
+impl Request {
+    fn parse(argv: &[OsString]) -> Option<Self> {
+        if argv.first()?.to_str()? != "__complete_word__" {
+            return None;
+        }
+        let mut shell = Shell::Bash;
+        let mut line = String::new();
+        let mut cursor = None;
+        let mut candidates_for = None;
+        let mut rest = argv[1..].iter();
+        while let Some(arg) = rest.next() {
+            match arg.to_str().unwrap_or_default() {
+                "--shell" => {
+                    if let Some(found) = rest
+                        .next()
+                        .and_then(|name| Shell::from_name(&name.to_string_lossy()))
+                    {
+                        shell = found;
+                    }
+                }
+                "--line" => {
+                    if let Some(value) = rest.next() {
+                        line = value.to_string_lossy().into_owned();
+                    }
+                }
+                "--cursor" => {
+                    cursor = rest
+                        .next()
+                        .and_then(|value| value.to_str().and_then(|v| v.parse().ok()));
+                }
+                "--candidates" => {
+                    candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
+                }
+                _ => {}
+            }
+        }
+        let cursor = cursor.unwrap_or(line.len());
+        Some(Self {
+            shell,
+            split: split(&line, cursor, shell),
+            candidates_for,
+        })
+    }
+}
+
 /// The line a shell reads to mean "paths belong here too".
 ///
 /// A whole line rather than a flag on the protocol, because every one of the five shells can
@@ -479,6 +665,143 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     };
 
     Completions { candidates, files }
+}
+
+/// Complete from the static tables plus sparse sync or async runtime callbacks.
+///
+/// No future or callback is created until a completion request reaches a field with an overlay.
+pub async fn complete_with<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    overlays: &[CompletionOverlay<'_>],
+) -> Completions<'a> {
+    let position = walk(spec.root.cmd, split.argv());
+    let Some(overlay) = overlay_at_cursor(spec, split, &position, overlays) else {
+        return complete(spec, split);
+    };
+
+    let words = split.argv();
+    let command_path: Vec<(&Command<'_>, &[String])> = position
+        .path
+        .iter()
+        .map(|(cmd, start)| (*cmd, words.get(*start..).unwrap_or(&[])))
+        .collect();
+    let ctx = CompleteCtx {
+        words: &split.words,
+        cword: split.cword,
+        prefix: &split.prefix,
+        command_words: command_words(split, &position),
+        command_path: &command_path,
+    };
+    let mut dynamic = match overlay.handler {
+        CompletionHandler::Sync(completer) => completer(&ctx),
+        CompletionHandler::Async(completer) => completer(ctx).await,
+    };
+    dynamic.retain(|candidate| candidate.value.starts_with(&split.prefix));
+
+    let mut answer = complete(spec, split);
+    answer.candidates.extend(dynamic);
+    answer.candidates.sort();
+    answer
+        .candidates
+        .dedup_by(|left, right| left.value == right.value);
+    // Even an empty callback is a declared answer, not an invitation to offer the cwd.
+    answer.files = None;
+    answer
+}
+
+async fn complete_named_with<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    overlays: &[CompletionOverlay<'_>],
+    name: &str,
+) -> Completions<'a> {
+    let position = walk(spec.root.cmd, split.argv());
+    let words = split.argv();
+    let command_path: Vec<(&Command<'_>, &[String])> = position
+        .path
+        .iter()
+        .map(|(cmd, start)| (*cmd, words.get(*start..).unwrap_or(&[])))
+        .collect();
+    let ctx = CompleteCtx {
+        words: &split.words,
+        cword: split.cword,
+        prefix: &split.prefix,
+        command_words: command_words(split, &position),
+        command_path: &command_path,
+    };
+    let mut candidates = for_name(spec, name, &ctx).unwrap_or_default();
+    if let Some(overlay) = overlay_at_cursor(spec, split, &position, overlays)
+        .filter(|overlay| overlay.value.eq_ignore_ascii_case(name))
+    {
+        let mut dynamic = match overlay.handler {
+            CompletionHandler::Sync(completer) => completer(&ctx),
+            CompletionHandler::Async(completer) => completer(ctx).await,
+        };
+        candidates.append(&mut dynamic);
+    }
+    candidates.retain(|candidate| candidate.value.starts_with(&split.prefix));
+    candidates.sort();
+    candidates.dedup_by(|left, right| left.value == right.value);
+    Completions {
+        candidates,
+        files: None,
+    }
+}
+
+fn overlay_at_cursor<'o>(
+    spec: &Spec<'_>,
+    split: &Split,
+    position: &Position<'_>,
+    overlays: &'o [CompletionOverlay<'_>],
+) -> Option<&'o CompletionOverlay<'o>> {
+    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let target = if restarted(meta, split) {
+        meta.and_then(|owner| owner.args.first().map(|field| (owner, field.arg.name)))
+    } else if let Some(flag) = position.awaiting_value {
+        flag_meta_owner(spec.root, flag)
+            .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name)))
+    } else {
+        position.next_arg.and_then(|arg| {
+            arg_meta_owner(spec.root, arg).map(|(owner, field)| (owner, field.arg.name))
+        })
+    };
+    let (owner, value) = target?;
+    let (_, chain) = crate::help::find(spec, owner.cmd)?;
+    let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
+    overlays.iter().rev().find(|overlay| {
+        overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
+    })
+}
+
+fn flag_meta_owner<'a>(
+    meta: &'a CommandMeta<'a>,
+    flag: &Flag<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
+    meta.flags
+        .iter()
+        .find(|field| core::ptr::eq(field.flag, flag))
+        .map(|field| (meta, field))
+        .or_else(|| {
+            meta.subcommands
+                .iter()
+                .find_map(|sub| flag_meta_owner(sub, flag))
+        })
+}
+
+fn arg_meta_owner<'a>(
+    meta: &'a CommandMeta<'a>,
+    arg: &Arg<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
+    meta.args
+        .iter()
+        .find(|field| core::ptr::eq(field.arg, arg))
+        .map(|field| (meta, field))
+        .or_else(|| {
+            meta.subcommands
+                .iter()
+                .find_map(|sub| arg_meta_owner(sub, arg))
+        })
 }
 
 /// Just the candidates this CLI knows about, without the question of paths.
@@ -1019,6 +1342,24 @@ fn floor_char_boundary(s: &str, index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+
+    struct NoopWake;
+
+    impl Wake for NoopWake {
+        fn wake(self: Arc<Self>) {}
+    }
+
+    fn run_ready<F: Future>(future: F) -> F::Output {
+        let waker = Waker::from(Arc::new(NoopWake));
+        let mut cx = Context::from_waker(&waker);
+        let mut future = std::pin::pin!(future);
+        match future.as_mut().poll(&mut cx) {
+            Poll::Ready(output) => output,
+            Poll::Pending => panic!("test completion unexpectedly needed an executor wakeup"),
+        }
+    }
 
     /// A small tree with the shapes that make a cursor's position non-obvious: a global flag,
     /// a flag that takes a value, a subcommand of a subcommand, and a wrapper that forwards.
@@ -1424,6 +1765,59 @@ mod tests {
             .into_iter()
             .map(|c| c.value)
             .collect()
+    }
+
+    fn runtime_tools(ctx: CompleteCtx<'_>) -> CompletionFuture<'_> {
+        Box::pin(async move {
+            vec![Candidate::described(
+                format!("{}uby", ctx.prefix),
+                "from async runtime state",
+            )]
+        })
+    }
+
+    static RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::asynchronous(
+            "use",
+            "tool",
+            runtime_tools,
+        )];
+
+    #[test]
+    fn async_overlays_run_only_for_the_field_and_projection_at_the_cursor() {
+        let split = at_end("mise use r");
+        let answer = run_ready(complete_with(&SPEC, &split, &RUNTIME_COMPLETIONS));
+        assert_eq!(
+            answer
+                .candidates
+                .iter()
+                .map(|candidate| candidate.value.as_str())
+                .collect::<Vec<_>>(),
+            ["ruby"]
+        );
+        assert_eq!(answer.files, None);
+
+        let argv = [
+            OsString::from("__complete_word__"),
+            OsString::from("--shell"),
+            OsString::from("bash"),
+            OsString::from("--line"),
+            OsString::from("miser r"),
+        ];
+        let rendered = run_ready(
+            SPEC.view()
+                .name("miser")
+                .bin("miser")
+                .completion_app()
+                .completions(&RUNTIME_COMPLETIONS)
+                .project("use")
+                .completion_request(&argv),
+        );
+        assert_eq!(rendered.as_deref(), Some("ruby\n"));
+
+        let unrelated = at_end("mise plugins ");
+        let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
+        assert_eq!(answer.candidates[0].value, "ls");
     }
 
     /// The position at the cursor of a line, which is what a completion asks about.
