@@ -266,13 +266,7 @@ fn second_targets(
 
 #[cfg(feature = "completions")]
 fn run_ready<F: std::future::Future>(future: F) -> F::Output {
-    struct Ready;
-    impl std::task::Wake for Ready {
-        fn wake(self: std::sync::Arc<Self>) {}
-    }
-
-    let waker = std::task::Waker::from(std::sync::Arc::new(Ready));
-    let mut cx = std::task::Context::from_waker(&waker);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
     let mut future = Box::pin(future);
     match future.as_mut().poll(&mut cx) {
         std::task::Poll::Ready(output) => output,
