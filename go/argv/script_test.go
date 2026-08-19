@@ -92,12 +92,15 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 		{Bash, "compgen -c"},
 		{Zsh, "_command_names"},
 		{Fish, "__fish_complete_command"},
-		{Nu, "commandline complete --detailed"},
+		{Nu, "which"},
 		{PowerShell, "Get-Command"},
 	} {
 		if out := Script("mise", test.shell); !strings.Contains(out, test.want) {
 			t.Errorf("%v should ask the shell for commands with %q:\n%s", test.shell, test.want, out)
 		}
+	}
+	if out := Script("mise", Nu); strings.Contains(out, "| commandline complete") {
+		t.Errorf("nushell command completion must not recurse through the external completer:\n%s", out)
 	}
 }
 

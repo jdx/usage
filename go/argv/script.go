@@ -320,11 +320,14 @@ def --env __usage_complete_{ident} [spans: list<string>] {
             }
         }
     )
-    # Ask nushell for command names from the current word alone. Giving it the
-    # original line would complete this CLI's next argument and recurse through
-    # the external completer instead of completing a command to forward.
+    # which with no names returns nushell's commands and the executables on PATH.
+    # Unlike commandline complete, it cannot reinterpret an exact command name as
+    # the start of that command's arguments or re-enter this external completer.
     let commands = (if $wants_commands {
-        ($spans | last) | commandline complete --detailed
+        let prefix = ($spans | last)
+        which
+        | where {|row| $row.command | str starts-with $prefix }
+        | each {|row| { value: $row.command, description: $row.path } }
     } else {
         []
     })
