@@ -35,6 +35,10 @@ struct ChoiceEx {
     shell: Shell,
 }
 
+#[derive(Cli)]
+#[usage(bin = "strict-ex", unknown_flags = "error")]
+struct StrictEx {}
+
 /// Show one file
 #[derive(Args)]
 struct Show {
@@ -91,4 +95,21 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     let kdl = ChoiceEx::to_kdl();
     assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
     assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
+}
+
+#[test]
+fn emitted_parser_settings_are_portable_spec_metadata() {
+    let Err(_) = StrictEx::parse_from(&[OsStr::new("--wat")]) else {
+        panic!("strict parsing should reject an unknown flag");
+    };
+
+    let kdl = StrictEx::to_kdl();
+    assert!(kdl.contains("unknown_flags \"error\""), "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
+    assert_eq!(
+        spec.unknown_flags,
+        Some(usage_parser::UnknownFlags::Error),
+        "the portable spec should retain the runtime setting"
+    );
 }

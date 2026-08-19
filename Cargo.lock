@@ -2510,6 +2510,7 @@ version = "5.1.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-lib",
  "usage-validation",
 ]
 

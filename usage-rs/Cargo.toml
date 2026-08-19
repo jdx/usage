@@ -32,3 +32,6 @@ validation = ["dep:usage-validation"]
 [package.metadata.release]
 shared-version = true
 release = true
+
+[dev-dependencies]
+usage-parser = { package = "usage-lib", path = "../lib" }
