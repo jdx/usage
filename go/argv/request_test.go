@@ -16,10 +16,13 @@ func requestFixture() (*Command, HelpTable, Metadata) {
 		Args: []*Arg{{Key: 7, Name: "TOOL"}}}
 	after := &Command{Key: 8, Name: "run",
 		Args: []*Arg{{Key: 9, Name: "TASK", DoubleDash: DoubleDashRequired}}}
-	root := &Command{Key: 1, Name: "ex", Subcommands: []*Command{edit, use, after}}
+	forward := &Command{Key: 10, Name: "forward",
+		Args: []*Arg{{Key: 11, Name: "COMMAND", Var: true, DoubleDash: DoubleDashAutomatic}}}
+	root := &Command{Key: 1, Name: "ex", Subcommands: []*Command{edit, use, after, forward}}
 
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}, {Key: 5, Short: "Edit a file"},
-		{Key: 6, Short: "Use a tool"}, {Key: 7}, {Key: 8, Short: "Run a task"}, {Key: 9}}
+		{Key: 6, Short: "Use a tool"}, {Key: 7}, {Key: 8, Short: "Run a task"}, {Key: 9},
+		{Key: 10, Short: "Forward a command"}, {Key: 11}}
 	meta := Metadata{
 		{Key: 1},
 		{Key: 2, Name: "into", Flag: true, ValueName: "DIR"},
@@ -30,6 +33,8 @@ func requestFixture() (*Command, HelpTable, Metadata) {
 		{Key: 7, Name: "TOOL", Choices: []string{"node", "python"}},
 		{Key: 8},
 		{Key: 9, Name: "TASK"},
+		{Key: 10},
+		{Key: 11, Name: "COMMAND", CompleteType: "command_args"},
 	}
 	return root, help, meta
 }
@@ -135,6 +140,8 @@ func TestWhenPathsBelongAtTheCursor(t *testing.T) {
 		{"ex use --tool ⌶", NoFiles, "so does the value"},
 		{"ex run ⌶", NoFiles, "that argument is not readable until after a --"},
 		{"ex run -- ⌶", AnyFile, "and past the separator it is anything at all"},
+		{"ex forward ⌶", Commands, "the first forwarded word is a command"},
+		{"ex forward git ⌶", AnyFile, "later forwarded words are command arguments"},
 	} {
 		answer, _ := ask(t, Bash, c.line)
 		if answer.Files != c.want {

@@ -84,7 +84,7 @@ jobs: Option<u32>,
 | `overrides(…)`                          | Later occurrence silently overrides the named flag                                      |
 | `required_if(…)` / `required_unless(…)` | Conditional required-ness                                                               |
 | `complete = my_fn`                      | Custom completion function ([Completions](/rust/completions))                           |
-| `value_hint = ValueHint::FilePath`      | Complete values as paths (`FilePath`, `DirPath`, `AnyPath`)                             |
+| `value_hint = ValueHint::FilePath`      | Ask the shell for paths or commands (see below)                                         |
 | `value_name = "…"`                      | The placeholder shown in help (`--file <PATH>`)                                         |
 | `help = "…"` / `long_help = "…"`        | Help text (doc comments are usually nicer)                                              |
 | `help_heading = "…"`                    | Group the entry under a heading in help output                                          |
@@ -101,6 +101,11 @@ jobs: Option<u32>,
 computed state beside parsed state, and nothing about it reaches the spec, the parse tables, or
 help. Combining it with `long`, `arg`, or any other field option is a compile error. The type
 has to implement `Default`.
+
+`value_hint` accepts `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`, `CommandName`,
+`CommandString`, and `CommandWithArguments`. The last is for wrapper CLIs and must be a
+positional `Vec` with `double_dash = "automatic"`: its first value completes from the shell's
+commands, while later values fall back to ordinary argument paths.
 
 `#[usage(allow_hyphen_values)]` is clap's attribute of the same name: `--args -destroy` binds
 `-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that

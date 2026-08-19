@@ -78,6 +78,48 @@ fn ask_hinted(line: &str) -> String {
     Hinted::completion_request(&argv).expect("this is a completion request")
 }
 
+#[derive(Cli)]
+#[usage(bin = "forward", completion)]
+struct Forward {
+    /// Command followed by its arguments
+    #[usage(
+        arg,
+        name = "COMMAND",
+        double_dash = "automatic",
+        value_hint = usage_argv::ValueHint::CommandWithArguments
+    )]
+    command: Vec<OsString>,
+}
+
+fn ask_forward(line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", "bash", "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    Forward::completion_request(&argv).expect("this is a completion request")
+}
+
+#[test]
+fn command_with_arguments_changes_native_completion_after_the_command_word() {
+    assert_eq!(
+        ask_forward("forward "),
+        format!("{}\n", usage_argv::complete::COMMANDS_MARKER)
+    );
+    assert_eq!(
+        ask_forward("forward git "),
+        format!("{}\n", usage_argv::complete::FILES_MARKER)
+    );
+
+    let kdl = Forward::to_kdl();
+    assert!(
+        kdl.contains("complete \"command\" type=\"command_args\""),
+        "{kdl}"
+    );
+    let argv = [OsStr::new("git"), OsStr::new("-C"), OsStr::new("repo")];
+    let parsed = Forward::parse_from(&argv).expect("forwarded flags are values");
+    assert_eq!(parsed.command, argv);
+}
+
 #[test]
 fn usage_path_value_hints_reach_native_and_emitted_completions() {
     assert_eq!(

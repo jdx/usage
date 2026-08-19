@@ -638,10 +638,13 @@ feature list is not an exhaustive audit.
       advertised; usage spells those `alias_hidden` and `alias`. The fnox rewrite
       initially made `completion`'s hidden aliases and `exec run` visible because
       a mechanical rename erased that distinction.
-- [ ] **Command-with-arguments completion hints.** fnox uses
-      `ValueHint::CommandWithArguments` for forwarded argv. usage accepts only
-      file, path and directory hints today. Add the command/argv cases or record
-      them as an explicit completion non-goal before claiming clap coverage.
+- [x] **Command-with-arguments completion hints.** `ExecutablePath`,
+      `CommandName`, `CommandString`, and `CommandWithArguments` lower to
+      shell-native completion types. A forwarded argv vector offers commands for
+      its first value and ordinary argument paths after it; the derive requires
+      the same positional `Vec` plus `double_dash = "automatic"` shape that makes
+      flag-looking child arguments parse as values. Rust and Go runtime completion,
+      generated shell scripts, KDL, and the reference CLI share the vocabulary.
 - [x] **Version omission and dynamic version policy.** A literal `version`
       remains compile-time metadata, while `version = expression` evaluates a
       computed runtime string for hk-style build information. Cold metadata

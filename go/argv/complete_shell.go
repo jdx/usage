@@ -60,6 +60,10 @@ const (
 	AnyFile
 	// Dirs means directories only.
 	Dirs
+	// ExecutablePaths means executable files at a filesystem path.
+	ExecutablePaths
+	// Commands means command names from the shell and PATH.
+	Commands
 )
 
 // The line a shell reads to mean "paths belong here too".
@@ -70,8 +74,10 @@ const (
 // values are escaped before they are rendered anywhere — so it cannot be mistaken
 // for one.
 const (
-	FilesMarker = "\x01files"
-	DirsMarker  = "\x01dirs"
+	FilesMarker           = "\x01files"
+	DirsMarker            = "\x01dirs"
+	ExecutablePathsMarker = "\x01executables"
+	CommandsMarker        = "\x01commands"
 )
 
 // Answer is everything a shell needs to resolve one Tab.
@@ -144,6 +150,10 @@ func RenderAnswer(a Answer, shell Shell) string {
 		out.WriteString(FilesMarker + "\n")
 	case Dirs:
 		out.WriteString(DirsMarker + "\n")
+	case ExecutablePaths:
+		out.WriteString(ExecutablePathsMarker + "\n")
+	case Commands:
+		out.WriteString(CommandsMarker + "\n")
 	}
 	return out.String()
 }

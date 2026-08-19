@@ -54,7 +54,7 @@ not only from generated KDL, when a row says **usage only**.
 | `dont_delimit_trailing_values`            | Unsupported | Unsupported    | No spec spelling yet.                                                                                                                             |
 | possible-values parser                    | Supported   | Supported      | Use `ValueEnum` or `choices`.                                                                                                                     |
 | arbitrary `value_parser` / numeric ranges | Usage only  | Unsupported    | `FromStr` validates conversion; portable `validate` expressions cover declarative rules, but Rust callbacks cannot enter a language-neutral spec. |
-| `ValueHint`                               | Partial     | Partial        | Path hints used by completions work; the full clap vocabulary does not.                                                                           |
+| `ValueHint`                               | Partial     | Partial        | Path, executable, command, command-string, and forwarded command-with-arguments hints work; identity/network hints remain unsupported.            |
 
 ## Relationships and command routing
 

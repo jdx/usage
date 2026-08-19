@@ -149,7 +149,7 @@ func filesAt(pos Position, split SplitLine, candidates []Candidate, meta Metadat
 		if m.ValueName != "" {
 			named = m.ValueName
 		}
-		if asked := filesFor(m.CompleteType); asked != NoFiles {
+		if asked := declaredFiles(m.CompleteType, pos); asked != NoFiles {
 			return asked
 		}
 	}
@@ -177,8 +177,22 @@ func filesFor(name string) Files {
 		return AnyFile
 	case strings.EqualFold(name, "dir"), strings.EqualFold(name, "directory"):
 		return Dirs
+	case strings.EqualFold(name, "executable"):
+		return ExecutablePaths
+	case strings.EqualFold(name, "command"):
+		return Commands
 	}
 	return NoFiles
+}
+
+func declaredFiles(name string, pos Position) Files {
+	if strings.EqualFold(name, "command_args") {
+		if pos.NextArgValues == 0 {
+			return Commands
+		}
+		return AnyFile
+	}
+	return filesFor(name)
 }
 
 // atoi is [strconv.Atoi] for a non-negative number, written out because this

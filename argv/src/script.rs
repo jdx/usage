@@ -101,6 +101,8 @@ _usage_complete_{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any ;;
             $'\001dirs') __usage_files=dirs ;;
+            $'\001executables') __usage_files=executables ;;
+            $'\001commands') __usage_files=commands ;;
             '') ;;
             *) COMPREPLY+=("$__usage_line") ;;
         esac
@@ -110,10 +112,17 @@ _usage_complete_{bin}() {{
         # Set here rather than on `complete`, because whether this position takes a path is not
         # known until the answer comes back. It is what makes bash append a `/` to a directory
         # and stop escaping what it should not.
-        compopt -o filenames 2>/dev/null
+        [[ $__usage_files == commands ]] || compopt -o filenames 2>/dev/null
         local __usage_cur="${{COMP_WORDS[COMP_CWORD]}}" __usage_path
         local -a __usage_paths=()
-        if [[ $__usage_files == dirs ]]; then
+        if [[ $__usage_files == commands ]]; then
+            while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
+                < <(compgen -c -- "$__usage_cur")
+        elif [[ $__usage_files == executables ]]; then
+            while IFS= read -r __usage_path; do
+                [[ -d "$__usage_path" || -x "$__usage_path" ]] && __usage_paths+=("$__usage_path")
+            done < <(compgen -f -- "$__usage_cur")
+        elif [[ $__usage_files == dirs ]]; then
             while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
                 < <(compgen -d -- "$__usage_cur")
         else
@@ -156,6 +165,8 @@ _{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any; continue ;;
             $'\001dirs') __usage_files=dirs; continue ;;
+            $'\001executables') __usage_files=executables; continue ;;
+            $'\001commands') __usage_files=commands; continue ;;
             '') continue ;;
         esac
         local -a parts=("${{(@ps:\t:)__usage_line}}")
@@ -192,6 +203,8 @@ _{bin}() {{
     case "$__usage_files" in
         any) _files && __usage_ret=0 ;;
         dirs) _files -/ && __usage_ret=0 ;;
+        executables) _files -g '*(*)' && __usage_ret=0 ;;
+        commands) _command_names && __usage_ret=0 ;;
     esac
     return $__usage_ret
 }}
@@ -222,12 +235,18 @@ function __usage_complete_{bin}
     # computed values, and a control byte is not something to spell twice.
     set -l marker_any (printf '\x01files')
     set -l marker_dirs (printf '\x01dirs')
+    set -l marker_executables (printf '\x01executables')
+    set -l marker_commands (printf '\x01commands')
     set -l files ""
     for entry in $out
         if test "$entry" = "$marker_any"
             set files any
         else if test "$entry" = "$marker_dirs"
             set files dirs
+        else if test "$entry" = "$marker_executables"
+            set files executables
+        else if test "$entry" = "$marker_commands"
+            set files commands
         else if test -n "$entry"
             # printf, not echo: fish's echo reads a leading -n, -e, -s or -E as its own option,
             # so a CLI with a `-n` would have that candidate swallowed on the way to the prompt.
@@ -241,6 +260,15 @@ function __usage_complete_{bin}
             __fish_complete_path (commandline -ct)
         case dirs
             __fish_complete_directories (commandline -ct)
+        case executables
+            for candidate in (__fish_complete_path (commandline -ct))
+                set -l value (string split -m 1 (printf '\t') -- $candidate)[1]
+                if test -d "$value"; or test -x "$value"
+                    printf '%s\n' $candidate
+                end
+            end
+        case commands
+            __fish_complete_command (commandline -ct)
     end
 end
 
@@ -266,8 +294,9 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     if $out.exit_code != 0 {{ return null }}
     let lines = ($out.stdout | lines | where {{|l| $l != "" }})
     let marker = "\u{{1}}"
-    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" }})
-    let candidates = (
+    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "executables" }})
+    let wants_commands = ($lines | any {{|l| $l == $marker + "commands" }})
+    let declared = (
         $lines
         | where {{|l| not ($l | str starts-with $marker) }}
         | each {{|l|
@@ -278,6 +307,25 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
             }}
         }}
     )
+    # which with no names returns nushell's commands and the executables on PATH.
+    # Unlike commandline complete, it cannot reinterpret an exact command name as
+    # the start of that command's arguments or re-enter this external completer.
+    let commands = (if $wants_commands {{
+        let prefix = ($spans | last)
+        let insensitive = $nu.os-info.name == "windows"
+        let match_prefix = if $insensitive {{ $prefix | str downcase }} else {{ $prefix }}
+        which
+        | where {{|row|
+            let candidate = if $insensitive {{ $row.command | str downcase }} else {{ $row.command }}
+            $candidate | str starts-with $match_prefix
+        }}
+        | each {{|row| {{ value: $row.command, description: $row.path }} }}
+    }} else {{
+        []
+    }})
+    let candidates = ($declared | append $commands)
+    let command_is_path = (($spans | last) | str contains "/") or (($spans | last) | str contains "\\")
+    let wants_path_fallback = $wants_files or ($wants_commands and $command_is_path)
     # `null` is how a nushell completer says "you do this one", and what it does is complete
     # paths. So an answer that is only the marker returns null rather than nothing, which would
     # mean "there is nothing here".
@@ -287,7 +335,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     # "and files too". The candidates win, because they are what this CLI knows and a path is
     # something the user can finish typing. Every other shell here appends both; this is
     # nushell's completer interface rather than a decision of this design.
-    if ($candidates | is-empty) and $wants_files {{ null }} else {{ $candidates }}
+    if ($candidates | is-empty) and $wants_path_fallback {{ null }} else {{ $candidates }}
 }}
 
 # Slot this into the external completer nushell already has, if any, rather than replacing it:
@@ -334,6 +382,8 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         if ([string]::IsNullOrEmpty($entry)) {{ continue }}
         if ($entry -eq ($marker + 'files')) {{ $files = 'any'; continue }}
         if ($entry -eq ($marker + 'dirs')) {{ $files = 'dirs'; continue }}
+        if ($entry -eq ($marker + 'executables')) {{ $files = 'executables'; continue }}
+        if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
         $parts = $entry -split "`t", 2
         $value = $parts[0]
         $description = if ($parts.Count -gt 1 -and $parts[1]) {{ $parts[1] }} else {{ $value }}
@@ -344,15 +394,29 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         )
     }}
 
-    if ($files) {{
+    if ($files -eq 'commands') {{
+        foreach ($command in Get-Command -Name ($wordToComplete + '*') -CommandType Application, ExternalScript -ErrorAction SilentlyContinue) {{
+            $results.Add(
+                [System.Management.Automation.CompletionResult]::new(
+                    $command.Name, $command.Name, 'Command', $command.Source
+                )
+            )
+        }}
+    }} elseif ($files) {{
         # PowerShell's own, so that `~`, drive-relative paths and provider paths behave as they
         # do everywhere else in the shell.
         foreach ($path in [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)) {{
-            # By what PowerShell said it is, not by testing the path again: `CompletionText` is
-            # the text to *insert* and may already carry quoting, so a directory whose name needs
-            # quotes would fail a `Test-Path` and vanish from a dirs-only completion.
+            # Trust PowerShell's result type for directories because CompletionText may already
+            # carry quoting. Executable leaves are checked as commands after stripping only the
+            # outer quote characters PowerShell added.
             if ($files -eq 'dirs' -and $path.ResultType -ne 'ProviderContainer') {{
                 continue
+            }}
+            if ($files -eq 'executables' -and $path.ResultType -ne 'ProviderContainer') {{
+                $candidatePath = $path.CompletionText.Trim([char[]]@([char]39, [char]34))
+                if (-not (Get-Command -Name $candidatePath -CommandType Application, ExternalScript -ErrorAction SilentlyContinue)) {{
+                    continue
+                }}
             }}
             $results.Add($path)
         }}
@@ -419,6 +483,29 @@ mod tests {
     }
 
     #[test]
+    fn executable_path_markers_filter_non_executable_files() {
+        let bash = script("mise", Shell::Bash);
+        assert!(
+            bash.contains(r#"[[ -d "$__usage_path" || -x "$__usage_path" ]]"#),
+            "{bash}"
+        );
+
+        let fish = script("mise", Shell::Fish);
+        assert!(
+            fish.contains(r#"test -d "$value"; or test -x "$value""#),
+            "{fish}"
+        );
+
+        let powershell = script("mise", Shell::PowerShell);
+        assert!(
+            powershell.contains("-CommandType Application, ExternalScript"),
+            "{powershell}"
+        );
+        assert!(powershell.contains("} elseif ($files) {"), "{powershell}");
+        assert!(!powershell.contains("} else if ($files) {"), "{powershell}");
+    }
+
+    #[test]
     #[should_panic(expected = "one plain shell word")]
     fn a_name_no_script_could_register_is_refused() {
         // zsh's `#compdef` line is read by `compinit` before shell quoting exists, so a name
@@ -472,6 +559,20 @@ mod tests {
         assert!(
             out.contains(r"command 'my-tool' __complete_word__"),
             "{out}"
+        );
+    }
+
+    #[test]
+    fn nu_asks_nushell_for_command_candidates() {
+        let out = script("ex", Shell::Nu);
+        assert!(out.contains("which"), "{out}");
+        assert!(!out.contains("| commandline complete"), "{out}");
+        assert!(out.contains("let wants_commands"), "{out}");
+        assert!(out.contains("let wants_path_fallback"), "{out}");
+        assert!(out.contains("$nu.os-info.name == \"windows\""), "{out}");
+        assert!(
+            !out.contains("or $l == $marker + \"commands\" }})\n    let declared"),
+            "a command marker must not trigger path fallback: {out}"
         );
     }
 }
