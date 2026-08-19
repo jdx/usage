@@ -1071,7 +1071,8 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // describe a different CLI from the one that runs.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
-    let required = field.shape == Shape::Required || field.required_collection;
+    let required =
+        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
@@ -1168,7 +1169,8 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // `String` must be filled; `Option` and `Vec` need not be.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
-    let required = field.shape == Shape::Required || field.required_collection;
+    let required =
+        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
