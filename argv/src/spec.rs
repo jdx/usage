@@ -432,7 +432,7 @@ impl<'a> SpecView<'a> {
     /// Emit the effective view without constructing or mutating a command graph.
     pub fn to_kdl(self) -> String {
         let spec = self.spec();
-        spec.to_kdl_with(self.commands)
+        spec.render_kdl_with(self.commands)
     }
 }
 
@@ -933,10 +933,10 @@ impl Effect {
 impl Spec<'_> {
     /// Write this CLI as a usage spec, in KDL.
     pub fn to_kdl(&self) -> String {
-        self.to_kdl_with(&[])
+        self.render_kdl_with(&[])
     }
 
-    fn to_kdl_with(&self, overlays: &[CommandOverlay<'_>]) -> String {
+    fn render_kdl_with(&self, overlays: &[CommandOverlay<'_>]) -> String {
         debug_assert!(
             duplicate_key(self.root.cmd).is_none(),
             "two things on the same command share a key ({:?}), so a parse would bind the \
