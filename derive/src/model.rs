@@ -1580,6 +1580,7 @@ impl Field {
         let mut name = to_kebab(&ident.to_string());
         let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
+        let mut visible_long_aliases: Vec<String> = Vec::new();
         let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
         let mut bare_shorts = 0usize;
@@ -1654,7 +1655,7 @@ impl Field {
                     // clap distinguishes advertised and hidden aliases. Visible aliases
                     // are losslessly additional long forms in usage.
                     "visible_alias" | "visible_aliases" => {
-                        longs.extend(
+                        visible_long_aliases.extend(
                             selectors(&meta)?
                                 .into_iter()
                                 .map(|name| strip_dashes(&name)),
@@ -1860,6 +1861,7 @@ impl Field {
         for _ in 0..bare_longs {
             longs.insert(0, name.clone());
         }
+        longs.extend(visible_long_aliases);
         for _ in 0..bare_shorts {
             let first = name.chars().next().ok_or_else(|| {
                 syn::Error::new(span, "`short` needs a name to take its first letter from")
@@ -4034,6 +4036,24 @@ mod tests {
             panic!("long should make this a flag");
         };
         assert_eq!(longs, &["output", "out", "dest"]);
+    }
+
+    #[test]
+    fn explicit_long_stays_canonical_after_a_visible_alias() {
+        let cli = cli(r#"
+            struct Ex {
+                #[arg(visible_alias = "out", long = "result")]
+                path: Option<String>,
+            }
+        "#)
+        .expect("attribute order must not change the canonical spelling");
+
+        let field = &cli.fields[0];
+        assert_eq!(field.name, "result");
+        let Kind::Flag { longs, .. } = &field.kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["result", "out"]);
     }
 
     #[test]
