@@ -793,7 +793,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 /// flattened type here: the tables are emitted beside their struct now rather than in a module
 /// above it, so there is no path to rewrite.
 fn flatten_checks(cli: &Cli) -> TokenStream {
-    let checks = cli.fields.iter().filter_map(|f| {
+    let shape_checks = cli.fields.iter().filter_map(|f| {
         let Kind::Flatten { ty } = &f.kind else {
             return None;
         };
@@ -807,7 +807,30 @@ fn flatten_checks(cli: &Cli) -> TokenStream {
             );
         })
     });
-    quote!(#(#checks)*)
+    let command = if cli.composable {
+        quote!(COMMAND)
+    } else {
+        quote!(ROOT)
+    };
+    let relationship_checks = cli.fields.iter().flat_map(|field| {
+        field
+            .overrides
+            .iter()
+            .filter(|selector| cli.field_for_selector(selector).is_none())
+            .map(|selector| {
+                quote! {
+                    const _: () = ::core::assert!(
+                        usage_argv::spec::flag_selector_count(&#command, #selector) == 1,
+                        ::core::concat!(
+                            "`overrides = ",
+                            #selector,
+                            "` must name exactly one flag after flattened groups are composed",
+                        ),
+                    );
+                }
+            })
+    });
+    quote!(#(#shape_checks)* #(#relationship_checks)*)
 }
 
 /// A command's `unknown_flags`, as the table's `Option`.
@@ -1746,28 +1769,49 @@ fn has_negate(field: &Field) -> bool {
 /// clap resolves `--file a --stdin` and `--stdin --file a` the same way whichever side
 /// declared it, and so does usage-lib.
 fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
-    displaced_by(cli, field)
+    let mut displacements: Vec<TokenStream> = displaced_by(cli, field)
         .into_iter()
-        .map(|other| {
-            let reset = reset_to_default(other);
-            let given = format_ident!("__given_{}", other.ident);
-            let overridden = format_ident!("__overridden_{}", other.ident);
-            let duplicated = rejects_duplicate(other).then(|| {
-                let duplicated = format_ident!("__duplicated_{}", other.ident);
-                quote!(partial.#duplicated = false;)
+        .map(displace_statement)
+        .collect();
+    for selector in field
+        .overrides
+        .iter()
+        .filter(|selector| cli.field_for_selector(selector).is_none())
+    {
+        for flattened in &cli.fields {
+            let Kind::Flatten { ty } = &flattened.kind else {
+                continue;
+            };
+            let ident = &flattened.ident;
+            displacements.push(quote! {
+                let _ = <#ty as usage_argv::spec::CommandArgs>::displace(
+                    &mut partial.#ident,
+                    #selector,
+                );
             });
-            quote! {
-                #reset
-                partial.#given = false;
-                #duplicated
-                // Remembered, not just cleared: without this the environment fallback
-                // would refill the flag that lost and mark it given again, and a
-                // displaced `String` would be reported missing. usage-lib keeps the
-                // same set for the same reason.
-                partial.#overridden = true;
-            }
-        })
-        .collect()
+        }
+    }
+    displacements
+}
+
+fn displace_statement(field: &Field) -> TokenStream {
+    let reset = reset_to_default(field);
+    let given = format_ident!("__given_{}", field.ident);
+    let overridden = format_ident!("__overridden_{}", field.ident);
+    let duplicated = rejects_duplicate(field).then(|| {
+        let duplicated = format_ident!("__duplicated_{}", field.ident);
+        quote!(partial.#duplicated = false;)
+    });
+    quote! {
+        #reset
+        partial.#given = false;
+        #duplicated
+        // Remembered, not just cleared: without this the environment fallback
+        // would refill the flag that lost and mark it given again, and a
+        // displaced `String` would be reported missing. usage-lib keeps the
+        // same set for the same reason.
+        partial.#overridden = true;
+    }
 }
 
 /// The fields a flag displaces, in both directions.
@@ -1790,7 +1834,9 @@ fn displaced_by<'a>(cli: &'a Cli, field: &Field) -> Vec<&'a Field> {
 /// Whether a field is on either side of an `overrides`, and so needs somewhere to
 /// record that it lost.
 fn is_displaceable(cli: &Cli, field: &Field) -> bool {
-    !displaced_by(cli, field).is_empty()
+    (cli.composable && matches!(field.kind, Kind::Flag { .. }))
+        || !field.overrides.is_empty()
+        || !displaced_by(cli, field).is_empty()
 }
 
 fn arg_arm(i: usize, field: &Field) -> TokenStream {
@@ -1940,6 +1986,17 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         ) -> ::std::option::Option<bool> {
             argument_matches(partial, selector, value)
         }
+
+        fn displace(partial: &mut Self::Partial, selector: &str) -> bool {
+            displace(partial, selector)
+        }
+
+        fn event_matches(
+            event: &usage_argv::Event<'_, '_, '_>,
+            selector: &str,
+        ) -> bool {
+            event_matches(event, selector)
+        }
     }
 }
 
@@ -2059,6 +2116,58 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let displace_arms = cli.fields.iter().filter_map(|field| {
+        if !matches!(field.kind, Kind::Flag { .. }) || !is_displaceable(cli, field) {
+            return None;
+        }
+        let selectors = field_selectors(field);
+        let statement = displace_statement(field);
+        Some(quote! {
+            #(#selectors)|* => {
+                #statement
+                return true;
+            }
+        })
+    });
+    let displace_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if <#ty as usage_argv::spec::CommandArgs>::displace(
+                &mut partial.#ident,
+                selector,
+            ) {
+                return true;
+            }
+        })
+    });
+    let flags: Vec<&Field> = cli
+        .fields
+        .iter()
+        .filter(|field| matches!(field.kind, Kind::Flag { .. }))
+        .collect();
+    let event_arms = flags.iter().enumerate().map(|(i, field)| {
+        let key = key_ident("FLAG", Some(i));
+        let table = format_ident!("FLAG_{i}");
+        let selectors = field_selectors(field);
+        quote! {
+            #key if ::core::ptr::eq(*flag, &#table) => {
+                matches!(selector, #(#selectors)|*)
+            }
+        }
+    });
+    let event_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if <#ty as usage_argv::spec::CommandArgs>::event_matches(event, selector) {
+                return true;
+            }
+        })
+    });
     quote! {
         #[allow(dead_code)]
         pub fn argument_state(
@@ -2085,6 +2194,32 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
             #(#match_flattened)*
             ::std::option::Option::None
+        }
+
+        pub fn displace(partial: &mut Partial, selector: &str) -> bool {
+            match selector {
+                #(#displace_arms)*
+                _ => {}
+            }
+            #(#displace_flattened)*
+            false
+        }
+
+        pub fn event_matches(
+            event: &usage_argv::Event<'_, '_, '_>,
+            selector: &str,
+        ) -> bool {
+            if let usage_argv::Event::Flag { flag, .. } = event {
+                let matched = match flag.key {
+                    #(#event_arms)*
+                    _ => false,
+                };
+                if matched {
+                    return true;
+                }
+            }
+            #(#event_flattened)*
+            false
         }
     }
 }
@@ -2876,8 +3011,26 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
+        let reverse_displacements = cli.fields.iter().flat_map(|field| {
+            field
+                .overrides
+                .iter()
+                .filter(|selector| cli.field_for_selector(selector).is_none())
+                .map(move |selector| {
+                    let statement = displace_statement(field);
+                    quote! {
+                        if <#ty as usage_argv::spec::CommandArgs>::event_matches(
+                            event,
+                            #selector,
+                        ) {
+                            #statement
+                        }
+                    }
+                })
+        });
         Some(quote! {
             if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
+                #(#reverse_displacements)*
                 return true;
             }
         })

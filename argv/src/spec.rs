@@ -2210,6 +2210,18 @@ pub trait CommandArgs: Sized {
         None
     }
 
+    /// Reset the flag named by `selector` after an overriding token wins.
+    fn displace(partial: &mut Self::Partial, selector: &str) -> bool {
+        let _ = (partial, selector);
+        false
+    }
+
+    /// Whether this event binds the flag named by `selector`.
+    fn event_matches(event: &crate::Event<'_, '_, '_>, selector: &str) -> bool {
+        let _ = (event, selector);
+        false
+    }
+
     /// Fill fields in this command from their declared defaults.
     ///
     /// Kept separate from [`CommandArgs::check`] so a parent can preserve defaults in a
@@ -2246,6 +2258,61 @@ pub trait CommandArgs: Sized {
     /// Fallible because a command can require a subcommand of its own, and "none was
     /// given" is only knowable here — at the point where the value has to exist.
     fn build<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
+}
+
+/// How many flags on `command` accept `selector`.
+///
+/// Used by derives after flattened tables are composed, where neither expansion could validate
+/// a cross-boundary relationship on its own.
+pub const fn flag_selector_count(command: &Command<'_>, selector: &str) -> usize {
+    let selector = selector.as_bytes();
+    let mut count = 0;
+    let mut i = 0;
+    while i < command.flags.len() {
+        let flag = command.flags[i];
+        let mut matched = false;
+        if selector.len() == 2 && selector[0] == b'-' && selector[1] != b'-' {
+            let mut short = 0;
+            while short < flag.shorts.len() {
+                if flag.shorts[short] == selector[1] {
+                    matched = true;
+                }
+                short += 1;
+            }
+        } else if selector.len() > 2 && selector[0] == b'-' && selector[1] == b'-' {
+            let mut long = 0;
+            while long < flag.longs.len() {
+                if long_selector_equal(selector, flag.longs[long].as_bytes()) {
+                    matched = true;
+                }
+                long += 1;
+            }
+            if let Some(negate) = flag.negate {
+                if long_selector_equal(selector, negate.as_bytes()) {
+                    matched = true;
+                }
+            }
+        }
+        if matched {
+            count += 1;
+        }
+        i += 1;
+    }
+    count
+}
+
+const fn long_selector_equal(selector: &[u8], name: &[u8]) -> bool {
+    if selector.len() != name.len() + 2 {
+        return false;
+    }
+    let mut i = 0;
+    while i < name.len() {
+        if selector[i + 2] != name[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 /// An enum whose variants are a command's subcommands.
@@ -2384,6 +2451,30 @@ pub trait Subcommands: Sized {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn composed_relationship_selectors_count_flag_spellings() {
+        static FIRST: Flag = Flag {
+            longs: &["first", "alias"],
+            shorts: &[b'f'],
+            negate: Some("no-first"),
+            ..Flag::BOOL
+        };
+        static SECOND: Flag = Flag {
+            longs: &["second"],
+            ..Flag::BOOL
+        };
+        static COMMAND: Command = Command {
+            flags: &[&FIRST, &SECOND],
+            ..Command::EMPTY
+        };
+        assert_eq!(flag_selector_count(&COMMAND, "--first"), 1);
+        assert_eq!(flag_selector_count(&COMMAND, "--alias"), 1);
+        assert_eq!(flag_selector_count(&COMMAND, "--no-first"), 1);
+        assert_eq!(flag_selector_count(&COMMAND, "-f"), 1);
+        assert_eq!(flag_selector_count(&COMMAND, "first"), 0);
+        assert_eq!(flag_selector_count(&COMMAND, "--missing"), 0);
+    }
 
     #[test]
     fn quoting_escapes_what_would_break_a_document() {

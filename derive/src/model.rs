@@ -14,6 +14,8 @@ use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 /// A CLI, as declared by a struct.
 pub struct Cli {
     pub ident: syn::Ident,
+    /// Whether this argument struct may be flattened into another command.
+    pub composable: bool,
     /// Whether the declaration is a unit struct (`struct Command;`).
     ///
     /// Unit structs have the same empty command metadata as `{}` structs, but
@@ -492,6 +494,7 @@ impl Cli {
         let mut version_needs_spec = false;
         let mut cli = Cli {
             ident: input.ident.clone(),
+            composable: false,
             unit: matches!(&data.fields, Fields::Unit),
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
@@ -1189,24 +1192,11 @@ impl Cli {
             ] {
                 for selector in selectors {
                     let Some(target) = self.field_for_selector(selector) else {
-                        // Post-binding relationships can ask an opaque flattened partial
-                        // about presence and values. `overrides` is different: last-one-wins
-                        // has to displace a value while tokens are being bound, and the
-                        // parent cannot mutate an unknown field in another derive expansion.
-                        // Reject it explicitly instead of accepting a declaration that does
-                        // nothing at runtime.
-                        if has_flatten && option != "overrides" {
+                        // Relationship lookup composes through an opaque flattened partial.
+                        // Post-binding rules ask it about presence and values; binding-time
+                        // overrides ask it to displace the selected field as tokens arrive.
+                        if has_flatten {
                             continue;
-                        }
-                        if has_flatten && option == "overrides" {
-                            return Err(syn::Error::new(
-                                field.span,
-                                format!(
-                                    "`overrides = \"{selector}\"` cannot cross a flatten \
-                                     boundary; declare the override inside the flattened Args \
-                                     type"
-                                ),
-                            ));
                         }
                         return Err(syn::Error::new(
                             field.span,
@@ -5696,21 +5686,16 @@ mod tests {
     }
 
     #[test]
-    fn overrides_does_not_silently_cross_a_flatten_boundary() {
-        let err = rejection(
-            r#"
+    fn overrides_may_cross_a_flatten_boundary() {
+        cli(r#"
             struct Ex {
                 #[usage(long, overrides = "--nested")]
                 force: bool,
                 #[usage(flatten)]
                 shared: Shared,
             }
-        "#,
-        );
-        assert!(
-            err.contains("cannot cross a flatten boundary"),
-            "unhelpful message: {err}"
-        );
+        "#)
+        .expect("the composed partial resolves the target while binding");
     }
 
     #[test]
