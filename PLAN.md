@@ -721,14 +721,17 @@ looking at the clap surface, not only at the spec.
       command) and the same manpage. usage-cli's own
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
-- [ ] **A typed rewrite of one small CLI, not a String shadow.** `gen-shadow`
+- [ ] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
+      shadows.** `gen-shadow`
       types every field as `String`. The derive already holds `PathBuf`,
       `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
-      proves that for usage's own types. communique or tak would prove it for a
-      clap CLI rewritten in place: real field types, skip-fields or the split
-      they force, and a binary that still answers `--help` / `--usage-spec` the
-      same way. That is the experiment that tells you whether the rest of the
-      fleet is a rewrite or a blocked rewrite.
+      proves that for usage's own types. These five will prove it across real
+      clap CLIs rewritten in place: real field types, skip-fields or the split
+      they force, and binaries that still answer `--help` / `--usage-spec` the
+      same way. Each experiment is a ready-for-review PR whose `Cargo.toml`
+      deliberately points at usage's git revision; the PR is evidence for the
+      6.x gate, not something to merge before usage 6.x is published. Together
+      they tell us whether the fleet is a rewrite or a set of blocked rewrites.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -770,9 +773,12 @@ a prerequisite for trying a CLI.
       `usage-rs`, emits its spec from the same tables, and feeds that spec to
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
-- [ ] **communique or tak** — the smallest clap CLIs, and the typed rewrite the
-      section above asks for. tak cannot emit a spec today; adding a `usage`
-      subcommand (or `--usage-spec`) is part of trying it.
+- [ ] **communique, tak, aube, hk, and fnox** — five typed fleet rewrites, each
+      carried as a ready-for-review experimental PR on a git dependency until
+      usage 6.x exists. tak cannot emit a spec today; adding a `usage` subcommand
+      (or `--usage-spec`) is part of trying it. Every missing usage feature and
+      every general clap-compatibility gap found while converting them goes into
+      a stacked follow-up to this plan before 6.x is published.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
       parsers. Adoption is measured by what it lets mise delete, listed below.
