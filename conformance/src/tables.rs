@@ -24,7 +24,7 @@
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
-use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
+use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
 use usage_argv::spec::{
     ArgMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta, GroupMeta, RequiresIf,
 };
@@ -299,6 +299,7 @@ fn flag_meta(
     completers: &[&SpecComplete],
 ) -> FlagMeta<'static> {
     let arg = f.arg.as_ref();
+    let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
         help: opt(&f.help),
@@ -312,10 +313,10 @@ fn flag_meta(
         value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
         env: opt(&f.env),
         default: strs(&f.default),
-        choices: arg
-            .and_then(|a| a.choices.as_ref())
-            .map(|c| strs(&c.choices))
-            .unwrap_or(&[]),
+        accepted_choices: accepted_choices(choices),
+        choices: choices.map(|c| strs(&c.choices)).unwrap_or(&[]),
+        choice_aliases: choice_aliases(choices),
+        ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: f.required,
         hide: f.hide,
         count: f.count,
@@ -364,13 +365,17 @@ fn arg_meta(
     table: &'static Arg<'static>,
     completers: &[&SpecComplete],
 ) -> ArgMeta<'static> {
+    let choices = a.choices.as_ref();
     ArgMeta {
         arg: table,
         help: opt(&a.help),
         long_help: opt(&a.help_long),
         env: opt(&a.env),
         default: strs(&a.default),
-        choices: a.choices.as_ref().map(|c| strs(&c.choices)).unwrap_or(&[]),
+        accepted_choices: accepted_choices(choices),
+        choices: choices.map(|c| strs(&c.choices)).unwrap_or(&[]),
+        choice_aliases: choice_aliases(choices),
+        ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: a.required,
         hide: a.hide,
         delimiter: a.delimiter,
@@ -445,6 +450,46 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     Box::leak(
         list.iter()
             .map(|s| leak(s))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn accepted_choices(choices: Option<&SpecChoices>) -> &'static [&'static str] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .choices
+            .iter()
+            .map(|value| leak(value))
+            .chain(
+                choices
+                    .details
+                    .iter()
+                    .flat_map(|choice| choice.aliases.iter())
+                    .map(|alias| leak(&alias.value)),
+            )
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn choice_aliases(choices: Option<&SpecChoices>) -> &'static [(&'static str, &'static str)] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .details
+            .iter()
+            .flat_map(|choice| {
+                choice
+                    .aliases
+                    .iter()
+                    .map(move |alias| (leak(&choice.value), leak(&alias.value)))
+            })
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )
