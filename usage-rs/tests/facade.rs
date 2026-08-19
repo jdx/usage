@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use usage_rs as usage;
 use usage_rs::{Args, Cli, Subcommands, ValueEnum};
 
+const INLINE_AFTER_HELP: &str = "Inline command details from a Rust constant.";
+
 #[derive(Cli)]
 #[usage(bin = "ex")]
 struct Ex {
@@ -24,6 +26,7 @@ enum Command {
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
+    #[usage(after_long_help = INLINE_AFTER_HELP)]
     Run {
         #[serde(default)]
         #[arg(long)]
@@ -92,6 +95,29 @@ struct ChoiceEx {
 #[usage(bin = "strict-ex", unknown_flags = "error")]
 struct StrictEx {}
 
+const DEFAULT_RUNS: u32 = 7;
+const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
+const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
+
+fn computed_version() -> &'static str {
+    "1.2.3+runtime"
+}
+
+#[derive(Cli)]
+#[usage(
+    bin = "dynamic-ex",
+    version = computed_version(),
+    version_spec = "1.2.3",
+    about = DYNAMIC_ABOUT,
+    after_long_help = DYNAMIC_AFTER_HELP
+)]
+struct DynamicEx {
+    #[usage(long, default_value_t = DEFAULT_RUNS, default = "7")]
+    runs: u32,
+    #[usage(long, default_value_t, default = "0")]
+    retries: u16,
+}
+
 /// Show one file
 #[derive(Args)]
 struct Show {
@@ -156,6 +182,7 @@ fn struct_style_subcommands_bind_fields_in_place() {
     assert!(kdl.contains("arg \"<RUNS>\""), "{kdl}");
     assert!(kdl.contains("flag \"--iterations\""), "{kdl}");
     assert!(kdl.contains("arg \"[LABEL]\""), "{kdl}");
+    assert!(kdl.contains(INLINE_AFTER_HELP), "{kdl}");
 }
 
 #[test]
@@ -214,4 +241,21 @@ fn emitted_parser_settings_are_portable_spec_metadata() {
         Some(usage_parser::UnknownFlags::Error),
         "the portable spec should retain the runtime setting"
     );
+}
+
+#[test]
+fn runtime_metadata_expressions_have_explicit_portable_values() {
+    let _parse_entry = DynamicEx::parse as fn() -> DynamicEx;
+    let cli = DynamicEx::parse_from(&[]).expect("the typed default should be evaluated");
+    assert_eq!(cli.runs, DEFAULT_RUNS);
+    assert_eq!(cli.retries, 0);
+
+    let kdl = DynamicEx::to_kdl();
+    assert!(kdl.contains("version \"1.2.3\""), "{kdl}");
+    assert!(kdl.contains("default=\"7\""), "{kdl}");
+    assert!(kdl.contains("default=\"0\""), "{kdl}");
+    assert!(kdl.contains(DYNAMIC_ABOUT), "{kdl}");
+    assert!(kdl.contains(DYNAMIC_AFTER_HELP), "{kdl}");
+    let spec: usage_parser::Spec = kdl.parse().expect("the static values should be portable");
+    assert_eq!(spec.version.as_deref(), Some("1.2.3"));
 }

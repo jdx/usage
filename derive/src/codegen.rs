@@ -133,10 +133,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
             }
         )
     });
-    let before_help = option_str(cli.before_help.as_deref());
-    let before_long_help = option_str(cli.before_long_help.as_deref());
-    let after_help = option_str(cli.after_help.as_deref());
-    let after_long_help = option_str(cli.after_long_help.as_deref());
+    let before_help = option_expr(cli.before_help.as_ref());
+    let before_long_help = option_expr(cli.before_long_help.as_ref());
+    let after_help = option_expr(cli.after_help.as_ref());
+    let after_long_help = option_expr(cli.after_long_help.as_ref());
     let root_key = key_ident("COMMAND", None);
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
@@ -166,8 +166,16 @@ pub fn emit(cli: &Cli) -> TokenStream {
         Some(tokens) => quote!(::core::option::Option::Some(#tokens)),
         None => quote!(::core::option::Option::None),
     };
-    let about = option_str(cli.about.as_deref());
-    let long_about = option_str(cli.long_about.as_deref());
+    let about = cli
+        .about_attr
+        .as_ref()
+        .map(|value| option_expr(Some(value)))
+        .unwrap_or_else(|| option_str(cli.about.as_deref()));
+    let long_about = cli
+        .long_about_attr
+        .as_ref()
+        .map(|value| option_expr(Some(value)))
+        .unwrap_or_else(|| option_str(cli.long_about.as_deref()));
 
     // The same wiring a nested command uses: the root differs only in how it is
     // entered, so it does not get its own copy.
@@ -272,6 +280,30 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
     let has_version = cli.version.is_some();
+    let runtime_version = cli
+        .runtime_version
+        .as_ref()
+        .or(cli.version.as_ref())
+        .cloned()
+        .unwrap_or_else(|| quote!(""));
+    let help_spec = if cli.runtime_version.is_some() {
+        quote! {
+            // The portable spec keeps `version_spec`; this process's help must agree with
+            // the computed version printed by `--version`. The owned string lives for the
+            // whole render and is allocated only on this cold help path.
+            let __usage_runtime_version =
+                ::std::string::ToString::to_string(&(#runtime_version));
+            let __usage_runtime_spec = usage_argv::spec::Spec {
+                version: ::std::option::Option::Some(__usage_runtime_version.as_str()),
+                ..*Self::spec()
+            };
+            let __usage_spec = &__usage_runtime_spec;
+        }
+    } else {
+        quote! {
+            let __usage_spec = Self::spec();
+        }
+    };
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -554,19 +586,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         ::std::result::Result::Ok(parsed) => parsed,
                         // Not failures: someone asked a question, and the answer goes to stdout.
                         ::std::result::Result::Err(usage_argv::Error::Version) => {
-                            match (Self::spec().bin.unwrap_or(Self::spec().name), Self::spec().version) {
-                                (bin, ::std::option::Option::Some(version)) => {
-                                    ::std::println!("{bin} {version}");
-                                    ::std::process::exit(0);
-                                }
-                                // Unreachable: the flag is only in the table when a version was
-                                // declared, and the same declaration fills this in.
-                                (_, ::std::option::Option::None) => {
-                                    ::std::process::exit(0);
-                                }
-                            }
+                            let __usage_bin = Self::spec().bin.unwrap_or(Self::spec().name);
+                            let __usage_version = #runtime_version;
+                            ::std::println!("{__usage_bin} {__usage_version}");
+                            ::std::process::exit(0);
                         }
                         ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
+                            #help_spec
                             // By the route the words took, not by the command's address: one
                             // `Subcommands` type mounted under two parents is one address, and a
                             // page found by searching for it carries the first mount's path and
@@ -577,10 +603,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 cmd,
                             ) {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_at(Self::spec(), &route, long)
+                                    usage_argv::help::render_at(__usage_spec, &route, long)
                                 }
                                 ::std::option::Option::None => {
-                                    usage_argv::help::render(Self::spec(), cmd, long)
+                                    usage_argv::help::render(__usage_spec, cmd, long)
                                 }
                             };
                             match __usage_page {
@@ -1588,6 +1614,13 @@ fn option_str(value: Option<&str>) -> TokenStream {
     }
 }
 
+fn option_expr(value: Option<&TokenStream>) -> TokenStream {
+    match value {
+        Some(v) => quote!(::std::option::Option::Some(#v)),
+        None => quote!(::std::option::Option::None),
+    }
+}
+
 /// The presence summaries a parent needs to enforce exclusivity across a flattened
 /// `CommandArgs` boundary.
 fn presence_methods(cli: &Cli) -> TokenStream {
@@ -2362,6 +2395,24 @@ fn reset_to_default(field: &Field) -> TokenStream {
     if field.default.is_empty() {
         return cleared;
     }
+    if let Some(value) = &field.default_value_t {
+        let value_ty = field
+            .value_ty
+            .as_ref()
+            .expect("a typed default belongs to a value-taking field");
+        let bytes = quote!({
+            let __usage_default: #value_ty = #value;
+            ::std::string::ToString::to_string(&__usage_default).into_bytes()
+        });
+        return match field.shape {
+            Shape::Optional => quote! {
+                partial.#ident = ::std::option::Option::Some(#bytes);
+            },
+            Shape::Required => quote!(partial.#ident = #bytes;),
+            // The model rejects these shapes before codegen.
+            _ => cleared,
+        };
+    }
     // Every shape but a collection was checked in the model to have at most one.
     assign_literal(field, &field.default[0], field.default.as_slice())
 }
@@ -2722,10 +2773,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         )
     });
     let unknown_flags = unknown_flags_tokens(cli);
-    let before_help = option_str(cli.before_help.as_deref());
-    let before_long_help = option_str(cli.before_long_help.as_deref());
-    let after_help = option_str(cli.after_help.as_deref());
-    let after_long_help = option_str(cli.after_long_help.as_deref());
+    let before_help = option_expr(cli.before_help.as_ref());
+    let before_long_help = option_expr(cli.before_long_help.as_ref());
+    let after_help = option_expr(cli.after_help.as_ref());
+    let after_long_help = option_expr(cli.after_long_help.as_ref());
 
     let flags: Vec<&Field> = cli
         .fields
@@ -2762,8 +2813,16 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let name = &cli.name;
     let aliases = cli.aliases.iter().chain(&cli.hidden_aliases);
     let hidden_aliases = &cli.hidden_aliases;
-    let about = option_str(cli.about.as_deref());
-    let long_about = option_str(cli.long_about.as_deref());
+    let about = cli
+        .about_attr
+        .as_ref()
+        .map(|value| option_expr(Some(value)))
+        .unwrap_or_else(|| option_str(cli.about.as_deref()));
+    let long_about = cli
+        .long_about_attr
+        .as_ref()
+        .map(|value| option_expr(Some(value)))
+        .unwrap_or_else(|| option_str(cli.long_about.as_deref()));
     let partial = partial_struct(cli);
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli);
@@ -3215,14 +3274,40 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // the struct's long one, which is exactly how a generated CLI is shaped: the enum says
             // what the command is for in a line, and the struct's own comment carries the rest. The
             // long form went missing from help for every command written that way.
-            let about = match v.help.as_deref() {
-                Some(help) => option_str(Some(help)),
+            let about = match v.help.as_ref() {
+                Some(help) => option_expr(Some(help)),
                 None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.about),
             };
-            let long_about = match v.long_help.as_deref() {
-                Some(long) => option_str(Some(long)),
+            let long_about = match v.long_help.as_ref() {
+                Some(long) => option_expr(Some(long)),
                 None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.long_about),
             };
+            let before_help = v
+                .before_help
+                .as_ref()
+                .map(|value| option_expr(Some(value)))
+                .unwrap_or_else(
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_help),
+                );
+            let before_long_help = v
+                .before_long_help
+                .as_ref()
+                .map(|value| option_expr(Some(value)))
+                .unwrap_or_else(
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_long_help),
+                );
+            let after_help = v
+                .after_help
+                .as_ref()
+                .map(|value| option_expr(Some(value)))
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_help));
+            let after_long_help = v
+                .after_long_help
+                .as_ref()
+                .map(|value| option_expr(Some(value)))
+                .unwrap_or_else(
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_long_help),
+                );
             // Which of the table's aliases are hidden. The visible ones are not listed
             // anywhere: `cmd.aliases` minus these is what help and completions show.
             let hidden = &v.hidden_aliases;
@@ -3241,6 +3326,10 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         cmd: &#cmd,
                         about: #about,
                         long_about: #long_about,
+                        before_help: #before_help,
+                        before_long_help: #before_long_help,
+                        after_help: #after_help,
+                        after_long_help: #after_long_help,
                         hide: #hide,
                         hidden_aliases: &#hidden_name,
                         ..*<#ty as usage_argv::spec::CommandArgs>::META

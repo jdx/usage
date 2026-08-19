@@ -29,6 +29,9 @@ pub struct Cli {
     /// its own version and it is not the answer. clap's bare `#[command(version)]` reads it the
     /// same way.
     pub version: Option<proc_macro2::TokenStream>,
+    /// The expression printed for `--version` when the portable spec uses an
+    /// explicitly supplied literal.
+    pub runtime_version: Option<proc_macro2::TokenStream>,
     /// Whether this CLI answers a completion request.
     ///
     /// Opt in rather than supplied like `--help`: it is a hidden command a binary carries and a
@@ -87,15 +90,15 @@ pub struct Cli {
     pub multicall: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
-    pub about_attr: Option<String>,
-    pub long_about_attr: Option<String>,
+    pub about_attr: Option<proc_macro2::TokenStream>,
+    pub long_about_attr: Option<proc_macro2::TokenStream>,
     /// Text around the rest of the help page. mise puts an Examples section in
     /// `after_long_help` on 115 commands, and a page without it is missing what a reader came
     /// for. Nothing derives these from the code, so they are declared.
-    pub before_help: Option<String>,
-    pub before_long_help: Option<String>,
-    pub after_help: Option<String>,
-    pub after_long_help: Option<String>,
+    pub before_help: Option<proc_macro2::TokenStream>,
+    pub before_long_help: Option<proc_macro2::TokenStream>,
+    pub after_help: Option<proc_macro2::TokenStream>,
+    pub after_long_help: Option<proc_macro2::TokenStream>,
     /// The word that starts another invocation of the same command: mise's `:::`.
     pub restart_token: Option<String>,
     /// A command to run for subcommands discovered at completion time.
@@ -158,6 +161,9 @@ pub struct Field {
     /// one item, in the order they are written. Every other shape holds at most one, which the
     /// model checks — a `String` has one place to put a value.
     pub default: Vec<String>,
+    /// A typed Rust default evaluated when parsing starts. `default` remains
+    /// the explicit portable spelling emitted in static metadata.
+    pub default_value_t: Option<proc_macro2::TokenStream>,
     pub help_heading: Option<String>,
     /// What supplying this flag does to the world, when it says.
     ///
@@ -453,6 +459,8 @@ impl Cli {
 
         let mut name_given = false;
         let mut verbatim_doc_comment = false;
+        let mut version_spec_given = false;
+        let mut version_needs_spec = false;
         let mut cli = Cli {
             ident: input.ident.clone(),
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
@@ -471,6 +479,7 @@ impl Cli {
                 .find(|a| a.path().is_ident("usage"))
                 .map(|a| a.path().span()),
             version: None,
+            runtime_version: None,
             about: None,
             long_about: None,
             unknown_flags: None,
@@ -509,14 +518,32 @@ impl Cli {
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "usage" => cli.usage = Some(string_value(&meta)?),
                     "version" => {
-                        cli.version = Some(match &meta {
+                        let value = match &meta {
                             // `version` on its own: whatever the adopter's package says.
                             Meta::Path(_) => quote::quote!(env!("CARGO_PKG_VERSION")),
-                            _ => {
-                                let literal = string_value(&meta)?;
-                                quote::quote!(#literal)
+                            Meta::NameValue(value) => {
+                                quote::ToTokens::to_token_stream(&value.value)
                             }
-                        })
+                            Meta::List(_) => {
+                                return Err(syn::Error::new_spanned(
+                                    &meta,
+                                    "`version` is a Rust expression, as in `version = build::VERSION`, or is written on its own for the package version",
+                                ));
+                            }
+                        };
+                        cli.runtime_version = Some(value.clone());
+                        if let Meta::NameValue(value) = &meta {
+                            version_needs_spec =
+                                matches!(value.value, Expr::Call(_) | Expr::MethodCall(_));
+                        }
+                        if !version_spec_given {
+                            cli.version = Some(value);
+                        }
+                    }
+                    "version_spec" => {
+                        let literal = string_value(&meta)?;
+                        cli.version = Some(quote::quote!(#literal));
+                        version_spec_given = true;
                     }
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
@@ -524,12 +551,12 @@ impl Cli {
                     // in one CLI" against "mise prepares your development environment before
                     // each command runs." There is no comment that says both, so they can be
                     // declared.
-                    "about" => cli.about_attr = Some(string_value(&meta)?),
-                    "long_about" => cli.long_about_attr = Some(string_value(&meta)?),
-                    "before_help" => cli.before_help = Some(string_value(&meta)?),
-                    "before_long_help" => cli.before_long_help = Some(string_value(&meta)?),
-                    "after_help" => cli.after_help = Some(string_value(&meta)?),
-                    "after_long_help" => cli.after_long_help = Some(string_value(&meta)?),
+                    "about" => cli.about_attr = Some(metadata_expr(&meta)?),
+                    "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
+                    "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
+                    "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
+                    "after_help" => cli.after_help = Some(metadata_expr(&meta)?),
+                    "after_long_help" => cli.after_long_help = Some(metadata_expr(&meta)?),
                     // A Rust CLI usually owns every flag it accepts, which is the
                     // case the stricter reading is for — but it is still opt-in,
                     // since a wrapper forwarding options wants the default.
@@ -559,7 +586,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, `version`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `bin`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
@@ -572,12 +599,11 @@ impl Cli {
 
         (cli.about, cli.long_about) = doc_comment(&input.attrs, verbatim_doc_comment)?;
 
-        // Declared descriptions win over the comment, which is the point of declaring them.
-        if let Some(about) = cli.about_attr.take() {
-            cli.about = Some(about);
-        }
-        if let Some(long) = cli.long_about_attr.take() {
-            cli.long_about = Some(long);
+        if version_needs_spec && !version_spec_given {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a computed `version` needs `version_spec = \"...\"`: the expression is evaluated for `--version`, while the literal is emitted into the portable spec",
+            ));
         }
 
         let alias_span = cli.attr_span.unwrap_or_else(Span::call_site);
@@ -1156,6 +1182,7 @@ impl Field {
             env: None,
             setting: None,
             default: Vec::new(),
+            default_value_t: None,
             help_heading: None,
             value_name: None,
             required_collection: false,
@@ -1266,6 +1293,7 @@ impl Field {
             env: None,
             setting: None,
             default: Vec::new(),
+            default_value_t: None,
             help_heading: None,
             value_name: None,
             required_collection: false,
@@ -1370,6 +1398,7 @@ impl Field {
             env: None,
             setting: None,
             default: Vec::new(),
+            default_value_t: None,
             help_heading: None,
             value_name: None,
             required_collection: false,
@@ -1435,6 +1464,7 @@ impl Field {
         let mut env = None;
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
+        let mut default_value_t = None;
         let mut help_heading = None;
         let mut effect = None;
         let mut value_name = None;
@@ -1585,6 +1615,22 @@ impl Field {
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
                     "default" => default.push(string_value(&meta)?),
+                    "default_value_t" => {
+                        default_value_t = Some(match &meta {
+                            Meta::Path(_) => {
+                                quote::quote!(::std::default::Default::default())
+                            }
+                            Meta::NameValue(value) => {
+                                quote::ToTokens::to_token_stream(&value.value)
+                            }
+                            Meta::List(_) => {
+                                return Err(syn::Error::new_spanned(
+                                    &meta,
+                                    "`default_value_t` is a Rust expression or is written on its own for `Default::default()`",
+                                ));
+                            }
+                        });
+                    }
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
@@ -1620,7 +1666,7 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `hide`, `arg`, `env`, `default`, `choices`, `validate`, \
+                                 `count`, `hide`, `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
@@ -1740,6 +1786,20 @@ impl Field {
                 "this field holds one value, so it takes one `default`; several is for a \
                  `Vec`, which starts out holding all of them",
             ));
+        }
+        if default_value_t.is_some() {
+            if default.len() != 1 {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_value_t` needs exactly one `default = \"...\"` beside it: the Rust expression supplies the runtime value and the literal is emitted into the portable spec",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count | Shape::Many) {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_value_t` is for one value-taking field; switches, counts, and collections declare their portable defaults directly",
+                ));
+            }
         }
         for value in &default {
             match shape {
@@ -2285,6 +2345,7 @@ impl Field {
             env,
             setting,
             default,
+            default_value_t,
             help_heading,
             effect,
             value_name,
@@ -2492,6 +2553,14 @@ fn string_value(meta: &Meta) -> syn::Result<String> {
             "expected a string, as in `long = \"jobs\"`",
         )),
     }
+}
+
+/// A Rust expression whose result must be usable as `&'static str` in the
+/// generated metadata table. Type and const checking belong to rustc; retaining
+/// the tokens here is what lets constants and `env!` remain the source of truth.
+fn metadata_expr(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
+    let value = &meta.require_name_value()?.value;
+    Ok(quote::ToTokens::to_token_stream(value))
 }
 
 /// One flag selector as a value, or several as a list.
@@ -3001,8 +3070,12 @@ pub struct Variant {
     /// them. mise has 67 of the first and 24 of the second.
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
-    pub help: Option<String>,
-    pub long_help: Option<String>,
+    pub help: Option<proc_macro2::TokenStream>,
+    pub long_help: Option<proc_macro2::TokenStream>,
+    pub before_help: Option<proc_macro2::TokenStream>,
+    pub before_long_help: Option<proc_macro2::TokenStream>,
+    pub after_help: Option<proc_macro2::TokenStream>,
+    pub after_long_help: Option<proc_macro2::TokenStream>,
 }
 
 impl Subcommands {
@@ -3120,8 +3193,12 @@ impl Variant {
         let mut effect = None;
         let mut hide = false;
         let mut external = false;
-        let mut help_attr: Option<String> = None;
-        let mut long_help_attr: Option<String> = None;
+        let mut help_attr: Option<proc_macro2::TokenStream> = None;
+        let mut long_help_attr: Option<proc_macro2::TokenStream> = None;
+        let mut before_help = None;
+        let mut before_long_help = None;
+        let mut after_help = None;
+        let mut after_long_help = None;
 
         for attr in attrs(&variant.attrs) {
             for meta in nested(attr)? {
@@ -3142,8 +3219,12 @@ impl Variant {
                     }
                     // As on a field: a comment's paragraph is flowed, so text whose line
                     // breaks matter is declared instead.
-                    "help" => help_attr = Some(string_value(&meta)?),
-                    "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "help" => help_attr = Some(metadata_expr(&meta)?),
+                    "long_help" => long_help_attr = Some(metadata_expr(&meta)?),
+                    "before_help" => before_help = Some(metadata_expr(&meta)?),
+                    "before_long_help" => before_long_help = Some(metadata_expr(&meta)?),
+                    "after_help" => after_help = Some(metadata_expr(&meta)?),
+                    "after_long_help" => after_long_help = Some(metadata_expr(&meta)?),
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
@@ -3151,7 +3232,8 @@ impl Variant {
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
                                  variant takes `name`, `alias`, `alias_hidden`, \
-                                 `external_subcommand` and `verbatim_doc_comment` here, \
+                                 `external_subcommand`, `help`, `long_help`, `before_help`, \
+                                 `before_long_help`, `after_help`, `after_long_help`, and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));
@@ -3175,7 +3257,8 @@ impl Variant {
             }
         }
 
-        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+        let help = help_attr.or_else(|| help.map(|value| quote::quote!(#value)));
+        let long_help = long_help_attr.or_else(|| long_help.map(|value| quote::quote!(#value)));
 
         if external {
             if !aliases.is_empty() || !hidden_aliases.is_empty() {
@@ -3198,7 +3281,13 @@ impl Variant {
                      so there is nothing for `hide` to keep out of help",
                 ));
             }
-            if help.is_some() || long_help.is_some() {
+            if help.is_some()
+                || long_help.is_some()
+                || before_help.is_some()
+                || before_long_help.is_some()
+                || after_help.is_some()
+                || after_long_help.is_some()
+            {
                 return Err(syn::Error::new_spanned(
                     &variant.ident,
                     "a catch-all has no page of its own, so a description here would be \
@@ -3252,6 +3341,10 @@ impl Variant {
                 hidden_aliases,
                 help: None,
                 long_help: None,
+                before_help: None,
+                before_long_help: None,
+                after_help: None,
+                after_long_help: None,
             });
         }
 
@@ -3312,6 +3405,10 @@ impl Variant {
             hidden_aliases,
             help,
             long_help,
+            before_help,
+            before_long_help,
+            after_help,
+            after_long_help,
         })
     }
 }
