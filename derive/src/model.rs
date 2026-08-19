@@ -3589,7 +3589,10 @@ impl ValueEnum {
         }
 
         let mut ignore_case = false;
-        for attr in attrs(&input.attrs) {
+        // Registering clap's `value` helper attribute means rustc accepts it at
+        // either level. Parse it here too so unsupported enum-wide options fail
+        // explicitly instead of being silently ignored.
+        for attr in value_attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
@@ -4323,6 +4326,26 @@ mod tests {
         .expect("clap value metadata should remain usable");
         assert_eq!(ve.variants[0].name, "1password");
         assert_eq!(ve.variants[0].aliases, ["op"]);
+    }
+
+    #[test]
+    fn a_value_enum_rejects_unsupported_clap_container_metadata() {
+        let err = match value_enum(
+            r#"
+            #[value(rename_all = "snake_case")]
+            enum Provider {
+                OnePassword,
+            }
+        "#,
+        ) {
+            Ok(_) => panic!("unsupported clap container metadata must not be ignored"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string()
+                .contains("unknown value-enum option `rename_all`"),
+            "unhelpful error: {err}"
+        );
     }
 
     #[test]
