@@ -114,6 +114,8 @@ fn computed_version() -> &'static str {
 struct DynamicEx {
     #[usage(long, default_value_t = DEFAULT_RUNS, default = "7")]
     runs: u32,
+    #[usage(long, default_value_t, default = "0")]
+    retries: u16,
 }
 
 /// Show one file
@@ -246,10 +248,12 @@ fn runtime_metadata_expressions_have_explicit_portable_values() {
     let _parse_entry = DynamicEx::parse as fn() -> DynamicEx;
     let cli = DynamicEx::parse_from(&[]).expect("the typed default should be evaluated");
     assert_eq!(cli.runs, DEFAULT_RUNS);
+    assert_eq!(cli.retries, 0);
 
     let kdl = DynamicEx::to_kdl();
     assert!(kdl.contains("version \"1.2.3\""), "{kdl}");
     assert!(kdl.contains("default=\"7\""), "{kdl}");
+    assert!(kdl.contains("default=\"0\""), "{kdl}");
     assert!(kdl.contains(DYNAMIC_ABOUT), "{kdl}");
     assert!(kdl.contains(DYNAMIC_AFTER_HELP), "{kdl}");
     let spec: usage_parser::Spec = kdl.parse().expect("the static values should be portable");

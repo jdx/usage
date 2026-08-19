@@ -2377,7 +2377,14 @@ fn reset_to_default(field: &Field) -> TokenStream {
         return cleared;
     }
     if let Some(value) = &field.default_value_t {
-        let bytes = quote!(::std::string::ToString::to_string(&(#value)).into_bytes());
+        let value_ty = field
+            .value_ty
+            .as_ref()
+            .expect("a typed default belongs to a value-taking field");
+        let bytes = quote!({
+            let __usage_default: #value_ty = #value;
+            ::std::string::ToString::to_string(&__usage_default).into_bytes()
+        });
         return match field.shape {
             Shape::Optional => quote! {
                 partial.#ident = ::std::option::Option::Some(#bytes);
