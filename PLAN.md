@@ -518,15 +518,16 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
       `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
-      case from the other side. Worth writing down as a decision rather than
-      leaving it to be discovered as an absence.
+      case from the other side. This is an explicit non-goal: the usage metadata
+      API does not need to reproduce clap's `Command` surface or be fully source
+      compatible with it.
 - [ ] **Public `CommandFactory` migration.** A library can expose
       `pub fn command() -> clap::Command` as part of its supported API, as aube
-      does. Replacing its internal parser is not source-compatible for embedders
-      unless clap remains in the public dependency graph. Specify the supported
-      transition: a usage metadata return type, a separately named compatibility
-      entry point, and the semver expectations for adopters that publish the clap
-      builder itself.
+      does. The 6.x transition may intentionally break that API and return a
+      first-party usage metadata/spec view instead; it does not need to preserve
+      the complete clap builder contract. Document the semver expectation and any
+      separately named, opt-in compatibility entry point an adopter chooses to
+      retain.
 
 **What is _not_ a gap**, checked rather than assumed, because two of these were
 recorded as gaps here and had quietly been closed: flag aliases (several `long`
@@ -669,8 +670,11 @@ feature list is not an exhaustive audit.
       tier to usage-lib's 1.95 tier. hk first did the same and its `usage`
       benchmark retired 9x as many instructions; moving every effect into derive
       attributes fixed the regression but lost the central declaration. Provide
-      a static overlay or lightweight spec-editing surface for policies that need
-      a whole-tree view.
+      a typed, borrowed static overlay/spec-view surface for policies that need a
+      whole-tree view. Overlay resolution belongs only on cold metadata, help and
+      completion paths: ordinary argv parsing must continue to use the base const
+      tables directly, without building a command graph, allocating, or consulting
+      the overlay.
 - [ ] **Compiled completions for runtime overlays, multicall projections and async
       candidates.** The self-contained completion endpoint can answer only from a
       derive-time `usage_argv::spec::Spec`, and custom Rust completers are
@@ -680,8 +684,10 @@ feature list is not an exhaustive audit.
       `usage g completion`; switching it to `#[usage(completion)]` today would emit a
       valid script that silently loses those candidates. Give `usage-rs` a static or
       lightweight overlay/projection surface consumable by the compiled completion
-      walker, define an async completion callback strategy that does not tax normal
-      parsing, and cover alternate binary identities before calling completions
+      walker. Async completers should return futures without choosing or bundling
+      an executor; the embedding CLI runs them on its existing runtime, and neither
+      async support nor its allocations enter the ordinary parse path. Cover
+      alternate binary identities before calling completions
       self-contained for embedders and multicall CLIs. fnox exposes the same gap in
       a smaller shape: switching it to `Cli::completion_script` dropped the secret,
       provider, profile and config-file completers appended from
