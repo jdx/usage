@@ -573,7 +573,7 @@ their parser, whether every behavior they rely on survives. clap's derive forwar
 arbitrary `Command`, `Arg` and `PossibleValue` builder methods, so a hand-selected
 feature list is not an exhaustive audit.
 
-- [ ] **A versioned clap compatibility matrix.** Inventory clap's public derive
+- [x] **A versioned clap compatibility matrix.** Inventory clap's public derive
       attributes and relevant builder methods, pinned to the clap release audited.
       Give every row a result for `usage-derive`, `usage-argv`, the KDL spec and
       usage-lib, help/completions, and the `clap_usage` bridge. Each cell must say

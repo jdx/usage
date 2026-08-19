@@ -153,7 +153,8 @@ equivalent yet:
   binds; arbitrary zero-or-one value ranges from clap are not inferred.
 - Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use
   `validate` for a portable expression rule and `validate_error` for its diagnostic.
-- Prefix matching (`infer_long_args`) is suggested in error messages but never accepted.
+- Prefix matching is exact by default. `#[usage(infer_long_args, infer_subcommands)]` opts into
+  unambiguous long-flag and subcommand prefixes, including aliases.
 - On Unix, `PathBuf` and `OsString` fields accept non-UTF-8 argv without changing a byte. String
   fields still report invalid UTF-8 precisely rather than replacing it; on Windows, values that
   cannot be converted safely are reported instead of using an unchecked reconstruction.
