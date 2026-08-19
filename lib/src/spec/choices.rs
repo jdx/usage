@@ -130,9 +130,14 @@ impl SpecChoices {
                 }
                 detail.aliases.push(parsed);
             }
-            if !config.choices.contains(&value) {
-                config.choices.push(value);
+            if config.choices.contains(&value) {
+                bail_parse!(
+                    ctx,
+                    choice.span(),
+                    "choice `{value}` is declared more than once"
+                );
             }
+            config.choices.push(value);
             config.details.push(detail);
         }
 
@@ -195,27 +200,7 @@ impl SpecChoices {
     }
 
     pub(crate) fn values_with_env(&self, env: Option<&HashMap<String, String>>) -> Vec<String> {
-        let mut values: Vec<String> = self
-            .choices
-            .iter()
-            .filter(|value| {
-                !self
-                    .details
-                    .iter()
-                    .any(|detail| detail.value == (*value).as_str() && detail.hide)
-            })
-            .cloned()
-            .collect();
-        for alias in self
-            .details
-            .iter()
-            .flat_map(|detail| &detail.aliases)
-            .filter(|alias| !alias.hide)
-        {
-            if !values.contains(&alias.value) {
-                values.push(alias.value.clone());
-            }
-        }
+        let mut values = self.visible_declared();
 
         #[cfg(not(feature = "unstable_choices_env"))]
         let _ = env;
@@ -244,6 +229,38 @@ impl SpecChoices {
         }
 
         values
+    }
+
+    fn visible_declared(&self) -> Vec<String> {
+        let mut values: Vec<String> = self
+            .choices
+            .iter()
+            .filter(|value| {
+                !self
+                    .details
+                    .iter()
+                    .any(|detail| detail.value == (*value).as_str() && detail.hide)
+            })
+            .cloned()
+            .collect();
+        for alias in self
+            .details
+            .iter()
+            .flat_map(|detail| &detail.aliases)
+            .filter(|alias| !alias.hide)
+        {
+            if !values.contains(&alias.value) {
+                values.push(alias.value.clone());
+            }
+        }
+        values
+    }
+
+    pub(crate) fn for_help(&self) -> Self {
+        let mut choices = self.clone();
+        choices.choices = self.visible_declared();
+        choices.details.clear();
+        choices
     }
 }
 
@@ -335,6 +352,22 @@ arg "<color>" {
             spec.cmd.args[0].choices.as_ref().unwrap().details
         );
         assert!(choices.ignore_case);
+        assert_eq!(choices.for_help().choices, vec!["always", "yes"]);
+    }
+
+    #[test]
+    fn duplicate_structured_choices_are_rejected() {
+        let source = r#"
+name "ex"
+arg "<color>" {
+  choices {
+    choice "always"
+    choice "always" help="duplicate"
+  }
+}
+"#;
+        let err = format!("{:?}", source.parse::<crate::Spec>().unwrap_err());
+        assert!(err.contains("declared more than once"), "{err}");
     }
 
     #[cfg(feature = "unstable_choices_env")]

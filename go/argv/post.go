@@ -346,11 +346,20 @@ func EnvTruth(value string) bool {
 
 func containsChoice(list []string, s string, ignoreCase bool) bool {
 	for _, x := range list {
-		if x == s || ignoreCase && strings.EqualFold(x, s) {
+		if x == s || ignoreCase && isASCII(x) && isASCII(s) && strings.EqualFold(x, s) {
 			return true
 		}
 	}
 	return false
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }
 
 // LookupEnv reads the process environment, for callers that want it.

@@ -150,6 +150,9 @@ func TestCheckRichChoices(t *testing.T) {
 	if err := Check(meta, []string{"sometimes"}, 1); err == nil || err.Code != CodeInvalidChoice {
 		t.Fatalf("an unknown value should be rejected: %+v", err)
 	}
+	if containsChoice([]string{"K"}, "K", true) {
+		t.Fatal("ignore_case must use ASCII folding, not Unicode folding")
+	}
 }
 
 // TestEnvTruth pins the allow-list, including what it deliberately leaves out.

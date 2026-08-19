@@ -586,7 +586,12 @@ pub struct FlagMeta<'a> {
     pub value_name: Option<&'a str>,
     pub env: Option<&'a str>,
     pub default: &'a [&'a str],
+    /// Canonical choices plus aliases accepted by the value type.
+    pub accepted_choices: &'a [&'a str],
     pub choices: &'a [&'a str],
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub choice_aliases: &'a [(&'a str, &'a str)],
+    pub ignore_case: bool,
     pub required: bool,
     /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
     ///
@@ -658,7 +663,10 @@ impl FlagMeta<'_> {
         value_name: None,
         env: None,
         default: &[],
+        accepted_choices: &[],
         choices: &[],
+        choice_aliases: &[],
+        ignore_case: false,
         required: false,
         value_optional: false,
         hide: false,
@@ -706,7 +714,12 @@ pub struct ArgMeta<'a> {
     pub long_help: Option<&'a str>,
     pub env: Option<&'a str>,
     pub default: &'a [&'a str],
+    /// Canonical choices plus aliases accepted by the value type.
+    pub accepted_choices: &'a [&'a str],
     pub choices: &'a [&'a str],
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub choice_aliases: &'a [(&'a str, &'a str)],
+    pub ignore_case: bool,
     /// Whether the argument must be filled. The parser does not enforce this —
     /// it is checked once the last token has been read — but the spec has to say
     /// it, and help output has to show it.
@@ -734,7 +747,10 @@ impl ArgMeta<'_> {
         long_help: None,
         env: None,
         default: &[],
+        accepted_choices: &[],
         choices: &[],
+        choice_aliases: &[],
+        ignore_case: false,
         required: true,
         hide: false,
         var_min: None,
@@ -1300,12 +1316,26 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
             out.push('\n');
         } else {
             out.push_str(" {\n");
-            write_choices(out, meta.choices, inner + 1)?;
+            write_choices(
+                out,
+                meta.choices,
+                meta.accepted_choices,
+                meta.choice_aliases,
+                meta.ignore_case,
+                inner + 1,
+            )?;
             indent(out, inner)?;
             out.push_str("}\n");
         }
     } else if !meta.choices.is_empty() {
-        write_choices(out, meta.choices, inner)?;
+        write_choices(
+            out,
+            meta.choices,
+            meta.accepted_choices,
+            meta.choice_aliases,
+            meta.ignore_case,
+            inner,
+        )?;
     }
     indent(out, depth)?;
     out.push_str("}\n");
@@ -1367,7 +1397,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
     write_many_defaults(out, meta.default, inner)?;
-    write_choices(out, meta.choices, inner)?;
+    write_choices(
+        out,
+        meta.choices,
+        meta.accepted_choices,
+        meta.choice_aliases,
+        meta.ignore_case,
+        inner,
+    )?;
     indent(out, depth)?;
     out.push_str("}\n");
     Ok(())
@@ -1432,16 +1469,63 @@ fn write_many_defaults(out: &mut String, defaults: &[&str], depth: usize) -> cor
     Ok(())
 }
 
-fn write_choices(out: &mut String, choices: &[&str], depth: usize) -> core::fmt::Result {
+fn write_choices(
+    out: &mut String,
+    choices: &[&str],
+    accepted_choices: &[&str],
+    aliases: &[(&str, &str)],
+    ignore_case: bool,
+    depth: usize,
+) -> core::fmt::Result {
     if choices.is_empty() {
         return Ok(());
     }
     indent(out, depth)?;
     out.push_str("choices");
-    for choice in choices {
-        write!(out, " {}", quoted(choice))?;
+    if ignore_case {
+        out.push_str(" ignore_case=#true");
     }
-    out.push('\n');
+
+    let has_unmapped_accepted = accepted_choices
+        .iter()
+        .any(|value| !choices.contains(value) && !aliases.iter().any(|(_, alias)| alias == value));
+    if aliases.is_empty() && !has_unmapped_accepted {
+        for choice in choices {
+            write!(out, " {}", quoted(choice))?;
+        }
+        out.push('\n');
+        return Ok(());
+    }
+
+    out.push_str(" {\n");
+    for choice in choices {
+        indent(out, depth + 1)?;
+        write!(out, "choice {}", quoted(choice))?;
+        let choice_aliases: std::vec::Vec<&str> = aliases
+            .iter()
+            .filter_map(|(canonical, alias)| (*canonical == *choice).then_some(*alias))
+            .collect();
+        if choice_aliases.is_empty() {
+            out.push('\n');
+            continue;
+        }
+        out.push_str(" {\n");
+        for alias in choice_aliases {
+            indent(out, depth + 2)?;
+            writeln!(out, "alias {} hide=#true", quoted(alias))?;
+        }
+        indent(out, depth + 1)?;
+        out.push_str("}\n");
+    }
+    for value in accepted_choices {
+        if choices.contains(value) || aliases.iter().any(|(_, alias)| alias == value) {
+            continue;
+        }
+        indent(out, depth + 1)?;
+        writeln!(out, "choice {} hide=#true", quoted(value))?;
+    }
+    indent(out, depth)?;
+    out.push_str("}\n");
     Ok(())
 }
 
@@ -1541,6 +1625,8 @@ pub trait ValueEnum: Sized {
     const CHOICES: &'static [&'static str];
     /// Canonical words plus aliases accepted by the type.
     const ACCEPTED_CHOICES: &'static [&'static str] = Self::CHOICES;
+    /// Canonical-to-alias pairs, used by spec emission to retain the distinction.
+    const ALIASES: &'static [(&'static str, &'static str)] = &[];
     const IGNORE_CASE: bool = false;
 }
 
