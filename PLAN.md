@@ -718,11 +718,13 @@ feature list is not an exhaustive audit.
       stack as their `usage-rs` dependency, so nodes such as `unknown_flags` are
       produced and consumed by one dialect. All release dependencies move to
       6.x together; cross-major spec consumption is intentionally unsupported.
-- [ ] **Runtime program identity.** aube embeds the same CLI under a caller-chosen
+- [x] **Runtime program identity.** aube embeds the same CLI under a caller-chosen
       binary name. A derived spec can be rewritten after emission, but parser
       help and diagnostics still use the static name. Support a runtime identity
       source with an explicit portable `name`/`bin` value, analogous to computed
-      version plus `version_spec`.
+      version plus `version_spec`. Computed `name` / `bin` now require
+      `name_spec` / `bin_spec`; only help, version, diagnostics, and completion
+      script paths evaluate them, while successful parsing remains on static tables.
 - [x] **Test parsing with argv0.** `parse_from` intentionally takes words after
       the binary, while clap tests commonly call `try_parse_from(["tool", ...])`.
       `parse_from_argv` is the explicit full-argv helper: it strips the binary

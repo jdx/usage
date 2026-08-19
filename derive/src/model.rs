@@ -28,6 +28,10 @@ pub struct Cli {
     pub fingerprint: String,
     pub name: String,
     pub bin: Option<String>,
+    /// Runtime program identity used by process help, version, diagnostics, and completions.
+    /// The portable spec keeps the corresponding literal `name` / `bin` value.
+    pub runtime_name: Option<proc_macro2::TokenStream>,
+    pub runtime_bin: Option<proc_macro2::TokenStream>,
     /// The version the CLI reports, as the tokens for an `Option<&str>`.
     ///
     /// Tokens rather than a string because bare `version` means "the package's", and
@@ -469,6 +473,10 @@ impl Cli {
         }
 
         let mut name_given = false;
+        let mut name_spec_given = false;
+        let mut name_needs_spec = false;
+        let mut bin_spec_given = false;
+        let mut bin_needs_spec = false;
         let mut verbatim_doc_comment = false;
         let mut version_spec_given = false;
         let mut version_needs_spec = false;
@@ -478,6 +486,8 @@ impl Cli {
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
             bin: None,
+            runtime_name: None,
+            runtime_bin: None,
             completion: false,
             settings: false,
             min_usage_version: None,
@@ -515,10 +525,51 @@ impl Cli {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "name" => {
-                        cli.name = string_value(&meta)?;
+                        let Meta::NameValue(value) = &meta else {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                "`name` takes a string literal or Rust expression",
+                            ));
+                        };
+                        if let Expr::Lit(ExprLit {
+                            lit: Lit::Str(literal),
+                            ..
+                        }) = &value.value
+                        {
+                            cli.name = literal.value();
+                        } else {
+                            cli.runtime_name = Some(quote::ToTokens::to_token_stream(&value.value));
+                            name_needs_spec = true;
+                        }
                         name_given = true;
                     }
-                    "bin" => cli.bin = Some(string_value(&meta)?),
+                    "name_spec" => {
+                        cli.name = string_value(&meta)?;
+                        name_spec_given = true;
+                        name_given = true;
+                    }
+                    "bin" => {
+                        let Meta::NameValue(value) = &meta else {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                "`bin` takes a string literal or Rust expression",
+                            ));
+                        };
+                        if let Expr::Lit(ExprLit {
+                            lit: Lit::Str(literal),
+                            ..
+                        }) = &value.value
+                        {
+                            cli.bin = Some(literal.value());
+                        } else {
+                            cli.runtime_bin = Some(quote::ToTokens::to_token_stream(&value.value));
+                            bin_needs_spec = true;
+                        }
+                    }
+                    "bin_spec" => {
+                        cli.bin = Some(string_value(&meta)?);
+                        bin_spec_given = true;
+                    }
                     // Through the same helper as `global` and `var`, so `completion = false`
                     // means false rather than being read as the bare word with something
                     // decorative after it.
@@ -600,7 +651,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `bin`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
@@ -617,6 +668,18 @@ impl Cli {
             return Err(syn::Error::new_spanned(
                 &input.ident,
                 "a computed `version` needs `version_spec = \"...\"`: the expression is evaluated for `--version`, while the literal is emitted into the portable spec",
+            ));
+        }
+        if name_needs_spec && !name_spec_given {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a computed `name` needs `name_spec = \"...\"`: the expression is evaluated for process output, while the literal is emitted into the portable spec",
+            ));
+        }
+        if bin_needs_spec && !bin_spec_given {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a computed `bin` needs `bin_spec = \"...\"`: the expression is evaluated for process output, while the literal is emitted into the portable spec",
             ));
         }
 
@@ -650,6 +713,7 @@ impl Cli {
             if let Some(bin) = &cli.bin {
                 cli.name = bin.clone();
             }
+            cli.runtime_name = cli.runtime_bin.clone();
         }
         cli.check()?;
         Ok(cli)
@@ -687,6 +751,12 @@ impl Cli {
     /// learn that an attribute was in the wrong place.
     pub fn check_position(&self, ident: &syn::Ident, is_root: bool) -> syn::Result<()> {
         if !is_root {
+            if self.runtime_name.is_some() || self.runtime_bin.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "computed `name` and `bin` belong on the root `#[derive(Cli)]`: nested command names are static parser routing keys",
+                ));
+            }
             // The completion command answers for the whole CLI, so it is declared where the
             // whole CLI is. Accepted silently on an `Args`, it generated nothing and said
             // nothing, which reads as a CLI that has completions and does not.
@@ -3782,6 +3852,23 @@ mod tests {
         let err = rejection("struct Wrapper(InnerArgs);");
         assert!(err.contains("tuple field"), "unhelpful: {err}");
         assert!(err.contains("#[usage(flatten)]"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn computed_program_identity_keeps_a_portable_literal() {
+        let err = rejection("#[usage(name = runtime_name())] struct Root {}");
+        assert!(err.contains("name_spec"), "unhelpful: {err}");
+        let err = rejection("#[usage(bin = runtime_bin())] struct Root {}");
+        assert!(err.contains("bin_spec"), "unhelpful: {err}");
+
+        let parsed = cli(
+            "#[usage(name = runtime_name(), name_spec = \"portable\", bin = runtime_bin(), bin_spec = \"portable-bin\")] struct Root {}",
+        )
+        .expect("runtime identity with portable values should compile");
+        assert_eq!(parsed.name, "portable");
+        assert_eq!(parsed.bin.as_deref(), Some("portable-bin"));
+        assert!(parsed.runtime_name.is_some());
+        assert!(parsed.runtime_bin.is_some());
     }
 
     #[test]

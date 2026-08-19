@@ -306,15 +306,51 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .or(cli.version.as_ref())
         .cloned()
         .unwrap_or_else(|| quote!(""));
-    let help_spec = if cli.runtime_version.is_some() {
+    let runtime_name_decl = cli.runtime_name.as_ref().map(|runtime_name| {
         quote! {
-            // The portable spec keeps `version_spec`; this process's help must agree with
-            // the computed version printed by `--version`. The owned string lives for the
-            // whole render and is allocated only on this cold help path.
+            let __usage_runtime_name: &'static str = #runtime_name;
+        }
+    });
+    let runtime_bin_decl = cli.runtime_bin.as_ref().map(|runtime_bin| {
+        quote! {
+            let __usage_runtime_bin: &'static str = #runtime_bin;
+        }
+    });
+    let runtime_version_decl = cli.runtime_version.as_ref().map(|_| {
+        quote! {
             let __usage_runtime_version =
                 ::std::string::ToString::to_string(&(#runtime_version));
+        }
+    });
+    let effective_name = if cli.runtime_name.is_some() {
+        quote!(__usage_runtime_name)
+    } else {
+        quote!(Self::spec().name)
+    };
+    let effective_bin = if cli.runtime_bin.is_some() {
+        quote!(::std::option::Option::Some(__usage_runtime_bin))
+    } else {
+        quote!(Self::spec().bin)
+    };
+    let effective_version = if cli.runtime_version.is_some() {
+        quote!(::std::option::Option::Some(
+            __usage_runtime_version.as_str()
+        ))
+    } else {
+        quote!(Self::spec().version)
+    };
+    let has_runtime_identity = cli.runtime_name.is_some() || cli.runtime_bin.is_some();
+    let effective_spec = if has_runtime_identity || cli.runtime_version.is_some() {
+        quote! {
+            // Portable literals remain in `SPEC`; runtime expressions are evaluated only on
+            // cold output paths. Successful argv parsing still reads the static tables directly.
+            #runtime_name_decl
+            #runtime_bin_decl
+            #runtime_version_decl
             let __usage_runtime_spec = usage_argv::spec::Spec {
-                version: ::std::option::Option::Some(__usage_runtime_version.as_str()),
+                name: #effective_name,
+                bin: #effective_bin,
+                version: #effective_version,
                 ..*Self::spec()
             };
             let __usage_spec = &__usage_runtime_spec;
@@ -324,6 +360,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
             let __usage_spec = Self::spec();
         }
     };
+    let runtime_program = cli
+        .runtime_bin
+        .as_ref()
+        .or(cli.runtime_name.as_ref())
+        .cloned();
+    let runtime_program_for_version = runtime_program
+        .as_ref()
+        .map(|program| {
+            quote! {
+                let __usage_bin: &'static str = #program;
+            }
+        })
+        .unwrap_or_else(|| {
+            quote! {
+                let __usage_bin = Self::spec().bin.unwrap_or(Self::spec().name);
+            }
+        });
+    let runtime_name_view = cli.runtime_name.as_ref().map(|name| quote!(.name(#name)));
+    let runtime_bin_view = cli.runtime_bin.as_ref().map(|bin| quote!(.bin(#bin)));
+    let runtime_app = has_runtime_identity.then(|| {
+        quote! {
+            /// This CLI's cold-path view with its computed process identity applied.
+            ///
+            /// Runtime identity is required to be `&'static str`, so this borrows the
+            /// static metadata and allocates nothing.
+            pub fn runtime_app() -> usage_argv::spec::SpecView<'static> {
+                Self::app() #runtime_name_view #runtime_bin_view
+            }
+        }
+    });
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -556,6 +622,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     Self::spec().view()
                 }
 
+                #runtime_app
+
                 /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
                 /// and the completion generators read.
                 pub fn to_kdl() -> ::std::string::String {
@@ -655,13 +723,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         ::std::result::Result::Ok(parsed) => parsed,
                         // Not failures: someone asked a question, and the answer goes to stdout.
                         ::std::result::Result::Err(usage_argv::Error::Version) => {
-                            let __usage_bin = Self::spec().bin.unwrap_or(Self::spec().name);
+                            #runtime_program_for_version
                             let __usage_version = #runtime_version;
                             ::std::println!("{__usage_bin} {__usage_version}");
                             ::std::process::exit(0);
                         }
                         ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
-                            #help_spec
+                            #effective_spec
                             // By the route the words took, not by the command's address: one
                             // `Subcommands` type mounted under two parents is one address, and a
                             // page found by searching for it carries the first mount's path and
@@ -688,9 +756,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             }
                         }
                         ::std::result::Result::Err(e) => {
+                            #effective_spec
                             ::std::eprint!(
                                 "{}",
-                                usage_argv::render_failure(Self::spec(), &__usage_argv, &e)
+                                usage_argv::render_failure(__usage_spec, &__usage_argv, &e)
                             );
                             // clap's, so a script that checks for it keeps working.
                             ::std::process::exit(2);
@@ -760,6 +829,22 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
     if !cli.completion {
         return (TokenStream::new(), TokenStream::new());
     }
+    let completion_program = cli
+        .runtime_bin
+        .as_ref()
+        .or(cli.runtime_name.as_ref())
+        .map(|program| {
+            quote! {
+                let __usage_runtime_program: &'static str = #program;
+                __usage_runtime_program.to_string()
+            }
+        })
+        .unwrap_or_else(|| {
+            quote! {
+                let spec = Self::spec();
+                spec.bin.unwrap_or(spec.name).to_string()
+            }
+        });
     let functions = quote! {
         // Says what is missing, where the alternative is `unresolved module complete` — which
         // names the symptom and not the attribute that asked for it.
@@ -773,8 +858,8 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         pub fn completion_script(
             shell: usage_argv::complete::Shell,
         ) -> ::std::string::String {
-            let spec = Self::spec();
-            usage_argv::script::script(spec.bin.unwrap_or(spec.name), shell)
+            let __usage_program = { #completion_program };
+            usage_argv::script::script(&__usage_program, shell)
         }
 
         /// The word a shell is completing, answered from this CLI's own tables.
