@@ -516,19 +516,20 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 **API surface**
 
 - [ ] **`update_from` / `try_update_from`** — merge a parse into an existing struct.
-- [ ] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
+- [x] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
       `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
       case from the other side. This is an explicit non-goal: the usage metadata
       API does not need to reproduce clap's `Command` surface or be fully source
-      compatible with it.
-- [ ] **Public `CommandFactory` migration.** A library can expose
+      compatible with it. The migration guide and compatibility matrix publish
+      that boundary rather than leaving the missing API implicit.
+- [x] **Public `CommandFactory` migration.** A library can expose
       `pub fn command() -> clap::Command` as part of its supported API, as aube
       does. The 6.x transition may intentionally break that API and return a
       first-party usage metadata/spec view instead; it does not need to preserve
-      the complete clap builder contract. Document the semver expectation and any
-      separately named, opt-in compatibility entry point an adopter chooses to
-      retain.
+      the complete clap builder contract. The migration guide documents the
+      major-version break and the choices to retain a clap adapter or expose a
+      separately named usage spec/view API.
 
 **What is _not_ a gap**, checked rather than assumed, because two of these were
 recorded as gaps here and had quietly been closed: flag aliases (several `long`
