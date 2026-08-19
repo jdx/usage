@@ -662,12 +662,21 @@ feature list is not an exhaustive audit.
       supported facade should own or re-export this path so the documented
       dependency set is sufficient and generated code does not require users to
       discover an internal crate from a compiler error.
-- [ ] **Spec mutation without an MSRV jump.** aube and hk parse derived KDL into
-      usage-lib solely to attach command effects and other generated fragments.
-      That raises an argv-only adopter from the 1.91 tier to usage-lib's 1.95
-      tier (and hk currently declares Rust 1.88). Provide a static metadata hook,
-      a lightweight spec-editing surface, or an explicit release policy before
-      claiming these migrations are mergeable.
+- [ ] **Central metadata overlays without an MSRV or performance jump.** aube
+      keeps a centrally audited command-effect table rather than scattering the
+      policy across command types. Applying that table currently means parsing
+      derived KDL into usage-lib, which raises an argv-only adopter from the 1.91
+      tier to usage-lib's 1.95 tier. hk first did the same and its `usage`
+      benchmark retired 9x as many instructions; moving every effect into derive
+      attributes fixed the regression but lost the central declaration. Provide
+      a static overlay or lightweight spec-editing surface for policies that need
+      a whole-tree view.
+- [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
+      output was semantically accepted but differed substantially from the same
+      tree after a usage-lib parse/serialize round trip, and repeated identical
+      `complete "path"` nodes that the round trip collapsed. Make direct emission
+      canonical and deduplicate composed completers so adopters do not need the
+      expensive round trip merely for stable generated artifacts.
 - [ ] **Keep generated-spec producers and consumers on one dialect.** A derive
       pinned to the 6.x stack can emit nodes such as `unknown_flags` that the
       released 5.x `usage` binary in an adopter's docs task cannot read. The
