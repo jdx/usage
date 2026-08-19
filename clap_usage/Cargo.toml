@@ -17,7 +17,7 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-clap = { version = "4", default-features = false, features=["std"] }
+clap = { version = "4", default-features = false, features = ["env", "std"] }
 usage-lib = { workspace = true, features = ["clap"] }
 
 [dev-dependencies]

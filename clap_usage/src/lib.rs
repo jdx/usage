@@ -11,6 +11,7 @@
 //! ```
 
 mod generate;
+mod report;
 
 /// The [`usage`] crate, re-exported.
 ///
@@ -19,4 +20,5 @@ mod generate;
 /// and nothing here goes stale as `usage` grows.
 pub use usage;
 
-pub use crate::generate::{generate, spec};
+pub use crate::generate::{generate, generate_with_report, spec, spec_with_report};
+pub use crate::report::{FidelityFeature, FidelityLoss, FidelityReport};

@@ -579,14 +579,14 @@ feature list is not an exhaustive audit.
       usage-lib, help/completions, and the `clap_usage` bridge. Each cell must say
       supported and tested, usage-only, bridge-lossy, intentionally different, or
       unsupported. Updating clap must update the matrix in the same PR.
-- [ ] **A clap-to-spec fidelity report.** The bridge currently loses detectable
-      metadata without reporting it: `num_args` bounds, environment bindings,
-      hidden flag aliases, value hints and `PossibleValue` metadata, positional
-      relationship/group members, and command parsing settings. Return or emit a
-      structured loss report for everything clap exposes. For setter-only state
-      such as `requires` and `default_missing_value`, where loss cannot be detected,
-      the matrix and integration docs must say that the bridge is not a lossless
-      migration verifier.
+- [x] **A clap-to-spec fidelity report.** `spec_with_report` and
+      `generate_with_report` return deterministic structured losses with command
+      path, argument ID, feature, and source detail. The report covers detectable
+      arity/name loss, environment bindings, hidden flag aliases, value hints and
+      terminators, non-portable delimiters/defaults, positional relationships and
+      group members, granular hides, and command parsing/help settings. Setter-only
+      state such as `requires` and `default_missing_value` remains inherently
+      undetectable and is named as **usage-only** in the matrix and integration docs.
 - [x] **Defaults preserve optionality in metadata.** A default satisfies a
       required Rust field without requiring a token from the user. The derive
       now clears `required` in the static metadata for defaulted flags and

@@ -23,6 +23,23 @@ clap_usage::generate(&mut cmd, "mycli", &mut buf);
 println!("{}", String::from_utf8(buf).unwrap());
 ```
 
+For migrations, use `spec_with_report` (or `generate_with_report`) and require a
+clean report before trusting the generated spec:
+
+```rust
+let (spec, report) = clap_usage::spec_with_report(&mut cmd, "mycli");
+for loss in report.losses() {
+    eprintln!("{}: {:?}", loss.command.join(" "), loss);
+}
+assert!(report.is_lossless());
+println!("{spec}");
+```
+
+The report includes the command path, clap argument ID, feature, and source detail
+for each detectable loss. clap settings that have setters but no public getter
+cannot be detected; the [compatibility matrix](/rust/clap-compatibility) lists
+those as **usage-only**.
+
 ## Integration Pattern
 
 A common approach is to add a hidden `--usage-spec` flag that outputs the spec:
