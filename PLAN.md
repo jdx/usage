@@ -483,7 +483,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **Command parsing policy** — `arg_required_else_help`,
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
       `subcommand_precedence_over_arg`, `allow_missing_positional`,
-      and `args_override_self`.
+      and `args_override_self`. One design decision is made ahead of the
+      implementation: `arg_required_else_help` reads argv, not bound values.
+      clap counts an environment-supplied value as present (clap#3572), so a
+      user with a configured environment never sees the help — with MISE_*
+      set, that is most mise users. An empty command line means help,
+      whatever the environment holds.
 
 **Help output**
 
@@ -742,11 +747,13 @@ that declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not
 a command-line shape. Trailing argv is already `double_dash=automatic` in every
 fleet spec that has one.
 
-- [ ] **The grammar decision that would change mise at run time**, not just at
+- [x] **The grammar decision that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how
       mise parses task arguments; tightening it is a behaviour change to every
-      `mise run`. Decide that before a rewrite, rather than discovering it in
-      one. Repeated `--` handling was settled and fixed in #809.
+      `mise run`. **Decided: the default stays lax, everywhere, and strict is
+      opt-in per spec** — recorded in the divergence list below — so a rewrite
+      changes nothing about what a task accepts. Repeated `--` handling was
+      settled and fixed in #809.
 
 **Not on this list, on purpose.** Config is a second project: the four CLIs
 would keep their generated `Settings` through an argv-only move. Mounts are
@@ -805,6 +812,306 @@ Checked against mise rather than assumed, and two of them do not survive contact
 - `src/assets/mise-extra.usage.kdl` — **not** a clap workaround. It is mostly a
   `source_code_link_template` for the docs, which a spec is the right home for.
 
+### What adoption should let the rest of the fleet delete
+
+A survey of the whole jdx.dev fleet (2026-08-19), done the same way as the mise
+list above: checked against the source rather than assumed. Every CLI is on
+clap 4.6 derive, every one already generates its spec through clap_usage, and
+every one carries glue of the same three species — argv rewritten before clap
+runs, metadata clap cannot express spliced into the generated spec afterwards,
+and completions that depend on a separately-installed `usage` binary.
+
+**mise**, beyond the delete-list above:
+
+- `escape_task_args` / `unescape_task_args` (`src/cli/mod.rs:447-696`) — ~200
+  lines plus eight tests that prefix task-side flags with `\x00MISE_TASK_ARG\x00`
+  so clap will not bind them, then strip the prefix after the parse. It exists
+  because mise runs two parsers per invocation — clap for the mise side, usage
+  for the task side — and words must be smuggled across the boundary. A
+  usage-native parse with `restart_token` (already declared) has no boundary to
+  smuggle across.
+- `preprocess_args_for_naked_run` (`src/cli/mod.rs:698-732`) — hand-scans argv
+  to inject `"run"`, and must therefore re-know which global flags take values.
+  Routing on `default_subcommand` (landed above) is the replacement.
+- The hand scanner has a confirmed user-facing bug clap does not:
+  `mise --env=production` is silently ignored while `mise --env production`
+  works (jdx/mise discussion #8883) — the cost of a third partial flag parser.
+  `hook_env.rs:202-222`, `activate.rs:209-239` and `version.rs:88-98` each
+  carry another copy of the same knowledge.
+- The deferred `bootstrap` subtree — a stub plus a hand-written `FromArgMatches`
+  (`src/cli/bootstrap.rs:41-76`), purely to keep clap's tree-build off the hot
+  path. Static tables have no tree to defer.
+- `tool_stub.rs:659-678` ignores clap's parse and re-reads raw argv "to avoid
+  version flag interception".
+- `task/mod.rs:1870-1912` reconstructs the `--` separator clap consumed, by
+  suffix-matching argv, because clap reports `last=true` values but not where
+  the separator stood.
+- `mcp.rs:127-131` re-implements hide-propagation ("clap does not propagate
+  `hide` to children, so a visible child of a hidden parent is still not a
+  documented path").
+- `completion.rs:136-140` accepts `pwsh` in one command and `powershell` in
+  another, because two clap `ValueEnum` lists were declared separately —
+  whichever name a user learns first is rejected by the other.
+
+**aube** — the heaviest workaround load after mise:
+
+- `is_usage_invocation` in `main.rs` intercepts `aube usage` before clap runs;
+  multicall dispatch for the `aubr`/`aubx` shims also happens pre-clap.
+- `multicall_usage_spec()` (`commands/completion.rs`) — ~80 lines of spec
+  surgery (shift_remove a subcommand, splice globals in, rewrite name/bin/usage
+  strings, force `var_max` and `double_dash`) to fake standalone `aubr`/`aubx`
+  specs out of the generated one.
+- `command_effects.rs` — a 100+-entry hand table, same species as mise's.
+- A manual `--version` flag (`lib.rs:87`) because clap's auto-version exits
+  inside `parse_from`, before the tokio runtime that runs the async update
+  notifier is built.
+- `trailing_var_arg + allow_hyphen_values` on five forwarding commands;
+  `num_args = 0..=1` + `require_equals` + `default_missing_value` for
+  `--inspect[=HOST:PORT]`; `overrides_with` pairs for hand-rolled
+  `--sort`/`--no-sort`; a hand-written `FromArgMatches` on `PruneArgs` with an
+  `AtomicBool` side channel; and `npm_fallback.rs`'s hidden catch-all stub
+  commands for npm-only verbs.
+
+**hk**:
+
+- `reexec_for_cd` (`src/cli/mod.rs:86`) hand-walks argv to strip `--cd` and
+  re-exec in the target directory, with per-platform OsStr byte handling —
+  clap gives no way to re-render parsed args back into argv.
+- Hand-rolled `--fail-fast`/`--no-fail-fast` and `--stage`/`--no-stage` bool
+  pairs with mutual `overrides_with`, plus repeated `conflicts_with_all`
+  string arrays — the spec's `negate` is the declaration these want to be.
+- `--why [STEP]` is `num_args = 0..=1, default_missing_value = ""`, an
+  empty-string sentinel meaning "all steps".
+- Completion invocations were loading full project config until special-cased
+  (hk#615) — the cost of completions being ordinary subcommands of a heavy CLI.
+- `command_effects.rs`, again.
+
+**fnox**: dynamic completers via hidden `--complete` probe flags on three
+commands plus a hand-written extras KDL; `min_usage_version "1.3"` hardcoded
+while siblings emit `"4.0"` — sidecar drift in the flesh; `trailing_var_arg +
+allow_hyphen_values + ValueHint::CommandWithArguments` on `exec` and `proxy`.
+
+**pitchfork**: default-subcommand fallthrough via `external_subcommand` plus a
+second `StartFallback` parser with `bin_name = "pitchfork start"`
+(`src/cli/mod.rs:70-131`), and its own `command_effects.rs`.
+
+**communique and tak**: no shell completions at all, despite both having specs —
+the wiring cost is real enough that small CLIs skip it. tak also sets
+`spec.version = None` post-hoc (`src/main.rs:817`) so release-plz's version-only
+PR does not fail the generated-reference CI check; clap_usage has no knob for
+it. communique keeps its spec honest with a unit test that tells you to
+regenerate by hand.
+
+The cross-cutting counts: command-effect sidecar tables in five repos, extras
+KDL spliced onto the generated spec by string concatenation in four, the
+external `usage` binary as a runtime completion dependency in three — the
+most-reported public issue class (jdx/mise discussions #5659 and #5675,
+nixpkgs#343832), and the reason mise now maintains a prerendered static
+fallback pipeline — hand-rolled negation pairs in two, and spec-sync CI chores
+in all of them.
+
+### Gaps to close before dogfooding the fleet
+
+The fleet's workarounds also route around usage, not only clap. These are the
+items the survey adds; the ones already tracked as unchecked boxes under **What
+clap can say that we cannot** (positionals in relationships, the complete
+relationship families, command parsing policy including
+`arg_required_else_help`, fixed arity, the full `ValueHint` vocabulary) are not
+repeated here.
+
+- [ ] **The completer channel is unescaped Tera into `sh -c`.** aube's
+      `completion.usage.kdl` documents the quote-escaping gymnastics, and its
+      `extra.usage.kdl` records a `-C` non-forwarding limitation outright:
+      "usage's only channel for the typed words is tera interpolation into a
+      `sh -c` string, with no shell-quoting filter". A quoting filter — or a
+      structured argv channel — is owed before dynamic completers are a
+      recommendation rather than a hazard.
+- [ ] **A multicall CLI cannot describe its applets.** aube's 80 lines of spec
+      surgery for `aubr`/`aubx` is the requirement written as a workaround: a
+      spec (or the derive) should declare a sub-view — name, bin, a subset of
+      commands, the global flags — without the host mutating a generated spec
+      by hand. Related: help and diagnostics render the compiled-in name, so an
+      embedder with a dynamic identity is stuck with the static one.
+      **Direction decided (2026-08-19): a spec-first `view` node** on the root,
+      carrying name, bin, the command subset, and which globals carry over,
+      that help, completions and docs all read, with the derive lowering an
+      attribute into it. Not a derive-only emission, and not a blessed
+      transform API: the spec defines.
+- [ ] **No home for post-parse hooks.** aube reimplements `--version` because
+      the built-in exits before its async update notifier can run; hk strips
+      `--cd` and re-execs by hand. `parse_from` returning `Error::Help` and
+      version instead of exiting is the derive's answer in principle — confirm
+      the pattern covers both cases and document it, or add the hook.
+- [ ] **MSRV.** usage-lib is on Rust 1.95 while the fleet floors are 1.88 and
+      1.91, so a CLI that links it for spec generation inherits the bump. The
+      argv/derive tier is dependency-free by design; keeping a low-MSRV path to
+      spec emission — without usage-lib — is what lets a conservative CLI adopt.
+- [ ] **The `parse_from` argv0 contract.** It differs from clap's, which broke
+      fnox's test helpers in the rewrite experiment. Decide it, document it,
+      and provide a clap-shaped variant if the difference stays.
+- [ ] **Shared `Args` under multiple commands need wrapper types** in the
+      derive, where clap lets one struct serve several parents directly.
+      flatten covers the mise `ConfigLs` shape; the fnox shape is the same
+      struct as a full command body in two places.
+- [ ] **Relationships across a flatten boundary.** A flag in the parent
+      conflicting with a flag in the flattened group has no spelling; hk and
+      aube both hit it and enforce post-bind by hand.
+- [ ] **Checked-in specs vs release automation.** tak sets `spec.version = None`
+      post-hoc so release-plz's version-only PR does not fail the
+      generated-reference CI check. This is not a bridge problem and it survives
+      removing clap: the derive's spec emission carries `version` too. Decide
+      how a checked-in spec treats version under release automation — an
+      omit-version option on spec emission, or regenerating the reference as
+      part of the release. Not a clap_usage feature; the bridge is transitional
+      and the fleet's endpoint is the derive. **Decided (2026-08-19): the
+      omit-version option.** The binary knows its version at runtime; docs and
+      manpage rendering inject it at render time; release PRs stay
+      version-only.
+
+### clap's backlog, read as a roadmap
+
+A pass over clap's most-upvoted open issues (2026-08-19), asking two questions:
+what do clap users want that usage already has, and what demand should shape
+what gets built next.
+
+**Already answered here — promotion material for the docs, later.** A striking
+share of clap's top-voted open requests is usage's existing feature set:
+
+- Dynamic completions (clap#3166, 102 votes, plus clap#1232's 157 before it was
+  folded in) — clap's native completion engine has been unstable for 4+ years;
+  runtime completion served from the spec is usage's core architecture. Nushell
+  (clap#5840) comes with it, which clap_complete lacks.
+- Automatic negation flags (clap#815, 66) — `negate`.
+- Argument validation on globals (clap#1546, 48) — globals go through the same
+  post-binding checks as everything else.
+- Partial parsing that captures unknown args instead of erroring (clap#1404) —
+  the spec's lax `unknown_flags` mode, which mise task parsing runs on.
+- Command chaining (clap#2222, 29) — `restart_token`.
+- Manpage customization (clap#3354) — generated from Tera templates rather than
+  a fixed renderer.
+- `args_override_self` as the default (clap#4261) — the grammar's "a repeat is
+  a correction" rule.
+- Default subcommands (clap#3857 and clap#4442, both closed "not planned",
+  with the discussion still active in 2026) — `default_subcommand`, declared,
+  routed, and completing.
+- GNU-correct optional option-arguments (clap#3030, where fixing the default
+  "likely isn't" possible without breaking rustc and cargo) —
+  `default_missing`, under which `--color bar` binds the missing value and
+  leaves `bar` a positional, with `require_equals` beside it.
+- Help order following declaration order (clap#1807, 25 comments of stalled
+  design) — a spec is ordered, so help order is spec order, with
+  `help_heading` on top.
+- A machine-readable export of the whole CLI (clap#918, open since 2017, and
+  discussion clap#6491 asking for schemas AI agents can read) — the spec _is_
+  the export, `effect` is the safety vocabulary an agent wants, and usage-cli
+  renders JSON already. clap#6026 was closed with advice to "implement your
+  own argument parser" — which is this project.
+
+When the migration guide is written, a "top clap feature requests that just
+work here" section is cheap and persuasive; the launch-gate documentation items
+above are where it lands.
+
+**Worth building, demand attached:**
+
+- [ ] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
+      landed for flags and arguments; this is the same property on `cmd` nodes,
+      so a 210-command CLI can group its help into sections. mise is the
+      obvious first user. clap#4589 asks for prose under a heading — Deno wants
+      per-section doc links — which is the same node with one more field.
+- [ ] **Deprecation and stability metadata on flags and commands** (clap#3321) —
+      `deprecated`, with warn/remove versions, already exists in the
+      config-prop vocabulary; the same on flags and commands would flow into
+      help, docs and completions from one declaration. Explicit full-name
+      deprecated env aliases (clap#5447) fit the same slot — full names, so
+      they stay greppable — and clap#5925's ordered fallback across several
+      env names is the same declaration read in order.
+- [ ] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
+      clap's most-requested) — mutually exclusive flags declared as enum
+      variants, lowering to the `group`/`conflicts` vocabulary the spec already
+      has. Derive ergonomics rather than new spec surface, and clap has sat on
+      it since 2021.
+- [ ] **Alias into a nested subcommand** (clap#1603, reopened, 22 comments) —
+      rustup's `install` meaning `toolchain install`, args carried along. A
+      spec-level redirect an interpreter applies before parsing, so help and
+      completions describe the alias too; clap's unstable `App::replace`
+      answer died for lack of interest.
+- [ ] **Recursive help** (clap#4813) — help for a whole command tree in one
+      output. The markdown generator already walks the tree; a `--help-all`
+      output mode is cheap, and doubles as the golden file the help-parity
+      tests already want.
+- [ ] **Non-strict choices** (clap#5885) — known values complete, document and
+      suggest; an unknown value is still accepted. mise's tool names are this
+      exact shape: a registry to offer, arbitrary backends still legal.
+- [ ] **Completion runtime niceties** — completions that work when the binary
+      is invoked through a shell alias (clap#1764, stalled since 2020), and
+      multi-segment path completion, `tar/de/inc` completing to
+      `target/debug/incremental` (clap#5279). usage owns the registration
+      scripts and the `complete-word` runtime, so each is implementable once,
+      for every shell.
+- [ ] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
+      reactions behind it) — **semantic decided (2026-08-19): opt-in per flag,
+      and `=`-attached only.** `--flag=false` binds; `--flag false` never does,
+      so the `=` settles the next word's role and no existing bool changes
+      behavior. The wider rule that comes with it: optional values on flags
+      deserve an admonishment in the docs, and possibly a lint — a detached
+      optional value is ambiguous to a human reader even where the grammar
+      resolves it (the parser already gives `--color bar`'s `bar` to the
+      positionals) — so the recommended declaration is `default_missing` with
+      `require_equals` beside it.
+- [ ] **`license` metadata** (clap#1768) — a spec node rendered into manpages
+      and docs. GPL display requirements want it, and it rounds out the
+      manpage story.
+
+Demand also attaches to boxes already open above: fixed arity with distinct
+value names is clap#1717 + clap#1682 (31 votes combined); `Option` on a
+flattened group is clap#5092 (18) — the derive refuses it for lack of a rule,
+and the votes say people want the rule defined; visible aliases on enum values
+is clap#4416, stalled in clap on binary-size grounds a spec interpreter does
+not have; and a help template set once for the whole tree is clap#1184, which
+is the `help_template` row — a Tera template at spec root is the natural shape.
+
+Noted, not taken — one item: conditional argument groups unlocked by a flag's
+value (clap#6258), the missing quadrant beside `requires_if`, `required_if`
+and `default_if` — "this flag is invalid unless that flag has value X". Not
+built on its own, and not designed on its own either: it is a constraint on
+the group-as-enum item above, whose design must leave room for a group whose
+membership condition is a value. The enforcement half may already have a home
+in the expr layer: `validate` today scopes one value, and widened to command
+scope over all bound flags, "`--dockerfile` without `driver == "docker"`" is
+one declarative expression — covering this and the long tail of cross-flag
+rules without new vocabulary. What an expr cannot do is the other half: help
+and completions cannot read a black-box expression to know not to offer a
+flag, which is why the structured group vocabulary stays the answer for
+anything those need to understand.
+
+**Declined: `env_prefix`** (clap#3221, 45 votes). Assembling `MISE_JOBS` from a
+prefix and a field name makes the one string a user actually sees ungreppable
+in the codebase that declares it. Env names stay fully spelled at the
+declaration site.
+
+**Declined: conflict-aware positional skipping** (clap#1794, Deno's shape,
+still unmerged in clap in 2026). Handing a word to the _next_ positional
+because a flag elsewhere on the line conflicts with the first one requires the
+binder to consult relationship tables mid-parse, and the architecture rule is
+that binding stays relationship-free — every check that needs more lives after
+the parse. It is also bad grammar independent of the architecture: which slot
+a word lands in would depend on the rest of the line, which is unpredictable
+for exactly the readers a spec serves.
+
+**Declined: case-insensitive subcommand matching** (clap#6097, closed "not
+planned" in clap as well). The demand comes from mobile keyboards and chat-bot
+REPLs, not shells; no fleet CLI wants it; and the hot path's exact byte
+comparison against static tables is budget not worth spending here.
+
+**Non-goals, now stated rather than implied:** interactive prompts (clap#1634);
+non-Unix option styles — `find -exec`, `/c`, `-Wl,` (clap#2468) — the framework
+targets GNU-style CLIs on purpose; and no_std (clap#1485), though usage-argv
+being dependency-free and allocation-free means the distance is small if
+embedded ever matters. i18n (clap#380, open since 2015) is the long-term
+sleeper: clap structurally cannot do it because every string is compile-time
+Rust, while a spec is data — not built now, but worth a line in the vision
+docs.
+
 ## Not covered by the corpus yet
 
 - [ ] **Restart tokens** — `restart_token` (mise's `:::`) makes one command line
@@ -848,11 +1155,17 @@ including telling you to delete the label afterwards.
       appending to a command line it did not write is the documented case. Both correct in
       their own domain, and `differential.rs` now carries a named test so tightening usage-lib
       fails with the reason attached.
-- [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
-      to an argument, or reports `unexpected_arg` when there is none. This is the
-      root of most of the recorded divergences. **Needs a decision**: mise parses
-      task arguments with this parser at run time, so rejecting an undeclared flag
-      would change what a task accepts, not just what a completion offers.
+- [x] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
+      to an argument, or reports `unexpected_arg` when there is none. **Decided
+      (2026-08-19): lax is the default everywhere — both parsers — and strict is
+      the opt-in, `unknown_flags "error"` at whatever scope wants it.** This is
+      a position, not a compatibility concession: clap's strict default is held
+      to be the wrong one — a wrapper appending to a command line it did not
+      write is ordinary, which is the grammar's "data in transit" rationale —
+      and what `mise run` tasks accept does not change. The derive's strictness
+      about a _repeated_ non-repeatable flag is a separate rule and unchanged.
+      The migration guide presents the difference as intentional, with strict
+      one root-level line away, as communique's rewrite already declares it.
 - [x] A flag missing its value is dropped silently — now an error, in `parse` but
       not `parse_partial`, since a half-typed flag is exactly what a completion is
       asked about.
