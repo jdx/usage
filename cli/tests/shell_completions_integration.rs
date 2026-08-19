@@ -1609,9 +1609,9 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
         "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        // Quoted, which is how the parse tables write a spec: `usage --usage-spec` is
-        // emitted by the CLI's own derive rather than by the clap bridge.
-        stdout.contains(r#"bin "usage""#),
+        // Canonical KDL leaves a safe identifier bare. The spec still comes from the
+        // CLI's own derive rather than from the shell function or clap bridge.
+        stdout.contains("bin usage"),
         "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
@@ -1765,9 +1765,9 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
         "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        // Quoted, which is how the parse tables write a spec: `usage --usage-spec` is
-        // emitted by the CLI's own derive rather than by the clap bridge.
-        stdout.contains(r#"bin "usage""#),
+        // Canonical KDL leaves a safe identifier bare. The spec still comes from the
+        // CLI's own derive rather than from the shell function or clap bridge.
+        stdout.contains("bin usage"),
         "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 

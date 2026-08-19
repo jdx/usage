@@ -373,7 +373,7 @@ fn the_root_writes_its_own_surrounding_text() {
     };
 
     let kdl = SPEC.to_kdl();
-    assert!(kdl.contains(r#"before_help "Above.""#), "{kdl}");
+    assert!(kdl.contains("before_help Above."), "{kdl}");
     assert!(
         kdl.contains(r#"after_long_help "Below, at length.""#),
         "{kdl}"

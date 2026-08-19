@@ -2,18 +2,18 @@
 source: conformance/tests/subcommands.rs
 expression: "Ex::to_kdl()"
 ---
-name "ex"
-bin "ex"
+name ex
+bin ex
 version "1.0"
 about "A tool that does things"
 flag "-v --verbose" help="Say more" global=#true
-cmd "install" help="Install a tool" {
+cmd install help="Install a tool" {
     flag "-f --force" help="Overwrite an existing install"
     flag "-j --jobs" help="How many at once" default="4" {
-        arg "<JOBS>"
+        arg <JOBS>
     }
     arg "[TOOLS]..." help="What to install"
 }
-cmd "run" help="Run a task" {
-    arg "<TASK>" help="The task to run"
+cmd run help="Run a task" {
+    arg <TASK> help="The task to run"
 }

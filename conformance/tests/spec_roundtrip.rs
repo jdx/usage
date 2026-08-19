@@ -770,7 +770,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
 
     let kdl = SPEC.to_kdl();
     assert!(
-        kdl.contains(r#"complete "tool" run="ex __complete_word__ --candidates tool --line"#),
+        kdl.contains(r#"complete tool run="ex __complete_word__ --candidates tool --line"#),
         "{kdl}"
     );
 
@@ -1034,7 +1034,7 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
 
     let kdl = SPEC.to_kdl();
     assert_eq!(
-        kdl.matches("complete \"tool\"").count(),
+        kdl.matches("complete tool").count(),
         1,
         "one name-keyed block: {kdl}"
     );

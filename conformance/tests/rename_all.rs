@@ -41,12 +41,13 @@ fn clap_container_casing_reaches_binding_and_the_spec() {
     assert!(server.ready);
 
     let kdl = Renamed::to_kdl();
-    assert!(kdl.contains("flag \"--apiToken\""), "{kdl}");
-    assert!(kdl.contains("arg \"<APITOKEN>\""), "{kdl}");
-    assert!(kdl.contains("env=\"api-token\""), "{kdl}");
+    assert!(kdl.contains("flag --apiToken"), "{kdl}");
+    assert!(kdl.contains("arg <APITOKEN>"), "{kdl}");
+    assert!(kdl.contains("env=api-token"), "{kdl}");
     assert!(
-        kdl.contains("flag \"--service_credential\"") && kdl.contains("env=\"service-credential\""),
+        kdl.contains("flag --service_credential")
+            && kdl.contains("env=service-credential"),
         "{kdl}"
     );
-    assert!(kdl.contains("cmd \"API_SERVER\""), "{kdl}");
+    assert!(kdl.contains("cmd API_SERVER"), "{kdl}");
 }

@@ -309,7 +309,7 @@ fn a_flattened_structs_group_is_enforced_and_emitted() {
     // spec would describe a CLI without a rule the CLI enforces.
     let kdl = Flattened::to_kdl();
     assert!(
-        kdl.contains(r#"group "output" "--json" "--yaml" required=#true"#),
+        kdl.contains("group output --json --yaml required=#true"),
         "{kdl}"
     );
     let spec: LibSpec = kdl.parse().expect("the emitted spec should parse");
@@ -360,7 +360,7 @@ fn a_flattened_structs_groups_land_where_the_field_was_written() {
     let kdl = GroupOrder::to_kdl();
     let at = |name: &str| kdl.find(name).unwrap_or_else(|| panic!("{name} in {kdl}"));
     assert!(
-        at("\"source\"") < at("\"format\"") && at("\"format\"") < at("\"sink\""),
+        at("group source") < at("group format") && at("group format") < at("group sink"),
         "groups follow the fields that declare them: {kdl}"
     );
 

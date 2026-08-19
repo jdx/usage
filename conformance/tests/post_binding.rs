@@ -771,10 +771,10 @@ fn a_group_that_is_not_required_may_be_left_alone() {
 fn a_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
     let kdl = Grp::to_kdl();
     assert!(
-        kdl.contains(r#"group "input" "--file" "--url" "--stdin" required=#true"#),
+        kdl.contains("group input --file --url --stdin required=#true"),
         "{kdl}"
     );
-    assert!(kdl.contains(r#"group "format" "--json" "--yaml""#), "{kdl}");
+    assert!(kdl.contains("group format --json --yaml"), "{kdl}");
 
     // The reference implementation reads what the derive wrote, and enforces the same
     // rule — which is the point of the spec being the definition rather than a summary.
@@ -1211,7 +1211,7 @@ fn split_values_are_judged_and_counted_as_values() {
 #[test]
 fn a_delimiter_reaches_the_spec() {
     let kdl = Splitting::to_kdl();
-    assert!(kdl.contains(r#"delimiter=",""#), "{kdl}");
+    assert!(kdl.contains("delimiter=,"), "{kdl}");
     let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
     let tags = spec.cmd.flags.iter().find(|f| f.name == "tags").unwrap();
     assert_eq!(tags.arg.as_ref().unwrap().delimiter, Some(','));

@@ -784,12 +784,12 @@ fn flag_relationships_reach_the_spec() {
     // Written as the declaration spelled them, not normalized to the field name: a
     // selector is how the spec refers to a flag, and `-s` would be just as valid.
     assert!(
-        Related::to_kdl().contains(r#"conflicts "--file" "--url""#),
+        Related::to_kdl().contains("conflicts --file --url"),
         "{}",
         Related::to_kdl()
     );
     assert!(
-        Related::to_kdl().contains(r#"requires "--key" "--identity""#),
+        Related::to_kdl().contains("requires --key --identity"),
         "{}",
         Related::to_kdl()
     );
@@ -844,7 +844,7 @@ fn a_double_dash_argument_can_follow_a_variadic() {
     // spelling reads back the same, and this is the one the writer chose.
     let kdl = Separated::to_kdl();
     assert!(
-        kdl.contains(r#"arg "[ARGS_LAST]..." help="Words after it" double_dash="required""#),
+        kdl.contains(r#"arg "[ARGS_LAST]..." help="Words after it" double_dash=required"#),
         "{kdl}"
     );
     let spec: LibSpec = kdl.parse().expect("valid spec");
@@ -908,7 +908,7 @@ fn a_skipped_field_is_defaulted_and_absent_from_the_spec() {
     assert_eq!(got.computed, 0, "filled from Default, not from argv");
 
     let kdl = WithSkip::to_kdl();
-    assert!(kdl.contains(r#"flag "--force""#), "{kdl}");
+    assert!(kdl.contains("flag --force"), "{kdl}");
     assert!(
         !kdl.contains("computed"),
         "a skipped field must not reach the spec: {kdl}"
