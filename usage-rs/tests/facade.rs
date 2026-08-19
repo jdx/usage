@@ -30,6 +30,11 @@ enum InlineCommand {
         runs: Option<u32>,
         #[cfg_attr(all(), arg(long))]
         iterations: Option<u32>,
+        #[arg]
+        label: Option<String>,
+        #[cfg(any())]
+        #[arg(long)]
+        platform_only: Option<String>,
     },
 }
 
@@ -118,16 +123,19 @@ fn struct_style_subcommands_bind_fields_in_place() {
         OsStr::new("5"),
         OsStr::new("--iterations"),
         OsStr::new("9"),
+        OsStr::new("nightly"),
     ])
     .expect("inline fields should parse");
     let InlineCommand::Run {
         bench,
         runs,
         iterations,
+        label,
     } = cli.command;
     assert_eq!(bench.as_deref(), Some("startup"));
     assert_eq!(runs, Some(5));
     assert_eq!(iterations, Some(9));
+    assert_eq!(label.as_deref(), Some("nightly"));
 
     let kdl = InlineEx::to_kdl();
     assert!(kdl.contains("cmd \"run\""), "{kdl}");
@@ -136,6 +144,7 @@ fn struct_style_subcommands_bind_fields_in_place() {
     assert!(kdl.contains("flag \"--runs\""), "{kdl}");
     assert!(kdl.contains("arg \"<RUNS>\""), "{kdl}");
     assert!(kdl.contains("flag \"--iterations\""), "{kdl}");
+    assert!(kdl.contains("arg \"[LABEL]\""), "{kdl}");
 }
 
 #[test]

@@ -2941,6 +2941,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 /// The enum a `subcommand` field holds: its variants' tables, and the trait a
 /// parent uses to route events into them.
 fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
+    if matches!(meta, syn::Meta::Path(path) if path.is_ident("arg")) {
+        *meta = syn::parse_quote!(usage(arg));
+        return;
+    }
     let path = match meta {
         syn::Meta::Path(path) => path,
         syn::Meta::List(list) => &mut list.path,
@@ -2964,6 +2968,21 @@ fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
         rewrite_inline_arg_meta(value);
     }
     list.tokens = quote!(#nested);
+}
+
+fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
+    if meta.path().is_ident("cfg") {
+        return true;
+    }
+    let syn::Meta::List(list) = meta else {
+        return false;
+    };
+    if !list.path.is_ident("cfg_attr") {
+        return false;
+    }
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    syn::parse::Parser::parse2(parser, list.tokens.clone())
+        .is_ok_and(|nested| nested.iter().skip(1).any(meta_controls_field_presence))
 }
 
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
@@ -3396,16 +3415,24 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     #ident::#variant
                 }}
             } else if let Some(fields) = &v.inline_fields {
-                let names = fields.iter().map(|field| {
-                    field
+                let assignments = fields.iter().map(|field| {
+                    let name = field
                         .ident
                         .as_ref()
-                        .expect("named variant fields have names")
+                        .expect("named variant fields have names");
+                    let cfg_attrs = field
+                        .attrs
+                        .iter()
+                        .filter(|attr| meta_controls_field_presence(&attr.meta));
+                    quote! {
+                        #(#cfg_attrs)*
+                        #name: __usage_built.#name
+                    }
                 });
                 quote! {{
                     let __usage_built = #built;
                     #ident::#variant {
-                        #(#names: __usage_built.#names),*
+                        #(#assignments),*
                     }
                 }}
             } else {
