@@ -314,7 +314,7 @@ fn flag_meta(
         env: opt(&f.env),
         default: strs(&f.default),
         accepted_choices: accepted_choices(choices),
-        choices: choices.map(|c| strs(&c.choices)).unwrap_or(&[]),
+        choices: visible_choices(choices),
         choice_aliases: choice_aliases(choices),
         ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: f.required,
@@ -373,7 +373,7 @@ fn arg_meta(
         env: opt(&a.env),
         default: strs(&a.default),
         accepted_choices: accepted_choices(choices),
-        choices: choices.map(|c| strs(&c.choices)).unwrap_or(&[]),
+        choices: visible_choices(choices),
         choice_aliases: choice_aliases(choices),
         ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: a.required,
@@ -476,6 +476,33 @@ fn accepted_choices(choices: Option<&SpecChoices>) -> &'static [&'static str] {
     )
 }
 
+fn visible_choices(choices: Option<&SpecChoices>) -> &'static [&'static str] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .choices
+            .iter()
+            .filter(|value| {
+                !choices
+                    .details
+                    .iter()
+                    .any(|choice| choice.value == value.as_str() && choice.hide)
+            })
+            .chain(choices.details.iter().flat_map(|choice| {
+                choice
+                    .aliases
+                    .iter()
+                    .filter(|alias| !alias.hide)
+                    .map(|alias| &alias.value)
+            }))
+            .map(|value| leak(value))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
 fn choice_aliases(choices: Option<&SpecChoices>) -> &'static [(&'static str, &'static str)] {
     let Some(choices) = choices else {
         return &[];
@@ -565,6 +592,34 @@ mod tests {
         // A Rust completer is a function the binary calls, which a spec's `run=` is not — so
         // this stays `None` however a spec is written, and says so rather than defaulting.
         assert!(built.root.flags[0].complete.is_none());
+    }
+
+    #[test]
+    fn rich_choices_separate_visible_and_accepted_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n\
+             flag \"--mode <MODE>\" {\n  arg \"<MODE>\" {\n    choices {\n\
+               choice \"shown\" {\n      alias \"short\"\n      alias \"secret-short\" hide=#true\n    }\n\
+               choice \"secret\" hide=#true\n    }\n  }\n}\n\
+             "
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+
+        assert_eq!(built.root.flags[0].choices, &["shown", "short"]);
+        assert_eq!(
+            built.root.flags[0].accepted_choices,
+            &["shown", "secret", "short", "secret-short"]
+        );
+        let emitted: Spec = built.to_kdl().parse().expect("emitted choices stay valid");
+        assert_eq!(
+            emitted.cmd.flags[0]
+                .arg
+                .as_ref()
+                .and_then(|arg| arg.choices.as_ref())
+                .expect("flag choices")
+                .values(),
+            vec!["shown", "short"]
+        );
     }
 
     /// A completer is keyed by the *value's* name, lowercased, on whichever command asks.
