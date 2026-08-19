@@ -774,6 +774,10 @@ fn overlay_at_cursor<'o>(
     position: &Position<'_>,
     overlays: &'o [CompletionOverlay<'_>],
 ) -> Option<&'o CompletionOverlay<'o>> {
+    if position.awaiting_value.is_none() && position.flags_possible && split.prefix.starts_with('-')
+    {
+        return None;
+    }
     let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
     let target = if restarted(meta, split) {
         meta.and_then(|owner| owner.args.first().map(|field| (owner, field.arg.name)))
@@ -1820,6 +1824,18 @@ mod tests {
             ["ruby"]
         );
         assert_eq!(answer.files, None);
+
+        let flag = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise use -"),
+            &RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            flag.candidates
+                .iter()
+                .all(|candidate| candidate.value != "-uby"),
+            "{flag:?}"
+        );
 
         let implied = run_ready(complete_with(
             &SPEC,
