@@ -107,12 +107,15 @@ dir = "{{config_root}}"
 # the failure condition.
 #
 # Both modules. `benches/go/cobra` is generated, and a generated file that gofmt would
-# reformat is one the generator is not finished with — `go vet` there is skipped rather than
-# failing the lint on a machine that cannot fetch cobra.
+# reformat is one the generator is not finished with.
+#
+# The cobra module is skipped only when its dependency cannot be *fetched* — asked as its own
+# question, because `go vet ./... || true` would swallow a generator regression as well: a
+# shadow that no longer compiles would pass the lint and then report itself unmeasured.
 run = [
     'test -z "$(gofmt -l go benches/go)" || { gofmt -l go benches/go; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
     'cd go && go vet ./...',
-    'cd benches/go/cobra && (go vet ./... || echo "skipped: cobra could not be fetched")',
+    'cd benches/go/cobra && if go mod download >/dev/null 2>&1; then go vet ./...; else echo "skipped: cobra could not be fetched"; fi',
 ]
 
 [tasks.lint-fix]

@@ -99,7 +99,7 @@ fn render(spec: &Spec, spec_path: &Path, skipped: &mut Skipped) -> String {
     // A counter rather than a path of indices: `root1` and `root1`'s own eleventh child both
     // spell themselves `root11`, and Go says so with "no new variables on left side of :=".
     let mut next = 0usize;
-    emit_command(&mut body, &spec.cmd, "root", bin, true, &mut next, skipped);
+    emit_command(&mut body, &spec.cmd, "root", bin, &mut next, skipped);
 
     let _ = writeln!(
         out,
@@ -145,7 +145,6 @@ fn emit_command(
     cmd: &SpecCommand,
     var: &str,
     use_name: &str,
-    is_root: bool,
     next: &mut usize,
     skipped: &mut Skipped,
 ) {
@@ -193,11 +192,14 @@ fn emit_command(
         }
         *next += 1;
         let child = format!("cmd{next}");
-        emit_command(out, sub, &child, name, false, next, skipped);
+        emit_command(out, sub, &child, name, next, skipped);
         let _ = writeln!(out, "\t{var}.AddCommand({child})");
     }
 
-    if is_root && !cmd.mounts.is_empty() {
+    if !cmd.mounts.is_empty() {
+        // Wherever they are: mise's are on `run` and `tasks`, not at the root, so a check
+        // that only looked there dropped them without saying so — in the one report this
+        // whole shadow relies on for honesty.
         skipped.note("mounts (another spec grafted in at run time)");
     }
 }

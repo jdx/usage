@@ -29,10 +29,16 @@ Measured against a shadow of [mise](https://mise.jdx.dev)'s spec — 211 command
 
 Instruction counts are cachegrind, against mise's committed spec, on the argv the
 Rust shadows use so the two tables describe the same work. The column is labelled
-per row rather than once at the top, because the two kinds of figure are not the
-same measurement: the three frameworks are one cold parse, and usage-go's is
-amortized over a thousand binds — for the reason below, which is that a single one
-of ours cannot be measured at all.
+per row rather than once at the top, because the rows are not all the same
+measurement:
+
+- **usage-go**, amortized over 1,000 binds, because a single one of ours is below
+  the Go runtime's own startup jitter and cannot be measured at all — see below.
+- **cobra**, amortized over 20 resolves, each including the command tree it builds
+  on every process start. Twenty rather than a thousand because one of them is
+  three orders of magnitude dearer, and a thousand under cachegrind's 50x
+  slowdown would take minutes.
+- **urfave/cli v3 and kong**, one cold parse each, taken by hand.
 
 **usage-go's row is reproducible: `mise run perf:go`.** That harness
 ([`tasks/perf-go.sh`](../tasks/perf-go.sh)) reports the bind amortized over 1,000
