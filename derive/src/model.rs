@@ -2102,6 +2102,13 @@ impl Field {
             }
         }
 
+        if longs.is_empty() && shorts.is_empty() && !hidden_longs.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "`alias`/`aliases` add hidden spellings to a flag, so the field also needs \
+                 `long` or `short` to declare the flag",
+            ));
+        }
         let is_flag = !longs.is_empty() || !shorts.is_empty();
         // Only a flag's value has a say in this. A positional's brackets come from its type
         // already — `Option<T>` renders `[NAME]` and `T` renders `<NAME>` — so the attribute
@@ -4086,6 +4093,19 @@ mod tests {
             panic!("long should make this a flag");
         };
         assert_eq!(longs, &["result", "out"]);
+    }
+
+    #[test]
+    fn a_hidden_alias_does_not_turn_a_positional_into_a_flag() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[arg(alias = "quietly")]
+                path: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("also needs `long` or `short`"), "{err}");
     }
 
     #[test]

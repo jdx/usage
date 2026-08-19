@@ -126,6 +126,16 @@ fn merge_subcommand_flags(
                             merged.long.push(l.clone());
                         }
                     }
+                    for s in &flag.hidden_short_aliases {
+                        if !merged.hidden_short_aliases.contains(s) {
+                            merged.hidden_short_aliases.push(*s);
+                        }
+                    }
+                    for l in &flag.hidden_aliases {
+                        if !merged.hidden_aliases.contains(l) {
+                            merged.hidden_aliases.push(l.clone());
+                        }
+                    }
                     let merged = Arc::new(merged);
                     merged_cache.insert(Arc::as_ptr(&flag) as usize, Arc::clone(&merged));
                     merged_origin.insert(Arc::as_ptr(&merged) as usize, global_origin);
@@ -5274,6 +5284,30 @@ cmd "run" {
             parsed.available_flags["-y"].effect,
             Some(crate::SpecCommandEffect::Write),
         );
+    }
+
+    #[test]
+    fn test_redeclared_global_keeps_hidden_alias_metadata() {
+        let spec = r#"
+flag "--yes" global=#true {
+    alias "-q" "--quietly" hide=#true
+}
+cmd "run" {
+    flag "--yes --assume-yes" {
+        alias "-s" "--secret" hide=#true
+    }
+}
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse_partial(&spec, &input(&["test", "run"])).unwrap();
+        let merged = &parsed.available_flags["--yes"];
+        assert_eq!(merged.hidden_short_aliases, ['q', 's']);
+        assert_eq!(merged.hidden_aliases, ["quietly", "secret"]);
+        for key in ["-q", "-s", "--quietly", "--secret"] {
+            assert!(Arc::ptr_eq(&parsed.available_flags[key], merged), "{key}");
+        }
     }
 
     #[test]
