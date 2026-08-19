@@ -360,7 +360,17 @@ impl CompleteWord {
         match type_ {
             "config_keys" => return (self.complete_config_keys(cx.spec, ctoken), true),
             "config_values" => return self.complete_config_values(cx, ctoken),
-            "executable" | "command" => return (self.complete_commands(ctoken), true),
+            "executable" => {
+                let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                return (
+                    self.complete_path(&cwd, ctoken, |path| path.is_dir() || is_executable(path))
+                        .into_iter()
+                        .map(|value| (value, String::new()))
+                        .collect(),
+                    true,
+                );
+            }
+            "command" => return (self.complete_commands(ctoken), true),
             "command_args" => {
                 let command_was_bound = cx.parsed.next_arg.as_ref().is_some_and(|next| {
                     // `parse_partial` records the cursor with a fresh `Arc` around a
@@ -690,7 +700,9 @@ impl CompleteWord {
                 for entry in std::fs::read_dir(dir).ok().into_iter().flatten().flatten() {
                     let path = entry.path();
                     let name = entry.file_name().to_string_lossy().into_owned();
-                    if name.starts_with(ctoken) && is_executable(&path) {
+                    if command_name_starts_with(&name, ctoken, cfg!(windows))
+                        && is_executable(&path)
+                    {
                         found.insert(name);
                     }
                 }
@@ -700,6 +712,15 @@ impl CompleteWord {
             .into_iter()
             .map(|value| (value, String::new()))
             .collect()
+    }
+}
+
+fn command_name_starts_with(name: &str, prefix: &str, case_insensitive: bool) -> bool {
+    if case_insensitive {
+        name.get(..prefix.len())
+            .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+    } else {
+        name.starts_with(prefix)
     }
 }
 
@@ -797,4 +818,15 @@ fn zsh_shell_quote(s: &str) -> String {
     // Wrap in single quotes; close-open dance escapes any internal apostrophes.
     let escaped = s.replace('\'', "'\\''");
     format!("'{escaped}'")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::command_name_starts_with;
+
+    #[test]
+    fn windows_command_prefixes_ignore_ascii_case() {
+        assert!(command_name_starts_with("Cargo.EXE", "car", true));
+        assert!(!command_name_starts_with("Cargo.EXE", "car", false));
+    }
 }

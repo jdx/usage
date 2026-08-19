@@ -177,8 +177,10 @@ func filesFor(name string) Files {
 		return AnyFile
 	case strings.EqualFold(name, "dir"), strings.EqualFold(name, "directory"):
 		return Dirs
-	case strings.EqualFold(name, "executable"), strings.EqualFold(name, "command"):
-		return Executables
+	case strings.EqualFold(name, "executable"):
+		return ExecutablePaths
+	case strings.EqualFold(name, "command"):
+		return Commands
 	}
 	return NoFiles
 }
@@ -186,7 +188,7 @@ func filesFor(name string) Files {
 func declaredFiles(name string, pos Position) Files {
 	if strings.EqualFold(name, "command_args") {
 		if pos.NextArgValues == 0 {
-			return Executables
+			return Commands
 		}
 		return AnyFile
 	}

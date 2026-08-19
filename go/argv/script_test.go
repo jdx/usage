@@ -56,12 +56,12 @@ func TestEveryScriptCallsTheBinaryAndRegistersIt(t *testing.T) {
 // PowerShell, `\u{1}` in nushell — so a change to the constant would leave five
 // scripts watching for something that never arrives.
 func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
-	if FilesMarker != "\x01files" || DirsMarker != "\x01dirs" || ExecutablesMarker != "\x01commands" {
-		t.Fatalf("the scripts are written for \\x01: %q %q %q", FilesMarker, DirsMarker, ExecutablesMarker)
+	if FilesMarker != "\x01files" || DirsMarker != "\x01dirs" || ExecutablePathsMarker != "\x01executables" || CommandsMarker != "\x01commands" {
+		t.Fatalf("the scripts are written for \\x01: %q %q %q %q", FilesMarker, DirsMarker, ExecutablePathsMarker, CommandsMarker)
 	}
 	for _, c := range []struct{ shell, spelling Shell }{{Bash, Bash}, {Zsh, Zsh}} {
 		out := Script("mise", c.shell)
-		for _, want := range []string{`$'\001files'`, `$'\001dirs'`, `$'\001commands'`} {
+		for _, want := range []string{`$'\001files'`, `$'\001dirs'`, `$'\001executables'`, `$'\001commands'`} {
 			if !strings.Contains(out, want) {
 				t.Errorf("%v should watch for %s:\n%s", c.shell, want, out)
 			}
@@ -69,6 +69,12 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	}
 	if !strings.Contains(Script("mise", Fish), `printf '\x01files'`) {
 		t.Error("fish builds the marker with printf")
+	}
+	if !strings.Contains(Script("mise", Fish), `test -d "$value"; or test -x "$value"`) {
+		t.Error("fish filters executable-path candidates")
+	}
+	if !strings.Contains(Script("mise", PowerShell), "-CommandType Application, ExternalScript") {
+		t.Error("powershell filters executable-path candidates")
 	}
 	if !strings.Contains(Script("mise", Nu), `"\u{1}"`) {
 		t.Error("nushell spells it as an escape")

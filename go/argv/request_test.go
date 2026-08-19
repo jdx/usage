@@ -140,7 +140,7 @@ func TestWhenPathsBelongAtTheCursor(t *testing.T) {
 		{"ex use --tool ⌶", NoFiles, "so does the value"},
 		{"ex run ⌶", NoFiles, "that argument is not readable until after a --"},
 		{"ex run -- ⌶", AnyFile, "and past the separator it is anything at all"},
-		{"ex forward ⌶", Executables, "the first forwarded word is a command"},
+		{"ex forward ⌶", Commands, "the first forwarded word is a command"},
 		{"ex forward git ⌶", AnyFile, "later forwarded words are command arguments"},
 	} {
 		answer, _ := ask(t, Bash, c.line)

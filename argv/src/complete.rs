@@ -279,8 +279,10 @@ pub enum Files {
     Any,
     /// Directories only.
     Dirs,
-    /// Executable commands, including names found through the shell's command table.
-    Executables,
+    /// Executable files at a filesystem path.
+    ExecutablePaths,
+    /// Command names, including entries from the shell's command table and `PATH`.
+    Commands,
 }
 
 /// Everything a shell needs to answer one Tab.
@@ -488,8 +490,10 @@ impl Request {
 pub const FILES_MARKER: &str = "\u{1}files";
 /// See [`FILES_MARKER`]. Directories only.
 pub const DIRS_MARKER: &str = "\u{1}dirs";
-/// See [`FILES_MARKER`]. Commands and executable paths only.
-pub const EXECUTABLES_MARKER: &str = "\u{1}commands";
+/// See [`FILES_MARKER`]. Executable filesystem paths only.
+pub const EXECUTABLE_PATHS_MARKER: &str = "\u{1}executables";
+/// See [`FILES_MARKER`]. Command names from the shell and `PATH` only.
+pub const COMMANDS_MARKER: &str = "\u{1}commands";
 
 /// Write an answer the way `shell` reads it.
 ///
@@ -541,8 +545,12 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
             out.push_str(DIRS_MARKER);
             out.push('\n');
         }
-        Some(Files::Executables) => {
-            out.push_str(EXECUTABLES_MARKER);
+        Some(Files::ExecutablePaths) => {
+            out.push_str(EXECUTABLE_PATHS_MARKER);
+            out.push('\n');
+        }
+        Some(Files::Commands) => {
+            out.push_str(COMMANDS_MARKER);
             out.push('\n');
         }
         None => {}
@@ -608,8 +616,10 @@ fn files_for(name: &str) -> Option<Files> {
         Some(Files::Any)
     } else if matches("dir") || matches("directory") {
         Some(Files::Dirs)
-    } else if matches("executable") || matches("command") {
-        Some(Files::Executables)
+    } else if matches("executable") {
+        Some(Files::ExecutablePaths)
+    } else if matches("command") {
+        Some(Files::Commands)
     } else {
         None
     }
@@ -618,7 +628,7 @@ fn files_for(name: &str) -> Option<Files> {
 fn declared_files(type_: &str, position: &Position<'_>) -> Option<Files> {
     if type_.eq_ignore_ascii_case("command_args") {
         return Some(if position.next_arg_values == 0 {
-            Files::Executables
+            Files::Commands
         } else {
             Files::Any
         });
@@ -2742,6 +2752,12 @@ mod tests {
         assert_eq!(offered("mise edit "), ["mise.local.toml", "mise.toml"]);
         // And a flag's value is named by its placeholder, not by the flag.
         assert_eq!(answer("mise edit --into ").files, Some(Files::Dirs));
+    }
+
+    #[test]
+    fn executable_paths_and_command_names_are_distinct_shell_requests() {
+        assert_eq!(files_for("executable"), Some(Files::ExecutablePaths));
+        assert_eq!(files_for("command"), Some(Files::Commands));
     }
 
     #[test]

@@ -101,6 +101,7 @@ _usage_complete_{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any ;;
             $'\001dirs') __usage_files=dirs ;;
+            $'\001executables') __usage_files=executables ;;
             $'\001commands') __usage_files=commands ;;
             '') ;;
             *) COMPREPLY+=("$__usage_line") ;;
@@ -117,6 +118,10 @@ _usage_complete_{bin}() {{
         if [[ $__usage_files == commands ]]; then
             while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
                 < <(compgen -c -- "$__usage_cur")
+        elif [[ $__usage_files == executables ]]; then
+            while IFS= read -r __usage_path; do
+                [[ -d "$__usage_path" || -x "$__usage_path" ]] && __usage_paths+=("$__usage_path")
+            done < <(compgen -f -- "$__usage_cur")
         elif [[ $__usage_files == dirs ]]; then
             while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
                 < <(compgen -d -- "$__usage_cur")
@@ -160,6 +165,7 @@ _{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any; continue ;;
             $'\001dirs') __usage_files=dirs; continue ;;
+            $'\001executables') __usage_files=executables; continue ;;
             $'\001commands') __usage_files=commands; continue ;;
             '') continue ;;
         esac
@@ -197,6 +203,7 @@ _{bin}() {{
     case "$__usage_files" in
         any) _files && __usage_ret=0 ;;
         dirs) _files -/ && __usage_ret=0 ;;
+        executables) _files -g '*(*)' && __usage_ret=0 ;;
         commands) _command_names && __usage_ret=0 ;;
     esac
     return $__usage_ret
@@ -228,6 +235,7 @@ function __usage_complete_{bin}
     # computed values, and a control byte is not something to spell twice.
     set -l marker_any (printf '\x01files')
     set -l marker_dirs (printf '\x01dirs')
+    set -l marker_executables (printf '\x01executables')
     set -l marker_commands (printf '\x01commands')
     set -l files ""
     for entry in $out
@@ -235,6 +243,8 @@ function __usage_complete_{bin}
             set files any
         else if test "$entry" = "$marker_dirs"
             set files dirs
+        else if test "$entry" = "$marker_executables"
+            set files executables
         else if test "$entry" = "$marker_commands"
             set files commands
         else if test -n "$entry"
@@ -250,6 +260,13 @@ function __usage_complete_{bin}
             __fish_complete_path (commandline -ct)
         case dirs
             __fish_complete_directories (commandline -ct)
+        case executables
+            for candidate in (__fish_complete_path (commandline -ct))
+                set -l value (string split -m 1 (printf '\t') -- $candidate)[1]
+                if test -d "$value"; or test -x "$value"
+                    printf '%s\n' $candidate
+                end
+            end
         case commands
             __fish_complete_command (commandline -ct)
     end
@@ -277,7 +294,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     if $out.exit_code != 0 {{ return null }}
     let lines = ($out.stdout | lines | where {{|l| $l != "" }})
     let marker = "\u{{1}}"
-    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" }})
+    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "executables" }})
     let wants_commands = ($lines | any {{|l| $l == $marker + "commands" }})
     let declared = (
         $lines
@@ -355,6 +372,7 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         if ([string]::IsNullOrEmpty($entry)) {{ continue }}
         if ($entry -eq ($marker + 'files')) {{ $files = 'any'; continue }}
         if ($entry -eq ($marker + 'dirs')) {{ $files = 'dirs'; continue }}
+        if ($entry -eq ($marker + 'executables')) {{ $files = 'executables'; continue }}
         if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
         $parts = $entry -split "`t", 2
         $value = $parts[0]
@@ -378,11 +396,17 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         # PowerShell's own, so that `~`, drive-relative paths and provider paths behave as they
         # do everywhere else in the shell.
         foreach ($path in [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)) {{
-            # By what PowerShell said it is, not by testing the path again: `CompletionText` is
-            # the text to *insert* and may already carry quoting, so a directory whose name needs
-            # quotes would fail a `Test-Path` and vanish from a dirs-only completion.
+            # Trust PowerShell's result type for directories because CompletionText may already
+            # carry quoting. Executable leaves are checked as commands after stripping only the
+            # outer quote characters PowerShell added.
             if ($files -eq 'dirs' -and $path.ResultType -ne 'ProviderContainer') {{
                 continue
+            }}
+            if ($files -eq 'executables' -and $path.ResultType -ne 'ProviderContainer') {{
+                $candidatePath = $path.CompletionText.Trim([char[]]@([char]39, [char]34))
+                if (-not (Get-Command -Name $candidatePath -CommandType Application, ExternalScript -ErrorAction SilentlyContinue)) {{
+                    continue
+                }}
             }}
             $results.Add($path)
         }}
@@ -446,6 +470,27 @@ mod tests {
             "fish's echo eats a leading -n: {out}"
         );
         assert!(out.contains(r"printf '%s\n' $entry"), "{out}");
+    }
+
+    #[test]
+    fn executable_path_markers_filter_non_executable_files() {
+        let bash = script("mise", Shell::Bash);
+        assert!(
+            bash.contains(r#"[[ -d "$__usage_path" || -x "$__usage_path" ]]"#),
+            "{bash}"
+        );
+
+        let fish = script("mise", Shell::Fish);
+        assert!(
+            fish.contains(r#"test -d "$value"; or test -x "$value""#),
+            "{fish}"
+        );
+
+        let powershell = script("mise", Shell::PowerShell);
+        assert!(
+            powershell.contains("-CommandType Application, ExternalScript"),
+            "{powershell}"
+        );
     }
 
     #[test]
