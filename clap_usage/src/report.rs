@@ -179,6 +179,12 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         argument_losses(cmd, arg, &path, losses);
     }
     for group in cmd.get_groups() {
+        // A non-required group that allows multiple members imposes no parsing rule. Clap
+        // derive creates these groups for ordinary structs, so treating them as a bridge loss
+        // would make an otherwise exact conversion look lossy.
+        if group.clone().is_multiple() && !group.is_required_set() {
+            continue;
+        }
         for member in group.get_args() {
             if cmd
                 .get_arguments()
@@ -273,7 +279,12 @@ fn argument_losses(cmd: &Command, arg: &Arg, path: &[String], losses: &mut BTree
         );
     }
     if let Some(range) = arg.get_num_args() {
-        if range.min_values() == 0 || matches!(arg.get_action(), ArgAction::Append) {
+        let takes_values = matches!(arg.get_action(), ArgAction::Set | ArgAction::Append);
+        let lost = takes_values
+            && (arg.get_value_delimiter().is_some()
+                || !arg.is_positional()
+                    && (range.min_values() == 0 || matches!(arg.get_action(), ArgAction::Append)));
+        if lost {
             add(
                 FidelityFeature::ValueArity,
                 format!(

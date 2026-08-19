@@ -48,7 +48,11 @@ fn reports_detectable_losses_with_locations() {
 
 #[test]
 fn reports_nested_paths_and_leaves_supported_commands_clean() {
-    let mut clean = Command::new("ex").arg(Arg::new("verbose").long("verbose"));
+    let mut clean = Command::new("ex")
+        .arg(Arg::new("verbose").long("verbose"))
+        .arg(Arg::new("input"))
+        .arg(Arg::new("values").num_args(0..=3))
+        .group(ArgGroup::new("derived_struct").arg("input").multiple(true));
     let (_, report) = spec_with_report(&mut clean, "ex");
     assert!(report.is_lossless(), "{report:#?}");
 
@@ -66,4 +70,19 @@ fn reports_nested_paths_and_leaves_supported_commands_clean() {
         report.losses()[0].feature,
         FidelityFeature::AllowNegativeNumbers
     );
+}
+
+#[test]
+fn reports_delimited_arity_that_the_bridge_cannot_count() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("values")
+            .long("values")
+            .num_args(2)
+            .value_delimiter(','),
+    );
+    let (_, report) = spec_with_report(&mut command, "ex");
+    assert!(report
+        .losses()
+        .iter()
+        .any(|loss| loss.feature == FidelityFeature::ValueArity));
 }
