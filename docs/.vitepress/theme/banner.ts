@@ -51,15 +51,10 @@ export function initBanner(): void {
         clearReserved();
         return;
       }
-      if (activeBanner?.id === b.id) {
-        cacheBanner(b, activeBanner.element.offsetHeight);
-        return;
-      }
       render(b);
     })
     .catch(() => {
-      clearCachedReservation();
-      if (!activeBanner) clearCurrentReservation();
+      if (!activeBanner) clearReserved();
     })
     .finally(() => window.clearTimeout(timeout));
 }
