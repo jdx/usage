@@ -372,6 +372,7 @@ pub struct SpecView<'a> {
     name: Option<&'a str>,
     bin: Option<&'a str>,
     version: Option<&'a str>,
+    omit_version: bool,
     commands: Vec<CommandOverlay<'a>>,
 }
 
@@ -382,6 +383,7 @@ impl<'a> SpecView<'a> {
             name: None,
             bin: None,
             version: None,
+            omit_version: false,
             commands: Vec::new(),
         }
     }
@@ -395,6 +397,7 @@ impl<'a> SpecView<'a> {
             name: self.name,
             bin: self.bin,
             version: self.version,
+            omit_version: self.omit_version,
             commands: self.commands,
         }
     }
@@ -426,7 +429,18 @@ impl<'a> SpecView<'a> {
     {
         let mut view = self.reborrow();
         view.version = Some(version);
+        view.omit_version = false;
         view
+    }
+
+    /// Leave the runtime version out of emitted specs and other metadata consumers.
+    ///
+    /// The parser's built-in version response is unchanged because parsing reads the base spec.
+    /// This is for checked-in generated artifacts whose version is managed independently.
+    pub fn omit_version(mut self) -> Self {
+        self.version = None;
+        self.omit_version = true;
+        self
     }
 
     pub fn overlay<'b, 'c>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'c>
@@ -450,9 +464,13 @@ impl<'a> SpecView<'a> {
                 Some(bin) => Some(bin),
                 None => self.base.bin,
             },
-            version: match self.version {
-                Some(version) => Some(version),
-                None => self.base.version,
+            version: if self.omit_version {
+                None
+            } else {
+                match self.version {
+                    Some(version) => Some(version),
+                    None => self.base.version,
+                }
             },
             min_usage_version: self.base.min_usage_version,
             about: self.base.about,
@@ -2426,6 +2444,7 @@ mod tests {
         static SPEC: Spec = Spec {
             name: "ex",
             bin: Some("ex"),
+            version: Some("1.0.0"),
             root: &ROOT_META,
             ..Spec::EMPTY
         };
@@ -2452,7 +2471,16 @@ mod tests {
 
         let base = SPEC.to_kdl();
         assert!(base.contains("name \"ex\""), "{base}");
+        assert!(base.contains("version \"1.0.0\""), "{base}");
         assert!(!base.contains("effect="), "{base}");
+
+        let without_version = SPEC.view().version("2.0.0").omit_version();
+        assert_eq!(without_version.spec().version, None);
+        assert!(!without_version.to_kdl().contains("version "));
+        assert_eq!(
+            SPEC.view().omit_version().version("3.0.0").spec().version,
+            Some("3.0.0")
+        );
 
         let runtime_name = String::from("runtime");
         let runtime_path = String::from("list");
