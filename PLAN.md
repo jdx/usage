@@ -953,6 +953,71 @@ repeated here.
       part of the release. Not a clap_usage feature; the bridge is transitional
       and the fleet's endpoint is the derive.
 
+### clap's backlog, read as a roadmap
+
+A pass over clap's most-upvoted open issues (2026-08-19), asking two questions:
+what do clap users want that usage already has, and what demand should shape
+what gets built next.
+
+**Already answered here — promotion material for the docs, later.** A striking
+share of clap's top-voted open requests is usage's existing feature set:
+
+- Dynamic completions (clap#3166, 102 votes, plus clap#1232's 157 before it was
+  folded in) — clap's native completion engine has been unstable for 4+ years;
+  runtime completion served from the spec is usage's core architecture. Nushell
+  (clap#5840) comes with it, which clap_complete lacks.
+- Automatic negation flags (clap#815, 66) — `negate`.
+- Argument validation on globals (clap#1546, 48) — globals go through the same
+  post-binding checks as everything else.
+- Partial parsing that captures unknown args instead of erroring (clap#1404) —
+  the spec's lax `unknown_flags` mode, which mise task parsing runs on.
+- Command chaining (clap#2222, 29) — `restart_token`.
+- Manpage customization (clap#3354) — generated from Tera templates rather than
+  a fixed renderer.
+- `args_override_self` as the default (clap#4261) — the grammar's "a repeat is
+  a correction" rule.
+
+When the migration guide is written, a "top clap feature requests that just
+work here" section is cheap and persuasive; the launch-gate documentation items
+above are where it lands.
+
+**Worth building, demand attached:**
+
+- [ ] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
+      landed for flags and arguments; this is the same property on `cmd` nodes,
+      so a 210-command CLI can group its help into sections. mise is the
+      obvious first user.
+- [ ] **Deprecation and stability metadata on flags and commands** (clap#3321) —
+      `deprecated`, with warn/remove versions, already exists in the
+      config-prop vocabulary; the same on flags and commands would flow into
+      help, docs and completions from one declaration. Explicit full-name
+      deprecated env aliases (clap#5447) fit the same slot — full names, so
+      they stay greppable.
+- [ ] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
+      clap's most-requested) — mutually exclusive flags declared as enum
+      variants, lowering to the `group`/`conflicts` vocabulary the spec already
+      has. Derive ergonomics rather than new spec surface, and clap has sat on
+      it since 2021.
+
+Demand also attaches to boxes already open above: fixed arity with distinct
+value names is clap#1717 + clap#1682 (31 votes combined), and `Option` on a
+flattened group is clap#5092 (18) — the derive refuses it for lack of a rule,
+and the votes say people want the rule defined.
+
+**Declined: `env_prefix`** (clap#3221, 45 votes). Assembling `MISE_JOBS` from a
+prefix and a field name makes the one string a user actually sees ungreppable
+in the codebase that declares it. Env names stay fully spelled at the
+declaration site.
+
+**Non-goals, now stated rather than implied:** interactive prompts (clap#1634);
+non-Unix option styles — `find -exec`, `/c`, `-Wl,` (clap#2468) — the framework
+targets GNU-style CLIs on purpose; and no_std (clap#1485), though usage-argv
+being dependency-free and allocation-free means the distance is small if
+embedded ever matters. i18n (clap#380, open since 2015) is the long-term
+sleeper: clap structurally cannot do it because every string is compile-time
+Rust, while a spec is data — not built now, but worth a line in the vision
+docs.
+
 ## Not covered by the corpus yet
 
 - [ ] **Restart tokens** — `restart_token` (mise's `:::`) makes one command line
