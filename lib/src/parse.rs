@@ -1439,17 +1439,17 @@ fn parse_partial_with_env(
             }
             continue;
         }
-        if is_help_arg(spec, &w)
-            || inferred_help_word(
-                spec,
-                &out.cmd,
-                &w,
-                out.cmds.iter().any(|cmd| cmd.infer_subcommands),
-            )
-        {
+        let help_word = inferred_help_word(
+            spec,
+            &out.cmd,
+            &w,
+            out.cmds.iter().any(|cmd| cmd.infer_subcommands),
+        );
+        if is_help_arg(spec, &w) || help_word {
             // A help *word* is clap's long help action even when inferred from `h` or `he`.
             // The length distinction belongs only to the `-h` / `--help` flag spellings.
-            out.errors.push(render_help_err(spec, &out.cmd, true));
+            out.errors
+                .push(render_help_err(spec, &out.cmd, help_word || w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
             return Ok((out, overridden_flags));
         }
