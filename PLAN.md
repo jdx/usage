@@ -634,11 +634,12 @@ feature list is not an exhaustive audit.
       `ValueHint::CommandWithArguments` for forwarded argv. usage accepts only
       file, path and directory hints today. Add the command/argv cases or record
       them as an explicit completion non-goal before claiming clap coverage.
-- [ ] **Version omission and dynamic version policy.** tak intentionally removes
-      the package version from its generated spec so release-plz version-only PRs
-      do not dirty generated docs; hk computes a richer version string. Specify
-      static, expression-backed and omitted versions separately rather than
-      forcing a hard-coded literal into every `Cli` derive.
+- [x] **Version omission and dynamic version policy.** A literal `version`
+      remains compile-time metadata, while `version = expression` evaluates a
+      computed runtime string for hk-style build information. Cold metadata
+      consumers can call `SpecView::omit_version()` without changing parser
+      behavior; tak uses that view so release-plz version-only PRs do not dirty
+      its checked-in spec and docs.
 - [ ] **Unit and tuple Args migration shapes.** fnox's bare command structs and
       hk's one-field tuple Args are valid clap derive inputs. usage currently
       requires named-field braces, so even a command with no arguments changes
