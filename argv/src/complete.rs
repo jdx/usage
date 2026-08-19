@@ -731,9 +731,7 @@ async fn complete_named_with<'a>(
         command_path: &command_path,
     };
     let mut candidates = for_name(spec, name, &ctx).unwrap_or_default();
-    if let Some(overlay) = overlay_at_cursor(spec, split, &position, overlays)
-        .filter(|overlay| overlay.value.eq_ignore_ascii_case(name))
-    {
+    if let Some(overlay) = overlay_for_name(spec, &position, overlays, name) {
         let mut dynamic = match overlay.handler {
             CompletionHandler::Sync(completer) => completer(&ctx),
             CompletionHandler::Async(completer) => completer(ctx).await,
@@ -749,6 +747,22 @@ async fn complete_named_with<'a>(
     }
 }
 
+fn overlay_for_name<'o>(
+    spec: &Spec<'_>,
+    position: &Position<'_>,
+    overlays: &'o [CompletionOverlay<'_>],
+    name: &str,
+) -> Option<&'o CompletionOverlay<'o>> {
+    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    overlays.iter().rev().find(|overlay| {
+        overlay.value.eq_ignore_ascii_case(name)
+            && chain.iter().enumerate().rev().any(|(index, owner)| {
+                let path: Vec<&str> = chain[1..=index].iter().map(|meta| meta.cmd.name).collect();
+                overlay.command.matches(owner, &path)
+            })
+    })
+}
+
 fn overlay_at_cursor<'o>(
     spec: &Spec<'_>,
     split: &Split,
@@ -762,9 +776,15 @@ fn overlay_at_cursor<'o>(
         flag_meta_owner(spec.root, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name)))
     } else {
-        position.next_arg.and_then(|arg| {
-            arg_meta_owner(spec.root, arg).map(|(owner, field)| (owner, field.arg.name))
-        })
+        position
+            .next_arg
+            .and_then(|arg| {
+                arg_meta_owner(spec.root, arg).map(|(owner, field)| (owner, field.arg.name))
+            })
+            .or_else(|| {
+                default_subcommand_arg(spec, split, position)
+                    .map(|(owner, field)| (owner, field.arg.name))
+            })
     };
     let (owner, value) = target?;
     let (_, chain) = crate::help::find(spec, owner.cmd)?;
@@ -772,6 +792,22 @@ fn overlay_at_cursor<'o>(
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
     })
+}
+
+fn default_subcommand_arg<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    position: &Position<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
+    if !core::ptr::eq(position.cmd, spec.root.cmd) || position.help_topic || split.cword == 0 {
+        return None;
+    }
+    let default = spec.default_subcommand?;
+    let subcommands = || spec.root.subcommands.iter().copied();
+    subcommands()
+        .find(|sub| sub.cmd.name == default)
+        .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
+        .and_then(|sub| sub.args.first().map(|field| (sub, field)))
 }
 
 fn flag_meta_owner<'a>(
@@ -844,20 +880,8 @@ pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
         // `mise build` is `mise run build` — so what that command's first argument accepts is
         // a candidate here too. Only its first: the words that would fill the rest have not
         // been typed, since the subcommand name itself was elided.
-        if core::ptr::eq(position.cmd, spec.root.cmd) && !position.help_topic {
-            if let Some(default) = spec.default_subcommand {
-                // By any name it answers to: `default_subcommand` names a command, and a
-                // spec may name it the way its author refers to it rather than canonically.
-                // Names before aliases, so the command whose first argument is offered here
-                // is the one the parser would actually route the word to.
-                let subcommands = || spec.root.subcommands.iter();
-                let target = subcommands()
-                    .find(|sub| sub.cmd.name == default)
-                    .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)));
-                if let Some(arg) = target.and_then(|sub| sub.args.first()) {
-                    found.extend(positional(arg, &position, split, token));
-                }
-            }
+        if let Some((_, arg)) = default_subcommand_arg(spec, split, &position) {
+            found.extend(positional(arg, &position, split, token));
         }
         found
     };
@@ -1342,18 +1366,11 @@ fn floor_char_boundary(s: &str, index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use std::task::{Context, Poll, Wake, Waker};
-
-    struct NoopWake;
-
-    impl Wake for NoopWake {
-        fn wake(self: Arc<Self>) {}
-    }
+    use std::task::{Context, Poll, Waker};
 
     fn run_ready<F: Future>(future: F) -> F::Output {
-        let waker = Waker::from(Arc::new(NoopWake));
-        let mut cx = Context::from_waker(&waker);
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
         let mut future = std::pin::pin!(future);
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(output) => output,
@@ -1782,6 +1799,8 @@ mod tests {
             "tool",
             runtime_tools,
         )];
+    static GLOBAL_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::async_any("tool", runtime_tools)];
 
     #[test]
     fn async_overlays_run_only_for_the_field_and_projection_at_the_cursor() {
@@ -1796,6 +1815,33 @@ mod tests {
             ["ruby"]
         );
         assert_eq!(answer.files, None);
+
+        let implied = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise r"),
+            &RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            implied
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "ruby"),
+            "{implied:?}"
+        );
+
+        let named = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise plugins "),
+            &GLOBAL_RUNTIME_COMPLETIONS,
+            "tool",
+        ));
+        assert!(
+            named
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "uby"),
+            "{named:?}"
+        );
 
         let argv = [
             OsString::from("__complete_word__"),
