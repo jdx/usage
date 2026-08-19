@@ -1130,10 +1130,12 @@ repeated here.
       rendering. A successful value likewise lets hk handle `--cd` before
       dispatch. The help guide documents these interception points explicitly;
       `parse()` remains the immediate print-and-exit convenience path.
-- [ ] **MSRV.** usage-lib is on Rust 1.95 while the fleet floors are 1.88 and
-      1.91, so a CLI that links it for spec generation inherits the bump. The
-      argv/derive tier is dependency-free by design; keeping a low-MSRV path to
-      spec emission — without usage-lib — is what lets a conservative CLI adopt.
+- [x] **MSRV tiers stay separate.** `usage-lib` remains on Rust 1.95, while
+      `usage-argv`, `usage-derive`, `usage-validation`, and the `usage-rs`
+      facade remain on Rust 1.91. The facade emits specs, help, diagnostics, and
+      compiled completions without linking usage-lib, so the fnox rewrite keeps
+      its 1.91 floor. Higher-MSRV docs tooling remains a separate installed
+      `usage-cli` process rather than raising the embedding CLI's requirement.
 - [x] **The `parse_from` argv0 contract.** It differs from clap's, which broke
       fnox's test helpers in the rewrite experiment. `parse_from` remains the
       allocation-free words-only primitive; `parse_from_argv` is the explicit
