@@ -1,4 +1,5 @@
 #![cfg(feature = "spec")]
+#![deny(unused_variables)]
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -32,6 +33,12 @@ enum InlineCommand {
         iterations: Option<u32>,
         #[arg]
         label: Option<String>,
+        #[cfg(any())]
+        #[arg(long)]
+        platform_only: Option<String>,
+    },
+    Empty {},
+    PlatformOnly {
         #[cfg(any())]
         #[arg(long)]
         platform_only: Option<String>,
@@ -131,7 +138,10 @@ fn struct_style_subcommands_bind_fields_in_place() {
         runs,
         iterations,
         label,
-    } = cli.command;
+    } = cli.command
+    else {
+        panic!("run command should be selected");
+    };
     assert_eq!(bench.as_deref(), Some("startup"));
     assert_eq!(runs, Some(5));
     assert_eq!(iterations, Some(9));
@@ -145,6 +155,16 @@ fn struct_style_subcommands_bind_fields_in_place() {
     assert!(kdl.contains("arg \"<RUNS>\""), "{kdl}");
     assert!(kdl.contains("flag \"--iterations\""), "{kdl}");
     assert!(kdl.contains("arg \"[LABEL]\""), "{kdl}");
+}
+
+#[test]
+fn empty_struct_style_subcommands_do_not_emit_unused_bindings() {
+    let cli = InlineEx::parse_from(&[OsStr::new("empty")]).expect("empty command should parse");
+    assert!(matches!(cli.command, InlineCommand::Empty {}));
+
+    let cli = InlineEx::parse_from(&[OsStr::new("platform-only")])
+        .expect("a command whose fields are cfg'd out should parse");
+    assert!(matches!(cli.command, InlineCommand::PlatformOnly {}));
 }
 
 #[test]

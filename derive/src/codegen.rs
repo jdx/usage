@@ -3431,6 +3431,10 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 });
                 quote! {{
                     let __usage_built = #built;
+                    // An empty named variant, or one whose fields were all removed by cfg,
+                    // still has to run `build` for the command's checks. Mark the result used
+                    // without changing the field moves below.
+                    let _ = &__usage_built;
                     #ident::#variant {
                         #(#assignments),*
                     }
