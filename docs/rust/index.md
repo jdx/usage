@@ -139,6 +139,7 @@ See [Spec output](/rust/spec) for the round-trip guarantees and what the emitted
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
+- [clap compatibility](/rust/clap-compatibility) — supported behavior, bridge losses, and non-goals
 
 ## Current limitations
 
