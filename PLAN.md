@@ -814,7 +814,11 @@ checked-in `mise.usage.kdl` for both parsers.
       usage-lib resolves `mount run="mise tasks --usage"` by _running_ it, so the first
       draft spawned real `mise` processes that loaded config, fetched vfox metadata and
       shelled out to `apt-cache`. See `benches/gate/tests/differential.rs`.
-- [ ] **Perf report** — published honestly, whichever way it goes.
+- [x] **Published performance report.** The Rust guide now records the original
+      launch measurements, the later 19% instruction increase and reduced ratio,
+      the absolute gates, the measurement method, and what the comparison does
+      not include. It links the checked-in benchmark sources rather than
+      presenting the numbers without a reproducible path.
 
 Runtime targets, which gate:
 

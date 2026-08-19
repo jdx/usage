@@ -67,6 +67,7 @@ export default defineConfig({
           { text: "Subcommands", link: "/rust/subcommands" },
           { text: "Validation", link: "/rust/validation" },
           { text: "Help and Errors", link: "/rust/help" },
+          { text: "Performance", link: "/rust/performance" },
           { text: "Completions", link: "/rust/completions" },
           { text: "Spec Output", link: "/rust/spec" }
         ]
