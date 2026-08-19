@@ -106,6 +106,8 @@ pub struct Cli {
     pub multicall: bool,
     /// Whether clap-shaped `try_parse_from` input omits argv0.
     pub no_binary_name: bool,
+    /// Show help when no argv token follows this command's name.
+    pub arg_required_else_help: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -525,6 +527,7 @@ impl Cli {
             default_subcommand: None,
             multicall: false,
             no_binary_name: false,
+            arg_required_else_help: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -662,6 +665,7 @@ impl Cli {
                     }
                     "multicall" => cli.multicall = flag_value(&meta)?,
                     "no_binary_name" => cli.no_binary_name = flag_value(&meta)?,
+                    "arg_required_else_help" => cli.arg_required_else_help = flag_value(&meta)?,
                     "infer_subcommands" => cli.infer_subcommands = flag_value(&meta)?,
                     "infer_long_args" => cli.infer_long_args = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
@@ -694,7 +698,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `infer_subcommands`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `infer_subcommands`, \
                                  `infer_long_args`, `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"

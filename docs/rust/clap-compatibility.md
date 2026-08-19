@@ -95,7 +95,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `multicall`                                          | yes       | yes       | yes       | yes       | yes    | yes        | Process-level entry points route using the executable basename.                                            |
 | `no_binary_name`                                     | yes       | yes       | n/a       | yes       | n/a    | yes        | `parse_from` is words-only; full-argv helpers honor the command policy.                                    |
 | `infer_subcommands`, `infer_long_args`               | yes       | yes       | yes       | yes       | yes    | usage-only | Unambiguous names and aliases are inherited; clap exposes no public getter.                                |
-| `arg_required_else_help`                             | no        | no        | no        | no        | no     | no         | The planned usage behavior tests argv presence rather than environment-bound values.                       |
+| `arg_required_else_help`                             | yes       | yes       | yes       | yes       | yes    | yes        | Bare selected commands request short help; defaults and environment values do not count as argv.           |
 | remaining subcommand/argument policies               | no        | no        | no        | no        | no     | no         | `args_conflicts_with_subcommands`, precedence, missing positionals, and self-override are not represented. |
 | unknown flags                                        | different | different | different | different | yes    | different  | usage is permissive by default; `unknown_flags = "error"` opts into strict parsing.                        |
 

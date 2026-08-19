@@ -140,6 +140,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let multicall = cli.multicall;
     let no_binary_name = cli.no_binary_name;
+    let arg_required_else_help = cli.arg_required_else_help;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -422,6 +423,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 unknown_flags: #unknown_flags,
                 infer_subcommands: #infer_subcommands,
                 infer_long_args: #infer_long_args,
+                arg_required_else_help: #arg_required_else_help,
                 name: #name,
                 key: #root_key,
                 flags: #flag_table_ref,
@@ -558,6 +560,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // else into its subcommands, which is why a nested command needs
                     // nothing extra here.
                     apply(partial, &__usage_event);
+                }
+
+                if __usage_parser.command().arg_required_else_help
+                    && __usage_parser.command_start() == argv.len()
+                {
+                    return ::std::result::Result::Err(usage_argv::Error::Help {
+                        cmd: __usage_parser.command(),
+                        long: false,
+                    });
                 }
 
                 ::std::result::Result::Ok(())
@@ -3305,6 +3316,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
     let infer_subcommands = cli.infer_subcommands;
     let infer_long_args = cli.infer_long_args;
+    let arg_required_else_help = cli.arg_required_else_help;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3416,6 +3428,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 unknown_flags: #unknown_flags,
                 infer_subcommands: #infer_subcommands,
                 infer_long_args: #infer_long_args,
+                arg_required_else_help: #arg_required_else_help,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands

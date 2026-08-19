@@ -156,6 +156,19 @@ as this command's flags.
 
 See [the argv grammar](../argv.md#external-subcommands).
 
+### Require an argument or show help
+
+`arg_required_else_help` makes a bare invocation request the command's short help:
+
+```kdl
+arg_required_else_help #true             // for the whole CLI
+cmd "run" arg_required_else_help=#true // or one command
+```
+
+The policy observes argv belonging to the selected command. A global flag before a
+subcommand does not count as that subcommand's argument, and values supplied later by an
+environment variable or default do not suppress help.
+
 ### Inferred prefixes
 
 A command can accept an unambiguous prefix of a subcommand name or alias, a long

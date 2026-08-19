@@ -183,6 +183,12 @@ pub struct Command<'a> {
     /// unmatched word is taken, remaining tokens — including `--help` — are not parsed
     /// as this command's flags.
     pub external_subcommand: bool,
+    /// Show this command's help when no argv token follows its name.
+    ///
+    /// This is clap's `arg_required_else_help`. It deliberately observes argv rather than
+    /// bound values: an environment variable or default may fill a field, but neither means
+    /// the user supplied an argument to this invocation.
+    pub arg_required_else_help: bool,
     /// Accept an unambiguous prefix of a subcommand name or alias.
     /// Inherited by nested commands.
     pub infer_subcommands: bool,
@@ -230,6 +236,7 @@ impl Command<'_> {
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
+        arg_required_else_help: false,
         infer_subcommands: false,
         infer_long_args: false,
         unknown_flags: ::core::option::Option::None,

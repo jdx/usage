@@ -374,6 +374,9 @@ impl<'a> Emitter<'a> {
             if e.cmd.external_subcommand {
                 lines.push(Line::Field("ExternalSubcommand".into(), "true".into()));
             }
+            if e.cmd.arg_required_else_help {
+                lines.push(Line::Field("ArgRequiredElseHelp".into(), "true".into()));
+            }
             if effective_command_setting(commands, i, |cmd| cmd.infer_subcommands) {
                 lines.push(Line::Field("InferSubcommands".into(), "true".into()));
             }
@@ -1759,6 +1762,25 @@ cmd "exec" external_subcommand=#true
             !block("cmdInstall").contains("ExternalSubcommand"),
             "a command that does not declare it should not carry it:\n{}",
             block("cmdInstall")
+        );
+    }
+
+    #[test]
+    fn arg_required_else_help_reaches_the_table_and_typed_front_door() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "run" arg_required_else_help=#true {
+    flag "--all"
+}
+"#);
+        assert!(
+            out.contains("ArgRequiredElseHelp: true"),
+            "the command table should carry the policy:\n{out}"
+        );
+        assert!(
+            out.contains("p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args)"),
+            "the typed parser should enforce it before fallbacks:\n{out}"
         );
     }
 

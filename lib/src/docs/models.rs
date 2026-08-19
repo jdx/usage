@@ -482,6 +482,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             // How a command line is read, which no rendered page shows.
             unknown_flags: _,
             external_subcommand: _,
+            arg_required_else_help: _,
             // Rendered above, or deliberately absent from the docs model.
             args: _,
             flags: _,

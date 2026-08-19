@@ -102,6 +102,9 @@ pub struct SpecCommand {
     /// as this command's flags.
     #[serde(skip_serializing_if = "is_false")]
     pub external_subcommand: bool,
+    /// Whether a bare invocation of this command shows its help.
+    #[serde(skip_serializing_if = "is_false")]
+    pub arg_required_else_help: bool,
     /// Accept unambiguous prefixes of subcommand names and aliases, inherited by children.
     #[serde(skip_serializing_if = "is_false")]
     pub infer_subcommands: bool,
@@ -177,6 +180,7 @@ impl Default for SpecCommand {
             flags_from_mount: false,
             subcommand_required: false,
             external_subcommand: false,
+            arg_required_else_help: false,
             infer_subcommands: false,
             infer_long_args: false,
             restart_token: None,
@@ -285,6 +289,7 @@ impl SpecCommand {
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
+                "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
                 "infer_subcommands" => cmd.infer_subcommands = v.ensure_bool()?,
                 "infer_long_args" => cmd.infer_long_args = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
@@ -411,6 +416,10 @@ impl SpecCommand {
                 "external_subcommand" => {
                     cmd.external_subcommand = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "arg_required_else_help" => {
+                    cmd.arg_required_else_help =
+                        child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "infer_subcommands" => {
                     cmd.infer_subcommands = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
@@ -527,6 +536,7 @@ impl SpecCommand {
             hide,
             subcommand_required,
             external_subcommand,
+            arg_required_else_help,
             infer_subcommands,
             infer_long_args,
             restart_token,
@@ -602,6 +612,7 @@ impl SpecCommand {
         self.hide = hide;
         self.subcommand_required = subcommand_required;
         self.external_subcommand = external_subcommand;
+        self.arg_required_else_help = arg_required_else_help;
         self.infer_subcommands |= infer_subcommands;
         self.infer_long_args |= infer_long_args;
         if effect.is_some() {
@@ -737,6 +748,7 @@ impl From<&SpecCommand> for KdlNode {
             hide,
             subcommand_required,
             external_subcommand,
+            arg_required_else_help,
             infer_subcommands,
             infer_long_args,
             restart_token,
@@ -780,6 +792,10 @@ impl From<&SpecCommand> for KdlNode {
         if *external_subcommand {
             node.entries_mut()
                 .push(KdlEntry::new_prop("external_subcommand", true));
+        }
+        if *arg_required_else_help {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("arg_required_else_help", true));
         }
         if *infer_subcommands {
             node.entries_mut()
@@ -1032,6 +1048,7 @@ impl From<&clap::Command> for SpecCommand {
             spec.groups.push(spec_group);
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
+        spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();

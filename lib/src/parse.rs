@@ -768,6 +768,10 @@ fn parse_partial_with_env(
             }
         }
     }
+    // The policy observes the selected command's own argv, not values eventually filled from
+    // env/default. Start at the root, then reset on every explicit descent. A default
+    // subcommand receives the unmatched word that selected it, so it is necessarily non-bare.
+    let mut command_has_argv = !input.is_empty();
 
     let mut out = ParseOutput {
         cmd: spec.cmd.clone(),
@@ -896,6 +900,7 @@ fn parse_partial_with_env(
             );
             // Remove subcommand from input
             input.remove(idx);
+            command_has_argv = idx < input.len();
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
             // A descent already ran the new command's mounts, above.
@@ -987,6 +992,7 @@ fn parse_partial_with_env(
                         );
                         out.cmds.push(subcommand.clone());
                         out.cmd = subcommand.clone();
+                        command_has_argv = true;
                         prefix_flags.clear();
                         // This descent ran the new command's mounts, so lazy
                         // discovery must not run them a second time.
@@ -1573,6 +1579,10 @@ fn parse_partial_with_env(
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
+
+    if out.cmd.arg_required_else_help && !command_has_argv {
+        out.errors.push(render_help_err(spec, &out.cmd, false));
+    }
 
     // A command that says it needs a subcommand, given none. Checked on `out.cmd` and nowhere
     // else, because `out.cmd` *is* the command the words reached: had a subcommand been taken,
@@ -6655,6 +6665,31 @@ cmd "open" {
         // this is the half that keeps the check from being "any command with children".
         parse(&spec, &words(&["ex", "open"])).unwrap();
         parse(&spec, &words(&["ex", "open", "sub"])).unwrap();
+    }
+
+    #[test]
+    fn arg_required_else_help_observes_the_selected_commands_argv() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--verbose" global=#true
+cmd "run" arg_required_else_help=#true {
+    flag "--all"
+}
+"#
+        .parse()
+        .unwrap();
+        let words = |items: &[&str]| items.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
+
+        let err = parse(&spec, &words(&["ex", "run"])).unwrap_err();
+        assert!(err.to_string().contains("Usage: ex run"), "{err}");
+
+        // A global before the command belongs to the ancestor. It selected `run`, but did not
+        // give `run` an argument of its own.
+        let err = parse(&spec, &words(&["ex", "--verbose", "run"])).unwrap_err();
+        assert!(err.to_string().contains("Usage: ex run"), "{err}");
+
+        parse(&spec, &words(&["ex", "run", "--all"])).expect("run received an argv token");
     }
 
     #[test]

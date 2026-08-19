@@ -68,6 +68,8 @@ type Command struct {
 	// DefaultSubcommand still catches first. Once the unmatched word is taken,
 	// remaining tokens — including --help — are not parsed as this command's flags.
 	ExternalSubcommand bool
+	// ArgRequiredElseHelp shows this command's help when no argv token follows its name.
+	ArgRequiredElseHelp bool
 	// InferSubcommands accepts unambiguous prefixes of names and aliases.
 	InferSubcommands bool
 	// InferLongArgs accepts unambiguous prefixes of long flag names and aliases.

@@ -70,6 +70,9 @@ Clap's global prefix settings migrate as
 clap exposes setters but not getters for these settings, a `clap::Command` bridge cannot infer
 that declaration for you.
 
+`#[command(arg_required_else_help)]` migrates in place. usage checks whether the selected
+command received an argv token; environment and default fallbacks do not count.
+
 ## Fields
 
 Common mappings retain their meaning:
