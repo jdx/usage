@@ -2974,6 +2974,9 @@ pub struct Variant {
     /// Only the *construction* differs — `Command::Sponsors` rather than
     /// `Command::Sponsors(x)`. Everything else goes through the struct as usual.
     pub unit: bool,
+    /// Fields declared directly on a struct-style enum variant. They are copied
+    /// into a generated Args struct, then moved back into the enum after binding.
+    pub inline_fields: Option<Vec<syn::Field>>,
     /// The struct the variant wraps, with any `Box` taken off.
     ///
     /// Everything generated speaks to the struct — its tables, its partial, its `build` —
@@ -3024,7 +3027,7 @@ impl Subcommands {
             .map(|v| Variant::from_variant(v, &input.ident))
             .collect::<syn::Result<Vec<_>>>()?;
         for v in &variants {
-            if v.effect.is_some() && !v.unit {
+            if v.effect.is_some() && !v.unit && v.inline_fields.is_none() {
                 return Err(syn::Error::new_spanned(
                     &v.ident,
                     "`effect` belongs on the struct this variant wraps, where the command's \
@@ -3240,6 +3243,7 @@ impl Variant {
                 name,
                 effect: None,
                 unit: false,
+                inline_fields: None,
                 ty: held,
                 boxed: false,
                 external: true,
@@ -3251,14 +3255,14 @@ impl Variant {
             });
         }
 
-        // One unnamed field, holding the struct that declares the command's flags
-        // and arguments. A variant with no fields would have nothing to parse into,
-        // and named fields would make the variant itself the struct — which is a
-        // second way to say the same thing.
+        // One unnamed field can hold a separately declared Args struct. Named fields make
+        // the variant itself the command body; codegen lowers that form to a private Args
+        // struct and moves the built values back into the enum.
         // A bare variant is a command with nothing of its own — `Sponsors`, which clap also
         // allows. The struct it implies is written for it, so everything downstream keeps
         // speaking to a struct and only the construction differs.
         let mut unit = false;
+        let mut inline_fields = None;
         let held = match &variant.fields {
             Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => unnamed.unnamed[0].ty.clone(),
             Fields::Unit => {
@@ -3266,12 +3270,18 @@ impl Variant {
                 let ident = unit_struct_ident(enum_ident, &variant.ident);
                 syn::parse_quote!(#ident)
             }
+            Fields::Named(named) => {
+                let ident = unit_struct_ident(enum_ident, &variant.ident);
+                inline_fields = Some(named.named.iter().cloned().collect());
+                syn::parse_quote!(#ident)
+            }
             other => {
                 return Err(syn::Error::new_spanned(
                     other,
                     "a subcommand variant wraps one struct, as in `Install(Install)` or \
                      `Install(Box<Install>)` — that struct is where its flags and arguments \
-                     are declared — or holds nothing at all, for a command that has none",
+                     are declared — declares fields inline as `Install { force: bool }`, \
+                     or holds nothing at all, for a command that has none",
                 ));
             }
         };
@@ -3293,6 +3303,7 @@ impl Variant {
             name,
             effect,
             unit,
+            inline_fields,
             ty,
             boxed,
             external: false,

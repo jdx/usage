@@ -2945,13 +2945,13 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let runtime = runtime_path();
     let derive = derive_path();
 
-    // The structs the bare variants imply, written here so everything downstream keeps
-    // speaking to a struct. `Args` is derived on them rather than the impl being written out:
-    // one description of what an empty command is, and it is the one adopters already use.
-    let unit_structs = subs
+    // The structs bare and inline variants imply, written here so everything downstream keeps
+    // speaking to one Args struct. Clap-shaped `arg` attributes are rewritten to the native
+    // spelling while copying inline fields, which lets a migration keep its enum layout.
+    let generated_structs = subs
         .variants
         .iter()
-        .filter(|v| v.unit)
+        .filter(|v| v.unit || v.inline_fields.is_some())
         .map(|v| {
             let name = &v.ty;
             // Whatever the variant said about the command, written where the command's
@@ -2961,15 +2961,30 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .effect
                 .as_ref()
                 .map(|word| quote!(#[usage(effect = #word)]));
+            let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
+                for attr in &mut field.attrs {
+                    let path = match &mut attr.meta {
+                        syn::Meta::Path(path) => path,
+                        syn::Meta::List(list) => &mut list.path,
+                        syn::Meta::NameValue(value) => &mut value.path,
+                    };
+                    if path.is_ident("arg") {
+                        *path = syn::parse_quote!(usage);
+                    }
+                }
+                field
+            });
             quote! {
                 #[doc(hidden)]
                 #[derive(#derive::Args)]
                 #effect
-                pub struct #name {}
+                pub struct #name {
+                    #(#fields),*
+                }
             }
         })
         .collect::<Vec<_>>();
-    let unit_structs = unit_structs.into_iter();
+    let generated_structs = generated_structs.into_iter();
 
     // One *variant* per subcommand, not one field: a parse fills exactly one of them, and a
     // struct with room for all of them is the whole CLI's accumulator whichever command ran —
@@ -3361,6 +3376,19 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     let _ = #built;
                     #ident::#variant
                 }}
+            } else if let Some(fields) = &v.inline_fields {
+                let names = fields.iter().map(|field| {
+                    field
+                        .ident
+                        .as_ref()
+                        .expect("named variant fields have names")
+                });
+                quote! {{
+                    let __usage_built = #built;
+                    #ident::#variant {
+                        #(#names: __usage_built.#names),*
+                    }
+                }}
             } else {
                 quote!(#ident::#variant(#built))
             };
@@ -3379,7 +3407,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     quote! {
         // Beside the enum rather than inside the generated module: the variants name these
         // types, and a type a variant cannot see is no use to it.
-        #(#unit_structs)*
+        #(#generated_structs)*
 
         #[doc(hidden)]
         #[allow(

@@ -344,10 +344,9 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 
 /// Compile an enum into a set of subcommands.
 ///
-/// Each variant wraps a struct deriving [`Args`], which is where that command's
-/// flags and arguments are declared. A field holding this enum is marked
-/// `#[usage(subcommand)]`.
-#[proc_macro_derive(Subcommands, attributes(usage))]
+/// Each variant may wrap a struct deriving [`Args`] or declare its fields inline,
+/// clap-style. A field holding this enum is marked `#[usage(subcommand)]`.
+#[proc_macro_derive(Subcommands, attributes(usage, arg))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::Subcommands::from_input(&input) {
