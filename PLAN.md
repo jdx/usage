@@ -617,7 +617,11 @@ feature list is not an exhaustive audit.
       and `rename_all` vocabulary before the derive can explain the semantic
       replacement. Accept the lossless spellings directly where practical and
       give the rest targeted migration diagnostics rather than a generic unknown
-      option error.
+      option error. Preserve the visibility distinction too: clap's `alias` and
+      `aliases` are hidden while `visible_alias` and `visible_aliases` are
+      advertised; usage spells those `alias_hidden` and `alias`. The fnox rewrite
+      initially made `completion`'s hidden aliases and `exec run` visible because
+      a mechanical rename erased that distinction.
 - [ ] **Command-with-arguments completion hints.** fnox uses
       `ValueHint::CommandWithArguments` for forwarded argv. usage accepts only
       file, path and directory hints today. Add the command/argv cases or record
