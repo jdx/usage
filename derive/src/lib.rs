@@ -229,6 +229,7 @@
 //! | `var_max = n` | how many values a variadic takes before the next field gets the rest |
 //! | `global` | subcommands inherit the flag |
 //! | `env = "X"` | an environment variable that can supply the value |
+//! | `env` | infer the environment variable from the field, using the command's `rename_all_env` policy |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |
@@ -376,7 +377,7 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 ///
 /// Each variant may wrap a struct deriving [`Args`] or declare its fields inline,
 /// clap-style. A field holding this enum is marked `#[usage(subcommand)]`.
-#[proc_macro_derive(Subcommands, attributes(usage, arg))]
+#[proc_macro_derive(Subcommands, attributes(usage, command, arg))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::Subcommands::from_input(&input) {

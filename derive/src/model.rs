@@ -78,6 +78,10 @@ pub struct Cli {
     /// `Subcommands` variant may still add aliases for the particular route mounting it.
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
+    /// Default casing for inferred flag and positional names.
+    rename_all: Option<CasingStyle>,
+    /// Default casing for environment names inferred by bare `env`.
+    rename_all_env: CasingStyle,
     /// Where `#[usage(...)]` was written on the struct, when it was.
     ///
     /// Every position rule in [`Cli::check_position`] is about an attribute in the wrong place,
@@ -512,6 +516,8 @@ impl Cli {
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
+            rename_all: None,
+            rename_all_env: CasingStyle::ScreamingSnake,
             attr_span: input
                 .attrs
                 .iter()
@@ -671,27 +677,8 @@ impl Cli {
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
-                    "rename_all" => {
-                        let case = string_value(&meta)?;
-                        if !matches!(CasingStyle::parse(&meta)?, CasingStyle::Kebab) {
-                            return Err(syn::Error::new_spanned(
-                                &meta,
-                                format!(
-                                    "usage currently derives kebab-case names; clap's \
-                                     `rename_all = \"{case}\"` needs explicit `name`/`long` \
-                                     declarations for that casing"
-                                ),
-                            ));
-                        }
-                    }
-                    "rename_all_env" => {
-                        return Err(syn::Error::new_spanned(
-                            &meta,
-                            "usage does not infer environment variable names; replace \
-                             clap's `rename_all_env` with explicit `env = \"NAME\"` on \
-                             each field that reads one",
-                        ));
-                    }
+                    "rename_all" => cli.rename_all = Some(CasingStyle::parse(&meta)?),
+                    "rename_all_env" => cli.rename_all_env = CasingStyle::parse(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -750,7 +737,11 @@ impl Cli {
         }
 
         for field in data.fields.iter() {
-            cli.fields.push(Field::from_field(field)?);
+            cli.fields.push(Field::from_field(
+                field,
+                cli.rename_all,
+                cli.rename_all_env,
+            )?);
         }
         if let Some(heading) = &cli.next_help_heading {
             for field in &mut cli.fields {
@@ -1594,7 +1585,11 @@ impl Field {
         }))
     }
 
-    fn from_field(field: &syn::Field) -> syn::Result<Self> {
+    fn from_field(
+        field: &syn::Field,
+        rename_all: Option<CasingStyle>,
+        rename_all_env: CasingStyle,
+    ) -> syn::Result<Self> {
         let ident = field
             .ident
             .clone()
@@ -1615,7 +1610,10 @@ impl Field {
             return Ok(flattened);
         }
 
-        let mut name = to_kebab(&ident.to_string());
+        let rust_name = ident.unraw().to_string();
+        let mut name = rename_all
+            .map(|style| style.apply(&rust_name))
+            .unwrap_or_else(|| to_kebab(&rust_name));
         let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
         let mut visible_long_aliases: Vec<String> = Vec::new();
@@ -1728,7 +1726,12 @@ impl Field {
                     "value_optional" => value_optional = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
-                    "env" => env = Some(string_value(&meta)?),
+                    "env" => {
+                        env = Some(match &meta {
+                            Meta::Path(_) => rename_all_env.apply(&ident.unraw().to_string()),
+                            _ => string_value(&meta)?,
+                        })
+                    }
                     // The *setting* this flag sets, which is a different thing from the flag's name
                     // and from the environment variable: `--jobs`, `HK_JOBS` and `jobs` are three
                     // spellings of one value, and only the last is what a config file calls it.
@@ -3360,10 +3363,29 @@ impl Subcommands {
             ));
         }
 
+        let mut rename_all = None;
+        for attr in attrs(&input.attrs) {
+            for meta in nested(attr)? {
+                let path = meta.path().clone();
+                match ident_of(&path).as_str() {
+                    "rename_all" => rename_all = Some(CasingStyle::parse(&meta)?),
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            format!(
+                                "unknown option `{other}` on a subcommand enum; \
+                                 usage::Subcommands takes `rename_all` here"
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+
         let variants = data
             .variants
             .iter()
-            .map(|v| Variant::from_variant(v, &input.ident))
+            .map(|v| Variant::from_variant(v, &input.ident, rename_all))
             .collect::<syn::Result<Vec<_>>>()?;
         for v in &variants {
             if v.effect.is_some() && !v.unit && v.inline_fields.is_none() {
@@ -3418,11 +3440,18 @@ impl Subcommands {
 }
 
 impl Variant {
-    fn from_variant(variant: &syn::Variant, enum_ident: &syn::Ident) -> syn::Result<Self> {
+    fn from_variant(
+        variant: &syn::Variant,
+        enum_ident: &syn::Ident,
+        rename_all: Option<CasingStyle>,
+    ) -> syn::Result<Self> {
         let mut verbatim_doc_comment = false;
         // `unraw` first: `r#type` is how a variant named after a keyword prints, and a command
         // called `r#type` is one no user could type. `type` is what they meant.
-        let mut name = to_kebab(&variant.ident.unraw().to_string());
+        let rust_name = variant.ident.unraw().to_string();
+        let mut name = rename_all
+            .map(|style| style.apply(&rust_name))
+            .unwrap_or_else(|| to_kebab(&rust_name));
         let mut aliases: Vec<String> = Vec::new();
         let mut hidden_aliases: Vec<String> = Vec::new();
         let mut effect = None;
@@ -5732,6 +5761,51 @@ mod tests {
             cli.fields[1].help_heading.as_deref(),
             Some("Authentication")
         );
+    }
+
+    #[test]
+    fn command_casing_applies_to_inferred_names_and_bare_env() {
+        let cli = cli(r#"
+            #[command(rename_all = "camelCase", rename_all_env = "lowercase")]
+            struct Ex {
+                #[arg(long, env)]
+                api_token: Option<String>,
+                #[arg(long = "fixed", env = "FIXED_ENV")]
+                explicit_name: Option<String>,
+            }
+        "#)
+        .unwrap();
+
+        assert_eq!(cli.fields[0].name, "apiToken");
+        assert_eq!(cli.fields[0].env.as_deref(), Some("apitoken"));
+        let Kind::Flag { longs, .. } = &cli.fields[0].kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["apiToken"]);
+
+        let Kind::Flag { longs, .. } = &cli.fields[1].kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["fixed"]);
+        assert_eq!(cli.fields[1].env.as_deref(), Some("FIXED_ENV"));
+    }
+
+    #[test]
+    fn subcommand_container_casing_applies_to_inferred_variant_names() {
+        let commands = subcommands(
+            r#"
+            #[command(rename_all = "SCREAMING_SNAKE_CASE")]
+            enum Commands {
+                ApiServer(ApiServer),
+                #[command(name = "fixed")]
+                Explicit(Explicit),
+            }
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(commands.variants[0].name, "API_SERVER");
+        assert_eq!(commands.variants[1].name, "fixed");
     }
 
     #[test]

@@ -513,8 +513,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **`verbatim_doc_comment`.** Commands, fields, and subcommand variants can
       preserve doc-comment line breaks and indentation instead of flowing the
       first paragraph. The derive uses the same normalization path for all three.
-- [ ] **`rename_all`, `rename_all_env`.** Casing is kebab via `to_kebab`, with no
-      opt-out beyond explicit names on each declaration.
+- [x] **`rename_all`, `rename_all_env`.** `Cli` / `Args` fields, `Subcommands`
+      variants, and `ValueEnum` variants accept clap's full casing vocabulary.
+      Bare `env` infers its name using `rename_all_env` (SCREAMING_SNAKE_CASE by
+      default); explicit field, flag, command, and environment names still win.
 - [ ] **Built-in action and flag control** — custom `ArgAction::Help`,
       `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
       `disable_help_subcommand` and `disable_version_flag`. A clap
@@ -647,7 +649,8 @@ feature list is not an exhaustive audit.
       become advertised long forms, and the default `rename_all = "kebab-case"`
       can remain on the command. Hidden `alias` / `aliases` retain their parse-only
       visibility through KDL, Rust and Go tables, help, completion, and the clap
-      bridge. Non-default casing, `num_args`, and `value_parser` produce targeted
+      bridge. Non-default `rename_all` / `rename_all_env` casing and bare `env`
+      now migrate in place; `num_args` and `value_parser` produce targeted
       migration diagnostics instead of a generic unknown-option error.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
