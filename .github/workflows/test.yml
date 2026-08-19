@@ -46,6 +46,7 @@ jobs:
       - name: Install shells for completion integration tests
         timeout-minutes: 5
         run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal

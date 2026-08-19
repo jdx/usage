@@ -518,8 +518,16 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
       `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
-      case from the other side. Worth writing down as a decision rather than
-      leaving it to be discovered as an absence.
+      case from the other side. This is an explicit non-goal: the usage metadata
+      API does not need to reproduce clap's `Command` surface or be fully source
+      compatible with it.
+- [ ] **Public `CommandFactory` migration.** A library can expose
+      `pub fn command() -> clap::Command` as part of its supported API, as aube
+      does. The 6.x transition may intentionally break that API and return a
+      first-party usage metadata/spec view instead; it does not need to preserve
+      the complete clap builder contract. Document the semver expectation and any
+      separately named, opt-in compatibility entry point an adopter chooses to
+      retain.
 
 **What is _not_ a gap**, checked rather than assumed, because two of these were
 recorded as gaps here and had quietly been closed: flag aliases (several `long`
@@ -599,16 +607,29 @@ feature list is not an exhaustive audit.
       moves the bound fields back into the original enum shape. It accepts both
       native `usage` field attributes and clap-shaped `arg` attributes in this
       migration form.
+- [x] **Clap-compatible value metadata spelling.** Existing domain enums commonly
+      use `#[value(name = "...", alias = "...")]`. Requiring those attributes to
+      be renamed solely to change parsers makes migrations noisier and prevents a
+      transition where clap and usage derive against the same enum. `ValueEnum`
+      now accepts both `#[usage(...)]` and `#[value(...)]`, while continuing to
+      leave `FromStr` ownership with the domain type.
 - [x] **ValueEnum must coexist with domain parsing and cfg.** aube and fnox enums
       already implement `FromStr`; deriving usage `ValueEnum` adds a conflicting
       implementation. fnox also cfg-gates individual variants, while usage's
       const word list refused holes. ValueEnum now describes choices without
       taking ownership of domain parsing, and copies variant `cfg`/`cfg_attr`
       attributes onto the corresponding static-table entries.
-- [ ] **Flag aliases in the derive.** aube declares secondary flag spellings.
-      Static metadata can carry aliases, but a usage field accepts neither
-      `alias` nor clap's `visible_alias`, so the typed authoring surface cannot
-      express the spec it is meant to define.
+- [ ] **Clap-compatible field spellings and IDs.** Multiple `long` and `short`
+      entries express flag aliases in usage, but real migrations still have to
+      rewrite clap's `alias` / `visible_alias`, `id`, `num_args`, `value_parser`
+      and `rename_all` vocabulary before the derive can explain the semantic
+      replacement. Accept the lossless spellings directly where practical and
+      give the rest targeted migration diagnostics rather than a generic unknown
+      option error. Preserve the visibility distinction too: clap's `alias` and
+      `aliases` are hidden while `visible_alias` and `visible_aliases` are
+      advertised; usage spells those `alias_hidden` and `alias`. The fnox rewrite
+      initially made `completion`'s hidden aliases and `exec run` visible because
+      a mechanical rename erased that distinction.
 - [ ] **Command-with-arguments completion hints.** fnox uses
       `ValueHint::CommandWithArguments` for forwarded argv. usage accepts only
       file, path and directory hints today. Add the command/argv cases or record
@@ -618,12 +639,100 @@ feature list is not an exhaustive audit.
       do not dirty generated docs; hk computes a richer version string. Specify
       static, expression-backed and omitted versions separately rather than
       forcing a hard-coded literal into every `Cli` derive.
+- [ ] **Unit and tuple Args migration shapes.** fnox's bare command structs and
+      hk's one-field tuple Args are valid clap derive inputs. usage currently
+      requires named-field braces, so even a command with no arguments changes
+      from `Command;` to `Command {}` and a tuple wrapper needs a public shape
+      change. Support unit structs directly; either support tuple Args or emit a
+      diagnostic that identifies the named-field rewrite.
+- [ ] **Relationships through flatten and positional IDs.** Positional
+      relationships are already a general gap above. The fleet exposed the
+      second half: a field cannot name a flag contributed by a flattened Args
+      type because validation runs against the declaring struct before the
+      command is assembled. aube lost statically declared relationships and hk
+      and fnox needed runtime conflict checks. Validate selectors against the
+      composed command and carry stable IDs for both flags and positionals.
+- [ ] **Flattened help topology.** clap's `next_help_heading` and flattened flag
+      groups preserve meaningful sections in aube's long help. usage flattens the
+      fields but discards that struct-level heading, so a migration can preserve
+      parsing while silently degrading help. Define heading inheritance for a
+      flattened Args type and cover short/long help ordering in conformance.
+- [ ] **Facade-owned derive validation.** A direct `usage-derive` adopter can
+      compile generated code only after separately adding `usage-validation`;
+      the implementation dependency leaks into every converted manifest. The
+      supported facade should own or re-export this path so the documented
+      dependency set is sufficient and generated code does not require users to
+      discover an internal crate from a compiler error.
+- [x] **Central metadata overlays without an MSRV or performance jump.** aube
+      keeps a centrally audited command-effect table rather than scattering the
+      policy across command types. Applying that table currently means parsing
+      derived KDL into usage-lib, which raises an argv-only adopter from the 1.91
+      tier to usage-lib's 1.95 tier. hk first did the same and its `usage`
+      benchmark retired 9x as many instructions; moving every effect into derive
+      attributes fixed the regression but lost the central declaration. Provide
+      a typed, borrowed static overlay/spec-view surface for policies that need a
+      whole-tree view. Overlay resolution belongs only on cold metadata, help and
+      completion paths: ordinary argv parsing must continue to use the base const
+      tables directly, without building a command graph, allocating, or consulting
+      the overlay. `SpecView` and `CommandOverlay` now provide that borrowed cold
+      path, and aube's fleet PR applies its central effect table through them
+      without depending on usage-lib.
+- [x] **Compiled completions for runtime overlays, multicall projections and async
+      candidates.** The self-contained completion endpoint can answer only from a
+      derive-time `usage_argv::spec::Spec`, and custom Rust completers are
+      synchronous. aube instead appends named completers to KDL at runtime, projects
+      the `run` and `dlx` subtrees into the `aubr` and `aubx` binaries, and discovers
+      package candidates asynchronously. Its fleet PR therefore still invokes
+      `usage g completion`; switching it to `#[usage(completion)]` today would emit a
+      valid script that silently loses those candidates. Give `usage-rs` a static or
+      lightweight overlay/projection surface consumable by the compiled completion
+      walker. Async completers should return futures without choosing or bundling
+      an executor; the embedding CLI runs them on its existing runtime, and neither
+      async support nor its allocations enter the ordinary parse path. Cover
+      alternate binary identities before calling completions
+      self-contained for embedders and multicall CLIs. fnox exposes the same gap in
+      a smaller shape: switching it to `Cli::completion_script` dropped the secret,
+      provider, profile and config-file completers appended from
+      `fnox-extras.usage.kdl`, so its fleet PR also retains `usage g completion`.
+      `App` now combines a borrowed `SpecView`, sparse sync/async completion
+      callbacks, completion runtime identity and command projection. It does not
+      bundle an executor or change the parser identity used by help and
+      diagnostics, so it does not satisfy the separate **Runtime program
+      identity** gate below. aube uses it for all of those cases, including
+      `aubr`/`aubx` and async registry search; fnox uses it for secret, provider
+      and profile candidates. Both now generate and answer completions through `usage-rs`
+      without invoking the `usage` binary.
+- [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
+      output was semantically accepted but differed substantially from the same
+      tree after a usage-lib parse/serialize round trip, and repeated identical
+      `complete "path"` nodes that the round trip collapsed. Make direct emission
+      canonical and deduplicate composed completers so adopters do not need the
+      expensive round trip merely for stable generated artifacts.
+- [x] **Keep generated-spec producers and consumers on one dialect.** The 6.x
+      migration is a coordinated epoch, not a promise that a 5.1 CLI can consume
+      a 6.x-derived spec. Fleet docs tasks install `usage-cli` from the same git
+      stack as their `usage-rs` dependency, so nodes such as `unknown_flags` are
+      produced and consumed by one dialect. All release dependencies move to
+      6.x together; cross-major spec consumption is intentionally unsupported.
+- [ ] **Runtime program identity.** aube embeds the same CLI under a caller-chosen
+      binary name. A derived spec can be rewritten after emission, but parser
+      help and diagnostics still use the static name. Support a runtime identity
+      source with an explicit portable `name`/`bin` value, analogous to computed
+      version plus `version_spec`.
+- [ ] **Test parsing with argv0.** `parse_from` intentionally takes words after
+      the binary, while clap tests commonly call `try_parse_from(["tool", ...])`.
+      Fleet ports needed local wrappers just to preserve their parser tests.
+      Add an explicit argv0-taking helper rather than making every migration
+      hand-roll `skip(1)` and accidentally obscure multicall semantics.
 - [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
       compared on accepted and rejected argv, typed values, error kind and exit
       status, stdout versus stderr, short and long help, usage/version output, and
-      completion candidates. Run the portable cases on Unix and Windows and the
-      byte-value cases on Unix. The mise fuzzer remains the scale test; this is the
-      configuration-space test it cannot be.
+      completion candidates. Include setting-specific diagnostics: for example,
+      clap explains that `--flag=value` is required when `require_equals` rejects
+      a detached or missing value, while usage currently reports only a generic
+      missing value and forced Aube to adapt that error locally. Run the portable
+      cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
+      remains the scale test; this is the configuration-space test it cannot be.
 - [ ] **Combination and stateful tests.** Pairwise-cover settings that interact:
       defaults with env and delimiters, optional values with `require_equals`,
       globals with overrides, subcommands with required positionals, groups with
@@ -772,26 +881,32 @@ looking at the clap surface, not only at the spec.
       command) and the same manpage. usage-cli's own
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
-- [~] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
-  shadows.** `gen-shadow`
-  types every field as `String`. The derive already holds `PathBuf`,
-  `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
-  proves that for usage's own types. These five will prove it across real
-  clap CLIs rewritten in place: real field types, skip-fields or the split
-  they force, and binaries that preserve every pre-existing `--help` and
-  spec-emission entry point. tak's experiment-only spec entry point is tested
-  as new behavior rather than compared with a nonexistent baseline. Each
-  experiment is a ready-for-review PR whose `Cargo.toml`
-  deliberately points at usage's git revision; the PR is evidence for the
-  6.x gate, not something to merge before usage 6.x is published. Together
-  they tell us whether the fleet is a rewrite or a set of blocked rewrites.
-  **The experiment PRs now exist and all five modify the real CLI:**
-  jdx/communique#265 and jdx/tak#47 compile (tak's full suite passes);
-  jdx/aube#1336, jdx/hk#1211 and jdx/fnox#725 remove the clap dependency and
-  convert the real derives, but stop on 194, 490 and 326 compiler diagnostics
-  respectively, including cascades. Their migration-status files group those
-  failures into the launch-gate rows above. All five pin `jdx/usage` at
-  `cc60dcb7`.
+- [x] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
+      shadows.** `gen-shadow`
+      types every field as `String`. The derive already holds `PathBuf`,
+      `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
+      proves that for usage's own types. These five will prove it across real
+      clap CLIs rewritten in place: real field types, skip-fields or the split
+      they force, and binaries that preserve every pre-existing `--help` and
+      spec-emission entry point. tak's experiment-only spec entry point is tested
+      as new behavior rather than compared with a nonexistent baseline. Each
+      experiment is a ready-for-review PR whose `Cargo.toml`
+      deliberately points at usage's git revision; the PR is evidence for the
+      6.x gate, not something to merge before usage 6.x is published. Together
+      they tell us whether the fleet is a rewrite or a set of blocked rewrites.
+      **The experiment PRs now exist and all five modify the real CLI:**
+      jdx/communique#265, jdx/tak#47, jdx/aube#1336, jdx/hk#1211 and
+      jdx/fnox#725 all remove clap, compile against the stacked usage changes and
+      pass their migrated test suites. The ports preserve their typed domain
+      values rather than lowering to String, keep intentional forwarding behavior,
+      and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
+      the root because its external-subcommand path is a package-manager forwarder.
+      All five use the `usage-rs` facade for parsing and derives and pin the
+      relevant 6.x experiment-stack revision. hk, aube and fnox also use its
+      built-in compiled completion protocol, removing their runtime dependency on an
+      installed `usage` binary. aube's remaining direct `usage-validation`
+      dependency is the facade-validation gap above. The workarounds they still
+      contain are the unchecked launch-gate rows above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -833,16 +948,14 @@ a prerequisite for trying a CLI.
       `usage-rs`, emits its spec from the same tables, and feeds that spec to
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
-- [~] **communique, tak, aube, hk, and fnox** — five fleet experiment PRs now
-  exist, each
-  carried as a ready-for-review experimental PR on a git dependency until
-  usage 6.x exists. communique and tak parse their real typed commands with
-  usage and compile; tak's added spec endpoint is experiment-only and outside
-  its preserved CLI contract. aube, hk and fnox have their real derives and
-  dependencies converted, not shadows, but do not compile against the current
-  usage revision. The gaps found are recorded in the general launch gate
-  above; closing them and finishing those three typed rewrites is required
-  before 6.x is published.
+- [x] **communique, tak, aube, hk, and fnox** — five ready-for-review fleet
+      experiment PRs parse their real typed commands with usage, remove clap and
+      pass locally. They deliberately retain a git dependency and are evidence for
+      the 6.x gate rather than merge candidates before publication. tak's added
+      spec endpoint is experiment-only and outside its preserved CLI contract.
+      The gaps found are recorded in the general launch gate above; closing the
+      merge-blocking rows is required before publishing 6.x and converting these
+      experiments into release-dependency PRs.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
       parsers. Adoption is measured by what it lets mise delete, listed below.
