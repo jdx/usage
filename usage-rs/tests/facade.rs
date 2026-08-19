@@ -96,6 +96,25 @@ struct ChoiceEx {
 #[usage(bin = "strict-ex", unknown_flags = "error")]
 struct StrictEx {}
 
+#[derive(Cli)]
+#[usage(bin = "unit-root")]
+struct UnitRoot;
+
+#[derive(Args)]
+struct UnitArgs;
+
+#[derive(Subcommands)]
+enum UnitArgsCommand {
+    Empty(UnitArgs),
+}
+
+#[derive(Cli)]
+#[usage(bin = "unit-args")]
+struct UnitArgsCli {
+    #[usage(subcommand)]
+    command: UnitArgsCommand,
+}
+
 const DEFAULT_RUNS: u32 = 7;
 const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
 const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
@@ -150,6 +169,18 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
 fn unit_subcommands_use_the_facade_derive() {
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));
+}
+
+#[test]
+fn unit_cli_and_args_structs_parse_without_shape_rewrites() {
+    let root = UnitRoot::parse_from(&[]).expect("unit root should parse");
+    let UnitRoot = root;
+    assert!(UnitRoot::to_kdl().contains("name \"unit-root\""));
+
+    let cli =
+        UnitArgsCli::parse_from(&[OsStr::new("empty")]).expect("unit Args command should parse");
+    assert!(matches!(cli.command, UnitArgsCommand::Empty(UnitArgs)));
+    assert!(UnitArgsCli::to_kdl().contains("cmd \"empty\""));
 }
 
 #[test]

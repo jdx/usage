@@ -14,6 +14,11 @@ use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 /// A CLI, as declared by a struct.
 pub struct Cli {
     pub ident: syn::Ident,
+    /// Whether the declaration is a unit struct (`struct Command;`).
+    ///
+    /// Unit structs have the same empty command metadata as `{}` structs, but
+    /// code generation must construct them without braces.
+    pub unit: bool,
     /// What this type's keys are derived from.
     ///
     /// The whole item rather than its name: two same-named structs in different
@@ -439,17 +444,20 @@ impl Cli {
         let Data::Struct(data) = &input.data else {
             return Err(syn::Error::new_spanned(
                 &input.ident,
-                "usage::Cli describes a command's flags and arguments, so it needs a \
-                 struct with named fields",
+                "usage::Cli describes a command's flags and arguments, so it needs a struct",
             ));
         };
-        let Fields::Named(named) = &data.fields else {
-            return Err(syn::Error::new_spanned(
-                &data.fields,
-                "usage::Cli needs named fields: the field name is what a flag or \
-                 argument is called",
-            ));
-        };
+        match &data.fields {
+            Fields::Named(_) | Fields::Unit => {}
+            Fields::Unnamed(_) => {
+                return Err(syn::Error::new_spanned(
+                    &data.fields,
+                    "usage derives do not infer whether a tuple field is a positional or a \
+                     flattened Args type; rewrite it as a named field, using \
+                     `#[usage(flatten)]` for an Args wrapper",
+                ));
+            }
+        }
 
         if !input.generics.params.is_empty() {
             return Err(syn::Error::new_spanned(
@@ -466,6 +474,7 @@ impl Cli {
         let mut version_needs_spec = false;
         let mut cli = Cli {
             ident: input.ident.clone(),
+            unit: matches!(&data.fields, Fields::Unit),
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
             name: to_kebab(&input.ident.to_string()),
             bin: None,
@@ -630,7 +639,7 @@ impl Cli {
             seen_aliases.push((alias, alias_span));
         }
 
-        for field in &named.named {
+        for field in data.fields.iter() {
             cli.fields.push(Field::from_field(field)?);
         }
         // A program is called what its binary is called, unless it says otherwise. The name
@@ -3790,6 +3799,20 @@ mod tests {
             Ok(_) => panic!("should not have compiled"),
             Err(e) => e.to_string(),
         }
+    }
+
+    #[test]
+    fn unit_structs_are_empty_commands() {
+        let cli = cli("struct Empty;").expect("unit commands should compile");
+        assert!(cli.unit);
+        assert!(cli.fields.is_empty());
+    }
+
+    #[test]
+    fn tuple_structs_explain_the_named_flatten_rewrite() {
+        let err = rejection("struct Wrapper(InnerArgs);");
+        assert!(err.contains("tuple field"), "unhelpful: {err}");
+        assert!(err.contains("#[usage(flatten)]"), "unhelpful: {err}");
     }
 
     #[test]

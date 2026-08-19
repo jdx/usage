@@ -640,12 +640,12 @@ feature list is not an exhaustive audit.
       consumers can call `SpecView::omit_version()` without changing parser
       behavior; tak uses that view so release-plz version-only PRs do not dirty
       its checked-in spec and docs.
-- [ ] **Unit and tuple Args migration shapes.** fnox's bare command structs and
-      hk's one-field tuple Args are valid clap derive inputs. usage currently
-      requires named-field braces, so even a command with no arguments changes
-      from `Command;` to `Command {}` and a tuple wrapper needs a public shape
-      change. Support unit structs directly; either support tuple Args or emit a
-      diagnostic that identifies the named-field rewrite.
+- [x] **Unit and tuple Args migration shapes.** `Cli` and `Args` accept unit
+      structs directly, so a no-argument command keeps its `Command;` spelling.
+      Tuple structs remain ambiguous because an unnamed value may be positional
+      or a flattened Args wrapper; their targeted diagnostic explains the named
+      `#[usage(flatten)]` rewrite instead of reporting a generic unsupported
+      shape. Facade tests exercise unit roots and nested unit Args commands.
 - [ ] **Relationships through flatten and positional IDs.** Positional
       relationships are already a general gap above. The fleet exposed the
       second half: a field cannot name a flag contributed by a flattened Args
