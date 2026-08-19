@@ -207,7 +207,10 @@ cmd "generate" help="Generate completions, documentation, and other artifacts fr
 cmd "lint" help="Lint a usage spec file for common issues" effect="read" {
     flag "-f --format" help="Output format" default="text" {
         arg "<FORMAT>" {
-            choices "text" "json"
+            choices {
+                choice "text"
+                choice "json"
+            }
         }
     }
     flag "-W --warnings-as-errors" help="Treat warnings as errors"

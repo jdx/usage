@@ -1162,7 +1162,15 @@
               "double_dash": "Optional",
               "hide": false,
               "choices": {
-                "choices": ["text", "json"]
+                "choices": ["text", "json"],
+                "details": [
+                  {
+                    "value": "text"
+                  },
+                  {
+                    "value": "json"
+                  }
+                ]
               }
             },
             "default": ["text"]
