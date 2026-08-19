@@ -419,6 +419,14 @@ func TestInferredPrefixes(t *testing.T) {
 	if got := collect(cmd, "--ver"); got != "err:unknown_flag" {
 		t.Errorf("ambiguous long: got %s", got)
 	}
+
+	global := &Flag{Key: 23, Name: "verbose", Longs: []string{"verbose"}, Global: true}
+	local := &Flag{Key: 24, Name: "verbose", Longs: []string{"verbose"}}
+	run := &Command{Name: "run", Flags: []*Flag{local}}
+	shadowed := &Command{Name: "ex", Flags: []*Flag{global}, Subcommands: []*Command{run}, InferLongArgs: true}
+	if got := collect(shadowed, "run", "--verb"); got != "cmd:run flag:verbose" {
+		t.Errorf("redeclared global prefix: got %s", got)
+	}
 }
 
 func BenchmarkParse(b *testing.B) {

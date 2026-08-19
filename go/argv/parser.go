@@ -646,12 +646,12 @@ func (p *Parser) findLongForm(name string) (*Flag, bool) {
 	p.eachInScope(func(f *Flag) bool {
 		positive := false
 		for _, long := range f.Longs {
-			if len(long) >= len(name) && long[:len(name)] == name {
+			if len(long) >= len(name) && long[:len(name)] == name && !p.longFormIsShadowed(f, long) {
 				positive = true
 				break
 			}
 		}
-		negative := !positive && f.Negate != "" && len(f.Negate) >= len(name) && f.Negate[:len(name)] == name
+		negative := !positive && f.Negate != "" && len(f.Negate) >= len(name) && f.Negate[:len(name)] == name && !p.longFormIsShadowed(f, f.Negate)
 		if !positive && !negative {
 			return false
 		}
@@ -666,6 +666,29 @@ func (p *Parser) findLongForm(name string) (*Flag, bool) {
 		return nil, false
 	}
 	return found, negated
+}
+
+// longFormIsShadowed reports whether a nearer declaration already owns this
+// exact spelling. Prefix lookup must preserve exact lookup's shadowing rule.
+func (p *Parser) longFormIsShadowed(flag *Flag, form string) bool {
+	shadowed := false
+	p.eachInScope(func(prior *Flag) bool {
+		if prior == flag {
+			return true
+		}
+		for _, long := range prior.Longs {
+			if long == form {
+				shadowed = true
+				return true
+			}
+		}
+		if prior.Negate == form {
+			shadowed = true
+			return true
+		}
+		return false
+	})
+	return shadowed
 }
 
 func (p *Parser) findShort(b byte) *Flag {

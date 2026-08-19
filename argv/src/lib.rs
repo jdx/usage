@@ -1678,14 +1678,15 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         let mut found: Option<(&Flag<'_>, bool)> = None;
         for flag in self.in_scope() {
-            let positive = flag
-                .longs
-                .iter()
-                .any(|long| long.as_bytes().starts_with(name));
+            let positive = flag.longs.iter().any(|long| {
+                long.as_bytes().starts_with(name)
+                    && !self.long_form_is_shadowed(flag, long.as_bytes())
+            });
             let negative = !positive
-                && flag
-                    .negate
-                    .is_some_and(|negate| negate.as_bytes().starts_with(name));
+                && flag.negate.is_some_and(|negate| {
+                    negate.as_bytes().starts_with(name)
+                        && !self.long_form_is_shadowed(flag, negate.as_bytes())
+                });
             if !positive && !negative {
                 continue;
             }
@@ -1695,6 +1696,25 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             found = Some((flag, negative));
         }
         found
+    }
+
+    /// Whether a nearer declaration already owns this exact long spelling.
+    ///
+    /// `in_scope` is ordered by precedence. Prefix inference must apply the same
+    /// shadowing as exact lookup: redeclaring `--verbose` on a child does not make
+    /// `--verb` ambiguous merely because an inherited global also spells it that way.
+    fn long_form_is_shadowed(&self, flag: &Flag<'_>, form: &[u8]) -> bool {
+        for prior in self.in_scope() {
+            if ::core::ptr::eq(prior, flag) {
+                return false;
+            }
+            if prior.longs.iter().any(|long| long.as_bytes() == form)
+                || prior.negate.is_some_and(|negate| negate.as_bytes() == form)
+            {
+                return true;
+            }
+        }
+        false
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {

@@ -13,7 +13,7 @@ use usage_derive::{Args, Cli, Subcommands};
     infer_long_args
 )]
 struct Ex {
-    #[usage(long)]
+    #[usage(long, global)]
     verbose: bool,
     #[usage(long)]
     verify: bool,
@@ -35,6 +35,8 @@ enum Commands {
 struct Install {
     #[usage(long)]
     forceful: bool,
+    #[usage(long)]
+    verbose: bool,
 }
 
 #[derive(Args)]
@@ -59,6 +61,14 @@ fn the_typed_parser_accepts_only_unique_prefixes() {
         panic!("expected install")
     };
     assert!(install.forceful);
+
+    let parsed = Ex::parse_from(&argv(["install", "--verb"]))
+        .expect("a child redeclaration should shadow the inherited global for prefixes");
+    let Some(Commands::Install(install)) = parsed.command else {
+        panic!("expected install")
+    };
+    assert!(install.verbose);
+    assert!(!parsed.verbose);
 
     assert!(
         matches!(
