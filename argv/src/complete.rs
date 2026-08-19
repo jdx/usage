@@ -868,14 +868,29 @@ fn overlay_at_cursor<'o>(
         return None;
     }
     let chain = metadata_chain_on_route(spec, position)?;
-    let owner_at = chain
+    let path: Vec<&str> = if let Some(owner_at) = chain
         .iter()
-        .position(|candidate| core::ptr::eq(*candidate, owner))?;
-    let path: Vec<&str> = chain[..=owner_at]
-        .iter()
-        .skip(1)
-        .map(|meta| meta.cmd.name)
-        .collect();
+        .position(|candidate| core::ptr::eq(*candidate, owner))
+    {
+        chain[..=owner_at]
+            .iter()
+            .skip(1)
+            .map(|meta| meta.cmd.name)
+            .collect()
+    } else if core::ptr::eq(position.cmd, spec.root.cmd)
+        && spec
+            .root
+            .subcommands
+            .iter()
+            .any(|candidate| core::ptr::eq(*candidate, owner))
+    {
+        // A default subcommand can supply the root cursor's first argument without the
+        // parser descending into it. Its metadata identity is already unambiguous here;
+        // preserve that implied route instead of falling back to a tree-wide pointer search.
+        vec![owner.cmd.name]
+    } else {
+        return None;
+    };
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
     })
