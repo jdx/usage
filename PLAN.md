@@ -595,12 +595,12 @@ feature list is not an exhaustive audit.
       into a broad public-type refactor before argv behavior can even be tested.
       Accept inline variants or provide a migration lowering that preserves the
       user's enum shape.
-- [ ] **ValueEnum must coexist with domain parsing and cfg.** aube and fnox enums
+- [x] **ValueEnum must coexist with domain parsing and cfg.** aube and fnox enums
       already implement `FromStr`; deriving usage `ValueEnum` adds a conflicting
       implementation. fnox also cfg-gates individual variants, while usage's
-      const word list refuses holes. ValueEnum should describe choices without
-      taking ownership of domain parsing, and cfg-gated variants need a sound
-      static-table representation.
+      const word list refused holes. ValueEnum now describes choices without
+      taking ownership of domain parsing, and copies variant `cfg`/`cfg_attr`
+      attributes onto the corresponding static-table entries.
 - [ ] **Flag aliases in the derive.** aube declares secondary flag spellings.
       Static metadata can carry aliases, but a usage field accepts neither
       `alias` nor clap's `visible_alias`, so the typed authoring surface cannot

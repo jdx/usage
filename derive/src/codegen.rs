@@ -4512,59 +4512,34 @@ fn post_binding(cli: &Cli) -> TokenStream {
     }
 }
 
-/// The word list and the conversion for a value enum.
+/// The word list for a value enum.
 ///
-/// Two impls and nothing else: the words as a `const` the spec can read, and the `FromStr`
-/// that every typed field already goes through. Deliberately not a bespoke path — a value
-/// enum is a type whose values happen to be listed, so it converts the way any other type
-/// does, and the check that rejects a wrong word is the same `choices` check as a
-/// hand-written list.
+/// Conversion remains the type's own `FromStr` implementation, like every other typed
+/// field. This derive owns only CLI metadata, so it can coexist with a domain parser whose
+/// accepted syntax or error type is broader than the choices presented in help.
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
     let runtime = runtime_path();
-    let words: Vec<&String> = value_enum
-        .variants
-        .iter()
-        .map(|value| &value.name)
-        .collect();
-    let accepted: Vec<&String> = value_enum
-        .variants
-        .iter()
-        .flat_map(|value| ::std::iter::once(&value.name).chain(value.aliases.iter()))
-        .collect();
+    let words = value_enum.variants.iter().map(|value| {
+        let word = &value.name;
+        let cfg = &value.cfg_attrs;
+        quote!(#(#cfg)* #word)
+    });
+    let accepted = value_enum.variants.iter().flat_map(|value| {
+        let cfg = &value.cfg_attrs;
+        ::std::iter::once(&value.name)
+            .chain(value.aliases.iter())
+            .map(move |word| quote!(#(#cfg)* #word))
+    });
     let aliases = value_enum.variants.iter().flat_map(|value| {
         let canonical = &value.name;
+        let cfg = &value.cfg_attrs;
         value
             .aliases
             .iter()
-            .map(move |alias| quote!((#canonical, #alias)))
+            .map(move |alias| quote!(#(#cfg)* (#canonical, #alias)))
     });
     let ignore_case = value_enum.ignore_case;
-    let arms = value_enum.variants.iter().map(|value| {
-        let variant = &value.ident;
-        let names = ::std::iter::once(&value.name).chain(value.aliases.iter());
-        if ignore_case {
-            quote! {
-                if [#(#names),*].iter().any(|word| word.eq_ignore_ascii_case(value)) {
-                    return ::std::result::Result::Ok(#ident::#variant);
-                }
-            }
-        } else {
-            quote! {
-                if [#(#names),*].contains(&value) {
-                    return ::std::result::Result::Ok(#ident::#variant);
-                }
-            }
-        }
-    });
-    // Listed in the message because a wrong word is the common mistake, and the words are
-    // right here. The `choices` check usually reports this first, with the same list; this
-    // is what a caller sees who converts one by hand.
-    let expected = words
-        .iter()
-        .map(|w| w.as_str())
-        .collect::<::std::vec::Vec<_>>()
-        .join(", ");
 
     quote! {
         #[doc(hidden)]
@@ -4576,18 +4551,6 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 const ACCEPTED_CHOICES: &'static [&'static str] = &[#(#accepted),*];
                 const ALIASES: &'static [(&'static str, &'static str)] = &[#(#aliases),*];
                 const IGNORE_CASE: bool = #ignore_case;
-            }
-
-            impl ::std::str::FromStr for #ident {
-                type Err = ::std::string::String;
-
-                fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
-                    #(#arms)*
-                    ::std::result::Result::Err(::std::format!(
-                        "`{value}` is not one of: {}",
-                        #expected
-                    ))
-                }
             }
         };
     }

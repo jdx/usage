@@ -8,6 +8,18 @@ enum Shell {
     Zsh,
 }
 
+impl std::str::FromStr for Shell {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "bash" => Ok(Self::Bash),
+            "zsh" => Ok(Self::Zsh),
+            _ => Err(format!("unsupported shell: {value}")),
+        }
+    }
+}
+
 #[derive(Cli)]
 #[usage(bin = "ex")]
 struct Ex {
