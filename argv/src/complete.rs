@@ -665,14 +665,14 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
         let meta = flag_meta(spec.root, flag);
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
-            meta.is_some_and(|m| !m.choices.is_empty()),
+            meta.is_some_and(|m| !m.choices.is_empty() || !m.accepted_choices.is_empty()),
             meta.and_then(|m| m.complete_type),
         )
     } else if let Some(arg) = at_cursor {
         let meta = arg_meta(spec.root, arg);
         (
             Some(arg.name),
-            meta.is_some_and(|m| !m.choices.is_empty()),
+            meta.is_some_and(|m| !m.choices.is_empty() || !m.accepted_choices.is_empty()),
             meta.and_then(|m| m.complete_type),
         )
     } else {
@@ -2727,6 +2727,39 @@ mod tests {
         assert_eq!(a.files, None);
         // Nor for a help topic, which is a command name and nothing else.
         assert_eq!(answer("mise help ").files, None);
+    }
+
+    #[test]
+    fn hidden_only_choices_still_close_the_position() {
+        static VALUE: Arg = Arg {
+            key: 90,
+            name: "VALUE",
+            ..Arg::REQUIRED
+        };
+        static ROOT: Command = Command {
+            name: "hidden",
+            args: &[&VALUE],
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            args: &[ArgMeta {
+                arg: &VALUE,
+                accepted_choices: &["secret"],
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static HIDDEN_SPEC: Spec = Spec {
+            name: "hidden",
+            bin: Some("hidden"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+
+        let answer = complete(&HIDDEN_SPEC, &at_end("hidden sec"));
+        assert!(answer.candidates.is_empty());
+        assert_eq!(answer.files, None);
     }
 
     #[test]
