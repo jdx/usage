@@ -579,13 +579,12 @@ feature list is not an exhaustive audit.
       such as `requires` and `default_missing_value`, where loss cannot be detected,
       the matrix and integration docs must say that the bridge is not a lossless
       migration verifier.
-- [ ] **Defaults must preserve optionality in metadata.** The typed tak rewrite
-      accepts an omitted defaulted `String`, but its emitted KDL spells the
-      argument `<REV>` and the flag `required=#true`, where clap_usage emitted
-      `[REV]` and an optional value-taking flag. Binding succeeds because the
-      derive applies the default, but help, spec consumers and differential
-      tooling see a required shape. A default satisfies a field; it must not
-      make the user's token required in the static metadata.
+- [x] **Defaults preserve optionality in metadata.** A default satisfies a
+      required Rust field without requiring a token from the user. The derive
+      now clears `required` in the static metadata for defaulted flags and
+      positionals, so direct KDL emission, both help renderers, completions and
+      differential tooling all describe the same optional token that runtime
+      parsing already accepted. The typed tak rewrite covers both shapes.
 - [x] **Rust expressions for compile-time metadata.** hk and fnox use constants
       for defaults, aube and hk use constants for long help, and all three use
       generated or computed version strings. Requiring every value to be copied
@@ -1142,17 +1141,12 @@ repeated here.
 - [ ] **Relationships across a flatten boundary.** A flag in the parent
       conflicting with a flag in the flattened group has no spelling; hk and
       aube both hit it and enforce post-bind by hand.
-- [ ] **Checked-in specs vs release automation.** tak sets `spec.version = None`
-      post-hoc so release-plz's version-only PR does not fail the
-      generated-reference CI check. This is not a bridge problem and it survives
-      removing clap: the derive's spec emission carries `version` too. Decide
-      how a checked-in spec treats version under release automation — an
-      omit-version option on spec emission, or regenerating the reference as
-      part of the release. Not a clap_usage feature; the bridge is transitional
-      and the fleet's endpoint is the derive. **Decided (2026-08-19): the
-      omit-version option.** The binary knows its version at runtime; docs and
-      manpage rendering inject it at render time; release PRs stay
-      version-only.
+- [x] **Checked-in specs vs release automation.** `SpecView::omit_version()`
+      removes the runtime version from a cold emitted metadata view without
+      changing the base derived spec or built-in `--version` behavior. tak uses
+      that view for its checked-in KDL and generated reference, so release-plz's
+      version-only PRs no longer dirty those artifacts. A later `version(...)`
+      override restores an explicit version when a consumer needs one.
 
 ### clap's backlog, read as a roadmap
 
