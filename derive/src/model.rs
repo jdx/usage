@@ -1629,6 +1629,7 @@ impl Field {
         let mut value_optional = false;
         let mut double_dash = DoubleDash::Optional;
         let mut env = None;
+        let mut bare_env = false;
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
         let mut default_value_t = None;
@@ -1726,12 +1727,16 @@ impl Field {
                     "value_optional" => value_optional = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
-                    "env" => {
-                        env = Some(match &meta {
-                            Meta::Path(_) => rename_all_env.apply(&ident.unraw().to_string()),
-                            _ => string_value(&meta)?,
-                        })
-                    }
+                    "env" => match &meta {
+                        Meta::Path(_) => {
+                            env = None;
+                            bare_env = true;
+                        }
+                        _ => {
+                            env = Some(string_value(&meta)?);
+                            bare_env = false;
+                        }
+                    },
                     // The *setting* this flag sets, which is a different thing from the flag's name
                     // and from the environment variable: `--jobs`, `HK_JOBS` and `jobs` are three
                     // spellings of one value, and only the last is what a config file calls it.
@@ -1895,6 +1900,13 @@ impl Field {
         }
 
         let (help, long_help) = doc_comment(&field.attrs, verbatim_doc_comment)?;
+
+        // Like bare `long` and `short`, a bare `env` is inferred from the field's
+        // parser identity. Resolve it only after every attribute has been read so
+        // an `id` or `name` written later wins over the Rust identifier.
+        if bare_env {
+            env = Some(rename_all_env.apply(&name));
+        }
 
         // A bare `long` or `short` written before `name` would have captured the
         // field name rather than the renamed one, so resolve both once everything
@@ -5770,6 +5782,10 @@ mod tests {
             struct Ex {
                 #[arg(long, env)]
                 api_token: Option<String>,
+                #[arg(env, id = "service_credential", long)]
+                credential: Option<String>,
+                #[arg(env, name = "account_secret", long)]
+                secret: Option<String>,
                 #[arg(long = "fixed", env = "FIXED_ENV")]
                 explicit_name: Option<String>,
             }
@@ -5783,11 +5799,14 @@ mod tests {
         };
         assert_eq!(longs, &["apiToken"]);
 
-        let Kind::Flag { longs, .. } = &cli.fields[1].kind else {
+        assert_eq!(cli.fields[1].env.as_deref(), Some("servicecredential"));
+        assert_eq!(cli.fields[2].env.as_deref(), Some("accountsecret"));
+
+        let Kind::Flag { longs, .. } = &cli.fields[3].kind else {
             panic!("long should make this a flag");
         };
         assert_eq!(longs, &["fixed"]);
-        assert_eq!(cli.fields[1].env.as_deref(), Some("FIXED_ENV"));
+        assert_eq!(cli.fields[3].env.as_deref(), Some("FIXED_ENV"));
     }
 
     #[test]
