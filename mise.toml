@@ -102,19 +102,24 @@ fi
 cargo semver-checks check-release -p usage-lib
 '''
 [tasks."lint:go"]
-dir = 'go'
+dir = "{{config_root}}"
 # `gofmt -l` prints what it would change and exits 0 either way, so the output is
 # the failure condition.
+#
+# Both modules. `benches/go/cobra` is generated, and a generated file that gofmt would
+# reformat is one the generator is not finished with — `go vet` there is skipped rather than
+# failing the lint on a machine that cannot fetch cobra.
 run = [
-    'test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
-    'go vet ./...',
+    'test -z "$(gofmt -l go benches/go)" || { gofmt -l go benches/go; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
+    'cd go && go vet ./...',
+    'cd benches/go/cobra && (go vet ./... || echo "skipped: cobra could not be fetched")',
 ]
 
 [tasks.lint-fix]
 run = [
     'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
     'cargo fmt --all',
-    'gofmt -w go',
+    'gofmt -w go benches/go',
     'prettier -w .',
 ]
 
@@ -181,6 +186,9 @@ run = [
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-argh argh",
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-bpaf bpaf",
+    # Go, and a module of its own: cobra is what usage-go is compared against, so it must not
+    # be a dependency of the module being measured.
+    "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/go/cobra cobra",
     "cargo run -q -p xtask -- gen-shadow benches/fleet/hk.usage.kdl benches/shadows/hk usage",
     "cargo run -q -p xtask -- gen-shadow benches/fleet/fnox.usage.kdl benches/shadows/fnox usage",
     "cargo run -q -p xtask -- gen-shadow benches/fleet/pitchfork.usage.kdl benches/shadows/pitchfork usage",

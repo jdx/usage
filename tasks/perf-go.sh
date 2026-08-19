@@ -24,6 +24,11 @@ ARGV="use -g node@20"
 # 50x slowdown stays under a second.
 BINDS=1000
 
+# cobra builds its whole command tree on every iteration, which is the cost being compared and
+# about a thousand times usage-go's. Fewer iterations, so cachegrind's 50x slowdown still
+# finishes: 20 of them is 40M instructions, where 1000 would be two billion.
+COBRA_BINDS=20
+
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
 bin=$work/parse-n
@@ -35,6 +40,26 @@ trap 'rm -rf "$work"' EXIT
 
 (cd "$root/go" && go build -o "$bin" ./internal/bench/parse-n)
 
+# cobra, from the same spec — `xtask gen-shadow … cobra`, checked in under benches/go/cobra.
+#
+# Its own module, so cobra is not a dependency of `github.com/jdx/usage/go`, and its build is
+# allowed to fail: it needs the dependency fetched, and a machine without a proxy should still
+# get the row this harness is mainly about. What it must not do is silently report nothing, so
+# the reason lands in the table.
+cobra_bin=$work/cobra
+cobra_why=""
+if [ -d "$root/benches/go/cobra" ]; then
+  if ! (cd "$root/benches/go/cobra" && go build -o "$cobra_bin" . 2>"$work/cobra.log"); then
+    cobra_why="build failed: $(tr -d '\n' <"$work/cobra.log" | cut -c1-120)"
+  fi
+else
+  cobra_why="benches/go/cobra is missing; run \`mise run gen-shadow\`"
+fi
+# shellcheck disable=SC2086
+if [ -z "$cobra_why" ] && [ "$(PARSE_N=1 "$cobra_bin" $ARGV)" != "1" ]; then
+  cobra_why="the shadow did not reach a subcommand"
+fi
+
 # Each harness prints 1 when the bind reached a subcommand. Anything else means the numbers
 # below would be describing a rejected command line, which is cheap for the wrong reason.
 # shellcheck disable=SC2086 # the argv is several words on purpose
@@ -44,9 +69,10 @@ if [ "$(PARSE_N=1 "$bin" $ARGV)" != "1" ]; then
 fi
 
 instructions() {
+  local binary=$1 n=$2
   # shellcheck disable=SC2086
-  PARSE_N="$1" valgrind --tool=cachegrind --cache-sim=no --branch-sim=no \
-    --cachegrind-out-file="$work/cachegrind.out.%p" "$bin" $ARGV 2>&1 |
+  PARSE_N="$n" valgrind --tool=cachegrind --cache-sim=no --branch-sim=no \
+    --cachegrind-out-file="$work/cachegrind.out.%p" "$binary" $ARGV 2>&1 |
     sed -n 's/.*I *refs: *//p' | tr -d ','
 }
 
@@ -85,14 +111,14 @@ runs=10
 # Ten whole processes, timed from outside: a timer inside the program cannot see the runtime
 # starting up, and that is most of what is being reported here.
 wall_ms() {
-  local n=$1
+  local binary=$1 n=$2
   case $clock in
   gnu)
     local start end
     start=$(date +%s%N 2>/dev/null) || start=
     for _ in $(seq "$runs"); do
       # shellcheck disable=SC2086
-      PARSE_N="$n" "$bin" $ARGV >/dev/null
+      PARSE_N="$n" "$binary" $ARGV >/dev/null
     done
     end=$(date +%s%N 2>/dev/null) || end=
     # Validated rather than trusted: a `date` that answers with anything else would
@@ -112,7 +138,7 @@ wall_ms() {
     # ten runs of about one millisecond each, so the fallback reported python rather than
     # the program it was pointed at.
     # shellcheck disable=SC2086
-    python3 - "$bin" "$n" "$runs" $ARGV <<'PYTHON' 2>/dev/null || echo "unavailable"
+    python3 - "$binary" "$n" "$runs" $ARGV <<'PYTHON' 2>/dev/null || echo "unavailable"
 import os, subprocess, sys, time
 
 binary, parse_n, runs, *argv = sys.argv[1:]
@@ -138,9 +164,14 @@ wall_cell() {
   fi
 }
 
-size=$(stat -c %s "$bin" 2>/dev/null || stat -f %z "$bin")
-size_mb=$(awk -v b="$size" 'BEGIN { printf "%.2f", b / 1048576 }')
-one_wall=$(wall_ms 1)
+size_mb() {
+  local bytes
+  bytes=$(stat -c %s "$1" 2>/dev/null || stat -f %z "$1")
+  awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'
+}
+
+size_mb=$(size_mb "$bin")
+one_wall=$(wall_ms "$bin" 1)
 
 if ! command -v valgrind >/dev/null 2>&1; then
   {
@@ -153,8 +184,8 @@ if ! command -v valgrind >/dev/null 2>&1; then
   exit 0
 fi
 
-floor=$(instructions 0)
-many=$(instructions "$BINDS")
+floor=$(instructions "$bin" 0)
+many=$(instructions "$bin" "$BINDS")
 per=$(( (many - floor) / BINDS ))
 
 {
@@ -176,4 +207,38 @@ per=$(( (many - floor) / BINDS ))
   printf 'pays before `main`, it is three orders of magnitude larger than the bind, and it\n'
   printf 'varies between runs by more than the bind costs. Any single-bind measurement here is\n'
   printf 'a measurement of the runtime.\n'
+
+  printf '\n#### Against cobra\n\n'
+  if [ -n "$cobra_why" ]; then
+    printf 'Not measured this run — %s.\n' "$cobra_why"
+  else
+    cobra_floor=$(instructions "$cobra_bin" 0)
+    cobra_many=$(instructions "$cobra_bin" "$COBRA_BINDS")
+    cobra_per=$(( (cobra_many - cobra_floor) / COBRA_BINDS ))
+    cobra_wall=$(wall_ms "$cobra_bin" 1)
+    ratio=$(awk -v a="$cobra_per" -v b="$per" 'BEGIN { printf "%.0f", a / b }')
+
+    # shellcheck disable=SC2016 # the backticks are markdown, not command substitution
+    printf 'The same spec, declared in cobra by `xtask gen-shadow … cobra` and checked in under\n'
+    # shellcheck disable=SC2016
+    printf '`benches/go/cobra`, so the two rows describe the same CLI rather than two people'"'"'s\n'
+    printf 'transcriptions of mise.\n\n'
+    printf '| | one resolve | whole process | binary |\n|---|---:|---:|---:|\n'
+    printf '| usage-go | %s | %s | %s MB |\n' \
+      "$(printf "%'d" "$per")" "$(wall_cell "$one_wall")" "$size_mb"
+    printf '| cobra | %s | %s | %s MB |\n' \
+      "$(printf "%'d" "$cobra_per")" "$(wall_cell "$cobra_wall")" "$(size_mb "$cobra_bin")"
+    printf '| ratio | %sx | | |\n' "$ratio"
+    printf '\n'
+    printf 'cobra'"'"'s figure includes building its command tree, because that is what it does on\n'
+    # shellcheck disable=SC2016
+    printf 'every process start: a `cobra.Command` per subcommand, each with its own flag set.\n'
+    printf 'Hoisting it out of the loop would measure its parser against a program that had\n'
+    printf 'already paid for its model, which no CLI gets to do. usage-go has no such step —\n'
+    printf 'the tables are laid out by the linker — so the two figures are what each framework\n'
+    printf 'costs to answer one command line in a fresh process.\n'
+    printf '\nAmortized over %s iterations for usage-go and %s for cobra: one cobra resolve is\n' \
+      "$BINDS" "$COBRA_BINDS"
+    printf 'dear enough that a thousand of them under cachegrind would take minutes.\n'
+  fi
 } >"$out"

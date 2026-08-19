@@ -15,6 +15,7 @@ use std::path::Path;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
+mod cobra;
 mod help_pages;
 mod shadow;
 
@@ -36,9 +37,11 @@ fn main() {
                 "clap" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Clap),
                 "argh" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Argh),
                 "bpaf" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Bpaf),
+                // Go rather than Rust, so it has an emitter of its own.
+                "cobra" => cobra::generate(Path::new(spec), Path::new(out)),
                 other => fail(&format!(
                     "unknown dialect `{other}`; the dialects are \
-                     `usage`, `clap`, `argh` and `bpaf`"
+                     `usage`, `clap`, `argh`, `bpaf` and `cobra`"
                 )),
             },
             _ => {
@@ -53,7 +56,7 @@ fn main() {
         },
         other => fail(&format!(
             "unknown task `{other}`; the tasks are: \
-             gen-shadow <spec.kdl> <out-dir> [usage|clap|argh|bpaf], \
+             gen-shadow <spec.kdl> <out-dir> [usage|clap|argh|bpaf|cobra], \
              help-pages <spec.kdl>"
         )),
     }
