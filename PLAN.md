@@ -778,25 +778,25 @@ looking at the clap surface, not only at the spec.
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
 - [~] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
-      shadows.** `gen-shadow`
-      types every field as `String`. The derive already holds `PathBuf`,
-      `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
-      proves that for usage's own types. These five will prove it across real
-      clap CLIs rewritten in place: real field types, skip-fields or the split
-      they force, and binaries that preserve every pre-existing `--help` and
-      spec-emission entry point. tak's experiment-only spec entry point is tested
-      as new behavior rather than compared with a nonexistent baseline. Each
-      experiment is a ready-for-review PR whose `Cargo.toml`
-      deliberately points at usage's git revision; the PR is evidence for the
-      6.x gate, not something to merge before usage 6.x is published. Together
-      they tell us whether the fleet is a rewrite or a set of blocked rewrites.
-      **The experiment PRs now exist and all five modify the real CLI:**
-      jdx/communique#265 and jdx/tak#47 compile (tak's full suite passes);
-      jdx/aube#1336, jdx/hk#1211 and jdx/fnox#725 remove the clap dependency and
-      convert the real derives, but stop on 194, 490 and 326 compiler diagnostics
-      respectively, including cascades. Their migration-status files group those
-      failures into the launch-gate rows above. All five pin `jdx/usage` at
-      `cc60dcb7`.
+  shadows.** `gen-shadow`
+  types every field as `String`. The derive already holds `PathBuf`,
+  `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
+  proves that for usage's own types. These five will prove it across real
+  clap CLIs rewritten in place: real field types, skip-fields or the split
+  they force, and binaries that preserve every pre-existing `--help` and
+  spec-emission entry point. tak's experiment-only spec entry point is tested
+  as new behavior rather than compared with a nonexistent baseline. Each
+  experiment is a ready-for-review PR whose `Cargo.toml`
+  deliberately points at usage's git revision; the PR is evidence for the
+  6.x gate, not something to merge before usage 6.x is published. Together
+  they tell us whether the fleet is a rewrite or a set of blocked rewrites.
+  **The experiment PRs now exist and all five modify the real CLI:**
+  jdx/communique#265 and jdx/tak#47 compile (tak's full suite passes);
+  jdx/aube#1336, jdx/hk#1211 and jdx/fnox#725 remove the clap dependency and
+  convert the real derives, but stop on 194, 490 and 326 compiler diagnostics
+  respectively, including cascades. Their migration-status files group those
+  failures into the launch-gate rows above. All five pin `jdx/usage` at
+  `cc60dcb7`.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -839,15 +839,15 @@ a prerequisite for trying a CLI.
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
 - [~] **communique, tak, aube, hk, and fnox** — five fleet experiment PRs now
-      exist, each
-      carried as a ready-for-review experimental PR on a git dependency until
-      usage 6.x exists. communique and tak parse their real typed commands with
-      usage and compile; tak's added spec endpoint is experiment-only and outside
-      its preserved CLI contract. aube, hk and fnox have their real derives and
-      dependencies converted, not shadows, but do not compile against the current
-      usage revision. The gaps found are recorded in the general launch gate
-      above; closing them and finishing those three typed rewrites is required
-      before 6.x is published.
+  exist, each
+  carried as a ready-for-review experimental PR on a git dependency until
+  usage 6.x exists. communique and tak parse their real typed commands with
+  usage and compile; tak's added spec endpoint is experiment-only and outside
+  its preserved CLI contract. aube, hk and fnox have their real derives and
+  dependencies converted, not shadows, but do not compile against the current
+  usage revision. The gaps found are recorded in the general launch gate
+  above; closing them and finishing those three typed rewrites is required
+  before 6.x is published.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
       parsers. Adoption is measured by what it lets mise delete, listed below.
