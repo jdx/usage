@@ -559,6 +559,51 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     })
                 }
 
+                /// Parse a full argv, including the program name.
+                ///
+                /// This is the test- and embedding-friendly counterpart to
+                /// [`Self::parse`]: it strips argv0 for an ordinary CLI and
+                /// applies the same basename-based applet selection for a
+                /// multicall CLI, while returning errors instead of exiting.
+                pub fn parse_from_argv<'v>(
+                    argv: &'v [&'v ::std::ffi::OsStr],
+                ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
+                    let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
+                        argv.split_first()
+                    else {
+                        return Self::parse_from(&[]);
+                    };
+                    if SPEC.multicall {
+                        if let ::std::option::Option::Some(__usage_word) =
+                            __usage_argv0.to_str().and_then(|s| {
+                                usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                            })
+                        {
+                            let ::std::option::Option::Some(__usage_command) =
+                                Self::command().subcommands.iter().copied().find(|command| {
+                                    command.name == __usage_word
+                                        || command.aliases.contains(&__usage_word)
+                                })
+                            else {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::MissingSubcommand,
+                                );
+                            };
+                            #defaults
+                            apply(
+                                &mut partial,
+                                &usage_argv::Event::Command(__usage_command),
+                            );
+                            read_into(__usage_command, __usage_words, &mut partial)?;
+                            return ::std::result::Result::Ok(Self {
+                                #sub_build
+                                #(#field_finals),*
+                            });
+                        }
+                    }
+                    Self::parse_from(__usage_words)
+                }
+
                 /// Parse the process's own arguments.
                 #completion
 

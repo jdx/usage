@@ -719,11 +719,11 @@ feature list is not an exhaustive audit.
       help and diagnostics still use the static name. Support a runtime identity
       source with an explicit portable `name`/`bin` value, analogous to computed
       version plus `version_spec`.
-- [ ] **Test parsing with argv0.** `parse_from` intentionally takes words after
+- [x] **Test parsing with argv0.** `parse_from` intentionally takes words after
       the binary, while clap tests commonly call `try_parse_from(["tool", ...])`.
-      Fleet ports needed local wrappers just to preserve their parser tests.
-      Add an explicit argv0-taking helper rather than making every migration
-      hand-roll `skip(1)` and accidentally obscure multicall semantics.
+      `parse_from_argv` is the explicit full-argv helper: it strips the binary
+      for ordinary CLIs and applies the same basename-selected applet rewrite as
+      `parse()` for multicall CLIs, while returning errors for tests and embedders.
 - [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
       compared on accepted and rejected argv, typed values, error kind and exit
       status, stdout versus stderr, short and long help, usage/version output, and
@@ -1130,9 +1130,10 @@ repeated here.
       1.91, so a CLI that links it for spec generation inherits the bump. The
       argv/derive tier is dependency-free by design; keeping a low-MSRV path to
       spec emission — without usage-lib — is what lets a conservative CLI adopt.
-- [ ] **The `parse_from` argv0 contract.** It differs from clap's, which broke
-      fnox's test helpers in the rewrite experiment. Decide it, document it,
-      and provide a clap-shaped variant if the difference stays.
+- [x] **The `parse_from` argv0 contract.** It differs from clap's, which broke
+      fnox's test helpers in the rewrite experiment. `parse_from` remains the
+      allocation-free words-only primitive; `parse_from_argv` is the explicit
+      clap-shaped, argv0-taking variant and preserves multicall selection.
 - [ ] **Shared `Args` under multiple commands need wrapper types** in the
       derive, where clap lets one struct serve several parents directly.
       flatten covers the mise `ConfigLs` shape; the fnox shape is the same
