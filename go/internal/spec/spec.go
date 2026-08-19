@@ -309,6 +309,7 @@ type Arg struct {
 	HelpHeading   string   `json:"help_heading"`
 	Validate      string   `json:"validate"`
 	ValidateError string   `json:"validate_error"`
+	Conflicts     []string `json:"conflicts"`
 }
 
 // Example is a worked invocation a page prints.
@@ -663,6 +664,13 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		if key, ok := b.matchFlag(out.Flags, name, false); ok {
 			return key, true
 		}
+		if !strings.HasPrefix(name, "-") {
+			for _, arg := range out.Args {
+				if arg.Name == name {
+					return arg.Key, true
+				}
+			}
+		}
 		for i := len(b.scope) - 1; i >= 0; i-- {
 			if key, ok := b.matchFlag(b.scope[i].Flags, name, true); ok {
 				return key, true
@@ -708,6 +716,11 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.RequiredIf = resolve(src.RequiredIf)
 		m.RequiresIf = resolveValues(src.RequiresIf)
 		m.DefaultIf = resolveDefaultIf(src.DefaultIf)
+	}
+	for i := range c.Args {
+		src := &c.Args[i]
+		m := &b.meta[out.Args[i].Key-1]
+		m.Conflicts = resolve(src.Conflicts)
 	}
 }
 

@@ -467,10 +467,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       subcommands still win; a `default_subcommand` still catches first; a
       flag-like token on the parent is still an unknown flag. **Used by:**
       aube's catch-all and pitchfork's root.
-- [ ] **Positionals in relationships and groups.** clap names relationships by
-      argument id and allows positional members; the spec's selectors name only
-      flags, so the clap bridge deliberately drops positional conflicts and group
-      members. Required groups and conflicts can therefore become weaker.
+- [x] **Positionals in relationships and groups.** Bare selectors name
+      positionals while dashed selectors name flags. Positional conflicts and
+      group members now round-trip through KDL, the derive and static metadata,
+      usage-lib, generated Go relationship tables, and the clap bridge. The
+      fidelity report no longer calls these preserved declarations losses.
 - [ ] **The complete relationship families** — `requires_all`,
       `required_if_eq`, `required_if_eq_all`, `required_if_eq_any`, and the
       `required_unless_present` all/any variants. The common single-selector
@@ -583,8 +584,8 @@ feature list is not an exhaustive audit.
       `generate_with_report` return deterministic structured losses with command
       path, argument ID, feature, and source detail. The report covers detectable
       arity/name loss, environment bindings, hidden flag aliases, value hints and
-      terminators, non-portable delimiters/defaults, positional relationships and
-      group members, granular hides, and command parsing/help settings. Setter-only
+      terminators, non-portable delimiters/defaults, granular hides, and command
+      parsing/help settings. Setter-only
       state such as `requires` and `default_missing_value` remains inherently
       undetectable and is named as **usage-only** in the matrix and integration docs.
 - [x] **Defaults preserve optionality in metadata.** A default satisfies a

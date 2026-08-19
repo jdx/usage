@@ -24,15 +24,16 @@ use crate::spec::is_false;
 /// So the default group is "at most one of these", `required` alone is "exactly one of
 /// these", and `multiple` with `required` is "at least one of these".
 ///
-/// Members are named the way every other relationship names a flag — `--long` or `-s` —
-/// so a group refers to flags by how they are spelled rather than by an internal id.
+/// Members use the same selectors as other relationships: `--long` or `-s` for a flag,
+/// and the bare argument name for a positional.
 #[derive(Debug, Default, Clone, Serialize)]
 #[non_exhaustive]
 pub struct SpecGroup {
     /// What this group is called. Used in messages, and it is how a reader tells two
     /// groups apart when a command has several.
     pub name: String,
-    /// The flags in the group, as selectors.
+    /// The arguments in the group, as selectors. Flags use dashed spellings;
+    /// positionals use their bare names.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<String>,
     /// Whether at least one member has to be given.
@@ -111,14 +112,14 @@ impl SpecGroup {
         if group.name.is_empty() {
             bail_parse!(ctx, node.span(), "a group needs a name");
         }
-        // A group of one is a flag, and a group of none is nothing at all. Both are
+        // A group of one is an argument, and a group of none is nothing at all. Both are
         // almost certainly a mistake in the writing rather than an intention, and
         // neither can be enforced into meaning anything.
         if group.members.len() < 2 {
             bail_parse!(
                 ctx,
                 node.span(),
-                "group {} needs at least two flags; a rule about one flag belongs on that flag",
+                "group {} needs at least two arguments; a rule about one argument belongs on it",
                 group.name
             );
         }
@@ -179,8 +180,8 @@ mod tests {
     }
 
     #[test]
-    fn a_group_of_fewer_than_two_flags_is_refused() {
-        // A group of one is a rule about a flag, which belongs on the flag; a group of
+    fn a_group_of_fewer_than_two_arguments_is_refused() {
+        // A group of one is a rule about an argument, which belongs on that argument; a group of
         // none is nothing at all. Both are a slip in the writing rather than a shape
         // anyone means, and neither enforces anything, so they are refused where they
         // are written rather than silently doing nothing at run time.
@@ -292,12 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn a_clap_group_naming_a_positional_keeps_the_flags_it_can_name() {
-        // The spec names group members the way it names every other relationship, by
-        // flag, so a positional member has no spelling here. Dropping it silently would
-        // leave a group that enforces less than clap does — but writing `--<name>` for
-        // it would be a selector matching nothing, which reads as a rule that holds and
-        // enforces even less. The flags it can name still make a group.
+    fn a_clap_group_names_positional_members() {
         let cmd = clap::Command::new("ex")
             .arg(clap::Arg::new("file").long("file"))
             .arg(clap::Arg::new("url").long("url"))
@@ -307,7 +303,11 @@ mod tests {
         let group = spec.cmd.groups.iter().find(|g| g.name == "input").unwrap();
         assert_eq!(
             group.members,
-            vec!["--file".to_string(), "--url".to_string()]
+            vec![
+                "--file".to_string(),
+                "--url".to_string(),
+                "target".to_string()
+            ]
         );
     }
 }

@@ -72,17 +72,15 @@ the group enforces nothing.
 
 A group needs at least two members, and naming fewer is an error where it is written
 rather than a rule that quietly enforces nothing. A group of one is a statement about
-that flag, which belongs on the flag as [`required`](/spec/reference/flag) or
-[`requires`](/spec/reference/flag#requires).
+that argument, which belongs on the argument as `required` or a relationship.
 
-Only flags can be members. clap allows a positional in a group; a spec generated from
-such a command keeps the flags and drops the positional, since the spec has no way to
-name one in a relationship and a selector matching nothing would read as a rule that
-holds.
+Flags are named by a dashed selector such as `--file` or `-f`. A positional is named by
+its bare argument name, such as `TARGET`. The clap bridge resolves argument IDs to these
+spellings, so mixed flag/positional groups keep every member.
 
-Members are counted by the flag they name, not by the selector, so a group listing both
-`-f` and `--file` holds one member and not two. Listing both is redundant rather than
-wrong, and a flag is never in conflict with itself.
+Members are counted by the argument they name, not by the selector, so a group listing
+both `-f` and `--file` holds one member and not two. Listing both is redundant rather
+than wrong, and a flag is never in conflict with itself.
 
 ## From the derive
 

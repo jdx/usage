@@ -35,7 +35,6 @@ fn reports_detectable_losses_with_locations() {
         FidelityFeature::GranularHide,
         FidelityFeature::ValueArity,
         FidelityFeature::DistinctValueNames,
-        FidelityFeature::PositionalGroupMember,
     ] {
         assert!(
             features.contains(&expected),

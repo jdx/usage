@@ -84,6 +84,12 @@ pub struct SpecArg {
     pub delimiter: Option<char>,
     /// Whether to hide this argument from help output
     pub hide: bool,
+    /// Arguments and flags that cannot be given alongside this positional.
+    ///
+    /// A bare selector names another positional by name; flag selectors keep their
+    /// `--long` or `-s` spelling.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub conflicts: Vec<String>,
     /// Default value(s) if the argument is not provided
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub default: Vec<String>,
@@ -150,6 +156,7 @@ impl SpecArg {
                     }
                 }
                 "hide" => arg.hide = v.ensure_bool()?,
+                "conflicts" => arg.conflicts = vec![v.ensure_string()?],
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = vec![v.ensure_string()?],
@@ -220,6 +227,9 @@ impl SpecArg {
                 "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = child.arg(0)?.ensure_usize().map(Some)?,
                 "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
+                "conflicts" => {
+                    arg.conflicts.push(child.arg(0)?.ensure_string()?);
+                }
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
@@ -306,6 +316,9 @@ impl From<&SpecArg> for KdlNode {
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
+        }
+        for conflict in &arg.conflicts {
+            node.push(string_entry(Some("conflicts"), conflict));
         }
         // Serialize default values
         if !arg.default.is_empty() {
@@ -525,8 +538,8 @@ impl From<&clap::Arg> for SpecArg {
                 .unwrap_or_default()
                 .first()
                 .cloned()
-                .unwrap_or_default()
-                .to_string(),
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| source.get_id().to_string()),
             usage: "".into(),
             required,
             double_dash: if arg.is_last_set() {
@@ -547,6 +560,7 @@ impl From<&clap::Arg> for SpecArg {
             // uses just above: a default is split by it, and so is a typed value.
             delimiter: recorded_delimiter,
             hide,
+            conflicts: Vec::new(),
             default: default_values(arg),
             choices: None,
             validate: None,

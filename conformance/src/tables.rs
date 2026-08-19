@@ -387,6 +387,7 @@ fn arg_meta(
         validate_error: a.validate_error.as_deref().map(leak),
         required: a.required,
         hide: a.hide,
+        conflicts: strs(&a.conflicts),
         delimiter: a.delimiter,
         var_min: a.var_min,
         var_max: a.var_max,

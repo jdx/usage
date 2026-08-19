@@ -15,8 +15,6 @@ pub enum FidelityFeature {
     ValueArity,
     DistinctValueNames,
     GranularHide,
-    PositionalRelationship,
-    PositionalGroupMember,
     DontDelimitTrailingValues,
     ArgRequiredElseHelp,
     AllowMissingPositional,
@@ -176,36 +174,14 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
     );
 
     for arg in cmd.get_arguments() {
-        argument_losses(cmd, arg, &path, losses);
-    }
-    for group in cmd.get_groups() {
-        // A non-required group that allows multiple members imposes no parsing rule. Clap
-        // derive creates these groups for ordinary structs, so treating them as a bridge loss
-        // would make an otherwise exact conversion look lossy.
-        if group.clone().is_multiple() && !group.is_required_set() {
-            continue;
-        }
-        for member in group.get_args() {
-            if cmd
-                .get_arguments()
-                .find(|arg| arg.get_id() == member)
-                .is_some_and(Arg::is_positional)
-            {
-                losses.insert(FidelityLoss {
-                    command: path.clone(),
-                    argument: Some(member.to_string()),
-                    feature: FidelityFeature::PositionalGroupMember,
-                    detail: format!("group {} contains positional {member}", group.get_id()),
-                });
-            }
-        }
+        argument_losses(arg, &path, losses);
     }
     for sub in cmd.get_subcommands() {
         visit(sub, &path, losses);
     }
 }
 
-fn argument_losses(cmd: &Command, arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLoss>) {
+fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLoss>) {
     let id = arg.get_id().to_string();
     let mut add = |feature: FidelityFeature, detail: String| {
         losses.insert(FidelityLoss {
@@ -317,22 +293,5 @@ fn argument_losses(cmd: &Command, arg: &Arg, path: &[String], losses: &mut BTree
     }
     if !hidden.is_empty() {
         add(FidelityFeature::GranularHide, hidden.join(","));
-    }
-
-    for other in cmd.get_arg_conflicts_with(arg) {
-        // `exclusive` is represented directly on a flag. Clap expands it into conflicts
-        // with every other argument, but reporting those generated edges would describe a
-        // behavior the bridge already preserved as lost. Ordinary conflicts are lossy in
-        // this dialect whenever either endpoint is positional; check both endpoints because
-        // the public blacklist need not expose an unbuilt declaration symmetrically.
-        if (arg.is_positional() || other.is_positional())
-            && !arg.is_exclusive_set()
-            && !other.is_exclusive_set()
-        {
-            add(
-                FidelityFeature::PositionalRelationship,
-                format!("conflicts_with={}", other.get_id()),
-            );
-        }
     }
 }
