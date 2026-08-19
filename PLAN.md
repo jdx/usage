@@ -657,12 +657,12 @@ feature list is not an exhaustive audit.
       fields but discards that struct-level heading, so a migration can preserve
       parsing while silently degrading help. Define heading inheritance for a
       flattened Args type and cover short/long help ordering in conformance.
-- [ ] **Facade-owned derive validation.** A direct `usage-derive` adopter can
-      compile generated code only after separately adding `usage-validation`;
-      the implementation dependency leaks into every converted manifest. The
-      supported facade should own or re-export this path so the documented
-      dependency set is sufficient and generated code does not require users to
-      discover an internal crate from a compiler error.
+- [x] **Facade-owned derive validation.** `usage-rs` exposes portable expression
+      validation through its `validation` feature and the derive resolves that
+      facade path when an application does not depend on `usage-validation`
+      directly. Facade tests cover both `Cli` and flattened `Args` derives. The
+      aube rewrite enables the facade feature, compiles its validation rules, and
+      removes the direct implementation dependency and cargo-machete workaround.
 - [x] **Central metadata overlays without an MSRV or performance jump.** aube
       keeps a centrally audited command-effect table rather than scattering the
       policy across command types. Applying that table currently means parsing
