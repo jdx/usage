@@ -266,6 +266,26 @@ enum Interpreter {
     PowerShell,
 }
 
+impl std::str::FromStr for Interpreter {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.eq_ignore_ascii_case("bash") {
+            Ok(Self::Bash)
+        } else if value.eq_ignore_ascii_case("zsh") || value.eq_ignore_ascii_case("shell-z") {
+            Ok(Self::Zsh)
+        } else if value.eq_ignore_ascii_case("fish") {
+            Ok(Self::Fish)
+        } else if value.eq_ignore_ascii_case("pwsh") {
+            Ok(Self::PowerShell)
+        } else {
+            Err(format!(
+                "invalid interpreter {value:?}; expected one of bash, zsh, fish, pwsh"
+            ))
+        }
+    }
+}
+
 /// A CLI with an enumerated value
 #[derive(Cli)]
 #[usage(bin = "enumerated")]
