@@ -522,6 +522,15 @@ fn positional_relationships_parse_and_emit_losslessly() {
         kdl.contains("conflicts \"--from-file\" \"--stdin\""),
         "{kdl}"
     );
+    assert_eq!(
+        kdl.matches("conflicts=\"VALUE\"").count(),
+        1,
+        "a single flag conflict should be emitted once: {kdl}"
+    );
+    assert!(
+        !kdl.contains("arg \"[VALUE]\" conflicts="),
+        "several positional conflicts belong only in the child node: {kdl}"
+    );
     assert!(
         kdl.contains("group \"input\" \"--from-file\" \"VALUE\""),
         "{kdl}"

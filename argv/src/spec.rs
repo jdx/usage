@@ -1460,9 +1460,6 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.hide {
         out.push_str(" hide=#true");
     }
-    if meta.conflicts.len() == 1 {
-        write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
-    }
     if meta.count {
         out.push_str(" count=#true");
     }
@@ -1644,8 +1641,8 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if meta.hide {
         out.push_str(" hide=#true");
     }
-    for conflict in meta.conflicts {
-        write!(out, " conflicts={}", quoted(conflict))?;
+    if meta.conflicts.len() == 1 {
+        write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
     }
     if let Some(min) = meta.var_min {
         write!(out, " var_min={min}")?;
