@@ -145,6 +145,41 @@ struct SharedArgsCli {
     command: SharedArgsCommand,
 }
 
+#[allow(dead_code)]
+#[derive(Args)]
+struct SharedNestedLeaf {
+    #[usage(long)]
+    target: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum SharedNestedCommand {
+    Inner(SharedNestedLeaf),
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct SharedNestedArgs {
+    #[usage(subcommand)]
+    command: SharedNestedCommand,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum SharedNestedRootCommand {
+    First(SharedNestedArgs),
+    Second(SharedNestedArgs),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "shared-nested")]
+struct SharedNestedCli {
+    #[usage(subcommand)]
+    command: SharedNestedRootCommand,
+}
+
 const DEFAULT_RUNS: u32 = 7;
 const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
 const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
@@ -292,6 +327,33 @@ fn shared_args_completion_overlays_stay_on_the_selected_command() {
         ];
         let rendered = run_ready(
             SharedArgsCli::app()
+                .completion_app()
+                .completions(&OVERLAYS)
+                .completion_request(&argv),
+        )
+        .expect("hidden completion request should be handled");
+        assert_eq!(rendered, format!("{expected}\n"));
+    }
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn shared_nested_completion_overlays_keep_the_parent_route() {
+    static OVERLAYS: [usage::complete::CompletionOverlay<'static>; 2] = [
+        usage::complete::CompletionOverlay::sync("first inner", "target", first_targets),
+        usage::complete::CompletionOverlay::sync("second inner", "target", second_targets),
+    ];
+
+    for (command, expected) in [("first", "first-target"), ("second", "second-target")] {
+        let argv = [
+            std::ffi::OsString::from("__complete_word__"),
+            std::ffi::OsString::from("--shell"),
+            std::ffi::OsString::from("bash"),
+            std::ffi::OsString::from("--line"),
+            std::ffi::OsString::from(format!("shared-nested {command} inner --target ")),
+        ];
+        let rendered = run_ready(
+            SharedNestedCli::app()
                 .completion_app()
                 .completions(&OVERLAYS)
                 .completion_request(&argv),

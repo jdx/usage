@@ -597,7 +597,7 @@ fn declared_files_at_cursor(
     {
         return None;
     }
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let at_cursor = if restarted(meta, split) {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
@@ -641,7 +641,7 @@ fn declared_files_at_cursor(
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
 pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
     let candidates = candidates(spec, split);
 
@@ -807,7 +807,7 @@ fn overlay_for_name<'o>(
     {
         return Some(overlay);
     }
-    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    let chain = metadata_chain_on_route(spec, position)?;
     let owner = chain.last()?;
     let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
     overlays.iter().rev().find(|overlay| {
@@ -828,7 +828,7 @@ fn overlay_at_cursor<'o>(
     {
         return None;
     }
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
             owner.args.first().map(|field| {
@@ -867,8 +867,15 @@ fn overlay_at_cursor<'o>(
     if needs_separator && !position.separator_seen {
         return None;
     }
-    let (_, chain) = crate::help::find(spec, owner.cmd)?;
-    let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
+    let chain = metadata_chain_on_route(spec, position)?;
+    let owner_at = chain
+        .iter()
+        .position(|candidate| core::ptr::eq(*candidate, owner))?;
+    let path: Vec<&str> = chain[..=owner_at]
+        .iter()
+        .skip(1)
+        .map(|meta| meta.cmd.name)
+        .collect();
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
     })
@@ -879,7 +886,7 @@ fn flag_meta_owner_on_route<'a>(
     position: &Position<'_>,
     flag: &Flag<'_>,
 ) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
-    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    let chain = metadata_chain_on_route(spec, position)?;
     chain.iter().rev().find_map(|owner| {
         owner
             .flags
@@ -894,7 +901,7 @@ fn arg_meta_owner_on_route<'a>(
     position: &Position<'_>,
     arg: &Arg<'_>,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
-    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    let chain = metadata_chain_on_route(spec, position)?;
     chain.iter().rev().find_map(|owner| {
         owner
             .args
@@ -920,10 +927,32 @@ fn default_subcommand_arg<'a>(
         .and_then(|sub| sub.args.first().map(|field| (sub, field)))
 }
 
+/// The metadata route selected by the parser, preserving parent identity even when two
+/// wrappers reuse the same nested command tables.
+fn metadata_chain_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+) -> Option<Vec<&'a CommandMeta<'a>>> {
+    if position.path.is_empty() {
+        return crate::help::find(spec, position.cmd).map(|(_, chain)| chain);
+    }
+    let mut chain = vec![spec.root];
+    let mut current = spec.root;
+    for (command, _) in position.path.iter().skip(1) {
+        current = current
+            .subcommands
+            .iter()
+            .copied()
+            .find(|meta| core::ptr::eq(meta.cmd, *command))?;
+        chain.push(current);
+    }
+    Some(chain)
+}
+
 /// Just the candidates this CLI knows about, without the question of paths.
 pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
 
     let mut out = if position.flags_possible && token == "-" {
