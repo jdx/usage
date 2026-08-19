@@ -401,7 +401,7 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       getter, so the bridge cannot read it — same hole as `requires`. **Used
       by:** mise `bin_paths` (`default_value_if("json", IsPresent, "true")`).
 - [x] **Portable value validation** — `validate="int(value) >= 1 && int(value) <=
-    65535"` is a declarative expr rule stored in KDL and enforced by usage-lib and
+65535"` is a declarative expr rule stored in KDL and enforced by usage-lib and
       generated Rust and Go parsers. `validate_error` supplies the user-facing failure.
       This covers clap's common range-validation use case without embedding a Rust
       parser function in the spec. clap's arbitrary `value_parser` remains inherently
