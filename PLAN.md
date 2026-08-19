@@ -695,10 +695,12 @@ feature list is not an exhaustive audit.
       provider, profile and config-file completers appended from
       `fnox-extras.usage.kdl`, so its fleet PR also retains `usage g completion`.
       `App` now combines a borrowed `SpecView`, sparse sync/async completion
-      callbacks, runtime identity and command projection. It does not bundle an
-      executor. aube uses it for all of those cases, including `aubr`/`aubx` and
-      async registry search; fnox uses it for secret, provider and profile
-      candidates. Both now generate and answer completions through `usage-rs`
+      callbacks, completion runtime identity and command projection. It does not
+      bundle an executor or change the parser identity used by help and
+      diagnostics, so it does not satisfy the separate **Runtime program
+      identity** gate below. aube uses it for all of those cases, including
+      `aubr`/`aubx` and async registry search; fnox uses it for secret, provider
+      and profile candidates. Both now generate and answer completions through `usage-rs`
       without invoking the `usage` binary.
 - [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
       output was semantically accepted but differed substantially from the same
@@ -706,13 +708,12 @@ feature list is not an exhaustive audit.
       `complete "path"` nodes that the round trip collapsed. Make direct emission
       canonical and deduplicate composed completers so adopters do not need the
       expensive round trip merely for stable generated artifacts.
-- [ ] **Keep generated-spec producers and consumers on one dialect.** A derive
-      pinned to the 6.x stack can emit nodes such as `unknown_flags` that the
-      released 5.x `usage` binary in an adopter's docs task cannot read. The
-      communique experiment had to build a second git-pinned `usage-cli` just to
-      render the KDL emitted by its Rust dependency. Define a supported way to
-      install matching pre-release tooling (and make version diagnostics name the
-      required dialect) so a migration does not silently combine two revisions.
+- [x] **Keep generated-spec producers and consumers on one dialect.** The 6.x
+      migration is a coordinated epoch, not a promise that a 5.1 CLI can consume
+      a 6.x-derived spec. Fleet docs tasks install `usage-cli` from the same git
+      stack as their `usage-rs` dependency, so nodes such as `unknown_flags` are
+      produced and consumed by one dialect. All release dependencies move to
+      6.x together; cross-major spec consumption is intentionally unsupported.
 - [ ] **Runtime program identity.** aube embeds the same CLI under a caller-chosen
       binary name. A derived spec can be rewritten after emission, but parser
       help and diagnostics still use the static name. Support a runtime identity
@@ -901,8 +902,8 @@ looking at the clap surface, not only at the spec.
       and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
       the root because its external-subcommand path is a package-manager forwarder.
       All five use the `usage-rs` facade for parsing and derives and pin the
-      experiment stack at `f9ea7a76`. hk, aube and fnox also use its built-in
-      compiled completion protocol, removing their runtime dependency on an
+      relevant 6.x experiment-stack revision. hk, aube and fnox also use its
+      built-in compiled completion protocol, removing their runtime dependency on an
       installed `usage` binary. aube's remaining direct `usage-validation`
       dependency is the facade-validation gap above. The workarounds they still
       contain are the unchecked launch-gate rows above, not unfinished conversions.
