@@ -585,6 +585,34 @@ fn files_for(name: &str) -> Option<Files> {
     }
 }
 
+fn declared_files_at_cursor(
+    spec: &Spec<'_>,
+    split: &Split,
+    position: &Position<'_>,
+) -> Option<Files> {
+    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let at_cursor = if restarted(meta, split) {
+        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+    } else {
+        position.next_arg
+    };
+    let (name, complete_type) = if let Some(flag) = position.awaiting_value {
+        let meta = flag_meta(spec.root, flag);
+        (
+            meta.and_then(|m| m.value_name).or(Some(flag.name)),
+            meta.and_then(|m| m.complete_type),
+        )
+    } else if let Some(arg) = at_cursor {
+        let meta = arg_meta(spec.root, arg);
+        (Some(arg.name), meta.and_then(|m| m.complete_type))
+    } else {
+        (None, None)
+    };
+    complete_type
+        .and_then(files_for)
+        .or_else(|| name.and_then(files_for))
+}
+
 /// What could be typed at the cursor, given a spec and a split line.
 ///
 /// The rules are usage-lib's, because a CLI's completions should not change with the
@@ -709,8 +737,9 @@ pub async fn complete_with<'a>(
     answer
         .candidates
         .dedup_by(|left, right| left.value == right.value);
-    // Even an empty callback is a declared answer, not an invitation to offer the cwd.
-    answer.files = None;
+    // Even an empty callback suppresses the cwd fallback, but a field that
+    // explicitly declares files or directories keeps that shell completion.
+    answer.files = declared_files_at_cursor(spec, split, &position);
     answer
 }
 
@@ -735,7 +764,7 @@ async fn complete_named_with<'a>(
         command_path: &command_path,
     };
     let mut candidates = for_name(spec, name, &ctx).unwrap_or_default();
-    if let Some(overlay) = overlay_for_name(spec, &position, overlays, name) {
+    if let Some(overlay) = overlay_for_name(spec, split, &position, overlays, name) {
         let mut dynamic = match overlay.handler {
             CompletionHandler::Sync(completer) => completer(&ctx),
             CompletionHandler::Async(completer) => completer(ctx).await,
@@ -753,22 +782,21 @@ async fn complete_named_with<'a>(
 
 fn overlay_for_name<'o>(
     spec: &Spec<'_>,
+    split: &Split,
     position: &Position<'_>,
     overlays: &'o [CompletionOverlay<'_>],
     name: &str,
 ) -> Option<&'o CompletionOverlay<'o>> {
+    if let Some(overlay) = overlay_at_cursor(spec, split, position, overlays)
+        .filter(|overlay| overlay.value.eq_ignore_ascii_case(name))
+    {
+        return Some(overlay);
+    }
     let (_, chain) = crate::help::find(spec, position.cmd)?;
+    let owner = chain.last()?;
+    let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
     overlays.iter().rev().find(|overlay| {
-        overlay.value.eq_ignore_ascii_case(name)
-            && chain.iter().enumerate().rev().any(|(index, owner)| {
-                let path: Vec<&str> = chain
-                    .iter()
-                    .take(index + 1)
-                    .skip(1)
-                    .map(|meta| meta.cmd.name)
-                    .collect();
-                overlay.command.matches(owner, &path)
-            })
+        overlay.value.eq_ignore_ascii_case(name) && overlay.command.matches(owner, &path)
     })
 }
 
@@ -1814,6 +1842,18 @@ mod tests {
         )];
     static GLOBAL_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::async_any("tool", runtime_tools)];
+    static FILE_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::asynchronous(
+            "edit",
+            "file",
+            runtime_tools,
+        )];
+    static PLUGIN_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::asynchronous(
+            "plugins",
+            "tool",
+            runtime_tools,
+        )];
 
     #[test]
     fn async_overlays_run_only_for_the_field_and_projection_at_the_cursor() {
@@ -1828,6 +1868,13 @@ mod tests {
             ["ruby"]
         );
         assert_eq!(answer.files, None);
+
+        let file = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise edit "),
+            &FILE_RUNTIME_COMPLETIONS,
+        ));
+        assert_eq!(file.files, Some(Files::Any));
 
         let flag = run_ready(complete_with(
             &SPEC,
@@ -1879,6 +1926,33 @@ mod tests {
                 .iter()
                 .any(|candidate| candidate.value == "uby"),
             "{named_at_root:?}"
+        );
+
+        let named_on_owner = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise plugins "),
+            &PLUGIN_RUNTIME_COMPLETIONS,
+            "tool",
+        ));
+        assert!(
+            named_on_owner
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "uby"),
+            "{named_on_owner:?}"
+        );
+        let named_on_descendant = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise plugins ls "),
+            &PLUGIN_RUNTIME_COMPLETIONS,
+            "tool",
+        ));
+        assert!(
+            named_on_descendant
+                .candidates
+                .iter()
+                .all(|candidate| candidate.value != "uby"),
+            "{named_on_descendant:?}"
         );
 
         let argv = [
