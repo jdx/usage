@@ -6,6 +6,7 @@
 
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
+use syn::parse::Parser as _;
 use syn::spanned::Spanned;
 use syn::{Attribute, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Type};
 
@@ -3319,6 +3320,51 @@ pub struct ValueVariant {
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
+fn cfg_gate_meta(meta: &Meta) -> syn::Result<Option<Meta>> {
+    if meta.path().is_ident("cfg") {
+        return Ok(Some(meta.clone()));
+    }
+    if !meta.path().is_ident("cfg_attr") {
+        return Ok(None);
+    }
+    let Meta::List(list) = meta else {
+        return Ok(None);
+    };
+    let nested = syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated
+        .parse2(list.tokens.clone())?;
+    let mut nested = nested.into_iter();
+    let Some(condition) = nested.next() else {
+        return Ok(None);
+    };
+    let gates = nested
+        .map(|meta| cfg_gate_meta(&meta))
+        .collect::<syn::Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    if gates.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(syn::parse2(quote::quote!(
+        cfg_attr(#condition, #(#gates),*)
+    ))?))
+}
+
+fn cfg_gate_attrs(attrs: &[Attribute]) -> syn::Result<Vec<Attribute>> {
+    attrs
+        .iter()
+        .filter_map(|attr| match cfg_gate_meta(&attr.meta) {
+            Ok(Some(meta)) => {
+                let mut attr = attr.clone();
+                attr.meta = meta;
+                Some(Ok(attr))
+            }
+            Ok(None) => None,
+            Err(err) => Some(Err(err)),
+        })
+        .collect()
+}
+
 fn cfg_variants_are_disjoint(left: &[Attribute], right: &[Attribute]) -> bool {
     let left = left
         .iter()
@@ -3426,12 +3472,7 @@ impl ValueEnum {
                      fields would have nothing to build them from",
                 ));
             }
-            let cfg_attrs = variant
-                .attrs
-                .iter()
-                .filter(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"))
-                .cloned()
-                .collect();
+            let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
             let mut name = to_kebab(&variant.ident.unraw().to_string());
             let mut aliases = Vec::new();
             for attr in attrs(&variant.attrs) {
@@ -4191,6 +4232,27 @@ mod tests {
         .expect("conditional variants should compile");
         assert!(value.variants[0].cfg_attrs.is_empty());
         assert_eq!(value.variants[1].cfg_attrs.len(), 1);
+    }
+
+    #[test]
+    fn cfg_attr_keeps_only_variant_gates_for_static_emission() {
+        let value = value_enum(
+            r#"
+            enum Shell {
+                #[cfg_attr(windows, cfg(target_pointer_width = "64"), doc = "Windows shell")]
+                PowerShell,
+                #[cfg_attr(all(), doc = "Unix shell")]
+                Bash,
+            }
+        "#,
+        )
+        .expect("non-gating cfg_attr metadata should be ignored");
+        assert_eq!(value.variants[0].cfg_attrs.len(), 1);
+        let emitted = quote::ToTokens::to_token_stream(&value.variants[0].cfg_attrs[0]).to_string();
+        assert!(emitted.contains("cfg_attr"));
+        assert!(emitted.contains("target_pointer_width"));
+        assert!(!emitted.contains("doc"));
+        assert!(value.variants[1].cfg_attrs.is_empty());
     }
 
     #[test]

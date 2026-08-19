@@ -266,6 +266,23 @@ enum Interpreter {
     PowerShell,
 }
 
+#[derive(usage_derive::ValueEnum)]
+enum DocumentedChoice {
+    #[cfg_attr(
+        all(),
+        doc = "Documentation belongs to the variant, not generated arrays"
+    )]
+    Visible,
+}
+
+#[test]
+fn non_gating_cfg_attr_stays_off_generated_choice_entries() {
+    use usage_argv::spec::ValueEnum as _;
+
+    let _ = DocumentedChoice::Visible;
+    assert_eq!(DocumentedChoice::CHOICES, ["visible"]);
+}
+
 impl std::str::FromStr for Interpreter {
     type Err = String;
 
