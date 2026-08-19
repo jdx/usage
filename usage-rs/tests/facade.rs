@@ -34,6 +34,10 @@ impl std::str::FromStr for Shell {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
+        #[cfg(windows)]
+        if value.eq_ignore_ascii_case("power-shell") {
+            return Ok(Self::PowerShell);
+        }
         if value.eq_ignore_ascii_case("bash") {
             Ok(Self::Bash)
         } else if value.eq_ignore_ascii_case("zsh") || value.eq_ignore_ascii_case("shell-z") {

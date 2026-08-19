@@ -3363,7 +3363,21 @@ fn cfg_predicates_are_disjoint(left: &Meta, right: &Meta) -> bool {
             if a.path
                 .get_ident()
                 .zip(b.path.get_ident())
-                .is_some_and(|(a, b)| a == b && a.to_string().starts_with("target_")) =>
+                .is_some_and(|(a, b)| {
+                    a == b
+                        && [
+                            "target_abi",
+                            "target_arch",
+                            "target_endian",
+                            "target_env",
+                            "target_os",
+                            "target_pointer_width",
+                            "target_vendor",
+                            "panic",
+                        ]
+                        .iter()
+                        .any(|exclusive| a == exclusive)
+                }) =>
         {
             quote::ToTokens::to_token_stream(&a.value).to_string()
                 != quote::ToTokens::to_token_stream(&b.value).to_string()
@@ -4194,6 +4208,30 @@ mod tests {
         "#,
         )
         .expect("only one cfg-disjoint word exists on any target");
+    }
+
+    #[test]
+    fn independently_true_target_cfgs_may_not_reuse_one_cli_word() {
+        let result = value_enum(
+            r#"
+            enum AtomicWidth {
+                #[cfg(target_has_atomic = "8")]
+                #[usage(name = "native")]
+                Eight,
+                #[cfg(target_has_atomic = "16")]
+                #[usage(name = "native")]
+                Sixteen,
+            }
+        "#,
+        );
+        let Err(err) = result else {
+            panic!("a target may support both atomic widths")
+        };
+        let err = err.to_string();
+        assert!(
+            err.contains("names two of these values"),
+            "unhelpful: {err}"
+        );
     }
 
     /// The position rules, which each derive applies for the place it stands in.
