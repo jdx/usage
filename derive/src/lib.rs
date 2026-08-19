@@ -293,18 +293,11 @@
 //!
 //! A word is held as the bytes it arrived as and converted once, where the struct is built.
 //! So a value that is not valid UTF-8 is **reported** rather than quietly replaced with
-//! `U+FFFD` — which for a `PathBuf` meant a different file, silently. What is still missing
-//! is *accepting* such a value: recovering an `OsString` from those bytes needs
-//! `OsStr::from_encoded_bytes_unchecked`, which is `unsafe`, and this crate has none.
+//! `U+FFFD` — which for a `PathBuf` meant a different file, silently. On Unix, `PathBuf` and
+//! `OsString` fields accept the bytes exactly through the safe `OsStringExt::from_vec`; on
+//! Windows, a value that cannot be converted safely is reported rather than reconstructed with
+//! `OsString::from_encoded_bytes_unchecked`.
 //!
-//! # What this version does not do
-//!
-//! Published early on purpose, so it can be used and argued with — but these are
-//! real limits, not omissions from the docs.
-//!
-//! - **Flattening.** A struct cannot yet borrow another struct's flags, so a set of
-//!   options shared by several commands has to be repeated.
-
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 

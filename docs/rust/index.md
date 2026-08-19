@@ -151,6 +151,6 @@ equivalent yet:
 - There is no per-field `value_parser`-style validation — values are built with `FromStr`, and a
   conversion failure becomes an `InvalidValue` error.
 - Prefix matching (`infer_long_args`) is suggested in error messages but never accepted.
-- Non-UTF-8 argv values are reported precisely in errors rather than lossily replaced, but cannot
-  currently be _accepted_ into fields (the crates forbid the `unsafe` needed to reconstruct an
-  `OsString`).
+- On Unix, `PathBuf` and `OsString` fields accept non-UTF-8 argv without changing a byte. String
+  fields still report invalid UTF-8 precisely rather than replacing it; on Windows, values that
+  cannot be converted safely are reported instead of using an unchecked reconstruction.
