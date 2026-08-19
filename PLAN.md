@@ -901,7 +901,7 @@ looking at the clap surface, not only at the spec.
       and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
       the root because its external-subcommand path is a package-manager forwarder.
       All five use the `usage-rs` facade for parsing and derives and pin the
-      experiment stack at `55193c3c`. hk, aube and fnox also use its built-in
+      experiment stack at `1da5eddd`. hk, aube and fnox also use its built-in
       compiled completion protocol, removing their runtime dependency on an
       installed `usage` binary. aube's remaining direct `usage-validation`
       dependency is the facade-validation gap above. The workarounds they still
