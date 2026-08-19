@@ -1327,8 +1327,10 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         if let Some(validate) = meta.validate {
             write!(out, " validate={}", quoted(validate))?;
         }
-        if let Some(error) = meta.validate_error {
-            write!(out, " validate_error={}", quoted(error))?;
+        if meta.validate.is_some() {
+            if let Some(error) = meta.validate_error {
+                write!(out, " validate_error={}", quoted(error))?;
+            }
         }
         if meta.choices.is_empty() {
             out.push('\n');
@@ -1402,8 +1404,10 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(validate) = meta.validate {
         write!(out, " validate={}", quoted(validate))?;
     }
-    if let Some(error) = meta.validate_error {
-        write!(out, " validate_error={}", quoted(error))?;
+    if meta.validate.is_some() {
+        if let Some(error) = meta.validate_error {
+            write!(out, " validate_error={}", quoted(error))?;
+        }
     }
     write_single_default(out, meta.default)?;
 

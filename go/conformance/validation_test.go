@@ -22,6 +22,9 @@ func TestGoMatchesThePortableValidationVectors(t *testing.T) {
 	if err := json.Unmarshal(data, &vectors); err != nil {
 		t.Fatal(err)
 	}
+	if len(vectors) == 0 {
+		t.Fatal("validation fixture must not be empty")
+	}
 	for _, vector := range vectors {
 		got, err := expr.Eval(vector.Expression, map[string]any{"value": vector.Value})
 		if err != nil {

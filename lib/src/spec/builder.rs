@@ -570,6 +570,9 @@ impl SpecArgBuilder {
     /// Build the final SpecArg
     #[must_use]
     pub fn build(mut self) -> SpecArg {
+        if self.inner.validate.is_none() {
+            self.inner.validate_error = None;
+        }
         self.inner.usage = self.inner.usage();
         self.inner
     }
@@ -936,6 +939,16 @@ mod tests {
 
         assert_eq!(arg.default, vec!["a.txt".to_string(), "b.txt".to_string()]);
         assert!(!arg.required);
+    }
+
+    #[test]
+    fn test_arg_builder_drops_validation_error_without_expression() {
+        let arg = SpecArgBuilder::new()
+            .name("port")
+            .validate_error("must be a valid port")
+            .build();
+
+        assert!(arg.validate_error.is_none());
     }
 
     #[test]

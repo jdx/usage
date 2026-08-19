@@ -2674,6 +2674,12 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let validation = validation_path();
+    let validation_import = cli
+        .fields
+        .iter()
+        .any(|field| field.validate.is_some())
+        .then(|| quote!(use #validation as usage_validation;));
     let presence = presence_methods(cli);
     let apply_defaults = declared_defaults(cli);
     let apply_env = env_fallbacks(cli);
@@ -2801,6 +2807,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         )]
         const _: () = {
             use #runtime as usage_argv;
+            #validation_import
 
             #flatten_checks
             #keys

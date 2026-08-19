@@ -335,7 +335,7 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 			valid, ok := result.(bool)
 			if !ok {
 				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
-					Value: value, Reason: fmt.Sprintf("validation expression must return a boolean, got %v", result)}
+					Value: value, Reason: fmt.Sprintf("validation expression must return a boolean, got %T", result)}
 			}
 			if !valid {
 				reason := m.ValidateError

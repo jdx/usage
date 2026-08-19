@@ -1709,6 +1709,7 @@ fn validate_expression(
             value: value.clone(),
             reason,
         });
+        break;
     }
 }
 

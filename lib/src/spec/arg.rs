@@ -333,8 +333,10 @@ impl From<&SpecArg> for KdlNode {
         if let Some(validate) = &arg.validate {
             node.push(string_entry(Some("validate"), validate));
         }
-        if let Some(error) = &arg.validate_error {
-            node.push(string_entry(Some("validate_error"), error));
+        if arg.validate.is_some() {
+            if let Some(error) = &arg.validate_error {
+                node.push(string_entry(Some("validate_error"), error));
+            }
         }
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
@@ -631,6 +633,21 @@ arg "<port>" validate="int(value) >"
             error.to_string().contains("must be a valid port"),
             "{error:?}"
         );
+
+        let variadic: Spec = r#"
+name "ex"
+bin "ex"
+arg "<port>" var=#true validate="int(value) > 0" validate_error="port must be positive"
+        "#
+        .parse()
+        .unwrap();
+        let error = parse(
+            &variadic,
+            &["ex".to_string(), "0".to_string(), "-1".to_string()],
+        )
+        .unwrap_err()
+        .to_string();
+        assert_eq!(error.matches("port must be positive").count(), 1, "{error}");
     }
 
     #[test]
