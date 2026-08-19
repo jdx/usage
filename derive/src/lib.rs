@@ -97,6 +97,17 @@
 //! `effect` goes on the variant there because there is no struct to put it on; everywhere else
 //! it belongs to the `Args`, and declaring it in both places is refused.
 //!
+//! A command type with no fields may keep Rust's unit-struct spelling:
+//!
+//! ```ignore
+//! #[derive(Args)]
+//! struct Sponsors;
+//! ```
+//!
+//! Tuple structs remain ambiguous: a derive cannot infer whether their unnamed field is a
+//! positional value or a flattened `Args` type. The diagnostic points wrapper migrations to a
+//! named field with `#[usage(flatten)]`.
+//!
 //! A command inside a command is not a special case: an `Args` struct carries a
 //! `subcommand` field exactly as the root does, to any depth, and generates the same
 //! code for it. mise reaches four levels, so one was never going to be enough.

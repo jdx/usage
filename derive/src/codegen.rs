@@ -20,6 +20,25 @@ use crate::model::{
     rendered_path, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum,
 };
 
+/// Construct the user's command type after its generated partial has been checked.
+///
+/// An empty named struct is `Self {}`, while a unit struct is just `Self`. Keeping
+/// that syntax decision here prevents the root, settings, and nested-command build
+/// paths from drifting apart.
+fn built_value(cli: &Cli, sub_build: &TokenStream, fields: &[TokenStream]) -> TokenStream {
+    if cli.unit {
+        debug_assert!(cli.fields.is_empty());
+        quote!(Self)
+    } else {
+        quote! {
+            Self {
+                #sub_build
+                #(#fields),*
+            }
+        }
+    }
+}
+
 /// The runtime as the adopter depended on it.
 ///
 /// A direct `usage-argv` dependency wins when both forms are present: a low-level adopter may
@@ -230,11 +249,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // as well as the struct, which is the whole reason it exists.
     let settings_parse = settings_bindings.as_ref().map(|_| {
         let sub_build = sub_build.clone();
-        let field_finals = cli
+        let field_finals: Vec<_> = cli
             .fields
             .iter()
             .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-            .map(field_final);
+            .map(field_final)
+            .collect();
+        let built = built_value(cli, &sub_build, &field_finals);
         quote! {
             /// Parse a command line, and the settings it gave values for.
             ///
@@ -256,10 +277,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 read_argv_into(Self::command(), argv, &mut partial)?;
                 let __usage_settings = settings_layer(&partial);
                 check(&mut partial)?;
-                let __usage_built = Self {
-                    #sub_build
-                    #(#field_finals),*
-                };
+                let __usage_built = #built;
                 ::std::result::Result::Ok((__usage_built, __usage_settings))
             }
         }
@@ -278,6 +296,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(field_final)
         .collect();
+    let built = built_value(cli, &sub_build, &field_finals);
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
     let has_version = cli.version.is_some();
@@ -554,10 +573,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // returned up the chain: see `read_argv_into`.
                     #defaults
                     read_into(Self::command(), argv, &mut partial)?;
-                    ::std::result::Result::Ok(Self {
-                        #sub_build
-                        #(#field_finals),*
-                    })
+                    ::std::result::Result::Ok(#built)
                 }
 
                 /// Parse a full argv, including the program name.
@@ -2896,11 +2912,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     // The same conversion the root gets. Two emitters producing one `build` is what let
     // this diverge: a typed field on a subcommand compiled here and not there, which is
     // every command mise has.
-    let field_finals = cli
+    let field_finals: Vec<_> = cli
         .fields
         .iter()
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-        .map(field_final);
+        .map(field_final)
+        .collect();
+    let built = built_value(cli, &sub_build, &field_finals);
 
     // The root cannot carry one — the spec writer asserts it — so this is the non-root
     // path's alone, which is also the only path a command's own declaration reaches.
@@ -3042,10 +3060,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 fn build<'t, 'v>(
                     partial: Self::Partial,
                 ) -> ::std::result::Result<Self, usage_argv::Error<'t, 'v>> {
-                    ::std::result::Result::Ok(Self {
-                        #sub_build
-                        #(#field_finals),*
-                    })
+                    ::std::result::Result::Ok(#built)
                 }
             }
         };
