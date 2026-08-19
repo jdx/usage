@@ -483,7 +483,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **Command parsing policy** — `arg_required_else_help`,
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
       `subcommand_precedence_over_arg`, `allow_missing_positional`,
-      and `args_override_self`.
+      and `args_override_self`. One design decision is made ahead of the
+      implementation: `arg_required_else_help` reads argv, not bound values.
+      clap counts an environment-supplied value as present (clap#3572), so a
+      user with a configured environment never sees the help — with MISE_*
+      set, that is most mise users. An empty command line means help,
+      whatever the environment holds.
 
 **Help output**
 
@@ -1048,19 +1053,38 @@ is clap#4416, stalled in clap on binary-size grounds a spec interpreter does
 not have; and a help template set once for the whole tree is clap#1184, which
 is the `help_template` row — a Tera template at spec root is the natural shape.
 
-Noted, not taken: conditional argument groups unlocked by a flag's value
-(clap#6258) would strengthen the group-as-enum story but needs real design
-first; conflict-aware positional skipping (clap#1794, Deno's shape, still
-unmerged in clap in 2026) makes conflicts a parse-time concern rather than a
-check; whether an empty command line shows help when env vars would satisfy
-the arguments (clap#3572) is a policy detail for the command-policy box above;
-case-insensitive subcommand matching (clap#6097, closed "not planned") is
-nearly free in an interpreter if a CLI ever asks for it.
+Noted, not taken — one item: conditional argument groups unlocked by a flag's
+value (clap#6258), the missing quadrant beside `requires_if`, `required_if`
+and `default_if` — "this flag is invalid unless that flag has value X". Not
+built on its own, and not designed on its own either: it is a constraint on
+the group-as-enum item above, whose design must leave room for a group whose
+membership condition is a value. The enforcement half may already have a home
+in the expr layer: `validate` today scopes one value, and widened to command
+scope over all bound flags, "`--dockerfile` without `driver == "docker"`" is
+one declarative expression — covering this and the long tail of cross-flag
+rules without new vocabulary. What an expr cannot do is the other half: help
+and completions cannot read a black-box expression to know not to offer a
+flag, which is why the structured group vocabulary stays the answer for
+anything those need to understand.
 
 **Declined: `env_prefix`** (clap#3221, 45 votes). Assembling `MISE_JOBS` from a
 prefix and a field name makes the one string a user actually sees ungreppable
 in the codebase that declares it. Env names stay fully spelled at the
 declaration site.
+
+**Declined: conflict-aware positional skipping** (clap#1794, Deno's shape,
+still unmerged in clap in 2026). Handing a word to the _next_ positional
+because a flag elsewhere on the line conflicts with the first one requires the
+binder to consult relationship tables mid-parse, and the architecture rule is
+that binding stays relationship-free — every check that needs more lives after
+the parse. It is also bad grammar independent of the architecture: which slot
+a word lands in would depend on the rest of the line, which is unpredictable
+for exactly the readers a spec serves.
+
+**Declined: case-insensitive subcommand matching** (clap#6097, closed "not
+planned" in clap as well). The demand comes from mobile keyboards and chat-bot
+REPLs, not shells; no fleet CLI wants it; and the hot path's exact byte
+comparison against static tables is budget not worth spending here.
 
 **Non-goals, now stated rather than implied:** interactive prompts (clap#1634);
 non-Unix option styles — `find -exec`, `/c`, `-Wl,` (clap#2468) — the framework
