@@ -384,24 +384,53 @@ impl<'a> SpecView<'a> {
         }
     }
 
-    pub const fn name(mut self, name: &'a str) -> Self {
-        self.name = Some(name);
-        self
+    const fn reborrow<'b>(self) -> SpecView<'b>
+    where
+        'a: 'b,
+    {
+        SpecView {
+            base: self.base,
+            name: self.name,
+            bin: self.bin,
+            version: self.version,
+            commands: self.commands,
+        }
     }
 
-    pub const fn bin(mut self, bin: &'a str) -> Self {
-        self.bin = Some(bin);
-        self
+    pub const fn name<'b>(self, name: &'b str) -> SpecView<'b>
+    where
+        'a: 'b,
+    {
+        let mut view = self.reborrow();
+        view.name = Some(name);
+        view
     }
 
-    pub const fn version(mut self, version: &'a str) -> Self {
-        self.version = Some(version);
-        self
+    pub const fn bin<'b>(self, bin: &'b str) -> SpecView<'b>
+    where
+        'a: 'b,
+    {
+        let mut view = self.reborrow();
+        view.bin = Some(bin);
+        view
     }
 
-    pub const fn overlay(mut self, commands: &'a [CommandOverlay<'a>]) -> Self {
-        self.commands = commands;
-        self
+    pub const fn version<'b>(self, version: &'b str) -> SpecView<'b>
+    where
+        'a: 'b,
+    {
+        let mut view = self.reborrow();
+        view.version = Some(version);
+        view
+    }
+
+    pub const fn overlay<'b>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'b>
+    where
+        'a: 'b,
+    {
+        let mut view = self.reborrow();
+        view.commands = commands;
+        view
     }
 
     /// The shallow effective spec. Its command metadata still borrows the derive's static tree.
@@ -2418,6 +2447,20 @@ mod tests {
         let base = SPEC.to_kdl();
         assert!(base.contains("name \"ex\""), "{base}");
         assert!(!base.contains("effect="), "{base}");
+
+        let runtime_name = String::from("runtime");
+        let runtime_path = String::from("list");
+        let runtime_overlays = vec![CommandOverlay::effect(&runtime_path, Effect::Write)];
+        let runtime = SPEC
+            .view()
+            .name(&runtime_name)
+            .overlay(&runtime_overlays)
+            .to_kdl();
+        assert!(runtime.contains("name \"runtime\""), "{runtime}");
+        assert!(
+            runtime.contains("cmd \"list\" effect=\"write\""),
+            "{runtime}"
+        );
     }
 
     #[test]
