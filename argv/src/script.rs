@@ -277,8 +277,9 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     if $out.exit_code != 0 {{ return null }}
     let lines = ($out.stdout | lines | where {{|l| $l != "" }})
     let marker = "\u{{1}}"
-    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "commands" }})
-    let candidates = (
+    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" }})
+    let wants_commands = ($lines | any {{|l| $l == $marker + "commands" }})
+    let declared = (
         $lines
         | where {{|l| not ($l | str starts-with $marker) }}
         | each {{|l|
@@ -289,6 +290,15 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
             }}
         }}
     )
+    # Ask nushell for command names from the current word alone. Giving it the
+    # original line would complete this CLI's next argument and recurse through
+    # the external completer instead of completing a command to forward.
+    let commands = (if $wants_commands {{
+        ($spans | last) | commandline complete --detailed
+    }} else {{
+        []
+    }})
+    let candidates = ($declared | append $commands)
     # `null` is how a nushell completer says "you do this one", and what it does is complete
     # paths. So an answer that is only the marker returns null rather than nothing, which would
     # mean "there is nothing here".
@@ -492,6 +502,17 @@ mod tests {
         assert!(
             out.contains(r"command 'my-tool' __complete_word__"),
             "{out}"
+        );
+    }
+
+    #[test]
+    fn nu_asks_nushell_for_command_candidates() {
+        let out = script("ex", Shell::Nu);
+        assert!(out.contains("commandline complete --detailed"), "{out}");
+        assert!(out.contains("let wants_commands"), "{out}");
+        assert!(
+            !out.contains("or $l == $marker + \"commands\" }})\n    let declared"),
+            "a command marker must not trigger path fallback: {out}"
         );
     }
 }
