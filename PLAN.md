@@ -409,8 +409,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       accepting only a negative number; the other two have no spelling at all.
 - [ ] **Fixed arity and distinct value names** — clap can say
       `num_args(2)` with `<START> <END>`. `var_min` / `var_max` express the bound,
-      but the derive has one display name for the collection and the clap bridge
-      does not preserve the bound.
+      and the clap bridge now preserves it for positionals and non-repeatable value
+      flags. Optional-value ranges beginning at zero and repeatable `Append` ranges
+      remain bridge-lossy because their per-occurrence semantics cannot be represented
+      as one accumulated bound. The derive also has one display name for the collection,
+      so distinct `<START> <END>` labels are still absent.
 - [x] **`allow_hyphen_values` on the derive path** — the spec said it and
       usage-lib honoured it (`lib/src/parse.rs`); usage-argv now has the same
       bit on `Flag`, so a detached value that looks like a flag binds when

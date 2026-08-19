@@ -393,6 +393,37 @@ pub(crate) fn default_values(arg: &clap::Arg) -> Vec<String> {
     }
 }
 
+/// Carry clap's value-count range into the spec where the two parsers mean the same thing.
+///
+/// A positional may accept zero values: its ordinary optionality already gives the binder a
+/// path that consumes nothing. A flag with `num_args(0..)` is different — a bare occurrence is
+/// itself valid — and needs optional-value binding, which the clap bridge cannot recover
+/// losslessly without `default_missing_value` (a setter with no getter). Leave that range absent
+/// rather than writing a bound that claims the bare flag is supported.
+#[cfg(feature = "clap")]
+pub(crate) fn value_bounds(source: &clap::Arg, target: &mut SpecArg, zero_values_supported: bool) {
+    // clap verifies num_args against raw command-line tokens and only splits each token on the
+    // delimiter afterward. Usage splits first and its bounds count the resulting values. Carrying
+    // the range would therefore change the contract (for example, two comma-separated tokens can
+    // become four Usage values), so leave it unmapped until the spec can distinguish both counts.
+    if source.get_value_delimiter().is_some() {
+        return;
+    }
+
+    let Some(range) = source.get_num_args() else {
+        return;
+    };
+    let min = range.min_values();
+    let max = range.max_values();
+    if max <= 1 || min == 0 && !zero_values_supported {
+        return;
+    }
+
+    target.var = true;
+    target.var_min = Some(min);
+    target.var_max = (max != usize::MAX).then_some(max);
+}
+
 #[cfg(feature = "clap")]
 pub(crate) fn choices_from_clap(arg: &clap::Arg) -> Option<SpecChoices> {
     let possible = arg.get_possible_values();
@@ -435,6 +466,7 @@ pub(crate) fn choices_from_clap(arg: &clap::Arg) -> Option<SpecChoices> {
 #[cfg(feature = "clap")]
 impl From<&clap::Arg> for SpecArg {
     fn from(arg: &clap::Arg) -> Self {
+        let source = arg;
         let required = arg.is_required_set();
         let help = arg.get_help().map(|s| s.to_string());
         let help_long = arg.get_long_help().map(|s| s.to_string());
@@ -485,6 +517,8 @@ impl From<&clap::Arg> for SpecArg {
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
         };
         arg.choices = choices;
+
+        value_bounds(source, &mut arg, true);
 
         arg
     }

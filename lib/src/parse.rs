@@ -1616,7 +1616,9 @@ fn parse_partial_with_env(
         }
     }
 
-    // Validate var_min/var_max constraints for variadic flags
+    // Validate var_min/var_max constraints for variadic flags. These are bounds on
+    // repeated occurrences of the flag itself. Bounds on its nested argument are enforced
+    // by binding once per occurrence, where the per-occurrence count is still available.
     for (flag, value) in &out.flags {
         if flag.var {
             let count = match value {
@@ -2161,6 +2163,15 @@ fn collect_variadic_flag_values(
         .map(value_count)
         .unwrap_or(0)
         .saturating_sub(carried);
+    if let Some(min) = flag.arg.as_ref().and_then(|arg| arg.var_min) {
+        if taken < min {
+            errors.push(UsageErr::VarFlagTooFew {
+                name: flag.name.clone(),
+                min,
+                got: taken,
+            });
+        }
+    }
     if taken > max {
         errors.push(UsageErr::VarFlagTooMany {
             name: flag.name.clone(),
@@ -3448,6 +3459,27 @@ flag "--file <file>" required_unless="--stdin"
             &input(&["ex", "--include", "a,b", "--include", "c,d"]),
         )
         .expect("two per occurrence, twice, is within the bound");
+    }
+
+    #[test]
+    fn a_nested_minimum_is_checked_once_per_flag_occurrence() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--pair <value>...\" {\n  arg \"<value>...\" var=#true var_min=2 var_max=2\n}\n"
+            .parse()
+            .unwrap();
+
+        parse(
+            &spec,
+            &input(&["ex", "--pair", "a", "b", "--pair", "c", "d"]),
+        )
+        .expect("each occurrence satisfies the bound independently");
+
+        let error = parse(&spec, &input(&["ex", "--pair", "a", "--pair", "b", "c"])).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires at least 2 value(s), got 1"),
+            "{error:?}"
+        );
     }
 
     #[test]
