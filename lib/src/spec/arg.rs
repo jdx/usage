@@ -231,6 +231,7 @@ impl SpecArg {
                 "validate_error requires a validate expression"
             );
         }
+        #[cfg(feature = "validation")]
         if let Some(expression) = &arg.validate {
             if let Err(error) = usage_validation::check(expression) {
                 bail_parse!(
@@ -577,9 +578,11 @@ impl Hash for SpecArg {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "validation"))]
 mod validation_tests {
-    use crate::{parse, Spec};
+    use std::collections::HashMap;
+
+    use crate::{parse, parse::Parser, Spec};
 
     fn spec() -> Spec {
         r#"
@@ -628,6 +631,28 @@ arg "<port>" validate="int(value) >"
             error.to_string().contains("must be a valid port"),
             "{error:?}"
         );
+    }
+
+    #[test]
+    fn reference_parser_validates_environment_and_default_fallbacks() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+arg "[port]" env="PORT" validate="int(value) > 0" validate_error="port must be positive"
+flag "--mode" default="bad" {
+    arg "<mode>" validate="value == 'good'" validate_error="mode must be good"
+}
+        "#
+        .parse()
+        .unwrap();
+        let env = HashMap::from([("PORT".to_string(), "0".to_string())]);
+        let error = Parser::new(&spec)
+            .with_env(env)
+            .parse(&["ex".to_string()])
+            .unwrap_err();
+        let error = error.to_string();
+        assert!(error.contains("port must be positive"), "{error}");
+        assert!(error.contains("mode must be good"), "{error}");
     }
 }
 

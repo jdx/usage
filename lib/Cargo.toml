@@ -38,11 +38,12 @@ tera = { version = "2", optional = true }
 thiserror = "2"
 versions = "7"
 xx = "2"
-usage-validation = { workspace = true }
+usage-validation = { workspace = true, optional = true }
 
 [features]
 default = ["docs"]
 docs = ["tera", "roff"]
+validation = ["dep:usage-validation"]
 unstable_choices_env = []
 
 [dev-dependencies]

@@ -16,11 +16,11 @@ usage-derive = { workspace = true, optional = true }
 usage-validation = { workspace = true, optional = true }
 
 [features]
-# Applications get a usable CLI out of the box: parse tables, help, clap-shaped
-# errors, and portable validation. Completions stay opt-in. Low-level adopters
-# that want only the binding runtime keep depending on `usage-argv` directly
-# (no defaults).
-default = ["spec", "help", "diagnostics", "validation"]
+# Applications get a usable CLI out of the box: parse tables, help, and
+# clap-shaped errors. Completions and expression validation stay opt-in.
+# Low-level adopters that want only the binding runtime keep depending on
+# `usage-argv` directly (no defaults).
+default = ["spec", "help", "diagnostics"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
 help = ["spec"]
 completions = ["spec", "usage-argv/complete"]

@@ -11,7 +11,7 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-expr-lang = { git = "https://github.com/jdx/expr.rs", rev = "2c6cecc8b38eaeba4aae01bbe055305f1e14e422" }
+expr-lang = "2.0.0"
 
 [package.metadata.release]
 shared-version = true

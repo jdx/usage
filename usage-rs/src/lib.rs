@@ -10,6 +10,12 @@
 //! usage = { package = "usage-rs", version = "5.1" }
 //! ```
 //!
+//! Enable portable expression validation only when a CLI declares `validate` rules:
+//!
+//! ```toml
+//! usage = { package = "usage-rs", version = "5.1", features = ["validation"] }
+//! ```
+//!
 //! ```
 //! use usage_rs as usage;
 //! # #[cfg(feature = "spec")]
@@ -51,6 +57,7 @@ mod tests {
     #[usage(bin = "internal")]
     struct Internal {}
 
+    #[cfg(feature = "validation")]
     #[derive(Debug, crate::Cli)]
     #[usage(bin = "validated")]
     struct Validated {
@@ -67,6 +74,7 @@ mod tests {
         assert_eq!(Internal::spec().bin, Some("internal"));
     }
 
+    #[cfg(feature = "validation")]
     #[test]
     fn derives_evaluate_portable_validation_expressions() {
         let valid = [
