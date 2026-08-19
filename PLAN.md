@@ -1124,11 +1124,12 @@ repeated here.
       that help, completions and docs all read, with the derive lowering an
       attribute into it. Not a derive-only emission, and not a blessed
       transform API: the spec defines.
-- [ ] **No home for post-parse hooks.** aube reimplements `--version` because
-      the built-in exits before its async update notifier can run; hk strips
-      `--cd` and re-execs by hand. `parse_from` returning `Error::Help` and
-      version instead of exiting is the derive's answer in principle — confirm
-      the pattern covers both cases and document it, or add the hook.
+- [x] **Post-parse hooks stay application-owned.** `parse_from` and
+      `parse_from_argv` return `Error::Help` and `Error::Version` instead of
+      exiting, so aube can run its notifier or customize version output before
+      rendering. A successful value likewise lets hk handle `--cd` before
+      dispatch. The help guide documents these interception points explicitly;
+      `parse()` remains the immediate print-and-exit convenience path.
 - [ ] **MSRV.** usage-lib is on Rust 1.95 while the fleet floors are 1.88 and
       1.91, so a CLI that links it for spec generation inherits the bump. The
       argv/derive tier is dependency-free by design; keeping a low-MSRV path to
