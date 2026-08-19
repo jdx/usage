@@ -383,7 +383,11 @@ impl<'a> App<'a> {
                 path.split_ascii_whitespace().map(str::to_string).collect();
             let count = projected.len();
             split.words.splice(1..1, projected);
-            split.cword += count;
+            // A projection lives after argv0. When the cursor is still editing
+            // argv0, inserting that path must not move the cursor into it.
+            if split.cword > 0 {
+                split.cword += count;
+            }
         }
         let spec = self.view.spec();
         let answer = if let Some(name) = request.candidates_for {
@@ -1894,6 +1898,26 @@ mod tests {
                 .completion_request(&argv),
         );
         assert_eq!(rendered.as_deref(), Some("ruby\n"));
+
+        let binary_argv = [
+            OsString::from("__complete_word__"),
+            OsString::from("--shell"),
+            OsString::from("bash"),
+            OsString::from("--line"),
+            OsString::from("mis"),
+        ];
+        let without_projection = run_ready(
+            SPEC.view()
+                .completion_app()
+                .completion_request(&binary_argv),
+        );
+        let with_projection = run_ready(
+            SPEC.view()
+                .completion_app()
+                .project("use")
+                .completion_request(&binary_argv),
+        );
+        assert_eq!(with_projection, without_projection);
 
         let unrelated = at_end("mise plugins ");
         let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
