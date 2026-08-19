@@ -433,7 +433,7 @@ pub enum DoubleDash {
 
 /// Something the parser bound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Event<'t, 'v> {
+pub enum Event<'t, 'a, 'v> {
     /// A subcommand was selected; parsing continues inside it.
     Command(&'t Command<'t>),
     /// A flag was given. `value` is `Some` for a flag that takes one, and
@@ -448,7 +448,7 @@ pub enum Event<'t, 'v> {
     Arg { arg: &'t Arg<'t>, value: &'v [u8] },
     /// An unmatched word was forwarded as an external command: the name, then
     /// every remaining token, including flags.
-    External { values: &'v [&'v OsStr] },
+    External { values: &'a [&'v OsStr] },
 }
 
 /// A binding failure.
@@ -981,8 +981,8 @@ pub fn os_string_from_bytes(value: Vec<u8>) -> Result<OsString, Vec<u8>> {
 /// A single-pass parse over `argv`.
 ///
 /// Created with [`Parser::new`] and driven with [`Parser::next_event`].
-pub struct Parser<'t, 'v> {
-    argv: &'v [&'v OsStr],
+pub struct Parser<'t, 'a, 'v> {
+    argv: &'a [&'v OsStr],
     /// Index of the next token to read.
     pos: usize,
     /// The command currently in scope.
@@ -1045,11 +1045,11 @@ pub struct Parser<'t, 'v> {
     help_span: (usize, usize),
 }
 
-impl<'t: 'v, 'v> Parser<'t, 'v> {
+impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// Begin parsing `argv` against `root`.
     ///
     /// `argv` excludes the program name.
-    pub fn new(root: &'t Command<'t>, argv: &'v [&'v OsStr]) -> Self {
+    pub fn new(root: &'t Command<'t>, argv: &'a [&'v OsStr]) -> Self {
         Parser {
             argv,
             pos: 0,
@@ -1173,7 +1173,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
     /// bundle containing an unrecognized letter yields the error *instead of*, not
     /// after, the letters that did match.
     #[allow(clippy::should_implement_trait)] // not an Iterator: items borrow from self's tables
-    pub fn next_event(&mut self) -> Option<Result<Event<'t, 'v>, Error<'t, 'v>>> {
+    pub fn next_event(&mut self) -> Option<Result<Event<'t, 'a, 'v>, Error<'t, 'v>>> {
         if self.done {
             return None;
         }
@@ -1184,7 +1184,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
         event
     }
 
-    fn step(&mut self) -> Option<Result<Event<'t, 'v>, Error<'t, 'v>>> {
+    fn step(&mut self) -> Option<Result<Event<'t, 'a, 'v>, Error<'t, 'v>>> {
         // A partly-read short bundle takes priority: its remaining bytes are
         // still part of the token being processed.
         if !self.bundle.is_empty() {
@@ -1287,7 +1287,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
         Some(self.word(token))
     }
 
-    fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+    fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
         let body = &token[2..];
         let (name, attached) = match body.iter().position(|&b| b == b'=') {
             Some(i) => (&body[..i], Some(&body[i + 1..])),
@@ -1365,7 +1365,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
         Ok(())
     }
 
-    fn short_flag(&mut self) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+    fn short_flag(&mut self) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
         let byte = self.bundle[0];
         let rest = &self.bundle[1..];
 
@@ -1434,7 +1434,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
         }
     }
 
-    fn word(&mut self, token: &'v [u8]) -> Result<Event<'t, 'v>, Error<'t, 'v>> {
+    fn word(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
         // Subcommands are only matched where descent is still possible: once a
         // positional of this command has taken a word, a later word that happens
         // to equal a subcommand name is just a value.
@@ -1660,7 +1660,7 @@ impl<'t: 'v, 'v> Parser<'t, 'v> {
 /// `as_encoded_bytes` is a plain accessor with no conversion and no allocation.
 /// The reverse direction is the one with a cost — see [`os_string_from_bytes`] —
 /// which is why values come back as bytes.
-fn bytes<'v>(s: &'v &'v OsStr) -> &'v [u8] {
+fn bytes<'v>(s: &&'v OsStr) -> &'v [u8] {
     s.as_encoded_bytes()
 }
 
@@ -1853,7 +1853,7 @@ mod tests {
     fn parse<'t: 'v, 'v>(
         root: &'t Command<'t>,
         argv: &'v [&'v OsStr],
-    ) -> Result<Vec<Event<'t, 'v>>, Error<'t, 'v>> {
+    ) -> Result<Vec<Event<'t, 'v, 'v>>, Error<'t, 'v>> {
         let mut parser = Parser::new(root, argv);
         let mut events = Vec::new();
         while let Some(event) = parser.next_event() {

@@ -4,7 +4,7 @@
 //! or get an answer they did not mean.
 
 use usage::Spec as LibSpec;
-use usage_derive::Cli;
+use usage_derive::{Cli, Subcommands};
 
 /// A tool named after its binary
 ///
@@ -23,6 +23,21 @@ struct Cli_ {
 struct Renamed {
     #[usage(long)]
     plain: bool,
+}
+
+#[derive(Cli)]
+#[usage(name = "busy", bin = "busy", multicall)]
+struct Busy {
+    #[usage(long, global)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Option<BusyCommand>,
+}
+
+#[derive(Subcommands)]
+enum BusyCommand {
+    #[usage(alias = "r")]
+    Run,
 }
 
 #[test]
@@ -76,4 +91,29 @@ fn the_fields_are_bound() {
     let argv = [OsStr::new("--plain")];
     assert!(Cli_::parse_from(&argv).expect("should parse").plain);
     assert!(Renamed::parse_from(&argv).expect("should parse").plain);
+}
+
+#[test]
+fn a_full_argv_helper_matches_clap_shaped_tests_and_multicall() {
+    use std::ffi::OsStr;
+
+    let ordinary = [OsStr::new("communique"), OsStr::new("--plain")];
+    assert!(
+        Cli_::parse_from_argv(&ordinary)
+            .expect("should parse")
+            .plain
+    );
+
+    let dispatcher = [OsStr::new("busy"), OsStr::new("run")];
+    assert!(matches!(
+        Busy::parse_from_argv(&dispatcher)
+            .expect("dispatcher form should parse")
+            .command,
+        Some(BusyCommand::Run)
+    ));
+
+    let applet = [OsStr::new("/usr/local/bin/r"), OsStr::new("--verbose")];
+    let parsed = Busy::parse_from_argv(&applet).expect("applet form should parse");
+    assert!(matches!(parsed.command, Some(BusyCommand::Run)));
+    assert!(parsed.verbose, "root globals remain in scope for applets");
 }

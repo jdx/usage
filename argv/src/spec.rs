@@ -1954,7 +1954,7 @@ pub trait CommandArgs: Sized {
     ///
     /// Keys are unique across a CLI, so an event that is not this command's is left
     /// for whoever owns it rather than mistaken for a local field.
-    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_>) -> bool;
+    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_, '_>) -> bool;
 
     /// Every flag this command reads into a setting, and the setting it sets.
     ///
@@ -2074,7 +2074,7 @@ pub trait Subcommands: Sized {
     fn apply(
         partial: &mut Self::Partial,
         selected: Option<usize>,
-        event: &crate::Event<'_, '_>,
+        event: &crate::Event<'_, '_, '_>,
     ) -> bool;
 
     /// Make room for the variant at `selected`, if it is not already the one being filled.
