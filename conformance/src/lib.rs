@@ -51,6 +51,13 @@ pub struct Vector {
     pub spec: String,
     /// The command line, excluding the program name.
     pub argv: Vec<String>,
+    /// argv[0] as the process saw it, when that is the question.
+    ///
+    /// Absent means the spec's `bin`, which is what usage-lib prepends for every
+    /// other vector. A `multicall` applet is selected by this basename rather than
+    /// by a word in `argv`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub argv0: Option<String>,
     /// The environment the parse sees. Only vectors about `env` fallback set it;
     /// the harness never consults the real environment, so no vector's result
     /// can depend on the machine running it.

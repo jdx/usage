@@ -174,6 +174,16 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
         }
     }
 
+    let has_named_multicall_target = !spec.cmd.subcommands.is_empty();
+    if spec.multicall && !has_named_multicall_target {
+        issues.push(LintIssue {
+            severity: Severity::Error,
+            code: "multicall-no-subcommands".to_string(),
+            message: "Spec has multicall=#true but no subcommands to select".to_string(),
+            location: None,
+        });
+    }
+
     // Lint the root command
     lint_command(&spec.cmd, &[], spec.about.is_some(), opts, &mut issues);
 
@@ -716,6 +726,35 @@ cmd "undocumented"
             missing_help[0].location.as_deref(),
             Some("cmd test undocumented")
         );
+    }
+
+    #[test]
+    fn test_lint_multicall_no_subcommands() {
+        let spec: Spec = r#"
+name "busybox"
+bin "busybox"
+multicall #true
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues.iter().any(|i| i.code == "multicall-no-subcommands"));
+    }
+
+    #[test]
+    fn test_lint_multicall_external_only_has_no_named_target() {
+        let spec: Spec = r#"
+name "busybox"
+bin "busybox"
+multicall #true
+external_subcommand #true
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues.iter().any(|i| i.code == "multicall-no-subcommands"));
     }
 
     #[test]

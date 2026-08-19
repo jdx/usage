@@ -31,6 +31,24 @@ source_code_link_template "https://github.com/me/myproj/blob/main/src/cli/{{path
 include file="./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
 ```
 
+## Multicall
+
+`multicall #true` is clap's busybox-style applets: argv[0]'s basename selects a
+subcommand. The dispatcher names (`name` and `bin`) are skipped, so
+`busybox ls` still runs the `ls` applet. A symlink `ls -> busybox` does too,
+because the basename is `ls`. Path components and a trailing `.exe` are stripped.
+
+```kdl
+name "busybox"
+bin "busybox"
+multicall #true
+cmd "ls"
+cmd "cat"
+```
+
+clap exposes this as `Command::multicall` / `#[command(multicall = true)]`, and
+the bridge reads `is_multicall_set`.
+
 ## Repository
 
 The URL of the CLI's source repository:

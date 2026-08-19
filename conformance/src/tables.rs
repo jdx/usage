@@ -24,7 +24,7 @@
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
-use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
+use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
 use usage_argv::spec::{
     ArgMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta, GroupMeta, RequiresIf,
 };
@@ -212,6 +212,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),
         default_subcommand: opt(&spec.default_subcommand),
+        multicall: spec.multicall,
         // An exact synopsis the spec declares, which replaces the generated line on the root's
         // page. usage-lib's manpage renderer honours it and its help renderer does not, so a
         // spec that declares one is a case the two disagree about; `render/03-sections.json`
@@ -298,6 +299,7 @@ fn flag_meta(
     completers: &[&SpecComplete],
 ) -> FlagMeta<'static> {
     let arg = f.arg.as_ref();
+    let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
         help: opt(&f.help),
@@ -311,10 +313,10 @@ fn flag_meta(
         value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
         env: opt(&f.env),
         default: strs(&f.default),
-        choices: arg
-            .and_then(|a| a.choices.as_ref())
-            .map(|c| strs(&c.choices))
-            .unwrap_or(&[]),
+        accepted_choices: accepted_choices(choices),
+        choices: visible_choices(choices),
+        choice_aliases: choice_aliases(choices),
+        ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: f.required,
         hide: f.hide,
         count: f.count,
@@ -363,13 +365,17 @@ fn arg_meta(
     table: &'static Arg<'static>,
     completers: &[&SpecComplete],
 ) -> ArgMeta<'static> {
+    let choices = a.choices.as_ref();
     ArgMeta {
         arg: table,
         help: opt(&a.help),
         long_help: opt(&a.help_long),
         env: opt(&a.env),
         default: strs(&a.default),
-        choices: a.choices.as_ref().map(|c| strs(&c.choices)).unwrap_or(&[]),
+        accepted_choices: accepted_choices(choices),
+        choices: visible_choices(choices),
+        choice_aliases: choice_aliases(choices),
+        ignore_case: choices.is_some_and(|c| c.ignore_case),
         required: a.required,
         hide: a.hide,
         delimiter: a.delimiter,
@@ -449,6 +455,73 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     )
 }
 
+fn accepted_choices(choices: Option<&SpecChoices>) -> &'static [&'static str] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .choices
+            .iter()
+            .map(|value| leak(value))
+            .chain(
+                choices
+                    .details
+                    .iter()
+                    .flat_map(|choice| choice.aliases.iter())
+                    .map(|alias| leak(&alias.value)),
+            )
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn visible_choices(choices: Option<&SpecChoices>) -> &'static [&'static str] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .choices
+            .iter()
+            .filter(|value| {
+                !choices
+                    .details
+                    .iter()
+                    .any(|choice| choice.value == value.as_str() && choice.hide)
+            })
+            .chain(choices.details.iter().flat_map(|choice| {
+                choice
+                    .aliases
+                    .iter()
+                    .filter(|alias| !alias.hide)
+                    .map(|alias| &alias.value)
+            }))
+            .map(|value| leak(value))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn choice_aliases(choices: Option<&SpecChoices>) -> &'static [(&'static str, &'static str)] {
+    let Some(choices) = choices else {
+        return &[];
+    };
+    Box::leak(
+        choices
+            .details
+            .iter()
+            .flat_map(|choice| {
+                choice
+                    .aliases
+                    .iter()
+                    .map(move |alias| (leak(&choice.value), leak(&alias.value)))
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
 fn example(e: &SpecExample) -> Example<'static> {
     Example {
         code: leak(&e.code),
@@ -519,6 +592,37 @@ mod tests {
         // A Rust completer is a function the binary calls, which a spec's `run=` is not — so
         // this stays `None` however a spec is written, and says so rather than defaulting.
         assert!(built.root.flags[0].complete.is_none());
+    }
+
+    #[test]
+    fn rich_choices_separate_visible_and_accepted_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n\
+             flag \"--mode <MODE>\" {\n  arg \"<MODE>\" {\n    choices {\n\
+               choice \"shown\" {\n      alias \"short\"\n      alias \"secret-short\" hide=#true\n    }\n\
+               choice \"secret\" hide=#true\n    }\n  }\n}\n\
+             "
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+
+        assert_eq!(built.root.flags[0].choices, &["shown", "short"]);
+        assert_eq!(
+            built.root.flags[0].accepted_choices,
+            &["shown", "secret", "short", "secret-short"]
+        );
+        let emitted: Spec = built.to_kdl().parse().expect("emitted choices stay valid");
+        let choices = emitted.cmd.flags[0]
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.choices.as_ref())
+            .expect("flag choices");
+        assert_eq!(choices.values(), vec!["shown", "short"]);
+        assert_eq!(choices.choices, ["shown", "secret"]);
+        assert_eq!(choices.details[0].aliases[0].value, "short");
+        assert!(!choices.details[0].aliases[0].hide);
+        assert_eq!(choices.details[0].aliases[1].value, "secret-short");
+        assert!(choices.details[0].aliases[1].hide);
+        assert!(choices.details[1].hide);
     }
 
     /// A completer is keyed by the *value's* name, lowercased, on whichever command asks.

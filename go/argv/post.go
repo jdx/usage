@@ -1,6 +1,9 @@
 package argv
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 // The rules that are decided once the last token has been read.
 //
@@ -57,9 +60,11 @@ type Meta struct {
 	RequiresIfBoolean bool
 	// Required means it must end up with a value, from anywhere.
 	Required bool
-	// Choices is the exact set of values allowed. Matching is case-sensitive:
-	// case-insensitive matching would have to be declared rather than assumed.
+	// Choices is the visible set shown in diagnostics.
 	Choices []string
+	// AcceptedChoices also includes hidden values and aliases.
+	AcceptedChoices []string
+	IgnoreCase      bool
 	// Default fills in when neither the command line nor the environment did.
 	Default []string
 	// Env names an environment variable to fall back to. Empty means none.
@@ -291,11 +296,15 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		return &Error{Code: code, Name: m.Name, Spelling: m.Spelling}
 	}
 
-	if len(m.Choices) > 0 {
+	accepted := m.AcceptedChoices
+	if len(accepted) == 0 {
+		accepted = m.Choices
+	}
+	if len(accepted) > 0 {
 		// Every value, not just the first: a variadic can be given a good value
 		// and a bad one, and so can a repeatable flag across occurrences.
 		for _, v := range values {
-			if !contains(m.Choices, v) {
+			if !containsChoice(accepted, v, m.IgnoreCase) {
 				return &Error{Code: CodeInvalidChoice, Name: m.Name,
 					Spelling: m.Spelling, Choices: m.Choices}
 			}
@@ -335,13 +344,22 @@ func EnvTruth(value string) bool {
 	return false
 }
 
-func contains(list []string, s string) bool {
+func containsChoice(list []string, s string, ignoreCase bool) bool {
 	for _, x := range list {
-		if x == s {
+		if x == s || ignoreCase && isASCII(x) && isASCII(s) && strings.EqualFold(x, s) {
 			return true
 		}
 	}
 	return false
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }
 
 // LookupEnv reads the process environment, for callers that want it.

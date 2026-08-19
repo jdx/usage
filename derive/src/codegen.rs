@@ -91,6 +91,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
+    let multicall = cli.multicall;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -281,6 +282,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ..usage_argv::Command::EMPTY
             };
 
+            // The model can see that the root has a subcommand field, but the enum is
+            // expanded separately. Its COMMANDS table is the point where an
+            // external-only enum becomes distinguishable from one with named applets.
+            const _: () = assert!(
+                !#multicall || !ROOT.subcommands.is_empty(),
+                "`multicall` needs at least one named subcommand to select",
+            );
+
             #(#flag_metas)*
             #(#arg_metas)*
             #meta_table_decls
@@ -443,6 +452,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 usage: #usage,
                 default_subcommand: #default_subcommand,
+                multicall: #multicall,
                 root: &ROOT_META,
             };
 
@@ -488,8 +498,26 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 pub fn parse() -> Self {
                     #completion_intercept
-                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
-                        ::std::env::args_os().skip(1).collect();
+                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> = if SPEC.multicall {
+                        let mut __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                            ::std::env::args_os().collect();
+                        if !__usage_all.is_empty() {
+                            let __usage_argv0 = __usage_all.remove(0);
+                            if let ::std::option::Option::Some(__usage_word) =
+                                __usage_argv0.to_str().and_then(|s| {
+                                    usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                                })
+                            {
+                                __usage_all.insert(
+                                    0,
+                                    ::std::ffi::OsString::from(__usage_word),
+                                );
+                            }
+                        }
+                        __usage_all
+                    } else {
+                        ::std::env::args_os().skip(1).collect()
+                    };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                         __usage_raw.iter().map(|a| a.as_os_str()).collect();
                     // This is the entry point that *is* the process — it already exits for a help
@@ -942,7 +970,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
-    let choices = choices_tokens(field);
+    let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
     // the struct says.
@@ -997,7 +1025,10 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             repeatable: #repeatable,
             required: #required,
             value_optional: #value_optional,
+            accepted_choices: #accepted_choices,
             choices: #choices,
+            choice_aliases: #choice_aliases,
+            ignore_case: #ignore_case,
             var_min: #var_min,
             var_max: #var_max,
             overrides: &[#(#overrides),*],
@@ -1029,7 +1060,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required = field.shape == Shape::Required || field.required_collection;
-    let choices = choices_tokens(field);
+    let (choices, accepted_choices, choice_aliases, ignore_case) = choices_tokens(field);
     let (var_min, var_max) = bounds_tokens(field);
     let delimiter = match field.delimiter {
         Some(c) => quote!(::std::option::Option::Some(#c)),
@@ -1050,7 +1081,10 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             help_heading: #help_heading,
             hide: #hide,
             required: #required,
+            accepted_choices: #accepted_choices,
             choices: #choices,
+            choice_aliases: #choice_aliases,
+            ignore_case: #ignore_case,
             var_min: #var_min,
             var_max: #var_max,
             delimiter: #delimiter,
@@ -1060,14 +1094,20 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
 }
 
 /// A field's declared choices, as the metadata holds them.
-fn choices_tokens(field: &Field) -> TokenStream {
+fn choices_tokens(field: &Field) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
     // From the type when the field says `value_enum`, so the spec, the help and the check
     // all read the list the type declares rather than a copy of it.
     if let (true, Some(ty)) = (field.value_enum, field.value_ty.as_ref()) {
-        return quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES);
+        return (
+            quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES),
+            quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+            quote!(<#ty as usage_argv::spec::ValueEnum>::ALIASES),
+            quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+        );
     }
     let choices = &field.choices;
-    quote!(&[#(#choices),*])
+    let choices = quote!(&[#(#choices),*]);
+    (choices.clone(), choices, quote!(&[]), quote!(false))
 }
 
 /// A field's declared bounds, as the metadata holds them.
@@ -3874,6 +3914,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 quote!(&[#(#list),*])
             }
         };
+        let accepted_choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
+            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+            _ => quote!(#choices),
+        };
+        let ignore_case: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
+            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+            _ => quote!(false),
+        };
         let values = match f.shape {
             Shape::Optional => quote!(partial.#ident.iter()),
             Shape::Required => quote!(::std::iter::once(&partial.#ident)),
@@ -3895,7 +3943,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 else {
                     continue;
                 };
-                if !#choices.contains(&__usage_text) {
+                if !usage_argv::spec::choice_matches(#accepted_choices, __usage_text, #ignore_case) {
                     return ::std::result::Result::Err(
                         usage_argv::Error::InvalidChoice {
                             name: #name,
@@ -4390,11 +4438,41 @@ fn post_binding(cli: &Cli) -> TokenStream {
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
     let runtime = runtime_path();
-    let words: Vec<&String> = value_enum.variants.iter().map(|(_, name)| name).collect();
-    let arms = value_enum
+    let words: Vec<&String> = value_enum
         .variants
         .iter()
-        .map(|(variant, name)| quote!(#name => ::std::result::Result::Ok(#ident::#variant),));
+        .map(|value| &value.name)
+        .collect();
+    let accepted: Vec<&String> = value_enum
+        .variants
+        .iter()
+        .flat_map(|value| ::std::iter::once(&value.name).chain(value.aliases.iter()))
+        .collect();
+    let aliases = value_enum.variants.iter().flat_map(|value| {
+        let canonical = &value.name;
+        value
+            .aliases
+            .iter()
+            .map(move |alias| quote!((#canonical, #alias)))
+    });
+    let ignore_case = value_enum.ignore_case;
+    let arms = value_enum.variants.iter().map(|value| {
+        let variant = &value.ident;
+        let names = ::std::iter::once(&value.name).chain(value.aliases.iter());
+        if ignore_case {
+            quote! {
+                if [#(#names),*].iter().any(|word| word.eq_ignore_ascii_case(value)) {
+                    return ::std::result::Result::Ok(#ident::#variant);
+                }
+            }
+        } else {
+            quote! {
+                if [#(#names),*].contains(&value) {
+                    return ::std::result::Result::Ok(#ident::#variant);
+                }
+            }
+        }
+    });
     // Listed in the message because a wrong word is the common mistake, and the words are
     // right here. The `choices` check usually reports this first, with the same list; this
     // is what a caller sees who converts one by hand.
@@ -4411,19 +4489,20 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
 
             impl usage_argv::spec::ValueEnum for #ident {
                 const CHOICES: &'static [&'static str] = &[#(#words),*];
+                const ACCEPTED_CHOICES: &'static [&'static str] = &[#(#accepted),*];
+                const ALIASES: &'static [(&'static str, &'static str)] = &[#(#aliases),*];
+                const IGNORE_CASE: bool = #ignore_case;
             }
 
             impl ::std::str::FromStr for #ident {
                 type Err = ::std::string::String;
 
                 fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
-                    match value {
-                        #(#arms)*
-                        other => ::std::result::Result::Err(::std::format!(
-                            "`{other}` is not one of: {}",
-                            #expected
-                        )),
-                    }
+                    #(#arms)*
+                    ::std::result::Result::Err(::std::format!(
+                        "`{value}` is not one of: {}",
+                        #expected
+                    ))
                 }
             }
         };

@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use usage_rs as usage;
-use usage_rs::{Args, Cli, Subcommands};
+use usage_rs::{Args, Cli, Subcommands, ValueEnum};
 
 #[derive(Cli)]
 #[usage(bin = "ex")]
@@ -18,6 +18,21 @@ enum Command {
     Show(Show),
     /// Print version information
     Version,
+}
+
+#[derive(ValueEnum)]
+#[usage(ignore_case)]
+enum Shell {
+    Bash,
+    #[usage(alias = "shell-z")]
+    Zsh,
+}
+
+#[derive(Cli)]
+#[usage(bin = "choice-ex")]
+struct ChoiceEx {
+    #[usage(long, value_enum)]
+    shell: Shell,
 }
 
 /// Show one file
@@ -65,4 +80,15 @@ fn defaults_render_clap_shaped_parse_errors() {
         message.contains("unexpected argument '--wat'"),
         "defaults should enable diagnostics; got:\n{message}"
     );
+}
+
+#[test]
+fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
+    let cli = ChoiceEx::parse_from(&[OsStr::new("--shell"), OsStr::new("SHELL-Z")])
+        .expect("aliases and ASCII case folding should parse");
+    assert!(matches!(cli.shell, Shell::Zsh));
+
+    let kdl = ChoiceEx::to_kdl();
+    assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
+    assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
 }

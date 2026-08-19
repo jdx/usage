@@ -296,6 +296,13 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
+    /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
+    ///
+    /// clap's `multicall`. The dispatcher names (`name` / `bin`) are skipped; any
+    /// other basename is parsed as the first word. Path components and a trailing
+    /// `.exe` are stripped. The parser itself does not see argv[0]; [`crate::multicall_applet`]
+    /// is what a process entry applies before calling it.
+    pub multicall: bool,
     /// The root command, and the home of everything a spec declares at its top level.
     ///
     /// A KDL spec has one place for surrounding text and examples — the top level — and the
@@ -319,6 +326,7 @@ impl Spec<'_> {
         long_about: None,
         usage: None,
         default_subcommand: None,
+        multicall: false,
         root: &CommandMeta::EMPTY,
     };
 }
@@ -578,7 +586,12 @@ pub struct FlagMeta<'a> {
     pub value_name: Option<&'a str>,
     pub env: Option<&'a str>,
     pub default: &'a [&'a str],
+    /// Canonical choices plus aliases accepted by the value type.
+    pub accepted_choices: &'a [&'a str],
     pub choices: &'a [&'a str],
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub choice_aliases: &'a [(&'a str, &'a str)],
+    pub ignore_case: bool,
     pub required: bool,
     /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
     ///
@@ -650,7 +663,10 @@ impl FlagMeta<'_> {
         value_name: None,
         env: None,
         default: &[],
+        accepted_choices: &[],
         choices: &[],
+        choice_aliases: &[],
+        ignore_case: false,
         required: false,
         value_optional: false,
         hide: false,
@@ -698,7 +714,12 @@ pub struct ArgMeta<'a> {
     pub long_help: Option<&'a str>,
     pub env: Option<&'a str>,
     pub default: &'a [&'a str],
+    /// Canonical choices plus aliases accepted by the value type.
+    pub accepted_choices: &'a [&'a str],
     pub choices: &'a [&'a str],
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub choice_aliases: &'a [(&'a str, &'a str)],
+    pub ignore_case: bool,
     /// Whether the argument must be filled. The parser does not enforce this —
     /// it is checked once the last token has been read — but the spec has to say
     /// it, and help output has to show it.
@@ -726,7 +747,10 @@ impl ArgMeta<'_> {
         long_help: None,
         env: None,
         default: &[],
+        accepted_choices: &[],
         choices: &[],
+        choice_aliases: &[],
+        ignore_case: false,
         required: true,
         hide: false,
         var_min: None,
@@ -839,6 +863,9 @@ impl Spec<'_> {
         }
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
+        }
+        if self.multicall {
+            writeln!(out, "multicall #true")?;
         }
         if self.root.cmd.external_subcommand {
             writeln!(out, "external_subcommand #true")?;
@@ -1289,12 +1316,26 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
             out.push('\n');
         } else {
             out.push_str(" {\n");
-            write_choices(out, meta.choices, inner + 1)?;
+            write_choices(
+                out,
+                meta.choices,
+                meta.accepted_choices,
+                meta.choice_aliases,
+                meta.ignore_case,
+                inner + 1,
+            )?;
             indent(out, inner)?;
             out.push_str("}\n");
         }
     } else if !meta.choices.is_empty() {
-        write_choices(out, meta.choices, inner)?;
+        write_choices(
+            out,
+            meta.choices,
+            meta.accepted_choices,
+            meta.choice_aliases,
+            meta.ignore_case,
+            inner,
+        )?;
     }
     indent(out, depth)?;
     out.push_str("}\n");
@@ -1356,7 +1397,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
     write_many_defaults(out, meta.default, inner)?;
-    write_choices(out, meta.choices, inner)?;
+    write_choices(
+        out,
+        meta.choices,
+        meta.accepted_choices,
+        meta.choice_aliases,
+        meta.ignore_case,
+        inner,
+    )?;
     indent(out, depth)?;
     out.push_str("}\n");
     Ok(())
@@ -1421,16 +1469,77 @@ fn write_many_defaults(out: &mut String, defaults: &[&str], depth: usize) -> cor
     Ok(())
 }
 
-fn write_choices(out: &mut String, choices: &[&str], depth: usize) -> core::fmt::Result {
-    if choices.is_empty() {
+fn write_choices(
+    out: &mut String,
+    choices: &[&str],
+    accepted_choices: &[&str],
+    aliases: &[(&str, &str)],
+    ignore_case: bool,
+    depth: usize,
+) -> core::fmt::Result {
+    if choices.is_empty() && accepted_choices.is_empty() {
         return Ok(());
     }
     indent(out, depth)?;
     out.push_str("choices");
-    for choice in choices {
-        write!(out, " {}", quoted(choice))?;
+    if ignore_case {
+        out.push_str(" ignore_case=#true");
     }
-    out.push('\n');
+
+    let has_hidden_accepted = accepted_choices
+        .iter()
+        .any(|value| !choices.contains(value));
+    if aliases.is_empty() && !has_hidden_accepted {
+        for choice in choices {
+            write!(out, " {}", quoted(choice))?;
+        }
+        out.push('\n');
+        return Ok(());
+    }
+
+    out.push_str(" {\n");
+    // `choices` is the advertised set, so it contains visible aliases as well as canonical
+    // values. `accepted_choices` adds everything hidden. The alias pairs let emission recover
+    // which is which without putting presentation-only visibility into the parse table.
+    let is_alias = |value: &str| aliases.iter().any(|(_, alias)| *alias == value);
+    let mut canonicals = std::vec::Vec::new();
+    for value in choices
+        .iter()
+        .chain(aliases.iter().map(|(canonical, _)| canonical))
+        .chain(accepted_choices.iter())
+    {
+        if !is_alias(value) && !canonicals.contains(value) {
+            canonicals.push(*value);
+        }
+    }
+    for choice in canonicals {
+        indent(out, depth + 1)?;
+        write!(out, "choice {}", quoted(choice))?;
+        if !choices.contains(&choice) {
+            out.push_str(" hide=#true");
+        }
+        let choice_aliases: std::vec::Vec<&str> = aliases
+            .iter()
+            .filter_map(|(canonical, alias)| (*canonical == choice).then_some(*alias))
+            .collect();
+        if choice_aliases.is_empty() {
+            out.push('\n');
+            continue;
+        }
+        out.push_str(" {\n");
+        for alias in choice_aliases {
+            indent(out, depth + 2)?;
+            write!(out, "alias {}", quoted(alias))?;
+            if !choices.contains(&alias) {
+                out.push_str(" hide=#true");
+            }
+            out.push('\n');
+        }
+        indent(out, depth + 1)?;
+        out.push_str("}\n");
+    }
+    indent(out, depth)?;
+    out.push_str("}\n");
     Ok(())
 }
 
@@ -1528,6 +1637,17 @@ fn quoted(value: &str) -> String {
 pub trait ValueEnum: Sized {
     /// Every word this type accepts, in the order it declared them.
     const CHOICES: &'static [&'static str];
+    /// Canonical words plus aliases accepted by the type.
+    const ACCEPTED_CHOICES: &'static [&'static str] = Self::CHOICES;
+    /// Canonical-to-alias pairs, used by spec emission to retain the distinction.
+    const ALIASES: &'static [(&'static str, &'static str)] = &[];
+    const IGNORE_CASE: bool = false;
+}
+
+pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool {
+    choices
+        .iter()
+        .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
 /// One value a flag was given, in a vocabulary this crate can hold.
@@ -1829,6 +1949,31 @@ mod tests {
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    #[test]
+    fn choice_emission_preserves_visible_and_hidden_aliases() {
+        let mut out = String::new();
+        write_choices(
+            &mut out,
+            &["shown", "short"],
+            &["shown", "secret", "short", "secret-short"],
+            &[("shown", "short"), ("shown", "secret-short")],
+            false,
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            out,
+            "choices {\n    choice \"shown\" {\n        alias \"short\"\n        alias \"secret-short\" hide=#true\n    }\n    choice \"secret\" hide=#true\n}\n"
+        );
+
+        out.clear();
+        write_choices(&mut out, &[], &["secret"], &[], false, 0).unwrap();
+        assert_eq!(
+            out, "choices {\n    choice \"secret\" hide=#true\n}\n",
+            "an entirely hidden set must still be emitted"
+        );
     }
 
     #[test]

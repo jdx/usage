@@ -790,17 +790,7 @@ impl From<&clap::Arg> for SpecFlag {
                     .as_str(),
             );
 
-            let choices = c
-                .get_possible_values()
-                .iter()
-                .flat_map(|v| v.get_name_and_aliases().map(|s| s.to_string()))
-                .collect::<Vec<_>>();
-            if !choices.is_empty() {
-                arg.choices = Some(SpecChoices {
-                    choices,
-                    ..Default::default()
-                });
-            }
+            arg.choices = crate::spec::arg::choices_from_clap(c);
 
             // The flag's argument is built from its value name rather than from the
             // clap `Arg`, so what the `Arg` says about the *value* has to be carried

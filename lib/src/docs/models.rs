@@ -659,7 +659,7 @@ impl From<&crate::SpecArg> for SpecArg {
             var_max: arg.var_max,
             hide: arg.hide,
             default: arg.default.clone(),
-            choices: arg.choices.clone(),
+            choices: arg.choices.as_ref().map(|choices| choices.for_help()),
             env: arg.env.clone(),
             help_heading: arg.help_heading.clone(),
             rendered: false,

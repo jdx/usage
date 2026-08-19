@@ -327,6 +327,7 @@ static SPEC: Spec = Spec {
     long_about: Some("Does things, at length."),
     usage: Some("Usage: ex <COMMAND>\n       ex --version \"quoted\""),
     default_subcommand: Some("run"),
+    multicall: false,
     root: &ROOT_META,
 };
 
@@ -345,6 +346,7 @@ fn the_program_itself_survives() {
     assert_eq!(spec.about.as_deref(), Some("does things"));
     assert_eq!(spec.about_long.as_deref(), Some("Does things, at length."));
     assert_eq!(spec.default_subcommand.as_deref(), Some("run"));
+    assert!(!spec.multicall);
     assert_eq!(
         spec.usage,
         "Usage: ex <COMMAND>\n       ex --version \"quoted\""
@@ -762,6 +764,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         long_about: None,
         usage: None,
         default_subcommand: None,
+        multicall: false,
         root: &META,
     };
 
@@ -894,6 +897,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         long_about: None,
         usage: None,
         default_subcommand: None,
+        multicall: false,
         root: &ROOT_META_TWO,
     };
 
@@ -947,6 +951,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         long_about: None,
         usage: None,
         default_subcommand: None,
+        multicall: false,
         root: &ROOT_META_THREE,
     };
     let words = ["ex".to_string(), "use".to_string(), String::new()];
@@ -1054,4 +1059,25 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
             [expected]
         );
     }
+}
+
+#[test]
+fn multicall_survives_the_round_trip() {
+    static SPEC: Spec = Spec {
+        name: "busybox",
+        bin: Some("busybox"),
+        multicall: true,
+        root: &CommandMeta::EMPTY,
+        ..Spec::EMPTY
+    };
+
+    let kdl = SPEC.to_kdl();
+    assert!(
+        kdl.contains("multicall #true"),
+        "lost on the way out: {kdl}"
+    );
+    let spec: LibSpec = kdl
+        .parse()
+        .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert!(spec.multicall);
 }

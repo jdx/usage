@@ -88,8 +88,14 @@ pub fn run(vector: &Vector) -> Outcome {
         }
         None => root,
     };
-    let argv: Vec<&'static OsStr> = vector
-        .argv
+    let mut words = vector.argv.clone();
+    if spec.multicall {
+        let argv0 = vector.argv0.as_deref().unwrap_or(spec.bin.as_str());
+        if let Some(applet) = usage_argv::multicall_applet(argv0, &spec.name, Some(&spec.bin)) {
+            words.insert(0, applet.to_string());
+        }
+    }
+    let argv: Vec<&'static OsStr> = words
         .iter()
         .map(|a| -> &'static OsStr { OsStr::new(leak(a)) })
         .collect();

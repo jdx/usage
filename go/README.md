@@ -269,16 +269,14 @@ an implementation in any language can run it. `go/conformance` runs all of it:
 mise run test:go
 ```
 
-**All 154 vectors pass** — every one the corpus has, binding and post-binding
-alike. The suite asserts that nothing was skipped, so that stays a measurement
-rather than a claim.
+**Every vector passes** — binding and post-binding alike. The suite asserts that
+nothing was skipped, so that stays a measurement rather than a claim.
 
-The number is worth watching rather than quoting: 101 when this module landed, 122
+The count is worth watching rather than quoting: 101 when this module landed, 122
 once the corpus imported the argv questions clap's suite answers, 145 once the
-post-binding rules arrived, 152 with the relationships between flags, and 154 as
-the corpus kept growing underneath. Every one of those increases was answered
-without a change to the Go side, which is the argument for a shared corpus in one
-line. A vector's spec is KDL, and this module deliberately has no KDL parser —
+post-binding rules arrived, 152 with the relationships between flags, and it
+kept growing underneath. Every one of those increases was answered without a
+change to the Go side, which is the argument for a shared corpus in one line. A vector's spec is KDL, and this module deliberately has no KDL parser —
 `usage generate json` does the lowering, which is why the suite needs the CLI
 built. That split is the same one an adopter gets: tables are generated once at
 build time by a maintainer who has the usage CLI, and the shipped binary never

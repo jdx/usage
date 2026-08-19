@@ -38,9 +38,13 @@ type Spec struct {
 	// DefaultSubcommand is declared once, at the top, and names a subcommand of
 	// the root.
 	DefaultSubcommand string `json:"default_subcommand"`
-	Version           string `json:"version"`
-	About             string `json:"about"`
-	AboutLong         string `json:"about_long"`
+	// Multicall is whether argv[0]'s basename selects a subcommand (busybox-style
+	// applets). clap's multicall. The dispatcher names (Name / Bin) are skipped;
+	// any other basename is parsed as the first word.
+	Multicall bool   `json:"multicall"`
+	Version   string `json:"version"`
+	About     string `json:"about"`
+	AboutLong string `json:"about_long"`
 	// Complete is the completers a spec declares, keyed by the lowercased name of
 	// the argument or flag value they belong to — which is how usage-lib keys
 	// them, and how a lookup has to be spelled.
@@ -250,7 +254,14 @@ func (f *Flag) choices() []string {
 	if f.Arg == nil {
 		return nil
 	}
-	return f.Arg.Choices.list()
+	return f.Arg.Choices.visible()
+}
+
+func (f *Flag) acceptedChoices() []string {
+	if f.Arg == nil {
+		return nil
+	}
+	return f.Arg.Choices.accepted()
 }
 
 // defaults reads through to the value a flag takes, which is the other place a
@@ -305,14 +316,61 @@ type Example struct {
 
 // Choices is the declared set of values, which the lowering nests one level.
 type Choices struct {
-	Choices []string `json:"choices"`
+	Choices    []string `json:"choices"`
+	Details    []Choice `json:"details"`
+	IgnoreCase bool     `json:"ignore_case"`
 }
 
-func (c *Choices) list() []string {
+type Choice struct {
+	Value   string        `json:"value"`
+	Help    string        `json:"help"`
+	Hide    bool          `json:"hide"`
+	Aliases []ChoiceAlias `json:"aliases"`
+}
+
+type ChoiceAlias struct {
+	Value string `json:"value"`
+	Hide  bool   `json:"hide"`
+}
+
+func (c *Choices) accepted() []string {
 	if c == nil {
 		return nil
 	}
-	return c.Choices
+	out := append([]string(nil), c.Choices...)
+	for _, detail := range c.Details {
+		for _, alias := range detail.Aliases {
+			out = append(out, alias.Value)
+		}
+	}
+	return out
+}
+
+func (c *Choices) visible() []string {
+	if c == nil {
+		return nil
+	}
+	out := make([]string, 0, len(c.Choices))
+	for _, value := range c.Choices {
+		hidden := false
+		for _, detail := range c.Details {
+			if detail.Value == value && detail.Hide {
+				hidden = true
+				break
+			}
+		}
+		if !hidden {
+			out = append(out, value)
+		}
+	}
+	for _, detail := range c.Details {
+		for _, alias := range detail.Aliases {
+			if !alias.Hide {
+				out = append(out, alias.Value)
+			}
+		}
+	}
+	return out
 }
 
 // Multi is how a flag accumulates when it is given more than once.
@@ -761,6 +819,8 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		CompleteType:      b.completeType(first(valueOf(f), f.Name)),
 		Required:          f.Required,
 		Choices:           f.choices(),
+		AcceptedChoices:   f.acceptedChoices(),
+		IgnoreCase:        f.Arg != nil && f.Arg.Choices != nil && f.Arg.Choices.IgnoreCase,
 		Default:           f.defaults(),
 		Env:               f.Env,
 		VarMin:            clampVarMax(f.VarMin),
@@ -798,18 +858,20 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		Short:    first(a.Help, a.HelpFirstLine),
 		Long:     first(a.HelpLong, a.Help),
 		Heading:  a.HelpHeading,
-		Choices:  a.Choices.list(),
+		Choices:  a.Choices.visible(),
 		Env:      a.Env,
 		Default:  a.Default,
 	})
 	b.record(out.Key, argv.Meta{
-		Name:         a.Name,
-		Required:     a.Required,
-		CompleteType: b.completeType(a.Name),
-		Choices:      a.Choices.list(),
-		Default:      a.Default,
-		Env:          a.Env,
-		VarMin:       clampVarMax(a.VarMin),
+		Name:            a.Name,
+		Required:        a.Required,
+		CompleteType:    b.completeType(a.Name),
+		Choices:         a.Choices.visible(),
+		AcceptedChoices: a.Choices.accepted(),
+		IgnoreCase:      a.Choices != nil && a.Choices.IgnoreCase,
+		Default:         a.Default,
+		Env:             a.Env,
+		VarMin:          clampVarMax(a.VarMin),
 		// No VarMax: for an argument the bound is a limit binding applies, which
 		// is what makes `[a]… [b]` fillable at all, so judging it again here would
 		// fail an invocation that never broke it.

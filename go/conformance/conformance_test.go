@@ -39,6 +39,7 @@ type Vector struct {
 	Doc    string            `json:"doc"`
 	Spec   string            `json:"spec"`
 	Argv   []string          `json:"argv"`
+	Argv0  *string           `json:"argv0"`
 	Env    map[string]string `json:"env"`
 	Expect Expect            `json:"expect"`
 	// Layer says which layer of a parser the vector is a question for. Absent
@@ -99,7 +100,7 @@ func TestCorpus(t *testing.T) {
 				lowered[v.Spec] = s
 			}
 
-			got, gotErr := run(s, v.Argv, v.Env)
+			got, gotErr := run(s, v.Argv, v.Argv0, v.Env)
 
 			switch {
 			case v.Expect.Error != "":
@@ -170,9 +171,18 @@ func note(v Vector) string {
 // deliberately does not know: it reports each occurrence and lets the caller
 // decide. Generated code assigns to a field or appends to a slice; here the spec
 // says which of the two to do.
-func run(s *spec.Spec, args []string, env map[string]string) (*Parsed, *argv.Error) {
+func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Parsed, *argv.Error) {
 	root, meta := s.Build()
 	multi := s.MultiFlags()
+	if s.Multicall {
+		name := s.Bin
+		if argv0 != nil {
+			name = *argv0
+		} else if name == "" {
+			name = s.Name
+		}
+		args = argv.RewriteMulticall(name, args, s.Name, s.Bin)
+	}
 
 	// Accumulated by key rather than by name, because the post-binding rules are
 	// keyed that way and two commands in one path may declare the same name — a

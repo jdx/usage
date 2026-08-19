@@ -135,6 +135,26 @@ func TestCheck(t *testing.T) {
 	}
 }
 
+func TestCheckRichChoices(t *testing.T) {
+	meta := &Meta{
+		Name:            "color",
+		Choices:         []string{"always"},
+		AcceptedChoices: []string{"always", "never", "yes"},
+		IgnoreCase:      true,
+	}
+	for _, value := range []string{"ALWAYS", "NEVER", "YES"} {
+		if err := Check(meta, []string{value}, 1); err != nil {
+			t.Errorf("%q should be accepted: %v", value, err)
+		}
+	}
+	if err := Check(meta, []string{"sometimes"}, 1); err == nil || err.Code != CodeInvalidChoice {
+		t.Fatalf("an unknown value should be rejected: %+v", err)
+	}
+	if containsChoice([]string{"K"}, "K", true) {
+		t.Fatal("ignore_case must use ASCII folding, not Unicode folding")
+	}
+}
+
 // TestEnvTruth pins the allow-list, including what it deliberately leaves out.
 func TestEnvTruth(t *testing.T) {
 	for _, s := range []string{"1", "true", "True", "TRUE"} {

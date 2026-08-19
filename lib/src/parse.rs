@@ -549,6 +549,33 @@ pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miett
     parse_partial_with_env(spec, input, None, MountTiming::Eager).map(|(out, _)| out)
 }
 
+/// Basename of argv[0] for a multicall CLI: last path component, with a trailing
+/// `.exe` stripped so Windows and Unix agree.
+pub fn multicall_basename(argv0: &str) -> &str {
+    let name = argv0.rsplit(['/', '\\']).next().unwrap_or(argv0);
+    match name.get(name.len().saturating_sub(4)..) {
+        Some(ext) if ext.eq_ignore_ascii_case(".exe") => &name[..name.len() - 4],
+        _ => name,
+    }
+}
+
+/// The applet name to parse as the first word, when argv[0] is not the dispatcher.
+///
+/// `None` means a dispatcher invocation (`busybox ls`): skip argv[0] and parse the
+/// rest. `Some` is a symlink invocation (`ls -l`): inject the basename.
+pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Option<&'a str> {
+    let base = multicall_basename(argv0);
+    if !name.is_empty() && base == multicall_basename(name) {
+        return None;
+    }
+    if let Some(bin) = bin {
+        if !bin.is_empty() && base == multicall_basename(bin) {
+            return None;
+        }
+    }
+    Some(base)
+}
+
 /// Internal version of parse_partial that accepts an optional custom env map.
 /// When a command's own `mount` runs, for the root — which nothing descends into.
 ///
@@ -571,7 +598,14 @@ fn parse_partial_with_env(
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
-    input.pop_front();
+    let argv0 = input.pop_front();
+    if spec.multicall {
+        if let Some(raw) = argv0 {
+            if let Some(applet) = multicall_applet(&raw, &spec.name, Some(spec.bin.as_str())) {
+                input.push_front(applet.to_string());
+            }
+        }
+    }
 
     let mut out = ParseOutput {
         cmd: spec.cmd.clone(),
@@ -2251,7 +2285,7 @@ fn choice_error(
 ) -> Option<String> {
     let choices = choices?;
     let values = choices.values_with_env(custom_env);
-    if values.iter().any(|choice| choice == value) {
+    if choices.matches_with_env(value, custom_env) {
         return None;
     }
     if let Some(env) = choices.env() {
@@ -2280,12 +2314,7 @@ fn validate_choices(
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     if is_help_arg(spec, value)
-        && choices.is_some_and(|choices| {
-            !choices
-                .values_with_env(custom_env)
-                .iter()
-                .any(|choice| choice == value)
-        })
+        && choices.is_some_and(|choices| !choices.matches_with_env(value, custom_env))
     {
         errors.push(render_help_err(spec, cmd, value.len() > 2));
         return Ok(true);
@@ -6082,6 +6111,79 @@ cmd "run" {
         assert_eq!(parsed.cmd.name, "run");
         assert!(parsed.external.is_none());
         assert_eq!(first_string_value(&parsed), "build");
+    }
+
+    #[test]
+    fn multicall_basename_strips_a_path_and_exe() {
+        assert_eq!(multicall_basename("/usr/bin/ls"), "ls");
+        assert_eq!(multicall_basename(r"C:\busybox\ls.exe"), "ls");
+        assert_eq!(multicall_basename("LS.EXE"), "LS");
+        assert_eq!(multicall_basename("busybox"), "busybox");
+    }
+
+    #[test]
+    fn a_multicall_applet_is_the_first_word() {
+        let spec: Spec = r#"
+name "busybox"
+bin "busybox"
+multicall #true
+cmd "ls" {
+    arg "[ARGS]" var=#true
+}
+cmd "cat"
+"#
+        .parse()
+        .unwrap();
+
+        // A symlink: argv[0] is the applet.
+        let parsed = parse(&spec, &input(&["/usr/bin/ls", "-l"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+        match parsed.args.values().next() {
+            Some(ParseValue::MultiString(values)) => assert_eq!(values, &["-l".to_string()]),
+            other => panic!("expected ARGS to collect -l, got {other:?}"),
+        }
+
+        // A dispatcher invocation still skips argv[0].
+        let parsed = parse(&spec, &input(&["/usr/bin/busybox", "ls", "-l"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+
+        // Configured dispatcher values receive the same path and extension normalization.
+        let mut configured = spec.clone();
+        configured.name = "BusyBox".to_string();
+        configured.bin = "/opt/bin/busybox.exe".to_string();
+        let parsed = parse(&configured, &input(&["/usr/bin/busybox.exe", "ls", "-l"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+
+        // `.exe` is stripped so Windows and Unix agree.
+        let parsed = parse(&spec, &input(&["ls.exe"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+
+        // Without the property, argv[0] is discarded as usual.
+        let mut plain = spec.clone();
+        plain.multicall = false;
+        let parsed = parse(&plain, &input(&["/usr/bin/ls", "ls"])).unwrap();
+        assert_eq!(parsed.cmd.name, "ls");
+    }
+
+    #[test]
+    fn a_multicall_unknown_applet_can_be_external() {
+        let spec: Spec = r#"
+name "busybox"
+bin "busybox"
+multicall #true
+unknown_flags "error"
+external_subcommand #true
+cmd "ls"
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["/usr/bin/git", "--help"])).unwrap();
+        assert_eq!(parsed.external, Some(vec!["git".into(), "--help".into()]));
+
+        let mut closed = spec.clone();
+        closed.cmd.external_subcommand = false;
+        assert!(parse(&closed, &input(&["wat"])).is_err());
     }
 
     #[test]

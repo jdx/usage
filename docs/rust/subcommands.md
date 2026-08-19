@@ -68,6 +68,24 @@ struct Ex { /* … */ }
 When argv selects no command, `run` is assumed. Naming a command that doesn't exist fails the
 **build**, not the run.
 
+## Multicall
+
+clap's `#[command(multicall = true)]` is busybox-style applets: argv[0]'s basename
+selects a subcommand. `parse()` rewrites the process's argv[0]; `parse_from` is
+unchanged, because the caller already decided the words.
+
+```rust
+#[derive(Cli)]
+#[usage(bin = "busybox", multicall)]
+struct Busybox {
+    #[usage(subcommand)]
+    command: Commands,
+}
+```
+
+A symlink `ls -> busybox` runs the `ls` variant. `busybox ls` still does too: the
+dispatcher name is skipped. Path components and a trailing `.exe` are stripped.
+
 ## External subcommands
 
 clap's `#[command(external_subcommand)]` is a catch-all variant that holds the unmatched
