@@ -49,7 +49,7 @@ One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "5" }
+usage = { package = "usage-rs", version = "6" }
 ```
 
 That is the whole install: derives, the argv runtime, help, and clap-shaped errors come with the
@@ -139,6 +139,7 @@ See [Spec output](/rust/spec) for the round-trip guarantees and what the emitted
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
+- [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks
 - [clap compatibility](/rust/clap-compatibility) — supported behavior, bridge losses, and non-goals
 
 ## Current limitations
@@ -148,9 +149,10 @@ equivalent yet:
 
 - `example` nodes exist in the spec format but cannot be declared from the derive — put an
   Examples section in `after_long_help` instead (mise does this).
-- `value_optional` affects help output only; the parser still requires a value for the flag.
-- There is no per-field `value_parser`-style validation — values are built with `FromStr`, and a
-  conversion failure becomes an `InvalidValue` error.
+- `value_optional` alone affects help. Pair it with `default_missing` to define what a bare flag
+  binds; arbitrary zero-or-one value ranges from clap are not inferred.
+- Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use
+  `validate` for a portable expression rule and `validate_error` for its diagnostic.
 - Prefix matching (`infer_long_args`) is suggested in error messages but never accepted.
 - On Unix, `PathBuf` and `OsString` fields accept non-UTF-8 argv without changing a byte. String
   fields still report invalid UTF-8 precisely rather than replacing it; on Windows, values that
