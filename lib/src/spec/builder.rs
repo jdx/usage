@@ -692,6 +692,18 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Accept unambiguous prefixes of subcommand names and aliases.
+    pub fn infer_subcommands(mut self, enabled: bool) -> Self {
+        self.inner.infer_subcommands = enabled;
+        self
+    }
+
+    /// Accept unambiguous prefixes of long flag names and aliases.
+    pub fn infer_long_args(mut self, enabled: bool) -> Self {
+        self.inner.infer_long_args = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

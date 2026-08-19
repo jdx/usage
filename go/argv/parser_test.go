@@ -392,6 +392,35 @@ func TestExternalSubcommand(t *testing.T) {
 	}
 }
 
+func TestInferredPrefixes(t *testing.T) {
+	verify := &Flag{Key: 21, Name: "verify", Longs: []string{"verify"}}
+	forceful := &Flag{Key: 22, Name: "forceful", Longs: []string{"forceful"}}
+	install := &Command{Name: "install", Flags: []*Flag{forceful}}
+	inspect := &Command{Name: "inspect"}
+	remove := &Command{Name: "remove", Aliases: []string{"uninstall"}}
+	cmd := &Command{
+		Name:             "ex",
+		Flags:            []*Flag{verbose, verify},
+		Subcommands:      []*Command{install, inspect, remove},
+		InferSubcommands: true,
+		InferLongArgs:    true,
+		UnknownFlags:     UnknownFlagsError,
+	}
+
+	if got := collect(cmd, "insta", "--for"); got != "cmd:install flag:forceful" {
+		t.Errorf("unique prefixes: got %s", got)
+	}
+	if got := collect(cmd, "uni"); got != "cmd:remove" {
+		t.Errorf("alias prefix: got %s", got)
+	}
+	if got := collect(cmd, "ins"); got != "err:unexpected_arg" {
+		t.Errorf("ambiguous subcommand: got %s", got)
+	}
+	if got := collect(cmd, "--ver"); got != "err:unknown_flag" {
+		t.Errorf("ambiguous long: got %s", got)
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	args := []string{"install", "--verbose", "-f", "a", "b", "c"}
 	b.ReportAllocs()

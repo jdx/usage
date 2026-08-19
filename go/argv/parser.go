@@ -35,6 +35,9 @@ type Parser struct {
 	pos int
 	// cmd is the command currently in scope.
 	cmd *Command
+	// Prefix policies are inherited as the parser descends.
+	inferSubcommands bool
+	inferLongArgs    bool
 	// ancestors is the chain above cmd, used to find inherited global flags.
 	// Fixed size so that nothing is allocated.
 	ancestors [MaxDepth]*Command
@@ -87,7 +90,12 @@ type Parser struct {
 
 // New begins parsing argv against root. argv excludes the program name.
 func New(root *Command, argv []string) Parser {
-	return Parser{argv: argv, cmd: root}
+	return Parser{
+		argv:             argv,
+		cmd:              root,
+		inferSubcommands: root.InferSubcommands,
+		inferLongArgs:    root.InferLongArgs,
+	}
 }
 
 // Next reads the next event, reporting false when argv is exhausted or the parse
@@ -285,7 +293,7 @@ func (p *Parser) longFlag(token string) bool {
 		}
 	}
 
-	if flag := p.findLong(name); flag != nil {
+	if flag, negated := p.findLongForm(name); flag != nil {
 		value := ""
 		hasValue := false
 		if flag.TakesValue {
@@ -306,11 +314,7 @@ func (p *Parser) longFlag(token string) bool {
 		if flag.Variadic {
 			p.startCollecting(flag)
 		}
-		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
-	}
-
-	if flag := p.findNegation(name); flag != nil {
-		return p.emit(Event{Kind: KindFlag, Flag: flag, Negated: true})
+		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue, Negated: negated})
 	}
 
 	// Where the CLI declared a version, --version answers with it — asked after the
@@ -462,7 +466,7 @@ func (p *Parser) word(token string) bool {
 		if token == "help" && len(p.cmd.Subcommands) > 0 {
 			cmd := p.cmd
 			for p.pos < len(p.argv) {
-				sub := findNamed(cmd, p.argv[p.pos])
+				sub := findNamedWithPrefix(cmd, p.argv[p.pos], p.inferSubcommands)
 				if sub == nil {
 					break
 				}
@@ -544,6 +548,8 @@ func (p *Parser) descend(sub *Command) bool {
 	p.starts[p.depth] = p.cmdStart
 	p.depth++
 	p.cmd = sub
+	p.inferSubcommands = p.inferSubcommands || sub.InferSubcommands
+	p.inferLongArgs = p.inferLongArgs || sub.InferLongArgs
 	// Where this command's own words start, which is what lets a completion hand a
 	// callback the half-parsed struct of the command it was declared on rather than
 	// of the root.
@@ -615,21 +621,51 @@ func (p *Parser) FlagsInScope(fn func(*Flag) bool) {
 	p.eachInScope(fn)
 }
 
-func (p *Parser) findLong(name string) *Flag {
-	return p.eachInScope(func(f *Flag) bool {
+func (p *Parser) findLongForm(name string) (*Flag, bool) {
+	if found := p.eachInScope(func(f *Flag) bool {
 		for _, l := range f.Longs {
 			if l == name {
 				return true
 			}
 		}
 		return false
-	})
-}
-
-func (p *Parser) findNegation(name string) *Flag {
-	return p.eachInScope(func(f *Flag) bool {
+	}); found != nil {
+		return found, false
+	}
+	if found := p.eachInScope(func(f *Flag) bool {
 		return f.Negate != "" && f.Negate == name
+	}); found != nil {
+		return found, true
+	}
+	if !p.inferLongArgs || name == "" {
+		return nil, false
+	}
+	var found *Flag
+	negated := false
+	ambiguous := false
+	p.eachInScope(func(f *Flag) bool {
+		positive := false
+		for _, long := range f.Longs {
+			if len(long) >= len(name) && long[:len(name)] == name {
+				positive = true
+				break
+			}
+		}
+		negative := !positive && f.Negate != "" && len(f.Negate) >= len(name) && f.Negate[:len(name)] == name
+		if !positive && !negative {
+			return false
+		}
+		if found != nil && found != f {
+			ambiguous = true
+			return true
+		}
+		found, negated = f, negative
+		return false
 	})
+	if ambiguous {
+		return nil, false
+	}
+	return found, negated
 }
 
 func (p *Parser) findShort(b byte) *Flag {
@@ -656,7 +692,28 @@ func (p *Parser) findShort(b byte) *Flag {
 }
 
 func (p *Parser) findSubcommand(name string) *Command {
-	return findNamed(p.cmd, name)
+	return findNamedWithPrefix(p.cmd, name, p.inferSubcommands)
+}
+
+func findNamedWithPrefix(cmd *Command, name string, infer bool) *Command {
+	if exact := findNamed(cmd, name); exact != nil || !infer || name == "" {
+		return exact
+	}
+	var found *Command
+	for _, sub := range cmd.Subcommands {
+		matches := len(sub.Name) >= len(name) && sub.Name[:len(name)] == name
+		for _, alias := range sub.Aliases {
+			matches = matches || len(alias) >= len(name) && alias[:len(name)] == name
+		}
+		if !matches {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = sub
+	}
+	return found
 }
 
 // findNamed resolves a word against a command's subcommands, by name or alias.

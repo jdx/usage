@@ -133,6 +133,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // version resolved it here and wrote `Value` for every silent command, which made the
     // root's declaration reach the root alone.
     let unknown_flags = unknown_flags_tokens(cli);
+    let infer_subcommands = cli.infer_subcommands;
+    let infer_long_args = cli.infer_long_args;
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let multicall = cli.multicall;
@@ -416,6 +418,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // `--version` that answers with nothing is worse than one that is not there.
                 version: #has_version,
                 unknown_flags: #unknown_flags,
+                infer_subcommands: #infer_subcommands,
+                infer_long_args: #infer_long_args,
                 name: #name,
                 key: #root_key,
                 flags: #flag_table_ref,
@@ -2948,6 +2952,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         )
     });
     let unknown_flags = unknown_flags_tokens(cli);
+    let infer_subcommands = cli.infer_subcommands;
+    let infer_long_args = cli.infer_long_args;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3056,6 +3062,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 aliases: &[#(#aliases),*],
                 key: #command_key,
                 unknown_flags: #unknown_flags,
+                infer_subcommands: #infer_subcommands,
+                infer_long_args: #infer_long_args,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands

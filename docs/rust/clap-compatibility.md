@@ -70,7 +70,7 @@ not only from generated KDL, when a row says **usage only**.
 | `allow_external_subcommands`                              | Supported   | Supported   | Use an `#[usage(external_subcommand)]` catch-all variant.                                                |
 | `multicall`                                               | Supported   | Supported   | `parse()` routes on the executable basename.                                                             |
 | `no_binary_name`                                          | Supported   | Supported   | `parse_from` is words-only; `try_parse_from` and `parse_from_argv` honor the clap-shaped command policy. |
-| `infer_subcommands`, `infer_long_args`                    | Unsupported | Unsupported | Diagnostics suggest likely names but do not accept prefixes.                                             |
+| `infer_subcommands`, `infer_long_args`                    | Supported   | Unsupported | Unambiguous prefixes and aliases are inherited; clap exposes no public getter for the bridge.            |
 | `arg_required_else_help` and subcommand/argument policies | Unsupported | Unsupported | No command-policy vocabulary yet.                                                                        |
 | unknown flags                                             | Different   | Different   | Parsing is permissive by default. Opt into clap-like rejection with `#[usage(unknown_flags = "error")]`. |
 

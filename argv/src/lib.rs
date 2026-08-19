@@ -175,6 +175,12 @@ pub struct Command<'a> {
     /// unmatched word is taken, remaining tokens — including `--help` — are not parsed
     /// as this command's flags.
     pub external_subcommand: bool,
+    /// Accept an unambiguous prefix of a subcommand name or alias.
+    /// Inherited by nested commands.
+    pub infer_subcommands: bool,
+    /// Accept an unambiguous prefix of a long flag or alias.
+    /// Inherited by nested commands.
+    pub infer_long_args: bool,
     /// What an unrecognized flag-like token means here, or `None` to keep whatever the
     /// enclosing command said. See [`UnknownFlags`].
     ///
@@ -216,6 +222,8 @@ impl Command<'_> {
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
+        infer_subcommands: false,
+        infer_long_args: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
         key: 0,
@@ -789,6 +797,31 @@ pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Co
         .or_else(|| subcommands().find(|c| c.aliases.iter().any(|a| a.as_bytes() == name)))
 }
 
+fn find_prefixed<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
+    if let Some(exact) = find_named(cmd, name) {
+        return Some(exact);
+    }
+    if name.is_empty() {
+        return None;
+    }
+    let mut found = None;
+    for command in cmd.subcommands {
+        if !command.name.as_bytes().starts_with(name)
+            && !command
+                .aliases
+                .iter()
+                .any(|alias| alias.as_bytes().starts_with(name))
+        {
+            continue;
+        }
+        if found.is_some() {
+            return None;
+        }
+        found = Some(*command);
+    }
+    found
+}
+
 /// What a caller should print for a parse failure, and what to exit with.
 ///
 /// The one entry point a generated `parse()` reaches for, and the reason it exists here rather
@@ -993,6 +1026,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// nothing keeps what the enclosing one said, and walking back up the ancestors on
     /// every unrecognized token would pay for the inheritance at the wrong moment.
     unknown_flags: UnknownFlags,
+    infer_subcommands: bool,
+    infer_long_args: bool,
     /// The chain above `cmd`, used to find inherited global flags. Fixed size so
     /// that nothing is allocated.
     ancestors: [Option<&'t Command<'t>>; MAX_DEPTH],
@@ -1059,6 +1094,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 // Nothing above the root to inherit from, so the default stands.
                 ::core::option::Option::None => UnknownFlags::Value,
             },
+            infer_subcommands: root.infer_subcommands,
+            infer_long_args: root.infer_long_args,
             ancestors: [None; MAX_DEPTH],
             depth: 0,
             bundle: &[],
@@ -1294,7 +1331,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             None => (body, None),
         };
 
-        if let Some(flag) = self.find_long(name) {
+        if let Some((flag, negated)) = self.find_long_form(name) {
             let value = if flag.takes_value {
                 Some(match attached {
                     Some(v) => v,
@@ -1309,15 +1346,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return Ok(Event::Flag {
                 flag,
                 value,
-                negated: false,
-            });
-        }
-
-        if let Some(flag) = self.find_negation(name) {
-            return Ok(Event::Flag {
-                flag,
-                value: None,
-                negated: true,
+                negated,
             });
         }
 
@@ -1459,7 +1488,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 let mut cmd = self.cmd;
                 let from = self.pos;
                 while let Some(next) = self.argv.get(self.pos) {
-                    let Some(sub) = find_named(cmd, bytes(next)) else {
+                    let Some(sub) = (if self.infer_subcommands {
+                        find_prefixed(cmd, bytes(next))
+                    } else {
+                        find_named(cmd, bytes(next))
+                    }) else {
                         break;
                     };
                     cmd = sub;
@@ -1563,6 +1596,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         self.starts[self.depth] = self.cmd_start;
         self.depth += 1;
         self.cmd = sub;
+        self.infer_subcommands |= sub.infer_subcommands;
+        self.infer_long_args |= sub.infer_long_args;
         // Only a command that says something changes it, which is what inheriting means.
         if let ::core::option::Option::Some(mode) = sub.unknown_flags {
             self.unknown_flags = mode;
@@ -1624,14 +1659,42 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         own.chain(inherited)
     }
 
-    fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.longs.iter().any(|l| l.as_bytes() == name))
-    }
+    fn find_long_form(&self, name: &[u8]) -> Option<(&'t Flag<'t>, bool)> {
+        if let Some(flag) = self
+            .in_scope()
+            .find(|f| f.longs.iter().any(|long| long.as_bytes() == name))
+        {
+            return Some((flag, false));
+        }
+        if let Some(flag) = self
+            .in_scope()
+            .find(|f| f.negate.is_some_and(|negate| negate.as_bytes() == name))
+        {
+            return Some((flag, true));
+        }
+        if !self.infer_long_args || name.is_empty() {
+            return None;
+        }
 
-    fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.negate.is_some_and(|n| n.as_bytes() == name))
+        let mut found: Option<(&Flag<'_>, bool)> = None;
+        for flag in self.in_scope() {
+            let positive = flag
+                .longs
+                .iter()
+                .any(|long| long.as_bytes().starts_with(name));
+            let negative = !positive
+                && flag
+                    .negate
+                    .is_some_and(|negate| negate.as_bytes().starts_with(name));
+            if !positive && !negative {
+                continue;
+            }
+            if found.is_some_and(|(prior, _)| !::core::ptr::eq(prior, flag)) {
+                return None;
+            }
+            found = Some((flag, negative));
+        }
+        found
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
@@ -1651,7 +1714,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
         // Shared with `help` rather than spelled out again, so descending into a command and
         // asking about one cannot drift apart.
-        find_named(self.cmd, name)
+        if self.infer_subcommands {
+            find_prefixed(self.cmd, name)
+        } else {
+            find_named(self.cmd, name)
+        }
     }
 }
 

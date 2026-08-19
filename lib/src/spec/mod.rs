@@ -298,6 +298,12 @@ impl Spec {
                 "external_subcommand" => {
                     schema.cmd.external_subcommand = node.arg(0)?.ensure_bool()?;
                 }
+                "infer_subcommands" => {
+                    schema.cmd.infer_subcommands = node.arg(0)?.ensure_bool()?;
+                }
+                "infer_long_args" => {
+                    schema.cmd.infer_long_args = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -573,6 +579,16 @@ impl Display for Spec {
         }
         if self.cmd.external_subcommand {
             let mut node = KdlNode::new("external_subcommand");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
+        if self.cmd.infer_subcommands {
+            let mut node = KdlNode::new("infer_subcommands");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
+        if self.cmd.infer_long_args {
+            let mut node = KdlNode::new("infer_long_args");
             node.push(KdlEntry::new(true));
             nodes.push(node);
         }

@@ -247,6 +247,37 @@ fn get_flag_key(word: &str) -> &str {
     }
 }
 
+fn resolve_long_flag(
+    available: &BTreeMap<String, Arc<SpecFlag>>,
+    word: &str,
+    infer: bool,
+) -> Option<Arc<SpecFlag>> {
+    let key = get_flag_key(word);
+    if let Some(exact) = available.get(key) {
+        return Some(Arc::clone(exact));
+    }
+    if !infer || !key.starts_with("--") || key.len() == 2 {
+        return None;
+    }
+    let mut found: Option<Arc<SpecFlag>> = None;
+    for (candidate, flag) in available {
+        if !candidate.starts_with("--") {
+            continue;
+        }
+        if !candidate.starts_with(key) {
+            continue;
+        }
+        if found
+            .as_ref()
+            .is_some_and(|prior| !Arc::ptr_eq(prior, flag))
+        {
+            return None;
+        }
+        found = Some(Arc::clone(flag));
+    }
+    found
+}
+
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
@@ -740,11 +771,15 @@ fn parse_partial_with_env(
         // once per task invocation.
         let default_catches_it = spec.default_subcommand.is_some()
             && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+        let infer_subcommands = out.cmds.iter().any(|cmd| cmd.infer_subcommands);
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
             && is_command_word(&input[idx])
-            && out.cmd.find_subcommand(&input[idx]).is_none()
+            && out
+                .cmd
+                .find_subcommand_with_prefix(&input[idx], infer_subcommands)
+                .is_none()
         {
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
@@ -755,7 +790,10 @@ fn parse_partial_with_env(
             }
             out.cmd = mounted;
         }
-        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
+        if let Some(subcommand) = out
+            .cmd
+            .find_subcommand_with_prefix(&input[idx], infer_subcommands)
+        {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -788,11 +826,13 @@ fn parse_partial_with_env(
             // never named it.
             let is_bundle =
                 word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
-            if let Some(f) = out
-                .available_flags
-                .get(flag_key)
-                .cloned()
-                .filter(|_| is_bundle)
+            let infer_long_args = out.cmds.iter().any(|cmd| cmd.infer_long_args);
+            if let Some(f) = (if word.starts_with("--") {
+                resolve_long_flag(&out.available_flags, &word, infer_long_args)
+            } else {
+                out.available_flags.get(flag_key).cloned()
+            })
+            .filter(|_| is_bundle)
             {
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
@@ -1030,7 +1070,17 @@ fn parse_partial_with_env(
             // the flag entirely.
             let split = w.split_once('=');
             let word = split.map(|(word, _)| word).unwrap_or(&w);
-            if let Some(f) = binding.as_ref().or_else(|| out.available_flags.get(word)) {
+            let inferred = binding
+                .is_none()
+                .then(|| {
+                    resolve_long_flag(
+                        &out.available_flags,
+                        word,
+                        out.cmds.iter().any(|cmd| cmd.infer_long_args),
+                    )
+                })
+                .flatten();
+            if let Some(f) = binding.as_ref().or(inferred.as_ref()) {
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()

@@ -65,6 +65,10 @@ enum Command {
 
 Unknown flags are values by default, which is useful for wrapper CLIs. Add
 `unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
+Clap's global prefix settings migrate as
+`#[usage(infer_subcommands, infer_long_args)]`; they are inherited by nested commands. Because
+clap exposes setters but not getters for these settings, a `clap::Command` bridge cannot infer
+that declaration for you.
 
 ## Fields
 
