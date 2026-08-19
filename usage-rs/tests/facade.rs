@@ -124,6 +124,25 @@ struct CompletionDedup {
     output: Option<PathBuf>,
 }
 
+#[derive(Args)]
+struct SharedArgs {
+    #[usage(long)]
+    verbose: bool,
+}
+
+#[derive(Subcommands)]
+enum SharedArgsCommand {
+    First(SharedArgs),
+    Second(SharedArgs),
+}
+
+#[derive(Cli)]
+#[usage(bin = "shared-args")]
+struct SharedArgsCli {
+    #[usage(subcommand)]
+    command: SharedArgsCommand,
+}
+
 const DEFAULT_RUNS: u32 = 7;
 const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
 const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
@@ -210,6 +229,24 @@ fn identical_builtin_completers_are_emitted_once() {
         1,
         "{kdl}"
     );
+}
+
+#[test]
+fn one_args_type_can_back_multiple_commands() {
+    for command in ["first", "second"] {
+        let cli = SharedArgsCli::parse_from(&[OsStr::new(command), OsStr::new("--verbose")])
+            .expect("either command should route into the shared Args type");
+        match cli.command {
+            SharedArgsCommand::First(args) | SharedArgsCommand::Second(args) => {
+                assert!(args.verbose);
+            }
+        }
+    }
+
+    let kdl = SharedArgsCli::to_kdl();
+    assert!(kdl.contains("cmd \"first\""), "{kdl}");
+    assert!(kdl.contains("cmd \"second\""), "{kdl}");
+    assert_eq!(kdl.matches("flag \"--verbose\"").count(), 2, "{kdl}");
 }
 
 #[test]
