@@ -747,11 +747,13 @@ that declares in usage keeps them. `#[usage(skip)]` is a compile-time field, not
 a command-line shape. Trailing argv is already `double_dash=automatic` in every
 fleet spec that has one.
 
-- [ ] **The grammar decision that would change mise at run time**, not just at
+- [x] **The grammar decision that would change mise at run time**, not just at
       completion time. Unrecognized flags falling through to positionals is how
       mise parses task arguments; tightening it is a behaviour change to every
-      `mise run`. Decide that before a rewrite, rather than discovering it in
-      one. Repeated `--` handling was settled and fixed in #809.
+      `mise run`. **Decided: the default stays lax, everywhere, and strict is
+      opt-in per spec** — recorded in the divergence list below — so a rewrite
+      changes nothing about what a task accepts. Repeated `--` handling was
+      settled and fixed in #809.
 
 **Not on this list, on purpose.** Config is a second project: the four CLIs
 would keep their generated `Settings` through an argv-only move. Mounts are
@@ -930,6 +932,11 @@ repeated here.
       commands, the global flags — without the host mutating a generated spec
       by hand. Related: help and diagnostics render the compiled-in name, so an
       embedder with a dynamic identity is stuck with the static one.
+      **Direction decided (2026-08-19): a spec-first `view` node** on the root,
+      carrying name, bin, the command subset, and which globals carry over,
+      that help, completions and docs all read, with the derive lowering an
+      attribute into it. Not a derive-only emission, and not a blessed
+      transform API: the spec defines.
 - [ ] **No home for post-parse hooks.** aube reimplements `--version` because
       the built-in exits before its async update notifier can run; hk strips
       `--cd` and re-execs by hand. `parse_from` returning `Error::Help` and
@@ -956,7 +963,10 @@ repeated here.
       how a checked-in spec treats version under release automation — an
       omit-version option on spec emission, or regenerating the reference as
       part of the release. Not a clap_usage feature; the bridge is transitional
-      and the fleet's endpoint is the derive.
+      and the fleet's endpoint is the derive. **Decided (2026-08-19): the
+      omit-version option.** The binary knows its version at runtime; docs and
+      manpage rendering inject it at render time; release PRs stay
+      version-only.
 
 ### clap's backlog, read as a roadmap
 
@@ -1039,8 +1049,15 @@ above are where it lands.
       scripts and the `complete-word` runtime, so each is implementable once,
       for every shell.
 - [ ] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
-      reactions behind it) — bless one semantic for a boolean flag taking an
-      attached value, beside `negate`. A decision more than a feature.
+      reactions behind it) — **semantic decided (2026-08-19): opt-in per flag,
+      and `=`-attached only.** `--flag=false` binds; `--flag false` never does,
+      so the `=` settles the next word's role and no existing bool changes
+      behavior. The wider rule that comes with it: optional values on flags
+      deserve an admonishment in the docs, and possibly a lint — a detached
+      optional value is ambiguous to a human reader even where the grammar
+      resolves it (the parser already gives `--color bar`'s `bar` to the
+      positionals) — so the recommended declaration is `default_missing` with
+      `require_equals` beside it.
 - [ ] **`license` metadata** (clap#1768) — a spec node rendered into manpages
       and docs. GPL display requirements want it, and it rounds out the
       manpage story.
@@ -1138,11 +1155,16 @@ including telling you to delete the label afterwards.
       appending to a command line it did not write is the documented case. Both correct in
       their own domain, and `differential.rs` now carries a named test so tightening usage-lib
       fails with the reason attached.
-- [ ] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
-      to an argument, or reports `unexpected_arg` when there is none. This is the
-      root of most of the recorded divergences. **Needs a decision**: mise parses
-      task arguments with this parser at run time, so rejecting an undeclared flag
-      would change what a task accepts, not just what a completion offers.
+- [x] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
+      to an argument, or reports `unexpected_arg` when there is none. **Decided
+      (2026-08-19): lax is the default everywhere — both parsers — and strict is
+      the opt-in, `unknown_flags "error"` at whatever scope wants it.** The
+      grammar's "data in transit" rationale is the rule, not a compatibility
+      accident, and what `mise run` tasks accept does not change. The derive's
+      strictness about a _repeated_ non-repeatable flag is a separate rule and
+      unchanged. The migration guide must say this prominently: a clap adopter
+      expects strict and gets it by declaring it at the root, as communique's
+      rewrite already does.
 - [x] A flag missing its value is dropped silently — now an error, in `parse` but
       not `parse_partial`, since a half-typed flag is exactly what a completion is
       asked about.
