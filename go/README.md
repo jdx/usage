@@ -23,16 +23,22 @@ Measured against a shadow of [mise](https://mise.jdx.dev)'s spec — 211 command
 | ----------------------- | -----------: | ------------------: | ------: |
 | a do-nothing Go process |            — |             0.95 ms | 2.31 MB |
 | **usage-go**, amortized |   **~1,600** |          **1.1 ms** | 2.37 MB |
-| cobra, one cold parse   |    2,008,880 |              1.8 ms | 3.87 MB |
+| cobra, amortized        |    3,249,052 |              2.0 ms | 3.41 MB |
 | urfave/cli v3, likewise |    5,591,321 |              1.7 ms | 5.74 MB |
 | kong, likewise          |   57,889,084 |              6.1 ms | 5.34 MB |
 
 Instruction counts are cachegrind, against mise's committed spec, on the argv the
 Rust shadows use so the two tables describe the same work. The column is labelled
-per row rather than once at the top, because the two kinds of figure are not the
-same measurement: the three frameworks are one cold parse, and usage-go's is
-amortized over a thousand binds — for the reason below, which is that a single one
-of ours cannot be measured at all.
+per row rather than once at the top, because the rows are not all the same
+measurement:
+
+- **usage-go**, amortized over 1,000 binds, because a single one of ours is below
+  the Go runtime's own startup jitter and cannot be measured at all — see below.
+- **cobra**, amortized over 20 resolves, each including the command tree it builds
+  on every process start. Twenty rather than a thousand because one of them is
+  three orders of magnitude dearer, and a thousand under cachegrind's 50x
+  slowdown would take minutes.
+- **urfave/cli v3 and kong**, one cold parse each, taken by hand.
 
 **usage-go's row is reproducible: `mise run perf:go`.** That harness
 ([`tasks/perf-go.sh`](../tasks/perf-go.sh)) reports the bind amortized over 1,000
@@ -42,11 +48,26 @@ jitter_, ±50,000 instructions run to run, which is thirty times the whole bind.
 Differencing `PARSE_N=1` against `PARSE_N=0` the way the Rust harness does gives a
 number here that changes sign between runs.
 
-The three framework rows are not reproducible yet: they were measured by hand
-against programs that are not in the repository. Generating those shadows from the
-same spec — as `xtask shadow` does for clap, argh and bpaf — is the next piece of
-this, and until it lands those numbers should be read as an order of magnitude
-rather than a measurement.
+cobra's row is reproducible too, and by the same command. `xtask gen-shadow
+benches/mise.usage.kdl benches/go/cobra cobra` writes mise's CLI out as a cobra
+program — 211 commands, each with its own flag set — which is checked in under
+[`benches/go/cobra`](../benches/go/cobra) and measured beside usage-go. So the two
+rows describe the same CLI rather than two people's transcriptions of it.
+
+Its figure includes building the command tree, because that is what cobra does on
+every process start. Hoisting that out of the loop would measure its parser
+against a program that had already paid for its model, which no CLI gets to do.
+
+That measurement replaced a hand-taken one of 2,008,880, which was lower because
+the program it was taken against was written by hand and smaller than mise: the
+generated one declares every command and flag the spec has. What cobra cannot
+express is printed when the shadow is generated rather than passed over — 128
+positionals, since cobra validates a count and not a name, 17 hidden aliases, 13
+second long forms, and one short-only flag.
+
+urfave/cli v3's and kong's rows are still hand-measured against programs that are
+not in the repository, and until they are generated the same way those two numbers
+should be read as an order of magnitude rather than as a measurement.
 
 Two things are worth reading off that table honestly. The win against cobra is
 real — about 40% of process startup — but it is bounded: 0.95 ms of usage-go's
@@ -274,7 +295,7 @@ claim is measured at real scale rather than against a fixture with four flags:
 - **A typed front door.** The conversions exist; what is missing is generated
   code that calls them, so a CLI author gets a struct rather than events.
 - **Shadow programs for the other frameworks.** usage-go's own numbers are
-  reproducible with `mise run perf:go`; cobra's, urfave's and kong's are still
+  reproducible with `mise run perf:go`; urfave's and kong's are still
   hand-measured, because generating mise-sized programs for them from the spec is
   its own piece of work.
 - **Running a spec's `complete` scripts.** A `run=` block shells out, which this
