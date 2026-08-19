@@ -477,9 +477,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       (`Command::is_multicall_set`). Path components and a trailing `.exe`
       are stripped. **Not used by the fleet today**; clap's own applets and
       busybox-style binaries are the reason it exists.
-- [ ] **`no_binary_name`** — parsing an argv that has no `argv[0]`. usage-argv
-      already takes argv without the program name; this is clap's setter that
-      skips stripping it. Out of scope until a fleet CLI needs it.
+- [x] **`no_binary_name`** — parsing an argv that has no `argv[0]`. The
+      allocation-free `parse_from` primitive always has that contract, while
+      clap-shaped `try_parse_from` includes argv0 by default and honors
+      `#[command(no_binary_name)]` by routing directly to the primitive.
 - [ ] **Command parsing policy** — `arg_required_else_help`,
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
       `subcommand_precedence_over_arg`, `allow_missing_positional`,

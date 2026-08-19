@@ -89,6 +89,8 @@ pub struct Cli {
     /// whole program. `parse()` rewrites the process's argv[0]; `parse_from` is
     /// unchanged, because the caller already decided the words.
     pub multicall: bool,
+    /// Whether clap-shaped `try_parse_from` input omits argv0.
+    pub no_binary_name: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -477,7 +479,7 @@ impl Cli {
             attr_span: input
                 .attrs
                 .iter()
-                .find(|a| a.path().is_ident("usage"))
+                .find(|a| a.path().is_ident("usage") || a.path().is_ident("command"))
                 .map(|a| a.path().span()),
             version: None,
             runtime_version: None,
@@ -486,6 +488,7 @@ impl Cli {
             unknown_flags: None,
             default_subcommand: None,
             multicall: false,
+            no_binary_name: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -579,6 +582,7 @@ impl Cli {
                         cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
                     }
                     "multicall" => cli.multicall = flag_value(&meta)?,
+                    "no_binary_name" => cli.no_binary_name = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -588,7 +592,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `bin`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `restart_token`, `mount` and \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
                             ),
@@ -718,6 +722,13 @@ impl Cli {
                     ident,
                     "`multicall` belongs on the root, where `#[derive(Cli)]` is: a spec \
                      declares it once for the whole program, not one per command",
+                ));
+            }
+            if self.no_binary_name {
+                return Err(self.misplaced(
+                    ident,
+                    "`no_binary_name` belongs on the root, where `#[derive(Cli)]` is: it \
+                     selects the input contract of the whole CLI's clap-shaped parser",
                 ));
             }
             return Ok(());
@@ -2524,9 +2535,12 @@ pub fn type_name(ty: &Type) -> String {
     }
 }
 
-/// The `#[usage(...)]` attributes on an item.
+/// The native `#[usage(...)]` or clap-compatible `#[command(...)]`
+/// attributes on a command struct.
 fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
-    attrs.iter().filter(|a| a.path().is_ident("usage"))
+    attrs
+        .iter()
+        .filter(|a| a.path().is_ident("usage") || a.path().is_ident("command"))
 }
 
 /// Value metadata accepts clap's `#[value(...)]` spelling so an enum can keep its
