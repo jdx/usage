@@ -241,7 +241,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// struct consumes it — and because a value the struct refuses is one this never
             /// returns, the layer going with it.
             pub fn parse_from_with_settings<'v>(
-                argv: &'v [&'v ::std::ffi::OsStr],
+                argv: &[&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<
                 (Self, ::usage_config::CliLayer),
                 usage_argv::Error<'static, 'v>,
@@ -415,7 +415,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// outranks every other and name it after a flag nobody typed.
             pub fn read_argv<'v>(
                 command: &'static usage_argv::Command<'static>,
-                argv: &'v [&'v ::std::ffi::OsStr],
+                argv: &[&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
                 #defaults
                 read_argv_into(command, argv, &mut partial)?;
@@ -433,7 +433,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// frame that will consume it, leaving only the one copy that builds it.
             pub fn read_argv_into<'v>(
                 command: &'static usage_argv::Command<'static>,
-                argv: &'v [&'v ::std::ffi::OsStr],
+                argv: &[&'v ::std::ffi::OsStr],
                 partial: &mut Partial,
             ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
                 let mut __usage_parser = usage_argv::Parser::new(command, argv);
@@ -478,7 +478,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// the two halves apart instead.
             pub fn read<'v>(
                 command: &'static usage_argv::Command<'static>,
-                argv: &'v [&'v ::std::ffi::OsStr],
+                argv: &[&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<Partial, usage_argv::Error<'static, 'v>> {
                 #defaults
                 read_into(command, argv, &mut partial)?;
@@ -488,7 +488,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// `read`, filling a partial the caller already owns. See `read_argv_into`.
             pub fn read_into<'v>(
                 command: &'static usage_argv::Command<'static>,
-                argv: &'v [&'v ::std::ffi::OsStr],
+                argv: &[&'v ::std::ffi::OsStr],
                 partial: &mut Partial,
             ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
                 read_argv_into(command, argv, partial)?;
@@ -547,7 +547,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 /// Parse a command line, excluding the program name.
                 pub fn parse_from<'v>(
-                    argv: &'v [&'v ::std::ffi::OsStr],
+                    argv: &[&'v ::std::ffi::OsStr],
                 ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
                     // The partial is built here and filled through `&mut`, rather than
                     // returned up the chain: see `read_argv_into`.
@@ -566,7 +566,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// applies the same basename-based applet selection for a
                 /// multicall CLI, while returning errors instead of exiting.
                 pub fn parse_from_argv<'v>(
-                    argv: &'v [&'v ::std::ffi::OsStr],
+                    argv: &[&'v ::std::ffi::OsStr],
                 ) -> ::std::result::Result<Self, usage_argv::Error<'static, 'v>> {
                     let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                         argv.split_first()
@@ -579,26 +579,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
                             })
                         {
-                            let ::std::option::Option::Some(__usage_command) =
-                                Self::command().subcommands.iter().copied().find(|command| {
-                                    command.name == __usage_word
-                                        || command.aliases.contains(&__usage_word)
-                                })
-                            else {
-                                return ::std::result::Result::Err(
-                                    usage_argv::Error::MissingSubcommand,
-                                );
-                            };
-                            #defaults
-                            apply(
-                                &mut partial,
-                                &usage_argv::Event::Command(__usage_command),
-                            );
-                            read_into(__usage_command, __usage_words, &mut partial)?;
-                            return ::std::result::Result::Ok(Self {
-                                #sub_build
-                                #(#field_finals),*
-                            });
+                            let mut __usage_rewritten =
+                                ::std::vec::Vec::with_capacity(argv.len());
+                            __usage_rewritten.push(::std::ffi::OsStr::new(__usage_word));
+                            __usage_rewritten.extend_from_slice(__usage_words);
+                            return Self::parse_from(&__usage_rewritten);
                         }
                     }
                     Self::parse_from(__usage_words)
@@ -2576,7 +2561,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
     quote! {
         pub fn apply(
             partial: &mut Partial,
-            event: &usage_argv::Event<'_, '_>,
+            event: &usage_argv::Event<'_, '_, '_>,
         ) -> bool {
             use usage_argv::Event;
             #route
@@ -3014,7 +2999,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
                 fn apply(
                     partial: &mut Self::Partial,
-                    event: &usage_argv::Event<'_, '_>,
+                    event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     apply(partial, event)
                 }
@@ -3680,7 +3665,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 fn apply(
                     partial: &mut Self::Partial,
                     selected: ::std::option::Option<usize>,
-                    event: &usage_argv::Event<'_, '_>,
+                    event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     match selected {
                         #(#applies)*

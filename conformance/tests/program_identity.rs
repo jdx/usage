@@ -28,12 +28,15 @@ struct Renamed {
 #[derive(Cli)]
 #[usage(name = "busy", bin = "busy", multicall)]
 struct Busy {
+    #[usage(long, global)]
+    verbose: bool,
     #[usage(subcommand)]
     command: Option<BusyCommand>,
 }
 
 #[derive(Subcommands)]
 enum BusyCommand {
+    #[usage(alias = "r")]
     Run,
 }
 
@@ -109,11 +112,8 @@ fn a_full_argv_helper_matches_clap_shaped_tests_and_multicall() {
         Some(BusyCommand::Run)
     ));
 
-    let applet = [OsStr::new("/usr/local/bin/run")];
-    assert!(matches!(
-        Busy::parse_from_argv(&applet)
-            .expect("applet form should parse")
-            .command,
-        Some(BusyCommand::Run)
-    ));
+    let applet = [OsStr::new("/usr/local/bin/r"), OsStr::new("--verbose")];
+    let parsed = Busy::parse_from_argv(&applet).expect("applet form should parse");
+    assert!(matches!(parsed.command, Some(BusyCommand::Run)));
+    assert!(parsed.verbose, "root globals remain in scope for applets");
 }
