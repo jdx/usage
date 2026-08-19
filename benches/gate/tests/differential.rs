@@ -374,15 +374,16 @@ fn explained(o: Outcome) -> Option<&'static str> {
         // Verified rather than assumed: `mise - bootstrap` is accepted by both, and
         // `mise bootstrap packages use` is refused by both — so the difference is what happens
         // to words *after* a positional is bound, not the words themselves.
-        // Either verdict, because the cause is the routing and not what the routed command
+        // Any of these verdicts, because the cause is the routing and not what the routed command
         // happened to want: `mise - bootstrap packages use` reaches a command missing a required
-        // argument, `mise - bootstrap dotfiles` reaches one missing a subcommand. Keying on the
-        // first of those alone left the second unexplained, which is the narrowness this arm was
-        // written to avoid in the first place.
+        // argument, `mise - bootstrap dotfiles` reaches one missing a subcommand, and
+        // `mise - unuse x -g --global` reaches duplicate spellings of the same flag. Keying on
+        // the first of those alone left later generated examples unexplained, which is the
+        // narrowness this arm was written to avoid in the first place.
         Outcome {
             argv: Accept,
             lib: true,
-            clap: MissingRequired | MissingSubcommand,
+            clap: MissingRequired | MissingSubcommand | Conflict,
         } => Some("after a positional binds, usage keeps the words; clap still routes them"),
 
         _ => None,
@@ -611,6 +612,19 @@ fn words_after_a_bound_positional_stay_values_for_usage() {
     );
     assert_eq!(deeper.clap, Verdict::MissingSubcommand, "{deeper:?}");
     assert!(explained(deeper).is_some(), "{deeper:?}");
+
+    // The same routing difference can make clap see two spellings of one flag after usage has
+    // already committed to the root positional. A random CI seed found this third verdict.
+    let duplicate = run(
+        &spec,
+        &["-", "unuse", "x", "-g", "--global"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(duplicate.clap, Verdict::Conflict, "{duplicate:?}");
+    assert_eq!(duplicate.accepted(), (true, true, false), "{duplicate:?}");
+    assert!(explained(duplicate).is_some(), "{duplicate:?}");
 
     // Not about those words: one of them alone is fine for both.
     let short = run(
