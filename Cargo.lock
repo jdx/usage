@@ -2470,6 +2470,7 @@ dependencies = [
 name = "usage-derive"
 version = "5.1.0"
 dependencies = [
+ "heck",
  "proc-macro2",
  "quote",
  "syn 3.0.3",

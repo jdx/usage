@@ -4,6 +4,7 @@
 //! [`crate::codegen`], which keeps the error messages — the part an author
 //! actually interacts with — in one place.
 
+use heck::{ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
 use syn::parse::Parser as _;
@@ -3460,6 +3461,56 @@ pub struct ValueVariant {
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
+#[derive(Clone, Copy)]
+enum CasingStyle {
+    Camel,
+    Kebab,
+    Pascal,
+    ScreamingSnake,
+    Snake,
+    Lower,
+    Upper,
+    Verbatim,
+}
+
+impl CasingStyle {
+    fn parse(meta: &Meta) -> syn::Result<Self> {
+        let raw = string_value(meta)?;
+        let normalized = raw
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>();
+        match normalized.as_str() {
+            "camel" | "camelcase" => Ok(Self::Camel),
+            "kebab" | "kebabcase" => Ok(Self::Kebab),
+            "pascal" | "pascalcase" => Ok(Self::Pascal),
+            "screamingsnake" | "screamingsnakecase" => Ok(Self::ScreamingSnake),
+            "snake" | "snakecase" => Ok(Self::Snake),
+            "lower" | "lowercase" => Ok(Self::Lower),
+            "upper" | "uppercase" => Ok(Self::Upper),
+            "verbatim" | "verbatimcase" => Ok(Self::Verbatim),
+            _ => Err(syn::Error::new_spanned(
+                meta,
+                format!("unsupported casing `{raw}`"),
+            )),
+        }
+    }
+
+    fn apply(self, name: &str) -> String {
+        match self {
+            Self::Camel => name.to_lower_camel_case(),
+            Self::Kebab => name.to_kebab_case(),
+            Self::Pascal => name.to_upper_camel_case(),
+            Self::ScreamingSnake => name.to_shouty_snake_case(),
+            Self::Snake => name.to_snake_case(),
+            Self::Lower => name.to_snake_case().replace('_', ""),
+            Self::Upper => name.to_shouty_snake_case().replace('_', ""),
+            Self::Verbatim => name.to_string(),
+        }
+    }
+}
+
 fn cfg_gate_meta(meta: &Meta) -> syn::Result<Option<Meta>> {
     if meta.path().is_ident("cfg") {
         return Ok(Some(meta.clone()));
@@ -3589,6 +3640,7 @@ impl ValueEnum {
         }
 
         let mut ignore_case = false;
+        let mut rename_all = CasingStyle::Kebab;
         // Registering clap's `value` helper attribute means rustc accepts it at
         // either level. Parse it here too so unsupported enum-wide options fail
         // explicitly instead of being silently ignored.
@@ -3597,6 +3649,7 @@ impl ValueEnum {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "ignore_case" => ignore_case = flag_value(&meta)?,
+                    "rename_all" => rename_all = CasingStyle::parse(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -3616,7 +3669,7 @@ impl ValueEnum {
                 ));
             }
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
-            let mut name = to_kebab(&variant.ident.unraw().to_string());
+            let mut name = rename_all.apply(&variant.ident.unraw().to_string());
             let mut aliases = Vec::new();
             for attr in value_attrs(&variant.attrs) {
                 for meta in nested(attr)? {
@@ -4329,21 +4382,38 @@ mod tests {
     }
 
     #[test]
-    fn a_value_enum_rejects_unsupported_clap_container_metadata() {
+    fn a_value_enum_accepts_clap_container_casing() {
+        for (style, expected) in [
+            ("camelCase", "onePassword"),
+            ("kebab-case", "one-password"),
+            ("PascalCase", "OnePassword"),
+            ("SCREAMING_SNAKE_CASE", "ONE_PASSWORD"),
+            ("snake_case", "one_password"),
+            ("lowercase", "onepassword"),
+            ("UPPERCASE", "ONEPASSWORD"),
+            ("verbatim", "OnePassword"),
+        ] {
+            let ve = value_enum(&format!(
+                r#"
+                #[value(rename_all = "{style}")]
+                enum Provider {{ OnePassword }}
+            "#
+            ))
+            .expect("clap container metadata should remain usable");
+            assert_eq!(ve.variants[0].name, expected, "style {style}");
+        }
+
         let err = match value_enum(
             r#"
-            #[value(rename_all = "snake_case")]
-            enum Provider {
-                OnePassword,
-            }
+            #[value(rename_all = "train-case")]
+            enum Provider { OnePassword }
         "#,
         ) {
-            Ok(_) => panic!("unsupported clap container metadata must not be ignored"),
+            Ok(_) => panic!("unsupported casing must be rejected"),
             Err(err) => err,
         };
         assert!(
-            err.to_string()
-                .contains("unknown value-enum option `rename_all`"),
+            err.to_string().contains("unsupported casing `train-case`"),
             "unhelpful error: {err}"
         );
     }
