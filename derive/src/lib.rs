@@ -161,6 +161,12 @@
 //! that will not convert becomes [`Error::InvalidValue`](usage_argv::Error::InvalidValue),
 //! carrying the offending text and whatever the type's own conversion said about it.
 //!
+//! Metadata that already has a Rust source of truth may remain an expression. Command help
+//! fields such as `about` and `after_long_help` accept expressions usable as `&'static str`.
+//! A computed `version` additionally declares `version_spec = "..."`, and a typed field
+//! default declares both `default_value_t = EXPR` and `default = "..."`: runtime behavior
+//! evaluates the expression while portable KDL uses the explicit literal.
+//!
 //! A completer is written as
 //!
 //! ```ignore

@@ -577,12 +577,14 @@ feature list is not an exhaustive audit.
       derive applies the default, but help, spec consumers and differential
       tooling see a required shape. A default satisfies a field; it must not
       make the user's token required in the static metadata.
-- [ ] **Rust expressions for compile-time metadata.** hk and fnox use constants
+- [x] **Rust expressions for compile-time metadata.** hk and fnox use constants
       for defaults, aube and hk use constants for long help, and all three use
       generated or computed version strings. Requiring every value to be copied
       into a string literal creates exactly the drift this project is meant to
-      remove. Define which attributes accept `expr`, evaluate what can remain in
-      static tables, and give an explicit escape hatch for emission-only values.
+      remove. `version` and `default_value_t` now accept Rust expressions. A
+      computed version pairs with `version_spec`, and a typed default pairs with
+      `default`; the expression drives runtime behavior while the explicit literal
+      keeps emitted KDL deterministic and portable.
 - [ ] **One Args type used by more than one command.** tak's `push` and `init`
       have the same `--remote` shape. The derive rejects two variants wrapping
       one `Args` type because collection is attached to the declaring struct,
