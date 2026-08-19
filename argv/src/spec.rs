@@ -1206,19 +1206,20 @@ fn write_body<'a>(
 }
 
 /// Built-in completion types declared by this command, written in the spec's vocabulary.
-fn write_completion_types(
+fn write_completion_types<'a>(
     out: &mut String,
-    meta: &CommandMeta<'_>,
+    meta: &CommandMeta<'a>,
     depth: usize,
 ) -> core::fmt::Result {
+    let mut written: Vec<(String, &'a str)> = Vec::new();
     for arg in meta.args {
         if let Some(type_) = arg.complete_type {
-            indent(out, depth)?;
-            writeln!(
+            write_completion_type(
                 out,
-                "complete {} type={}",
-                quoted(&arg.arg.name.to_ascii_lowercase()),
-                quoted(type_)
+                &mut written,
+                arg.arg.name.to_ascii_lowercase(),
+                type_,
+                depth,
             )?;
         }
     }
@@ -1228,10 +1229,28 @@ fn write_completion_types(
                 .value_name
                 .unwrap_or(flag.flag.name)
                 .to_ascii_lowercase();
-            indent(out, depth)?;
-            writeln!(out, "complete {} type={}", quoted(&name), quoted(type_))?;
+            write_completion_type(out, &mut written, name, type_, depth)?;
         }
     }
+    Ok(())
+}
+
+fn write_completion_type<'a>(
+    out: &mut String,
+    written: &mut Vec<(String, &'a str)>,
+    name: String,
+    type_: &'a str,
+    depth: usize,
+) -> core::fmt::Result {
+    if written
+        .iter()
+        .any(|(written_name, written_type)| written_name == &name && *written_type == type_)
+    {
+        return Ok(());
+    }
+    indent(out, depth)?;
+    writeln!(out, "complete {} type={}", quoted(&name), quoted(type_))?;
+    written.push((name, type_));
     Ok(())
 }
 

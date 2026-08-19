@@ -708,7 +708,9 @@ feature list is not an exhaustive audit.
       tree after a usage-lib parse/serialize round trip, and repeated identical
       `complete "path"` nodes that the round trip collapsed. Make direct emission
       canonical and deduplicate composed completers so adopters do not need the
-      expensive round trip merely for stable generated artifacts.
+      expensive round trip merely for stable generated artifacts. Identical
+      built-in completion nodes are now emitted once per command; broader
+      parse/serialize canonicalization remains.
 - [x] **Keep generated-spec producers and consumers on one dialect.** The 6.x
       migration is a coordinated epoch, not a promise that a 5.1 CLI can consume
       a 6.x-derived spec. Fleet docs tasks install `usage-cli` from the same git
