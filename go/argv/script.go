@@ -397,7 +397,7 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {
                 )
             )
         }
-    } else if ($files) {
+    } elseif ($files) {
         # PowerShell's own, so that ` + "`" + `~` + "`" + `, drive-relative paths and provider paths behave as they
         # do everywhere else in the shell.
         foreach ($path in [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)) {

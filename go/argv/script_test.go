@@ -76,6 +76,9 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	if !strings.Contains(Script("mise", PowerShell), "-CommandType Application, ExternalScript") {
 		t.Error("powershell filters executable-path candidates")
 	}
+	if out := Script("mise", PowerShell); !strings.Contains(out, "} elseif ($files) {") || strings.Contains(out, "} else if ($files) {") {
+		t.Errorf("powershell uses its elseif keyword:\n%s", out)
+	}
 	if !strings.Contains(Script("mise", Nu), `"\u{1}"`) {
 		t.Error("nushell spells it as an escape")
 	}
