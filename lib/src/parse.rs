@@ -259,6 +259,7 @@ fn resolve_long_flag(
     if !infer || !key.starts_with("--") || key.len() == 2 {
         return None;
     }
+    let built_in_help = "--help".starts_with(key) && !available.contains_key("--help");
     let mut found: Option<(Arc<SpecFlag>, bool)> = None;
     for (candidate, flag) in available {
         if !candidate.starts_with("--") {
@@ -280,7 +281,63 @@ fn resolve_long_flag(
             found = Some((Arc::clone(flag), negated));
         }
     }
+    if built_in_help {
+        // The built-in is a candidate too. With a declared match this prefix is
+        // ambiguous; without one the caller recognizes the built-in itself.
+        return None;
+    }
     found
+}
+
+fn resolve_subcommand_with_builtins<'a>(
+    cmd: &'a SpecCommand,
+    name: &str,
+    infer: bool,
+    help_enabled: bool,
+) -> Option<&'a SpecCommand> {
+    if let Some(exact) = cmd.find_subcommand(name) {
+        return Some(exact);
+    }
+    if help_enabled
+        && !cmd.subcommands.is_empty()
+        && (name == "help" || (infer && !name.is_empty() && "help".starts_with(name)))
+    {
+        return None;
+    }
+    cmd.find_subcommand_with_prefix(name, infer)
+}
+
+fn inferred_long_help(
+    spec: &Spec,
+    available: &BTreeMap<String, Arc<SpecFlag>>,
+    word: &str,
+    infer: bool,
+) -> bool {
+    let key = get_flag_key(word);
+    spec.disable_help != Some(true)
+        && infer
+        && key.len() > 2
+        && "--help".starts_with(key)
+        && !available
+            .keys()
+            .any(|candidate| candidate.starts_with("--") && candidate.starts_with(key))
+}
+
+fn inferred_help_word(spec: &Spec, cmd: &SpecCommand, word: &str, infer: bool) -> bool {
+    spec.disable_help != Some(true)
+        && !word.is_empty()
+        && !cmd.subcommands.is_empty()
+        && (word == "help"
+            || (infer
+                && "help".starts_with(word)
+                && !cmd.subcommands.values().any(|sub| {
+                    sub.name.starts_with(word)
+                        || sub.aliases.iter().any(|alias| alias.starts_with(word))
+                        || sub
+                            .hidden_aliases
+                            .iter()
+                            .any(|alias| alias.starts_with(word))
+                })))
 }
 
 pub struct ParseOutput {
@@ -781,10 +838,13 @@ fn parse_partial_with_env(
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
             && is_command_word(&input[idx])
-            && out
-                .cmd
-                .find_subcommand_with_prefix(&input[idx], infer_subcommands)
-                .is_none()
+            && resolve_subcommand_with_builtins(
+                &out.cmd,
+                &input[idx],
+                infer_subcommands,
+                spec.disable_help != Some(true),
+            )
+            .is_none()
         {
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
@@ -795,10 +855,12 @@ fn parse_partial_with_env(
             }
             out.cmd = mounted;
         }
-        if let Some(subcommand) = out
-            .cmd
-            .find_subcommand_with_prefix(&input[idx], infer_subcommands)
-        {
+        if let Some(subcommand) = resolve_subcommand_with_builtins(
+            &out.cmd,
+            &input[idx],
+            infer_subcommands,
+            spec.disable_help != Some(true),
+        ) {
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -1151,7 +1213,14 @@ fn parse_partial_with_env(
                 }
                 continue;
             }
-            if is_help_arg(spec, &w) {
+            if is_help_arg(spec, &w)
+                || inferred_long_help(
+                    spec,
+                    &out.available_flags,
+                    &w,
+                    out.cmds.iter().any(|cmd| cmd.infer_long_args),
+                )
+            {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -1362,7 +1431,14 @@ fn parse_partial_with_env(
             }
             continue;
         }
-        if is_help_arg(spec, &w) {
+        if is_help_arg(spec, &w)
+            || inferred_help_word(
+                spec,
+                &out.cmd,
+                &w,
+                out.cmds.iter().any(|cmd| cmd.infer_subcommands),
+            )
+        {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -2998,6 +3074,56 @@ mount run="exit 1"
 
         let out = parse(&spec, &["ex".to_string(), "--verbose".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "ex");
+    }
+
+    #[test]
+    fn inferred_builtins_are_exact_and_participate_in_ambiguity() {
+        let with_help_all: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+unknown_flags "error"
+flag "--help-all"
+"#
+        .parse()
+        .unwrap();
+        let exact = parse(&with_help_all, &input(&["ex", "--help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(exact.contains("Usage:"), "{exact}");
+        let ambiguous = parse(&with_help_all, &input(&["ex", "--he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!ambiguous.contains("Usage:"), "{ambiguous}");
+
+        let lone: Spec = r#"
+name "ex"
+bin "ex"
+infer_long_args #true
+"#
+        .parse()
+        .unwrap();
+        let inferred = parse(&lone, &input(&["ex", "--he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(inferred.contains("Usage:"), "{inferred}");
+
+        let with_helper: Spec = r#"
+name "ex"
+bin "ex"
+infer_subcommands #true
+cmd "helper"
+"#
+        .parse()
+        .unwrap();
+        let exact = parse(&with_helper, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(exact.contains("Usage:"), "{exact}");
+        let ambiguous = parse(&with_helper, &input(&["ex", "he"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!ambiguous.contains("Usage:"), "{ambiguous}");
     }
 
     #[cfg(unix)]

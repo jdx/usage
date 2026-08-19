@@ -428,6 +428,27 @@ func TestInferredPrefixes(t *testing.T) {
 		t.Errorf("ambiguous long: got %s", got)
 	}
 
+	helpAll := &Flag{Key: 25, Name: "help-all", Longs: []string{"help-all"}}
+	withHelpAll := &Command{Name: "ex", Flags: []*Flag{helpAll}, InferLongArgs: true, UnknownFlags: UnknownFlagsError}
+	if got := collect(withHelpAll, "--help"); got != "flag:help" {
+		t.Errorf("exact built-in help: got %s", got)
+	}
+	if got := collect(withHelpAll, "--he"); got != "err:unknown_flag" {
+		t.Errorf("help prefix should be ambiguous: got %s", got)
+	}
+	if got := collect(&Command{Name: "ex", InferLongArgs: true}, "--he"); got != "flag:help" {
+		t.Errorf("unique built-in help prefix: got %s", got)
+	}
+
+	helper := &Command{Name: "helper"}
+	withHelper := &Command{Name: "ex", Subcommands: []*Command{helper}, InferSubcommands: true}
+	if got := collect(withHelper, "help"); got != "err:help" {
+		t.Errorf("exact help command: got %s", got)
+	}
+	if got := collect(withHelper, "he"); got != "err:unexpected_arg" {
+		t.Errorf("help command prefix should be ambiguous: got %s", got)
+	}
+
 	global := &Flag{Key: 23, Name: "verbose", Longs: []string{"verbose"}, Global: true}
 	local := &Flag{Key: 24, Name: "verbose", Longs: []string{"verbose"}}
 	run := &Command{Name: "run", Flags: []*Flag{local}}

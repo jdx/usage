@@ -1,5 +1,7 @@
 package argv
 
+import "strings"
+
 // Parser reads a command line once, left to right, against static tables.
 //
 // There is no backtracking, no reordering, and no second pass: what a token binds
@@ -449,11 +451,19 @@ func (p *Parser) word(token string) bool {
 	// positional of this command has taken a word, a later word that happens to
 	// equal a subcommand name is just a value.
 	if !p.argFilled && !p.flagsStopped {
-		if sub := p.findSubcommand(token); sub != nil {
+		if sub := findNamed(p.cmd, token); sub != nil {
 			if !p.descend(sub) {
 				return false
 			}
 			return p.emit(Event{Kind: KindCommand, Command: sub})
+		}
+		helpPrefix := token != "" && strings.HasPrefix("help", token) && len(p.cmd.Subcommands) > 0
+		inferred := p.findSubcommand(token)
+		if inferred != nil && !helpPrefix {
+			if !p.descend(inferred) {
+				return false
+			}
+			return p.emit(Event{Kind: KindCommand, Command: inferred})
 		}
 
 		// `ex help config ls` — the line every page with a Commands section prints.
@@ -463,7 +473,7 @@ func (p *Parser) word(token string) bool {
 		// The words after it name a command, resolved here rather than descended
 		// into: descending would bind them, and they are a question rather than an
 		// invocation.
-		if token == "help" && len(p.cmd.Subcommands) > 0 {
+		if (token == "help" || (p.inferSubcommands && helpPrefix && !hasPrefixedSubcommand(p.cmd, token))) && len(p.cmd.Subcommands) > 0 {
 			cmd := p.cmd
 			inferSubcommands := p.inferSubcommands
 			for p.pos < len(p.argv) {
@@ -639,6 +649,12 @@ func (p *Parser) findLongForm(name string) (*Flag, bool) {
 	}); found != nil {
 		return found, true
 	}
+	if name == "help" {
+		return HelpLong, false
+	}
+	if name == "version" && p.cmd.Version {
+		return VersionLong, false
+	}
 	if !p.inferLongArgs || name == "" {
 		return nil, false
 	}
@@ -664,6 +680,20 @@ func (p *Parser) findLongForm(name string) (*Flag, bool) {
 		found, negated = f, negative
 		return false
 	})
+	for _, builtin := range []struct {
+		name string
+		flag *Flag
+		ok   bool
+	}{{"help", HelpLong, true}, {"version", VersionLong, p.cmd.Version}} {
+		if !builtin.ok || !strings.HasPrefix(builtin.name, name) || p.longFormIsShadowed(builtin.flag, builtin.name) {
+			continue
+		}
+		if found != nil && found != builtin.flag {
+			ambiguous = true
+			break
+		}
+		found, negated = builtin.flag, false
+	}
 	if ambiguous {
 		return nil, false
 	}
@@ -739,6 +769,20 @@ func findNamedWithPrefix(cmd *Command, name string, infer bool) *Command {
 		found = sub
 	}
 	return found
+}
+
+func hasPrefixedSubcommand(cmd *Command, name string) bool {
+	for _, sub := range cmd.Subcommands {
+		if strings.HasPrefix(sub.Name, name) {
+			return true
+		}
+		for _, alias := range sub.Aliases {
+			if strings.HasPrefix(alias, name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // findNamed resolves a word against a command's subcommands, by name or alias.

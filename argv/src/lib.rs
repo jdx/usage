@@ -822,6 +822,16 @@ fn find_prefixed<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t
     found
 }
 
+fn has_prefixed_subcommand(cmd: &Command<'_>, name: &[u8]) -> bool {
+    cmd.subcommands.iter().any(|command| {
+        command.name.as_bytes().starts_with(name)
+            || command
+                .aliases
+                .iter()
+                .any(|alias| alias.as_bytes().starts_with(name))
+    })
+}
+
 /// What a caller should print for a parse failure, and what to exit with.
 ///
 /// The one entry point a generated `parse()` reaches for, and the reason it exists here rather
@@ -1468,7 +1478,20 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // positional of this command has taken a word, a later word that happens
         // to equal a subcommand name is just a value.
         if !self.arg_filled && !self.flags_stopped {
-            if let Some(sub) = self.find_subcommand(token) {
+            // Exact declared commands outrank the built-in help word. In inferred mode the
+            // built-in participates as a real candidate, so `he` reaches help only when a
+            // sibling such as `helper` does not make the prefix ambiguous.
+            if let Some(sub) = find_named(self.cmd, token) {
+                self.descend(sub)?;
+                return Ok(Event::Command(sub));
+            }
+            let help_prefix =
+                !token.is_empty() && b"help".starts_with(token) && !self.cmd.subcommands.is_empty();
+            let inferred = self
+                .infer_subcommands
+                .then(|| find_prefixed(self.cmd, token))
+                .flatten();
+            if let Some(sub) = inferred.filter(|_| !help_prefix) {
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
             }
@@ -1484,7 +1507,12 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             //
             // The words after it name a command, resolved here rather than descended into:
             // descending would bind them, and they are a question rather than an invocation.
-            if token == b"help" && !self.cmd.subcommands.is_empty() {
+            if (token == b"help"
+                || (self.infer_subcommands
+                    && help_prefix
+                    && !has_prefixed_subcommand(self.cmd, token)))
+                && !self.cmd.subcommands.is_empty()
+            {
                 let mut cmd = self.cmd;
                 let mut infer_subcommands = self.infer_subcommands;
                 let from = self.pos;
@@ -1674,6 +1702,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         {
             return Some((flag, true));
         }
+        // Built-ins are exact entries too, below an authored spelling and above inference.
+        if name == b"help" {
+            return Some((&HELP_LONG, false));
+        }
+        if name == b"version" && self.cmd.version {
+            return Some((&VERSION_LONG, false));
+        }
         if !self.infer_long_args || name.is_empty() {
             return None;
         }
@@ -1696,6 +1731,26 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 return None;
             }
             found = Some((flag, negative));
+        }
+        for (spelling, flag) in [
+            (b"help".as_slice(), &HELP_LONG),
+            (b"version".as_slice(), &VERSION_LONG),
+        ] {
+            if (spelling == b"version" && !self.cmd.version)
+                || !spelling.starts_with(name)
+                || self.in_scope().any(|candidate| {
+                    candidate
+                        .longs
+                        .iter()
+                        .any(|long| long.as_bytes() == spelling)
+                })
+            {
+                continue;
+            }
+            if found.is_some_and(|(prior, _)| !::core::ptr::eq(prior, flag)) {
+                return None;
+            }
+            found = Some((flag, false));
         }
         found
     }
@@ -1731,16 +1786,6 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             } else {
                 None
             })
-    }
-
-    fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
-        // Shared with `help` rather than spelled out again, so descending into a command and
-        // asking about one cannot drift apart.
-        if self.infer_subcommands {
-            find_prefixed(self.cmd, name)
-        } else {
-            find_named(self.cmd, name)
-        }
     }
 }
 
@@ -2507,6 +2552,63 @@ mod tests {
         let route = crate::help::route_to(&root, &a, cmd).expect("the inferred route");
         assert_eq!(route.len(), 2);
         assert!(::core::ptr::eq(route[1], &INSTALL));
+    }
+
+    #[test]
+    fn inferred_builtins_participate_in_exactness_and_ambiguity() {
+        static HELP_ALL: Flag = Flag {
+            key: 380,
+            name: "help-all",
+            longs: &["help-all"],
+            ..Flag::BOOL
+        };
+        static HELPER: Command = Command {
+            key: 381,
+            name: "helper",
+            ..Command::EMPTY
+        };
+        let flags = Command {
+            name: "ex",
+            flags: &[&HELP_ALL],
+            infer_long_args: true,
+            unknown_flags: Some(UnknownFlags::Error),
+            ..Command::EMPTY
+        };
+        let exact = argv(["--help"]);
+        assert!(matches!(
+            parse(&flags, &exact),
+            Ok(events) if matches!(events.as_slice(), [Event::Flag { flag, .. }] if is_help_flag(flag))
+        ));
+        let ambiguous = argv(["--he"]);
+        assert!(matches!(
+            parse(&flags, &ambiguous),
+            Err(Error::UnknownFlag { .. })
+        ));
+
+        let lone = Command {
+            name: "ex",
+            infer_long_args: true,
+            ..Command::EMPTY
+        };
+        let inferred = argv(["--he"]);
+        assert!(matches!(
+            parse(&lone, &inferred),
+            Ok(events) if matches!(events.as_slice(), [Event::Flag { flag, .. }] if is_help_flag(flag))
+        ));
+
+        let commands = Command {
+            name: "ex",
+            subcommands: &[&HELPER],
+            infer_subcommands: true,
+            ..Command::EMPTY
+        };
+        let exact = argv(["help"]);
+        assert!(matches!(parse(&commands, &exact), Err(Error::Help { .. })));
+        let ambiguous = argv(["he"]);
+        assert!(matches!(
+            parse(&commands, &ambiguous),
+            Err(Error::UnexpectedArg { .. })
+        ));
     }
 
     #[test]
