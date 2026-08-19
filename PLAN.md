@@ -520,6 +520,13 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
       case from the other side. Worth writing down as a decision rather than
       leaving it to be discovered as an absence.
+- [ ] **Public `CommandFactory` migration.** A library can expose
+      `pub fn command() -> clap::Command` as part of its supported API, as aube
+      does. Replacing its internal parser is not source-compatible for embedders
+      unless clap remains in the public dependency graph. Specify the supported
+      transition: a usage metadata return type, a separately named compatibility
+      entry point, and the semver expectations for adopters that publish the clap
+      builder itself.
 
 **What is _not_ a gap**, checked rather than assumed, because two of these were
 recorded as gaps here and had quietly been closed: flag aliases (several `long`
