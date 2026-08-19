@@ -715,20 +715,28 @@ looking at the clap surface, not only at the spec.
       fixtures are regenerated from the CLIs linked to _this_ `clap_usage`, the
       shadows cannot see delimiter-split flags that mise, hk, pitchfork and aube
       all declare. tak currently has no `usage` subcommand at all, so it cannot
-      even produce a fresh spec without one.
+      even produce a fresh spec without one. The experiment may add `usage` or
+      `--usage-spec` solely to expose the new canonical metadata; that new entry
+      point has no clap-era behavior to preserve and is excluded from tak's
+      compatibility baseline.
 - [x] **Docs and manpages on a fleet spec.** communique's checked-in spec and
       the KDL its shadow emits render the same markdown (index and every
       command) and the same manpage. usage-cli's own
       `render:usage-cli-completions` already does this for `usage`; the gate
       now asks it of a clap CLI.
-- [ ] **A typed rewrite of one small CLI, not a String shadow.** `gen-shadow`
+- [ ] **Typed rewrites of communique, tak, aube, hk, and fnox, not String
+      shadows.** `gen-shadow`
       types every field as `String`. The derive already holds `PathBuf`,
       `OsString`, `ValueEnum`, `FromStr`, `flatten`, `Option`/`Vec`. usage-cli
-      proves that for usage's own types. communique or tak would prove it for a
-      clap CLI rewritten in place: real field types, skip-fields or the split
-      they force, and a binary that still answers `--help` / `--usage-spec` the
-      same way. That is the experiment that tells you whether the rest of the
-      fleet is a rewrite or a blocked rewrite.
+      proves that for usage's own types. These five will prove it across real
+      clap CLIs rewritten in place: real field types, skip-fields or the split
+      they force, and binaries that preserve every pre-existing `--help` and
+      spec-emission entry point. tak's experiment-only spec entry point is tested
+      as new behavior rather than compared with a nonexistent baseline. Each
+      experiment is a ready-for-review PR whose `Cargo.toml`
+      deliberately points at usage's git revision; the PR is evidence for the
+      6.x gate, not something to merge before usage 6.x is published. Together
+      they tell us whether the fleet is a rewrite or a set of blocked rewrites.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
@@ -770,16 +778,21 @@ a prerequisite for trying a CLI.
       `usage-rs`, emits its spec from the same tables, and feeds that spec to
       the markdown, manpage and completion generators. The remaining items in
       **Trying the fleet** are about the _other_ CLIs, not this one.
-- [ ] **communique or tak** — the smallest clap CLIs, and the typed rewrite the
-      section above asks for. tak cannot emit a spec today; adding a `usage`
-      subcommand (or `--usage-spec`) is part of trying it.
+- [ ] **communique, tak, aube, hk, and fnox** — five typed fleet rewrites, each
+      carried as a ready-for-review experimental PR on a git dependency until
+      usage 6.x exists. tak cannot emit a spec today; adding a `usage` subcommand
+      (or `--usage-spec`) is experiment-only and outside its preserved CLI
+      contract. Every missing usage feature and every general clap-compatibility
+      gap found while converting them goes into a stacked follow-up to this plan
+      before 6.x is published.
 - [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
       commands lowered a few at a time, with mise's e2e argv corpus replayed against both
       parsers. Adoption is measured by what it lets mise delete, listed below.
       Do not start this until the clap-only rows in **Trying the fleet** that
       mise actually uses are either implemented or accepted as lost.
-- [ ] **hk, pitchfork, fnox, aube** — smaller than mise, all already generating
-      their spec from clap. Natural next adopters after one small CLI has moved.
+- [ ] **pitchfork** — not part of the five typed experiments, but already
+      generates its spec from clap. It is the next small adopter after those
+      experiment branches become mergeable.
 - [~] **Other languages** — Go now parses, validates, renders help and answers
   completions from generated static tables, verified against the shared corpus.
   JavaScript and Python implementations remain open.
@@ -1148,13 +1161,15 @@ including telling you to delete the label afterwards.
       ("a repeat is a correction… the later occurrence wins") and `long-unknown` ("more likely
       data in transit than a mistake", with `unknown_flags "error"` as the opt-in). Acting on
       the wrong reading got as far as three failing conformance vectors.
-      The refusals come from a different layer: `Error::DuplicateFlag` is constructed only in
-      `derive/src/codegen.rs`, never by usage-argv's parser. So a derive-generated binary is
-      strict and agrees with clap, which is what an adopter compares; a spec-driven parse is
-      conformant and lax, which is what mise runs _task_ arguments through, where a wrapper
-      appending to a command line it did not write is the documented case. Both correct in
-      their own domain, and `differential.rs` now carries a named test so tightening usage-lib
-      fails with the reason attached.
+      One refusal comes from a different layer: for repeated command-line occurrences,
+      `Error::DuplicateFlag` is constructed only in `derive/src/codegen.rs`, never by
+      usage-argv's parser, so a derive-generated binary still rejects a repeated flag as clap
+      does. Separately, `Spec::to_kdl` validates `duplicate_flag_form` at the spec boundary so
+      two declarations cannot claim the same spelling. Unknown flags are intentionally different: usage parsers
+      are permissive by default and a command opts into `unknown_flags="error"` when it owns the
+      whole grammar. That is what fleet adopters should declare for clap parity, while forwarding
+      commands such as `mise run` keep the default. `differential.rs` carries a named test so
+      tightening usage-lib fails with the reason attached.
 - [x] Unrecognized flags fall through to positionals, so `ex --wat` binds `--wat`
       to an argument, or reports `unexpected_arg` when there is none. **Decided
       (2026-08-19): lax is the default everywhere — both parsers — and strict is
