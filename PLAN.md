@@ -671,6 +671,18 @@ feature list is not an exhaustive audit.
       attributes fixed the regression but lost the central declaration. Provide
       a static overlay or lightweight spec-editing surface for policies that need
       a whole-tree view.
+- [ ] **Compiled completions for runtime overlays, multicall projections and async
+      candidates.** The self-contained completion endpoint can answer only from a
+      derive-time `usage_argv::spec::Spec`, and custom Rust completers are
+      synchronous. aube instead appends named completers to KDL at runtime, projects
+      the `run` and `dlx` subtrees into the `aubr` and `aubx` binaries, and discovers
+      package candidates asynchronously. Its fleet PR therefore still invokes
+      `usage g completion`; switching it to `#[usage(completion)]` today would emit a
+      valid script that silently loses those candidates. Give `usage-rs` a static or
+      lightweight overlay/projection surface consumable by the compiled completion
+      walker, define an async completion callback strategy that does not tax normal
+      parsing, and cover alternate binary identities before calling completions
+      self-contained for embedders and multicall CLIs.
 - [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
       output was semantically accepted but differed substantially from the same
       tree after a usage-lib parse/serialize round trip, and repeated identical
@@ -871,8 +883,12 @@ looking at the clap surface, not only at the spec.
       values rather than lowering to String, keep intentional forwarding behavior,
       and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
       the root because its external-subcommand path is a package-manager forwarder.
-      All five pin the experiment stack at `88786493`. The workarounds they still
-      contain are the unchecked launch-gate rows above, not unfinished conversions.
+      All five depend only on the `usage-rs` facade for parsing and derives and pin
+      the experiment stack at `88786493`. hk and fnox also use its built-in compiled
+      completion protocol, removing their runtime dependency on an installed `usage`
+      binary; aube retains the external completion generator for the runtime-overlay
+      gap above. The workarounds they still contain are the unchecked launch-gate rows
+      above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
