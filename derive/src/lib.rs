@@ -370,9 +370,9 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// #[derive(usage::ValueEnum)]
 /// enum Shell {
 ///     Bash,
-///     #[usage(alias = "shell-z")]
+///     #[value(alias = "shell-z")]
 ///     Zsh,
-///     #[usage(name = "pwsh")]
+///     #[value(name = "pwsh")]
 ///     PowerShell,
 /// }
 /// ```
@@ -386,7 +386,7 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// A field holding one says `value_enum`, which is what puts the words in the spec — so
 /// help, completions and the check that rejects a wrong word all read the same list, and
 /// none of them can drift from the type.
-#[proc_macro_derive(ValueEnum, attributes(usage))]
+#[proc_macro_derive(ValueEnum, attributes(usage, value))]
 pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::ValueEnum::from_input(&input) {

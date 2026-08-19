@@ -2528,6 +2528,15 @@ fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
     attrs.iter().filter(|a| a.path().is_ident("usage"))
 }
 
+/// Value metadata accepts clap's `#[value(...)]` spelling so an enum can keep its
+/// existing annotations while replacing the derive. `#[usage(...)]` remains accepted
+/// for code that does not need source compatibility.
+fn value_attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
+    attrs
+        .iter()
+        .filter(|a| a.path().is_ident("usage") || a.path().is_ident("value"))
+}
+
 fn nested(attr: &Attribute) -> syn::Result<Vec<Meta>> {
     let list = attr.meta.require_list()?;
     let parsed = list
@@ -3583,7 +3592,7 @@ impl ValueEnum {
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
             let mut name = to_kebab(&variant.ident.unraw().to_string());
             let mut aliases = Vec::new();
-            for attr in attrs(&variant.attrs) {
+            for attr in value_attrs(&variant.attrs) {
                 for meta in nested(attr)? {
                     let path = meta.path().clone();
                     match ident_of(&path).as_str() {
@@ -4275,6 +4284,21 @@ mod tests {
             err.contains("names two of these values"),
             "unhelpful: {err}"
         );
+    }
+
+    #[test]
+    fn a_value_enum_accepts_clap_value_metadata() {
+        let ve = value_enum(
+            r#"
+            enum Provider {
+                #[value(name = "1password", alias = "op")]
+                OnePassword,
+            }
+        "#,
+        )
+        .expect("clap value metadata should remain usable");
+        assert_eq!(ve.variants[0].name, "1password");
+        assert_eq!(ve.variants[0].aliases, ["op"]);
     }
 
     #[test]
