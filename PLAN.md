@@ -593,12 +593,12 @@ feature list is not an exhaustive audit.
       computed version pairs with `version_spec`, and a typed default pairs with
       `default`; the expression drives runtime behavior while the explicit literal
       keeps emitted KDL deterministic and portable.
-- [ ] **One Args type used by more than one command.** tak's `push` and `init`
-      have the same `--remote` shape. The derive rejects two variants wrapping
-      one `Args` type because collection is attached to the declaring struct,
-      forcing two identical structs. `flatten` solves shared fields within a
-      command but not a whole command body shared under two names. Either support
-      this directly or document the duplication as an architectural constraint.
+- [x] **One Args type used by more than one command.** Static tables belong to
+      the Args type and command routing belongs to each mounting enum variant,
+      so one declaration can back multiple commands without duplicate symbols
+      or cross-command binding. Facade coverage mounts one `SharedArgs` under
+      two commands, parses both routes, and verifies each emitted command owns
+      exactly one copy of the shared flag metadata.
 - [x] **Inline struct-style subcommand variants.** aube and hk use clap enums
       whose variants declare fields directly. usage requires every non-bare
       variant to wrap one dedicated Args struct, turning a mechanical migration
@@ -1144,10 +1144,11 @@ repeated here.
       fnox's test helpers in the rewrite experiment. `parse_from` remains the
       allocation-free words-only primitive; `parse_from_argv` is the explicit
       clap-shaped, argv0-taking variant and preserves multicall selection.
-- [ ] **Shared `Args` under multiple commands need wrapper types** in the
-      derive, where clap lets one struct serve several parents directly.
-      flatten covers the mise `ConfigLs` shape; the fnox shape is the same
-      struct as a full command body in two places.
+- [x] **Shared `Args` under multiple commands do not need wrapper types.** Keys
+      are checked per command because that is their routing scope, while each
+      subcommand variant selects the shared `CommandArgs` table independently.
+      The same facade regression covers the fnox full-command shape; mise's
+      flattened `ConfigLs` reuse remains covered by the fleet shadow.
 - [ ] **Relationships across a flatten boundary.** A flag in the parent
       conflicting with a flag in the flattened group has no spelling; hk and
       aube both hit it and enforce post-bind by hand.

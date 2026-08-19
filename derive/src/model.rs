@@ -3200,37 +3200,6 @@ impl Subcommands {
             }
         }
 
-        // Two variants cannot wrap the same struct. A command's values are collected
-        // into the struct that declares them, and its fields' keys come from that
-        // struct — so two commands sharing one would collect into whichever was
-        // reached first, and choosing between them would be a coin toss. Rejected
-        // rather than silently misbound.
-        //
-        // Compared as whole paths: `type_name` renders only the last segment, so
-        // `add::Op` and `remove::Op` looked identical and two perfectly good commands
-        // were refused.
-        let mut types: Vec<(String, Span)> = Vec::new();
-        for variant in &variants {
-            if variant.external {
-                continue;
-            }
-            let rendered = quote::ToTokens::to_token_stream(&variant.ty)
-                .to_string()
-                .replace(' ', "");
-            if let Some((_, first)) = types.iter().find(|(t, _)| *t == rendered) {
-                return Err(dup(
-                    variant.ty.span(),
-                    *first,
-                    &format!(
-                        "two variants both wrap `{rendered}`, and a command collects \
-                         into the struct that declares it — so give each command its \
-                         own struct, even if the fields are identical"
-                    ),
-                ));
-            }
-            types.push((rendered, variant.ty.span()));
-        }
-
         Ok(Subcommands {
             ident: input.ident.clone(),
             variants,

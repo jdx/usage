@@ -597,7 +597,7 @@ fn declared_files_at_cursor(
     {
         return None;
     }
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let at_cursor = if restarted(meta, split) {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
@@ -641,7 +641,7 @@ fn declared_files_at_cursor(
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
 pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
     let candidates = candidates(spec, split);
 
@@ -807,7 +807,7 @@ fn overlay_for_name<'o>(
     {
         return Some(overlay);
     }
-    let (_, chain) = crate::help::find(spec, position.cmd)?;
+    let chain = metadata_chain_on_route(spec, position)?;
     let owner = chain.last()?;
     let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
     overlays.iter().rev().find(|overlay| {
@@ -828,7 +828,7 @@ fn overlay_at_cursor<'o>(
     {
         return None;
     }
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
             owner.args.first().map(|field| {
@@ -840,12 +840,12 @@ fn overlay_at_cursor<'o>(
             })
         })
     } else if let Some(flag) = position.awaiting_value {
-        flag_meta_owner(spec.root, flag)
+        flag_meta_owner_on_route(spec, position, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
     } else {
         position
             .next_arg
-            .and_then(|arg| arg_meta_owner(spec.root, arg))
+            .and_then(|arg| arg_meta_owner_on_route(spec, position, arg))
             .map(|(owner, field)| {
                 (
                     owner,
@@ -867,10 +867,62 @@ fn overlay_at_cursor<'o>(
     if needs_separator && !position.separator_seen {
         return None;
     }
-    let (_, chain) = crate::help::find(spec, owner.cmd)?;
-    let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
+    let chain = metadata_chain_on_route(spec, position)?;
+    let path: Vec<&str> = if let Some(owner_at) = chain
+        .iter()
+        .position(|candidate| core::ptr::eq(*candidate, owner))
+    {
+        chain[..=owner_at]
+            .iter()
+            .skip(1)
+            .map(|meta| meta.cmd.name)
+            .collect()
+    } else if core::ptr::eq(position.cmd, spec.root.cmd)
+        && spec
+            .root
+            .subcommands
+            .iter()
+            .any(|candidate| core::ptr::eq(*candidate, owner))
+    {
+        // A default subcommand can supply the root cursor's first argument without the
+        // parser descending into it. Its metadata identity is already unambiguous here;
+        // preserve that implied route instead of falling back to a tree-wide pointer search.
+        vec![owner.cmd.name]
+    } else {
+        return None;
+    };
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
+    })
+}
+
+fn flag_meta_owner_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+    flag: &Flag<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
+    let chain = metadata_chain_on_route(spec, position)?;
+    chain.iter().rev().find_map(|owner| {
+        owner
+            .flags
+            .iter()
+            .find(|field| core::ptr::eq(field.flag, flag))
+            .map(|field| (*owner, field))
+    })
+}
+
+fn arg_meta_owner_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+    arg: &Arg<'_>,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
+    let chain = metadata_chain_on_route(spec, position)?;
+    chain.iter().rev().find_map(|owner| {
+        owner
+            .args
+            .iter()
+            .find(|field| core::ptr::eq(field.arg, arg))
+            .map(|field| (*owner, field))
     })
 }
 
@@ -890,40 +942,32 @@ fn default_subcommand_arg<'a>(
         .and_then(|sub| sub.args.first().map(|field| (sub, field)))
 }
 
-fn flag_meta_owner<'a>(
-    meta: &'a CommandMeta<'a>,
-    flag: &Flag<'_>,
-) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
-    meta.flags
-        .iter()
-        .find(|field| core::ptr::eq(field.flag, flag))
-        .map(|field| (meta, field))
-        .or_else(|| {
-            meta.subcommands
-                .iter()
-                .find_map(|sub| flag_meta_owner(sub, flag))
-        })
-}
-
-fn arg_meta_owner<'a>(
-    meta: &'a CommandMeta<'a>,
-    arg: &Arg<'_>,
-) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
-    meta.args
-        .iter()
-        .find(|field| core::ptr::eq(field.arg, arg))
-        .map(|field| (meta, field))
-        .or_else(|| {
-            meta.subcommands
-                .iter()
-                .find_map(|sub| arg_meta_owner(sub, arg))
-        })
+/// The metadata route selected by the parser, preserving parent identity even when two
+/// wrappers reuse the same nested command tables.
+fn metadata_chain_on_route<'a>(
+    spec: &'a Spec<'a>,
+    position: &Position<'_>,
+) -> Option<Vec<&'a CommandMeta<'a>>> {
+    if position.path.is_empty() {
+        return crate::help::find(spec, position.cmd).map(|(_, chain)| chain);
+    }
+    let mut chain = vec![spec.root];
+    let mut current = spec.root;
+    for (command, _) in position.path.iter().skip(1) {
+        current = current
+            .subcommands
+            .iter()
+            .copied()
+            .find(|meta| core::ptr::eq(meta.cmd, *command))?;
+        chain.push(current);
+    }
+    Some(chain)
 }
 
 /// Just the candidates this CLI knows about, without the question of paths.
 pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     let position = walk(spec.root.cmd, split.argv());
-    let meta = crate::help::find(spec, position.cmd).and_then(|(_, chain)| chain.last().copied());
+    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
 
     let mut out = if position.flags_possible && token == "-" {
