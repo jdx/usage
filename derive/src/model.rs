@@ -4114,7 +4114,10 @@ mod tests {
             }
         "#,
         );
-        assert!(err.contains("names no flag"), "unhelpful message: {err}");
+        assert!(
+            err.contains("names no argument"),
+            "unhelpful message: {err}"
+        );
 
         let err = rejection(
             r#"
