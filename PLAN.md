@@ -663,7 +663,7 @@ feature list is not an exhaustive audit.
       supported facade should own or re-export this path so the documented
       dependency set is sufficient and generated code does not require users to
       discover an internal crate from a compiler error.
-- [ ] **Central metadata overlays without an MSRV or performance jump.** aube
+- [x] **Central metadata overlays without an MSRV or performance jump.** aube
       keeps a centrally audited command-effect table rather than scattering the
       policy across command types. Applying that table currently means parsing
       derived KDL into usage-lib, which raises an argv-only adopter from the 1.91
@@ -674,8 +674,10 @@ feature list is not an exhaustive audit.
       whole-tree view. Overlay resolution belongs only on cold metadata, help and
       completion paths: ordinary argv parsing must continue to use the base const
       tables directly, without building a command graph, allocating, or consulting
-      the overlay.
-- [ ] **Compiled completions for runtime overlays, multicall projections and async
+      the overlay. `SpecView` and `CommandOverlay` now provide that borrowed cold
+      path, and aube's fleet PR applies its central effect table through them
+      without depending on usage-lib.
+- [x] **Compiled completions for runtime overlays, multicall projections and async
       candidates.** The self-contained completion endpoint can answer only from a
       derive-time `usage_argv::spec::Spec`, and custom Rust completers are
       synchronous. aube instead appends named completers to KDL at runtime, projects
@@ -692,6 +694,12 @@ feature list is not an exhaustive audit.
       a smaller shape: switching it to `Cli::completion_script` dropped the secret,
       provider, profile and config-file completers appended from
       `fnox-extras.usage.kdl`, so its fleet PR also retains `usage g completion`.
+      `App` now combines a borrowed `SpecView`, sparse sync/async completion
+      callbacks, runtime identity and command projection. It does not bundle an
+      executor. aube uses it for all of those cases, including `aubr`/`aubx` and
+      async registry search; fnox uses it for secret, provider and profile
+      candidates. Both now generate and answer completions through `usage-rs`
+      without invoking the `usage` binary.
 - [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
       output was semantically accepted but differed substantially from the same
       tree after a usage-lib parse/serialize round trip, and repeated identical
@@ -892,12 +900,12 @@ looking at the clap surface, not only at the spec.
       values rather than lowering to String, keep intentional forwarding behavior,
       and opt strict CLIs into `unknown_flags="error"`; aube remains permissive at
       the root because its external-subcommand path is a package-manager forwarder.
-      All five depend only on the `usage-rs` facade for parsing and derives and pin
-      the experiment stack at `88786493`. hk also uses its built-in compiled
-      completion protocol, removing its runtime dependency on an installed `usage`
-      binary; aube and fnox retain the external completion generator for the
-      runtime-overlay gap above. The workarounds they still contain are the unchecked
-      launch-gate rows above, not unfinished conversions.
+      All five use the `usage-rs` facade for parsing and derives and pin the
+      experiment stack at `44f81ad7`. hk, aube and fnox also use its built-in
+      compiled completion protocol, removing their runtime dependency on an
+      installed `usage` binary. aube's remaining direct `usage-validation`
+      dependency is the facade-validation gap above. The workarounds they still
+      contain are the unchecked launch-gate rows above, not unfinished conversions.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
