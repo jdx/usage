@@ -757,7 +757,12 @@ fn overlay_for_name<'o>(
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(name)
             && chain.iter().enumerate().rev().any(|(index, owner)| {
-                let path: Vec<&str> = chain[1..=index].iter().map(|meta| meta.cmd.name).collect();
+                let path: Vec<&str> = chain
+                    .iter()
+                    .take(index + 1)
+                    .skip(1)
+                    .map(|meta| meta.cmd.name)
+                    .collect();
                 overlay.command.matches(owner, &path)
             })
     })
@@ -1841,6 +1846,19 @@ mod tests {
                 .iter()
                 .any(|candidate| candidate.value == "uby"),
             "{named:?}"
+        );
+        let named_at_root = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise "),
+            &GLOBAL_RUNTIME_COMPLETIONS,
+            "tool",
+        ));
+        assert!(
+            named_at_root
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "uby"),
+            "{named_at_root:?}"
         );
 
         let argv = [
