@@ -659,17 +659,40 @@ arg "[port]" env="PORT" validate="int(value) > 0" validate_error="port must be p
 flag "--mode" default="bad" {
     arg "<mode>" validate="value == 'good'" validate_error="mode must be good"
 }
+arg "[ports]..." env="PORTS" var=#true delimiter="," validate="int(value) > 0" validate_error="all ports must be positive"
+flag "--levels" env="LEVELS" {
+    arg "<level>..." var=#true delimiter="," validate="value == 'good'" validate_error="all levels must be good"
+}
+flag "--modes" default="good,bad" {
+    arg "<mode>..." var=#true delimiter="," validate="value == 'good'" validate_error="all modes must be good"
+}
+flag "--conditional" {
+    default_if "--trigger" "good,bad"
+    arg "<conditional>..." var=#true delimiter="," validate="value == 'good'" validate_error="all conditional values must be good"
+}
+flag "--trigger"
         "#
         .parse()
         .unwrap();
-        let env = HashMap::from([("PORT".to_string(), "0".to_string())]);
+        let env = HashMap::from([
+            ("PORT".to_string(), "0".to_string()),
+            ("PORTS".to_string(), "1,0".to_string()),
+            ("LEVELS".to_string(), "good,bad".to_string()),
+        ]);
         let error = Parser::new(&spec)
             .with_env(env)
-            .parse(&["ex".to_string()])
+            .parse(&["ex".to_string(), "--trigger".to_string()])
             .unwrap_err();
         let error = error.to_string();
         assert!(error.contains("port must be positive"), "{error}");
         assert!(error.contains("mode must be good"), "{error}");
+        assert!(error.contains("all ports must be positive"), "{error}");
+        assert!(error.contains("all levels must be good"), "{error}");
+        assert!(error.contains("all modes must be good"), "{error}");
+        assert!(
+            error.contains("all conditional values must be good"),
+            "{error}"
+        );
     }
 }
 
