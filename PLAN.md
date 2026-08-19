@@ -589,6 +589,26 @@ feature list is not an exhaustive audit.
       forcing two identical structs. `flatten` solves shared fields within a
       command but not a whole command body shared under two names. Either support
       this directly or document the duplication as an architectural constraint.
+- [ ] **Inline struct-style subcommand variants.** aube and hk use clap enums
+      whose variants declare fields directly. usage requires every non-bare
+      variant to wrap one dedicated Args struct, turning a mechanical migration
+      into a broad public-type refactor before argv behavior can even be tested.
+      Accept inline variants or provide a migration lowering that preserves the
+      user's enum shape.
+- [ ] **ValueEnum must coexist with domain parsing and cfg.** aube and fnox enums
+      already implement `FromStr`; deriving usage `ValueEnum` adds a conflicting
+      implementation. fnox also cfg-gates individual variants, while usage's
+      const word list refuses holes. ValueEnum should describe choices without
+      taking ownership of domain parsing, and cfg-gated variants need a sound
+      static-table representation.
+- [ ] **Flag aliases in the derive.** aube declares secondary flag spellings.
+      Static metadata can carry aliases, but a usage field accepts neither
+      `alias` nor clap's `visible_alias`, so the typed authoring surface cannot
+      express the spec it is meant to define.
+- [ ] **Command-with-arguments completion hints.** fnox uses
+      `ValueHint::CommandWithArguments` for forwarded argv. usage accepts only
+      file, path and directory hints today. Add the command/argv cases or record
+      them as an explicit completion non-goal before claiming clap coverage.
 - [ ] **Version omission and dynamic version policy.** tak intentionally removes
       the package version from its generated spec so release-plz version-only PRs
       do not dirty generated docs; hk computes a richer version string. Specify
@@ -761,11 +781,13 @@ looking at the clap surface, not only at the spec.
       deliberately points at usage's git revision; the PR is evidence for the
       6.x gate, not something to merge before usage 6.x is published. Together
       they tell us whether the fleet is a rewrite or a set of blocked rewrites.
-      **The experiment PRs now exist:** communique#265 and tak#47 are typed
-      rewrites; aube#1336, hk#1211 and fnox#725 are compileable static-table
-      shadows plus inventories of their real typed surfaces. The latter three
-      still need their clap dispatch replaced before this box closes. All five
-      pin `jdx/usage` at `cc60dcb7`.
+      **The experiment PRs now exist and all five modify the real CLI:**
+      jdx/communique#265 and jdx/tak#47 compile (tak's full suite passes);
+      jdx/aube#1336, jdx/hk#1211 and jdx/fnox#725 remove the clap dependency and
+      convert the real derives, but stop on 194, 490 and 326 compiler diagnostics
+      respectively, including cascades. Their migration-status files group those
+      failures into the launch-gate rows above. All five pin `jdx/usage` at
+      `cc60dcb7`.
 - [x] **The clap-only validation behaviour the fleet actually uses.** Portable
       `validate` expressions cover numeric ranges in the typed rewrite. Arbitrary clap
       parser functions remain opaque to `clap_usage`, but they no longer require a
