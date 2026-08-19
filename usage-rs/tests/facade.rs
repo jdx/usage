@@ -21,10 +21,11 @@ enum Command {
     Version,
 }
 
-#[derive(Subcommands)]
+#[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
     Run {
+        #[serde(default)]
         #[arg(long)]
         bench: Option<String>,
         #[usage(long)]

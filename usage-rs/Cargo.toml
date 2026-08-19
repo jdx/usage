@@ -34,4 +34,5 @@ shared-version = true
 release = true
 
 [dev-dependencies]
+serde = { version = "1", features = ["derive"] }
 usage-parser = { package = "usage-lib", path = "../lib" }

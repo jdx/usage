@@ -2970,6 +2970,39 @@ fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
     list.tokens = quote!(#nested);
 }
 
+fn inline_field_meta(meta: &syn::Meta) -> Option<syn::Meta> {
+    if meta.path().is_ident("arg") {
+        let mut meta = meta.clone();
+        rewrite_inline_arg_meta(&mut meta);
+        return Some(meta);
+    }
+    if meta.path().is_ident("usage") || meta.path().is_ident("doc") || meta.path().is_ident("cfg") {
+        return Some(meta.clone());
+    }
+    let syn::Meta::List(list) = meta else {
+        return None;
+    };
+    if !list.path.is_ident("cfg_attr") {
+        return None;
+    }
+    let parser = syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated;
+    let nested = syn::parse::Parser::parse2(parser, list.tokens.clone()).ok()?;
+    let mut nested = nested.into_iter();
+    let condition = nested.next()?;
+    let kept = nested
+        .filter_map(|meta| inline_field_meta(&meta))
+        .collect::<Vec<_>>();
+    if kept.is_empty() {
+        return None;
+    }
+    syn::parse2(quote!(cfg_attr(#condition, #(#kept),*))).ok()
+}
+
+fn inline_field_attr(attr: syn::Attribute) -> Option<syn::Attribute> {
+    let meta = inline_field_meta(&attr.meta)?;
+    Some(syn::Attribute { meta, ..attr })
+}
+
 fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
     if meta.path().is_ident("cfg") {
         return true;
@@ -3007,9 +3040,11 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .as_ref()
                 .map(|word| quote!(#[usage(effect = #word)]));
             let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
-                for attr in &mut field.attrs {
-                    rewrite_inline_arg_meta(&mut attr.meta);
-                }
+                field.attrs = field
+                    .attrs
+                    .into_iter()
+                    .filter_map(inline_field_attr)
+                    .collect();
                 field
             });
             quote! {
