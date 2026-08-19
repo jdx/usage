@@ -319,13 +319,15 @@ pub struct Spec<'a> {
 /// when the command type is available and avoid coupling an overlay to its displayed spelling.
 #[derive(Debug, Clone, Copy)]
 pub enum CommandSelector<'a> {
+    Any,
     Path(&'a str),
     Key(u64),
 }
 
 impl CommandSelector<'_> {
-    fn matches(&self, meta: &CommandMeta<'_>, path: &[&str]) -> bool {
+    pub(crate) fn matches(&self, meta: &CommandMeta<'_>, path: &[&str]) -> bool {
         match self {
+            Self::Any => true,
             Self::Path(expected) => expected.split_ascii_whitespace().eq(path.iter().copied()),
             Self::Key(key) => meta.cmd.key == *key,
         }
