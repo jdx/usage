@@ -325,13 +325,20 @@ def --env __usage_complete_{ident} [spans: list<string>] {
     # the start of that command's arguments or re-enter this external completer.
     let commands = (if $wants_commands {
         let prefix = ($spans | last)
+        let insensitive = $nu.os-info.name == "windows"
+        let match_prefix = if $insensitive { $prefix | str downcase } else { $prefix }
         which
-        | where {|row| $row.command | str starts-with $prefix }
+        | where {|row|
+            let candidate = if $insensitive { $row.command | str downcase } else { $row.command }
+            $candidate | str starts-with $match_prefix
+        }
         | each {|row| { value: $row.command, description: $row.path } }
     } else {
         []
     })
     let candidates = ($declared | append $commands)
+    let command_is_path = (($spans | last) | str contains "/") or (($spans | last) | str contains "\\")
+    let wants_path_fallback = $wants_files or ($wants_commands and $command_is_path)
     # ` + "`" + `null` + "`" + ` is how a nushell completer says "you do this one", and what it does is complete
     # paths. So an answer that is only the marker returns null rather than nothing, which would
     # mean "there is nothing here".
@@ -341,7 +348,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {
     # "and files too". The candidates win, because they are what this CLI knows and a path is
     # something the user can finish typing. Every other shell here appends both; this is
     # nushell's completer interface rather than a decision of this design.
-    if ($candidates | is-empty) and $wants_files { null } else { $candidates }
+    if ($candidates | is-empty) and $wants_path_fallback { null } else { $candidates }
 }
 
 # Slot this into the external completer nushell already has, if any, rather than replacing it:

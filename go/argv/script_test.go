@@ -102,6 +102,9 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	if out := Script("mise", Nu); strings.Contains(out, "| commandline complete") {
 		t.Errorf("nushell command completion must not recurse through the external completer:\n%s", out)
 	}
+	if out := Script("mise", Nu); !strings.Contains(out, "let wants_path_fallback") || !strings.Contains(out, `$nu.os-info.name == "windows"`) {
+		t.Errorf("nushell command completion must preserve path and Windows lookup semantics:\n%s", out)
+	}
 }
 
 // A candidate that looks like an option to the shell's own printer is still
