@@ -173,6 +173,10 @@ Doc comments remain the source of short and long help. `Cli::to_kdl()` emits the
 `Cli::spec().view()` provides cold-path identity and metadata overlays without moving normal
 parsing onto a dynamic command graph.
 
+For an embedded CLI whose program name is computed, pair `name = expression` with a portable
+`name_spec = "literal"`, and `bin = expression` with `bin_spec = "literal"`. The expression is
+used only by process output; the literal keeps generated specs reproducible.
+
 With the `completions` feature, prefer the built-in completion surface:
 
 ```rust

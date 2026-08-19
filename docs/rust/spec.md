@@ -79,6 +79,32 @@ usage lint       -f mycli.usage.kdl                  # lint the spec
 `min_usage_version = "…"` on the root is written first in the document, as the CLI's claim about
 which usage consumers can read it.
 
+## Runtime identity and portable identity
+
+An embedded CLI may be invoked under a name chosen by its caller. Pair each computed identity
+with the literal written to portable artifacts:
+
+```rust
+#[derive(usage::Cli)]
+#[usage(
+    name = host::program_name(),
+    name_spec = "mycli",
+    bin = host::program_name(),
+    bin_spec = "mycli",
+    version = build::version(),
+    version_spec = "6.0.0"
+)]
+struct Cli;
+```
+
+The expressions are evaluated only when the process renders help, version output, diagnostics,
+or a completion script. Successful argument parsing still reads the static tables directly and
+does not allocate or build a command graph. `to_kdl()` keeps `mycli` and `6.0.0`, so generated
+artifacts are deterministic and do not depend on the embedding process.
+
+For a caller that already has the identity values, `Cli::app().name(...).bin(...)` provides the
+same split as a borrowed cold-path view.
+
 ## What the parser does with the spec
 
 Nothing, at runtime. The derive compiles your declaration into static tables that usage-argv

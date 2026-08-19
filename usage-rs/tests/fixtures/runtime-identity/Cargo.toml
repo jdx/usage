@@ -1,0 +1,10 @@
+[package]
+name = "usage-rs-runtime-identity-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+usage = { package = "usage-rs", path = "../../.." }
+
+[workspace]

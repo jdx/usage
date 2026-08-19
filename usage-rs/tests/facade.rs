@@ -188,6 +188,22 @@ fn computed_version() -> &'static str {
     "1.2.3+runtime"
 }
 
+#[cfg(feature = "completions")]
+fn runtime_program() -> &'static str {
+    "runtime-ex"
+}
+
+#[cfg(feature = "completions")]
+#[derive(Cli)]
+#[usage(
+    name = runtime_program(),
+    name_spec = "portable-ex",
+    bin = runtime_program(),
+    bin_spec = "portable-ex",
+    completion
+)]
+struct RuntimeIdentityEx;
+
 #[derive(Cli)]
 #[usage(
     bin = "dynamic-ex",
@@ -477,4 +493,16 @@ fn runtime_metadata_expressions_have_explicit_portable_values() {
     assert!(kdl.contains(DYNAMIC_AFTER_HELP), "{kdl}");
     let spec: usage_parser::Spec = kdl.parse().expect("the static values should be portable");
     assert_eq!(spec.version.as_deref(), Some("1.2.3"));
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn runtime_program_identity_is_separate_from_the_portable_spec() {
+    let kdl = RuntimeIdentityEx::to_kdl();
+    assert!(kdl.contains("name \"portable-ex\""), "{kdl}");
+    assert!(kdl.contains("bin \"portable-ex\""), "{kdl}");
+
+    let script = RuntimeIdentityEx::completion_script(usage::complete::Shell::Bash);
+    assert!(script.contains("runtime-ex"), "{script}");
+    assert!(!script.contains("'portable-ex'"), "{script}");
 }
