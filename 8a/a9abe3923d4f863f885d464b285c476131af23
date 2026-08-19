@@ -1,0 +1,2 @@
+{"v":1,"bench":"markdown","tool":"self","runner":"bamboo-v2-ubuntu24.04-x64-30vcpu-24gb-rust1.97.1","ts":"2026-08-17T01:32:22Z","metrics":{"instructions":180376992.0,"wall_max_ms":17.642943000000002,"wall_mean_ms":17.0533126,"wall_min_ms":16.60519,"wall_n":10.0,"wall_p50_ms":17.100016}}
+{"v":1,"bench":"startup","tool":"self","runner":"bamboo-v2-ubuntu24.04-x64-30vcpu-24gb-rust1.97.1","ts":"2026-08-17T01:32:23Z","metrics":{"instructions":1226212.0,"wall_max_ms":1.510118,"wall_mean_ms":1.2180978000000002,"wall_min_ms":0.9941760000000001,"wall_n":20.0,"wall_p50_ms":1.197216}}
