@@ -60,11 +60,24 @@ jobs:
       - name: Report which shells are available
         if: always()
         run: |
+          probe_dir=$(mktemp -d)
+          trap 'rm -rf "$probe_dir"' EXIT
           for shell in bash zsh fish pwsh; do
-            if command -v "$shell" >/dev/null; then
-              echo "$shell: $(command -v "$shell")"
+            if [[ "$shell" == pwsh ]]; then
+              probe="$probe_dir/$shell.ps1"
             else
-              echo "::warning::$shell is missing, so its completion tests cannot run"
+              probe="$probe_dir/$shell"
+            fi
+            printf 'echo ok\n' > "$probe"
+            if [[ "$shell" == pwsh ]]; then
+              output=$(pwsh -NoProfile -NonInteractive -File "$probe" 2>/dev/null) && usable=true || usable=false
+            else
+              output=$("$shell" "$probe" 2>/dev/null) && usable=true || usable=false
+            fi
+            if [[ "$usable" == true && "$output" == ok ]]; then
+              echo "$shell: $(command -v "$shell") (script probe passed)"
+            else
+              echo "::warning::$shell cannot run a script, so its completion tests cannot run"
             fi
           done
       - run: mise r build
