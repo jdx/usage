@@ -3,8 +3,8 @@
 //! Replaces `proc-macro-crate` so the derive does not pull `toml_edit` and friends into
 //! every adopter's compile. Only the dependency forms usage actually documents are
 //! recognised: a bare key, a `{ package = "…", … }` rename, a multi-line `{ … }` table,
-//! and a `[dependencies.foo]` header. That covers the facade alias, direct
-//! `usage-argv` / `usage-derive`, and the mixed-dependency fixture.
+//! a `[dependencies.foo]` header, and workspace inheritance. That covers the facade alias,
+//! direct `usage-argv` / `usage-derive`, and the external fixtures.
 
 use std::fs;
 use std::path::PathBuf;
@@ -21,9 +21,28 @@ pub enum FoundCrate {
 /// Look up `package` in the crate currently being compiled.
 pub fn crate_name(package: &str) -> Result<FoundCrate, ()> {
     let dir = std::env::var_os("CARGO_MANIFEST_DIR").ok_or(())?;
-    let manifest = PathBuf::from(dir).join("Cargo.toml");
+    let dir = PathBuf::from(dir);
+    let manifest = dir.join("Cargo.toml");
     let text = fs::read_to_string(manifest).map_err(|_| ())?;
-    find_in_manifest(&text, package)
+    if let Ok(found) = find_in_manifest(&text, package) {
+        return Ok(found);
+    }
+
+    let inherited = workspace_dependency_keys(&text);
+    if inherited.is_empty() {
+        return Err(());
+    }
+    for ancestor in dir.ancestors() {
+        let Ok(workspace) = fs::read_to_string(ancestor.join("Cargo.toml")) else {
+            continue;
+        };
+        for key in &inherited {
+            if workspace_dependency_resolves(&workspace, key, package) {
+                return Ok(FoundCrate::Name(key.replace('-', "_")));
+            }
+        }
+    }
+    Err(())
 }
 
 fn find_in_manifest(text: &str, package: &str) -> Result<FoundCrate, ()> {
@@ -165,6 +184,116 @@ fn dependency_table_key(header: &str) -> Option<&str> {
     None
 }
 
+fn workspace_dependency_table_key(header: &str) -> Option<&str> {
+    header
+        .strip_prefix("workspace.dependencies.")
+        .filter(|key| is_ident_key(key))
+}
+
+fn workspace_dependency_keys(text: &str) -> Vec<String> {
+    let mut keys = Vec::new();
+    let mut in_dependencies = false;
+    let mut table: Option<(String, bool)> = None;
+
+    for raw in text.lines() {
+        let line = strip_comment(raw).trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(header) = section_header(line) {
+            if let Some((key, true)) = table.take() {
+                keys.push(key);
+            }
+            if let Some(key) = dependency_table_key(header) {
+                in_dependencies = true;
+                table = Some((key.to_string(), false));
+            } else {
+                in_dependencies = is_dependencies_section(header);
+            }
+            continue;
+        }
+        if !in_dependencies {
+            continue;
+        }
+        if let Some((_, inherited)) = table.as_mut() {
+            if bool_assignment(line, "workspace") == Some(true) {
+                *inherited = true;
+            }
+            continue;
+        }
+        let Some((key, value)) = split_assignment(line) else {
+            continue;
+        };
+        if let Some(key) = key.strip_suffix(".workspace") {
+            if is_ident_key(key) && parse_bool(value) == Some(true) {
+                keys.push(key.to_string());
+            }
+        } else if is_ident_key(key) && inline_table_bool(value, "workspace") == Some(true) {
+            keys.push(key.to_string());
+        }
+    }
+    if let Some((key, true)) = table {
+        keys.push(key);
+    }
+    keys
+}
+
+fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
+    let mut in_dependencies = false;
+    let mut open: Option<OpenTable> = None;
+
+    for raw in text.lines() {
+        let line = strip_comment(raw).trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(header) = section_header(line) {
+            if let Some(table) = open.take() {
+                if table.key == key
+                    && match_dep(&table.key, table.package.as_deref(), package).is_some()
+                {
+                    return true;
+                }
+            }
+            if let Some(table_key) = workspace_dependency_table_key(header) {
+                in_dependencies = true;
+                open = Some(OpenTable {
+                    key: table_key.to_string(),
+                    package: None,
+                });
+            } else {
+                in_dependencies = header == "workspace.dependencies";
+            }
+            continue;
+        }
+        if !in_dependencies {
+            continue;
+        }
+        if let Some(table) = open.as_mut() {
+            if let Some(pkg) = string_assignment(line, "package") {
+                table.package = Some(pkg);
+            }
+            continue;
+        }
+        if let Some((candidate, value)) = inline_dependency(line) {
+            if candidate == key && match_dep(&candidate, value.as_deref(), package).is_some() {
+                return true;
+            }
+            continue;
+        }
+        if let Some((candidate, package_field)) = multiline_table_start(line) {
+            open = Some(OpenTable {
+                key: candidate,
+                package: package_field,
+            });
+        }
+    }
+
+    open.is_some_and(|table| {
+        table.key == key && match_dep(&table.key, table.package.as_deref(), package).is_some()
+    })
+}
+
 fn inline_dependency(line: &str) -> Option<(String, Option<String>)> {
     let (key, rest) = split_assignment(line)?;
     if !is_ident_key(key) {
@@ -247,6 +376,26 @@ fn parse_string(value: &str) -> Option<String> {
 
 fn is_string_literal(value: &str) -> bool {
     parse_string(value).is_some()
+}
+
+fn bool_assignment(line: &str, field: &str) -> Option<bool> {
+    let (key, value) = split_assignment(line)?;
+    (key == field).then(|| parse_bool(value)).flatten()
+}
+
+fn inline_table_bool(table: &str, field: &str) -> Option<bool> {
+    let mut body = table.trim().strip_prefix('{')?.trim();
+    body = body.strip_suffix('}')?.trim();
+    body.split(',')
+        .find_map(|part| bool_assignment(part.trim(), field))
+}
+
+fn parse_bool(value: &str) -> Option<bool> {
+    match value.trim().trim_end_matches(',').trim() {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
 }
 
 fn is_ident_key(key: &str) -> bool {
@@ -412,5 +561,40 @@ name = "app"
 serde = "1"
 "#;
         assert!(find_in_manifest(manifest, "usage-rs").is_err());
+    }
+
+    #[test]
+    fn finds_workspace_inheritance_forms() {
+        for member in [
+            r#"
+[package]
+name = "app"
+[dependencies]
+usage = { workspace = true }
+"#,
+            r#"
+[package]
+name = "app"
+[dependencies]
+usage.workspace = true
+"#,
+            r#"
+[package]
+name = "app"
+[dependencies.usage]
+workspace = true
+"#,
+        ] {
+            assert_eq!(workspace_dependency_keys(member), ["usage"]);
+        }
+
+        let workspace = r#"
+[workspace]
+[workspace.dependencies]
+usage = { package = "usage-rs", version = "5" }
+"#;
+        assert!(workspace_dependency_resolves(
+            workspace, "usage", "usage-rs"
+        ));
     }
 }

@@ -33,3 +33,8 @@ fn documented_cargo_alias_is_the_only_dependency() {
 fn direct_dependencies_win_in_a_mixed_configuration() {
     run_fixture("mixed-dependencies");
 }
+
+#[test]
+fn workspace_inherited_facade_is_resolved() {
+    run_fixture("workspace-inheritance");
+}

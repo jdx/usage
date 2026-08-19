@@ -1,0 +1,13 @@
+[package]
+name = "usage-rs-workspace-inheritance-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+usage.workspace = true
+
+[workspace]
+
+[workspace.dependencies]
+usage = { package = "usage-rs", path = "../../.." }
