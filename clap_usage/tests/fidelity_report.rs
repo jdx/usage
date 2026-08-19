@@ -86,3 +86,34 @@ fn reports_delimited_arity_that_the_bridge_cannot_count() {
         .iter()
         .any(|loss| loss.feature == FidelityFeature::ValueArity));
 }
+
+#[test]
+fn reports_positional_conflicts_declared_from_either_endpoint() {
+    for command in [
+        Command::new("ex")
+            .arg(Arg::new("file").conflicts_with("force"))
+            .arg(Arg::new("force").long("force")),
+        Command::new("ex")
+            .arg(Arg::new("file"))
+            .arg(Arg::new("force").long("force").conflicts_with("file")),
+    ] {
+        let mut command = command;
+        let (_, report) = spec_with_report(&mut command, "ex");
+        assert!(
+            report
+                .losses()
+                .iter()
+                .any(|loss| loss.feature == FidelityFeature::PositionalRelationship),
+            "{report:#?}"
+        );
+    }
+}
+
+#[test]
+fn exclusive_flags_are_not_reported_as_positional_losses() {
+    let mut command = Command::new("ex")
+        .arg(Arg::new("dump").long("dump").exclusive(true))
+        .arg(Arg::new("file"));
+    let (_, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+}

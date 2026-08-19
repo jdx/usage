@@ -320,7 +320,15 @@ fn argument_losses(cmd: &Command, arg: &Arg, path: &[String], losses: &mut BTree
     }
 
     for other in cmd.get_arg_conflicts_with(arg) {
-        if other.is_positional() {
+        // `exclusive` is represented directly on a flag. Clap expands it into conflicts
+        // with every other argument, but reporting those generated edges would describe a
+        // behavior the bridge already preserved as lost. Ordinary conflicts are lossy in
+        // this dialect whenever either endpoint is positional; check both endpoints because
+        // the public blacklist need not expose an unbuilt declaration symmetrically.
+        if (arg.is_positional() || other.is_positional())
+            && !arg.is_exclusive_set()
+            && !other.is_exclusive_set()
+        {
             add(
                 FidelityFeature::PositionalRelationship,
                 format!("conflicts_with={}", other.get_id()),
