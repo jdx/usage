@@ -17,7 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands, ValueEnum,
+    rendered_path, to_kebab, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands,
+    ValueEnum,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -218,6 +219,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
 
     let partial = partial_struct(cli);
+    let argument_lookup = argument_lookup_functions(cli);
     let defaults = partial_defaults(cli);
     // A root resolves settings when it binds one itself, or when it says so — which is how a CLI
     // whose bound flags all live in a flattened group asks for the entry points, since it cannot
@@ -478,6 +480,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             #partial
             #apply
+            #argument_lookup
 
             /// Everything decided after the last token.
             ///
@@ -1922,6 +1925,159 @@ fn presence_methods(cli: &Cli) -> TokenStream {
             #selected_exclusive
             ::std::option::Option::None
         }
+
+        fn argument_state(
+            partial: &Self::Partial,
+            selector: &str,
+        ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+            argument_state(partial, selector)
+        }
+
+        fn argument_matches(
+            partial: &Self::Partial,
+            selector: &str,
+            value: &[u8],
+        ) -> ::std::option::Option<bool> {
+            argument_matches(partial, selector, value)
+        }
+    }
+}
+
+fn field_selectors(field: &Field) -> Vec<String> {
+    match &field.kind {
+        Kind::Flag {
+            longs,
+            shorts,
+            negate,
+            ..
+        } => longs
+            .iter()
+            .map(|long| format!("--{long}"))
+            .chain(shorts.iter().map(|short| format!("-{short}")))
+            .chain(negate.iter().map(|long| format!("--{long}")))
+            .collect(),
+        Kind::Arg { .. } => {
+            let inferred = to_kebab(&field.ident.to_string());
+            if inferred == field.name {
+                vec![field.name.clone()]
+            } else {
+                vec![field.name.clone(), inferred]
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Selector lookup composed across flattened argument groups.
+///
+/// A parent cannot inspect another derive expansion's fields, so the flattened type answers
+/// through `CommandArgs`. Keeping the lookup beside the partial avoids building a dynamic
+/// command graph or allocating on the successful parse path.
+fn argument_lookup_functions(cli: &Cli) -> TokenStream {
+    let state_arms = cli.fields.iter().filter_map(|field| {
+        if matches!(
+            field.kind,
+            Kind::Flatten { .. } | Kind::Subcommand { .. } | Kind::Skip
+        ) {
+            return None;
+        }
+        let selectors = field_selectors(field);
+        let ident = &field.ident;
+        let given = format_ident!("__given_{}", ident);
+        let name = &field.name;
+        let satisfied = !field.default.is_empty();
+        Some(quote! {
+            #(#selectors)|* => return ::std::option::Option::Some(
+                usage_argv::spec::ArgumentState {
+                    name: #name,
+                    given: partial.#given,
+                    satisfied: partial.#given || #satisfied,
+                },
+            ),
+        })
+    });
+    let state_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(state) =
+                <#ty as usage_argv::spec::CommandArgs>::argument_state(
+                    &partial.#ident,
+                    selector,
+                )
+            {
+                return ::std::option::Option::Some(state);
+            }
+        })
+    });
+    let match_arms = cli.fields.iter().filter_map(|field| {
+        if matches!(
+            field.kind,
+            Kind::Flatten { .. } | Kind::Subcommand { .. } | Kind::Skip
+        ) {
+            return None;
+        }
+        let selectors = field_selectors(field);
+        let ident = &field.ident;
+        let given = format_ident!("__given_{}", ident);
+        let matches = match field.shape {
+            Shape::Optional => quote!(partial.#ident.as_deref().is_some_and(|v| v == value)),
+            Shape::Required => quote!(partial.#ident.as_slice() == value),
+            Shape::Many => quote!(partial.#ident.iter().any(|v| v.as_slice() == value)),
+            Shape::Bool => quote!(
+                (value == b"true" && partial.#ident) || (value == b"false" && !partial.#ident)
+            ),
+            Shape::Count => quote!(
+                (value == b"true" && partial.#ident > 0)
+                    || (value == b"false" && partial.#ident == 0)
+            ),
+        };
+        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(partial.#given && #matches),))
+    });
+    let match_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(matches) =
+                <#ty as usage_argv::spec::CommandArgs>::argument_matches(
+                    &partial.#ident,
+                    selector,
+                    value,
+                )
+            {
+                return ::std::option::Option::Some(matches);
+            }
+        })
+    });
+    quote! {
+        pub fn argument_state(
+            partial: &Partial,
+            selector: &str,
+        ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+            match selector {
+                #(#state_arms)*
+                _ => {}
+            }
+            #(#state_flattened)*
+            ::std::option::Option::None
+        }
+
+        pub fn argument_matches(
+            partial: &Partial,
+            selector: &str,
+            value: &[u8],
+        ) -> ::std::option::Option<bool> {
+            match selector {
+                #(#match_arms)*
+                _ => {}
+            }
+            #(#match_flattened)*
+            ::std::option::Option::None
+        }
     }
 }
 
@@ -2650,7 +2806,14 @@ fn assign_literal(field: &Field, first: &str, all: &[String]) -> TokenStream {
 
 fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStream {
     let Some(other) = cli.field_for_selector(&condition.selector) else {
-        return quote!(false);
+        let selector = &condition.selector;
+        return match &condition.when {
+            None => quote!(argument_state(partial, #selector).is_some_and(|state| state.given)),
+            Some(when) => quote!(
+                argument_matches(partial, #selector, #when.as_bytes())
+                    == ::std::option::Option::Some(true)
+            ),
+        };
     };
     let other_given = format_ident!("__given_{}", other.ident);
     let ident = &other.ident;
@@ -3030,6 +3193,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .map(|value| option_expr(Some(value)))
         .unwrap_or_else(|| option_str(cli.long_about.as_deref()));
     let partial = partial_struct(cli);
+    let argument_lookup = argument_lookup_functions(cli);
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
@@ -3134,6 +3298,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             #partial
             #apply
+            #argument_lookup
 
             pub fn start() -> Partial {
                 #defaults
@@ -4511,21 +4676,36 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let conflict_checks = cli.fields.iter().flat_map(move |f| {
         let given = format_ident!("__given_{}", f.ident);
         let name = &f.name;
-        f.conflicts.iter().filter_map(move |selector| {
-            // Resolved in the model, which rejects a selector naming nothing.
-            let other = cli.field_for_selector(selector)?;
-            let other_given = format_ident!("__given_{}", other.ident);
-            let other_name = &other.name;
-            Some(quote! {
-                if partial.#given && partial.#other_given {
-                    return ::std::result::Result::Err(
-                        usage_argv::Error::ConflictingFlags {
-                            name: #name,
-                            other: #other_name,
-                        },
-                    );
+        f.conflicts.iter().map(move |selector| {
+            if let Some(other) = cli.field_for_selector(selector) {
+                let other_given = format_ident!("__given_{}", other.ident);
+                let other_name = &other.name;
+                quote! {
+                    if partial.#given && partial.#other_given {
+                        return ::std::result::Result::Err(
+                            usage_argv::Error::ConflictingFlags {
+                                name: #name,
+                                other: #other_name,
+                            },
+                        );
+                    }
                 }
-            })
+            } else {
+                quote! {
+                    if partial.#given {
+                        if let ::std::option::Option::Some(other) = argument_state(partial, #selector) {
+                            if other.given {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::ConflictingFlags {
+                                        name: #name,
+                                        other: other.name,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         })
     });
 
@@ -4541,15 +4721,28 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // A target with a default is skipped outright, since it can never be missing.
     let requirement_checks = cli.fields.iter().flat_map(move |f| {
         let given = format_ident!("__given_{}", f.ident);
-        f.requires.iter().filter_map(move |selector| {
-            // Resolved in the model, which rejects a selector naming nothing.
-            let other = cli.field_for_selector(selector)?;
+        f.requires.iter().map(move |selector| {
+            let Some(other) = cli.field_for_selector(selector) else {
+                return quote! {
+                    if partial.#given {
+                        match argument_state(partial, #selector) {
+                            ::std::option::Option::Some(other) if other.satisfied => {}
+                            ::std::option::Option::Some(other) => {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::MissingRequired { name: other.name },
+                                );
+                            }
+                            ::std::option::Option::None => {}
+                        }
+                    }
+                };
+            };
             // A flag with a default always has a value, so the requirement it satisfies
             // can never fail — the same reason plain required-ness skips such a field.
             // Decided at compile time, so the check is not merely always-true at run
             // time, it is not there.
             if !other.default.is_empty() {
-                return None;
+                return quote!();
             }
             let other_given = format_ident!("__given_{}", other.ident);
             let other_name = &other.name;
@@ -4558,7 +4751,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     usage_argv::Error::MissingRequired { name: #other_name },
                 );
             };
-            Some(match default_if_would_apply(cli, other) {
+            match default_if_would_apply(cli, other) {
                 Some(pred) => quote! {
                     if partial.#given && !partial.#other_given && !(#pred) {
                         #missing
@@ -4569,7 +4762,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                         #missing
                     }
                 },
-            })
+            }
         })
     });
 
@@ -4579,10 +4772,48 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let conditional_requirement_checks = cli.fields.iter().flat_map(move |f| {
         let given = format_ident!("__given_{}", f.ident);
         let ident = &f.ident;
-        f.requires_if.iter().filter_map(move |condition| {
-            let other = cli.field_for_selector(&condition.requires)?;
+        f.requires_if.iter().map(move |condition| {
+            let external = cli.field_for_selector(&condition.requires).is_none();
+            let other = cli.field_for_selector(&condition.requires);
+            if external {
+                let selector = &condition.requires;
+                let value = &condition.value;
+                let matches = match f.shape {
+                    Shape::Optional => {
+                        quote!(partial.#ident.as_deref().is_some_and(|v| v == #value.as_bytes()))
+                    }
+                    Shape::Required => quote!(partial.#ident.as_slice() == #value.as_bytes()),
+                    Shape::Many => {
+                        quote!(partial.#ident.iter().any(|v| v.as_slice() == #value.as_bytes()))
+                    }
+                    Shape::Bool => match value.as_str() {
+                        "true" => quote!(partial.#ident),
+                        "false" => quote!(!partial.#ident),
+                        _ => quote!(false),
+                    },
+                    Shape::Count => match value.as_str() {
+                        "true" => quote!(partial.#ident > 0),
+                        "false" => quote!(partial.#ident == 0),
+                        _ => quote!(false),
+                    },
+                };
+                return quote! {
+                    if partial.#given && #matches {
+                        match argument_state(partial, #selector) {
+                            ::std::option::Option::Some(other) if other.satisfied => {}
+                            ::std::option::Option::Some(other) => {
+                                return ::std::result::Result::Err(
+                                    usage_argv::Error::MissingRequired { name: other.name },
+                                );
+                            }
+                            ::std::option::Option::None => {}
+                        }
+                    }
+                };
+            }
+            let other = other.expect("the local relationship was resolved above");
             if !other.default.is_empty() {
-                return None;
+                return quote!();
             }
             let other_given = format_ident!("__given_{}", other.ident);
             let other_name = &other.name;
@@ -4610,13 +4841,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 Some(pred) => quote!(&& !(#pred)),
                 None => quote!(),
             };
-            Some(quote! {
+            quote! {
                 if partial.#given && #matches && !partial.#other_given #unless_default_if {
                     return ::std::result::Result::Err(
                         usage_argv::Error::MissingRequired { name: #other_name },
                     );
                 }
-            })
+            }
         })
     });
 
@@ -4846,9 +5077,15 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let given = format_ident!("__given_{}", f.ident);
         let name = &f.name;
         let selector_given = |selector: &String| {
-            let other = cli.field_for_selector(selector)?;
-            let other_given = format_ident!("__given_{}", other.ident);
-            Some(quote!(partial.#other_given))
+            Some(match cli.field_for_selector(selector) {
+                Some(other) => {
+                    let other_given = format_ident!("__given_{}", other.ident);
+                    quote!(partial.#other_given)
+                }
+                None => quote!(
+                    argument_state(partial, #selector).is_some_and(|state| state.given)
+                ),
+            })
         };
         let if_given: Vec<_> = f.required_if.iter().filter_map(selector_given).collect();
         let unless_given: Vec<_> = f

@@ -665,13 +665,17 @@ feature list is not an exhaustive audit.
       or a flattened Args wrapper; their targeted diagnostic explains the named
       `#[usage(flatten)]` rewrite instead of reporting a generic unsupported
       shape. Facade tests exercise unit roots and nested unit Args commands.
-- [ ] **Relationships through flatten and positional IDs.** Positional
+- [x] **Relationships through flatten and positional IDs.** Positional
       relationships are already a general gap above. The fleet exposed the
       second half: a field cannot name a flag contributed by a flattened Args
       type because validation runs against the declaring struct before the
       command is assembled. aube lost statically declared relationships and hk
-      and fnox needed runtime conflict checks. Validate selectors against the
-      composed command and carry stable IDs for both flags and positionals.
+      and fnox needed runtime conflict checks. Derived `CommandArgs` now expose
+      selector-stable presence and value lookup across flattened boundaries, so
+      parent conflicts, requirements, conditional requirements/defaults, and
+      required-if/unless rules resolve against the composed command without a
+      dynamic command graph or allocation. Flags use every accepted spelling and
+      positionals use their stable field identity.
 - [ ] **Flattened help topology.** clap's `next_help_heading` and flattened flag
       groups preserve meaningful sections in aube's long help. usage flattens the
       fields but discards that struct-level heading, so a migration can preserve
@@ -1170,9 +1174,11 @@ repeated here.
       subcommand variant selects the shared `CommandArgs` table independently.
       The same facade regression covers the fnox full-command shape; mise's
       flattened `ConfigLs` reuse remains covered by the fleet shadow.
-- [ ] **Relationships across a flatten boundary.** A flag in the parent
-      conflicting with a flag in the flattened group has no spelling; hk and
-      aube both hit it and enforce post-bind by hand.
+- [x] **Relationships across a flatten boundary.** A parent flag can name a flag
+      or positional contributed by a flattened group. The nested partial answers
+      selector lookup through `CommandArgs`, preserving the same argv/env/default
+      presence semantics as relationships declared inside one struct. hk and aube
+      can remove their post-bind conflict checks when repinned to this stack tip.
 - [x] **Checked-in specs vs release automation.** `SpecView::omit_version()`
       removes the runtime version from a cold emitted metadata view without
       changing the base derived spec or built-in `--version` behavior. tak uses

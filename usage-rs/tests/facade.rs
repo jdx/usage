@@ -80,6 +80,33 @@ struct ClapSpellings {
     path: Option<String>,
 }
 
+#[derive(usage::Args)]
+struct FlattenedRelationshipTargets {
+    #[usage(long)]
+    frozen: bool,
+    #[usage(long)]
+    key: bool,
+    #[usage(long)]
+    json: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flattened-relationships")]
+struct FlattenedRelationships {
+    #[usage(long, conflicts = "--frozen")]
+    fix: bool,
+    #[usage(long, requires = "--key")]
+    signed: bool,
+    #[usage(long, requires_if("json", "--key"))]
+    mode: Option<String>,
+    #[usage(long, required_if = "--json")]
+    schema: Option<String>,
+    #[usage(long, default_if("--json", "auto"))]
+    output: Option<String>,
+    #[usage(flatten)]
+    shared: FlattenedRelationshipTargets,
+}
+
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
@@ -570,6 +597,39 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
         kdl.contains("alias \"--quietly\" \"--silent-output\" hide=#true"),
         "{kdl}"
     );
+}
+
+#[test]
+fn relationships_resolve_targets_inside_flattened_args() {
+    assert!(
+        FlattenedRelationships::parse_from(&[OsStr::new("--fix"), OsStr::new("--frozen"),])
+            .is_err()
+    );
+    assert!(FlattenedRelationships::parse_from(&[OsStr::new("--signed")]).is_err());
+    assert!(
+        FlattenedRelationships::parse_from(&[OsStr::new("--mode"), OsStr::new("json"),]).is_err()
+    );
+    assert!(FlattenedRelationships::parse_from(&[OsStr::new("--json")]).is_err());
+
+    let parsed = FlattenedRelationships::parse_from(&[
+        OsStr::new("--json"),
+        OsStr::new("--schema"),
+        OsStr::new("schema.json"),
+    ])
+    .expect("the flattened condition should satisfy the schema relationship");
+    assert!(!parsed.fix);
+    assert!(!parsed.signed);
+    assert!(parsed.mode.is_none());
+    assert_eq!(parsed.schema.as_deref(), Some("schema.json"));
+    assert_eq!(parsed.output.as_deref(), Some("auto"));
+    assert!(parsed.shared.json);
+    assert!(!parsed.shared.frozen);
+    assert!(!parsed.shared.key);
+
+    let kdl = FlattenedRelationships::to_kdl();
+    assert!(kdl.contains("conflicts=\"--frozen\""), "{kdl}");
+    assert!(kdl.contains("requires=\"--key\""), "{kdl}");
+    assert!(kdl.contains("required_if=\"--json\""), "{kdl}");
 }
 
 #[test]
