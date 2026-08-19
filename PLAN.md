@@ -976,6 +976,21 @@ share of clap's top-voted open requests is usage's existing feature set:
   a fixed renderer.
 - `args_override_self` as the default (clap#4261) — the grammar's "a repeat is
   a correction" rule.
+- Default subcommands (clap#3857 and clap#4442, both closed "not planned",
+  with the discussion still active in 2026) — `default_subcommand`, declared,
+  routed, and completing.
+- GNU-correct optional option-arguments (clap#3030, where fixing the default
+  "likely isn't" possible without breaking rustc and cargo) —
+  `default_missing`, under which `--color bar` binds the missing value and
+  leaves `bar` a positional, with `require_equals` beside it.
+- Help order following declaration order (clap#1807, 25 comments of stalled
+  design) — a spec is ordered, so help order is spec order, with
+  `help_heading` on top.
+- A machine-readable export of the whole CLI (clap#918, open since 2017, and
+  discussion clap#6491 asking for schemas AI agents can read) — the spec _is_
+  the export, `effect` is the safety vocabulary an agent wants, and usage-cli
+  renders JSON already. clap#6026 was closed with advice to "implement your
+  own argument parser" — which is this project.
 
 When the migration guide is written, a "top clap feature requests that just
 work here" section is cheap and persuasive; the launch-gate documentation items
@@ -986,23 +1001,61 @@ above are where it lands.
 - [ ] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
       landed for flags and arguments; this is the same property on `cmd` nodes,
       so a 210-command CLI can group its help into sections. mise is the
-      obvious first user.
+      obvious first user. clap#4589 asks for prose under a heading — Deno wants
+      per-section doc links — which is the same node with one more field.
 - [ ] **Deprecation and stability metadata on flags and commands** (clap#3321) —
       `deprecated`, with warn/remove versions, already exists in the
       config-prop vocabulary; the same on flags and commands would flow into
       help, docs and completions from one declaration. Explicit full-name
       deprecated env aliases (clap#5447) fit the same slot — full names, so
-      they stay greppable.
+      they stay greppable — and clap#5925's ordered fallback across several
+      env names is the same declaration read in order.
 - [ ] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
       clap's most-requested) — mutually exclusive flags declared as enum
       variants, lowering to the `group`/`conflicts` vocabulary the spec already
       has. Derive ergonomics rather than new spec surface, and clap has sat on
       it since 2021.
+- [ ] **Alias into a nested subcommand** (clap#1603, reopened, 22 comments) —
+      rustup's `install` meaning `toolchain install`, args carried along. A
+      spec-level redirect an interpreter applies before parsing, so help and
+      completions describe the alias too; clap's unstable `App::replace`
+      answer died for lack of interest.
+- [ ] **Recursive help** (clap#4813) — help for a whole command tree in one
+      output. The markdown generator already walks the tree; a `--help-all`
+      output mode is cheap, and doubles as the golden file the help-parity
+      tests already want.
+- [ ] **Non-strict choices** (clap#5885) — known values complete, document and
+      suggest; an unknown value is still accepted. mise's tool names are this
+      exact shape: a registry to offer, arbitrary backends still legal.
+- [ ] **Completion runtime niceties** — completions that work when the binary
+      is invoked through a shell alias (clap#1764, stalled since 2020), and
+      multi-segment path completion, `tar/de/inc` completing to
+      `target/debug/incremental` (clap#5279). usage owns the registration
+      scripts and the `complete-word` runtime, so each is implementable once,
+      for every shell.
+- [ ] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
+      reactions behind it) — bless one semantic for a boolean flag taking an
+      attached value, beside `negate`. A decision more than a feature.
+- [ ] **`license` metadata** (clap#1768) — a spec node rendered into manpages
+      and docs. GPL display requirements want it, and it rounds out the
+      manpage story.
 
 Demand also attaches to boxes already open above: fixed arity with distinct
-value names is clap#1717 + clap#1682 (31 votes combined), and `Option` on a
+value names is clap#1717 + clap#1682 (31 votes combined); `Option` on a
 flattened group is clap#5092 (18) — the derive refuses it for lack of a rule,
-and the votes say people want the rule defined.
+and the votes say people want the rule defined; visible aliases on enum values
+is clap#4416, stalled in clap on binary-size grounds a spec interpreter does
+not have; and a help template set once for the whole tree is clap#1184, which
+is the `help_template` row — a Tera template at spec root is the natural shape.
+
+Noted, not taken: conditional argument groups unlocked by a flag's value
+(clap#6258) would strengthen the group-as-enum story but needs real design
+first; conflict-aware positional skipping (clap#1794, Deno's shape, still
+unmerged in clap in 2026) makes conflicts a parse-time concern rather than a
+check; whether an empty command line shows help when env vars would satisfy
+the arguments (clap#3572) is a policy detail for the command-policy box above;
+case-insensitive subcommand matching (clap#6097, closed "not planned") is
+nearly free in an interpreter if a CLI ever asks for it.
 
 **Declined: `env_prefix`** (clap#3221, 45 votes). Assembling `MISE_JOBS` from a
 prefix and a field name makes the one string a user actually sees ungreppable
