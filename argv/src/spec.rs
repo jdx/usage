@@ -397,36 +397,40 @@ impl<'a> SpecView<'a> {
         }
     }
 
-    pub const fn name<'b>(self, name: &'b str) -> SpecView<'b>
+    pub const fn name<'b, 'c>(self, name: &'b str) -> SpecView<'c>
     where
-        'a: 'b,
+        'a: 'c,
+        'b: 'c,
     {
         let mut view = self.reborrow();
         view.name = Some(name);
         view
     }
 
-    pub const fn bin<'b>(self, bin: &'b str) -> SpecView<'b>
+    pub const fn bin<'b, 'c>(self, bin: &'b str) -> SpecView<'c>
     where
-        'a: 'b,
+        'a: 'c,
+        'b: 'c,
     {
         let mut view = self.reborrow();
         view.bin = Some(bin);
         view
     }
 
-    pub const fn version<'b>(self, version: &'b str) -> SpecView<'b>
+    pub const fn version<'b, 'c>(self, version: &'b str) -> SpecView<'c>
     where
-        'a: 'b,
+        'a: 'c,
+        'b: 'c,
     {
         let mut view = self.reborrow();
         view.version = Some(version);
         view
     }
 
-    pub const fn overlay<'b>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'b>
+    pub const fn overlay<'b, 'c>(self, commands: &'b [CommandOverlay<'b>]) -> SpecView<'c>
     where
-        'a: 'b,
+        'a: 'c,
+        'b: 'c,
     {
         let mut view = self.reborrow();
         view.commands = commands;
@@ -2454,6 +2458,11 @@ mod tests {
         let runtime = SPEC
             .view()
             .name(&runtime_name)
+            // Longer-lived identity and policy values remain safe after the
+            // view has already narrowed to a runtime borrow.
+            .bin("embedded")
+            .version("2.0.0")
+            .overlay(&OVERLAY)
             .overlay(&runtime_overlays)
             .to_kdl();
         assert!(runtime.contains("name \"runtime\""), "{runtime}");
