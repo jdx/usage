@@ -101,6 +101,7 @@ _usage_complete_{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any ;;
             $'\001dirs') __usage_files=dirs ;;
+            $'\001commands') __usage_files=commands ;;
             '') ;;
             *) COMPREPLY+=("$__usage_line") ;;
         esac
@@ -110,10 +111,13 @@ _usage_complete_{bin}() {{
         # Set here rather than on `complete`, because whether this position takes a path is not
         # known until the answer comes back. It is what makes bash append a `/` to a directory
         # and stop escaping what it should not.
-        compopt -o filenames 2>/dev/null
+        [[ $__usage_files == commands ]] || compopt -o filenames 2>/dev/null
         local __usage_cur="${{COMP_WORDS[COMP_CWORD]}}" __usage_path
         local -a __usage_paths=()
-        if [[ $__usage_files == dirs ]]; then
+        if [[ $__usage_files == commands ]]; then
+            while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
+                < <(compgen -c -- "$__usage_cur")
+        elif [[ $__usage_files == dirs ]]; then
             while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
                 < <(compgen -d -- "$__usage_cur")
         else
@@ -156,6 +160,7 @@ _{bin}() {{
         case "$__usage_line" in
             $'\001files') __usage_files=any; continue ;;
             $'\001dirs') __usage_files=dirs; continue ;;
+            $'\001commands') __usage_files=commands; continue ;;
             '') continue ;;
         esac
         local -a parts=("${{(@ps:\t:)__usage_line}}")
@@ -192,6 +197,7 @@ _{bin}() {{
     case "$__usage_files" in
         any) _files && __usage_ret=0 ;;
         dirs) _files -/ && __usage_ret=0 ;;
+        commands) _command_names && __usage_ret=0 ;;
     esac
     return $__usage_ret
 }}
@@ -222,12 +228,15 @@ function __usage_complete_{bin}
     # computed values, and a control byte is not something to spell twice.
     set -l marker_any (printf '\x01files')
     set -l marker_dirs (printf '\x01dirs')
+    set -l marker_commands (printf '\x01commands')
     set -l files ""
     for entry in $out
         if test "$entry" = "$marker_any"
             set files any
         else if test "$entry" = "$marker_dirs"
             set files dirs
+        else if test "$entry" = "$marker_commands"
+            set files commands
         else if test -n "$entry"
             # printf, not echo: fish's echo reads a leading -n, -e, -s or -E as its own option,
             # so a CLI with a `-n` would have that candidate swallowed on the way to the prompt.
@@ -241,6 +250,8 @@ function __usage_complete_{bin}
             __fish_complete_path (commandline -ct)
         case dirs
             __fish_complete_directories (commandline -ct)
+        case commands
+            __fish_complete_command (commandline -ct)
     end
 end
 
@@ -266,7 +277,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     if $out.exit_code != 0 {{ return null }}
     let lines = ($out.stdout | lines | where {{|l| $l != "" }})
     let marker = "\u{{1}}"
-    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" }})
+    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "commands" }})
     let candidates = (
         $lines
         | where {{|l| not ($l | str starts-with $marker) }}
@@ -334,6 +345,7 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         if ([string]::IsNullOrEmpty($entry)) {{ continue }}
         if ($entry -eq ($marker + 'files')) {{ $files = 'any'; continue }}
         if ($entry -eq ($marker + 'dirs')) {{ $files = 'dirs'; continue }}
+        if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
         $parts = $entry -split "`t", 2
         $value = $parts[0]
         $description = if ($parts.Count -gt 1 -and $parts[1]) {{ $parts[1] }} else {{ $value }}
@@ -344,7 +356,15 @@ Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
         )
     }}
 
-    if ($files) {{
+    if ($files -eq 'commands') {{
+        foreach ($command in Get-Command -Name ($wordToComplete + '*') -CommandType Application, ExternalScript -ErrorAction SilentlyContinue) {{
+            $results.Add(
+                [System.Management.Automation.CompletionResult]::new(
+                    $command.Name, $command.Name, 'Command', $command.Source
+                )
+            )
+        }}
+    }} else if ($files) {{
         # PowerShell's own, so that `~`, drive-relative paths and provider paths behave as they
         # do everywhere else in the shell.
         foreach ($path in [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)) {{

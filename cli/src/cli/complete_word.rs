@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -360,6 +360,15 @@ impl CompleteWord {
         match type_ {
             "config_keys" => return (self.complete_config_keys(cx.spec, ctoken), true),
             "config_values" => return self.complete_config_values(cx, ctoken),
+            "executable" | "command" => return (self.complete_commands(ctoken), true),
+            "command_args" => {
+                let command_was_bound = cx.parsed.next_arg.as_ref().is_some_and(|next| {
+                    cx.parsed.args.keys().any(|bound| Arc::ptr_eq(bound, next))
+                });
+                if !command_was_bound {
+                    return (self.complete_commands(ctoken), true);
+                }
+            }
             _ => {}
         }
         let names = match (type_, env::current_dir()) {
@@ -657,6 +666,54 @@ impl CompleteWord {
             .sorted()
             .collect()
     }
+
+    fn complete_commands(&self, ctoken: &str) -> Vec<(String, String)> {
+        if ctoken.contains(std::path::MAIN_SEPARATOR) || (cfg!(windows) && ctoken.contains('/')) {
+            let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            return self
+                .complete_path(&cwd, ctoken, |path| path.is_dir() || is_executable(path))
+                .into_iter()
+                .map(|value| (value, String::new()))
+                .collect();
+        }
+
+        let mut found = BTreeSet::new();
+        if let Some(path) = env::var_os("PATH") {
+            for dir in env::split_paths(&path) {
+                for entry in std::fs::read_dir(dir).ok().into_iter().flatten().flatten() {
+                    let path = entry.path();
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if name.starts_with(ctoken) && is_executable(&path) {
+                        found.insert(name);
+                    }
+                }
+            }
+        }
+        found
+            .into_iter()
+            .map(|value| (value, String::new()))
+            .collect()
+    }
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    path.metadata()
+        .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(windows)]
+fn is_executable(path: &Path) -> bool {
+    let extensions = env::var_os("PATHEXT").unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".into());
+    path.is_file()
+        && path.extension().is_some_and(|extension| {
+            let extension = format!(".{}", extension.to_string_lossy());
+            extensions
+                .to_string_lossy()
+                .split(';')
+                .any(|candidate| candidate.eq_ignore_ascii_case(&extension))
+        })
 }
 
 /// Wrap a completion value in single quotes if any character would otherwise

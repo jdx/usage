@@ -42,6 +42,11 @@ pub struct Position<'t> {
     pub awaiting_value: Option<&'t Flag<'t>>,
     /// The positional a word here would fill, if any are left.
     pub next_arg: Option<&'t Arg<'t>>,
+    /// Values already bound to [`next_arg`](Self::next_arg).
+    ///
+    /// Non-zero only for a variadic positional that is still collecting. Completion hints use
+    /// this to distinguish the command word from the arguments in a forwarded argv vector.
+    pub next_arg_values: u32,
     /// Whether a `--` has been typed.
     ///
     /// Narrower than `flags_possible`, which is also false past an `automatic` argument. An
@@ -77,9 +82,19 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
     let mut parser = Parser::new(root, &argv);
     let mut awaiting_value = None;
+    let mut last_arg = None;
+    let mut last_arg_values = 0u32;
 
     while let Some(event) = parser.next_event() {
         match event {
+            Ok(crate::Event::Arg { arg, .. }) => {
+                if last_arg.is_some_and(|prior| core::ptr::eq(prior, arg)) {
+                    last_arg_values = last_arg_values.saturating_add(1);
+                } else {
+                    last_arg = Some(arg);
+                    last_arg_values = 1;
+                }
+            }
             Ok(_) => {}
             // The one error that says something about the cursor rather than about the line:
             // the last word was a flag that takes a value, so the cursor is standing in it.
@@ -99,6 +114,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     flags_possible: false,
                     awaiting_value: None,
                     next_arg: None,
+                    next_arg_values: 0,
                     path: Vec::new(),
                     separator_seen: false,
                     command_start: 0,
@@ -110,6 +126,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
         }
     }
 
+    let next_arg = parser.pending_arg();
     Position {
         path: parser.command_path(),
         cmd: parser.command(),
@@ -117,7 +134,10 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
         // A variadic flag still claiming words is standing in the same place a flag waiting
         // for its first value is: the next word belongs to it, not to the positional after it.
         awaiting_value: awaiting_value.or_else(|| parser.collecting()),
-        next_arg: parser.pending_arg(),
+        next_arg,
+        next_arg_values: next_arg
+            .filter(|arg| last_arg.is_some_and(|prior| core::ptr::eq(prior, *arg)))
+            .map_or(0, |_| last_arg_values),
         separator_seen: parser.double_dash_seen(),
         command_start: parser.command_start(),
         help_topic: false,
@@ -259,6 +279,8 @@ pub enum Files {
     Any,
     /// Directories only.
     Dirs,
+    /// Executable commands, including names found through the shell's command table.
+    Executables,
 }
 
 /// Everything a shell needs to answer one Tab.
@@ -466,6 +488,8 @@ impl Request {
 pub const FILES_MARKER: &str = "\u{1}files";
 /// See [`FILES_MARKER`]. Directories only.
 pub const DIRS_MARKER: &str = "\u{1}dirs";
+/// See [`FILES_MARKER`]. Commands and executable paths only.
+pub const EXECUTABLES_MARKER: &str = "\u{1}commands";
 
 /// Write an answer the way `shell` reads it.
 ///
@@ -515,6 +539,10 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         }
         Some(Files::Dirs) => {
             out.push_str(DIRS_MARKER);
+            out.push('\n');
+        }
+        Some(Files::Executables) => {
+            out.push_str(EXECUTABLES_MARKER);
             out.push('\n');
         }
         None => {}
@@ -580,9 +608,22 @@ fn files_for(name: &str) -> Option<Files> {
         Some(Files::Any)
     } else if matches("dir") || matches("directory") {
         Some(Files::Dirs)
+    } else if matches("executable") || matches("command") {
+        Some(Files::Executables)
     } else {
         None
     }
+}
+
+fn declared_files(type_: &str, position: &Position<'_>) -> Option<Files> {
+    if type_.eq_ignore_ascii_case("command_args") {
+        return Some(if position.next_arg_values == 0 {
+            Files::Executables
+        } else {
+            Files::Any
+        });
+    }
+    files_for(type_)
 }
 
 fn declared_files_at_cursor(
@@ -624,7 +665,7 @@ fn declared_files_at_cursor(
         (None, None)
     };
     complete_type
-        .and_then(files_for)
+        .and_then(|type_| declared_files(type_, position))
         .or_else(|| name.and_then(files_for))
 }
 
@@ -679,7 +720,7 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
         (None, false, None)
     };
     let asked_for = complete_type
-        .and_then(files_for)
+        .and_then(|type_| declared_files(type_, &position))
         .or_else(|| named.and_then(files_for));
 
     // An argument that requires a separator is not fillable yet, so nothing else belongs here —

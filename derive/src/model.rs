@@ -345,7 +345,7 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
     )))
 }
 
-/// usage's path-oriented `ValueHint`s lowered into the completion types the spec has.
+/// usage's shell-native `ValueHint`s lowered into the completion types the spec has.
 fn value_hint(meta: &Meta) -> syn::Result<String> {
     let value = &meta.require_name_value()?.value;
     let Expr::Path(path) = value else {
@@ -364,11 +364,15 @@ fn value_hint(meta: &Meta) -> syn::Result<String> {
     match variant.ident.to_string().as_str() {
         "FilePath" | "AnyPath" => Ok("path".to_string()),
         "DirPath" => Ok("dir".to_string()),
+        "ExecutablePath" => Ok("executable".to_string()),
+        "CommandName" | "CommandString" => Ok("command".to_string()),
+        "CommandWithArguments" => Ok("command_args".to_string()),
         other => Err(syn::Error::new_spanned(
             value,
             format!(
                 "`ValueHint::{other}` has no usage completion type yet; supported hints are \
-                 `FilePath`, `AnyPath`, and `DirPath`"
+                 `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`, `CommandName`, \
+                 `CommandString`, and `CommandWithArguments`"
             ),
         )),
     }
@@ -2249,6 +2253,18 @@ impl Field {
             }
             Kind::Arg { double_dash }
         };
+
+        if complete_type.as_deref() == Some("command_args")
+            && (!matches!(kind, Kind::Arg { .. })
+                || shape != Shape::Many
+                || double_dash != DoubleDash::Automatic)
+        {
+            return Err(syn::Error::new(
+                span,
+                "`ValueHint::CommandWithArguments` describes a forwarded argv vector; use \
+                 it on a positional `Vec` with `double_dash = \"automatic\"`",
+            ));
+        }
 
         // `required` on a collection is the only way a `Vec` can say it, and it means *always*.
         // Two declarations contradict that, and both compiled:

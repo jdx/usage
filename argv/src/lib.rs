@@ -83,7 +83,7 @@
 
 use std::ffi::{OsStr, OsString};
 
-/// A value's filesystem completion class for `#[usage(value_hint = ...)]`.
+/// A value's shell-native completion class for `#[usage(value_hint = ...)]`.
 ///
 /// This lives in the runtime crate so a declaration never needs clap merely to describe what
 /// kind of path a shell should offer. It is metadata only and adds no work to a successful
@@ -96,6 +96,14 @@ pub enum ValueHint {
     AnyPath,
     /// A path to a directory.
     DirPath,
+    /// A path to an executable file.
+    ExecutablePath,
+    /// A command name, resolved through the shell's command table and `PATH`.
+    CommandName,
+    /// One string containing a command and any arguments.
+    CommandString,
+    /// A trailing argv vector: complete the first value as a command, then its arguments.
+    CommandWithArguments,
 }
 
 #[cfg(feature = "complete")]

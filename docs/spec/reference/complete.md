@@ -20,6 +20,9 @@ complete "value" type="config_values"
 | --------------- | -------------------------------------------------------------------- |
 | `file`, `path`  | files and directories, relative to the working directory             |
 | `dir`           | directories only                                                     |
+| `executable`    | executable paths                                                     |
+| `command`       | commands known to the shell, including names found on `PATH`         |
+| `command_args`  | a command for the first value, then ordinary argument paths          |
 | `config_keys`   | the settings this spec's [`config`](./config.md) block declares      |
 | `config_values` | the values accepted by the setting named earlier on the command line |
 

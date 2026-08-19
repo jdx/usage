@@ -232,7 +232,7 @@
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
-//! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths; `AnyPath` and `DirPath` are also supported |
+//! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | a flag this one cannot be given with |

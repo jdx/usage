@@ -41,6 +41,9 @@ type Position struct {
 	Collecting *Flag
 	// NextArg is the positional a word here would fill, if any are left.
 	NextArg *Arg
+	// NextArgValues is how many values are already bound to NextArg. Non-zero only
+	// while a variadic positional is still collecting.
+	NextArgValues uint32
 	// SeparatorSeen is whether a `--` has been typed. Narrower than
 	// FlagsPossible, and what an argument requiring a separator is asking about.
 	SeparatorSeen bool
@@ -60,10 +63,19 @@ func Walk(root *Command, words []string) Position {
 	p := New(root, words)
 	chain := []*Command{root}
 	var awaiting *Flag
+	var lastArg *Arg
+	var lastArgValues uint32
 
 	for p.Next() {
-		if ev := p.Event(); ev.Kind == KindCommand {
+		ev := p.Event()
+		if ev.Kind == KindCommand {
 			chain = append(chain, ev.Command)
+		} else if ev.Kind == KindArg {
+			if ev.Arg == lastArg {
+				lastArgValues++
+			} else {
+				lastArg, lastArgValues = ev.Arg, 1
+			}
 		}
 	}
 	if err, ok := p.Err().(*Error); ok && err != nil {
@@ -85,6 +97,10 @@ func Walk(root *Command, words []string) Position {
 		}
 	}
 
+	nextArg := p.PendingArg()
+	if nextArg != lastArg {
+		lastArgValues = 0
+	}
 	return Position{
 		Cmd:   p.Command(),
 		Chain: chain,
@@ -95,7 +111,8 @@ func Walk(root *Command, words []string) Position {
 		Collecting:          p.Collecting(),
 		FlagsPossible:       !p.FlagsStopped(),
 		SubcommandsPossible: p.SubcommandsPossible(),
-		NextArg:             p.PendingArg(),
+		NextArg:             nextArg,
+		NextArgValues:       lastArgValues,
 		SeparatorSeen:       p.DoubleDashSeen(),
 	}
 }
