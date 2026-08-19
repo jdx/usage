@@ -1985,13 +1985,19 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         let given = format_ident!("__given_{}", ident);
         let name = &field.name;
-        let satisfied = !field.default.is_empty();
+        // Look through conditional defaults as well as unconditional ones. This lookup
+        // runs after `apply_defaults` during relationship validation, so a predicate
+        // that filled the field is still observable even though defaults deliberately
+        // do not set `__given_*`.
+        let defaulted = !field.default.is_empty();
+        let conditionally_defaulted =
+            default_if_would_apply(cli, field).unwrap_or_else(|| quote!(false));
         Some(quote! {
             #(#selectors)|* => return ::std::option::Option::Some(
                 usage_argv::spec::ArgumentState {
                     name: #name,
                     given: partial.#given,
-                    satisfied: partial.#given || #satisfied,
+                    satisfied: partial.#given || #defaulted || (#conditionally_defaulted),
                 },
             ),
         })

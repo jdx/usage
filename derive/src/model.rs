@@ -1189,8 +1189,24 @@ impl Cli {
             ] {
                 for selector in selectors {
                     let Some(target) = self.field_for_selector(selector) else {
-                        if has_flatten {
+                        // Post-binding relationships can ask an opaque flattened partial
+                        // about presence and values. `overrides` is different: last-one-wins
+                        // has to displace a value while tokens are being bound, and the
+                        // parent cannot mutate an unknown field in another derive expansion.
+                        // Reject it explicitly instead of accepting a declaration that does
+                        // nothing at runtime.
+                        if has_flatten && option != "overrides" {
                             continue;
+                        }
+                        if has_flatten && option == "overrides" {
+                            return Err(syn::Error::new(
+                                field.span,
+                                format!(
+                                    "`overrides = \"{selector}\"` cannot cross a flatten \
+                                     boundary; declare the override inside the flattened Args \
+                                     type"
+                                ),
+                            ));
                         }
                         return Err(syn::Error::new(
                             field.span,
@@ -5675,6 +5691,24 @@ mod tests {
         );
         assert!(
             err.contains("relationship between flags"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn overrides_does_not_silently_cross_a_flatten_boundary() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, overrides = "--nested")]
+                force: bool,
+                #[usage(flatten)]
+                shared: Shared,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("cannot cross a flatten boundary"),
             "unhelpful message: {err}"
         );
     }

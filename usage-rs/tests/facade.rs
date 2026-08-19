@@ -84,10 +84,12 @@ struct ClapSpellings {
 struct FlattenedRelationshipTargets {
     #[usage(long)]
     frozen: bool,
-    #[usage(long)]
+    #[usage(long, default_if("--preset", "true"))]
     key: bool,
     #[usage(long)]
     json: bool,
+    #[usage(long)]
+    preset: bool,
 }
 
 #[derive(Cli)]
@@ -606,6 +608,11 @@ fn relationships_resolve_targets_inside_flattened_args() {
             .is_err()
     );
     assert!(FlattenedRelationships::parse_from(&[OsStr::new("--signed")]).is_err());
+    let defaulted =
+        FlattenedRelationships::parse_from(&[OsStr::new("--signed"), OsStr::new("--preset")])
+            .expect("a flattened conditional default should satisfy the parent requirement");
+    assert!(defaulted.signed);
+    assert!(defaulted.shared.key);
     assert!(
         FlattenedRelationships::parse_from(&[OsStr::new("--mode"), OsStr::new("json"),]).is_err()
     );
@@ -625,6 +632,7 @@ fn relationships_resolve_targets_inside_flattened_args() {
     assert!(parsed.shared.json);
     assert!(!parsed.shared.frozen);
     assert!(!parsed.shared.key);
+    assert!(!parsed.shared.preset);
 
     let kdl = FlattenedRelationships::to_kdl();
     assert!(kdl.contains("conflicts=\"--frozen\""), "{kdl}");
