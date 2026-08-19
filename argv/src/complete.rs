@@ -601,7 +601,9 @@ fn declared_files_at_cursor(
     let at_cursor = if restarted(meta, split) {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
-        position.next_arg
+        position
+            .next_arg
+            .or_else(|| default_subcommand_arg(spec, split, position).map(|(_, field)| field.arg))
     };
     if position.awaiting_value.is_none()
         && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
@@ -1971,6 +1973,20 @@ mod tests {
                 .any(|candidate| candidate.value == "ruby"),
             "{implied:?}"
         );
+
+        static FILE_DEFAULT_SPEC: Spec = Spec {
+            name: "mise",
+            bin: Some("mise"),
+            root: &META_ROOT,
+            default_subcommand: Some("edit"),
+            ..Spec::EMPTY
+        };
+        let implied_file = run_ready(complete_with(
+            &FILE_DEFAULT_SPEC,
+            &at_end("mise m"),
+            &FILE_RUNTIME_COMPLETIONS,
+        ));
+        assert_eq!(implied_file.files, Some(Files::Any));
 
         let named = run_ready(complete_named_with(
             &SPEC,
