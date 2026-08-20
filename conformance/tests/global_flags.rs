@@ -229,7 +229,10 @@ fn the_fields_are_bound() {
     ]
     .map(OsStr::new);
     let ex = Ex::parse_from(&argv).expect("should parse");
-    assert!(ex.verbose && !ex.raw && !ex.root_only);
+    assert!(
+        ex.verbose && ex.raw && !ex.root_only,
+        "the child and root declarations of the same canonical global both bind"
+    );
     let Some(Command::Config(config)) = ex.command else {
         panic!("expected config")
     };

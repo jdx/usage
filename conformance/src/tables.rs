@@ -267,6 +267,9 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
         .collect();
     Box::leak(Box::new(Flag {
         key: 0,
+        // Dynamic portable specs have no Rust field type to identify. They never participate
+        // in derive's typed ancestor mirroring, so zero deliberately declares no contract.
+        binding_key: 0,
         name: leak(&f.name),
         longs: Box::leak(longs.into_boxed_slice()),
         shorts: Box::leak(shorts.into_boxed_slice()),

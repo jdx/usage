@@ -321,6 +321,12 @@ pub struct Flag<'a> {
     /// generated code knows which field to assign without any string comparison.
     /// See [`Command::key`] on why it is this wide.
     pub key: u64,
+    /// Compatibility key for mirroring a redeclared child global into an ancestor field.
+    ///
+    /// Zero means no typed binding contract is declared. Derive-generated tables hash the
+    /// field shape, value type, choices, and validation metadata so only equivalent bindings
+    /// receive the same event.
+    pub binding_key: u64,
     /// Unused by binding, kept so a table entry can carry its own name for
     /// diagnostics.
     pub name: &'a str,
@@ -413,6 +419,7 @@ impl Flag<'_> {
     /// A value-less flag, for use with struct update syntax.
     pub const BOOL: Flag<'static> = Flag {
         key: 0,
+        binding_key: 0,
         name: "",
         longs: &[],
         shorts: &[],
