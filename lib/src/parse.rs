@@ -1317,7 +1317,16 @@ fn parse_partial_with_env(
             // no longer one value, and `choices` has to be asked about each. Judging
             // first rejects `src:docs` against a list that both halves are on, and
             // names the whole word rather than the half that was wrong.
-            let parts: Vec<String> = match arg.delimiter {
+            let trailing_value =
+                seen_double_dash || arg.double_dash == SpecDoubleDashChoices::Automatic;
+            let suppress_trailing_delimiter =
+                out.cmds.iter().any(|cmd| cmd.dont_delimit_trailing_values);
+            let delimiter = if suppress_trailing_delimiter && trailing_value {
+                None
+            } else {
+                arg.delimiter
+            };
+            let parts: Vec<String> = match delimiter {
                 Some(delimiter) => w.split(delimiter).map(str::to_string).collect(),
                 None => vec![w.clone()],
             };

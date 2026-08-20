@@ -226,14 +226,14 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 			b.negated = ev.Negated
 			b.at = seen
 			if ev.HasValue {
-				b.values = append(b.values, ev.Value)
+				b.values = append(b.values, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			}
 		case argv.KindArg:
 			seen++
 			b := entry(ev.Arg.Key)
 			b.occurrences++
 			b.at = seen
-			b.values = append(b.values, ev.Value)
+			b.values = append(b.values, argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)...)
 		case argv.KindExternal:
 			external = append(external, ev.Values...)
 		}

@@ -35,6 +35,8 @@ type Parser struct {
 	pos int
 	// cmd is the command currently in scope.
 	cmd *Command
+	// Effective inherited trailing-delimiter policy.
+	dontDelimitTrailingValues bool
 	// ancestors is the chain above cmd, used to find inherited global flags.
 	// Fixed size so that nothing is allocated.
 	ancestors [MaxDepth]*Command
@@ -87,7 +89,11 @@ type Parser struct {
 
 // New begins parsing argv against root. argv excludes the program name.
 func New(root *Command, argv []string) Parser {
-	return Parser{argv: argv, cmd: root}
+	return Parser{
+		argv:                      argv,
+		cmd:                       root,
+		dontDelimitTrailingValues: root.DontDelimitTrailingValues,
+	}
 }
 
 // Next reads the next event, reporting false when argv is exhausted or the parse
@@ -204,7 +210,7 @@ func (p *Parser) step() bool {
 				}
 				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && next != "--" {
 					p.pos++
-					p.collected++
+					p.collected += valuesIn(next, flag.Delimiter)
 					// Same rule as a positional: a bounded occurrence takes that many and
 					// leaves the rest to whatever follows.
 					if flag.VarMax != 0 && p.collected >= flag.VarMax {
@@ -326,7 +332,7 @@ func (p *Parser) longFlag(token string) bool {
 			}
 		}
 		if flag.Variadic {
-			p.startCollecting(flag)
+			p.startCollecting(flag, value)
 		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
 	}
@@ -412,7 +418,7 @@ func (p *Parser) shortFlag() bool {
 		value = rest
 	}
 	if flag.Variadic {
-		p.startCollecting(flag)
+		p.startCollecting(flag, value)
 	}
 	return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: true})
 }
@@ -547,6 +553,8 @@ func (p *Parser) word(token string) bool {
 	}
 
 	p.argFilled = true
+	trailingValue := p.separatorSeen || arg.DoubleDash == DoubleDashAutomatic
+	delimit := !(p.dontDelimitTrailingValues && trailingValue)
 	// An automatic argument stops flag interpretation from here on, as though the
 	// caller had typed the separator themselves.
 	if arg.DoubleDash == DoubleDashAutomatic {
@@ -556,14 +564,20 @@ func (p *Parser) word(token string) bool {
 	// its bound, at which point the words after it belong to whatever comes next.
 	// That is what makes `[a]… [b]` expressible at all.
 	if arg.Var {
-		p.argTaken++
+		delimiter := arg.Delimiter
+		if !delimit {
+			delimiter = 0
+		}
+		p.argTaken += valuesIn(token, delimiter)
 		if arg.VarMax != 0 && p.argTaken >= arg.VarMax {
 			p.advanceArg()
 		}
 	} else {
 		p.advanceArg()
 	}
-	return p.emit(Event{Kind: KindArg, Arg: arg, Value: token, HasValue: true})
+	return p.emit(Event{
+		Kind: KindArg, Arg: arg, Value: token, HasValue: true, Delimit: delimit,
+	})
 }
 
 func (p *Parser) descend(sub *Command) bool {
@@ -574,6 +588,7 @@ func (p *Parser) descend(sub *Command) bool {
 	p.starts[p.depth] = p.cmdStart
 	p.depth++
 	p.cmd = sub
+	p.dontDelimitTrailingValues = p.dontDelimitTrailingValues || sub.DontDelimitTrailingValues
 	// Where this command's own words start, which is what lets a completion hand a
 	// callback the half-parsed struct of the command it was declared on rather than
 	// of the root.
@@ -594,13 +609,26 @@ func (p *Parser) advanceArg() {
 //
 // The value it was given on the same token counts, which is why this starts at
 // one: `--include a b` with VarMax 2 takes a and b, not three words.
-func (p *Parser) startCollecting(flag *Flag) {
-	p.collected = 1
+func (p *Parser) startCollecting(flag *Flag, first string) {
+	p.collected = valuesIn(first, flag.Delimiter)
 	if flag.VarMax != 0 && flag.VarMax <= 1 {
 		p.collecting = nil
 	} else {
 		p.collecting = flag
 	}
+}
+
+func valuesIn(value string, delimiter byte) uint32 {
+	count := uint32(1)
+	if delimiter == 0 {
+		return count
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] == delimiter {
+			count++
+		}
+	}
+	return count
 }
 
 func (p *Parser) nextArg() *Arg {

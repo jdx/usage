@@ -96,6 +96,16 @@ fn builds_action_derived_arity_before_reporting() {
 }
 
 #[test]
+fn trailing_delimiter_policy_is_lossless() {
+    let mut command = clap::Command::new("ex")
+        .dont_delimit_trailing_values(true)
+        .arg(clap::Arg::new("value"));
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    assert!(spec.cmd.dont_delimit_trailing_values);
+}
+
+#[test]
 fn building_metadata_does_not_mutate_the_callers_command() {
     let mut command = Command::new("ex").subcommand(Command::new("run"));
     let argument_count = command.get_arguments().count();

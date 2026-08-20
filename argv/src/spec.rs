@@ -1085,6 +1085,9 @@ impl Spec<'_> {
         if self.root.cmd.arg_required_else_help {
             writeln!(out, "arg_required_else_help #true")?;
         }
+        if self.root.cmd.dont_delimit_trailing_values {
+            writeln!(out, "dont_delimit_trailing_values #true")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1327,6 +1330,9 @@ fn write_command<'a>(
     }
     if meta.cmd.arg_required_else_help {
         out.push_str(" arg_required_else_help=#true");
+    }
+    if meta.cmd.dont_delimit_trailing_values {
+        out.push_str(" dont_delimit_trailing_values=#true");
     }
     out.push_str(" {\n");
 

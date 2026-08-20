@@ -70,6 +70,9 @@ type Command struct {
 	ExternalSubcommand bool
 	// ArgRequiredElseHelp shows this command's help when no argv token follows its name.
 	ArgRequiredElseHelp bool
+	// DontDelimitTrailingValues disables delimiter splitting after -- and for
+	// automatic trailing arguments. It is inherited by subcommands.
+	DontDelimitTrailingValues bool
 	// UnknownFlags is what an unrecognized flag-like token means here. Already
 	// resolved: inheritance is a question for whoever builds the tables.
 	UnknownFlags UnknownFlags
@@ -145,6 +148,8 @@ type Flag struct {
 	AllowNegativeNumbers bool
 	// ValueTerminator ends one variadic occurrence without becoming a value.
 	ValueTerminator string
+	// Delimiter splits one token into several values. Zero disables splitting.
+	Delimiter byte
 	// RequireEquals is whether the value must be attached with `=`.
 	//
 	// `--flag=value` is accepted and `--flag value` is not, which is clap's
@@ -185,6 +190,8 @@ type Arg struct {
 	AllowNegativeNumbers bool
 	// ValueTerminator ends this variadic positional without becoming a value.
 	ValueTerminator string
+	// Delimiter splits one token into several values. Zero disables splitting.
+	Delimiter byte
 	// DoubleDash is this argument's relationship to the -- separator.
 	DoubleDash DoubleDash
 }
@@ -266,10 +273,30 @@ type Event struct {
 	HasValue bool
 	// Negated is true when a flag was set through its Negate form.
 	Negated bool
+	// Delimit says whether a positional value should honor Arg.Delimiter.
+	Delimit bool
 	// Values is the remaining argv when Kind is KindExternal: the unmatched name
 	// first, then every token after it. Shares memory with the argv the parser
 	// was given.
 	Values []string
+}
+
+// SplitValue applies a generated table's ASCII delimiter to one bound value.
+// Delimit is false for trailing positional values protected by
+// DontDelimitTrailingValues.
+func SplitValue(value string, delimiter byte, delimit bool) []string {
+	if delimiter == 0 || !delimit {
+		return []string{value}
+	}
+	out := make([]string, 0, valuesIn(value, delimiter))
+	start := 0
+	for i := 0; i < len(value); i++ {
+		if value[i] == delimiter {
+			out = append(out, value[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, value[start:])
 }
 
 // Code is a class of binding failure.

@@ -131,7 +131,7 @@ pub fn run(vector: &Vector) -> Outcome {
                     }
                     (Some(Multi::Var), Some(v)) => {
                         match flags.entry(name).or_insert(Value::Strs(vec![])) {
-                            Value::Strs(list) => list.push(string(v)),
+                            Value::Strs(list) => list.extend(split_value(v, flag.delimiter, true)),
                             _ => unreachable!("var flags only ever hold strings"),
                         }
                     }
@@ -143,11 +143,17 @@ pub fn run(vector: &Vector) -> Outcome {
                     }
                 }
             }
-            Ok(Event::Arg { arg, value }) => {
+            Ok(Event::Arg {
+                arg,
+                value,
+                delimit,
+            }) => {
                 let name = arg.name.to_string();
                 if arg.var {
                     match args.entry(name).or_insert(Value::Strs(vec![])) {
-                        Value::Strs(list) => list.push(string(value)),
+                        Value::Strs(list) => {
+                            list.extend(split_value(value, arg.delimiter, delimit))
+                        }
                         _ => unreachable!("var args only ever hold strings"),
                     }
                 } else {
@@ -175,6 +181,13 @@ pub fn run(vector: &Vector) -> Outcome {
         args,
         external: Vec::new(),
     })
+}
+
+fn split_value(value: &[u8], delimiter: Option<u8>, delimit: bool) -> Vec<String> {
+    match delimiter.filter(|_| delimit) {
+        Some(delimiter) => value.split(|byte| *byte == delimiter).map(string).collect(),
+        None => vec![string(value)],
+    }
 }
 
 fn string(value: &[u8]) -> String {

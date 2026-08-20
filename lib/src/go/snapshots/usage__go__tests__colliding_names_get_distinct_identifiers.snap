@@ -154,7 +154,7 @@ func Parse(args []string) (*Cli, error) {
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
 			if ev.HasValue {
-				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+				given[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			} else if given[ev.Flag.Key] == nil {
 				// Given without a value is still given, and nil would read as
 				// absent when the fallbacks are applied.
@@ -168,7 +168,8 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindArg:
 			seen[ev.Arg.Key]++
-			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
+			values := argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)
+			given[ev.Arg.Key] = append(given[ev.Arg.Key], values...)
 			switch ev.Arg.Key {
 			}
 		}

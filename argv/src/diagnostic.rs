@@ -339,7 +339,7 @@ fn value_bound_to(
     let mut last = None;
     while let Some(event) = parser.next_event() {
         let value = match event {
-            Ok(crate::Event::Arg { arg, value }) if arg.name == name => value,
+            Ok(crate::Event::Arg { arg, value, .. }) if arg.name == name => value,
             Ok(crate::Event::Flag {
                 flag,
                 value: Some(value),

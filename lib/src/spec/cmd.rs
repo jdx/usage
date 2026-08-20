@@ -105,6 +105,9 @@ pub struct SpecCommand {
     /// Whether a bare invocation of this command shows its help.
     #[serde(skip_serializing_if = "is_false")]
     pub arg_required_else_help: bool,
+    /// Whether delimiter splitting is disabled after `--` or for an automatic trailing arg.
+    #[serde(skip_serializing_if = "is_false")]
+    pub dont_delimit_trailing_values: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -175,6 +178,7 @@ impl Default for SpecCommand {
             subcommand_required: false,
             external_subcommand: false,
             arg_required_else_help: false,
+            dont_delimit_trailing_values: false,
             restart_token: None,
             help: None,
             help_long: None,
@@ -282,6 +286,9 @@ impl SpecCommand {
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
+                "dont_delimit_trailing_values" => {
+                    cmd.dont_delimit_trailing_values = v.ensure_bool()?
+                }
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -410,6 +417,10 @@ impl SpecCommand {
                     cmd.arg_required_else_help =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "dont_delimit_trailing_values" => {
+                    cmd.dont_delimit_trailing_values =
+                        child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -521,6 +532,7 @@ impl SpecCommand {
             subcommand_required,
             external_subcommand,
             arg_required_else_help,
+            dont_delimit_trailing_values,
             restart_token,
             subcommands,
             complete,
@@ -595,6 +607,7 @@ impl SpecCommand {
         self.subcommand_required = subcommand_required;
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
+        self.dont_delimit_trailing_values = dont_delimit_trailing_values;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -699,6 +712,7 @@ impl From<&SpecCommand> for KdlNode {
             subcommand_required,
             external_subcommand,
             arg_required_else_help,
+            dont_delimit_trailing_values,
             restart_token,
             unknown_flags,
             aliases,
@@ -744,6 +758,10 @@ impl From<&SpecCommand> for KdlNode {
         if *arg_required_else_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("arg_required_else_help", true));
+        }
+        if *dont_delimit_trailing_values {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("dont_delimit_trailing_values", true));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()
@@ -993,6 +1011,7 @@ impl From<&clap::Command> for SpecCommand {
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
         spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
+        spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();

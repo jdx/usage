@@ -126,6 +126,19 @@
       }
     },
     {
+      "id": "dd-trailing-values-can-keep-delimiters",
+      "doc": "`dont_delimit_trailing_values` splits ordinary positional values but preserves the same delimiter after `--`, matching clap's command-wide trailing policy.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndont_delimit_trailing_values #true\narg \"<values>...\" delimiter=\",\"\n",
+      "argv": ["a,b", "--", "c,d"],
+      "expect": {
+        "ok": {
+          "args": {
+            "values": ["a", "b", "c,d"]
+          }
+        }
+      }
+    },
+    {
       "id": "dd-automatic-behaves-as-if-separated",
       "doc": "With `double_dash=\"automatic\"`, the first value an argument takes stops flag interpretation for everything after it, so a wrapper can forward flags without the caller typing `--`.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-f --force\"\narg \"<files>...\" double_dash=\"automatic\"\n",

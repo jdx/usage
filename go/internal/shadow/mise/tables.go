@@ -8659,7 +8659,7 @@ func Parse(args []string) (*Cli, error) {
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
 			if ev.HasValue {
-				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+				given[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			} else if given[ev.Flag.Key] == nil {
 				// Given without a value is still given, and nil would read as
 				// absent when the fallbacks are applied.
@@ -8672,7 +8672,7 @@ func Parse(args []string) (*Cli, error) {
 				out.Cd = ev.Value
 			case FlagEnv:
 				if ev.HasValue {
-					out.Env = append(out.Env, ev.Value)
+					out.Env = append(out.Env, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagForce:
 				out.Force = !ev.Negated
@@ -8682,7 +8682,7 @@ func Parse(args []string) (*Cli, error) {
 				out.DryRun = !ev.Negated
 			case FlagProfile:
 				if ev.HasValue {
-					out.Profile = append(out.Profile, ev.Value)
+					out.Profile = append(out.Profile, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagQuiet:
 				out.Quiet = !ev.Negated
@@ -8690,7 +8690,7 @@ func Parse(args []string) (*Cli, error) {
 				out.Shell = ev.Value
 			case FlagTool:
 				if ev.HasValue {
-					out.Tool = append(out.Tool, ev.Value)
+					out.Tool = append(out.Tool, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagVerbose:
 				out.Verbose++
@@ -8750,13 +8750,13 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapV.ForceDotfiles = !ev.Negated
 			case FlagBootstrapOnly:
 				if ev.HasValue {
-					cmdBootstrapV.Only = append(cmdBootstrapV.Only, ev.Value)
+					cmdBootstrapV.Only = append(cmdBootstrapV.Only, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapPromptSecrets:
 				cmdBootstrapV.PromptSecrets = !ev.Negated
 			case FlagBootstrapSkip:
 				if ev.HasValue {
-					cmdBootstrapV.Skip = append(cmdBootstrapV.Skip, ev.Value)
+					cmdBootstrapV.Skip = append(cmdBootstrapV.Skip, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapUpdate:
 				cmdBootstrapV.Update = !ev.Negated
@@ -8962,7 +8962,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.ConnectTimeout = ev.Value
 			case FlagBootstrapRemoteExclude:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, ev.Value)
+					cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemoteFailFast:
 				cmdBootstrapRemoteV.FailFast = !ev.Negated
@@ -8970,7 +8970,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.ForceDotfiles = !ev.Negated
 			case FlagBootstrapRemoteHost:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.Host = append(cmdBootstrapRemoteV.Host, ev.Value)
+					cmdBootstrapRemoteV.Host = append(cmdBootstrapRemoteV.Host, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemoteIdentityFile:
 				cmdBootstrapRemoteV.IdentityFile = ev.Value
@@ -8982,7 +8982,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.MiseBin = ev.Value
 			case FlagBootstrapRemoteOnly:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.Only = append(cmdBootstrapRemoteV.Only, ev.Value)
+					cmdBootstrapRemoteV.Only = append(cmdBootstrapRemoteV.Only, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemotePort:
 				cmdBootstrapRemoteV.Port = ev.Value
@@ -8992,17 +8992,17 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.RemoteMise = ev.Value
 			case FlagBootstrapRemoteSkip:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.Skip = append(cmdBootstrapRemoteV.Skip, ev.Value)
+					cmdBootstrapRemoteV.Skip = append(cmdBootstrapRemoteV.Skip, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemoteSource:
 				cmdBootstrapRemoteV.Source = ev.Value
 			case FlagBootstrapRemoteSshOption:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.SshOption = append(cmdBootstrapRemoteV.SshOption, ev.Value)
+					cmdBootstrapRemoteV.SshOption = append(cmdBootstrapRemoteV.SshOption, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemoteTag:
 				if ev.HasValue {
-					cmdBootstrapRemoteV.Tag = append(cmdBootstrapRemoteV.Tag, ev.Value)
+					cmdBootstrapRemoteV.Tag = append(cmdBootstrapRemoteV.Tag, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagBootstrapRemoteUpdate:
 				cmdBootstrapRemoteV.Update = !ev.Negated
@@ -9158,19 +9158,19 @@ func Parse(args []string) (*Cli, error) {
 				cmdExecV.Jobs = ev.Value
 			case FlagExecAllowEnv:
 				if ev.HasValue {
-					cmdExecV.AllowEnv = append(cmdExecV.AllowEnv, ev.Value)
+					cmdExecV.AllowEnv = append(cmdExecV.AllowEnv, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagExecAllowNet:
 				if ev.HasValue {
-					cmdExecV.AllowNet = append(cmdExecV.AllowNet, ev.Value)
+					cmdExecV.AllowNet = append(cmdExecV.AllowNet, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagExecAllowRead:
 				if ev.HasValue {
-					cmdExecV.AllowRead = append(cmdExecV.AllowRead, ev.Value)
+					cmdExecV.AllowRead = append(cmdExecV.AllowRead, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagExecAllowWrite:
 				if ev.HasValue {
-					cmdExecV.AllowWrite = append(cmdExecV.AllowWrite, ev.Value)
+					cmdExecV.AllowWrite = append(cmdExecV.AllowWrite, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagExecDenyAll:
 				cmdExecV.DenyAll = !ev.Negated
@@ -9258,11 +9258,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdGenerateToolStubV.Lock = !ev.Negated
 			case FlagGenerateToolStubPlatformBin:
 				if ev.HasValue {
-					cmdGenerateToolStubV.PlatformBin = append(cmdGenerateToolStubV.PlatformBin, ev.Value)
+					cmdGenerateToolStubV.PlatformBin = append(cmdGenerateToolStubV.PlatformBin, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagGenerateToolStubPlatformUrl:
 				if ev.HasValue {
-					cmdGenerateToolStubV.PlatformUrl = append(cmdGenerateToolStubV.PlatformUrl, ev.Value)
+					cmdGenerateToolStubV.PlatformUrl = append(cmdGenerateToolStubV.PlatformUrl, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagGenerateToolStubSkipDownload:
 				cmdGenerateToolStubV.SkipDownload = !ev.Negated
@@ -9286,7 +9286,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdGlobalV.Pin = !ev.Negated
 			case FlagGlobalRemove:
 				if ev.HasValue {
-					cmdGlobalV.Remove = append(cmdGlobalV.Remove, ev.Value)
+					cmdGlobalV.Remove = append(cmdGlobalV.Remove, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagHookEnvForce:
 				cmdHookEnvV.Force = !ev.Negated
@@ -9346,7 +9346,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdLocalV.Pin = !ev.Negated
 			case FlagLocalRemove:
 				if ev.HasValue {
-					cmdLocalV.Remove = append(cmdLocalV.Remove, ev.Value)
+					cmdLocalV.Remove = append(cmdLocalV.Remove, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagLockGlobal:
 				cmdLockV.Global = !ev.Negated
@@ -9356,7 +9356,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdLockV.DryRun = !ev.Negated
 			case FlagLockPlatform:
 				if ev.HasValue {
-					cmdLockV.Platform = append(cmdLockV.Platform, ev.Value)
+					cmdLockV.Platform = append(cmdLockV.Platform, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagLockBump:
 				cmdLockV.Bump = !ev.Negated
@@ -9408,7 +9408,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdLsRemoteV.StrictMetadata = !ev.Negated
 			case FlagOciBuildCopy:
 				if ev.HasValue {
-					cmdOciBuildV.Copy = append(cmdOciBuildV.Copy, ev.Value)
+					cmdOciBuildV.Copy = append(cmdOciBuildV.Copy, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagOciBuildOutput:
 				cmdOciBuildV.Output = ev.Value
@@ -9460,11 +9460,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdOciRunV.Owner = ev.Value
 			case FlagOciRunVolume:
 				if ev.HasValue {
-					cmdOciRunV.Volume = append(cmdOciRunV.Volume, ev.Value)
+					cmdOciRunV.Volume = append(cmdOciRunV.Volume, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagOciRunEnv:
 				if ev.HasValue {
-					cmdOciRunV.Env = append(cmdOciRunV.Env, ev.Value)
+					cmdOciRunV.Env = append(cmdOciRunV.Env, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagOciRunInteractive:
 				cmdOciRunV.Interactive = !ev.Negated
@@ -9542,11 +9542,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdDepsV.Monorepo = !ev.Negated
 			case FlagDepsOnly:
 				if ev.HasValue {
-					cmdDepsV.Only = append(cmdDepsV.Only, ev.Value)
+					cmdDepsV.Only = append(cmdDepsV.Only, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagDepsSkip:
 				if ev.HasValue {
-					cmdDepsV.Skip = append(cmdDepsV.Skip, ev.Value)
+					cmdDepsV.Skip = append(cmdDepsV.Skip, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagDepsAddDev:
 				cmdDepsAddV.Dev = !ev.Negated
@@ -9562,11 +9562,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdDepsInstallV.Monorepo = !ev.Negated
 			case FlagDepsInstallOnly:
 				if ev.HasValue {
-					cmdDepsInstallV.Only = append(cmdDepsInstallV.Only, ev.Value)
+					cmdDepsInstallV.Only = append(cmdDepsInstallV.Only, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagDepsInstallSkip:
 				if ev.HasValue {
-					cmdDepsInstallV.Skip = append(cmdDepsInstallV.Skip, ev.Value)
+					cmdDepsInstallV.Skip = append(cmdDepsInstallV.Skip, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagPruneDryRun:
 				cmdPruneV.DryRun = !ev.Negated
@@ -9622,23 +9622,23 @@ func Parse(args []string) (*Cli, error) {
 				cmdRunV.Silent = !ev.Negated
 			case FlagRunTool:
 				if ev.HasValue {
-					cmdRunV.Tool = append(cmdRunV.Tool, ev.Value)
+					cmdRunV.Tool = append(cmdRunV.Tool, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagRunAllowEnv:
 				if ev.HasValue {
-					cmdRunV.AllowEnv = append(cmdRunV.AllowEnv, ev.Value)
+					cmdRunV.AllowEnv = append(cmdRunV.AllowEnv, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagRunAllowNet:
 				if ev.HasValue {
-					cmdRunV.AllowNet = append(cmdRunV.AllowNet, ev.Value)
+					cmdRunV.AllowNet = append(cmdRunV.AllowNet, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagRunAllowRead:
 				if ev.HasValue {
-					cmdRunV.AllowRead = append(cmdRunV.AllowRead, ev.Value)
+					cmdRunV.AllowRead = append(cmdRunV.AllowRead, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagRunAllowWrite:
 				if ev.HasValue {
-					cmdRunV.AllowWrite = append(cmdRunV.AllowWrite, ev.Value)
+					cmdRunV.AllowWrite = append(cmdRunV.AllowWrite, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagRunDenyAll:
 				cmdRunV.DenyAll = !ev.Negated
@@ -9696,11 +9696,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdSetV.AgeKeyFile = ev.Value
 			case FlagSetAgeRecipient:
 				if ev.HasValue {
-					cmdSetV.AgeRecipient = append(cmdSetV.AgeRecipient, ev.Value)
+					cmdSetV.AgeRecipient = append(cmdSetV.AgeRecipient, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagSetAgeSshRecipient:
 				if ev.HasValue {
-					cmdSetV.AgeSshRecipient = append(cmdSetV.AgeSshRecipient, ev.Value)
+					cmdSetV.AgeSshRecipient = append(cmdSetV.AgeSshRecipient, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagSetComplete:
 				cmdSetV.Complete = !ev.Negated
@@ -9712,7 +9712,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdSetV.Prompt = !ev.Negated
 			case FlagSetRemove:
 				if ev.HasValue {
-					cmdSetV.Remove = append(cmdSetV.Remove, ev.Value)
+					cmdSetV.Remove = append(cmdSetV.Remove, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagSetStdin:
 				cmdSetV.Stdin = !ev.Negated
@@ -9796,11 +9796,11 @@ func Parse(args []string) (*Cli, error) {
 				cmdTasksV.Usage = !ev.Negated
 			case FlagTasksAddAlias:
 				if ev.HasValue {
-					cmdTasksAddV.Alias = append(cmdTasksAddV.Alias, ev.Value)
+					cmdTasksAddV.Alias = append(cmdTasksAddV.Alias, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddDepends:
 				if ev.HasValue {
-					cmdTasksAddV.Depends = append(cmdTasksAddV.Depends, ev.Value)
+					cmdTasksAddV.Depends = append(cmdTasksAddV.Depends, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddDir:
 				cmdTasksAddV.Dir = ev.Value
@@ -9814,21 +9814,21 @@ func Parse(args []string) (*Cli, error) {
 				cmdTasksAddV.Raw = !ev.Negated
 			case FlagTasksAddSources:
 				if ev.HasValue {
-					cmdTasksAddV.Sources = append(cmdTasksAddV.Sources, ev.Value)
+					cmdTasksAddV.Sources = append(cmdTasksAddV.Sources, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddWaitFor:
 				if ev.HasValue {
-					cmdTasksAddV.WaitFor = append(cmdTasksAddV.WaitFor, ev.Value)
+					cmdTasksAddV.WaitFor = append(cmdTasksAddV.WaitFor, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddDependsPost:
 				if ev.HasValue {
-					cmdTasksAddV.DependsPost = append(cmdTasksAddV.DependsPost, ev.Value)
+					cmdTasksAddV.DependsPost = append(cmdTasksAddV.DependsPost, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddDescription:
 				cmdTasksAddV.Description = ev.Value
 			case FlagTasksAddOutputs:
 				if ev.HasValue {
-					cmdTasksAddV.Outputs = append(cmdTasksAddV.Outputs, ev.Value)
+					cmdTasksAddV.Outputs = append(cmdTasksAddV.Outputs, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksAddRunWindows:
 				cmdTasksAddV.RunWindows = ev.Value
@@ -9908,23 +9908,23 @@ func Parse(args []string) (*Cli, error) {
 				cmdTasksRunV.Silent = !ev.Negated
 			case FlagTasksRunTool:
 				if ev.HasValue {
-					cmdTasksRunV.Tool = append(cmdTasksRunV.Tool, ev.Value)
+					cmdTasksRunV.Tool = append(cmdTasksRunV.Tool, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksRunAllowEnv:
 				if ev.HasValue {
-					cmdTasksRunV.AllowEnv = append(cmdTasksRunV.AllowEnv, ev.Value)
+					cmdTasksRunV.AllowEnv = append(cmdTasksRunV.AllowEnv, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksRunAllowNet:
 				if ev.HasValue {
-					cmdTasksRunV.AllowNet = append(cmdTasksRunV.AllowNet, ev.Value)
+					cmdTasksRunV.AllowNet = append(cmdTasksRunV.AllowNet, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksRunAllowRead:
 				if ev.HasValue {
-					cmdTasksRunV.AllowRead = append(cmdTasksRunV.AllowRead, ev.Value)
+					cmdTasksRunV.AllowRead = append(cmdTasksRunV.AllowRead, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksRunAllowWrite:
 				if ev.HasValue {
-					cmdTasksRunV.AllowWrite = append(cmdTasksRunV.AllowWrite, ev.Value)
+					cmdTasksRunV.AllowWrite = append(cmdTasksRunV.AllowWrite, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagTasksRunDenyAll:
 				cmdTasksRunV.DenyAll = !ev.Negated
@@ -10038,7 +10038,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdUpgradeV.DryRun = !ev.Negated
 			case FlagUpgradeExclude:
 				if ev.HasValue {
-					cmdUpgradeV.Exclude = append(cmdUpgradeV.Exclude, ev.Value)
+					cmdUpgradeV.Exclude = append(cmdUpgradeV.Exclude, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagUpgradeDryRunCode:
 				cmdUpgradeV.DryRunCode = !ev.Negated
@@ -10078,27 +10078,27 @@ func Parse(args []string) (*Cli, error) {
 				cmdUseV.Raw = !ev.Negated
 			case FlagUseRemove:
 				if ev.HasValue {
-					cmdUseV.Remove = append(cmdUseV.Remove, ev.Value)
+					cmdUseV.Remove = append(cmdUseV.Remove, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagVersionJson:
 				cmdVersionV.Json = !ev.Negated
 			case FlagWatchTaskFlag:
 				if ev.HasValue {
-					cmdWatchV.TaskFlag = append(cmdWatchV.TaskFlag, ev.Value)
+					cmdWatchV.TaskFlag = append(cmdWatchV.TaskFlag, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchGlob:
 				if ev.HasValue {
-					cmdWatchV.Glob = append(cmdWatchV.Glob, ev.Value)
+					cmdWatchV.Glob = append(cmdWatchV.Glob, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchSkipDeps:
 				cmdWatchV.SkipDeps = !ev.Negated
 			case FlagWatchWatch:
 				if ev.HasValue {
-					cmdWatchV.Watch = append(cmdWatchV.Watch, ev.Value)
+					cmdWatchV.Watch = append(cmdWatchV.Watch, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchWatchNonRecursive:
 				if ev.HasValue {
-					cmdWatchV.WatchNonRecursive = append(cmdWatchV.WatchNonRecursive, ev.Value)
+					cmdWatchV.WatchNonRecursive = append(cmdWatchV.WatchNonRecursive, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchWatchFile:
 				cmdWatchV.WatchFile = ev.Value
@@ -10116,7 +10116,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdWatchV.StopTimeout = ev.Value
 			case FlagWatchMapSignal:
 				if ev.HasValue {
-					cmdWatchV.MapSignal = append(cmdWatchV.MapSignal, ev.Value)
+					cmdWatchV.MapSignal = append(cmdWatchV.MapSignal, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchDebounce:
 				cmdWatchV.Debounce = ev.Value
@@ -10150,7 +10150,7 @@ func Parse(args []string) (*Cli, error) {
 				cmdWatchV.OnlyEmitEvents = !ev.Negated
 			case FlagWatchEnv:
 				if ev.HasValue {
-					cmdWatchV.Env = append(cmdWatchV.Env, ev.Value)
+					cmdWatchV.Env = append(cmdWatchV.Env, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchWrapProcess:
 				cmdWatchV.WrapProcess = ev.Value
@@ -10170,31 +10170,31 @@ func Parse(args []string) (*Cli, error) {
 				cmdWatchV.Workdir = ev.Value
 			case FlagWatchExts:
 				if ev.HasValue {
-					cmdWatchV.Exts = append(cmdWatchV.Exts, ev.Value)
+					cmdWatchV.Exts = append(cmdWatchV.Exts, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchFilter:
 				if ev.HasValue {
-					cmdWatchV.Filter = append(cmdWatchV.Filter, ev.Value)
+					cmdWatchV.Filter = append(cmdWatchV.Filter, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchFilterFile:
 				if ev.HasValue {
-					cmdWatchV.FilterFile = append(cmdWatchV.FilterFile, ev.Value)
+					cmdWatchV.FilterFile = append(cmdWatchV.FilterFile, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchFilterProg:
 				if ev.HasValue {
-					cmdWatchV.FilterProg = append(cmdWatchV.FilterProg, ev.Value)
+					cmdWatchV.FilterProg = append(cmdWatchV.FilterProg, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchIgnore:
 				if ev.HasValue {
-					cmdWatchV.Ignore = append(cmdWatchV.Ignore, ev.Value)
+					cmdWatchV.Ignore = append(cmdWatchV.Ignore, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchIgnoreFile:
 				if ev.HasValue {
-					cmdWatchV.IgnoreFile = append(cmdWatchV.IgnoreFile, ev.Value)
+					cmdWatchV.IgnoreFile = append(cmdWatchV.IgnoreFile, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchFsEvents:
 				if ev.HasValue {
-					cmdWatchV.FsEvents = append(cmdWatchV.FsEvents, ev.Value)
+					cmdWatchV.FsEvents = append(cmdWatchV.FsEvents, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagWatchNoMeta:
 				cmdWatchV.NoMeta = !ev.Negated
@@ -10213,14 +10213,15 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindArg:
 			seen[ev.Arg.Key]++
-			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
+			values := argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)
+			given[ev.Arg.Key] = append(given[ev.Arg.Key], values...)
 			switch ev.Arg.Key {
 			case ArgTask:
 				out.Task = ev.Value
 			case ArgTaskArgs:
-				out.TaskArgs = append(out.TaskArgs, ev.Value)
+				out.TaskArgs = append(out.TaskArgs, values...)
 			case ArgTaskArgsLast:
-				out.TaskArgsLast = append(out.TaskArgsLast, ev.Value)
+				out.TaskArgsLast = append(out.TaskArgsLast, values...)
 			case ArgActivateShellType:
 				cmdActivateV.ShellType = ev.Value
 			case ArgToolAliasGetTool:
@@ -10240,43 +10241,43 @@ func Parse(args []string) (*Cli, error) {
 			case ArgToolAliasUnsetAlias:
 				cmdToolAliasUnsetV.Alias = ev.Value
 			case ArgAsdfArgs:
-				cmdAsdfV.Args = append(cmdAsdfV.Args, ev.Value)
+				cmdAsdfV.Args = append(cmdAsdfV.Args, values...)
 			case ArgBinPathsToolVersion:
-				cmdBinPathsV.ToolVersion = append(cmdBinPathsV.ToolVersion, ev.Value)
+				cmdBinPathsV.ToolVersion = append(cmdBinPathsV.ToolVersion, values...)
 			case ArgBootstrapDotfilesAddTarget:
-				cmdBootstrapDotfilesAddV.Target = append(cmdBootstrapDotfilesAddV.Target, ev.Value)
+				cmdBootstrapDotfilesAddV.Target = append(cmdBootstrapDotfilesAddV.Target, values...)
 			case ArgBootstrapDotfilesApplyTarget:
-				cmdBootstrapDotfilesApplyV.Target = append(cmdBootstrapDotfilesApplyV.Target, ev.Value)
+				cmdBootstrapDotfilesApplyV.Target = append(cmdBootstrapDotfilesApplyV.Target, values...)
 			case ArgBootstrapDotfilesEditTarget:
 				cmdBootstrapDotfilesEditV.Target = ev.Value
 			case ArgBootstrapDotfilesStatusTarget:
-				cmdBootstrapDotfilesStatusV.Target = append(cmdBootstrapDotfilesStatusV.Target, ev.Value)
+				cmdBootstrapDotfilesStatusV.Target = append(cmdBootstrapDotfilesStatusV.Target, values...)
 			case ArgBootstrapDotfilesUnapplyTarget:
-				cmdBootstrapDotfilesUnapplyV.Target = append(cmdBootstrapDotfilesUnapplyV.Target, ev.Value)
+				cmdBootstrapDotfilesUnapplyV.Target = append(cmdBootstrapDotfilesUnapplyV.Target, values...)
 			case ArgBootstrapPackagesApplyPackage:
-				cmdBootstrapPackagesApplyV.Package = append(cmdBootstrapPackagesApplyV.Package, ev.Value)
+				cmdBootstrapPackagesApplyV.Package = append(cmdBootstrapPackagesApplyV.Package, values...)
 			case ArgBootstrapPackagesBrewTapTap:
 				cmdBootstrapPackagesBrewTapV.Tap = ev.Value
 			case ArgBootstrapPackagesBrewTapUrl:
 				cmdBootstrapPackagesBrewTapV.Url = ev.Value
 			case ArgBootstrapPackagesBrewUntapTaps:
-				cmdBootstrapPackagesBrewUntapV.Taps = append(cmdBootstrapPackagesBrewUntapV.Taps, ev.Value)
+				cmdBootstrapPackagesBrewUntapV.Taps = append(cmdBootstrapPackagesBrewUntapV.Taps, values...)
 			case ArgBootstrapPackagesUpgradePackage:
-				cmdBootstrapPackagesUpgradeV.Package = append(cmdBootstrapPackagesUpgradeV.Package, ev.Value)
+				cmdBootstrapPackagesUpgradeV.Package = append(cmdBootstrapPackagesUpgradeV.Package, values...)
 			case ArgBootstrapPackagesUsePackage:
-				cmdBootstrapPackagesUseV.Package = append(cmdBootstrapPackagesUseV.Package, ev.Value)
+				cmdBootstrapPackagesUseV.Package = append(cmdBootstrapPackagesUseV.Package, values...)
 			case ArgBootstrapRemoteTarget:
-				cmdBootstrapRemoteV.Target = append(cmdBootstrapRemoteV.Target, ev.Value)
+				cmdBootstrapRemoteV.Target = append(cmdBootstrapRemoteV.Target, values...)
 			case ArgBootstrapReposExecPath:
-				cmdBootstrapReposExecV.Path = append(cmdBootstrapReposExecV.Path, ev.Value)
+				cmdBootstrapReposExecV.Path = append(cmdBootstrapReposExecV.Path, values...)
 			case ArgBootstrapReposExecCommand:
-				cmdBootstrapReposExecV.Command = append(cmdBootstrapReposExecV.Command, ev.Value)
+				cmdBootstrapReposExecV.Command = append(cmdBootstrapReposExecV.Command, values...)
 			case ArgBootstrapReposUpdatePath:
-				cmdBootstrapReposUpdateV.Path = append(cmdBootstrapReposUpdateV.Path, ev.Value)
+				cmdBootstrapReposUpdateV.Path = append(cmdBootstrapReposUpdateV.Path, values...)
 			case ArgCacheClearTool:
-				cmdCacheClearV.Tool = append(cmdCacheClearV.Tool, ev.Value)
+				cmdCacheClearV.Tool = append(cmdCacheClearV.Tool, values...)
 			case ArgCachePruneTool:
-				cmdCachePruneV.Tool = append(cmdCachePruneV.Tool, ev.Value)
+				cmdCachePruneV.Tool = append(cmdCachePruneV.Tool, values...)
 			case ArgCacheTaskTask:
 				cmdCacheTaskV.Task = ev.Value
 			case ArgCompletionShell:
@@ -10290,23 +10291,23 @@ func Parse(args []string) (*Cli, error) {
 			case ArgCurrentPlugin:
 				cmdCurrentV.Plugin = ev.Value
 			case ArgDotfilesAddTarget:
-				cmdDotfilesAddV.Target = append(cmdDotfilesAddV.Target, ev.Value)
+				cmdDotfilesAddV.Target = append(cmdDotfilesAddV.Target, values...)
 			case ArgDotfilesApplyTarget:
-				cmdDotfilesApplyV.Target = append(cmdDotfilesApplyV.Target, ev.Value)
+				cmdDotfilesApplyV.Target = append(cmdDotfilesApplyV.Target, values...)
 			case ArgDotfilesEditTarget:
 				cmdDotfilesEditV.Target = ev.Value
 			case ArgDotfilesStatusTarget:
-				cmdDotfilesStatusV.Target = append(cmdDotfilesStatusV.Target, ev.Value)
+				cmdDotfilesStatusV.Target = append(cmdDotfilesStatusV.Target, values...)
 			case ArgDotfilesUnapplyTarget:
-				cmdDotfilesUnapplyV.Target = append(cmdDotfilesUnapplyV.Target, ev.Value)
+				cmdDotfilesUnapplyV.Target = append(cmdDotfilesUnapplyV.Target, values...)
 			case ArgEnDir:
 				cmdEnV.Dir = ev.Value
 			case ArgEnvToolVersion:
-				cmdEnvV.ToolVersion = append(cmdEnvV.ToolVersion, ev.Value)
+				cmdEnvV.ToolVersion = append(cmdEnvV.ToolVersion, values...)
 			case ArgExecToolVersion:
-				cmdExecV.ToolVersion = append(cmdExecV.ToolVersion, ev.Value)
+				cmdExecV.ToolVersion = append(cmdExecV.ToolVersion, values...)
 			case ArgExecCommand:
-				cmdExecV.CommandArg = append(cmdExecV.CommandArg, ev.Value)
+				cmdExecV.CommandArg = append(cmdExecV.CommandArg, values...)
 			case ArgGenerateConfigPath:
 				cmdGenerateConfigV.Path = ev.Value
 			case ArgGenerateToolStubOutput:
@@ -10314,13 +10315,13 @@ func Parse(args []string) (*Cli, error) {
 			case ArgGithubTokenHost:
 				cmdGithubTokenV.Host = ev.Value
 			case ArgGlobalToolVersion:
-				cmdGlobalV.ToolVersion = append(cmdGlobalV.ToolVersion, ev.Value)
+				cmdGlobalV.ToolVersion = append(cmdGlobalV.ToolVersion, values...)
 			case ArgHookNotFoundBin:
 				cmdHookNotFoundV.Bin = ev.Value
 			case ArgEditPath:
 				cmdEditV.Path = ev.Value
 			case ArgInstallToolVersion:
-				cmdInstallV.ToolVersion = append(cmdInstallV.ToolVersion, ev.Value)
+				cmdInstallV.ToolVersion = append(cmdInstallV.ToolVersion, values...)
 			case ArgInstallIntoToolVersion:
 				cmdInstallIntoV.ToolVersion = ev.Value
 			case ArgInstallIntoPath:
@@ -10334,11 +10335,11 @@ func Parse(args []string) (*Cli, error) {
 			case ArgLinkPath:
 				cmdLinkV.Path = ev.Value
 			case ArgLocalToolVersion:
-				cmdLocalV.ToolVersion = append(cmdLocalV.ToolVersion, ev.Value)
+				cmdLocalV.ToolVersion = append(cmdLocalV.ToolVersion, values...)
 			case ArgLockTool:
-				cmdLockV.Tool = append(cmdLockV.Tool, ev.Value)
+				cmdLockV.Tool = append(cmdLockV.Tool, values...)
 			case ArgLsInstalledTool:
-				cmdLsV.InstalledTool = append(cmdLsV.InstalledTool, ev.Value)
+				cmdLsV.InstalledTool = append(cmdLsV.InstalledTool, values...)
 			case ArgLsRemoteToolVersion:
 				cmdLsRemoteV.ToolVersion = ev.Value
 			case ArgLsRemotePrefix:
@@ -10346,33 +10347,33 @@ func Parse(args []string) (*Cli, error) {
 			case ArgOciPushRef:
 				cmdOciPushV.Ref = ev.Value
 			case ArgOciRunCmd:
-				cmdOciRunV.Cmd = append(cmdOciRunV.Cmd, ev.Value)
+				cmdOciRunV.Cmd = append(cmdOciRunV.Cmd, values...)
 			case ArgOutdatedToolVersion:
-				cmdOutdatedV.ToolVersion = append(cmdOutdatedV.ToolVersion, ev.Value)
+				cmdOutdatedV.ToolVersion = append(cmdOutdatedV.ToolVersion, values...)
 			case ArgPluginsInstallNewPlugin:
 				cmdPluginsInstallV.NewPlugin = ev.Value
 			case ArgPluginsInstallGitUrl:
 				cmdPluginsInstallV.GitUrl = ev.Value
 			case ArgPluginsInstallRest:
-				cmdPluginsInstallV.Rest = append(cmdPluginsInstallV.Rest, ev.Value)
+				cmdPluginsInstallV.Rest = append(cmdPluginsInstallV.Rest, values...)
 			case ArgPluginsLinkName:
 				cmdPluginsLinkV.Name = ev.Value
 			case ArgPluginsLinkDir:
 				cmdPluginsLinkV.Dir = ev.Value
 			case ArgPluginsUninstallPlugin:
-				cmdPluginsUninstallV.Plugin = append(cmdPluginsUninstallV.Plugin, ev.Value)
+				cmdPluginsUninstallV.Plugin = append(cmdPluginsUninstallV.Plugin, values...)
 			case ArgPluginsUpdatePlugin:
-				cmdPluginsUpdateV.Plugin = append(cmdPluginsUpdateV.Plugin, ev.Value)
+				cmdPluginsUpdateV.Plugin = append(cmdPluginsUpdateV.Plugin, values...)
 			case ArgDepsProvider:
 				cmdDepsV.Provider = ev.Value
 			case ArgDepsAddPackages:
-				cmdDepsAddV.Packages = append(cmdDepsAddV.Packages, ev.Value)
+				cmdDepsAddV.Packages = append(cmdDepsAddV.Packages, values...)
 			case ArgDepsInstallProvider:
 				cmdDepsInstallV.Provider = ev.Value
 			case ArgDepsRemovePackages:
-				cmdDepsRemoveV.Packages = append(cmdDepsRemoveV.Packages, ev.Value)
+				cmdDepsRemoveV.Packages = append(cmdDepsRemoveV.Packages, values...)
 			case ArgPruneInstalledTool:
-				cmdPruneV.InstalledTool = append(cmdPruneV.InstalledTool, ev.Value)
+				cmdPruneV.InstalledTool = append(cmdPruneV.InstalledTool, values...)
 			case ArgRegistryName:
 				cmdRegistryV.Name = ev.Value
 			case ArgReshimTool:
@@ -10384,7 +10385,7 @@ func Parse(args []string) (*Cli, error) {
 			case ArgSelfUpdateVersion:
 				cmdSelfUpdateV.Version = ev.Value
 			case ArgSetEnvVar:
-				cmdSetV.EnvVar = append(cmdSetV.EnvVar, ev.Value)
+				cmdSetV.EnvVar = append(cmdSetV.EnvVar, values...)
 			case ArgSettingsSetting:
 				cmdSettingsV.Setting = ev.Value
 			case ArgSettingsValue:
@@ -10404,7 +10405,7 @@ func Parse(args []string) (*Cli, error) {
 			case ArgSettingsUnsetKey:
 				cmdSettingsUnsetV.Key = ev.Value
 			case ArgShellToolVersion:
-				cmdShellV.ToolVersion = append(cmdShellV.ToolVersion, ev.Value)
+				cmdShellV.ToolVersion = append(cmdShellV.ToolVersion, values...)
 			case ArgShellAliasGetShellAlias:
 				cmdShellAliasGetV.ShellAlias = ev.Value
 			case ArgShellAliasSetShellAlias:
@@ -10418,9 +10419,9 @@ func Parse(args []string) (*Cli, error) {
 			case ArgTasksAddTask:
 				cmdTasksAddV.Task = ev.Value
 			case ArgTasksAddRun:
-				cmdTasksAddV.Run = append(cmdTasksAddV.Run, ev.Value)
+				cmdTasksAddV.Run = append(cmdTasksAddV.Run, values...)
 			case ArgTasksDepsTasks:
-				cmdTasksDepsV.Tasks = append(cmdTasksDepsV.Tasks, ev.Value)
+				cmdTasksDepsV.Tasks = append(cmdTasksDepsV.Tasks, values...)
 			case ArgTasksEditTask:
 				cmdTasksEditV.Task = ev.Value
 			case ArgTasksInfoTask:
@@ -10428,13 +10429,13 @@ func Parse(args []string) (*Cli, error) {
 			case ArgTasksRunTask:
 				cmdTasksRunV.Task = ev.Value
 			case ArgTasksRunArgs:
-				cmdTasksRunV.Args = append(cmdTasksRunV.Args, ev.Value)
+				cmdTasksRunV.Args = append(cmdTasksRunV.Args, values...)
 			case ArgTasksRunArgsLast:
-				cmdTasksRunV.ArgsLast = append(cmdTasksRunV.ArgsLast, ev.Value)
+				cmdTasksRunV.ArgsLast = append(cmdTasksRunV.ArgsLast, values...)
 			case ArgTasksValidateTasks:
-				cmdTasksValidateV.Tasks = append(cmdTasksValidateV.Tasks, ev.Value)
+				cmdTasksValidateV.Tasks = append(cmdTasksValidateV.Tasks, values...)
 			case ArgTestToolTools:
-				cmdTestToolV.Tools = append(cmdTestToolV.Tools, ev.Value)
+				cmdTestToolV.Tools = append(cmdTestToolV.Tools, values...)
 			case ArgTokenForgejoHost:
 				cmdTokenForgejoV.Host = ev.Value
 			case ArgTokenGithubHost:
@@ -10446,25 +10447,25 @@ func Parse(args []string) (*Cli, error) {
 			case ArgToolStubFile:
 				cmdToolStubV.File = ev.Value
 			case ArgToolStubArgs:
-				cmdToolStubV.Args = append(cmdToolStubV.Args, ev.Value)
+				cmdToolStubV.Args = append(cmdToolStubV.Args, values...)
 			case ArgTrustConfigFile:
 				cmdTrustV.ConfigFile = ev.Value
 			case ArgUninstallInstalledToolVersion:
-				cmdUninstallV.InstalledToolVersion = append(cmdUninstallV.InstalledToolVersion, ev.Value)
+				cmdUninstallV.InstalledToolVersion = append(cmdUninstallV.InstalledToolVersion, values...)
 			case ArgUnsetEnvKey:
-				cmdUnsetV.EnvKey = append(cmdUnsetV.EnvKey, ev.Value)
+				cmdUnsetV.EnvKey = append(cmdUnsetV.EnvKey, values...)
 			case ArgUntrustConfigFile:
 				cmdUntrustV.ConfigFile = ev.Value
 			case ArgUnuseInstalledToolVersion:
-				cmdUnuseV.InstalledToolVersion = append(cmdUnuseV.InstalledToolVersion, ev.Value)
+				cmdUnuseV.InstalledToolVersion = append(cmdUnuseV.InstalledToolVersion, values...)
 			case ArgUpgradeInstalledToolVersion:
-				cmdUpgradeV.InstalledToolVersion = append(cmdUpgradeV.InstalledToolVersion, ev.Value)
+				cmdUpgradeV.InstalledToolVersion = append(cmdUpgradeV.InstalledToolVersion, values...)
 			case ArgUseToolVersion:
-				cmdUseV.ToolVersion = append(cmdUseV.ToolVersion, ev.Value)
+				cmdUseV.ToolVersion = append(cmdUseV.ToolVersion, values...)
 			case ArgWatchTask:
 				cmdWatchV.Task = ev.Value
 			case ArgWatchArgs:
-				cmdWatchV.Args = append(cmdWatchV.Args, ev.Value)
+				cmdWatchV.Args = append(cmdWatchV.Args, values...)
 			case ArgWhereToolVersion:
 				cmdWhereV.ToolVersion = ev.Value
 			case ArgWhereAsdfVersion:

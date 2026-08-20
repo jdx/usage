@@ -81,24 +81,25 @@ type Completer struct {
 
 // Cmd is one command in the lowered spec.
 type Cmd struct {
-	Name                string      `json:"name"`
-	Hide                bool        `json:"hide"`
-	Help                string      `json:"help"`
-	HelpLong            string      `json:"help_long"`
-	Usage               string      `json:"usage"`
-	BeforeHelp          string      `json:"before_help"`
-	AfterHelp           string      `json:"after_help"`
-	BeforeHelpLong      string      `json:"before_help_long"`
-	AfterHelpLong       string      `json:"after_help_long"`
-	Examples            []Example   `json:"examples"`
-	Aliases             []string    `json:"aliases"`
-	HiddenAliases       []string    `json:"hidden_aliases"`
-	Subcommands         Subcommands `json:"subcommands"`
-	Args                []Arg       `json:"args"`
-	Flags               []Flag      `json:"flags"`
-	UnknownFlags        *string     `json:"unknown_flags"`
-	ExternalSubcommand  bool        `json:"external_subcommand"`
-	ArgRequiredElseHelp bool        `json:"arg_required_else_help"`
+	Name                      string      `json:"name"`
+	Hide                      bool        `json:"hide"`
+	Help                      string      `json:"help"`
+	HelpLong                  string      `json:"help_long"`
+	Usage                     string      `json:"usage"`
+	BeforeHelp                string      `json:"before_help"`
+	AfterHelp                 string      `json:"after_help"`
+	BeforeHelpLong            string      `json:"before_help_long"`
+	AfterHelpLong             string      `json:"after_help_long"`
+	Examples                  []Example   `json:"examples"`
+	Aliases                   []string    `json:"aliases"`
+	HiddenAliases             []string    `json:"hidden_aliases"`
+	Subcommands               Subcommands `json:"subcommands"`
+	Args                      []Arg       `json:"args"`
+	Flags                     []Flag      `json:"flags"`
+	UnknownFlags              *string     `json:"unknown_flags"`
+	ExternalSubcommand        bool        `json:"external_subcommand"`
+	ArgRequiredElseHelp       bool        `json:"arg_required_else_help"`
+	DontDelimitTrailingValues bool        `json:"dont_delimit_trailing_values"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -302,6 +303,7 @@ type Arg struct {
 	DoubleDash           string   `json:"double_dash"`
 	AllowNegativeNumbers bool     `json:"allow_negative_numbers"`
 	ValueTerminator      string   `json:"value_terminator"`
+	Delimiter            string   `json:"delimiter"`
 	Choices              *Choices `json:"choices"`
 	Default              []string `json:"default"`
 	Env                  string   `json:"env"`
@@ -583,11 +585,12 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	}
 
 	out := &argv.Command{
-		Name:                c.Name,
-		UnknownFlags:        unknown,
-		ExternalSubcommand:  c.ExternalSubcommand,
-		ArgRequiredElseHelp: c.ArgRequiredElseHelp,
-		Key:                 b.next(),
+		Name:                      c.Name,
+		UnknownFlags:              unknown,
+		ExternalSubcommand:        c.ExternalSubcommand,
+		ArgRequiredElseHelp:       c.ArgRequiredElseHelp,
+		DontDelimitTrailingValues: c.DontDelimitTrailingValues,
+		Key:                       b.next(),
 	}
 	examples := make([]argv.Example, 0, len(c.Examples))
 	for _, e := range c.Examples {
@@ -803,6 +806,9 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		DefaultMissing:       f.DefaultMissing,
 		Global:               f.Global,
 	}
+	if f.Arg != nil && len(f.Arg.Delimiter) == 1 {
+		out.Delimiter = f.Arg.Delimiter[0]
+	}
 	b.recordNegation(out.Key, f.Negate)
 	for _, s := range f.Short {
 		if s != "" {
@@ -881,6 +887,9 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		DoubleDash:           doubleDash(a.DoubleDash),
 		AllowNegativeNumbers: a.AllowNegativeNumbers,
 		ValueTerminator:      a.ValueTerminator,
+	}
+	if len(a.Delimiter) == 1 {
+		out.Delimiter = a.Delimiter[0]
 	}
 	if a.Var {
 		out.VarMax = clampVarMax(a.VarMax)

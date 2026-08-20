@@ -377,6 +377,12 @@ impl<'a> Emitter<'a> {
             if e.cmd.arg_required_else_help {
                 lines.push(Line::Field("ArgRequiredElseHelp".into(), "true".into()));
             }
+            if e.cmd.dont_delimit_trailing_values {
+                lines.push(Line::Field(
+                    "DontDelimitTrailingValues".into(),
+                    "true".into(),
+                ));
+            }
             if e.root {
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
@@ -1178,6 +1184,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
         if let Some(terminator) = &arg.value_terminator {
             fields.push(format!("ValueTerminator: {}", go_string(terminator)));
         }
+        if let Some(delimiter) = arg.delimiter {
+            fields.push(format!("Delimiter: {}", go_byte(delimiter)));
+        }
     }
     if flag.require_equals {
         fields.push("RequireEquals: true".to_string());
@@ -1207,6 +1216,9 @@ fn arg_literal(arg: &SpecArg, named: &Named) -> String {
     }
     if let Some(terminator) = &arg.value_terminator {
         fields.push(format!("ValueTerminator: {}", go_string(terminator)));
+    }
+    if let Some(delimiter) = arg.delimiter {
+        fields.push(format!("Delimiter: {}", go_byte(delimiter)));
     }
     let double_dash = match arg.double_dash {
         SpecDoubleDashChoices::Required => Some("argv.DoubleDashRequired"),
