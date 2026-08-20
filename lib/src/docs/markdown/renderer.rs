@@ -2,7 +2,6 @@ use crate::docs::markdown::tera::TERA;
 use crate::docs::models::Spec;
 use crate::error::UsageErr;
 use itertools::Itertools;
-use serde::Serialize;
 
 fn escape_md(value: &str, html_encode: bool) -> String {
     let mut in_fenced_code_block = false;
@@ -61,7 +60,6 @@ pub struct MarkdownRenderer {
     pub(crate) raw_config: crate::spec::config::SpecConfig,
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
-    tera_ctx: tera::Context,
     url_prefix: Option<String>,
     html_encode: bool,
     replace_pre_with_code_fences: bool,
@@ -74,7 +72,6 @@ impl MarkdownRenderer {
             spec: spec.into(),
             header_level: 1,
             multi: false,
-            tera_ctx: tera::Context::new(),
             url_prefix: None,
             html_encode: true,
             replace_pre_with_code_fences: false,
@@ -140,12 +137,8 @@ impl MarkdownRenderer {
         self
     }
 
-    pub(crate) fn insert<T: Serialize + ?Sized, S: Into<String>>(&mut self, key: S, val: &T) {
-        self.tera_ctx.insert(key.into(), val);
-    }
-
     fn tera_ctx(&self) -> tera::Context {
-        let mut ctx = self.tera_ctx.clone();
+        let mut ctx = tera::Context::new();
         ctx.insert("spec", &self.spec);
         ctx.insert("header_level", &self.header_level);
         ctx.insert("multi", &self.multi);
@@ -154,7 +147,16 @@ impl MarkdownRenderer {
         ctx
     }
 
-    pub(crate) fn render(&self, template_name: &str) -> Result<String, UsageErr> {
+    /// Render with values that belong only to this page.
+    ///
+    /// A page used to clone the whole renderer — including the complete command tree — merely
+    /// to insert one local into its stored context. Multi-page output paid that deep clone once
+    /// per command. The context already has to be materialized for Tera, so enrich that directly.
+    pub(crate) fn render_with(
+        &self,
+        template_name: &str,
+        enrich: impl FnOnce(&mut tera::Context),
+    ) -> Result<String, UsageErr> {
         let mut tera = TERA.clone();
 
         let html_encode = self.html_encode;
@@ -170,7 +172,9 @@ impl MarkdownRenderer {
             },
         );
 
-        Ok(tera.render(template_name, &self.tera_ctx())?)
+        let mut ctx = self.tera_ctx();
+        enrich(&mut ctx);
+        Ok(tera.render(template_name, &ctx)?)
     }
 
     pub(crate) fn replace_code_fences(&self, md: String) -> String {

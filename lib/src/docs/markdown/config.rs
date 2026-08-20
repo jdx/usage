@@ -17,9 +17,9 @@ impl MarkdownRenderer {
             return Ok(String::new());
         }
         config.render_md(self);
-        let mut ctx = self.clone();
-        ctx.insert("config", &config);
-        ctx.render("config_template.md.tera")
+        self.render_with("config_template.md.tera", |ctx| {
+            ctx.insert("config", &config)
+        })
     }
 }
 

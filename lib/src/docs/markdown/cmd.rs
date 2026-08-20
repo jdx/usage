@@ -6,9 +6,7 @@ impl MarkdownRenderer {
     pub fn render_cmd(&self, cmd: &crate::SpecCommand) -> Result<String, UsageErr> {
         let mut cmd = SpecCommand::from(cmd);
         cmd.render_md(self);
-        let mut ctx = self.clone();
-        ctx.insert("cmd", &cmd);
-        ctx.render("cmd_template.md.tera")
+        self.render_with("cmd_template.md.tera", |ctx| ctx.insert("cmd", &cmd))
     }
 }
 
