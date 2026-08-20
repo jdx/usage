@@ -824,15 +824,23 @@ feature list is not an exhaustive audit.
       `parse_from_argv` is the explicit full-argv helper: it strips the binary
       for ordinary CLIs and applies the same basename-selected applet rewrite as
       `parse()` for multicall CLIs, while returning errors for tests and embedders.
-- [ ] **Generated micro-conformance against clap.** One minimal CLI per matrix row,
-      compared on accepted and rejected argv, typed values, error kind and exit
-      status, stdout versus stderr, short and long help, usage/version output, and
-      completion candidates. Include setting-specific diagnostics: for example,
-      clap explains that `--flag=value` is required when `require_equals` rejects
-      a detached or missing value, while usage currently reports only a generic
-      missing value and forced Aube to adapt that error locally. Run the portable
-      cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
-      remains the scale test; this is the configuration-space test it cannot be.
+- [~] **Generated micro-conformance against clap.** A paired typed-CLI harness now
+  compares `require_equals`, defaults, delimiters, negative and hyphenated values,
+  value enums, scalar overrides, fixed arity, globals through subcommands, required
+  flags, conflicts/requires, required exclusive groups, optional values with equals,
+  external subcommands, `arg_required_else_help`, and subcommand requirement/conflict
+  policies. It
+  records typed values, error classifications, exit status and stream, relevant help,
+  and version output; the remaining matrix rows and completion candidates still need
+  equivalent minimal pairs. One minimal CLI per matrix row,
+  compared on accepted and rejected argv, typed values, error kind and exit
+  status, stdout versus stderr, short and long help, usage/version output, and
+  completion candidates. Include setting-specific diagnostics: for example,
+  clap explains that `--flag=value` is required when `require_equals` rejects
+  a detached or missing value, while usage currently reports only a generic
+  missing value and forced Aube to adapt that error locally. Run the portable
+  cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
+  remains the scale test; this is the configuration-space test it cannot be.
 - [x] **Combination and stateful tests.** Focused typed conformance cases pair
       defaults with env and delimiters, optional values with `require_equals`,
       globals with overrides, subcommands with required positionals, groups with

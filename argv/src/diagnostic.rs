@@ -588,14 +588,22 @@ pub fn render(
                         .find(|m| core::ptr::eq(m.flag, *flag))
                         .and_then(|m| m.value_name)
                 })
-                .map(|v| format!(" <{v}>"))
-                .unwrap_or_default();
-            let _ = writeln!(
-                out,
-                "{} a value is required for '{}' but none was supplied",
-                style.error("error:"),
-                style.invalid(&format!("{name}{value}"))
-            );
+                .unwrap_or(flag.name);
+            if flag.require_equals {
+                let _ = writeln!(
+                    out,
+                    "{} equal sign is needed when assigning values to '{}'",
+                    style.error("error:"),
+                    style.invalid(&format!("{name}=<{value}>"))
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "{} a value is required for '{}' but none was supplied",
+                    style.error("error:"),
+                    style.invalid(&format!("{name} <{value}>"))
+                );
+            }
         }
         Error::InvalidChoice { name, choices } => {
             let shown_name = shown(here, name);
@@ -703,7 +711,10 @@ pub fn render(
         // message would hide that rather than help.
         // Neither is a failure, and a caller that has not handled them before reaching here
         // has a bug this cannot paper over.
-        Error::Help { .. } | Error::HelpAll { .. } | Error::Version { .. } => {
+        Error::Help { .. }
+        | Error::MissingArgsHelp { .. }
+        | Error::HelpAll { .. }
+        | Error::Version { .. } => {
             return String::new();
         }
     }

@@ -670,6 +670,12 @@ pub enum Error<'t, 'v> {
     /// clap has them. The caller renders — this crate does not print, because a library that
     /// writes to stdout on its own is one an adopter cannot embed.
     Help { cmd: &'t Command<'t>, long: bool },
+    /// `arg_required_else_help` found no command-line arguments for `cmd`.
+    ///
+    /// Unlike an explicit help request, this is a usage failure: clap prints the short help to
+    /// stderr and exits with status 2. Keeping the shape separate lets embedders preserve that
+    /// terminal contract without guessing why [`Error::Help`] was returned.
+    MissingArgsHelp { cmd: &'t Command<'t> },
     /// Recursive long help was requested for `cmd` and every visible descendant.
     HelpAll { cmd: &'t Command<'t> },
     /// `--version` or `-V` was asked for. Not a failure either — the caller prints and leaves.
