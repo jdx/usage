@@ -4975,7 +4975,21 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // value from the environment counts the same as a typed one — clap does that too,
     // and an asymmetric rule would make the same pair a conflict or not depending on
     // which side happened to be typed.
-    let conflict_checks = cli.fields.iter().flat_map(move |f| {
+    // Judge flag/flag conflicts before relationships involving positionals. clap reports the
+    // two switches the user explicitly combined before a positional that happens to conflict
+    // with either one, regardless of where the positional field was declared. That is also the
+    // actionable pair: `start --all --local id` should point at `--all` and `--local`, not let
+    // the trailing `id` hide their contradiction.
+    let conflict_fields = cli
+        .fields
+        .iter()
+        .filter(|field| matches!(field.kind, Kind::Flag { .. }))
+        .chain(
+            cli.fields
+                .iter()
+                .filter(|field| !matches!(field.kind, Kind::Flag { .. })),
+        );
+    let conflict_checks = conflict_fields.flat_map(move |f| {
         let given = format_ident!("__given_{}", f.ident);
         let name = &f.name;
         f.conflicts.iter().map(move |selector| {
