@@ -207,6 +207,28 @@ struct PresentedSubcommands {
     command: Option<ArgumentConflictCommand>,
 }
 
+#[derive(Args)]
+#[command(
+    visible_alias = "go",
+    alias = "secret-run",
+    hide,
+    after_long_help = "More details."
+)]
+struct StructCommandMetadata;
+
+#[derive(Subcommands)]
+enum StructMetadataCommands {
+    Run(StructCommandMetadata),
+}
+
+#[derive(Cli)]
+#[command(bin = "struct-metadata", about)]
+#[allow(dead_code)]
+struct StructMetadataCli {
+    #[command(subcommand)]
+    command: StructMetadataCommands,
+}
+
 #[derive(Cli)]
 #[command(bin = "ordered")]
 #[allow(dead_code)]
@@ -1422,6 +1444,19 @@ fn typed_subcommand_presentation_reaches_help_and_the_spec() {
     let page = usage::argv::help::short_help(spec, &["presented"], &[spec.root]);
     assert!(page.contains("<ACTION>"), "{page}");
     assert!(page.contains("Actions:"), "{page}");
+}
+
+#[test]
+fn clap_command_metadata_can_stay_on_the_args_struct() {
+    let spec = StructMetadataCli::spec();
+    let meta = spec.root.subcommands[0];
+    assert_eq!(meta.cmd.aliases, ["go", "secret-run"]);
+    assert_eq!(meta.hidden_aliases, ["secret-run"]);
+    assert!(meta.hide);
+    assert_eq!(meta.after_long_help, Some("More details."));
+
+    assert!(StructMetadataCli::parse_from(&[OsStr::new("go")]).is_ok());
+    assert!(StructMetadataCli::parse_from(&[OsStr::new("secret-run")]).is_ok());
 }
 
 #[test]

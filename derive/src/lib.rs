@@ -201,6 +201,8 @@
 //!
 //! On the struct itself: `bin`, `version`, `long_version`, `author`, `license`, `repository`, `about`,
 //! `long_about`, `before_help`, `after_help`,
+//! clap-compatible `visible_alias(es)`, hidden `alias(es)`, and `hide` may stay on an
+//! `Args` struct and are inherited by every subcommand variant that mounts it —
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
