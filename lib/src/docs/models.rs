@@ -56,6 +56,7 @@ pub struct SpecCommand {
     pub next_line_help: bool,
     pub flatten_help: bool,
     pub args_conflicts_with_subcommands: bool,
+    pub disable_help_subcommand: bool,
     pub flattened_usage: Vec<String>,
     /// Visible descendants rendered as sections when an ancestor flattens help.
     pub flattened_subcommands: Vec<SpecCommand>,
@@ -579,6 +580,9 @@ impl From<&crate::SpecCommand> for SpecCommand {
             args_override_self: _,
             subcommand_negates_reqs: _,
             args_conflicts_with_subcommands,
+            disable_help_flag: _,
+            disable_help_subcommand,
+            disable_version_flag: _,
             subcommand_precedence_over_arg: _,
             allow_missing_positional: _,
             // Rendered above, or deliberately absent from the docs model.
@@ -677,6 +681,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             next_line_help: *next_line_help,
             flatten_help: *flatten_help,
             args_conflicts_with_subcommands: *args_conflicts_with_subcommands,
+            disable_help_subcommand: *disable_help_subcommand,
             flattened_usage,
             flattened_subcommands,
             flattened_next_line_help: false,

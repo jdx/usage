@@ -9,7 +9,7 @@ pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};
 pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
 pub use crate::spec::effect::SpecCommandEffect;
-pub use crate::spec::flag::{SpecDefaultIf, SpecFlag, SpecRequiresIf};
+pub use crate::spec::flag::{SpecDefaultIf, SpecFlag, SpecFlagAction, SpecRequiresIf};
 pub use crate::spec::group::SpecGroup;
 pub use crate::spec::mount::SpecMount;
 pub use crate::spec::unknown_flags::UnknownFlags;

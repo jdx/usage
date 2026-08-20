@@ -129,6 +129,12 @@ pub struct SpecCommand {
     /// Whether a bare invocation of this command shows its help.
     #[serde(skip_serializing_if = "is_false")]
     pub arg_required_else_help: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub disable_help_flag: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub disable_help_subcommand: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub disable_version_flag: bool,
     /// Whether delimiter splitting is disabled after `--` or for an automatic trailing arg.
     #[serde(skip_serializing_if = "is_false")]
     pub dont_delimit_trailing_values: bool,
@@ -224,6 +230,9 @@ impl Default for SpecCommand {
             max_term_width: None,
             external_subcommand: false,
             arg_required_else_help: false,
+            disable_help_flag: false,
+            disable_help_subcommand: false,
+            disable_version_flag: false,
             dont_delimit_trailing_values: false,
             args_override_self: true,
             subcommand_negates_reqs: false,
@@ -343,6 +352,9 @@ impl SpecCommand {
                 "max_term_width" => cmd.max_term_width = Some(v.ensure_usize()?),
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
+                "disable_help_flag" => cmd.disable_help_flag = v.ensure_bool()?,
+                "disable_help_subcommand" => cmd.disable_help_subcommand = v.ensure_bool()?,
+                "disable_version_flag" => cmd.disable_version_flag = v.ensure_bool()?,
                 "dont_delimit_trailing_values" => {
                     cmd.dont_delimit_trailing_values = v.ensure_bool()?
                 }
@@ -508,6 +520,16 @@ impl SpecCommand {
                     cmd.arg_required_else_help =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "disable_help_flag" => {
+                    cmd.disable_help_flag = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
+                "disable_help_subcommand" => {
+                    cmd.disable_help_subcommand =
+                        child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
+                "disable_version_flag" => {
+                    cmd.disable_version_flag = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "dont_delimit_trailing_values" => {
                     cmd.dont_delimit_trailing_values =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
@@ -662,6 +684,9 @@ impl SpecCommand {
             max_term_width,
             external_subcommand,
             arg_required_else_help,
+            disable_help_flag,
+            disable_help_subcommand,
+            disable_version_flag,
             dont_delimit_trailing_values,
             args_override_self,
             subcommand_negates_reqs,
@@ -762,6 +787,9 @@ impl SpecCommand {
         }
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
+        self.disable_help_flag = disable_help_flag;
+        self.disable_help_subcommand = disable_help_subcommand;
+        self.disable_version_flag = disable_version_flag;
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
         self.args_override_self = args_override_self;
         self.subcommand_negates_reqs = subcommand_negates_reqs;
@@ -880,6 +908,9 @@ impl From<&SpecCommand> for KdlNode {
             max_term_width,
             external_subcommand,
             arg_required_else_help,
+            disable_help_flag,
+            disable_help_subcommand,
+            disable_version_flag,
             dont_delimit_trailing_values,
             args_override_self,
             subcommand_negates_reqs,
@@ -960,6 +991,15 @@ impl From<&SpecCommand> for KdlNode {
         if *arg_required_else_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("arg_required_else_help", true));
+        }
+        if *disable_help_flag {
+            node.push(KdlEntry::new_prop("disable_help_flag", true));
+        }
+        if *disable_help_subcommand {
+            node.push(KdlEntry::new_prop("disable_help_subcommand", true));
+        }
+        if *disable_version_flag {
+            node.push(KdlEntry::new_prop("disable_version_flag", true));
         }
         if *dont_delimit_trailing_values {
             node.entries_mut()
@@ -1277,6 +1317,12 @@ impl From<&clap::Command> for SpecCommand {
         spec.next_line_help = cmd.is_next_line_help_set();
         spec.flatten_help = cmd.is_flatten_help_set();
         spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
+        spec.disable_help_flag = cmd.is_disable_help_flag_set();
+        spec.disable_help_subcommand =
+            cmd.get_subcommands().next().is_some() && cmd.is_disable_help_subcommand_set();
+        spec.disable_version_flag = (cmd.get_version().is_some()
+            || cmd.get_long_version().is_some())
+            && cmd.is_disable_version_flag_set();
         spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
         spec.args_override_self = cmd.is_args_override_self();
         spec.subcommand_negates_reqs = cmd.is_subcommand_negates_reqs_set();

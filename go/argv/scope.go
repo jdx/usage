@@ -268,12 +268,14 @@ func suppliedEntries(cmd *Command, claimed []string) []shownFlag {
 	}
 
 	var out []shownFlag
-	if e, ok := pick("help", 'h', "Print help"); ok {
-		out = append(out, e)
+	if !cmd.DisableHelpFlag {
+		if e, ok := pick("help", 'h', "Print help"); ok {
+			out = append(out, e)
+		}
 	}
 	// Only where the parser accepts one, which is the root of a CLI that declared
 	// a version.
-	if cmd.Version {
+	if cmd.Version && !cmd.DisableVersionFlag {
 		if e, ok := pick("version", 'V', "Print version"); ok {
 			out = append(out, e)
 		}

@@ -130,7 +130,7 @@ struct HiddenHelp {
     mode: String,
 }
 
-#[derive(Debug, Cli)]
+#[derive(Cli)]
 #[usage(bin = "optional-value")]
 struct OptionalValue {
     #[usage(long)]
@@ -243,6 +243,81 @@ enum GroupedCommand {
     /// Show the current status.
     #[command(help_heading = "Commands")]
     Status,
+}
+
+#[derive(Cli)]
+#[command(
+    bin = "custom-builtins",
+    version,
+    disable_help_flag,
+    disable_help_subcommand,
+    disable_version_flag
+)]
+#[allow(dead_code)]
+struct CustomBuiltins {
+    /// Show the concise help page.
+    #[arg(long = "assist", action = usage::ArgAction::HelpShort)]
+    assist: bool,
+    /// Show help selected by spelling.
+    #[arg(short = '?', long = "help-all", action = usage::ArgAction::Help)]
+    help_all: bool,
+    /// Show the full help page.
+    #[arg(long = "manual", action = usage::ArgAction::HelpLong)]
+    manual: bool,
+    /// Show version information.
+    #[arg(long = "release", action = usage::ArgAction::Version)]
+    release: bool,
+    #[command(subcommand)]
+    command: Option<ArgumentConflictCommand>,
+}
+
+#[test]
+fn custom_builtin_actions_replace_synthetic_entries() {
+    let kdl = CustomBuiltins::to_kdl();
+    assert!(kdl.contains("disable_help_flag #true"), "{kdl}");
+    assert!(kdl.contains("disable_help_subcommand #true"), "{kdl}");
+    assert!(kdl.contains("disable_version_flag #true"), "{kdl}");
+    assert!(kdl.contains("action=help_short"), "{kdl}");
+    assert!(kdl.contains("action=help_long"), "{kdl}");
+    assert!(kdl.contains("action=version"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
+    assert!(portable.cmd.disable_help_flag);
+    assert!(portable.cmd.disable_help_subcommand);
+    assert!(portable.cmd.disable_version_flag);
+    assert_eq!(
+        portable.cmd.flags[0].action,
+        usage_parser::SpecFlagAction::HelpShort
+    );
+
+    let assist: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--assist")];
+    let release: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--release")];
+    let short_help: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("-?")];
+    let long_help: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--help-all")];
+    let manual: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--manual")];
+    let help: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--help")];
+    let version: &[&OsStr] = &[OsStr::new("custom-builtins"), OsStr::new("--version")];
+    assert!(matches!(
+        CustomBuiltins::try_parse_from(assist),
+        Err(usage::Error::Help { long: false, .. })
+    ));
+    assert!(matches!(
+        CustomBuiltins::try_parse_from(release),
+        Err(usage::Error::Version { .. })
+    ));
+    assert!(matches!(
+        CustomBuiltins::try_parse_from(short_help),
+        Err(usage::Error::Help { long: false, .. })
+    ));
+    assert!(matches!(
+        CustomBuiltins::try_parse_from(long_help),
+        Err(usage::Error::Help { long: true, .. })
+    ));
+    assert!(matches!(
+        CustomBuiltins::try_parse_from(manual),
+        Err(usage::Error::Help { long: true, .. })
+    ));
+    assert!(CustomBuiltins::try_parse_from(help).is_err());
+    assert!(CustomBuiltins::try_parse_from(version).is_err());
 }
 
 #[derive(Subcommands, serde::Deserialize)]

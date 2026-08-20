@@ -91,6 +91,12 @@ type Command struct {
 	// Set on the root, and only when the CLI declares a version: a --version that
 	// answers with nothing is worse than one that is not there.
 	Version bool
+	// DisableHelpFlag removes the synthetic --help and -h entries.
+	DisableHelpFlag bool
+	// DisableHelpSubcommand removes the synthetic `help` route.
+	DisableHelpSubcommand bool
+	// DisableVersionFlag removes the synthetic --version and -V entries.
+	DisableVersionFlag bool
 	// Key is a caller-assigned identifier, echoed back in the event.
 	//
 	// Generated code dispatches on this instead of comparing strings. Rust needs
@@ -181,7 +187,20 @@ type Flag struct {
 	// Global is whether the flag is recognized by every command beneath the one
 	// that declares it.
 	Global bool
+	// Action says whether this flag binds or requests built-in output.
+	Action ArgAction
 }
+
+// ArgAction is what supplying a flag does.
+type ArgAction uint8
+
+const (
+	ActionSet ArgAction = iota
+	ActionHelp
+	ActionHelpShort
+	ActionHelpLong
+	ActionVersion
+)
 
 // Arg is a positional argument.
 type Arg struct {
@@ -507,19 +526,21 @@ func (e *Error) Error() string {
 // compare a reported flag against them by identity.
 var (
 	// HelpLong is the synthetic --help.
-	HelpLong = &Flag{Key: ^uint64(0), Name: "help", Longs: []string{"help"}}
+	HelpLong = &Flag{Key: ^uint64(0), Name: "help", Longs: []string{"help"}, Action: ActionHelpLong}
 	// HelpShort is the synthetic -h.
-	HelpShort = &Flag{Key: ^uint64(0) - 1, Name: "help", Shorts: []byte{'h'}}
+	HelpShort = &Flag{Key: ^uint64(0) - 1, Name: "help", Shorts: []byte{'h'}, Action: ActionHelpShort}
 	// VersionLong is the synthetic --version, offered only where the command says
 	// Version.
-	VersionLong = &Flag{Key: ^uint64(0) - 2, Name: "version", Longs: []string{"version"}}
+	VersionLong = &Flag{Key: ^uint64(0) - 2, Name: "version", Longs: []string{"version"}, Action: ActionVersion}
 	// VersionShort is the synthetic -V.
-	VersionShort = &Flag{Key: ^uint64(0) - 3, Name: "version", Shorts: []byte{'V'}}
+	VersionShort = &Flag{Key: ^uint64(0) - 3, Name: "version", Shorts: []byte{'V'}, Action: ActionVersion}
 )
 
 // IsHelpFlag reports whether a flag is one the parser supplied for --help or -h.
-func IsHelpFlag(f *Flag) bool { return f == HelpLong || f == HelpShort }
+func IsHelpFlag(f *Flag) bool {
+	return f != nil && (f.Action == ActionHelp || f.Action == ActionHelpShort || f.Action == ActionHelpLong)
+}
 
 // IsVersionFlag reports whether a flag is one the parser supplied for --version
 // or -V.
-func IsVersionFlag(f *Flag) bool { return f == VersionLong || f == VersionShort }
+func IsVersionFlag(f *Flag) bool { return f != nil && f.Action == ActionVersion }

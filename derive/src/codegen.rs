@@ -145,6 +145,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let subcommand_precedence_over_arg = cli.subcommand_precedence_over_arg;
     let allow_missing_positional = cli.allow_missing_positional;
+    let disable_help_flag = cli.disable_help_flag;
+    let disable_help_subcommand = cli.disable_help_subcommand;
+    let disable_version_flag = cli.disable_version_flag;
     let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
     let next_line_help = cli.next_line_help;
@@ -472,6 +475,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 subcommand_precedence_over_arg: #subcommand_precedence_over_arg,
                 allow_missing_positional: #allow_missing_positional,
+                disable_help_flag: #disable_help_flag,
+                disable_help_subcommand: #disable_help_subcommand,
+                disable_version_flag: #disable_version_flag,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 name: #name,
                 key: #root_key,
@@ -597,12 +603,16 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // scope: `mise config --help` is a question about `config`, and the parser
                     // is what knows how deep the words reached.
                     if let usage_argv::Event::Flag { flag, .. } = &__usage_event {
-                        if flag.key == usage_argv::HELP_LONG_KEY
-                            || flag.key == usage_argv::HELP_SHORT_KEY
-                        {
+                        if usage_argv::is_help_flag(flag) {
+                            let long = match flag.action {
+                                usage_argv::ArgAction::HelpShort => false,
+                                usage_argv::ArgAction::HelpLong => true,
+                                usage_argv::ArgAction::Help => !flag.longs.is_empty(),
+                                _ => false,
+                            };
                             return ::std::result::Result::Err(usage_argv::Error::Help {
                                 cmd: __usage_parser.command(),
-                                long: flag.key == usage_argv::HELP_LONG_KEY,
+                                long,
                             });
                         }
                         // Same shape, and for the same reason: a question rather than a
@@ -610,7 +620,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         if usage_argv::is_version_flag(flag) {
                             return ::std::result::Result::Err(
                                 usage_argv::Error::Version {
-                                    long: flag.key == usage_argv::VERSION_LONG_KEY,
+                                    long: !flag.longs.is_empty(),
                                 },
                             );
                         }
@@ -1143,6 +1153,13 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
         None => quote!(::core::option::Option::None),
     };
+    let action = match field.action {
+        crate::model::ArgAction::Set => quote!(usage_argv::ArgAction::Set),
+        crate::model::ArgAction::Help => quote!(usage_argv::ArgAction::Help),
+        crate::model::ArgAction::HelpShort => quote!(usage_argv::ArgAction::HelpShort),
+        crate::model::ArgAction::HelpLong => quote!(usage_argv::ArgAction::HelpLong),
+        crate::model::ArgAction::Version => quote!(usage_argv::ArgAction::Version),
+    };
     quote! {
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
@@ -1161,6 +1178,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             value_optional: #value_optional,
             default_missing: #default_missing,
             global: #global,
+            action: #action,
         };
     }
 }
@@ -3628,6 +3646,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let subcommand_precedence_over_arg = cli.subcommand_precedence_over_arg;
     let allow_missing_positional = cli.allow_missing_positional;
+    let disable_help_flag = cli.disable_help_flag;
+    let disable_help_subcommand = cli.disable_help_subcommand;
+    let disable_version_flag = cli.disable_version_flag;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3742,6 +3763,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 subcommand_precedence_over_arg: #subcommand_precedence_over_arg,
                 allow_missing_positional: #allow_missing_positional,
+                disable_help_flag: #disable_help_flag,
+                disable_help_subcommand: #disable_help_subcommand,
+                disable_version_flag: #disable_version_flag,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,

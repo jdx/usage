@@ -107,6 +107,9 @@ pub fn build(
         // either.
         default_subcommand: None,
         version: false,
+        disable_help_flag: cmd.disable_help_flag,
+        disable_help_subcommand: cmd.disable_help_subcommand,
+        disable_version_flag: cmd.disable_version_flag,
         unknown_flags,
         external_subcommand: cmd.external_subcommand,
         arg_required_else_help: cmd.arg_required_else_help,
@@ -303,6 +306,13 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
         value_optional: f.value_optional,
         default_missing: f.default_missing.as_deref().map(|s| leak(s).as_bytes()),
         global: f.global,
+        action: match f.action {
+            usage::SpecFlagAction::Set => usage_argv::ArgAction::Set,
+            usage::SpecFlagAction::Help => usage_argv::ArgAction::Help,
+            usage::SpecFlagAction::HelpShort => usage_argv::ArgAction::HelpShort,
+            usage::SpecFlagAction::HelpLong => usage_argv::ArgAction::HelpLong,
+            usage::SpecFlagAction::Version => usage_argv::ArgAction::Version,
+        },
     }))
 }
 
