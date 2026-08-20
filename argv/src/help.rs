@@ -1201,12 +1201,14 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
                 .find(|short| !meta.hidden_shorts.contains(short))
                 .map(|short| format!("-{}", *short as char))
         })
+        .or_else(|| meta.flag.negate.map(|negate| format!("--{negate}")))
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
 fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     let usage = flag_usage_masked(meta, show);
     match meta.flag.negate.filter(|_| show.negate) {
+        Some(negate) if show.long.is_none() && show.short.is_none() => format!("--{negate}"),
         Some(negate) => format!("{usage} / --{negate}"),
         None => usage,
     }

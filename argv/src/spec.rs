@@ -2527,6 +2527,10 @@ fn flag_forms(meta: &FlagMeta<'_>) -> String {
         forms.push_str("--");
         forms.push_str(long);
     }
+    if forms.is_empty() {
+        forms.push_str(flag.name);
+        forms.push(':');
+    }
     forms
 }
 

@@ -2333,6 +2333,7 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         }
     });
     let body = flag_binding_body(field);
+    let remember_invalid_choice = remember_invalid_flag_choice(field);
     let table = format_ident!("FLAG_{i}");
     quote! {
         // The key gets us to the right arm in one jump; the identity check makes a
@@ -2342,6 +2343,7 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         // have distinct addresses, so this is exact.
         #key if ::core::ptr::eq(*flag, &#table) => {
             #duplicate
+            #remember_invalid_choice
             #body
             partial.#given = true;
             #direct
@@ -2354,6 +2356,70 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
             #(#displaced)*
             true
         }
+    }
+}
+
+fn tracks_invalid_choice(field: &Field) -> bool {
+    (!field.choices.is_empty() || field.value_enum) && !field.allow_unknown_choices
+}
+
+fn accepted_choices(field: &Field) -> TokenStream {
+    match (field.value_enum, field.value_ty.as_ref()) {
+        (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+        _ => {
+            let choices = &field.choices;
+            quote!(&[#(#choices),*])
+        }
+    }
+}
+
+fn choice_ignore_case(field: &Field) -> TokenStream {
+    match (field.value_enum, field.value_ty.as_ref()) {
+        (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+        _ => quote!(false),
+    }
+}
+
+fn remember_invalid_flag_choice(field: &Field) -> TokenStream {
+    if !tracks_invalid_choice(field) {
+        return TokenStream::new();
+    }
+    let invalid = format_ident!("__invalid_choice_{}", field.ident);
+    let accepted = accepted_choices(field);
+    let ignore_case = choice_ignore_case(field);
+    let reset = (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
+    let check = quote! {
+        if let ::std::result::Result::Ok(__usage_choice_text) =
+            ::std::str::from_utf8(__usage_choice_value)
+        {
+            partial.#invalid |= !usage_argv::spec::choice_matches(
+                #accepted,
+                __usage_choice_text,
+                #ignore_case,
+            );
+        }
+    };
+    match field.delimiter {
+        Some(delimiter) => {
+            let byte =
+                u8::try_from(u32::from(delimiter)).expect("the model rejects non-ASCII delimiters");
+            quote! {
+                #reset
+                if let ::std::option::Option::Some(__usage_choice_value) = value {
+                    for __usage_choice_value in
+                        __usage_choice_value.split(|byte| *byte == #byte)
+                    {
+                        #check
+                    }
+                }
+            }
+        }
+        None => quote! {
+            #reset
+            if let ::std::option::Option::Some(__usage_choice_value) = value {
+                #check
+            }
+        },
     }
 }
 
@@ -2637,9 +2703,52 @@ fn arg_arm(i: usize, field: &Field) -> TokenStream {
         },
         _ => quote!(partial.#ident = __usage_text(value);),
     };
+    let remember_invalid_choice = if tracks_invalid_choice(field) {
+        let invalid = format_ident!("__invalid_choice_{}", field.ident);
+        let accepted = accepted_choices(field);
+        let ignore_case = choice_ignore_case(field);
+        let reset =
+            (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
+        let check = quote! {
+            if let ::std::result::Result::Ok(__usage_choice_text) =
+                ::std::str::from_utf8(__usage_choice_value)
+            {
+                partial.#invalid |= !usage_argv::spec::choice_matches(
+                    #accepted,
+                    __usage_choice_text,
+                    #ignore_case,
+                );
+            }
+        };
+        match field.delimiter {
+            Some(delimiter) => {
+                let byte = u8::try_from(u32::from(delimiter))
+                    .expect("the model rejects non-ASCII delimiters");
+                quote! {
+                    #reset
+                    if delimit {
+                        for __usage_choice_value in value.split(|byte| *byte == #byte) {
+                            #check
+                        }
+                    } else {
+                        let __usage_choice_value = value;
+                        #check
+                    }
+                }
+            }
+            None => quote! {
+                #reset
+                let __usage_choice_value = value;
+                #check
+            },
+        }
+    } else {
+        TokenStream::new()
+    };
     let table = format_ident!("ARG_{i}");
     quote! {
         #key if ::core::ptr::eq(*arg, &#table) => {
+            #remember_invalid_choice
             #body
             partial.#given = true;
             true
@@ -3086,7 +3195,11 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         let mirrored = mirrored_global_ident(f).map(|mirrored| {
             quote!(pub #mirrored: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated #mirrored))
+        let invalid_choice = tracks_invalid_choice(f).then(|| {
+            let invalid = format_ident!("__invalid_choice_{}", ident);
+            quote!(pub #invalid: bool,)
+        });
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated #mirrored #invalid_choice))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -3423,6 +3536,10 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             quote!(#negated: false,)
         });
         let mirrored = mirrored_global_ident(f).map(|mirrored| quote!(#mirrored: false,));
+        let invalid_choice = tracks_invalid_choice(f).then(|| {
+            let invalid = format_ident!("__invalid_choice_{}", ident);
+            quote!(#invalid: false,)
+        });
         Some(quote! {
             #ident: ::std::default::Default::default(),
             #given: false,
@@ -3431,6 +3548,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             #here
             #negated
             #mirrored
+            #invalid_choice
         })
     });
     // Only the fields that declare one: `Partial`'s own initializer has already put
@@ -6157,14 +6275,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 quote!(&[#(#list),*])
             }
         };
-        let accepted_choices: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
-            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
-            _ => quote!(#choices),
-        };
-        let ignore_case: TokenStream = match (f.value_enum, f.value_ty.as_ref()) {
-            (true, Some(ty)) => quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
-            _ => quote!(false),
-        };
+        let accepted_choices = accepted_choices(f);
+        let ignore_case = choice_ignore_case(f);
+        let invalid = format_ident!("__invalid_choice_{}", ident);
         let values = match f.shape {
             Shape::Optional => quote!(partial.#ident.iter()),
             Shape::Required => quote!(::std::iter::once(&partial.#ident)),
@@ -6175,6 +6288,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let active = view_field_active(f);
         Some(quote! {
             if #active {
+                if partial.#invalid {
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::InvalidChoice {
+                            name: #name,
+                            choices: #choices,
+                        },
+                    );
+                }
                 for value in #values {
                     // Compared as text, since a choice is a word.
                 //

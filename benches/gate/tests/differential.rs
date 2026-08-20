@@ -472,6 +472,22 @@ fn clap_shadow_keeps_flag_requirements_from_the_shared_spec() {
 }
 
 #[test]
+fn an_override_does_not_erase_an_invalid_choice() {
+    let outcome = run(
+        &SPEC,
+        &[
+            "tool-alias".into(),
+            "set".into(),
+            "--log-level=v".into(),
+            "--index".into(),
+        ],
+    );
+    assert_eq!(outcome.argv, Verdict::InvalidChoice);
+    assert!(!outcome.lib);
+    assert_eq!(outcome.clap, Verdict::InvalidChoice);
+}
+
+#[test]
 fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
     // The first reading of this was "usage-argv refuses a lone `-` that clap accepts", filed as
     // a parser bug. It is not: `mise build` behaves identically, and the trace shows why —
