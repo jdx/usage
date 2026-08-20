@@ -138,6 +138,9 @@ pub fn build(
         cmd: table,
         about: opt(&cmd.help),
         long_about: opt(&cmd.help_long),
+        deprecated: opt(&cmd.deprecated),
+        deprecated_warn_at: opt(&cmd.deprecated_warn_at),
+        deprecated_remove_at: opt(&cmd.deprecated_remove_at),
         hidden_aliases: Box::leak(
             cmd.hidden_aliases
                 .iter()
@@ -350,6 +353,9 @@ fn flag_meta(
         hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
+        deprecated: opt(&f.deprecated),
+        deprecated_warn_at: opt(&f.deprecated_warn_at),
+        deprecated_remove_at: opt(&f.deprecated_remove_at),
         value_name: arg.map(|a| leak(&a.name)),
         value_names: arg.map_or(&[], |a| strs(&a.value_names)),
         // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from

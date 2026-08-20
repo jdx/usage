@@ -662,6 +662,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
+    command_deprecation(&mut out, meta, 0);
     usage_section(&mut out, spec, path, meta);
 
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
@@ -727,6 +728,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 },
                 if a.hide_env { None } else { a.env },
                 if a.hide_default_value { &[] } else { a.default },
+                None,
             );
         },
     );
@@ -754,6 +756,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
             return;
         }
         match f.help.filter(|h| !h.trim().is_empty()) {
@@ -764,6 +767,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 let _ = write!(out, "  {usage}");
             }
         }
+        let deprecation =
+            deprecation_label(f.deprecated, f.deprecated_warn_at, f.deprecated_remove_at);
         annotations(
             out,
             if f.hide_possible_values {
@@ -773,6 +778,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
             },
             if f.hide_env { None } else { f.env },
             if f.hide_default_value { &[] } else { f.default },
+            deprecation.as_deref(),
         );
     };
     groups_section(
@@ -876,6 +882,13 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
                 // layouts, as usage-lib does before choosing a layout.
                 let _ = write!(out, "  {}", about.trim_end());
             }
+            if let Some(label) = deprecation_label(
+                sub.deprecated,
+                sub.deprecated_warn_at,
+                sub.deprecated_remove_at,
+            ) {
+                let _ = write!(out, "  {label}");
+            }
             out.push('\n');
         }
         if heading.is_none() && !meta.cmd.disable_help_subcommand {
@@ -904,6 +917,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
         if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
             let _ = writeln!(out, "{}", about.trim_end());
         }
+        command_deprecation(out, sub, 0);
 
         let mut args: Vec<_> = sub
             .args
@@ -952,6 +966,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 } else {
                     arg.default
                 },
+                None,
             );
         }
         for flag in flags {
@@ -966,6 +981,11 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             } else {
                 let _ = write!(out, "  {usage}");
             }
+            let deprecation = deprecation_label(
+                flag.deprecated,
+                flag.deprecated_warn_at,
+                flag.deprecated_remove_at,
+            );
             annotations(
                 out,
                 if flag.hide_possible_values {
@@ -979,7 +999,15 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 } else {
                     flag.default
                 },
+                if meta.next_line_help {
+                    None
+                } else {
+                    deprecation.as_deref()
+                },
             );
+            if meta.next_line_help {
+                flag_deprecation(out, flag, 4);
+            }
         }
         if sub.flatten_help {
             flat_commands_short(out, &sub_path, sub);
@@ -1051,7 +1079,13 @@ fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Op
 }
 
 /// The bracketed notes after an entry's help: choices, environment, default.
-fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &[&str]) {
+fn annotations(
+    out: &mut String,
+    choices: &[&str],
+    env: Option<&str>,
+    default: &[&str],
+    suffix: Option<&str>,
+) {
     if !choices.is_empty() {
         let _ = write!(out, " [{}]", choices.join(", "));
     }
@@ -1060,6 +1094,9 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
     }
     if !default.is_empty() {
         let _ = write!(out, " (default: {})", default.join(", "));
+    }
+    if let Some(suffix) = suffix {
+        let _ = write!(out, " {suffix}");
     }
     out.push('\n');
 }
@@ -1249,6 +1286,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
+    command_deprecation(&mut out, meta, 0);
     usage_section(&mut out, spec, path, meta);
 
     if !meta.flatten_help {
@@ -1329,6 +1367,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -1353,6 +1392,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
         },
     );
     if meta.flatten_help {
@@ -1496,6 +1536,47 @@ fn long_annotations(out: &mut String, choices: &[&str], env: Option<&str>, defau
     }
 }
 
+fn deprecation_label(
+    message: Option<&str>,
+    warn_at: Option<&str>,
+    remove_at: Option<&str>,
+) -> Option<String> {
+    if message.is_none() && warn_at.is_none() && remove_at.is_none() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if let Some(message) = message {
+        parts.push(message.to_string());
+    }
+    if let Some(at) = warn_at {
+        parts.push(format!("warns at {at}"));
+    }
+    if let Some(at) = remove_at {
+        parts.push(format!("removed at {at}"));
+    }
+    Some(format!("[deprecated: {}]", parts.join("; ")))
+}
+
+fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize) {
+    if let Some(label) = deprecation_label(
+        meta.deprecated,
+        meta.deprecated_warn_at,
+        meta.deprecated_remove_at,
+    ) {
+        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+    }
+}
+
+fn flag_deprecation(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
+    if let Some(label) = deprecation_label(
+        meta.deprecated,
+        meta.deprecated_warn_at,
+        meta.deprecated_remove_at,
+    ) {
+        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+    }
+}
+
 /// The commands list, with each command's help beneath its usage.
 fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
@@ -1552,6 +1633,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
                 // the middle of the list.
                 write_indented(out, about.trim_end(), 4);
             }
+            command_deprecation(out, sub, 4);
             // A blank line between entries, which the wider layout can afford and which keeps a
             // multi-line description from running into the next command's name.
             out.push('\n');
@@ -1579,6 +1661,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
         {
             let _ = writeln!(out, "{}", about.trim_end());
         }
+        command_deprecation(out, sub, 0);
 
         let mut args: Vec<_> = sub
             .args
@@ -1649,6 +1732,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                     flag.default
                 },
             );
+            flag_deprecation(out, flag, 4);
         }
         if sub.flatten_help {
             flat_commands_long(out, &sub_path, sub, width);

@@ -95,6 +95,10 @@ pub struct Cli {
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
+    /// Why this command is deprecated, plus optional release milestones.
+    pub deprecated: Option<String>,
+    pub deprecated_warn_at: Option<String>,
+    pub deprecated_remove_at: Option<String>,
     /// Package metadata expressions whose results must be usable as `&'static str`.
     ///
     /// Keeping their tokens lets the Cargo-provided `env!("CARGO_PKG_…")` values remain the
@@ -199,6 +203,10 @@ pub struct Field {
     pub value_enum: bool,
     pub help: Option<String>,
     pub long_help: Option<String>,
+    /// Why this flag is deprecated, plus optional release milestones.
+    pub deprecated: Option<String>,
+    pub deprecated_warn_at: Option<String>,
+    pub deprecated_remove_at: Option<String>,
     pub env: Option<String>,
     /// The setting this flag sets, when the CLI resolves configuration.
     ///
@@ -629,6 +637,9 @@ impl Cli {
             runtime_long_version: None,
             about: None,
             long_about: None,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             author: None,
             license: None,
             repository: None,
@@ -789,6 +800,9 @@ impl Cli {
                     // declared.
                     "about" => cli.about_attr = Some(metadata_expr(&meta)?),
                     "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
+                    "deprecated" => cli.deprecated = Some(string_value(&meta)?),
+                    "deprecated_warn_at" => cli.deprecated_warn_at = Some(string_value(&meta)?),
+                    "deprecated_remove_at" => cli.deprecated_remove_at = Some(string_value(&meta)?),
                     "author" => cli.author = Some(metadata_expr(&meta)?),
                     "license" => cli.license = Some(metadata_expr(&meta)?),
                     "repository" => cli.repository = Some(metadata_expr(&meta)?),
@@ -855,7 +869,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
@@ -1577,6 +1591,9 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             env: None,
             setting: None,
             default: Vec::new(),
@@ -1707,6 +1724,9 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             env: None,
             setting: None,
             default: Vec::new(),
@@ -1831,6 +1851,9 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             env: None,
             setting: None,
             default: Vec::new(),
@@ -1939,6 +1962,9 @@ impl Field {
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
+        let mut deprecated = None;
+        let mut deprecated_warn_at = None;
+        let mut deprecated_remove_at = None;
         let mut verbatim_doc_comment = false;
         let mut hide = false;
         let mut hide_default_value = false;
@@ -2195,6 +2221,9 @@ impl Field {
                     // help whose breaks are meant literally has to be given directly.
                     "help" => help_attr = Some(string_value(&meta)?),
                     "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "deprecated" => deprecated = Some(string_value(&meta)?),
+                    "deprecated_warn_at" => deprecated_warn_at = Some(string_value(&meta)?),
+                    "deprecated_remove_at" => deprecated_remove_at = Some(string_value(&meta)?),
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "required" => required_collection = flag_value(&meta)?,
                     "double_dash" => {
@@ -2222,7 +2251,7 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `id`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, \
+                                 `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
                                  `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
@@ -3079,6 +3108,17 @@ impl Field {
             value_name = Some(shout(&name));
         }
 
+        if !matches!(kind, Kind::Flag { .. })
+            && (deprecated.is_some()
+                || deprecated_warn_at.is_some()
+                || deprecated_remove_at.is_some())
+        {
+            return Err(syn::Error::new_spanned(
+                field,
+                "deprecation metadata belongs on a flag or command, not a positional argument",
+            ));
+        }
+
         Ok(Field {
             ident,
             ty: field.ty.clone(),
@@ -3091,6 +3131,9 @@ impl Field {
             optional_value_type,
             help,
             long_help,
+            deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
             env,
             setting,
             default,
@@ -4016,6 +4059,9 @@ pub struct Variant {
     pub hidden_aliases: Vec<String>,
     pub help: Option<proc_macro2::TokenStream>,
     pub long_help: Option<proc_macro2::TokenStream>,
+    pub deprecated: Option<String>,
+    pub deprecated_warn_at: Option<String>,
+    pub deprecated_remove_at: Option<String>,
     pub before_help: Option<proc_macro2::TokenStream>,
     pub before_long_help: Option<proc_macro2::TokenStream>,
     pub after_help: Option<proc_macro2::TokenStream>,
@@ -4136,6 +4182,9 @@ impl Variant {
         let mut external = false;
         let mut help_attr: Option<proc_macro2::TokenStream> = None;
         let mut long_help_attr: Option<proc_macro2::TokenStream> = None;
+        let mut deprecated = None;
+        let mut deprecated_warn_at = None;
+        let mut deprecated_remove_at = None;
         let mut before_help = None;
         let mut before_long_help = None;
         let mut after_help = None;
@@ -4164,6 +4213,9 @@ impl Variant {
                     // breaks matter is declared instead.
                     "help" => help_attr = Some(metadata_expr(&meta)?),
                     "long_help" => long_help_attr = Some(metadata_expr(&meta)?),
+                    "deprecated" => deprecated = Some(string_value(&meta)?),
+                    "deprecated_warn_at" => deprecated_warn_at = Some(string_value(&meta)?),
+                    "deprecated_remove_at" => deprecated_remove_at = Some(string_value(&meta)?),
                     "before_help" => before_help = Some(metadata_expr(&meta)?),
                     "before_long_help" => before_long_help = Some(metadata_expr(&meta)?),
                     "after_help" => after_help = Some(metadata_expr(&meta)?),
@@ -4175,7 +4227,7 @@ impl Variant {
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
                                  variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
-                                 `external_subcommand`, `help`, `long_help`, `before_help`, \
+                                 `external_subcommand`, `help`, `long_help`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `before_help`, \
                                  `before_long_help`, `after_help`, `after_long_help`, and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
@@ -4286,6 +4338,9 @@ impl Variant {
                 hidden_aliases,
                 help: None,
                 long_help: None,
+                deprecated: None,
+                deprecated_warn_at: None,
+                deprecated_remove_at: None,
                 before_help: None,
                 before_long_help: None,
                 after_help: None,
@@ -4352,6 +4407,9 @@ impl Variant {
             hidden_aliases,
             help,
             long_help,
+            deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
             before_help,
             before_long_help,
             after_help,

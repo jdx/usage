@@ -1319,13 +1319,14 @@ above are where it lands.
       obvious first user. It is now portable through KDL, the typed derive,
       usage-lib and generated Go help. clap#4589 asks for prose under a heading — Deno wants
       per-section doc links — which is the same node with one more field.
-- [ ] **Deprecation and stability metadata on flags and commands** (clap#3321) —
-      `deprecated`, with warn/remove versions, already exists in the
-      config-prop vocabulary; the same on flags and commands would flow into
-      help, docs and completions from one declaration. Explicit full-name
-      deprecated env aliases (clap#5447) fit the same slot — full names, so
-      they stay greppable — and clap#5925's ordered fallback across several
-      env names is the same declaration read in order.
+- [x] **Deprecation and stability metadata on flags and commands** (clap#3321) —
+      `deprecated`, with warn/remove versions, is portable through KDL, typed
+      Rust, generated Go, help, docs and completions from one declaration.
+- [ ] **Ordered environment fallbacks and deprecated aliases** — explicit
+      full-name deprecated env aliases (clap#5447) stay greppable, while
+      clap#5925's fallback across several env names preserves declaration
+      order. This is parser behavior rather than command/flag presentation, so
+      it remains separate from the deprecation metadata above.
 - [ ] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
       clap's most-requested) — mutually exclusive flags declared as enum
       variants, lowering to the `group`/`conflicts` vocabulary the spec already

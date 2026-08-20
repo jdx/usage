@@ -139,6 +139,44 @@ func TestSubcommandPresentation(t *testing.T) {
 	}
 }
 
+func TestCommandDeprecationAppearsInListingsAndFlattenedHelp(t *testing.T) {
+	sub := &Command{Name: "old", Key: 2}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "old command", DeprecatedWarnAt: "6.1"},
+	}
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		if !strings.Contains(page, "[deprecated: warns at 6.1]") {
+			t.Fatalf("command listing omitted deprecation:\n%s", page)
+		}
+	}
+
+	help[0].NextLineHelp = true
+	nextLinePage := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(nextLinePage, "old\n    old command\n    [deprecated: warns at 6.1]") {
+		t.Fatalf("next-line command listing glued deprecation to its description:\n%s", nextLinePage)
+	}
+	help[0].NextLineHelp = false
+
+	help[0].FlattenHelp = true
+	shortPage := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(shortPage, "old command\n[deprecated: warns at 6.1]") {
+		t.Fatalf("flattened command glued deprecation to its description:\n%s", shortPage)
+	}
+	for _, page := range []string{
+		shortPage,
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		if !strings.Contains(page, "old command") || !strings.Contains(page, "[deprecated: warns at 6.1]") {
+			t.Fatalf("flattened command omitted deprecation:\n%s", page)
+		}
+	}
+}
+
 func TestSubcommandHelpHeadings(t *testing.T) {
 	run := &Command{Name: "run", Key: 2}
 	clean := &Command{Name: "clean", Key: 3}
@@ -214,7 +252,7 @@ func TestNextLineHelp(t *testing.T) {
 	help := HelpTable{
 		{Key: 1, NextLineHelp: true},
 		{Key: 2, Short: "Input file"},
-		{Key: 3, Short: "Enable verbose output"},
+		{Key: 3, Short: "Enable verbose output", Deprecated: "use --log-level"},
 		{Key: 4, Short: "Run it\n"},
 		{Key: 5, Env: "MODE", Default: []string{"fast"}, Choices: []string{"fast", "slow"}},
 	}
@@ -227,6 +265,9 @@ func TestNextLineHelp(t *testing.T) {
 		shortPage,
 		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
 	} {
+		if count := strings.Count(page, "[deprecated: use --log-level]"); count != 1 {
+			t.Fatalf("deprecation should appear once, got %d:\n%s", count, page)
+		}
 		for _, want := range []string{
 			"  [input]\n    Input file",
 			"  --verbose\n    Enable verbose output",
@@ -251,7 +292,7 @@ func TestFlattenHelp(t *testing.T) {
 		{Key: 1, FlattenHelp: true},
 		{Key: 2, Short: "Run it", FlattenHelp: true, NextLineHelp: true},
 		{Key: 3, Short: "Task name", Demanded: true},
-		{Key: 4, Short: "Only show changes"},
+		{Key: 4, Short: "Only show changes", Deprecated: "use --mode"},
 		{Key: 5, Short: "Nested operation"},
 		{Key: 6, Short: "Deep option"},
 	}
@@ -278,6 +319,21 @@ func TestFlattenHelp(t *testing.T) {
 		if !strings.Contains(page, "  <task>  Task name") {
 			t.Fatalf("a long flag stretched the argument column:\n%s", page)
 		}
+	}
+}
+
+func TestFlattenedNextLineHelpKeepsDeprecationSeparate(t *testing.T) {
+	flag := &Flag{Name: "old", Key: 3, Longs: []string{"old"}}
+	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{flag}}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1, FlattenHelp: true, NextLineHelp: true},
+		{Key: 2, Short: "Run it"},
+		{Key: 3, Short: "Old mode", Deprecated: "use --new"},
+	}
+	page := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(page, "--old\n    Old mode\n    [deprecated: use --new]") {
+		t.Fatalf("flattened next-line help glued deprecation to its description:\n%s", page)
 	}
 }
 

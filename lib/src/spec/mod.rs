@@ -331,6 +331,13 @@ impl Spec {
                 "allow_missing_positional" => {
                     schema.cmd.allow_missing_positional = node.arg(0)?.ensure_bool()?;
                 }
+                "deprecated" => schema.cmd.deprecated = Some(node.arg(0)?.ensure_string()?),
+                "deprecated_warn_at" => {
+                    schema.cmd.deprecated_warn_at = Some(node.arg(0)?.ensure_string()?);
+                }
+                "deprecated_remove_at" => {
+                    schema.cmd.deprecated_remove_at = Some(node.arg(0)?.ensure_string()?);
+                }
                 "subcommand_required" => {
                     schema.cmd.subcommand_required = node.arg(0)?.ensure_bool()?;
                 }
@@ -684,6 +691,21 @@ impl Display for Spec {
         if self.cmd.allow_missing_positional {
             let mut node = KdlNode::new("allow_missing_positional");
             node.push(true);
+            nodes.push(node);
+        }
+        if let Some(message) = &self.cmd.deprecated {
+            let mut node = KdlNode::new("deprecated");
+            node.push(string_entry(None, message));
+            nodes.push(node);
+        }
+        if let Some(at) = &self.cmd.deprecated_warn_at {
+            let mut node = KdlNode::new("deprecated_warn_at");
+            node.push(string_entry(None, at));
+            nodes.push(node);
+        }
+        if let Some(at) = &self.cmd.deprecated_remove_at {
+            let mut node = KdlNode::new("deprecated_remove_at");
+            node.push(string_entry(None, at));
             nodes.push(node);
         }
         if self.cmd.subcommand_required && !self.cmd.subcommands.is_empty() {
