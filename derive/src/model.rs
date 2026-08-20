@@ -382,7 +382,7 @@ pub enum ArgAction {
     Version,
 }
 
-fn arg_action(meta: &Meta) -> syn::Result<(ArgAction, bool, bool)> {
+fn arg_action(meta: &Meta) -> syn::Result<(ArgAction, bool, bool, bool)> {
     let value = &meta.require_name_value()?.value;
     let Expr::Path(path) = value else {
         return Err(syn::Error::new_spanned(
@@ -394,14 +394,15 @@ fn arg_action(meta: &Meta) -> syn::Result<(ArgAction, bool, bool)> {
         return Err(syn::Error::new_spanned(value, "`action` needs a variant"));
     };
     match variant.ident.to_string().as_str() {
-        "Set" | "SetTrue" | "SetFalse" => Ok((ArgAction::Set, false, false)),
-        "Append" => Ok((ArgAction::Set, false, true)),
-        "Count" => Ok((ArgAction::Set, true, false)),
-        "Help" => Ok((ArgAction::Help, false, false)),
-        "HelpShort" => Ok((ArgAction::HelpShort, false, false)),
-        "HelpLong" => Ok((ArgAction::HelpLong, false, false)),
-        "HelpAll" => Ok((ArgAction::HelpAll, false, false)),
-        "Version" => Ok((ArgAction::Version, false, false)),
+        "Set" | "SetTrue" => Ok((ArgAction::Set, false, false, false)),
+        "SetFalse" => Ok((ArgAction::Set, false, false, true)),
+        "Append" => Ok((ArgAction::Set, false, true, false)),
+        "Count" => Ok((ArgAction::Set, true, false, false)),
+        "Help" => Ok((ArgAction::Help, false, false, false)),
+        "HelpShort" => Ok((ArgAction::HelpShort, false, false, false)),
+        "HelpLong" => Ok((ArgAction::HelpLong, false, false, false)),
+        "HelpAll" => Ok((ArgAction::HelpAll, false, false, false)),
+        "Version" => Ok((ArgAction::Version, false, false, false)),
         other => Err(syn::Error::new_spanned(
             value,
             format!("`ArgAction::{other}` is not supported by usage"),
@@ -2146,6 +2147,7 @@ impl Field {
         let mut required_unless: Vec<String> = Vec::new();
         let mut required_unless_all: Vec<String> = Vec::new();
         let mut action = ArgAction::Set;
+        let mut set_false = false;
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -2205,10 +2207,11 @@ impl Field {
                     "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
                     "action" => {
-                        let (parsed, is_count, is_append) = arg_action(&meta)?;
+                        let (parsed, is_count, is_append, is_set_false) = arg_action(&meta)?;
                         action = parsed;
                         count |= is_count;
                         repeatable |= is_append;
+                        set_false |= is_set_false;
                     }
                     // Help only: the parser refuses a bare `--bump` either way. What this
                     // changes is the brackets, which is the whole of what a spec's
@@ -2605,6 +2608,30 @@ impl Field {
                 span,
                 "help and version actions do not bind a value, so their field must be `bool`",
             ));
+        }
+        if set_false {
+            if shape != Shape::Bool {
+                return Err(syn::Error::new(
+                    span,
+                    "`ArgAction::SetFalse` can only bind a `bool` field",
+                ));
+            }
+            if negate.is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "`ArgAction::SetFalse` already makes the flag a negative spelling; remove `negate`",
+                ));
+            }
+            if longs.len() != 1 || !shorts.is_empty() || !hidden_longs.is_empty() {
+                return Err(syn::Error::new(
+                    span,
+                    "`ArgAction::SetFalse` currently needs exactly one long spelling and no aliases; the portable spec has one negative spelling",
+                ));
+            }
+            if !name_given {
+                name.clone_from(&longs[0]);
+            }
+            negate = longs.pop();
         }
         let (mut value_var_min, mut value_var_max) = (None, None);
         if let Some((min, max)) = num_args {
@@ -5483,6 +5510,46 @@ mod tests {
         .expect("clap value actions preserve their binding shape");
         assert!(actions.fields[0].shape == Shape::Count);
         assert!(actions.fields[1].repeatable);
+
+        let set_false = cli(r#"
+            struct Ex {
+                #[arg(long, action = clap::ArgAction::SetFalse)]
+                color: bool,
+            }
+        "#)
+        .expect("a single long SetFalse action lowers to a negative-only spelling");
+        let Kind::Flag { longs, negate, .. } = &set_false.fields[0].kind else {
+            panic!("SetFalse remains a flag")
+        };
+        assert!(longs.is_empty());
+        assert_eq!(negate.as_deref(), Some("color"));
+
+        let renamed_set_false = cli(r#"
+            struct Ex {
+                #[arg(long = "no-cache", action = clap::ArgAction::SetFalse)]
+                cache_enabled: bool,
+            }
+        "#)
+        .expect("SetFalse keeps an explicit long spelling as its portable identity");
+        assert_eq!(renamed_set_false.fields[0].name, "no-cache");
+        let Kind::Flag { longs, negate, .. } = &renamed_set_false.fields[0].kind else {
+            panic!("SetFalse remains a flag")
+        };
+        assert!(longs.is_empty());
+        assert_eq!(negate.as_deref(), Some("no-cache"));
+
+        let unsupported_set_false = rejection(
+            r#"
+                struct Ex {
+                    #[arg(short, long, action = clap::ArgAction::SetFalse)]
+                    color: bool,
+                }
+            "#,
+        );
+        assert!(
+            unsupported_set_false.contains("exactly one long spelling"),
+            "{unsupported_set_false}"
+        );
 
         let appended_values = cli(r#"
             struct Ex {

@@ -547,7 +547,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **`flatten_help`.** Visible subcommands can be expanded into their parent's
       usage synopsis and help sections across typed Rust, KDL, the clap bridge,
       and Rust and generated Go help.
-- [ ] **`help_template`.**
+- [ ] **`help_template`.** **Design input needed:** define the stable template
+      context. A root-level Tera template can apply to the whole command tree,
+      but interpreted Rust, compiled Rust, and generated Go need to expose the
+      same named sections and values. Shipping only a `{{ help }}` wrapper would
+      technically accept a template without supporting clap's main use case of
+      rearranging help sections.
 - [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
       section labels and synopsis placeholders survive KDL, typed Rust, generated
       Go, and the clap bridge and are rendered by both help implementations.
@@ -839,8 +844,9 @@ feature list is not an exhaustive audit.
   compares `require_equals`, defaults, delimiters, negative and hyphenated values,
   value enums, scalar overrides, fixed arity, globals through subcommands, required
   flags, conflicts/requires, required exclusive groups, optional values with equals,
-  external subcommands, `arg_required_else_help`, and subcommand requirement/conflict
-  policies. It
+  external subcommands, `arg_required_else_help`, subcommand requirement/conflict
+  policies, conditional defaults, value terminators, skipped optional positionals,
+  count/set-false actions, and subcommand and value-enum completion candidates. It
   records typed values, error classifications, exit status and stream, relevant help,
   and version output; the remaining matrix rows and completion candidates still need
   equivalent minimal pairs. One minimal CLI per matrix row,
@@ -1605,7 +1611,12 @@ Where they differ is instructive, because it is mostly _drift_:
       survive the portable spec. The markdown renderer and generated runtime registry
       consume the block; no fleet CLI emits one yet, which is the adoption half below.
 - [ ] **A registry JSON schema**, so the declaration format validates itself the
-      way hk's does.
+      way hk's does. **Design input needed:** 6.x no longer has a separate TOML
+      registry declaration to validate: the usage KDL spec is the declaration,
+      its parser validates that block, and `usage generate json-schema` describes
+      the _user config file_. Decide whether this means a machine schema for KDL,
+      retaining a supported TOML authoring format, or deleting this now-obsolete
+      requirement.
 
 ### Open questions
 

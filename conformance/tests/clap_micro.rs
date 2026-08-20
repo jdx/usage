@@ -261,6 +261,28 @@ mod value_enum {
         assert_eq!(clap.kind(), clap::error::ErrorKind::InvalidValue);
         assert!(matches!(usage, Error::InvalidChoice { .. }));
     }
+
+    #[test]
+    fn declared_words_offer_the_same_completion_candidates() {
+        let clap: std::collections::BTreeSet<_> = ClapCli::command()
+            .get_arguments()
+            .find(|arg| arg.get_id() == "mode")
+            .expect("mode")
+            .get_possible_values()
+            .into_iter()
+            .filter(|value| !value.is_hide_set())
+            .map(|value| value.get_name().to_string())
+            .collect();
+        let line = "micro --mode ";
+        let split =
+            usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
+        let usage: std::collections::BTreeSet<_> =
+            usage_argv::complete::candidates(UsageCli::spec(), &split)
+                .into_iter()
+                .map(|candidate| candidate.value)
+                .collect();
+        assert_eq!(usage, clap);
+    }
 }
 
 mod args_override_self {
@@ -271,6 +293,8 @@ mod args_override_self {
     struct ClapCli {
         #[arg(long)]
         value: String,
+        #[arg(long, value_parser = ["good", "better"])]
+        mode: Option<String>,
     }
 
     #[derive(Debug, Cli)]
@@ -278,6 +302,8 @@ mod args_override_self {
     struct UsageCli {
         #[usage(long)]
         value: String,
+        #[usage(long, choices("good", "better"))]
+        mode: Option<String>,
     }
 
     #[test]
@@ -291,6 +317,17 @@ mod args_override_self {
         ])
         .unwrap();
         assert_eq!(usage.value, clap.value);
+    }
+
+    #[test]
+    fn the_last_scalar_choice_controls_validation() {
+        let argv = ["--value", "kept", "--mode", "bad", "--mode", "good"];
+        let usage = UsageCli::parse_from(&argv.map(OsStr::new)).unwrap();
+        assert_eq!(usage.mode.as_deref(), Some("good"));
+
+        let argv = ["--value", "kept", "--mode", "good", "--mode", "bad"];
+        let usage = UsageCli::parse_from(&argv.map(OsStr::new)).unwrap_err();
+        assert!(matches!(usage, Error::InvalidChoice { .. }));
     }
 }
 
@@ -404,6 +441,24 @@ mod global_subcommand {
         let (ClapCommand::Run { task: clap_task }, UsageCommand::Run { task: usage_task }) =
             (clap.command, usage.command);
         assert_eq!(usage_task, clap_task);
+    }
+
+    #[test]
+    fn the_root_offers_the_same_subcommand_candidates() {
+        let clap: std::collections::BTreeSet<_> = ClapCli::command()
+            .get_subcommands()
+            .filter(|command| command.get_name() != "help" && !command.is_hide_set())
+            .map(|command| command.get_name().to_string())
+            .collect();
+        let line = "micro ";
+        let split =
+            usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
+        let usage: std::collections::BTreeSet<_> =
+            usage_argv::complete::candidates(UsageCli::spec(), &split)
+                .into_iter()
+                .map(|candidate| candidate.value)
+                .collect();
+        assert_eq!(usage, clap);
     }
 }
 
@@ -750,5 +805,176 @@ mod subcommand_policies {
             UsageConflicts::parse_from(&[OsStr::new("--verbose"), OsStr::new("run")]).unwrap_err();
         assert_eq!(clap.kind(), clap::error::ErrorKind::ArgumentConflict);
         assert!(matches!(usage, Error::SubcommandConflict { .. }));
+    }
+}
+
+mod conditional_defaults {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_if("json", "true", "json"))]
+        format: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long)]
+        json: bool,
+        #[usage(long, default_if("--json", "json"))]
+        format: Option<String>,
+    }
+
+    #[test]
+    fn a_present_flag_supplies_the_same_conditional_default() {
+        let clap = ClapCli::try_parse_from(["micro", "--json"]).unwrap();
+        let usage = UsageCli::parse_from(&[OsStr::new("--json")]).unwrap();
+        assert_eq!(usage.format, clap.format);
+
+        let clap = ClapCli::try_parse_from(["micro", "--json", "--format", "text"]).unwrap();
+        let usage = UsageCli::parse_from(&[
+            OsStr::new("--json"),
+            OsStr::new("--format"),
+            OsStr::new("text"),
+        ])
+        .unwrap();
+        assert_eq!(usage.format, clap.format);
+
+        assert_eq!(
+            UsageCli::parse_from(&[]).unwrap().format,
+            ClapCli::try_parse_from(["micro"]).unwrap().format
+        );
+    }
+}
+
+mod value_terminator {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long, num_args = 1.., value_terminator = ";")]
+        include: Vec<String>,
+        rest: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[arg(long, num_args = 1.., value_terminator = ";")]
+        include: Vec<String>,
+        #[usage(arg)]
+        rest: Option<String>,
+    }
+
+    #[test]
+    fn the_terminator_ends_the_value_without_becoming_a_positional() {
+        assert!(UsageCli::spec().root.cmd.flags[0].variadic);
+        assert_eq!(
+            UsageCli::spec().root.cmd.flags[0].value_terminator,
+            Some(b";".as_slice())
+        );
+        let clap =
+            ClapCli::try_parse_from(["micro", "--include", "one", "two", ";", "tail"]).unwrap();
+        let usage = UsageCli::parse_from(&[
+            OsStr::new("--include"),
+            OsStr::new("one"),
+            OsStr::new("two"),
+            OsStr::new(";"),
+            OsStr::new("tail"),
+        ])
+        .unwrap();
+        assert_eq!(usage.include, clap.include);
+        assert_eq!(usage.rest, clap.rest);
+    }
+}
+
+mod missing_positionals {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro", allow_missing_positional = true)]
+    struct ClapCli {
+        optional: Option<String>,
+        required: String,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error", allow_missing_positional)]
+    struct UsageCli {
+        #[usage(arg)]
+        optional: Option<String>,
+        #[usage(arg)]
+        required: String,
+    }
+
+    #[test]
+    fn the_last_word_can_skip_an_earlier_optional_position() {
+        let clap = ClapCli::try_parse_from(["micro", "required"]).unwrap();
+        let usage = UsageCli::parse_from(&[OsStr::new("required")]).unwrap();
+        assert_eq!(usage.optional, clap.optional);
+        assert_eq!(usage.required, clap.required);
+
+        let clap = ClapCli::try_parse_from(["micro", "optional", "required"]).unwrap();
+        let usage =
+            UsageCli::parse_from(&[OsStr::new("optional"), OsStr::new("required")]).unwrap();
+        assert_eq!(usage.optional, clap.optional);
+        assert_eq!(usage.required, clap.required);
+    }
+}
+
+mod actions {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(short, long, action = clap::ArgAction::Count)]
+        verbose: u8,
+        #[arg(long, action = clap::ArgAction::SetFalse, default_value_t = true)]
+        color: bool,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(short, long, count)]
+        verbose: u8,
+        #[arg(long, action = clap::ArgAction::SetFalse, default_value = "true")]
+        color: bool,
+    }
+
+    #[test]
+    fn count_and_set_false_actions_build_the_same_values() {
+        let clap = ClapCli::try_parse_from(["micro", "-vvv", "--color"]).unwrap();
+        let usage = UsageCli::parse_from(&[OsStr::new("-vvv"), OsStr::new("--color")]).unwrap();
+        assert_eq!(usage.verbose, clap.verbose);
+        assert_eq!(usage.color, clap.color);
+
+        let clap = ClapCli::try_parse_from(["micro"]).unwrap();
+        let usage = UsageCli::parse_from(&[]).unwrap();
+        assert_eq!(usage.verbose, clap.verbose);
+        assert_eq!(usage.color, clap.color);
+
+        let kdl = UsageCli::to_kdl();
+        assert!(kdl.contains("flag color: negate=--color"), "{kdl}");
+        let spec: usage::Spec = kdl.parse().expect("the negative-only form round-trips");
+        let color = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|flag| flag.name == "color")
+            .expect("color");
+        assert!(color.long.is_empty());
+        assert_eq!(color.negate.as_deref(), Some("--color"));
+
+        let help = usage_argv::help::render(UsageCli::spec(), UsageCli::command(), false)
+            .expect("root help");
+        assert!(help.contains("--color"), "{help}");
+        assert!(!help.contains("color: /"), "{help}");
     }
 }
