@@ -786,14 +786,14 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
     // The line goes with the request, interpolated by whoever runs it — without it a completer
     // that reads an earlier flag answers against nothing, which is a wrong answer rather than a
     // missing one.
-    assert!(run.contains("--line '{{ words | join(sep=\" \")"), "{run}");
-    // The interpolated line is one single-quoted shell argument. An apostrophe in an earlier
-    // word has to close that quote, write a quoted apostrophe, and reopen it; otherwise the
-    // completion command is split (or executes the rest of the line as shell syntax).
+    // shell_join preserves the argv boundaries before shell_quote makes the reconstructed line
+    // one inert shell argument. The reference owns both filters, so generated producers do not
+    // duplicate an incomplete hand-written quote transform.
     assert!(
-        run.contains("replace(from=\"'\", to=\"'\\\"'\\\"'\") }}'"),
+        run.contains("--line={{ words | shell_join | shell_quote }}"),
         "{run}"
     );
+    assert!(!run.contains("replace(from="), "{run}");
     // And no `descriptions=#true`, which would tell the reference to read a description after an
     // unescaped colon: what this answers with is values, and mise's task names are full of colons.
     assert!(!complete.descriptions, "{run}");
