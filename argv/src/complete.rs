@@ -474,6 +474,12 @@ impl<'a> App<'a> {
         crate::script::script(spec.bin.unwrap_or(spec.name), shell)
     }
 
+    /// Register completion under `alias` while invoking this view's real binary.
+    pub fn completion_script_for_alias(self, alias: &str, shell: Shell) -> String {
+        let spec = self.view.spec();
+        crate::script::script_for(spec.bin.unwrap_or(spec.name), alias, shell)
+    }
+
     /// Answer a hidden completion invocation, or return `None` for ordinary argv.
     pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
         let request = Request::parse(argv)?;
