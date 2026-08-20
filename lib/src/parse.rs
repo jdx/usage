@@ -435,25 +435,22 @@ impl<'a> Parser<'a> {
             if out.args.contains_key(arg) {
                 continue;
             }
-            if let Some(env_var) = arg.env.as_ref() {
-                if let Some(env_value) = get_env(env_var) {
-                    let values =
-                        split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
-                    validate_choice_values(
-                        ChoiceTarget::arg(arg),
-                        &values,
-                        arg.choices.as_ref(),
-                        custom_env,
-                    )?;
-                    let parsed = if arg.var {
-                        validate_arg_fallback_count(arg, values.len(), &mut out.errors);
-                        ParseValue::MultiString(values)
-                    } else {
-                        ParseValue::String(values.into_iter().next().unwrap_or_default())
-                    };
-                    out.args.insert(Arc::new(arg.clone()), parsed);
-                    continue;
-                }
+            if let Some(env_value) = arg.env_names().find_map(&get_env) {
+                let values = split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
+                validate_choice_values(
+                    ChoiceTarget::arg(arg),
+                    &values,
+                    arg.choices.as_ref(),
+                    custom_env,
+                )?;
+                let parsed = if arg.var {
+                    validate_arg_fallback_count(arg, values.len(), &mut out.errors);
+                    ParseValue::MultiString(values)
+                } else {
+                    ParseValue::String(values.into_iter().next().unwrap_or_default())
+                };
+                out.args.insert(Arc::new(arg.clone()), parsed);
+                continue;
             }
             if !arg.default.is_empty() {
                 // Consider var when deciding the type of default return value
@@ -494,39 +491,37 @@ impl<'a> Parser<'a> {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
-            if let Some(env_var) = flag.env.as_ref() {
-                if let Some(env_value) = get_env(env_var) {
-                    if let Some(arg) = flag.arg.as_ref() {
-                        let values =
-                            split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
-                        validate_choice_values(
-                            ChoiceTarget::option(flag),
-                            &values,
-                            arg.choices.as_ref(),
-                            custom_env,
-                        )?;
-                        let parsed = if flag.var || arg.var {
-                            if flag.var {
-                                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
-                            }
-                            if arg.var {
-                                validate_flag_arg_fallback_count(
-                                    flag,
-                                    arg,
-                                    values.len(),
-                                    &mut out.errors,
-                                );
-                            }
-                            ParseValue::MultiString(values)
-                        } else {
-                            ParseValue::String(values.into_iter().next().unwrap_or_default())
-                        };
-                        out.flags.insert(Arc::clone(flag), parsed);
+            if let Some(env_value) = flag.env_names().find_map(&get_env) {
+                if let Some(arg) = flag.arg.as_ref() {
+                    let values =
+                        split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
+                    validate_choice_values(
+                        ChoiceTarget::option(flag),
+                        &values,
+                        arg.choices.as_ref(),
+                        custom_env,
+                    )?;
+                    let parsed = if flag.var || arg.var {
+                        if flag.var {
+                            validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+                        }
+                        if arg.var {
+                            validate_flag_arg_fallback_count(
+                                flag,
+                                arg,
+                                values.len(),
+                                &mut out.errors,
+                            );
+                        }
+                        ParseValue::MultiString(values)
                     } else {
-                        let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
-                        out.flags
-                            .insert(Arc::clone(flag), ParseValue::Bool(is_true));
-                    }
+                        ParseValue::String(values.into_iter().next().unwrap_or_default())
+                    };
+                    out.flags.insert(Arc::clone(flag), parsed);
+                } else {
+                    let is_true = matches!(env_value.as_str(), "1" | "true" | "True" | "TRUE");
+                    out.flags
+                        .insert(Arc::clone(flag), ParseValue::Bool(is_true));
                 }
             }
         }
@@ -2155,9 +2150,8 @@ fn env_contains(custom_env: Option<&HashMap<String, String>>, env_var: &str) -> 
 }
 
 fn flag_has_env(flag: &SpecFlag, custom_env: Option<&HashMap<String, String>>) -> bool {
-    flag.env
-        .as_ref()
-        .is_some_and(|env_var| env_contains(custom_env, env_var))
+    flag.env_names()
+        .any(|env_var| env_contains(custom_env, env_var))
 }
 
 fn fallback_is_true(value: &str) -> bool {
@@ -2341,13 +2335,10 @@ fn explicit_flag_has_value(
         return parsed_matches;
     }
 
-    let Some(env) = flag.env.as_ref() else {
-        return false;
-    };
-    let value = match custom_env {
+    let value = flag.env_names().find_map(|env| match custom_env {
         Some(values) => values.get(env).cloned(),
         None => std::env::var(env).ok(),
-    };
+    });
     value.is_some_and(
         |value| match flag.arg.as_ref().and_then(|arg| arg.delimiter) {
             Some(delimiter) => value.split(delimiter).any(|value| value == expected),
@@ -2393,15 +2384,13 @@ fn selector_explicit_has_value(
             }
         };
     }
-    arg.env.as_ref().is_some_and(|env| {
-        let value = match custom_env {
-            Some(values) => values.get(env).cloned(),
-            None => std::env::var(env).ok(),
-        };
-        value.is_some_and(|value| match arg.delimiter {
-            Some(delimiter) => value.split(delimiter).any(|value| value == expected),
-            None => value == expected,
-        })
+    let value = arg.env_names().find_map(|env| match custom_env {
+        Some(values) => values.get(env).cloned(),
+        None => std::env::var(env).ok(),
+    });
+    value.is_some_and(|value| match arg.delimiter {
+        Some(delimiter) => value.split(delimiter).any(|value| value == expected),
+        None => value == expected,
     })
 }
 
@@ -7054,6 +7043,44 @@ cmd "run" {
             .expect("parse should succeed with custom env");
         assert_eq!(parsed.flags.len(), 1);
         assert_eq!(first_string_value(&parsed), "jane");
+    }
+
+    #[test]
+    fn test_flag_environment_fallbacks_preserve_declaration_order() {
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("name")
+                .env("NAME")
+                .env_fallback("OLD_NAME")
+                .env_fallback("OLDER_NAME")
+                .deprecated_env("DEPRECATED_NAME")
+                .arg(SpecArg::builder().name("name").build())
+                .build(),
+        );
+
+        let parsed = parse_with_env(
+            &spec,
+            &["test"],
+            &[
+                ("NAME", "canonical"),
+                ("OLD_NAME", "fallback"),
+                ("DEPRECATED_NAME", "deprecated"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(first_string_value(&parsed), "canonical");
+
+        let parsed = parse_with_env(
+            &spec,
+            &["test"],
+            &[("OLDER_NAME", "older"), ("OLD_NAME", "old")],
+        )
+        .unwrap();
+        assert_eq!(first_string_value(&parsed), "old");
+
+        let parsed =
+            parse_with_env(&spec, &["test"], &[("DEPRECATED_NAME", "deprecated")]).unwrap();
+        assert_eq!(first_string_value(&parsed), "deprecated");
     }
 
     #[test]

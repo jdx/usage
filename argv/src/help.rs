@@ -707,6 +707,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                         a.choices
                     },
                     if a.hide_env { None } else { a.env },
+                    if a.hide_env { &[] } else { a.env_fallback },
+                    if a.hide_env { &[] } else { a.deprecated_env },
                     if a.hide_default_value { &[] } else { a.default },
                 );
                 return;
@@ -719,6 +721,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                     let _ = write!(out, "  {usage}");
                 }
             }
+            let environment =
+                inline_environment_notes(a.hide_env, a.env_fallback, a.deprecated_env);
             annotations(
                 out,
                 if a.hide_possible_values {
@@ -727,6 +731,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                     a.choices
                 },
                 if a.hide_env { None } else { a.env },
+                environment.as_deref(),
                 if a.hide_default_value { &[] } else { a.default },
                 None,
             );
@@ -754,9 +759,11 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
+                if f.hide_env { &[] } else { f.env_fallback },
+                if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
             );
-            flag_deprecation(out, f, 4);
+            flag_notes(out, f, 4);
             return;
         }
         match f.help.filter(|h| !h.trim().is_empty()) {
@@ -769,6 +776,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         }
         let deprecation =
             deprecation_label(f.deprecated, f.deprecated_warn_at, f.deprecated_remove_at);
+        let environment = inline_environment_notes(f.hide_env, f.env_fallback, f.deprecated_env);
         annotations(
             out,
             if f.hide_possible_values {
@@ -777,6 +785,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 f.choices
             },
             if f.hide_env { None } else { f.env },
+            environment.as_deref(),
             if f.hide_default_value { &[] } else { f.default },
             deprecation.as_deref(),
         );
@@ -943,16 +952,40 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             .unwrap_or(0);
         for arg in args {
             let usage = arg_usage(arg);
-            if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
-                if meta.next_line_help {
-                    let _ = writeln!(out, "  {usage}");
+            if meta.next_line_help {
+                let _ = writeln!(out, "  {usage}");
+                if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
                     write_indented(out, help, 4);
-                } else {
-                    let _ = write!(out, "  {usage:<arg_col$}  {help}");
                 }
+                long_annotations(
+                    out,
+                    if arg.hide_possible_values {
+                        &[]
+                    } else {
+                        arg.choices
+                    },
+                    if arg.hide_env { None } else { arg.env },
+                    if arg.hide_env { &[] } else { arg.env_fallback },
+                    if arg.hide_env {
+                        &[]
+                    } else {
+                        arg.deprecated_env
+                    },
+                    if arg.hide_default_value {
+                        &[]
+                    } else {
+                        arg.default
+                    },
+                );
+                continue;
+            }
+            if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
+                let _ = write!(out, "  {usage:<arg_col$}  {help}");
             } else {
                 let _ = write!(out, "  {usage}");
             }
+            let environment =
+                inline_environment_notes(arg.hide_env, arg.env_fallback, arg.deprecated_env);
             annotations(
                 out,
                 if arg.hide_possible_values {
@@ -961,6 +994,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     arg.choices
                 },
                 if arg.hide_env { None } else { arg.env },
+                environment.as_deref(),
                 if arg.hide_default_value {
                     &[]
                 } else {
@@ -971,13 +1005,40 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
         }
         for flag in flags {
             let usage = column_usage(flag);
-            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                if meta.next_line_help {
-                    let _ = writeln!(out, "  {usage}");
+            if meta.next_line_help {
+                let _ = writeln!(out, "  {usage}");
+                if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
                     write_indented(out, help, 4);
-                } else {
-                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
                 }
+                long_annotations(
+                    out,
+                    if flag.hide_possible_values {
+                        &[]
+                    } else {
+                        flag.choices
+                    },
+                    if flag.hide_env { None } else { flag.env },
+                    if flag.hide_env {
+                        &[]
+                    } else {
+                        flag.env_fallback
+                    },
+                    if flag.hide_env {
+                        &[]
+                    } else {
+                        flag.deprecated_env
+                    },
+                    if flag.hide_default_value {
+                        &[]
+                    } else {
+                        flag.default
+                    },
+                );
+                flag_notes(out, flag, 4);
+                continue;
+            }
+            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
+                let _ = write!(out, "  {usage:<flag_col$}  {help}");
             } else {
                 let _ = write!(out, "  {usage}");
             }
@@ -986,6 +1047,8 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 flag.deprecated_warn_at,
                 flag.deprecated_remove_at,
             );
+            let environment =
+                inline_environment_notes(flag.hide_env, flag.env_fallback, flag.deprecated_env);
             annotations(
                 out,
                 if flag.hide_possible_values {
@@ -994,20 +1057,14 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     flag.choices
                 },
                 if flag.hide_env { None } else { flag.env },
+                environment.as_deref(),
                 if flag.hide_default_value {
                     &[]
                 } else {
                     flag.default
                 },
-                if meta.next_line_help {
-                    None
-                } else {
-                    deprecation.as_deref()
-                },
+                deprecation.as_deref(),
             );
-            if meta.next_line_help {
-                flag_deprecation(out, flag, 4);
-            }
         }
         if sub.flatten_help {
             flat_commands_short(out, &sub_path, sub);
@@ -1083,6 +1140,7 @@ fn annotations(
     out: &mut String,
     choices: &[&str],
     env: Option<&str>,
+    environment: Option<&str>,
     default: &[&str],
     suffix: Option<&str>,
 ) {
@@ -1091,6 +1149,9 @@ fn annotations(
     }
     if let Some(env) = env {
         let _ = write!(out, " [env: {env}]");
+    }
+    if let Some(environment) = environment {
+        let _ = write!(out, " {environment}");
     }
     if !default.is_empty() {
         let _ = write!(out, " (default: {})", default.join(", "));
@@ -1329,6 +1390,8 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                     a.choices
                 },
                 if a.hide_env { None } else { a.env },
+                if a.hide_env { &[] } else { a.env_fallback },
+                if a.hide_env { &[] } else { a.deprecated_env },
                 if a.hide_default_value { &[] } else { a.default },
             );
         },
@@ -1365,9 +1428,11 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
+                if f.hide_env { &[] } else { f.env_fallback },
+                if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
             );
-            flag_deprecation(out, f, 4);
+            flag_notes(out, f, 4);
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -1390,9 +1455,11 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
+                if f.hide_env { &[] } else { f.env_fallback },
+                if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
             );
-            flag_deprecation(out, f, 4);
+            flag_notes(out, f, 4);
         },
     );
     if meta.flatten_help {
@@ -1524,13 +1591,21 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
 }
 
 /// The annotations, each on its own line as the wider layout puts them.
-fn long_annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &[&str]) {
+fn long_annotations(
+    out: &mut String,
+    choices: &[&str],
+    env: Option<&str>,
+    env_fallback: &[&str],
+    deprecated_env: &[&str],
+    default: &[&str],
+) {
     if !choices.is_empty() {
         let _ = writeln!(out, "    [possible values: {}]", choices.join(", "));
     }
     if let Some(env) = env {
         let _ = writeln!(out, "    [env: {env}]");
     }
+    environment_notes(out, env_fallback, deprecated_env, 4);
     if !default.is_empty() {
         let _ = writeln!(out, "    (default: {})", default.join(", "));
     }
@@ -1567,7 +1642,29 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize) 
     }
 }
 
-fn flag_deprecation(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
+fn inline_environment_notes(hide: bool, fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
+    let mut notes = Vec::new();
+    if !hide {
+        notes.extend(fallbacks.iter().map(|env| format!("[env fallback: {env}]")));
+        notes.extend(
+            deprecated
+                .iter()
+                .map(|env| format!("[deprecated env: {env}]")),
+        );
+    }
+    (!notes.is_empty()).then(|| notes.join(" "))
+}
+
+fn environment_notes(out: &mut String, fallbacks: &[&str], deprecated: &[&str], indent: usize) {
+    for env in fallbacks {
+        let _ = writeln!(out, "{}[env fallback: {env}]", " ".repeat(indent));
+    }
+    for env in deprecated {
+        let _ = writeln!(out, "{}[deprecated env: {env}]", " ".repeat(indent));
+    }
+}
+
+fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
     if let Some(label) = deprecation_label(
         meta.deprecated,
         meta.deprecated_warn_at,
@@ -1702,6 +1799,12 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                     arg.choices
                 },
                 if arg.hide_env { None } else { arg.env },
+                if arg.hide_env { &[] } else { arg.env_fallback },
+                if arg.hide_env {
+                    &[]
+                } else {
+                    arg.deprecated_env
+                },
                 if arg.hide_default_value {
                     &[]
                 } else {
@@ -1726,13 +1829,23 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                     flag.choices
                 },
                 if flag.hide_env { None } else { flag.env },
+                if flag.hide_env {
+                    &[]
+                } else {
+                    flag.env_fallback
+                },
+                if flag.hide_env {
+                    &[]
+                } else {
+                    flag.deprecated_env
+                },
                 if flag.hide_default_value {
                     &[]
                 } else {
                     flag.default
                 },
             );
-            flag_deprecation(out, flag, 4);
+            flag_notes(out, flag, 4);
         }
         if sub.flatten_help {
             flat_commands_long(out, &sub_path, sub, width);
@@ -2181,9 +2294,35 @@ pub fn render_at_styled(
 
 #[cfg(test)]
 mod style_tests {
-    use super::{commands_section, styled_help, Style};
-    use crate::spec::CommandMeta;
-    use crate::Command;
+    use super::{commands_section, flag_notes, inline_environment_notes, styled_help, Style};
+    use crate::spec::{CommandMeta, FlagMeta};
+    use crate::{Command, Flag};
+
+    #[test]
+    fn hidden_environment_names_include_fallbacks_and_deprecated_aliases() {
+        let flag = Flag {
+            name: "token",
+            ..Flag::BOOL
+        };
+        let meta = FlagMeta {
+            flag: &flag,
+            hide_env: true,
+            env_fallback: &["OLD_TOKEN"],
+            deprecated_env: &["LEGACY_TOKEN"],
+            ..FlagMeta::EMPTY
+        };
+        let mut page = String::new();
+
+        flag_notes(&mut page, &meta, 4);
+
+        assert!(page.is_empty());
+
+        let visible = inline_environment_notes(false, &["OLD_TOKEN"], &["LEGACY_TOKEN"])
+            .expect("visible environment notes");
+        assert!(visible.contains("[env fallback: OLD_TOKEN]"));
+        assert!(visible.contains("[deprecated env: LEGACY_TOKEN]"));
+        assert!(inline_environment_notes(true, &["OLD_TOKEN"], &["LEGACY_TOKEN"]).is_none());
+    }
 
     #[test]
     fn short_command_rows_trim_trailing_help_whitespace() {

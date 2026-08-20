@@ -86,6 +86,11 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if not arg.hide_env and arg.env %}
     [env: {{ arg.env }}]
 {%- endif %}
+{%- if not arg.hide_env %}{% for env in arg.env_fallback %}
+    [env fallback: {{ env }}]
+{%- endfor %}{% for env in arg.deprecated_env %}
+    [deprecated env: {{ env }}]
+{%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
     (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
@@ -125,6 +130,11 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if not flag.hide_env and flag.env %}
     [env: {{ flag.env }}]
 {%- endif %}
+{%- if not flag.hide_env %}{% for env in flag.env_fallback %}
+    [env fallback: {{ env }}]
+{%- endfor %}{% for env in flag.deprecated_env %}
+    [deprecated env: {{ env }}]
+{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
     (default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
@@ -167,6 +177,11 @@ Global flags:
 {%- if not flag.hide_env and flag.env %}
     [env: {{ flag.env }}]
 {%- endif %}
+{%- if not flag.hide_env %}{% for env in flag.env_fallback %}
+    [env fallback: {{ env }}]
+{%- endfor %}{% for env in flag.deprecated_env %}
+    [deprecated env: {{ env }}]
+{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
     (default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
@@ -206,6 +221,11 @@ Global flags:
 {%- if not arg.hide_env and arg.env %}
     [env: {{ arg.env }}]
 {%- endif %}
+{%- if not arg.hide_env %}{% for env in arg.env_fallback %}
+    [env fallback: {{ env }}]
+{%- endfor %}{% for env in arg.deprecated_env %}
+    [deprecated env: {{ env }}]
+{%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
     (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
@@ -230,6 +250,11 @@ Global flags:
 {%- if not flag.hide_env and flag.env %}
     [env: {{ flag.env }}]
 {%- endif %}
+{%- if not flag.hide_env %}{% for env in flag.env_fallback %}
+    [env fallback: {{ env }}]
+{%- endfor %}{% for env in flag.deprecated_env %}
+    [deprecated env: {{ env }}]
+{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
     (default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
