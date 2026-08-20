@@ -516,7 +516,7 @@ fn an_unmatched_word_is_forwarded_as_an_external_subcommand() {
         "the catch-all is emitted: {spec}"
     );
     assert!(
-        !spec.contains("cmd \"external\""),
+        !spec.contains("cmd external"),
         "the catch-all is not a named command: {spec}"
     );
 }

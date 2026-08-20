@@ -98,7 +98,7 @@ fn a_command_that_can_stays_quiet() {
     let loose = spec.cmd.subcommands.get("loose").expect("declared");
     assert!(!loose.subcommand_required);
     assert!(
-        !Ex::to_kdl().contains("cmd \"loose\" subcommand_required"),
+        !Ex::to_kdl().contains("cmd loose subcommand_required"),
         "an `Option<T>` field writes nothing: {}",
         Ex::to_kdl()
     );
@@ -111,7 +111,7 @@ fn a_leaf_command_never_claims_it() {
     let kdl = Ex::to_kdl();
     let leaf_lines: Vec<&str> = kdl
         .lines()
-        .filter(|line| line.trim_start().starts_with("cmd \"leaf\""))
+        .filter(|line| line.trim_start().starts_with("cmd leaf"))
         .collect();
     assert_eq!(leaf_lines.len(), 2, "one under each parent: {kdl}");
     for line in leaf_lines {

@@ -229,5 +229,5 @@ fn same_named_structs_in_different_modules_do_not_collide() {
 
     // `to_kdl` asserts the tree holds no duplicate keys, so this would panic in debug
     // if the two still shared one.
-    assert!(Same::to_kdl().contains(r#"cmd "remove""#));
+    assert!(Same::to_kdl().contains("cmd remove"));
 }

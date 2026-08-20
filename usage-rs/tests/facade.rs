@@ -327,7 +327,7 @@ fn one_dependency_provides_derives_runtime_and_value_hints() {
         panic!("show command should be selected");
     };
     assert_eq!(show.file, Path::new("input.txt"));
-    assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+    assert!(Ex::to_kdl().contains("complete file type=path"));
 
     let embedded = Ex::app().name("embedded").bin("embedded").spec();
     assert_eq!(embedded.name, "embedded");
@@ -344,12 +344,12 @@ fn unit_subcommands_use_the_facade_derive() {
 fn unit_cli_and_args_structs_parse_without_shape_rewrites() {
     let root = UnitRoot::parse_from(&[]).expect("unit root should parse");
     let UnitRoot = root;
-    assert!(UnitRoot::to_kdl().contains("name \"unit-root\""));
+    assert!(UnitRoot::to_kdl().contains("name unit-root"));
 
     let cli =
         UnitArgsCli::parse_from(&[OsStr::new("empty")]).expect("unit Args command should parse");
     assert!(matches!(cli.command, UnitArgsCommand::Empty(UnitArgs)));
-    assert!(UnitArgsCli::to_kdl().contains("cmd \"empty\""));
+    assert!(UnitArgsCli::to_kdl().contains("cmd empty"));
 }
 
 #[test]
@@ -365,11 +365,7 @@ fn identical_builtin_completers_are_emitted_once() {
     assert_eq!(parsed.output.as_deref(), Some(Path::new("out.txt")));
 
     let kdl = CompletionDedup::to_kdl();
-    assert_eq!(
-        kdl.matches("complete \"path\" type=\"path\"").count(),
-        1,
-        "{kdl}"
-    );
+    assert_eq!(kdl.matches("complete path type=path").count(), 1, "{kdl}");
 }
 
 #[test]
@@ -386,9 +382,9 @@ fn one_args_type_can_back_multiple_commands() {
     }
 
     let kdl = SharedArgsCli::to_kdl();
-    assert!(kdl.contains("cmd \"first\""), "{kdl}");
-    assert!(kdl.contains("cmd \"second\""), "{kdl}");
-    assert_eq!(kdl.matches("flag \"--verbose\"").count(), 2, "{kdl}");
+    assert!(kdl.contains("cmd first"), "{kdl}");
+    assert!(kdl.contains("cmd second"), "{kdl}");
+    assert_eq!(kdl.matches("flag --verbose").count(), 2, "{kdl}");
 }
 
 #[cfg(feature = "completions")]
@@ -495,12 +491,12 @@ fn struct_style_subcommands_bind_fields_in_place() {
     assert_eq!(label.as_deref(), Some("nightly"));
 
     let kdl = InlineEx::to_kdl();
-    assert!(kdl.contains("cmd \"run\""), "{kdl}");
-    assert!(kdl.contains("flag \"--bench\""), "{kdl}");
-    assert!(kdl.contains("arg \"<BENCH>\""), "{kdl}");
-    assert!(kdl.contains("flag \"--runs\""), "{kdl}");
-    assert!(kdl.contains("arg \"<RUNS>\""), "{kdl}");
-    assert!(kdl.contains("flag \"--iterations\""), "{kdl}");
+    assert!(kdl.contains("cmd run"), "{kdl}");
+    assert!(kdl.contains("flag --bench"), "{kdl}");
+    assert!(kdl.contains("arg <BENCH>"), "{kdl}");
+    assert!(kdl.contains("flag --runs"), "{kdl}");
+    assert!(kdl.contains("arg <RUNS>"), "{kdl}");
+    assert!(kdl.contains("flag --iterations"), "{kdl}");
     assert!(kdl.contains("arg \"[LABEL]\""), "{kdl}");
     assert!(kdl.contains(INLINE_AFTER_HELP), "{kdl}");
 }
@@ -542,19 +538,19 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     let kdl = ChoiceEx::to_kdl();
     assert!(kdl.contains("choices ignore_case=#true"), "{kdl}");
     assert!(
-        kdl.contains("choice \"bash\" help=\"Bourne Again shell\""),
+        kdl.contains("choice bash help=\"Bourne Again shell\""),
         "{kdl}"
     );
-    assert!(kdl.contains("alias \"b\"\n"), "{kdl}");
-    assert!(!kdl.contains("alias \"b\" hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias b\n"), "{kdl}");
+    assert!(!kdl.contains("alias b hide=#true"), "{kdl}");
     assert!(
-        kdl.contains("choice \"zsh\" help=\"Z shell.\" hide=#true"),
+        kdl.contains("choice zsh help=\"Z shell.\" hide=#true"),
         "{kdl}"
     );
-    assert!(kdl.contains("alias \"shell-z\" hide=#true"), "{kdl}");
-    assert!(kdl.contains("alias \"z-shell\" hide=#true"), "{kdl}");
-    assert!(kdl.contains("alias \"zsh-shell\" hide=#true"), "{kdl}");
-    assert!(kdl.contains("alias \"bourne-again\" hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias shell-z hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias z-shell hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias zsh-shell hide=#true"), "{kdl}");
+    assert!(kdl.contains("alias bourne-again hide=#true"), "{kdl}");
     #[cfg(not(windows))]
     assert_eq!(<Shell as usage::spec::ValueEnum>::CHOICES, &["bash", "b"]);
     #[cfg(windows)]
@@ -586,12 +582,9 @@ fn positional_relationships_parse_and_emit_losslessly() {
     assert!(err.is_err(), "the flag conflicts with the positional");
 
     let kdl = PositionalRelations::to_kdl();
-    assert!(
-        kdl.contains("conflicts \"--from-file\" \"--stdin\""),
-        "{kdl}"
-    );
+    assert!(kdl.contains("conflicts --from-file --stdin"), "{kdl}");
     assert_eq!(
-        kdl.matches("conflicts=\"VALUE\"").count(),
+        kdl.matches("conflicts=VALUE").count(),
         1,
         "a single flag conflict should be emitted once: {kdl}"
     );
@@ -599,10 +592,7 @@ fn positional_relationships_parse_and_emit_losslessly() {
         !kdl.contains("arg \"[VALUE]\" conflicts="),
         "several positional conflicts belong only in the child node: {kdl}"
     );
-    assert!(
-        kdl.contains("group \"input\" \"--from-file\" \"VALUE\""),
-        "{kdl}"
-    );
+    assert!(kdl.contains("group input --from-file VALUE"), "{kdl}");
 }
 
 #[test]
@@ -623,7 +613,7 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
     assert!(kdl.contains("--output --out --dest"), "{kdl}");
     assert!(!kdl.contains("--dest --quietly"), "{kdl}");
     assert!(
-        kdl.contains("alias \"--quietly\" \"--silent-output\" hide=#true"),
+        kdl.contains("alias --quietly --silent-output hide=#true"),
         "{kdl}"
     );
 }
@@ -682,10 +672,10 @@ fn relationships_resolve_targets_inside_flattened_args() {
     assert!(!parsed.shared.preset);
 
     let kdl = FlattenedRelationships::to_kdl();
-    assert!(kdl.contains("conflicts=\"--frozen\""), "{kdl}");
-    assert!(kdl.contains("overrides=\"--nested\""), "{kdl}");
-    assert!(kdl.contains("requires=\"--key\""), "{kdl}");
-    assert!(kdl.contains("required_if=\"--json\""), "{kdl}");
+    assert!(kdl.contains("conflicts=--frozen"), "{kdl}");
+    assert!(kdl.contains("overrides=--nested"), "{kdl}");
+    assert!(kdl.contains("requires=--key"), "{kdl}");
+    assert!(kdl.contains("required_if=--json"), "{kdl}");
 }
 
 #[test]
@@ -722,7 +712,7 @@ fn emitted_parser_settings_are_portable_spec_metadata() {
     };
 
     let kdl = StrictEx::to_kdl();
-    assert!(kdl.contains("unknown_flags \"error\""), "{kdl}");
+    assert!(kdl.contains("unknown_flags error"), "{kdl}");
 
     let spec: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
     assert_eq!(
@@ -753,8 +743,8 @@ fn runtime_metadata_expressions_have_explicit_portable_values() {
 #[test]
 fn runtime_program_identity_is_separate_from_the_portable_spec() {
     let kdl = RuntimeIdentityEx::to_kdl();
-    assert!(kdl.contains("name \"portable-ex\""), "{kdl}");
-    assert!(kdl.contains("bin \"portable-ex\""), "{kdl}");
+    assert!(kdl.contains("name portable-ex"), "{kdl}");
+    assert!(kdl.contains("bin portable-ex"), "{kdl}");
 
     let runtime = RuntimeIdentityEx::runtime_app().spec();
     assert_eq!(runtime.name, "runtime-ex");

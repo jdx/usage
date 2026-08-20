@@ -62,8 +62,8 @@ fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
 fn the_spec_holds_no_duplicate_keys() {
     // `to_kdl` asserts it, in the debug build tests run in.
     let kdl = Ex::to_kdl();
-    assert!(kdl.contains(r#"cmd "add""#), "{kdl}");
-    assert!(kdl.contains(r#"cmd "remove""#), "{kdl}");
+    assert!(kdl.contains("cmd add"), "{kdl}");
+    assert!(kdl.contains("cmd remove"), "{kdl}");
 }
 
 #[test]

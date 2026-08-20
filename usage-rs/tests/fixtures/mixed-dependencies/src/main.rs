@@ -29,7 +29,7 @@ fn main() {
     ])
     .expect("direct runtime should supply the spec feature");
     assert!(matches!(cli.command, Command::Show(_)));
-    assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+    assert!(Ex::to_kdl().contains("complete file type=path"));
 
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));

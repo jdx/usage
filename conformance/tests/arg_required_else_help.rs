@@ -92,7 +92,7 @@ fn the_policy_is_emitted_in_the_portable_spec() {
 
     let nested = NestedPolicy::to_kdl();
     assert!(
-        nested.contains("cmd \"run\" arg_required_else_help=#true"),
+        nested.contains("cmd run arg_required_else_help=#true"),
         "{nested}"
     );
 }

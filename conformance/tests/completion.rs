@@ -111,10 +111,7 @@ fn command_with_arguments_changes_native_completion_after_the_command_word() {
     );
 
     let kdl = Forward::to_kdl();
-    assert!(
-        kdl.contains("complete \"command\" type=\"command_args\""),
-        "{kdl}"
-    );
+    assert!(kdl.contains("complete command type=command_args"), "{kdl}");
     let argv = [OsStr::new("git"), OsStr::new("-C"), OsStr::new("repo")];
     let parsed = Forward::parse_from(&argv).expect("forwarded flags are values");
     assert_eq!(parsed.command, argv);
@@ -132,8 +129,8 @@ fn usage_path_value_hints_reach_native_and_emitted_completions() {
     );
 
     let kdl = Hinted::to_kdl();
-    assert!(kdl.contains("complete \"file\" type=\"path\""), "{kdl}");
-    assert!(kdl.contains("complete \"dir\" type=\"dir\""), "{kdl}");
+    assert!(kdl.contains("complete file type=path"), "{kdl}");
+    assert!(kdl.contains("complete dir type=dir"), "{kdl}");
 
     let argv = [OsStr::new("--file"), OsStr::new("input.kdl")];
     let parsed = Hinted::parse_from(&argv).expect("the hinted flag still parses");
@@ -437,10 +434,10 @@ fn the_spec_names_a_completer_the_binary_answers() {
     // Inside the command that declares it, and carrying the line, so that whoever runs it asks
     // about the same thing a native request would.
     assert!(
-        kdl.contains(r#"complete "task" run="tk __complete_word__ --candidates task --line"#),
+        kdl.contains(r#"complete task run="tk __complete_word__ --candidates task --line"#),
         "{kdl}"
     );
-    assert!(kdl.contains(r#"complete "group""#), "{kdl}");
+    assert!(kdl.contains("complete group"), "{kdl}");
 
     let argv: Vec<OsString> = [
         "__complete_word__",

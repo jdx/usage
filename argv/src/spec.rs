@@ -1997,13 +1997,16 @@ fn prop(out: &mut String, key: &str, value: &str) -> core::fmt::Result {
     writeln!(out, "{key} {}", quoted(value))
 }
 
-/// Quote a value as a KDL string.
+/// Render a string value in KDL's canonical form.
 ///
-/// Always quoted, even where KDL would accept a bare identifier: deciding when a
-/// string is bare-safe means encoding KDL's identifier rules, and getting that
-/// subtly wrong produces a spec that parses as something else. Quoting always is
-/// less pretty and cannot be wrong.
+/// KDL 2 writes a string as a plain identifier whenever that cannot be confused
+/// with a number or keyword, and quotes it otherwise. Keeping this dependency-free
+/// copy of the identifier predicate makes derive output byte-for-byte stable across
+/// a usage-lib parse/serialize round trip.
 fn quoted(value: &str) -> String {
+    if !value.is_empty() && is_plain_kdl_identifier(value) {
+        return value.to_owned();
+    }
     let mut out = String::with_capacity(value.len() + 2);
     out.push('"');
     for ch in value.chars() {
@@ -2024,6 +2027,39 @@ fn quoted(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+fn is_plain_kdl_identifier(value: &str) -> bool {
+    value.chars().all(|c| !is_disallowed_kdl_identifier_char(c))
+        && !starts_like_kdl_number(value)
+        && !matches!(value, "inf" | "-inf" | "nan" | "true" | "false" | "null")
+}
+
+fn starts_like_kdl_number(value: &str) -> bool {
+    let unsigned = value.strip_prefix(['-', '+']).unwrap_or(value).as_bytes();
+    unsigned.first().is_some_and(u8::is_ascii_digit)
+        || (unsigned.first() == Some(&b'.') && unsigned.get(1).is_some_and(u8::is_ascii_digit))
+}
+
+fn is_disallowed_kdl_identifier_char(c: char) -> bool {
+    matches!(
+        c,
+        '\\' | '/' | '(' | ')' | '{' | '}' | '[' | ']' | ';' | '"' | '#' | '='
+    ) || matches!(
+        c,
+        '\u{0000}'..='\u{0008}'
+            | '\u{000A}'..='\u{001F}'
+            | '\u{0085}'
+            | '\u{00A0}'
+            | '\u{1680}'
+            | '\u{2000}'..='\u{200A}'
+            | '\u{200E}'..='\u{200F}'
+            | '\u{2028}'..='\u{202F}'
+            | '\u{205F}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{3000}'
+            | '\u{FEFF}'
+    ) || matches!(c, '\u{0009}' | '\u{0020}')
 }
 
 /// A struct that describes one command's flags and arguments.
@@ -2484,7 +2520,14 @@ mod tests {
 
     #[test]
     fn quoting_escapes_what_would_break_a_document() {
-        assert_eq!(quoted("plain"), r#""plain""#);
+        assert_eq!(quoted("plain"), "plain");
+        assert_eq!(quoted("true"), r#""true""#);
+        assert_eq!(quoted("12"), r#""12""#);
+        assert_eq!(quoted("-12"), r#""-12""#);
+        assert_eq!(quoted(".5"), r#"".5""#);
+        assert_eq!(quoted("-.5"), r#""-.5""#);
+        assert_eq!(quoted("+.5"), r#""+.5""#);
+        assert_eq!(quoted("with space"), r#""with space""#);
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
@@ -2505,13 +2548,13 @@ mod tests {
         .unwrap();
         assert_eq!(
             out,
-            "choices {\n    choice \"shown\" {\n        alias \"short\"\n        alias \"secret-short\" hide=#true\n    }\n    choice \"secret\" hide=#true\n}\n"
+            "choices {\n    choice shown {\n        alias short\n        alias secret-short hide=#true\n    }\n    choice secret hide=#true\n}\n"
         );
 
         out.clear();
         write_choices(&mut out, &[], &["secret"], &[], &[], false, 0).unwrap();
         assert_eq!(
-            out, "choices {\n    choice \"secret\" hide=#true\n}\n",
+            out, "choices {\n    choice secret hide=#true\n}\n",
             "an entirely hidden set must still be emitted"
         );
 
@@ -2544,7 +2587,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             out,
-            "choices {\n    choice \"plain\"\n    choice \"shown\" help=\"Shown value\" {\n        alias \"short\"\n    }\n    choice \"secret\" hide=#true\n}\n"
+            "choices {\n    choice plain\n    choice shown help=\"Shown value\" {\n        alias short\n    }\n    choice secret hide=#true\n}\n"
         );
     }
 
@@ -2704,7 +2747,7 @@ mod tests {
         let line = |name: &str| -> String {
             out.lines()
                 .map(str::trim)
-                .find(|l| l.starts_with(&format!(r#"cmd "{name}""#)))
+                .find(|l| l.starts_with(&format!("cmd {name}")))
                 .unwrap_or_else(|| panic!("no `{name}` command was written:\n{out}"))
                 .to_string()
         };
@@ -2723,7 +2766,7 @@ mod tests {
 
         let exec = line("exec");
         assert_eq!(
-            exec.matches(r#"unknown_flags="value""#).count(),
+            exec.matches("unknown_flags=value").count(),
             1,
             "a differing subcommand declares it exactly once: {exec}"
         );
@@ -2793,12 +2836,12 @@ mod tests {
         assert_eq!(effective.version, Some("2.0.0"));
 
         let kdl = view.to_kdl();
-        assert!(kdl.contains("name \"embedded\""), "{kdl}");
-        assert!(kdl.contains("cmd \"rm\" effect=\"destructive\""), "{kdl}");
-        assert!(kdl.contains("cmd \"list\" effect=\"read\""), "{kdl}");
+        assert!(kdl.contains("name embedded"), "{kdl}");
+        assert!(kdl.contains("cmd rm effect=destructive"), "{kdl}");
+        assert!(kdl.contains("cmd list effect=read"), "{kdl}");
 
         let base = SPEC.to_kdl();
-        assert!(base.contains("name \"ex\""), "{base}");
+        assert!(base.contains("name ex"), "{base}");
         assert!(base.contains("version \"1.0.0\""), "{base}");
         assert!(!base.contains("effect="), "{base}");
 
@@ -2823,15 +2866,9 @@ mod tests {
             .overlay(&OVERLAY)
             .overlay(&runtime_overlays)
             .to_kdl();
-        assert!(runtime.contains("name \"runtime\""), "{runtime}");
-        assert!(
-            runtime.contains("cmd \"list\" effect=\"write\""),
-            "{runtime}"
-        );
-        assert!(
-            runtime.contains("cmd \"rm\" effect=\"destructive\""),
-            "{runtime}"
-        );
+        assert!(runtime.contains("name runtime"), "{runtime}");
+        assert!(runtime.contains("cmd list effect=write"), "{runtime}");
+        assert!(runtime.contains("cmd rm effect=destructive"), "{runtime}");
     }
 
     #[test]

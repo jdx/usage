@@ -35,7 +35,7 @@ fn main() {
         panic!("show command should be selected");
     };
     assert_eq!(show.file, Path::new("input.txt"));
-    assert!(Ex::to_kdl().contains("complete \"file\" type=\"path\""));
+    assert!(Ex::to_kdl().contains("complete file type=path"));
 
     let cli = Ex::parse_from(&[OsStr::new("version")]).expect("valid unit subcommand");
     assert!(matches!(cli.command, Command::Version));

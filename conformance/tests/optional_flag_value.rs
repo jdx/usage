@@ -64,7 +64,7 @@ fn the_reference_renders_it_the_same_way() {
 fn the_emitted_spec_says_both_halves() {
     let kdl = Ex::to_kdl();
     assert!(kdl.contains(r#"arg "[BUMP]" required=#false"#), "{kdl}");
-    assert!(kdl.contains(r#"arg "<PORT>""#), "{kdl}");
+    assert!(kdl.contains("arg <PORT>"), "{kdl}");
 }
 
 #[test]

@@ -741,14 +741,16 @@ feature list is not an exhaustive audit.
       `aubr`/`aubx` and async registry search; fnox uses it for secret, provider
       and profile candidates. Both now generate and answer completions through `usage-rs`
       without invoking the `usage` binary.
-- [ ] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
+- [x] **Canonical, duplicate-free derived KDL.** hk's direct `Cli::to_kdl()`
       output was semantically accepted but differed substantially from the same
       tree after a usage-lib parse/serialize round trip, and repeated identical
       `complete "path"` nodes that the round trip collapsed. Make direct emission
       canonical and deduplicate composed completers so adopters do not need the
       expensive round trip merely for stable generated artifacts. Identical
-      built-in completion nodes are now emitted once per command; broader
-      parse/serialize canonicalization remains.
+      built-in completion nodes are now emitted once per command. Direct derive
+      emission now uses KDL 2's canonical plain-identifier rules and is covered by
+      an end-to-end equality check against usage-lib parse/serialize output, so
+      adopters no longer need that round trip merely to stabilize generated files.
 - [x] **Keep generated-spec producers and consumers on one dialect.** The 6.x
       migration is a coordinated epoch, not a promise that a 5.1 CLI can consume
       a 6.x-derived spec. Fleet docs tasks install `usage-cli` from the same git
