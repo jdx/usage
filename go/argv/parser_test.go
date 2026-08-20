@@ -228,6 +228,16 @@ func TestDeclaredBuiltinActionsAndDisabledSyntheticEntries(t *testing.T) {
 	if got := collect(cmd, "--help"); got != "err:unexpected_arg" {
 		t.Fatalf("disabled --help: got %s", got)
 	}
+
+	all := &Flag{Name: "help-all", Longs: []string{"help-all"}, Action: ActionHelpAll}
+	allCmd := &Command{Name: "custom", Flags: []*Flag{all}}
+	p = New(allCmd, []string{"--help-all"})
+	for p.Next() {
+	}
+	err, ok = p.Err().(*Error)
+	if !ok || err.Code != CodeHelp || !err.Long || !err.All {
+		t.Fatalf("recursive help action: want long recursive help, got %v", p.Err())
+	}
 }
 
 // TestParseAllocatesNothing is the property the design rests on, measured rather
